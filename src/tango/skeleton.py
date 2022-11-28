@@ -26,8 +26,8 @@ import sys
 
 from tango import __version__
 
-__author__ = "Allan Leal"
-__copyright__ = "Allan Leal"
+__author__ = "Allan Leal, Po-Wei Huang, Martin O. Saar"
+__copyright__ = "Allan Leal, Po-Wei Huang, Martin O. Saar"
 __license__ = "MIT"
 
 _logger = logging.getLogger(__name__)

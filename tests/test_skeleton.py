@@ -2,8 +2,8 @@ import pytest
 
 from tango.skeleton import fib, main
 
-__author__ = "Allan Leal"
-__copyright__ = "Allan Leal"
+__author__ = "Allan Leal, Po-Wei Huang, Martin O. Saar"
+__copyright__ = "Allan Leal, Po-Wei Huang, Martin O. Saar"
 __license__ = "MIT"
 
 
