@@ -2,4 +2,4 @@
 Contributors
 ============
 
-* Allan Leal <allanmulin@gmail.com>
+* Allan Leal <allan.leal@erdw.ethz.ch>
