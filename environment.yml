@@ -1,0 +1,14 @@
+name: tango
+
+channels:
+  - conda-forge
+
+dependencies:
+  - coolprop
+  - pandas
+  - pip
+  - pytest
+  - python =3.9
+  - scipy
+  - sphinx
+  - xlrd =1.2.0
