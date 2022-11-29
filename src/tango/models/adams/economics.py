@@ -7,11 +7,6 @@ class EconomicsSpecsAdams(EconomicsSpecs):
     pass
 
 
-class EconomicsInputAdams(EconomicsInput):
-    """Implements the common interface for classes defining inputs for economic modeling computations."""
-    pass
-
-
 class EconomicsModelAdams(EconomicsModel):
     """Implements the common interface for classes providing economic modeling capabilities."""
 
