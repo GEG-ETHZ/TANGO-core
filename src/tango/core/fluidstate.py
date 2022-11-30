@@ -19,7 +19,7 @@ class FluidState:
             - FluidState.withTQ
             - FluidState.withPS
         """
-        self.cstate = state
+        self.cstate: CoolProp.State = state
 
 
     @staticmethod
@@ -47,6 +47,18 @@ class FluidState:
 
 
     @staticmethod
+    def withPS(fluidname: str, P: float, S: float):
+        """Create a FluidState object with given pressure and specific entropy.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2)
+            P (float): The fluid pressure (in Pa)
+            S (float): The fluid specific entropy (in J/(kg*K))
+        """
+        return FluidState(CoolProp.State(fluidname, dict(P = P*PA_TO_KPA, S = S*J_TO_KJ)))
+
+
+    @staticmethod
     def withPQ(fluidname: str, P: float, Q: float):
         """Create a FluidState object with given pressure and Q state.
 
@@ -71,18 +83,6 @@ class FluidState:
         return FluidState(CoolProp.State(fluidname, dict(T = T, Q = Q)))
 
 
-    @staticmethod
-    def withPS(fluidname: str, P: float, S: float):
-        """Create a FluidState object with given pressure and specific entropy.
-
-        Args:
-            fluidname (str): The name of the fluid (e.g., Water, CO2)
-            P (float): The fluid pressure (in Pa)
-            S (float): The fluid specific entropy (in J/(kg*K))
-        """
-        return FluidState(CoolProp.State(fluidname, dict(P = P*PA_TO_KPA, S = S*J_TO_KJ)))
-
-
     def updatePT(self, P: float, T: float):
         """Update the fluid state with given new pressure and temperature.
 
@@ -101,6 +101,11 @@ class FluidState:
             H (float): The fluid specific enthalpy (in J/kg)
         """
         self.cstate.update(dict(P = P*PA_TO_KPA, H = H*J_TO_KJ))
+
+
+    @property
+    def fluidname(self):
+        return self.cstate.Fluid
 
 
     @property
@@ -125,6 +130,12 @@ class FluidState:
     def S(self):
         """The fluid specific entropy (in J/(kg*K))."""
         return self.cstate.s * KJ_TO_J
+
+
+    @property
+    def Q(self):
+        """The fluid Q quality value (dimensionless)."""
+        return self.cstate.Q
 
 
     @property
@@ -185,15 +196,3 @@ class FluidState:
             H (float): The new specific enthalpy of the fluid (in J/kg)
         """
         self.updatePH(self.P, H)
-
-
-    @staticmethod
-    def Tcrit(fluidname: str):
-        """Return the critical temperature of a fluid with given name (in K)"""
-        return CoolProp.PropsSI('TCRIT', "", 0, "", 0, fluidname)
-
-
-    @staticmethod
-    def Pcrit(fluidname: str):
-        """Return the critical pressure of a fluid with given name (in Pa)"""
-        return CoolProp.PropsSI('PCRIT', "", 0, "", 0, fluidname)
