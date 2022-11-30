@@ -8,17 +8,18 @@ class ModelSpecs:
 
 
 class ModelState:
-    reservoir: ReservoirState
     """Where computed state for a geothermal power generation cost simulation are stored."""
+
     def __init__(self, specs: ModelSpecs):
-        self.reservoir_model: ReservoirState
-        self.injection_well_model: WellState
-        self.production_well_model: WellState
-        self.powerplant_model: PowerPlantState
-        self.economics_model: EconomicsState
+        self.reservoir: ReservoirState
+        self.injection_well: WellState
+        self.production_well: WellState
+        self.powerplant: PowerPlantState
+        self.economics: EconomicsState
 
 
 class Model:
+    """Used to execute a geothermal power generation cost simulation."""
 
     def __init__(self, specs: ModelSpecs):
         self.reservoir_model: ReservoirModel   = createReservoirModel(specs)
@@ -30,8 +31,8 @@ class Model:
 
     def execute(self) -> ModelState:
         state = ModelState(self.specs)
-        self.reservoir_model.execute(state)
         self.injection_well_model.execute(state)
+        self.reservoir_model.execute(state)
         self.production_well_model.execute(state)
         self.powerplant_model.execute(state)
         self.economics_model.execute(state)
