@@ -17,17 +17,12 @@ class ReservoirSpecsAdams(ReservoirSpecs):
     thermal_gradient: float = 20.0    # the vertical thermal gradient in the reservoir (in °C/km)
 
 
-
-class ReservoirSpecsAdams(ReservoirSpecs):
-    """The specifications for reservoir modeling based on Adams et al. (2015)."""
-    pass
-
-
 class ReservoirModelAdams(ReservoirModel):
     """The reservoir model based on Adams et al. (2015)."""
 
     def __init__(self, specs: ReservoirSpecs) -> None:
-        pass
+        self.specs = specs
+
 
     def execute(self, state: ModelState) -> None:
         pass
