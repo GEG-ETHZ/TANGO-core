@@ -1,0 +1,21 @@
+ReservoirSpecs:
+  TOUCH2:
+    Permeability: 1e-13
+    Porosity: 0.1
+    ThermalGradient: 30.0  # degC/km
+
+InjectionWellSpecs:
+  Default:
+    Radius: 0.4 # in m
+    Length: 3.0 # in km
+
+ProductionWellSpecs:
+  Default:
+    Radius: 0.4 # in m
+    Length: 3.0 # in km
+
+PowerPlantSpecs:
+  Default:
+    Radius: 0.4 # in m
+    Length: 3.0 # in km
+
