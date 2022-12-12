@@ -1,6 +1,4 @@
 from tango.models.base import *
-from tango.serialization import *
-
 
 class ModelSpecs:
     """Where specifications for a geothermal power generation cost simulation are provided."""
@@ -22,12 +20,11 @@ class Model:
     """Used to execute a geothermal power generation cost simulation."""
 
     def __init__(self, specs: ModelSpecs):
-        self.reservoir_model: ReservoirModel   = createReservoirModel(specs)
-        self.injection_well_model: WellModel   = createWellModel(specs)
-        self.production_well_model: WellModel  = createWellModel(specs)
-        self.powerplant_model: PowerPlantModel = createPowerPlantModel(specs)
-        self.economics_model: EconomicsModel   = createEconomicsModel(specs)
+        self.specs = specs
 
+    def add_reservoir_model(self, state: ReservoirState, model: ReservoirModel):
+        self.reservoir_state = state(self.specs)
+        self.reservoir_model = model(self.specs)
 
     def execute(self) -> ModelState:
         state = ModelState(self.specs)
