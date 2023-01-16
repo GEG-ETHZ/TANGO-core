@@ -23,7 +23,7 @@ class FluidState:
 
 
     @staticmethod
-    def withPT(fluidname: str, P: float, T: float):
+    def withPT(fluidname: str, P: float, T: float, **_):
         """Create a FluidState object with given pressure and temperature.
 
         Args:
