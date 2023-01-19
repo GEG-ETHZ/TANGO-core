@@ -1,0 +1,19 @@
+fluid_specs:
+  fluidname: H2O
+  method: PT
+  P: 100_000  # Pa
+  T: 288.15  # K
+  
+reservoir_specs:
+  depth: 1500.0
+  thickness: 100.0
+  area: 250_000
+  rock_density: 2300.0
+  rock_cp: 1000.0
+  permeability: 1.0e-13
+  porosity: 0.1
+  thermal_gradient: 0.035  # degC/m
+  surface_temperature: 288.15   # K
+  inlet_temperature: 288.15   # K
+  mass_flow_rate: 25.0
+  dt: 1.0 # year

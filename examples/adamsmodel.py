@@ -1,6 +1,26 @@
-from tango.model import Model
+from tango.model import Model, ModelSpecs
 from tango.models.adams import *
 
-model = Model(ReservoirSpecsAdams)
-model.add_reservoir_model(ReservoirStateAdams, ReservoirModelAdams)
-print(model.reservoir_state.reservoir_temperature)
+from yaml import load
+from yaml.loader import SafeLoader
+
+def load_from_yaml(filename: str):
+    with open(filename) as f:
+        specs = load(f, Loader=SafeLoader)
+
+    return specs
+
+class ModelSpecs(ModelSpecs):
+    def __init__(self, **specs):
+        super().__init__(specs)
+        self.reservoir = ReservoirSpecsAdams(**specs['reservoir_specs'])
+
+specs = ModelSpecs(**load_from_yaml('adamsmodel.yml'))
+model = Model(specs)
+
+model.state.add_state('reservoir', ReservoirStateAdams)
+model.add_model('reservoir', ReservoirModelAdams)
+
+for i in range(10):
+    model.reservoir.execute()
+    print(model.state.reservoir.temperature)

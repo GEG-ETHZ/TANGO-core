@@ -1,7 +1,5 @@
 from abc import ABC
 from dataclasses import dataclass
-from tango.core import FluidState
-# from tango.model import ModelState
 
 
 class ReservoirSpecs(ABC):
@@ -11,6 +9,9 @@ class ReservoirSpecs(ABC):
 
 class ReservoirState(ABC):
     """Implements the common interface for classes defining state for reservoir modeling computations."""
+
+    def __init__(self, specs: ReservoirSpecs):
+        pass
     
     def update(self, specs: ReservoirSpecs) -> None:
         pass
