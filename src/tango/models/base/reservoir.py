@@ -10,8 +10,12 @@ class ReservoirSpecs(ABC):
 class ReservoirState(ABC):
     """Implements the common interface for classes defining state for reservoir modeling computations."""
 
-    def __init__(self, specs: ReservoirSpecs):
-        pass
+    def __init__(self):
+        self.mass_rate: float = 0.0
+        self.inlet_pressure: list[float]
+        self.inlet_temperature: list[float]
+        self.outlet_pressure: list[float]
+        self.outlet_temperature: list[float]
     
     def update(self, specs: ReservoirSpecs) -> None:
         pass

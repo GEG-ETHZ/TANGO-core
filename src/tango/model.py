@@ -1,21 +1,14 @@
 from tango.core import FluidState
 from tango.models.base import *
-from dataclasses import dataclass
-
-@dataclass
-class ModelSpecs:
-    """Where specifications for a geothermal power generation cost simulation are provided."""
-    def __init__(self, specs):
-        self.fluid = specs['fluid_specs']
 
 class ModelState:
     """Where computed state for a geothermal power generation cost simulation are stored."""
 
-    def __init__(self, specs: ModelSpecs):
+    def __init__(self, specs: dict):
         self.specs = specs
-        self.fluid_init_method = 'with' + self.specs.fluid['method']
+        self.fluid_init_method = 'with' + self.specs['fluid']['method']
         
-        self.fluid: FluidState = getattr(FluidState, self.fluid_init_method)(**specs.fluid)
+        self.fluid: FluidState = getattr(FluidState, self.fluid_init_method)(**specs['fluid'])
         self.injection_well: WellState
         self.production_well: WellState
         self.powerplant: PowerPlantState
@@ -25,17 +18,16 @@ class ModelState:
         self.fluid.updatePT(self.fluid.P, self.fluid.T)
 
     def add_reservoir_state(self, state: ReservoirState):
-        self.reservoir: ReservoirState = state(self.specs.reservoir, self)
+        self.reservoir: ReservoirState = state(self.specs['reservoir'], self)
 
     def add_state(self, name: str, state):
-        specs = getattr(self.specs, name)
-        setattr(self, name, state(specs, self))
+        setattr(self, name, state())
 
 
 class Model:
     """Used to execute a geothermal power generation cost simulation."""
 
-    def __init__(self, specs: ModelSpecs):
+    def __init__(self, specs: dict):
         self.specs = specs
         self.state = ModelState(self.specs)
 
@@ -46,9 +38,7 @@ class Model:
         self.reservoir_model = model(self.specs.reservoir)
 
     def add_model(self, name: str, model):
-        specs = getattr(self.specs, name)
-        state = getattr(self.state, name)
-        setattr(self, name, model(specs, state))
+        setattr(self, name, model(self.specs[name], self.state))
 
     def execute(self) -> ModelState:
         state = ModelState(self.specs)
