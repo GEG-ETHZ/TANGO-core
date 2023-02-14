@@ -1,6 +1,5 @@
 from abc import ABC
-from dataclasses import dataclass
-
+from tango.core import FluidState
 
 class ReservoirSpecs(ABC):
     """Implements the common interface for classes providing reservoir specifications."""
@@ -12,11 +11,9 @@ class ReservoirState(ABC):
 
     def __init__(self):
         self.mass_rate: float = 0.0
-        self.inlet_pressure: list[float]
-        self.inlet_temperature: list[float]
-        self.outlet_pressure: list[float]
-        self.outlet_temperature: list[float]
-    
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
+
     def update(self, specs: ReservoirSpecs) -> None:
         pass
 

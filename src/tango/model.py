@@ -6,19 +6,16 @@ class ModelState:
 
     def __init__(self, specs: dict):
         self.specs = specs
-        self.fluid_init_method = 'with' + self.specs['fluid']['method']
-        
-        self.fluid: FluidState = getattr(FluidState, self.fluid_init_method)(**specs['fluid'])
+        self.set_fluid_specs(specs)
+
         self.injection_well: WellState
         self.production_well: WellState
         self.powerplant: PowerPlantState
         self.economics: EconomicsState
 
-    def update_fluid_state_PT(self):
-        self.fluid.updatePT(self.fluid.P, self.fluid.T)
-
-    def add_reservoir_state(self, state: ReservoirState):
-        self.reservoir: ReservoirState = state(self.specs['reservoir'], self)
+    def set_fluid_specs(self, specs: dict):
+        self.fluid_init_method = 'with' + specs['fluid']['method']
+        self.fluidname = specs['fluid']['fluidname']
 
     def add_state(self, name: str, state):
         setattr(self, name, state())
