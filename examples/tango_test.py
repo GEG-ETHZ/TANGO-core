@@ -18,4 +18,4 @@ model.add_model('reservoir', ReservoirModelAdams)
 
 for i in range(10):
     model.reservoir.execute()
-    print(model.state.reservoir.outlet_temperature)
+    print(model.state.reservoir.outlet_fluid.T)
