@@ -1,5 +1,4 @@
-from CoolProp import CoolProp
-
+import CoolProp
 from tango.core.constants import *
 
 
@@ -7,7 +6,7 @@ class FluidState:
     """Used to describe the thermophysical properties of a fluid."""
 
 
-    def __init__(self, state: CoolProp.State):
+    def __init__(self, state: CoolProp.AbstractState):
         """Construct a FluidState object for a fluid.
 
         This constructor should not be used directly. Use instead the following
@@ -19,11 +18,11 @@ class FluidState:
             - FluidState.withTQ
             - FluidState.withPS
         """
-        self.cstate: CoolProp.State = state
+        self.cstate: CoolProp.AbstractState = state
 
 
     @staticmethod
-    def withPT(fluidname: str, P: float, T: float, **_):
+    def withPT(fluidname: str, P: float, T: float):
         """Create a FluidState object with given pressure and temperature.
 
         Args:
@@ -31,7 +30,10 @@ class FluidState:
             P (float): The fluid pressure (in Pa)
             T (float): The fluid temperature (in K)
         """
-        return FluidState(CoolProp.State(fluidname, dict(P = P*PA_TO_KPA, T = T)))
+
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PT_INPUTS, P, T)
+        return FluidState(state)
 
 
     @staticmethod
@@ -90,7 +92,7 @@ class FluidState:
             P (float): The fluid pressure (in Pa)
             T (float): The fluid temperature (in K)
         """
-        self.cstate.update(dict(T = T, P = P*PA_TO_KPA))
+        self.cstate.update(CoolProp.PT_INPUTS, P, T)
 
 
     def updatePH(self, P: float, H: float):
@@ -117,13 +119,13 @@ class FluidState:
     @property
     def T(self):
         """The fluid temperature (in K)."""
-        return self.cstate.T
+        return self.cstate.T()
 
 
     @property
     def H(self):
         """The fluid specific enthalpy (in J/kg)."""
-        return self.cstate.h * KJ_TO_J
+        return self.cstate.hmass()
 
 
     @property
@@ -141,7 +143,7 @@ class FluidState:
     @property
     def rho(self):
         """The fluid density (in kg/m3)."""
-        return self.cstate.rho
+        return self.cstate.rhomass()
 
 
     @property
@@ -153,7 +155,7 @@ class FluidState:
     @property
     def mu(self):
         """The fluid viscosity (in Pa*s)."""
-        return self.cstate.visc
+        return self.cstate.viscosity()
 
 
     @property
