@@ -1,4 +1,3 @@
-from tango.core import FluidState
 from tango.models.base import *
 
 class ModelState:
@@ -15,27 +14,23 @@ class ModelState:
 
     def set_fluid_specs(self, specs: dict):
         self.fluid_init_method = 'with' + specs['fluid']['method']
-        self.fluidname = specs['fluid']['fluidname']
+        self.fluidname = specs['fluid']['name']
 
     def add_state(self, name: str, state):
-        setattr(self, name, state())
+        setattr(self, name, state(self.specs))
 
 
 class Model:
     """Used to execute a geothermal power generation cost simulation."""
 
-    def __init__(self, specs: dict):
+    def __init__(self, state: ModelState, specs: dict):
         self.specs = specs
-        self.state = ModelState(self.specs)
-
-    def add_well_model(self, model: WellModel):
-        self.well_model = model(self.specs)
-
-    def add_reservoir_model(self, model: ReservoirModel):
-        self.reservoir_model = model(self.specs.reservoir)
+        self.state = state
 
     def add_model(self, name: str, model):
-        setattr(self, name, model(self.specs[name], self.state))
+        state = getattr(self.state, name)
+        specs = self.specs[name]
+        setattr(self, name, model(specs, state))
 
     def execute(self) -> ModelState:
         state = ModelState(self.specs)

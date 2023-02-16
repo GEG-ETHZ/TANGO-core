@@ -1,5 +1,5 @@
 fluid:
-  fluidname: H2O
+  name: H2O
   method: PT
 
 reservoir:
@@ -11,8 +11,17 @@ reservoir:
   permeability: 1.0e-13
   porosity: 0.1
   thermal_gradient: 0.035  # degC/m
-  surface_temperature: 288.15   # K
+  surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   inlet_temperature: 288.15   # K
   mass_flow_rate: 25.0
   dt: 1.0 # year
+
+injection_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.15  # m
+
+production_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.15  # m
+
