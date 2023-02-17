@@ -113,7 +113,7 @@ class FluidState:
     @property
     def P(self):
         """The fluid pressure (in Pa)."""
-        return self.cstate.p * KPA_TO_PA
+        return self.cstate.p()
 
 
     @property
@@ -131,13 +131,13 @@ class FluidState:
     @property
     def S(self):
         """The fluid specific entropy (in J/(kg*K))."""
-        return self.cstate.s * KJ_TO_J
+        return self.cstate.smass()
 
 
     @property
     def Q(self):
         """The fluid Q quality value (dimensionless)."""
-        return self.cstate.Q
+        return self.cstate.Q()
 
 
     @property

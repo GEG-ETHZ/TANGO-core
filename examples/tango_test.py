@@ -19,7 +19,9 @@ state.add_state('production_well', WellStateAdams)
 model = Model(state, specs)
 model.add_model('reservoir', ReservoirModelAdams)
 model.add_model('production_well', WellModelAdams)
+model.production_well.set_inlet_state(state.reservoir)
 
 for i in range(10):
     model.reservoir.execute()
-    print(state.reservoir.outlet_fluid.T)
+    model.production_well.execute()
+    print(state.production_well.inlet_fluid.T)

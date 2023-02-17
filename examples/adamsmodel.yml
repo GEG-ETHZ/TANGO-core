@@ -20,8 +20,12 @@ reservoir:
 injection_well:
   vertical_deviation: 0.0  # degrees
   diameter: 0.15  # m
+  inlet: surface
+  outlet: reservoir
 
 production_well:
   vertical_deviation: 0.0  # degrees
   diameter: 0.15  # m
+  inlet: reservoir
+  outlet: surface
 

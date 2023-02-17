@@ -37,7 +37,6 @@ class ReservoirStateAdams(ReservoirState):
 
 class ReservoirModelAdams(ReservoirModel):
     """The reservoir model based on Adams et al. (2015)."""
-
     def __init__(self, specs: dict, state: ReservoirState) -> None:
         self.specs = ReservoirSpecsAdams(**specs)
         self.state = state
