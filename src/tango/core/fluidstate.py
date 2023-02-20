@@ -22,6 +22,21 @@ class FluidState:
 
 
     @staticmethod
+    def copy(state):
+        """Create a copy of a FluidState object
+
+        Args:
+            state (FluidState)
+
+        Returns:
+            FluidState
+        """
+        state_copy = CoolProp.AbstractState('HEOS', state.fluidname)
+        state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
+        return FluidState(state_copy)
+
+
+    @staticmethod
     def withPT(fluidname: str, P: float, T: float):
         """Create a FluidState object with given pressure and temperature.
 
@@ -95,19 +110,19 @@ class FluidState:
         self.cstate.update(CoolProp.PT_INPUTS, P, T)
 
 
-    def updatePH(self, P: float, H: float):
+    def updateHP(self, H: float, P: float):
         """Update the fluid state with given new pressure and specific enthalpy.
 
         Args:
             P (float): The fluid pressure (in Pa)
             H (float): The fluid specific enthalpy (in J/kg)
         """
-        self.cstate.update(dict(P = P*PA_TO_KPA, H = H*J_TO_KJ))
+        self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
 
 
     @property
     def fluidname(self):
-        return self.cstate.Fluid
+        return self.cstate.name()
 
 
     @property
