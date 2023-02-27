@@ -1,9 +1,10 @@
-fluid:
-  name: H2O
-  method: PT
+common:
+  fluid_name: 'H2O'
+  mass_flow_rate: 70.0  # kg/s
+  dt: 1.0  # year
 
 reservoir:
-  depth: 1500.0
+  depth: 2500.0
   thickness: 100.0
   area: 250_000
   rock_density: 2300.0
@@ -14,18 +15,18 @@ reservoir:
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   inlet_temperature: 288.15   # K
-  mass_flow_rate: 25.0
-  dt: 1.0 # year
 
 injection_well:
   vertical_deviation: 0.0  # degrees
-  diameter: 0.15  # m
+  diameter: 0.4  # m
   inlet: surface
   outlet: reservoir
 
 production_well:
   vertical_deviation: 0.0  # degrees
-  diameter: 0.15  # m
+  diameter: 0.4  # m
+  num_cells: 500
+  epsilon: 55.e-6  # m
   inlet: reservoir
   outlet: surface
 

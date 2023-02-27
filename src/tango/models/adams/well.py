@@ -6,14 +6,13 @@ import numpy as np
 
 
 @dataclass
-class WellSpecsAdams(WellSpecs):
+class WellSpecsAdams(CommonSpecs):
     """The well specs based on Adams et al. (2015)."""
     inlet: str
     outlet: str
     vertical_deviation: float = 0.0    # the vertical deviation angle defined in degrees
     diameter: float = 0.14    # the well diameter (m)
     epsilon: float = 0.01    # roughness of the well (m)
-    mass_rate: float = 25    # the mass flow rate (kg/s)
     num_cells: int = 100    # number of cells that is used for discretization
 
 
@@ -22,12 +21,10 @@ class WellStateAdams(WellState):
 
     def __init__(self, specs: dict) -> None:
         WellState.__init__(self)
-        self.fluidname = specs['fluid']['name']
         self.thermal_gradient = specs['reservoir']['thermal_gradient']
         self.surface_temperature = specs['reservoir']['surface_temperature']
         self.surface_pressure = specs['reservoir']['surface_pressure']
         self.reservoir_depth = specs['reservoir']['depth']
-        self.m_dot = specs['reservoir']['mass_flow_rate']
 
 
 class WellModelAdams(WellModel):
@@ -40,6 +37,7 @@ class WellModelAdams(WellModel):
         num_cells = self.specs.num_cells
         vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
         well_length = self.state.reservoir_depth / np.cos(vertical_deviation_rad)
+        self.m_dot = self.specs.mass_flow_rate
         self.g = GRAVITY_ACCELERATION
         self.set_gravity_multiplier(1.0)
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
@@ -89,25 +87,24 @@ class WellModelAdams(WellModel):
         self.rho[0] = self.fluid_state_init.rho
         self.mu[0] = self.fluid_state_init.mu
         self.T_f[0] = self.fluid_state_init.T
-        self.u[0] = self.state.m_dot / self.cross_section_area / self.rho[0]
+        self.u[0] = self.m_dot / self.cross_section_area / self.rho[0]
 
-    def update(self) -> None:
+    def update(self, dt) -> None:
         self.initialize_state()
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
             self.P[i] = self.P[i-1] - self.rho[i-1]*self.g*self.dz \
                         - self.f_dir*self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            self.h[i] = self.h[i-1] - self.g*self.dz - self.Q_loss()
+            self.h[i] = self.h[i-1] - self.g*self.dz - self.Q_loss() / self.m_dot
 
             self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
 
             self.rho[i] = self.fluid_state_tmp.rho
             self.mu[i] = self.fluid_state_tmp.mu
             self.T_f[i] = self.fluid_state_tmp.T
-            self.u[i] = self.state.m_dot / self.cross_section_area / self.rho[i]
+            self.u[i] = self.m_dot / self.cross_section_area / self.rho[i]
 
     def Q_loss(self):
-        # TODO
         return 0.0
 
     def delta_P_loss(self, friction_factor: float, rho: float, u: float) -> float:
@@ -140,5 +137,5 @@ class WellModelAdams(WellModel):
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
 
     def execute(self) -> None:
-        self.update()
+        self.update(self.specs.dt)
 

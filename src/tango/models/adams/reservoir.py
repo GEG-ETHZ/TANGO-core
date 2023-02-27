@@ -6,7 +6,7 @@ import numpy as np
 from math import erfc
 
 @dataclass
-class ReservoirSpecsAdams:
+class ReservoirSpecsAdams(CommonSpecs):
     """Specifications for reservoir modeling based on Adams et. al (2015)"""
     depth: float = 1000     # the reservoir depth (in m)
     thickness: float = 305     # the reservoir thickness (in m)
@@ -19,20 +19,17 @@ class ReservoirSpecsAdams:
     surface_temperature: float = 288.15     # K
     surface_pressure: float = 1e5    # Pa
     inlet_temperature: float = 288.15    # K
-    mass_flow_rate: float = 25.0    # kg/s
     well_spacing: float = 707.0    # m
     well_diameter: float = 0.4    # m
     p1: float = -1.9376
     p2: float = 1.743
     p3: float = 0.182
-    dt: float = 0.1    # year
 
 
 class ReservoirStateAdams(ReservoirState):
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self, specs: dict):
         ReservoirState.__init__(self)
-        self.fluidname = specs['fluid']['name']
 
 
 class ReservoirModelAdams(ReservoirModel):
@@ -47,21 +44,22 @@ class ReservoirModelAdams(ReservoirModel):
         self.inlet_temperature = self.specs.inlet_temperature
         self.reference_temperature = self.initial_temperature - self.inlet_temperature
         self.temperature: float = self.initial_temperature
+        self.fluid_name = self.specs.fluid_name
 
         self.m_dot = self.specs.mass_flow_rate
         self.surface_P, self.surface_T = self.specs.surface_pressure, self.specs.surface_temperature
-        self.surface_fluid = FluidState.withPT(self.state.fluidname, self.surface_P, self.surface_T)
+        self.surface_fluid = FluidState.withPT(self.fluid_name, self.surface_P, self.surface_T)
 
         g = GRAVITY_ACCELERATION # m/s2
         self.reference_pressure: float = self.surface_fluid.rho * g * h
 
         # This is an interative process of getting the inlet state
-        self.state.inlet_fluid = FluidState.withPT(self.state.fluidname, self.reference_pressure, self.inlet_temperature)
+        self.state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
         self.update_impedance(self.state.inlet_fluid.mu, self.state.inlet_fluid.rho)
         self.update_delta_P()
 
         self.state.inlet_fluid.updatePT(self.reference_pressure + self.delta_P, self.inlet_temperature)
-        self.state.outlet_fluid = FluidState.withPT(self.state.fluidname, self.reference_pressure, self.temperature)
+        self.state.outlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.temperature)
 
         self.volume = self.specs.thickness * self.specs.area
         self.fluid_volume = self.specs.porosity * self.volume

@@ -5,16 +5,11 @@ class ModelState:
 
     def __init__(self, specs: dict):
         self.specs = specs
-        self.set_fluid_specs(specs)
 
         self.injection_well: WellState
         self.production_well: WellState
         self.powerplant: PowerPlantState
         self.economics: EconomicsState
-
-    def set_fluid_specs(self, specs: dict):
-        self.fluid_init_method = 'with' + specs['fluid']['method']
-        self.fluidname = specs['fluid']['name']
 
     def add_state(self, name: str, state):
         setattr(self, name, state(self.specs))
@@ -29,7 +24,7 @@ class Model:
 
     def add_model(self, name: str, model):
         state = getattr(self.state, name)
-        specs = self.specs[name]
+        specs = self.specs[name] | self.specs['common']
         setattr(self, name, model(specs, state))
 
     def execute(self) -> ModelState:
