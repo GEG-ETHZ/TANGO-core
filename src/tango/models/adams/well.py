@@ -41,6 +41,7 @@ class WellModelAdams(WellModel):
         vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
         well_length = self.state.reservoir_depth / np.cos(vertical_deviation_rad)
         self.g = GRAVITY_ACCELERATION
+        self.set_gravity_multiplier(1.0)
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
 
         # discretization related parameters
@@ -68,7 +69,6 @@ class WellModelAdams(WellModel):
         self.fluid_state_init = self.state.inlet_fluid
 
         self.f_dir = 1.0  # flow direction
-        self.g_dir = 1.0  # gravity direction
 
     def set_outlet_state(self, state) -> None:
         self.state.outlet_fluid = state.inlet_fluid
@@ -78,7 +78,10 @@ class WellModelAdams(WellModel):
         self.fluid_state_init = self.state.outlet_fluid
 
         self.f_dir = -1.0 # flow direction
-        self.g_dir = -1.0 # gravity direction
+
+    def set_gravity_multiplier(self, g_mult):
+        self.g_mult = g_mult
+        self.g = self.g_mult*self.g
 
     def initialize_state(self) -> None:
         self.P[0] = self.fluid_state_init.P
@@ -92,9 +95,9 @@ class WellModelAdams(WellModel):
         self.initialize_state()
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
-            self.P[i] = self.P[i-1] - self.g_dir*self.rho[i-1]*self.g*self.dz \
+            self.P[i] = self.P[i-1] - self.rho[i-1]*self.g*self.dz \
                         - self.f_dir*self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            self.h[i] = self.h[i-1] - self.g_dir*self.g*self.dz - self.Q_loss()
+            self.h[i] = self.h[i-1] - self.g*self.dz - self.Q_loss()
 
             self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
 
