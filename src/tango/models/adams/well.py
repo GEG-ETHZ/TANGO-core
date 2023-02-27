@@ -21,10 +21,6 @@ class WellStateAdams(WellState):
 
     def __init__(self, specs: dict) -> None:
         WellState.__init__(self)
-        self.thermal_gradient = specs['reservoir']['thermal_gradient']
-        self.surface_temperature = specs['reservoir']['surface_temperature']
-        self.surface_pressure = specs['reservoir']['surface_pressure']
-        self.reservoir_depth = specs['reservoir']['depth']
 
 
 class WellModelAdams(WellModel):
@@ -36,7 +32,7 @@ class WellModelAdams(WellModel):
 
         num_cells = self.specs.num_cells
         vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
-        well_length = self.state.reservoir_depth / np.cos(vertical_deviation_rad)
+        well_length = self.specs.reservoir_depth / np.cos(vertical_deviation_rad)
         self.m_dot = self.specs.mass_flow_rate
         self.g = GRAVITY_ACCELERATION
         self.set_gravity_multiplier(1.0)
@@ -44,8 +40,8 @@ class WellModelAdams(WellModel):
 
         # discretization related parameters
         self.dL = well_length/num_cells
-        self.dz = self.state.reservoir_depth/num_cells
-        self.zspace = np.linspace(0.0, self.state.reservoir_depth, num_cells+1)
+        self.dz = self.specs.reservoir_depth/num_cells
+        self.zspace = np.linspace(0.0, self.specs.reservoir_depth, num_cells+1)
         self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5 # depth at cell centers
 
         self.P = np.zeros(num_cells)  # pressure (Pa)
@@ -55,8 +51,8 @@ class WellModelAdams(WellModel):
         self.T_f = np.zeros(num_cells)  # fluid temperature (K)
         self.u = np.zeros(num_cells)  # flow velocity (m/s)
 
-        dTdz = self.state.thermal_gradient
-        T0 = self.state.surface_temperature
+        dTdz = self.specs.thermal_gradient
+        T0 = self.specs.surface_temperature
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
     def set_inlet_state(self, state) -> None:

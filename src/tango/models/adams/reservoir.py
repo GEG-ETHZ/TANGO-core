@@ -11,13 +11,8 @@ class ReservoirSpecsAdams(CommonSpecs):
     depth: float = 1000     # the reservoir depth (in m)
     thickness: float = 305     # the reservoir thickness (in m)
     area: float = 2.5e5    # the reservoir area (m2)
-    rock_density: float = 2300    # the rock density in the reservoir (in kg/m3)
-    rock_cp: float = 1000    # the rock heat capacity (J/kg)
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
-    thermal_gradient: float = 0.035    # the vertical thermal gradient in the reservoir (in °C/km)
-    surface_temperature: float = 288.15     # K
-    surface_pressure: float = 1e5    # Pa
     inlet_temperature: float = 288.15    # K
     well_spacing: float = 707.0    # m
     well_diameter: float = 0.4    # m
