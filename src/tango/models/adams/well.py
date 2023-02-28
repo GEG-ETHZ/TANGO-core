@@ -8,12 +8,12 @@ import numpy as np
 @dataclass
 class WellSpecsAdams(CommonSpecs):
     """The well specs based on Adams et al. (2015)."""
-    inlet: str
-    outlet: str
     vertical_deviation: float = 0.0    # the vertical deviation angle defined in degrees
     diameter: float = 0.14    # the well diameter (m)
     epsilon: float = 0.01    # roughness of the well (m)
     num_cells: int = 100    # number of cells that is used for discretization
+    gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
+    well_length: float = None
 
 
 class WellStateAdams(WellState):
@@ -26,23 +26,25 @@ class WellStateAdams(WellState):
 class WellModelAdams(WellModel):
     """The well model based on Adams et al. (2015)."""
 
-    def __init__(self, specs: WellSpecs, state: WellStateAdams) -> None:
+    def __init__(self, specs: WellSpecs, state: WellState) -> None:
         self.specs = WellSpecsAdams(**specs)
         self.state = state
 
         num_cells = self.specs.num_cells
-        vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
-        well_length = self.specs.reservoir_depth / np.cos(vertical_deviation_rad)
         self.m_dot = self.specs.mass_flow_rate
         self.g = GRAVITY_ACCELERATION
-        self.set_gravity_multiplier(1.0)
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
 
+        self.set_farfield_temperature()
+        self.set_gravity_multiplier(self.specs.gravity_scale_factor)
+        self.set_well_length()
+
         # discretization related parameters
-        self.dL = well_length/num_cells
+        self.dL = self.well_length/num_cells
         self.dz = self.specs.reservoir_depth/num_cells
-        self.zspace = np.linspace(0.0, self.specs.reservoir_depth, num_cells+1)
-        self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5 # depth at cell centers
+        self.t_d = 0.0  # initialize the non-dimensional time
+        self.t_scaling_factor = 4.0 * self.specs.rock_k \
+                                / (self.specs.rock_density*self.specs.rock_cp*self.specs.diameter**2)
 
         self.P = np.zeros(num_cells)  # pressure (Pa)
         self.h = np.zeros(num_cells)  # specific enthalpy (J/kg)
@@ -50,6 +52,17 @@ class WellModelAdams(WellModel):
         self.mu = np.zeros(num_cells)  # fluid dynamic viscosity (Pa s)
         self.T_f = np.zeros(num_cells)  # fluid temperature (K)
         self.u = np.zeros(num_cells)  # flow velocity (m/s)
+
+    def set_well_length(self):
+        if self.specs.well_length is None:
+            vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
+            self.well_length = self.specs.reservoir_depth / np.cos(vertical_deviation_rad)
+        else:
+            self.well_length = self.specs.well_length
+
+    def set_farfield_temperature(self):
+        self.zspace = np.linspace(0.0, self.specs.reservoir_depth, self.specs.num_cells+1)
+        self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5 # depth at cell centers
 
         dTdz = self.specs.thermal_gradient
         T0 = self.specs.surface_temperature
@@ -85,13 +98,16 @@ class WellModelAdams(WellModel):
         self.T_f[0] = self.fluid_state_init.T
         self.u[0] = self.m_dot / self.cross_section_area / self.rho[0]
 
-    def update(self, dt) -> None:
+    def update(self) -> None:
         self.initialize_state()
+        self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
+
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
             self.P[i] = self.P[i-1] - self.rho[i-1]*self.g*self.dz \
                         - self.f_dir*self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            self.h[i] = self.h[i-1] - self.g*self.dz - self.Q_loss() / self.m_dot
+            self.h[i] = self.h[i-1] - self.g*self.dz \
+                        - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.m_dot
 
             self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
 
@@ -100,8 +116,22 @@ class WellModelAdams(WellModel):
             self.T_f[i] = self.fluid_state_tmp.T
             self.u[i] = self.m_dot / self.cross_section_area / self.rho[i]
 
-    def Q_loss(self):
-        return 0.0
+    def Q_loss(self, delta_T):
+        """Returns the heat loss introduced Zhang et al., 2011 (10.1016/j.geothermics.2011.08.003).
+
+        Args:
+            delta_T (float): temperature differences between the farfield and fluid (K)
+
+        Returns:
+            float: the heat loss
+        """
+        t_d = self.t_d
+        if t_d <= 2.8:
+            beta = (np.pi*t_d)**-0.5 + 0.5 - 0.25*(t_d/np.pi)**0.5 + 0.125*t_d
+        else:
+            beta = 2.0/(np.log(4.0*t_d) - 1.16) - 1.16/(np.log(4.0*t_d) - 1.16)**2
+
+        return 2.0 * self.dL * np.pi * self.specs.rock_k * beta * delta_T
 
     def delta_P_loss(self, friction_factor: float, rho: float, u: float) -> float:
         """Returns the pressure loss calculated using the Darcy--Weisbach equation.
@@ -112,7 +142,7 @@ class WellModelAdams(WellModel):
             u (float): the flow velocity (m/s)
 
         Returns:
-            float: the pressure loss (Pa s)
+            float: the pressure loss (Pa)
         """
         return 0.5*friction_factor*self.dL*rho*u**2 / self.specs.diameter
 
@@ -133,5 +163,4 @@ class WellModelAdams(WellModel):
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
 
     def execute(self) -> None:
-        self.update(self.specs.dt)
-
+        self.update()
