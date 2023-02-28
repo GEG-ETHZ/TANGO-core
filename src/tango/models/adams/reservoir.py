@@ -8,11 +8,11 @@ from math import erfc
 @dataclass
 class ReservoirSpecsAdams(CommonSpecs):
     """Specifications for reservoir modeling based on Adams et. al (2015)"""
-    depth: float = 1000     # the reservoir depth (in m)
     thickness: float = 305     # the reservoir thickness (in m)
     area: float = 2.5e5    # the reservoir area (m2)
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
+    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     inlet_temperature: float = 288.15    # K
     well_spacing: float = 707.0    # m
     well_diameter: float = 0.4    # m
@@ -33,7 +33,7 @@ class ReservoirModelAdams(ReservoirModel):
         self.specs = ReservoirSpecsAdams(**specs)
         self.state = state
 
-        h, dTdz, T0 = self.specs.depth, self.specs.thermal_gradient, self.specs.surface_temperature
+        h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
 
         self.initial_temperature: float = T0 + h * dTdz # deg C
         self.inlet_temperature = self.specs.inlet_temperature
@@ -42,11 +42,8 @@ class ReservoirModelAdams(ReservoirModel):
         self.fluid_name = self.specs.fluid_name
 
         self.m_dot = self.specs.mass_flow_rate
-        self.surface_P, self.surface_T = self.specs.surface_pressure, self.specs.surface_temperature
-        self.surface_fluid = FluidState.withPT(self.fluid_name, self.surface_P, self.surface_T)
-
         g = GRAVITY_ACCELERATION # m/s2
-        self.reference_pressure: float = self.surface_fluid.rho * g * h
+        self.reference_pressure: float = self.specs.brine_density * g * h
 
         # This is an interative process of getting the inlet state
         self.state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
@@ -79,7 +76,7 @@ class ReservoirModelAdams(ReservoirModel):
 
     def update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the 5-spot solution of Adams et al. (2020)."""
-        k, b = self.specs.permeability, self.specs.depth
+        k, b = self.specs.permeability, self.specs.reservoir_depth
         L, D = self.specs.well_spacing, self.specs.well_diameter
 
         self.impedance = mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
