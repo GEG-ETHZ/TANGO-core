@@ -24,7 +24,7 @@ class Model:
 
     def add_model(self, name: str, model):
         state = getattr(self.state, name)
-        specs = self.specs[name] | self.specs['common']
+        specs = self.specs['common'] | self.specs[name]
         setattr(self, name, model(specs, state))
 
     def execute(self) -> ModelState:
