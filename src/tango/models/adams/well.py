@@ -43,6 +43,8 @@ class WellModelAdams(WellModel):
         self.dL = self.well_length/num_cells
         self.dz = self.specs.reservoir_depth/num_cells
         self.t_d = 0.0  # initialize the non-dimensional time
+
+        # See Carslaw and Jaeger (1959) for the scaling of time.
         self.t_scaling_factor = 4.0 * self.specs.rock_k \
                                 / (self.specs.rock_density*self.specs.rock_cp*self.specs.diameter**2)
 
@@ -62,7 +64,7 @@ class WellModelAdams(WellModel):
 
     def set_farfield_temperature(self):
         self.zspace = np.linspace(0.0, self.specs.reservoir_depth, self.specs.num_cells+1)
-        self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5 # depth at cell centers
+        self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5  # depth at cell centers
 
         dTdz = self.specs.thermal_gradient
         T0 = self.specs.surface_temperature
