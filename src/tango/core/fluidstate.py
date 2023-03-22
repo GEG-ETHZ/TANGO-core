@@ -52,7 +52,7 @@ class FluidState:
 
 
     @staticmethod
-    def withPH(fluidname: str, P: float, H: float):
+    def withHP(fluidname: str, H: float, P: float):
         """Create a FluidState object with given pressure and specific enthalpy.
 
         Args:
@@ -60,7 +60,9 @@ class FluidState:
             P (float): The fluid pressure (in Pa)
             H (float): The fluid specific enthalpy (in J/kg)
         """
-        return FluidState(CoolProp.State(fluidname, dict(P = P*PA_TO_KPA, H = H*J_TO_KJ)))
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.HmassP_INPUTS, H, P)
+        return FluidState(state)
 
 
     @staticmethod
@@ -72,7 +74,9 @@ class FluidState:
             P (float): The fluid pressure (in Pa)
             S (float): The fluid specific entropy (in J/(kg*K))
         """
-        return FluidState(CoolProp.State(fluidname, dict(P = P*PA_TO_KPA, S = S*J_TO_KJ)))
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PSmass_INPUTS, P, S)
+        return FluidState(state)
 
 
     @staticmethod
@@ -84,20 +88,23 @@ class FluidState:
             P (float): The fluid pressure (in Pa)
             Q (float): The fluid Q value, where Q = 0 is saturated liquid and Q = 1 is saturated vapor
         """
-        PkPa = P * 0.001  # from Pa to kPa
-        return FluidState(CoolProp.State(fluidname, dict(P = PkPa, Q = Q)))
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PQ_INPUTS, P, Q)
+        return FluidState(state)
 
 
     @staticmethod
-    def withTQ(fluidname: str, T: float, Q: float):
+    def withQT(fluidname: str, Q: float, T: float):
         """Create a FluidState object with given temperature and Q state.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2)
             T (float): The fluid temperature (in K)
-            Q (float): The fluid Q value, where Q = 0 is saturated liquid and Q = 1 is saturated vapor
+            Q (float): The molar Q value, where Q = 0 is saturated liquid and Q = 1 is saturated vapor
         """
-        return FluidState(CoolProp.State(fluidname, dict(T = T, Q = Q)))
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.QT_INPUTS, Q, T)
+        return FluidState(state)
 
 
     def updatePT(self, P: float, T: float):
@@ -119,6 +126,20 @@ class FluidState:
         """
         self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
 
+    def updatePS(self, P: float, S: float):
+        """Update the fluid state with given new pressure and specific entropy.
+
+        Args:
+            P (float): The fluid pressure (in Pa)
+            S (float): The fluid specific entropy (in J/(kg*K))
+        """
+        self.cstate.update(CoolProp.PSmass_INPUTS, P, S)
+
+    def updatePQ(self, P: float, Q: float):
+        self.cstate.update(CoolProp.PQ_INPUTS, P, Q)
+
+    def updateQT(self, Q: float, T: float):
+        self.cstate.update(CoolProp.QT_INPUTS, Q, T)
 
     @property
     def fluidname(self):
@@ -212,4 +233,4 @@ class FluidState:
         Args:
             H (float): The new specific enthalpy of the fluid (in J/kg)
         """
-        self.updatePH(self.P, H)
+        self.updateHP(self.P, H)
