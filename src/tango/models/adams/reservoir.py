@@ -23,7 +23,7 @@ class ReservoirSpecsAdams(CommonSpecs):
 
 class ReservoirStateAdams(ReservoirState):
     """Resevoir state based on Adams et. al (2015)."""
-    def __init__(self, specs: dict):
+    def __init__(self):
         ReservoirState.__init__(self)
 
 

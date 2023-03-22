@@ -18,8 +18,7 @@ class WellSpecsAdams(CommonSpecs):
 
 class WellStateAdams(WellState):
     """The well state model"""
-
-    def __init__(self, specs: dict) -> None:
+    def __init__(self) -> None:
         WellState.__init__(self)
 
 

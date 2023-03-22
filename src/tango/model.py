@@ -12,7 +12,7 @@ class ModelState:
         self.economics: EconomicsState
 
     def add_state(self, name: str, state):
-        setattr(self, name, state(self.specs))
+        setattr(self, name, state)
 
 
 class Model:
