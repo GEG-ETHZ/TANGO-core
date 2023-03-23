@@ -102,12 +102,9 @@ class ReservoirModelAdams(ReservoirModel):
         outlet_temperature = self.gamma * self.reference_temperature + self.inlet_temperature
         self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
-    def update(self, dt) -> None:
-        self.update_temperature(dt)
-
     def execute(self) -> None:
         # Should only update its state.reservoir, not others
-        self.update(self.specs.dt)
+        self.update_temperature(self.specs.dt)
 
     @staticmethod
     def depletion_curve(psi, p1, p2, p3) -> float:
