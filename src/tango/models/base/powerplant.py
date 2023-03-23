@@ -1,4 +1,5 @@
 from abc import ABC
+from tango.core import FluidState
 
 class PowerPlantSpecs:
     """Implements the common interface for classes providing power plant specifications."""
@@ -7,7 +8,10 @@ class PowerPlantSpecs:
 
 class PowerPlantState(ABC):
     """Implements the common interface for classes defining state for power plant modeling computations."""
-    pass
+    def __init__(self):
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
 class PowerPlantModel(ABC):
