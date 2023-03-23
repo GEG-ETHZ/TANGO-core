@@ -8,6 +8,7 @@ class ModelState:
 
         self.injection_well: WellState
         self.production_well: WellState
+        self.reservoir: ReservoirState
         self.powerplant: PowerPlantState
         self.economics: EconomicsState
 
