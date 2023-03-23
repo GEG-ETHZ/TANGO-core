@@ -24,8 +24,7 @@ class WellStateAdams(WellState):
 
 class WellModelAdams(WellModel):
     """The well model based on Adams et al. (2015)."""
-
-    def __init__(self, specs: WellSpecs, state: WellState) -> None:
+    def __init__(self, specs: dict, state: WellState) -> None:
         self.specs = WellSpecsAdams(**specs)
         self.state = state
 
