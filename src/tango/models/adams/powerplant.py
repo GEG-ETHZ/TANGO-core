@@ -15,7 +15,7 @@ class PowerPlantSpecsAdams(CommonSpecs):
 
 
 class PowerPlantStateAdams(PowerPlantState):
-    """The power plant state based on Adams et al. (2015)"""
+    """The power plant state based on Adams et al. (2015)."""
     def __init__(self):
         PowerPlantState.__init__(self)
         self.outlet_fluid_turbine: FluidState
@@ -28,7 +28,7 @@ class PowerPlantStateAdams(PowerPlantState):
 
 
 class PowerPlantModelAdams(PowerPlantModel):
-    """Implements the common interface for classes providing economic modeling capabilities."""
+    """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict, state: PowerPlantStateAdams):
         self.specs = PowerPlantSpecsAdams(**specs)
         self.state = state
