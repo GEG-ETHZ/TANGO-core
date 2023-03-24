@@ -13,7 +13,7 @@ class ModelState:
         self.economics: EconomicsState
 
     def add_state(self, name: str, state):
-        setattr(self, name, state)
+        setattr(self, name, state())
 
 
 class Model:
@@ -22,17 +22,17 @@ class Model:
     def __init__(self, state: ModelState, specs: dict):
         self.specs = specs
         self.state = state
+        self.model_list = []
 
     def add_model(self, name: str, model):
         state = getattr(self.state, name)
         specs = self.specs['common'] | self.specs[name]
-        setattr(self, name, model(specs, state))
+        model = model(specs, state)
+        self.model_list.append(model)
+        setattr(self, name, model)
 
     def execute(self) -> ModelState:
-        state = ModelState(self.specs)
-        self.injection_well_model.execute(state)
-        self.reservoir_model.execute(state)
-        self.production_well_model.execute(state)
-        self.powerplant_model.execute(state)
-        self.economics_model.execute(state)
-        return state
+        for model in self.model_list:
+            model.execute()
+
+        return self.state
