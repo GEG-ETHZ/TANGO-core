@@ -103,7 +103,6 @@ class ReservoirModelAdams(ReservoirModel):
         self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
     def execute(self) -> None:
-        # Should only update its state.reservoir, not others
         self.update_temperature(self.specs.dt)
 
     @staticmethod

@@ -9,6 +9,7 @@ class PowerPlantSpecsAdams(CommonSpecs):
     """The power plant specs based on Adams et al. (2015)."""
     approach_temperature: float = 7.0    # The temperature difference between condensing and ambient temperature (K)
     pinch_temperature: float = 5.0    # (K)
+    ambient_temperature: float = 288.15    # (K)
     eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
     eta_pump: float = 0.75    # The pump efficiency (-)
     condensation_pressure_offset: float = 5e4   # (Pa)
@@ -34,7 +35,7 @@ class PowerPlantModelAdams(PowerPlantModel):
         self.state = state
         self.fluid_name = self.specs.fluid_name
 
-        self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
+        self.condensation_temperature = self.specs.ambient_temperature + self.specs.approach_temperature
         self.state.outlet_fluid_condenser = FluidState.withQT(self.fluid_name, Q = 0.0, T = self.condensation_temperature)
 
         self.condensation_pressure = self.state.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
