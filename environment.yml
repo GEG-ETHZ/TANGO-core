@@ -1,14 +1,15 @@
 name: tango
-
 channels:
+  - defaults
   - conda-forge
-
 dependencies:
-  - coolprop
+  - coolprop>=6.4.1
+  - numpy>=1.23.5
   - pandas
   - pip
-  - pytest
-  - python =3.9
+  - python>=3.9
   - scipy
-  - sphinx
-  - xlrd =1.2.0
+  - pip:
+      - pyyaml>=6.0
+      - setuptools
+      - setuptools-scm
