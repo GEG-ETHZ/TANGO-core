@@ -33,6 +33,7 @@ class Model:
 
     def execute(self) -> ModelState:
         for model in self.model_list:
+            print(f"Running model: {str(model.__class__)}")
             model.execute()
 
         return self.state

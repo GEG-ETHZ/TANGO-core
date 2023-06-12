@@ -2,5 +2,5 @@ from .reservoir import ReservoirModelAdams, ReservoirSpecsAdams, ReservoirStateA
 from .well import WellModelAdams, WellSpecsAdams, WellStateAdams
 from .horizontal_well import HorizontalWellModelAdams
 from .powerplant import PowerPlantModelAdams, PowerPlantSpecsAdams, PowerPlantStateAdams
-from .economics import EconomicsModelAdams, EconomicsSpecsAdams
+from .economics import EconomicModelAdams, EconomicSpecsAdams, EconomicStateAdams
 from .model import CGSModelAdams, CGSModelStateAdams, AGSModelAdams

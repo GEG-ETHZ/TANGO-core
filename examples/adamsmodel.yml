@@ -38,3 +38,6 @@ power_plant:
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
   eta_turbine: 0.78  # (-)
+
+economic:
+  placeholder: 1

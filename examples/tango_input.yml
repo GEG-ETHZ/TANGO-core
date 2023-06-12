@@ -1,0 +1,30 @@
+# tango input idea
+common:
+  fluid_name: 'H2O'
+  mass_flow_rate: 50.0  # kg/s
+  dt: 1.0  # year
+  reservoir_depth: 4000.0
+  rock_density: 2300.0
+  rock_cp: 1000.0  # J/kg K
+  rock_k: 2.1  # W/m K
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  thermal_gradient: 0.035  # degC/m
+  # initial_fluid_temperature:
+  # initial_fluid_pressure:
+
+reservoir:
+    simulator: "Adams" # IMEX, GEM, etc.
+    input: "reservoir_input.yml"
+
+well:
+    simulator: "Adams" # Mosquito, CoFlow, etc.
+    input: "wells_input.yml"
+
+power_plant:
+    simulator: "Adams"
+    input: "power_plant_input.yml"
+
+Economics:
+    simulator: "Adams"
+    input: "economics.yml"

@@ -8,6 +8,7 @@ class CGSModelStateAdams(ModelState):
         self.reservoir = ReservoirStateAdams()
         self.production_well = WellStateAdams()
         self.power_plant = PowerPlantStateAdams()
+        self.economics = EconomicsStateAdams()
 
 
 class CGSModelAdams(Model):

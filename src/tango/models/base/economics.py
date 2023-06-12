@@ -1,20 +1,22 @@
 from abc import ABC
 
-class EconomicsSpecs:
+class EconomicSpecs(ABC):
     """Implements the common interface for classes providing economic specifications."""
     pass
 
 
-class EconomicsState(ABC):
+class EconomicState(ABC):
     """Implements the common interface for classes defining state for economic modeling computations."""
     pass
 
 
-class EconomicsModel(ABC):
+class EconomicModel(ABC):
     """Implements the common interface for classes providing economic modeling capabilities."""
 
-    def __init__(self, specs: EconomicsSpecs) -> None:
-        raise NotImplementedError("Define __init__ for your derived EconomicsModel class.")
+    def __init__(self, specs: EconomicSpecs) -> None:
+        # raise NotImplementedError("Define __init__ for your derived EconomicsModel class.")
+        pass
 
-    def execute(self, state: EconomicsState) -> None:
-        raise NotImplementedError("Define execute method for your derived EconomicsModel class.")
+    def execute(self, state: EconomicState) -> None:
+        # raise NotImplementedError("Define execute method for your derived EconomicsModel class.")
+        pass
