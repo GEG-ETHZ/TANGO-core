@@ -26,12 +26,16 @@ class ReservoirStateAdams(ReservoirState):
     def __init__(self):
         ReservoirState.__init__(self)
 
+        # Parameters characterizing thermal decay
+        self.gamma = 1.0
+        self.psi = 0.0
+        self.energy_extracted = 0.0
+
 
 class ReservoirModelAdams(ReservoirModel):
     """The reservoir model based on Adams et al. (2015)."""
-    def __init__(self, specs: dict, state: ReservoirState) -> None:
+    def __init__(self, specs: dict) -> None:
         self.specs = ReservoirSpecsAdams(**specs)
-        self.state = state
 
         h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
 
@@ -45,14 +49,6 @@ class ReservoirModelAdams(ReservoirModel):
         g = GRAVITY_ACCELERATION # m/s2
         self.reference_pressure: float = self.specs.brine_density * g * h
 
-        # This is an interative process of getting the inlet state
-        self.state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
-        self.update_impedance(self.state.inlet_fluid.mu, self.state.inlet_fluid.rho)
-        self.update_delta_P()
-
-        self.state.inlet_fluid.updatePT(self.reference_pressure + self.delta_P, self.inlet_temperature)
-        self.state.outlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.temperature)
-
         self.volume = self.specs.thickness * self.specs.area
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
@@ -61,19 +57,6 @@ class ReservoirModelAdams(ReservoirModel):
         rock_C_v = self.specs.rock_density * self.specs.rock_cp # volumetric heat capacity of rocks (J/m3)
         self.reference_energy = self.rock_volume * rock_C_v * T_ref
 
-        # These parameters are used to calculate thermal decay
-        self.gamma = 1.0
-        self.psi = 0.0
-        self.energy_extracted = 0.0
-
-        average_mu = 0.5*(self.state.inlet_fluid.mu + self.state.outlet_fluid.mu)
-        average_rho = 0.5*(self.state.inlet_fluid.rho + self.state.outlet_fluid.rho)
-        self.update_impedance(average_mu, average_rho)
-        self.update_delta_P()
-
-    def update_delta_P(self) -> None:
-        self.delta_P = self.m_dot * self.impedance
-
     def update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the 5-spot solution of Adams et al. (2020)."""
         k, b = self.specs.permeability, self.specs.reservoir_depth
@@ -81,7 +64,7 @@ class ReservoirModelAdams(ReservoirModel):
 
         self.impedance = mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
 
-    def update_temperature(self, dt: float) -> None:
+    def update_temperature(self, state) -> None:
         """Update reservoir temperature using the thermal decay characterization of
         Adams (2015).
 
@@ -89,21 +72,35 @@ class ReservoirModelAdams(ReservoirModel):
         dt -- time increments in unit of years
         """
         p1, p2, p3 = self.specs.p1, self.specs.p2, self.specs.p3
-        dt = dt * YEAR_TO_SECOND
+        dt = self.specs.dt * YEAR_TO_SECOND
 
-        h_inj = self.state.inlet_fluid.H
-        h_prod = self.state.outlet_fluid.H
+        h_inj = state.inlet_fluid.H
+        h_prod = state.outlet_fluid.H
 
-        self.energy_extracted += self.m_dot * (h_prod-h_inj) * dt    # J
-        self.psi = self.energy_extracted / self.reference_energy
-        self.gamma = self.depletion_curve(self.psi, p1, p2, p3)
+        state.energy_extracted += self.m_dot * (h_prod-h_inj) * dt    # J
+        state.psi = state.energy_extracted / self.reference_energy
+        state.gamma = self.depletion_curve(state.psi, p1, p2, p3)
 
         # The outlet fluid temperature is equal to the reservoir temperature
         outlet_temperature = self.gamma * self.reference_temperature + self.inlet_temperature
         self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
-    def execute(self) -> None:
-        self.update_temperature(self.specs.dt)
+    def initialize_inlet_state(self, state):
+        # This is an iterative process of getting the inlet state
+        state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
+        self.update_impedance(state.inlet_fluid.mu, state.inlet_fluid.rho)
+        self.delta_P = self.m_dot * self.impedance
+
+        state.inlet_fluid.updatePT(self.reference_pressure + self.delta_P, self.inlet_temperature)
+        state.outlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.temperature)
+
+    def execute(self, state) -> None:
+        average_mu = 0.5*(state.inlet_fluid.mu + state.outlet_fluid.mu)
+        average_rho = 0.5*(state.inlet_fluid.rho + state.outlet_fluid.rho)
+
+        self.update_impedance(average_mu, average_rho)
+        self.delta_P = self.m_dot * self.impedance
+        self.update_temperature(state)
 
     @staticmethod
     def depletion_curve(psi, p1, p2, p3) -> float:
