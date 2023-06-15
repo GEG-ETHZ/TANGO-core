@@ -10,7 +10,7 @@ def createWellModel(specs: ModelSpecs):
 def createWellModel(specs: ModelSpecs):
     pass
 
-def createPowerPlantModel(specs: ModelSpecs):
+def createSurfaceModel(specs: ModelSpecs):
     pass
 
 def createEconomicsModel(specs: ModelSpecs):

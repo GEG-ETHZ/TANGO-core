@@ -5,12 +5,13 @@ class ModelState:
 
     def __init__(self, specs: dict):
         self.specs = specs
-
+        # self.current_time = specs['common']['start_yr']
         self.injection_well: WellState
         self.production_well: WellState
         self.reservoir: ReservoirState
-        self.powerplant: PowerPlantState
+        self.surface: SurfaceState
         self.economics: EconomicsState
+
 
     def add_state(self, name: str, state):
         setattr(self, name, state())
@@ -24,6 +25,7 @@ class Model:
         self.state = state
         self.model_list = []
 
+
     def add_model(self, name: str, model):
         state = getattr(self.state, name)
         specs = self.specs['common'] | self.specs[name]
@@ -31,9 +33,10 @@ class Model:
         self.model_list.append(model)
         setattr(self, name, model)
 
+
     def execute(self) -> ModelState:
         for model in self.model_list:
-            print(f"Running model: {str(model.__class__)}")
+            # print(f"Running model: {str(model.__class__)}")
             model.execute()
 
         return self.state

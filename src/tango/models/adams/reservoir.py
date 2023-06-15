@@ -71,6 +71,7 @@ class ReservoirModelAdams(ReservoirModel):
         self.update_impedance(average_mu, average_rho)
         self.update_delta_P()
 
+
     def update_delta_P(self) -> None:
         self.delta_P = self.m_dot * self.impedance
 
@@ -102,8 +103,18 @@ class ReservoirModelAdams(ReservoirModel):
         outlet_temperature = self.gamma * self.reference_temperature + self.inlet_temperature
         self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
+
+    def set_econ_specs(self) -> None:
+        pass
+
+
+    def get_cost(self) -> float:
+        return 0 #TODO: implement
+
+
     def execute(self) -> None:
         self.update_temperature(self.specs.dt)
+
 
     @staticmethod
     def depletion_curve(psi, p1, p2, p3) -> float:

@@ -1,8 +1,11 @@
 from abc import ABC
+# from tango.model import ModelState
+
 
 class EconomicSpecs(ABC):
-    """Implements the common interface for classes providing economic specifications."""
-    pass
+    def __init__(self):
+        self.CAPEX = 0.
+        self.OPEX = 0.
 
 
 class EconomicState(ABC):
@@ -16,6 +19,11 @@ class EconomicModel(ABC):
     def __init__(self, specs: EconomicSpecs) -> None:
         # raise NotImplementedError("Define __init__ for your derived EconomicsModel class.")
         pass
+
+
+    # def set_inlet_state(self, state: ModelState):
+    #     pass
+
 
     def execute(self, state: EconomicState) -> None:
         # raise NotImplementedError("Define execute method for your derived EconomicsModel class.")

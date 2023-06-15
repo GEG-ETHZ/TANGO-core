@@ -3,9 +3,8 @@ from tango.core import FluidState
 from tango.model import ModelState
 from dataclasses import dataclass
 
-
 @dataclass
-class PowerPlantSpecsAdams(CommonSpecs):
+class SurfaceSpecsAdams(CommonSpecs):
     """The power plant specs based on Adams et al. (2015)."""
     approach_temperature: float = 7.0    # The temperature difference between condensing and ambient temperature (K)
     pinch_temperature: float = 5.0    # (K)
@@ -15,10 +14,11 @@ class PowerPlantSpecsAdams(CommonSpecs):
     condensation_pressure_offset: float = 5e4   # (Pa)
 
 
-class PowerPlantStateAdams(PowerPlantState):
+class SurfaceStateAdams(SurfaceState):
     """The power plant state based on Adams et al. (2015)."""
     def __init__(self):
-        PowerPlantState.__init__(self)
+        SurfaceState.__init__(self)
+        # power plant
         self.outlet_fluid_turbine: FluidState
         self.outlet_fluid_condenser: FluidState
         self.w_turbine: float
@@ -27,11 +27,14 @@ class PowerPlantStateAdams(PowerPlantState):
         self.w_condenser: float
         self.w_net: float    # (MW)
 
+        # pipe
 
-class PowerPlantModelAdams(PowerPlantModel):
+        # economic
+
+class SurfaceModelAdams(SurfaceModel):
     """The power plant model based on Adams et al. (2015)."""
-    def __init__(self, specs: dict, state: PowerPlantStateAdams):
-        self.specs = PowerPlantSpecsAdams(**specs)
+    def __init__(self, specs: dict, state: SurfaceStateAdams):
+        self.specs = SurfaceSpecsAdams(**specs)
         self.state = state
         self.fluid_name = self.specs.fluid_name
 
@@ -41,8 +44,14 @@ class PowerPlantModelAdams(PowerPlantModel):
         self.condensation_pressure = self.state.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
         self.state.outlet_fluid_turbine = FluidState.withQT(self.fluid_name, Q = 1.0, T = self.condensation_temperature)
 
+        #TODO: w_pump, w_cooler, etc.
+
+        # self.set_econ()
+
+
     def set_inlet_state(self, state) -> None:
         self.state.inlet_fluid = state.outlet_fluid
+
 
     def update_turbine_power(self) -> None:
         self.state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.state.inlet_fluid.S)
@@ -56,6 +65,24 @@ class PowerPlantModelAdams(PowerPlantModel):
 
     def update_condensed_state(self) -> None:
         pass
+
+
+    def set_econ_specs(self) -> None:
+        self.specs.econ = EconomicSpecs()
+        self.get_CAPEX()
+
+
+    def get_CAPEX(self):
+
+        # CAPEX for surface pipes
+
+        pass
+
+
+    def get_cost(self) -> float:
+        # TODO: implement C_TG (dynamic cost with some dependencies)
+        return 0
+
 
     def execute(self) -> None:
         self.update_turbine_power()

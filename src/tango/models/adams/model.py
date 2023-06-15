@@ -7,7 +7,7 @@ class CGSModelStateAdams(ModelState):
         self.injection_well = WellStateAdams()
         self.reservoir = ReservoirStateAdams()
         self.production_well = WellStateAdams()
-        self.power_plant = PowerPlantStateAdams()
+        self.surface = SurfaceStateAdams()
         self.economics = EconomicsStateAdams()
 
 
@@ -17,12 +17,12 @@ class CGSModelAdams(Model):
         super().__init__(state, specs)
         self.add_model('reservoir', ReservoirModelAdams)
         self.add_model('production_well', WellModelAdams)
-        self.add_model('power_plant', PowerPlantModelAdams)
+        self.add_model('surface', SurfaceModelAdams)
         self.add_model('injection_well', WellModelAdams)
 
         getattr(self, 'injection_well').set_outlet_state(state.reservoir)
         getattr(self, 'production_well').set_inlet_state(state.reservoir)
-        getattr(self, 'power_plant').set_inlet_state(state.production_well)
+        getattr(self, 'surface').set_inlet_state(state.production_well)
 
     def execute(self) -> ModelState:
         return super().execute()

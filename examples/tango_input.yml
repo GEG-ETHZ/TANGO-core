@@ -13,17 +13,13 @@ common:
   # initial_fluid_temperature:
   # initial_fluid_pressure:
 
-reservoir:
+subsurface:
     simulator: "Adams" # IMEX, GEM, etc.
-    input: "reservoir_input.yml"
+    input: "subsurface_input.yml" # contains reservoir and well sections
 
-well:
-    simulator: "Adams" # Mosquito, CoFlow, etc.
-    input: "wells_input.yml"
-
-power_plant:
+surface:
     simulator: "Adams"
-    input: "power_plant_input.yml"
+    input: "surface_input.yml"
 
 Economics:
     simulator: "Adams"

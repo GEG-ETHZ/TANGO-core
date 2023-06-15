@@ -11,6 +11,13 @@ common:
   thermal_gradient: 0.035  # degC/m
   # initial_fluid_temperature:
   # initial_fluid_pressure:
+  # test
+#  start_yr: 2015
+  cost_year: 2019
+  project_maturity: 'brown_field' # brown_field or green_field
+  well_pattern: 'doublet' # doublet, 5spot
+  num_patterns: 1
+  # field development schedule. (well exploration, drilling timing, etc.). these affet economic calc due to discount
 
 reservoir:
   thickness: 100.0
@@ -33,7 +40,7 @@ production_well:
   epsilon: 55.e-6  # m
   gravity_scale_factor: 1.0
 
-power_plant:
+surface:
   ambient_temperature: 288.15  # K
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
@@ -41,3 +48,7 @@ power_plant:
 
 economic:
   placeholder: 1
+  PPI_table: 'PPI_table.xlsx' # Optional
+
+
+

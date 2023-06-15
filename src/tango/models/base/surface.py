@@ -1,12 +1,12 @@
 from abc import ABC
 from tango.core import FluidState
 
-class PowerPlantSpecs:
+class SurfaceSpecs:
     """Implements the common interface for classes providing power plant specifications."""
     pass
 
 
-class PowerPlantState(ABC):
+class SurfaceState(ABC):
     """Implements the common interface for classes defining state for power plant modeling computations."""
     def __init__(self):
         self.mass_rate: float = 0.0
@@ -14,12 +14,12 @@ class PowerPlantState(ABC):
         self.outlet_fluid: FluidState
 
 
-class PowerPlantModel(ABC):
+class SurfaceModel(ABC):
     """Implements the common interface for classes providing power plant modeling capabilities."""
 
-    def __init__(self, specs: PowerPlantSpecs) -> None:
-        raise NotImplementedError("Define __init__ for your derived PowerPlantModel class.")
+    def __init__(self, specs: SurfaceSpecs) -> None:
+        raise NotImplementedError("Define __init__ for your derived SurfaceModel class.")
 
-    def execute(self, state: PowerPlantState) -> None:
-        raise NotImplementedError("Define execute method for your derived PowerPlantModel class.")
+    def execute(self, state: SurfaceState) -> None:
+        raise NotImplementedError("Define execute method for your derived SurfaceModel class.")
 

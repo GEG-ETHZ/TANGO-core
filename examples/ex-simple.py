@@ -16,7 +16,7 @@ from tango import *
 
 model = Model()
 model.reservoir = ReservoirModelAdams()
-model.injection_well = WellModelAdams(radius=0.3, length=)
+model.injection_well = WellModelAdams(radius=0.3, length=1)
 
 state = model.execute()
 
