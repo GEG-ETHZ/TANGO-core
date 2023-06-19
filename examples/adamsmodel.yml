@@ -9,22 +9,12 @@ common:
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   thermal_gradient: 0.035  # degC/m
-  # initial_fluid_temperature:
-  # initial_fluid_pressure:
 
 reservoir:
   thickness: 100.0
   area: 250_000
   permeability: 5.0e-14    # m2
   porosity: 0.1
-  inlet_temperature: 298.15   # K
-
-injection_well:
-  vertical_deviation: 0.0  # degrees
-  diameter: 0.5  # m
-  num_cells: 300
-  epsilon: 55.e-6  # m
-  gravity_scale_factor: 1.0
 
 production_well:
   vertical_deviation: 0.0  # degrees
@@ -34,7 +24,13 @@ production_well:
   gravity_scale_factor: 1.0
 
 power_plant:
-  ambient_temperature: 288.15  # K
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
   eta_turbine: 0.78  # (-)
+
+injection_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.5  # m
+  num_cells: 300
+  epsilon: 55.e-6  # m
+  gravity_scale_factor: 1.0

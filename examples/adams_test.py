@@ -4,8 +4,9 @@ from tango.core.yaml_loader import load_from_yaml
 specs = load_from_yaml('adamsmodel.yml')
 
 state = CGSModelStateAdams()
-model = CGSModelAdams(state, specs)
+model = CGSModelAdams(specs)
+model.init_state(state)
 
-model.execute()
+model.execute(state)
 
 print(state.reservoir.outlet_fluid.T)
