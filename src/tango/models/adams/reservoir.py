@@ -13,7 +13,6 @@ class ReservoirSpecsAdams(CommonSpecs):
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
-    inlet_temperature: float = 288.15    # K
     well_spacing: float = 707.0    # m
     well_diameter: float = 0.4    # m
     p1: float = -1.9376
@@ -40,8 +39,7 @@ class ReservoirModelAdams(ReservoirModel):
         h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
 
         self.initial_temperature: float = T0 + h * dTdz # deg C
-        self.inlet_temperature = self.specs.inlet_temperature
-        self.reference_temperature = self.initial_temperature - self.inlet_temperature
+        self.reference_temperature = self.initial_temperature - self.specs.surface_temperature
         self.temperature: float = self.initial_temperature
         self.fluid_name = self.specs.fluid_name
 
@@ -82,16 +80,17 @@ class ReservoirModelAdams(ReservoirModel):
         state.gamma = self.depletion_curve(state.psi, p1, p2, p3)
 
         # The outlet fluid temperature is equal to the reservoir temperature
-        outlet_temperature = state.gamma * self.reference_temperature + self.inlet_temperature
+        outlet_temperature = state.gamma * self.reference_temperature + state.inlet_fluid.T
         state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
     def init_state(self, state):
         # This is an iterative process of getting the inlet state
-        state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
+        inlet_temperature = self.specs.surface_temperature
+        state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, inlet_temperature)
         self.update_impedance(state.inlet_fluid.mu, state.inlet_fluid.rho)
         self.delta_P = self.m_dot * self.impedance
 
-        state.inlet_fluid.updatePT(self.reference_pressure + self.delta_P, self.inlet_temperature)
+        state.inlet_fluid.updatePT(self.reference_pressure + self.delta_P, inlet_temperature)
         state.outlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.temperature)
 
     def execute(self, state) -> None:
