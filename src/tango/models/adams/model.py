@@ -12,19 +12,27 @@ class CGSModelStateAdams(ModelState):
 
 class CGSModelAdams(Model):
     """The model of the conventional geothermal system based on Adams model."""
-    def __init__(self, state: ModelState, specs: dict):
-        super().__init__(state, specs)
+    def __init__(self, specs: dict):
+        super().__init__(specs)
         self.add_model('reservoir', ReservoirModelAdams)
         self.add_model('production_well', WellModelAdams)
         self.add_model('power_plant', PowerPlantModelAdams)
         self.add_model('injection_well', WellModelAdams)
 
-        getattr(self, 'injection_well').set_outlet_state(state.reservoir)
-        getattr(self, 'production_well').set_inlet_state(state.reservoir)
-        getattr(self, 'power_plant').set_inlet_state(state.production_well)
+    def init_state(self, state: CGSModelStateAdams):
+        self.reservoir.init_state(state.reservoir)
+        self.power_plant.init_state(state.power_plant)
+        # for model in self.model_dict.values():
+        #     model.init_state()
 
-    def execute(self) -> ModelState:
-        return super().execute()
+        getattr(self, 'injection_well').set_outlet_state(state.injection_well, state.reservoir)
+        getattr(self, 'production_well').set_inlet_state(state.production_well, state.reservoir)
+        getattr(self, 'power_plant').set_inlet_state(state.power_plant, state.production_well)
+        # getattr(self, 'production_well').set_outlet_state(state.power_plant)
+
+    def execute(self, state: CGSModelStateAdams): #-> ModelResult:
+        return super().execute(state)
+        # return result object
 
 
 class AGSModelAdams:

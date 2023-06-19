@@ -82,10 +82,10 @@ class ReservoirModelAdams(ReservoirModel):
         state.gamma = self.depletion_curve(state.psi, p1, p2, p3)
 
         # The outlet fluid temperature is equal to the reservoir temperature
-        outlet_temperature = self.gamma * self.reference_temperature + self.inlet_temperature
-        self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
+        outlet_temperature = state.gamma * self.reference_temperature + self.inlet_temperature
+        state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
 
-    def initialize_inlet_state(self, state):
+    def init_state(self, state):
         # This is an iterative process of getting the inlet state
         state.inlet_fluid = FluidState.withPT(self.fluid_name, self.reference_pressure, self.inlet_temperature)
         self.update_impedance(state.inlet_fluid.mu, state.inlet_fluid.rho)

@@ -24,9 +24,8 @@ class WellStateAdams(WellState):
 
 class WellModelAdams(WellModel):
     """The well model based on Adams et al. (2015)."""
-    def __init__(self, specs: dict, state: WellState) -> None:
+    def __init__(self, specs: dict):
         self.specs = WellSpecsAdams(**specs)
-        self.state = state
 
         num_cells = self.specs.num_cells
         self.m_dot = self.specs.mass_flow_rate
@@ -53,6 +52,9 @@ class WellModelAdams(WellModel):
         self.T_f = np.zeros(num_cells)  # fluid temperature (K)
         self.u = np.zeros(num_cells)  # flow velocity (m/s)
 
+    def init_state(self):
+        pass
+
     def set_well_length(self):
         if self.specs.well_length is None:
             vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
@@ -68,21 +70,21 @@ class WellModelAdams(WellModel):
         T0 = self.specs.surface_temperature
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
-    def set_inlet_state(self, state) -> None:
-        self.state.inlet_fluid = state.outlet_fluid
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+    def set_inlet_state(self, state, state_from) -> None:
+        state.inlet_fluid = state_from.outlet_fluid
+        state.outlet_fluid = FluidState.copy(state.inlet_fluid)
 
-        self.fluid_state_tmp = self.state.outlet_fluid
-        self.fluid_state_init = self.state.inlet_fluid
+        self.fluid_state_tmp = state.outlet_fluid
+        self.fluid_state_init = state.inlet_fluid
 
         self.f_dir = 1.0  # flow direction
 
-    def set_outlet_state(self, state) -> None:
-        self.state.outlet_fluid = state.inlet_fluid
-        self.state.inlet_fluid = FluidState.copy(self.state.outlet_fluid)
+    def set_outlet_state(self, state, state_from) -> None:
+        state.outlet_fluid = state_from.inlet_fluid
+        state.inlet_fluid = FluidState.copy(state.outlet_fluid)
 
-        self.fluid_state_tmp = self.state.inlet_fluid
-        self.fluid_state_init = self.state.outlet_fluid
+        self.fluid_state_tmp = state.inlet_fluid
+        self.fluid_state_init = state.outlet_fluid
 
         self.f_dir = -1.0 # flow direction
 
@@ -98,7 +100,7 @@ class WellModelAdams(WellModel):
         self.T_f[0] = self.fluid_state_init.T
         self.u[0] = self.m_dot / self.cross_section_area / self.rho[0]
 
-    def update(self) -> None:
+    def update(self, *args) -> None:
         self.initialize_state()
         self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
 
@@ -162,5 +164,5 @@ class WellModelAdams(WellModel):
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
 
-    def execute(self) -> None:
+    def execute(self, *args) -> None:
         self.update()
