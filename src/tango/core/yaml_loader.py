@@ -1,5 +1,4 @@
-from yaml import load
-from yaml.loader import SafeLoader
+from oyaml import load, SafeLoader
 
 def load_from_yaml(filename: str):
     with open(filename) as f:
