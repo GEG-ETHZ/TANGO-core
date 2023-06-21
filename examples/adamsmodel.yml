@@ -1,23 +1,19 @@
 common:
   fluid_name: 'H2O'
-  mass_flow_rate: 50.0  # kg/s
+  mass_flow_rate: 50.0  # kg/s (per well pair)
   dt: 1.0  # year
-  reservoir_depth: 4000.0
+  reservoir_depth: 4000.0 # m TODO: reference depth?
   rock_density: 2300.0
   rock_cp: 1000.0  # J/kg K
   rock_k: 2.1  # W/m K
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   thermal_gradient: 0.035  # degC/m
-  # initial_fluid_temperature:
-  # initial_fluid_pressure:
   # test
-#  start_yr: 2015
-  cost_year: 2019
-  project_maturity: 'brown_field' # brown_field or green_field
-  well_pattern: 'doublet' # doublet, 5spot
-  num_patterns: 1
-  # field development schedule. (well exploration, drilling timing, etc.). these affet economic calc due to discount
+  start_year: 2019
+  lifetime: 25
+#  schedule: str # drilling schedule?
+
 
 reservoir:
   thickness: 100.0
@@ -25,6 +21,9 @@ reservoir:
   permeability: 5.0e-14    # m2
   porosity: 0.1
   inlet_temperature: 298.15   # K
+  well_spacing: 707. # m
+  well_pattern: 'doublet' # doublet, inverted_5spot
+  num_patterns_sqrt: 1 # square root of number of 5 spots
 
 injection_well:
   vertical_deviation: 0.0  # degrees
@@ -41,14 +40,15 @@ production_well:
   gravity_scale_factor: 1.0
 
 surface:
-  ambient_temperature: 288.15  # K
+  ambient_temperature: 288.15  # K #TODO: check unit consistency
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
   eta_turbine: 0.78  # (-)
 
 economic:
-  placeholder: 1
+  project_maturity: 'brown_field' # brown_field or green_field
   PPI_table: 'PPI_table.xlsx' # Optional
+
 
 
 

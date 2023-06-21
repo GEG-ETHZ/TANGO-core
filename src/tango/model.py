@@ -5,12 +5,11 @@ class ModelState:
 
     def __init__(self, specs: dict):
         self.specs = specs
-        # self.current_time = specs['common']['start_yr']
         self.injection_well: WellState
         self.production_well: WellState
         self.reservoir: ReservoirState
         self.surface: SurfaceState
-        self.economics: EconomicsState
+        self.results = {'time': [], 'q_condenser': [], 'q_cooler': [], 'w_pump': [], 'w_turbine': []} #TODO: check if list is ok (should it be scaler?)
 
 
     def add_state(self, name: str, state):
@@ -36,7 +35,8 @@ class Model:
 
     def execute(self) -> ModelState:
         for model in self.model_list:
-            # print(f"Running model: {str(model.__class__)}")
+            print(f"Running model: {str(model.__class__)}")
             model.execute()
+            # model.save_results()
 
         return self.state

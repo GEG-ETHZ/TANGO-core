@@ -1,8 +1,10 @@
 import logging
 
 from tango.models.base import *
-from tango.model import ModelState
+from tango.model import ModelState, Model
 from dataclasses import dataclass
+from tango.core import config
+from tango.models.adams.well import WellSpecsAdams
 
 import os
 from pathlib import Path
@@ -11,69 +13,19 @@ import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
 
-# utilities
-# def set_PPI_table_path(fname): # producer price index (PPI) table
-#     global PPI_table_path
-#     PPI_table_path = fname
-#     if not os.path.isabs(fname):
-#         PPI_table_path = os.path.join(Path(__file__).parent.parent.parent.parent.parent, 'data', fname)
-#     if not os.path.exists(PPI_table_path):
-#         raise FileNotFoundError(f"{PPI_table_path} not found.")
-def set_PPI_table(fname): # producer price index (PPI) table
-    path = fname
-    if not os.path.isabs(fname):
-        path = os.path.join(Path(__file__).parent.parent.parent.parent.parent, 'data', fname)
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"{path} not found.")
-    global PPI_table
-    try:
-        PPI_table = pd.read_excel(path, header=1)
-    except:
-        raise RuntimeError(f"Failed to read {path}.")
-
-
-def get_table(fname): # producer price index (PPI) table
-    path = fname
-    if not os.path.isabs(fname):
-        path = os.path.join(Path(__file__).parent.parent.parent.parent.parent, 'data', fname)
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"{path} not found.")
-    try:
-        table = pd.read_excel(path, header=1)
-    except:
-        raise RuntimeError(f"Failed to read {path}.")
-    return table
-
-
-
-def get_PPI_value(col_name: str, year: float):
-    df = PPI_table
-    val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind='linear')(year))
-    if np.isnan(val):
-        logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
-        val = float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
-    return val
-
 
 @dataclass
 class EconomicSpecsAdams(CommonSpecs):
-    """Implements the common interface for classes providing economic specifications."""
-    #TODO: assign default/generic values here.
-    placeholder: int = 0 # test
     PPI_table: str = 'PPI_table.xlsx'
     cost_multiplier_table: str = 'cost_multiplier_table.xlsx'
-    # CapitalCostSurfacePlantCPG... may not be necessary? (already included in surface?
-    T_ambient_C = 15.
-    dT_approach = 7.
-    # cost model
-    # cost_year = 2019
-    success_rate = 0.95
-    F_OM = 0.045
+    OPEX_cost_fraction = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant) TODO: check if this value makes sense.
     discount_rate = 0.096
-    lifetime = 25
-    capacity_factor = 0.85
-
-    pass
+    capacity_factor = 0.9
+    monitoring_well_diameter = 0.216 # m
+    monitoring_well_probability_of_success = 1.0
+    #TODO: add monitoring well desity?
+    num_characterization_wells = 2
+    project_maturity: str = 'BROWN_FIELD'
 
 
 class EconomicStateAdams(EconomicState):
@@ -84,40 +36,512 @@ class EconomicStateAdams(EconomicState):
 
 class EconomicModelAdams(EconomicModel):
 
-    def __init__(self, specs: dict, state: EconomicState) -> None:
-        self.specs = EconomicSpecsAdams(**specs)
-        self.state = state
-        self.results = {"time":[], "LCOE":[], "NPV":[]} #TODO: temporary.
-        self.set_tables()
-        # set_PPI_table(self.specs.PPI_table)
-        # set_cost_multiplier_table(self.specs.PPI_table)
+    def __init__(self, model: Model, specs: dict, state: ModelState) -> None:
+        self.set_specs(model, specs)
+        self.state = state  # surface
+        self.set_constants()
+        self.results = dict()
 
 
-    def set_tables(self):
-        global PPI_table, cost_mult_table
-        PPI_table = get_table(self.specs.PPI_table)
-        cost_mult_table = get_table(self.specs.cost_multiplier_table)
+    def set_specs(self, model: Model, specs: dict) -> None:
+        self.specs = dict()
+        self.specs['economic'] = EconomicSpecsAdams(**specs)
+        component_names = ['reservoir', 'injection_well', 'production_well', 'surface']
+        for name in component_names:
+            component = getattr(model, name)
+            self.specs[name] = component.specs
+
+        self.fluid_name = self.specs['reservoir'].fluid_name
+        self.reservoir_depth = self.specs['reservoir'].reservoir_depth
+        self.well_pattern = self.specs['reservoir'].well_pattern.upper() # TODO: use enum
+        self.well_spacing = self.specs['reservoir'].well_spacing # inj-prod pair spacing
+        self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
+        self.num_patterns = self.num_patterns_sqrt ** 2
+
+        self.surface_pipe_diameter = self.specs['surface'].pipe_diameter
+        self.surface_pipe_length_per_well_pair = self.specs['surface'].pipe_length_per_well_pair
+        self.surface_ambient_temperature = self.specs['surface'].ambient_temperature
+        self.surface_approach_temperature = self.specs['surface'].approach_temperature
+        self.surface_temperature_range = self.specs['surface'].temperature_range
+        self.surface_cooling_tower_mode = self.specs['surface'].cooling_mode
+
+        self.lifetime = self.specs['economic'].lifetime
+        self.cost_year = self.specs['economic'].start_year
+        self.mass_flow_rate = self.specs['economic'].mass_flow_rate
+        self.project_maturity = self.specs['economic'].project_maturity.upper()
+        self.monitoring_well_diameter = self.specs['economic'].monitoring_well_diameter
+        self.monitoring_well_probability_of_success = self.specs['economic'].monitoring_well_probability_of_success
+        self.num_characterization_wells = self.specs['economic'].num_characterization_wells
+        self.OPEX_cost_fraction = self.specs['economic'].OPEX_cost_fraction
+        self.discount_rate = self.specs['economic'].discount_rate
+        self.capacity_factor = self.specs['economic'].capacity_factor
+
+        self.characterization_well_pos =  self.specs['production_well'].probability_of_success
+        self.characterization_well_diameter = self.specs['production_well'].diameter
+
+        # fluid type dependent parameters
+        self.AMA = self.get_AMA()
+        self.turbine_cost_multiplier = self.get_S_T_fluid() # turbine cost multiplier
+        self.pump_material_cost_multiplier = self.get_S_pump() # pump material multiplier
+        self.tower_design_coefficient = self.get_TDC()
 
 
-    def set_inlet_state(self, state: ModelState) -> None:
-        self.inlet_state = state
+    def get_AMA(self) -> float:
+        if self.fluid_name != 'CO2':
+            return 0.
+        # L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get side length
+        L_wellzone = self.num_patterns_sqrt * 1000  # TODO: genGEO uses constant value... the equation above is prob. better
+        return (L_wellzone + 1600.) ** 2  # Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
 
 
-    def set_models(self, model_list):
-        self.models = list()
-        for model in model_list:
-            if self.__class__ != type(model):
-                model.set_econ_specs()
-                self.models.append(model)
+    def get_S_T_fluid(self) -> float:
+        if self.fluid_name != 'CO2':
+            return 1.0
+        return 1.2
+
+
+    def get_S_pump(self) -> float:
+        if self.fluid_name != 'H2O':
+            return 2.09 # stailes steel (suitable for non-water fluids, such as CO2)
+        return 1.0 # Iron (suitable for non-corrosive liquids, such as water or glycol)
+
+
+    def get_TDC(self) -> float:
+        design = self.specs['surface'].cooling_tower_design
+        if design == 'CLOSED':
+            if self.fluid_name == 'CO2':
+                return 1.2
+            else:
+                return 1.0
+        elif design == 'OPEN':
+            if self.fluid_name == 'H2O':
+                return 0.252
+            else:
+                raise ValueError(f"Surface cooling tower design: {design} with fluid: {self.fluid_name} is not supported")
+        else:
+            raise ValueError(f"Surface cooling tower design: {design} is not supported")
+
+
+    @staticmethod
+    def get_table(fname: str, header:int = 0) -> pd.DataFrame:
+        path = fname
+        if not os.path.isabs(fname):
+            path = os.path.join(Path(__file__).parent.parent.parent.parent.parent, 'data', fname)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"{path} not found.")
+        try:
+            table = pd.read_excel(path, header=header)
+        except:
+            raise RuntimeError(f"Failed to read {path}.")
+        return table
+
+
+    def set_constants(self) -> None:
+        self.PPI_table = self.get_table(self.specs['economic'].PPI_table, header=1)
+        self.cost_mult_table = self.get_table(self.specs['economic'].cost_multiplier_table)
+
+        self.PPI = dict() # producer price index (PPI)
+        self.PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
+        self.PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
+        self.PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
+        self.PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
+        self.PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
+        self.PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
+        self.PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
+
+        self.cost_mult = dict() # [X_IC (indirect cost multiplier), X_PC (project contingency multiplier)]
+        self.cost_mult['wells'] = self.get_multiplier_values(component="Wells")
+        self.cost_mult['wellfield'] = self.get_multiplier_values(component="Well_field")
+        self.cost_mult['pipes'] = self.get_multiplier_values(component="Surface_pipes")
+        self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
+        self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
+
+
+    def get_PPI_value(self, col_name: str) -> float:
+        """
+
+        Args:
+            col_name:
+
+        Returns: producer price index (PPI)
+
+        """
+        df = self.PPI_table
+        year = self.cost_year
+        val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind='linear')(year))
+        if np.isnan(val):
+            logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
+            val = float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
+        return val
+
+    def get_multiplier_values(self, component: str) -> list:
+        """
+
+        Args:
+            component:
+
+        Returns: X_IC (indirect cost multiplier), X_PC (project contingency multiplier)
+
+        """
+        df = self.cost_mult_table
+        idx = df.index[df['Component']==component]
+        return df['X_IC'].iloc[idx].iloc[0], df['X_PC'].iloc[idx].iloc[0]
+
+    """
+        section: wells
+    """
+
+    def get_well_length(self, well_specs: dict) -> float:
+        if well_specs.well_length is not None:
+            return well_specs.well_length
+        return self.reservoir_depth / np.cos(np.deg2rad(well_specs.vertical_deviation))
+
+
+    def get_num_wells(self) -> list: # per pattern
+        if self.well_pattern == 'DOUBLET':
+            num_total_inj = 1
+            num_total_prd = 1
+        elif self.well_pattern == '5SPOT':
+            num_total_inj = (self.num_patterns_sqrt + 1) ** 2
+            num_total_prd = self.num_patterns
+        elif self.well_pattern == 'INVERTED_5SPOT':
+            num_total_inj = self.num_patterns
+            num_total_prd = (self.num_patterns_sqrt + 1) ** 2
+        else:
+            raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
+        return num_total_inj, num_total_prd
+
+
+    def get_dC_CO2_well(self, PPI: float, X_IC: float, X_PC: float, d: float, L: float, fluid_name: str) -> float:
+        if fluid_name != "CO2":
+            return 0
+        return X_IC * X_PC * PPI * (265. * d * L + 133. * L)
+
+
+    def get_individual_well_cost(self, L: float, d: float, pos: float, fluid_name: str = "H2O") -> float:
+        PPI = self.PPI['O&G']
+        X_IC, X_PC = self.cost_mult['wells']
+        C_well = X_IC * X_PC * PPI * (0.105 * L ** 2 + 1776. * d * L + 275300.) # well cost (base line)
+        dC_CO2_well = self.get_dC_CO2_well(PPI, X_IC, X_PC, d, L, fluid_name) # adjustment for CO2
+        return (C_well + dC_CO2_well) / pos
+
+
+    def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
+        """
+
+        Args:
+            well_type: 'injection_well' or 'production_well'
+            num_wells: number of wells
+
+        Returns: total cost for wells with well_type
+
+        """
+        num_wells = 1 # TODO: test only. number of wells does not seem to be considered in genGEO...
+
+        if well_type not in self.specs:
+            return 0
+        if well_type == 'injection_well' and self.project_maturity == 'BROWN_FIELD':
+            return 0
+
+        well_specs = self.specs[well_type]
+        well_length = self.get_well_length(well_specs)
+        well_diameter = well_specs.diameter
+        probability_of_success = well_specs.probability_of_success
+
+        return num_wells * self.get_individual_well_cost(L=well_length,
+                                                         d=well_diameter,
+                                                         pos=probability_of_success,
+                                                         fluid_name=self.fluid_name)
+
+
+    def get_wells_cost(self) -> float:
+        num_total_inj, num_total_prod = self.get_num_wells()
+        C_inj = self.get_wells_cost_by_type(well_type='injection_well', num_wells=num_total_inj)
+        C_prd = self.get_wells_cost_by_type(well_type='production_well', num_wells=num_total_prod)
+        return C_inj + C_prd
+
+    """
+        section: field development
+    """
+
+    def get_dCO2_permitting(self, PPI: float, X_IC:float, X_PC: float) -> float:
+        if self.fluid_name != 'CO2':
+            return 0
+        return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * self.AMA
+
+
+    def get_dCO2_monitoring(self, PPI: float, X_IC:float, X_PC: float) -> float:
+        if self.fluid_name != 'CO2':
+            return 0
+        num_patterns = self.num_patterns_sqrt ** 2
+        C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * self.AMA
+        C_monitoring_well = num_patterns * self.get_individual_well_cost(L=self.reservoir_depth,
+                                                                         d=self.monitoring_well_diameter,
+                                                                         pos=self.monitoring_well_probability_of_success)
+        return C_surface_monitoring + C_monitoring_well
+
+    def get_permitting_cost(self) -> float:
+
+        if self.project_maturity == 'BROWN_FIELD':
+            return 0
+
+        PPI = self.PPI['permitting']
+        X_IC, X_PC = self.cost_mult['wellfield']
+
+        C_permitting = X_IC * X_PC * PPI * 665700.
+
+        dC_CO2_permitting = self.get_dCO2_permitting(self.PPI['permitting'], X_IC, X_PC)
+        dC_CO2_monitoring = self.get_dCO2_monitoring(self.PPI['O&G-s'], X_IC, X_PC)
+
+        return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
+
+    """
+        section: exploration
+    """
+
+    def get_dCO2_modeling(self, PPI: float, X_IC: float, X_PC: float) -> float:
+        if self.fluid_name != 'CO2':
+            return 0
+        return X_IC * X_PC * PPI * 44800 * (1/1e6) * self.AMA
+
+
+    def get_dCO2_characterization(self) -> float:
+        if self.fluid_name != 'CO2':
+            return 0
+        num_wells = self.num_characterization_wells
+        pos = self.characterization_well_pos
+        C_characterization_well = self.get_individual_well_cost(L=self.reservoir_depth,
+                                                               d=self.characterization_well_diameter,
+                                                               pos=1.0)
+        return 0.2 * num_wells * C_characterization_well / pos
+
+
+    def get_exploration_cost(self) -> float:
+
+        if self.project_maturity == 'BROWN_FIELD':
+            return 0
+
+        PPI = self.PPI['O&G-s']
+        X_IC, X_PC = self.cost_mult['exploration']
+
+        C_modeling = X_IC * X_PC * PPI * 508000
+
+        dC_CO2_modeling = self.get_dCO2_modeling(PPI, X_IC, X_PC)
+        dC_CO2_characterization = self.get_dCO2_characterization()
+
+        return C_modeling + dC_CO2_modeling + dC_CO2_characterization
+
+    """
+        section: surface pipes
+    """
+
+    def get_surface_pipe_geometrical_parameters(self) -> list:
+        """
+
+        Returns: [L, D]
+                 where, L=total surface pipe length  (m), and D = surface pipe diameter (m)
+
+        """
+        L_single_pair = min(self.well_spacing, self.surface_pipe_length_per_well_pair) # single inj-prod pair
+        D = self.surface_pipe_diameter
+        if self.well_pattern == 'DOUBLET':
+            return L_single_pair, D
+        elif '5SPOT' in self.well_pattern:
+            num_patterns = self.num_patterns_sqrt ** 2
+            # L = num_patterns * 4 * L_single_pair
+            L = num_patterns * 4 * self.surface_pipe_length_per_well_pair #TODO: consistent with genGEO, but not sure if this is correct...
+        else:
+            raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
+        return L, D
+
+
+    def get_pipe_cost(self) -> float:
+        if 'surface' not in self.specs:
+            return 0
+        PPI = self.PPI['pipes']
+        X_IC, X_PC = self.cost_mult['pipes']
+        L, D = self.get_surface_pipe_geometrical_parameters()
+        return X_PC * X_IC * PPI * (2205. * D**2 + 134.) * L
+
+    """
+        section: surface power plant
+    """
+
+    def get_num_well_pairs_per_pattern(self) -> int:
+        if self.well_pattern == 'DOUBLET':
+            return 1
+        elif '5SPOT' in self.well_pattern:
+            return 4
+        else:
+            raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
+
+
+    def process_surface_state(self) -> None:
+
+        num_total_well_pairs = self.get_num_well_pairs_per_pattern() * self.num_patterns #TODO: check if this multiplier is not duplicated
+        m_dot = self.mass_flow_rate
+
+        self.Q_condenser_total = num_total_well_pairs * m_dot * self.state.q_condenser
+        self.Q_cooler_total = num_total_well_pairs * m_dot * self.state.q_cooler
+        self.Q_preheater_total = num_total_well_pairs * m_dot * self.state.q_preheater
+        self.Q_boiler_total = num_total_well_pairs * m_dot * self.state.q_boiler
+        self.Q_desuperheater_total = num_total_well_pairs * m_dot * self.state.q_desuperheater
+
+        self.W_pump_total = num_total_well_pairs * m_dot * self.state.w_pump
+        self.W_turbine_total = num_total_well_pairs * m_dot * self.state.w_turbine
+        self.W_cooler_total = num_total_well_pairs * m_dot * self.state.w_cooler
+        self.W_condenser_total = num_total_well_pairs * m_dot * self.state.w_condenser
+        self.W_net_total = self.W_pump_total + self.W_turbine_total + self.W_cooler_total + self.W_condenser_total
+
+
+    def get_turbine_generator_cost(self) -> float:
+        PPI = self.PPI['T-G']
+        S_T_fluid = self.turbine_cost_multiplier
+        W_turbine = self.W_turbine_total
+        return 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 + 3680 * (W_turbine / 1.e3) ** 0.617)
+
+
+    def get_pump_inj_cost(self) -> float:
+        PPI = self.PPI['pump']
+        W_pump = self.W_pump_total
+        S_pump = self.pump_material_cost_multiplier
+        return PPI * S_pump * 1750 * (1.34*-1*(W_pump/1e3))**0.7
+
+
+    def BAC_regression_model(self, coeffs: list) -> float:
+        """
+        Baltimore Aircoil Specific (BAC) regression model for cooling and condensing costs
+        """
+        a, b, c, d = coeffs
+        T_ambient = self.surface_ambient_temperature
+        dT_approach = self.surface_approach_temperature
+        dT_range = self.surface_temperature_range
+        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach+dT_range)
+
+
+    def get_C_cooling(self, cooling_mode: str):
+        if cooling_mode == 'WET':
+            coeffs = [5.58e3, 0., -1.77e1, 1.96e2]
+        elif cooling_mode == 'DRY':
+            coeffs = [7.31e3, 0., 0., 1.23e3]
+        else:
+            raise ValueError(f"surface_cooling_tower_mode: {cooling_mode} is not supported")
+        return self.BAC_regression_model(coeffs)
+
+
+    def get_C_condensing(self, cooling_mode: str):
+        if cooling_mode == 'WET':
+            coeffs = [4.08e3, -1.54e-2, -1.24e1, 0.]
+        elif cooling_mode == 'DRY':
+            coeffs = [1.91e3, 0., 0., 0.]
+        else:
+            raise ValueError(f"surface_cooling_tower_mode: {cooling_mode} is not supported")
+        return self.BAC_regression_model(coeffs)
+
+
+    def get_cooling_condensing_tower_cost(self) -> float:
+
+        TDC = self.tower_design_coefficient
+        PPI = self.PPI['PE']
+
+        Q_cooler = self.Q_desuperheater_total
+        Q_condenser = self.Q_condenser_total
+        W_pump = self.W_pump_total
+        W_turbine = self.W_turbine_total
+        
+        cooling_mode = self.surface_cooling_tower_mode
+        C_cooling = self.get_C_cooling(cooling_mode) # specific cooling tower cost ($/kW)
+        C_condensing = self.get_C_condensing(cooling_mode) # specific condensing tower cost ($/kW)
+
+        Q_Ref_BAC = 1.0e6 # nominal heat load (=1.0 MWth)
+        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser))
+        C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
+        return C_Ref_BAC * (abs(Q_cooler+Q_condenser)/Q_Ref_BAC)**0.8
+
+
+
+    def get_power_plant_cost(self) -> float:
+
+        if 'surface' not in self.specs:
+            return 0
+
+        X_IC, X_PC = self.cost_mult['plant']
+        X_SE = 1.39 # secondary equipment cost (control system, pumps, valuves, buildings, etc.)
+        X_CL = 0.58 # construction later cost
+        X_CM = 0.11 # construction material cost
+        X_ST = 0.00 # sales tax
+        X_F = 0.04  # equipment freight
+
+        self.process_surface_state()
+
+        C_turbine_generator = self.get_turbine_generator_cost()
+
+        C_pump_inj = self.get_pump_inj_cost()
+
+        C_cooling_condensing_tower = self.get_cooling_condensing_tower_cost()
+
+        C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower # primary equipment cost (PEC)
+
+        C_plant_TEC = X_SE * C_plant_PEC # total equipment cost (TEC)
+
+        C_plant_BEC = C_plant_TEC * (1 + X_CL + X_CM + X_ST + X_F) # bare erected cost (BEC)
+
+        return X_PC * X_IC * C_plant_BEC # total surface plant cost (TPC)
+
+    """
+        section: executives
+    """
+
+    def run_capex_models(self):
+        self.results['well'] = self.get_wells_cost()
+        self.results['permitting'] = self.get_permitting_cost()
+        self.results['exploration'] = self.get_exploration_cost()
+        self.results['surface_gathering_system'] = self.get_pipe_cost()
+        self.results['surface_plant'] = self.get_power_plant_cost()
+
+
+    def get_LCOE(self, CAPEX: float, capacity_W: float) -> float:
+        if CAPEX <= 0 or capacity_W <= 0:
+            return np.nan
+        d = self.discount_rate
+        t = self.lifetime # TODO: check how lifetime comes into play in reservoir-wells
+        CF = self.capacity_factor
+        F_OM = self.OPEX_cost_fraction
+        CRF = d * (1. + d) ** t / ( (1. + d) ** t - 1.) # capital recovery factor
+        return CAPEX * (CRF + F_OM) / (capacity_W * CF * 8760)
+
+
+    def get_specific_capital_cost(self, CAPEX: float, capacity_W: float) -> float:
+        if CAPEX <= 0 or capacity_W <= 0:
+            return np.nan
+        return CAPEX / capacity_W
+
+
+    def run_LCOE_model(self) -> None:
+        CAPEX_total = 0
+        for key in self.results.keys():
+             CAPEX_total += self.results[key]
+        self.results['CAPEX_total'] = CAPEX_total
+        self.results['LCOE'] = self.get_LCOE(CAPEX_total, self.W_net_total)
+        self.results['SpCC'] = self.get_specific_capital_cost(CAPEX_total, self.W_net_total)
+        self.results['RF'] = self.results['LCOE'] / self.results['SpCC']
+
+
+    def postprocessing(self) -> None: #TODO: improve
+        d = dict()
+        for key in self.results.keys():
+            d[key] = [self.results[key]]
+        df = pd.DataFrame(d)
+        df.to_csv('results.csv')
 
 
     def execute(self) -> None:
-        # raise NotImplementedError(f"execute method in {str(self.__class__)} has not yet been implemented.")
-        # compute cost for each component
-        cost = 0 # TODO: rename it as necessary
-        for model in self.models:
-            cost += model.get_cost()
-            # TODO: improve each get_cost() method.
-            #       e.g., return CAPEX at t=0, then return OPEX at t>0.
-            #       greenfield/brown field in specs['common']?
+
+        self.run_capex_models()
+
+        self.run_LCOE_model()
+
+        self.postprocessing()
+
+
 

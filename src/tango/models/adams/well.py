@@ -4,7 +4,6 @@ from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from dataclasses import dataclass
 import numpy as np
 
-import tango.models.adams.economic as econ
 
 @dataclass
 class WellSpecsAdams(CommonSpecs):
@@ -15,6 +14,7 @@ class WellSpecsAdams(CommonSpecs):
     num_cells: int = 100    # number of cells that is used for discretization
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     well_length: float = None
+    probability_of_success: float = 0.95
 
 
 class WellStateAdams(WellState):
@@ -86,7 +86,7 @@ class WellModelAdams(WellModel):
     def set_outlet_state(self, state) -> None:
         self.state.outlet_fluid = state.inlet_fluid
         self.state.inlet_fluid = FluidState.copy(self.state.outlet_fluid)
-        aaa=econ
+
         self.fluid_state_tmp = self.state.inlet_fluid
         self.fluid_state_init = self.state.outlet_fluid
 
@@ -167,20 +167,6 @@ class WellModelAdams(WellModel):
         r = self.specs.epsilon / self.specs.diameter  # relative roughness
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
-
-
-    def get_cost(self) -> float:
-        if self.specs.project_maturity.lower() == 'brown_field':
-            return 0
-        val = 0
-
-        #TODO: implement
-
-        # CAPEX
-
-        #OPEX
-
-        return val
 
 
     def execute(self) -> None:

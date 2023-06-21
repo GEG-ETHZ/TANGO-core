@@ -15,6 +15,8 @@ class ReservoirSpecsAdams(CommonSpecs):
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     inlet_temperature: float = 288.15    # K
     well_spacing: float = 707.0    # m
+    well_pattern: str = 'doublet'  # doublet, inverted_5spot
+    num_patterns_sqrt: int = 1  # square root of number of 5 spots
     well_diameter: float = 0.4    # m
     p1: float = -1.9376
     p2: float = 1.743
@@ -102,14 +104,6 @@ class ReservoirModelAdams(ReservoirModel):
         # The outlet fluid temperature is equal to the reservoir temperature
         outlet_temperature = self.gamma * self.reference_temperature + self.inlet_temperature
         self.state.outlet_fluid.updatePT(P=self.reference_pressure, T=outlet_temperature)
-
-
-    def set_econ_specs(self) -> None:
-        pass
-
-
-    def get_cost(self) -> float:
-        return 0 #TODO: implement
 
 
     def execute(self) -> None:
