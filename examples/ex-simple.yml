@@ -14,7 +14,7 @@ ProductionWellSpecs:
     Radius: 0.4 # in m
     Length: 3.0 # in km
 
-PowerPlantSpecs:
+SurfaceSpecs:
   Default:
     Radius: 0.4 # in m
     Length: 3.0 # in km

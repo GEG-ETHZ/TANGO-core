@@ -14,6 +14,8 @@ class ReservoirSpecsAdams(CommonSpecs):
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     well_spacing: float = 707.0    # m
+    well_pattern: str = 'doublet'  # doublet, inverted_5spot
+    num_patterns_sqrt: int = 1  # square root of number of 5 spots
     well_diameter: float = 0.4    # m
     p1: float = -1.9376
     p2: float = 1.743

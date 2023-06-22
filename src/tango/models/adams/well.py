@@ -14,6 +14,7 @@ class WellSpecsAdams(CommonSpecs):
     num_cells: int = 100    # number of cells that is used for discretization
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     well_length: float = None
+    probability_of_success: float = 0.95
 
 
 class WellStateAdams(WellState):
