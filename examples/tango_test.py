@@ -35,7 +35,8 @@ for i in range(5):
     print(state.surface.w_turbine*1e-6)
 
 if 'economic' in specs:
-    econ = EconomicModelAdams(model, specs['common'] | specs['economic'], state.surface)
+    econ = EconomicModelAdams(model, specs['common'] | specs['economic'])
+    econ.init_state(state.surface)
     econ.execute()
 
 print(econ.results)

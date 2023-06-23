@@ -36,12 +36,15 @@ class EconomicStateAdams(EconomicState):
 
 class EconomicModelAdams(EconomicModel):
 
-    def __init__(self, model: Model, specs: dict, state: ModelState) -> None:
+    def __init__(self, model: Model, specs: dict) -> None:
         self.set_specs(model, specs)
-        self.state = state  # surface
         self.set_constants()
         self.results = dict()
 
+
+    def init_state(self, state: ModelState):
+        self.state = state.surface  # surface
+        
 
     def set_specs(self, model: Model, specs: dict) -> None:
         self.specs = dict()
@@ -90,7 +93,7 @@ class EconomicModelAdams(EconomicModel):
         if self.fluid_name != 'CO2':
             return 0.
         # L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get side length
-        L_wellzone = self.num_patterns_sqrt * 1000  # TODO: genGEO uses constant value... the equation above is prob. better
+        L_wellzone = self.num_patterns_sqrt * 1000  # TODO: genGEO uses a constant value... the equation above is prob. better
         return (L_wellzone + 1600.) ** 2  # Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
 
 
@@ -454,7 +457,7 @@ class EconomicModelAdams(EconomicModel):
         C_condensing = self.get_C_condensing(cooling_mode) # specific condensing tower cost ($/kW)
 
         Q_Ref_BAC = 1.0e6 # nominal heat load (=1.0 MWth)
-        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser))
+        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
         C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
         return C_Ref_BAC * (abs(Q_cooler+Q_condenser)/Q_Ref_BAC)**0.8
 
@@ -542,6 +545,4 @@ class EconomicModelAdams(EconomicModel):
         self.run_LCOE_model()
 
         self.postprocessing()
-
-
 
