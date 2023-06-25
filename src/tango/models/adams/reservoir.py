@@ -100,7 +100,7 @@ class ReservoirModelAdams(ReservoirModel):
         average_rho = 0.5*(state.inlet_fluid.rho + state.outlet_fluid.rho)
 
         self.update_impedance(average_mu, average_rho)
-        self.delta_P = self.m_dot * self.impedance
+        self.delta_P = self.m_dot * self.impedance #TODO: number of wells may not be considered...
         self.update_temperature(state)
 
     @staticmethod

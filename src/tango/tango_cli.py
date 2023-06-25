@@ -8,6 +8,4 @@ if __name__ == '__main__':
 
     runner = Runner(sys.argv[1:])
 
-    runner.initialize()
-
-    runner.run()
+    runner.start()

@@ -4,9 +4,9 @@ import logging
 import sys
 import time
 import json
+import pandas as pd
 
 from tango.core.yaml_loader import load_from_yaml
-# from tango.models.adams import CGSModelAdams, CGSModelStateAdams
 from tango.models.adams import *
 
 class Runner:
@@ -47,8 +47,6 @@ class Runner:
                             format='%(asctime)s, %(levelname)s %(message)s',
                             datefmt='%Y-%m-%d %H:%M:%S',
                             level=level)
-        logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
-        logging.getLogger('PIL').setLevel(logging.WARNING)
         console = logging.StreamHandler()
         console.setLevel(level)
         logging.getLogger('').addHandler(console)
@@ -72,14 +70,10 @@ class Runner:
 
 
     def set_workflow(self) -> None:
+        #TODO: enable non CGS (conventional geothermal system) options
         self.state = CGSModelStateAdams()
         self.model = CGSModelAdams(self.specs)
-        self.model.init_state(self.state)
-        self.econ = None
-        if 'economic' in self.specs:
-            # self.model.econ.init_specs()
-            self.econ = EconomicModelAdams(model=self.model,
-                                           specs=self.specs['common'] | self.specs['economic'])
+        self.model.initialize(self.state)
         self.print_input_summary()
 
 
@@ -87,37 +81,34 @@ class Runner:
         logging.info(f"Input summary: {json.dumps(self.specs, indent=4)}")
         logging.debug(f"Detailed input summary for each component.")
         for name in self.model.model_dict.keys():
-            data = self.model.model_dict[name].specs.__dict__
-            logging.debug(f"{name}:\n{json.dumps(data, indent=4)}")
-        if self.econ:
-            data = self.specs['common'] | self.specs['economic']
-            logging.debug(f"economic:\n{json.dumps(data, indent=4)}")
+            logging.debug(f"{name}:\n{json.dumps(self.model.model_dict[name].specs.__dict__, indent=4)}")
 
 
-    def run_geothermal_power_model(self) -> None:
-        logging.info("Running geothermal power model")
+    def run_models(self) -> None:
         # for i in range(self.specs['lifetime']): #TODO: check how lifetime comes into play
         #     self.model.execute(state)
+        logging.info(f"Executing models.")
         self.model.execute(self.state)
+        self.model.economic.execute()
 
-
-    def run_econ_model(self) -> None:
-        if self.econ == None:
-            return
-        logging.info("Running economic model")
-        self.econ.init_state(state=self.state)
-        self.econ.execute()
 
 
     def post_processing(self) -> None:
-        pass
+        fname = os.path.splitext(self.input_file)[0] + ".csv"
+        logging.info("Post processing.")
+        logging.info(f"Writing output summary in {fname}")
+        d = dict()
+        for key in self.model.economic.results.keys():
+            d[key] = [self.model.economic.results[key]]
+        df = pd.DataFrame(d)
+        df.to_csv(fname, index=False)
 
 
-    def run(self):
+    def start(self):
 
-        self.run_geothermal_power_model()
+        self.initialize()
 
-        self.run_econ_model()
+        self.run_models()
 
         self.post_processing()
 
