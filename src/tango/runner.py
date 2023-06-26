@@ -78,33 +78,35 @@ class Runner:
 
 
     def print_input_summary(self) -> None:
-        logging.info(f"Input summary: {json.dumps(self.specs, indent=4)}")
+        logging.info(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
         logging.debug(f"Detailed input summary for each component.")
         for name in self.model.model_dict.keys():
             logging.debug(f"{name}:\n{json.dumps(self.model.model_dict[name].specs.__dict__, indent=4)}")
 
 
     def run_models(self) -> None:
-        # for i in range(self.specs['lifetime']): #TODO: check how lifetime comes into play
-        #     self.model.execute(state)
-        logging.info(f"Executing models.")
-        self.model.execute(self.state)
+        for i in range(self.specs['lifetime']): #TODO: check how lifetime comes into play
+            self.model.execute(self.state)
+            # TODO: save output time series
+        logging.info(f"Executing models: {list(self.model.model_dict.keys())}")
+        # self.model.execute(self.state)
         self.model.economic.execute()
 
 
+    def post_processing(self) -> None: #TODO: improve
 
-    def post_processing(self) -> None:
         fname = os.path.splitext(self.input_file)[0] + ".csv"
-        logging.info("Post processing.")
-        logging.info(f"Writing output summary in {fname}")
+        logging.info(f"Output summary > {fname}:\n {json.dumps(self.model.economic.results, indent=4)}")
         d = dict()
         for key in self.model.economic.results.keys():
             d[key] = [self.model.economic.results[key]]
         df = pd.DataFrame(d)
         df.to_csv(fname, index=False)
 
+        logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self.start_time))
 
-    def start(self):
+
+    def start(self) -> None:
 
         self.initialize()
 
@@ -112,4 +114,4 @@ class Runner:
 
         self.post_processing()
 
-        logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self.start_time))
+

@@ -36,6 +36,7 @@ class EconomicModelAdams(EconomicModel):
 
     def __init__(self, specs: dict, model_dict: dict) -> None:
         self.specs = dict()
+        self.results = dict()
         self.specs['economic'] = EconomicSpecsAdams(**specs)
         for key in model_dict.keys():
             self.specs[key] = model_dict[key].specs
@@ -72,8 +73,6 @@ class EconomicModelAdams(EconomicModel):
 
         self.set_constants()
 
-        self.results = dict()
-
 
     def check_inputs(self) -> None:
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
@@ -82,6 +81,8 @@ class EconomicModelAdams(EconomicModel):
             raise RuntimeError(f"project_maturity in 'economic' section is not defined.")
         if self.project_maturity not in PROJECT_MATURITY_OPTIONS:
             raise RuntimeError(f"project_maturity: {self.project_maturity} is not supported.")
+        if self.fluid_name not in FLUID_NAME_OPTIONS:
+            raise RuntimeError(f"fluid_name: {self.fluid_name} is not supported.")
 
 
     def set_constants(self) -> None:
@@ -107,7 +108,7 @@ class EconomicModelAdams(EconomicModel):
         self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
 
         # fluid type dependent parameters
-        self.AMA = self.get_active_monitoring_area()
+        self.active_monitoring_area = self.get_active_monitoring_area()
         self.turbine_cost_multiplier = self.get_turbine_cost_multiplier()
         self.pump_material_cost_multiplier = self.get_pump_material_cost_multiplier()
         self.tower_design_coefficient = self.get_tower_design_coefficient()
@@ -138,7 +139,7 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_tower_design_coefficient(self) -> float:
-        design = self.specs['surface'].cooling_tower_design
+        design = self.specs['surface'].cooling_tower_design.upper()
         if design == 'CLOSED':
             if self.fluid_name == 'CO2':
                 return 1.2
@@ -249,16 +250,16 @@ class EconomicModelAdams(EconomicModel):
     +==================================================================================================================-
     """
 
-    def get_dCO2_permitting(self, PPI: float, X_IC:float, X_PC: float) -> float:
+    def get_dCO2_permitting(self, PPI: float, X_IC:float, X_PC: float, AMA: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * self.AMA
+        return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * AMA
 
 
-    def get_dCO2_monitoring(self, PPI: float, X_IC:float, X_PC: float) -> float:
+    def get_dCO2_monitoring(self, PPI: float, X_IC:float, X_PC: float, AMA: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * self.AMA
+        C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * AMA
         C_monitoring_well = self.num_patterns * self.get_individual_well_cost(L=self.reservoir_depth,
                                                                               d=self.monitoring_well_diameter,
                                                                               pos=self.monitoring_well_probability_of_success)
@@ -271,11 +272,12 @@ class EconomicModelAdams(EconomicModel):
 
         PPI = self.PPI['permitting']
         X_IC, X_PC = self.cost_mult['wellfield']
+        AMA = self.active_monitoring_area
 
         C_permitting = X_IC * X_PC * PPI * 665700.
 
-        dC_CO2_permitting = self.get_dCO2_permitting(self.PPI['permitting'], X_IC, X_PC)
-        dC_CO2_monitoring = self.get_dCO2_monitoring(self.PPI['O&G-s'], X_IC, X_PC)
+        dC_CO2_permitting = self.get_dCO2_permitting(self.PPI['permitting'], X_IC, X_PC, AMA)
+        dC_CO2_monitoring = self.get_dCO2_monitoring(self.PPI['O&G-s'], X_IC, X_PC, AMA)
 
         return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
 
@@ -288,7 +290,7 @@ class EconomicModelAdams(EconomicModel):
     def get_dCO2_modeling(self, PPI: float, X_IC: float, X_PC: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        return X_IC * X_PC * PPI * 44800 * (1/1e6) * self.AMA
+        return X_IC * X_PC * PPI * 44800 * (1/1e6) * self.active_monitoring_area
 
 
     def get_dCO2_characterization(self) -> float:
