@@ -1,16 +1,14 @@
-import logging
-
 from tango.models.base import *
 from tango.model import ModelState, Model
 from dataclasses import dataclass
-from tango.core import config
+from tango.core.config import *
 from tango.models.adams.well import WellSpecsAdams
 
-import os
-from pathlib import Path
+import logging
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from scipy.interpolate import interp1d
 
 
@@ -18,14 +16,14 @@ from scipy.interpolate import interp1d
 class EconomicSpecsAdams(CommonSpecs):
     PPI_table: str = 'PPI_table.xlsx'
     cost_multiplier_table: str = 'cost_multiplier_table.xlsx'
-    OPEX_cost_fraction = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant) TODO: check if this value makes sense.
-    discount_rate = 0.096
-    capacity_factor = 0.9
-    monitoring_well_diameter = 0.216 # m
-    monitoring_well_probability_of_success = 1.0
+    OPEX_cost_fraction: float = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant) TODO: check if this value makes sense.
+    discount_rate: float = 0.096
+    capacity_factor: float = 0.9
+    monitoring_well_diameter: float = 0.216 # m
+    monitoring_well_probability_of_success: float = 1.0
     #TODO: add monitoring well desity?
-    num_characterization_wells = 2
-    project_maturity: str = 'BROWN_FIELD'
+    num_characterization_wells: int = 2
+    project_maturity: str =  ''
 
 
 class EconomicStateAdams(EconomicState):
@@ -36,20 +34,12 @@ class EconomicStateAdams(EconomicState):
 
 class EconomicModelAdams(EconomicModel):
 
-    def __init__(self, model: Model, specs: dict, state: ModelState) -> None:
-        self.set_specs(model, specs)
-        self.state = state  # surface
-        self.set_constants()
-        self.results = dict()
-
-
-    def set_specs(self, model: Model, specs: dict) -> None:
+    def __init__(self, specs: dict, model_dict: dict) -> None:
         self.specs = dict()
+        self.results = dict()
         self.specs['economic'] = EconomicSpecsAdams(**specs)
-        component_names = ['reservoir', 'injection_well', 'production_well', 'surface']
-        for name in component_names:
-            component = getattr(model, name)
-            self.specs[name] = component.specs
+        for key in model_dict.keys():
+            self.specs[key] = model_dict[key].specs
 
         self.fluid_name = self.specs['reservoir'].fluid_name
         self.reservoir_depth = self.specs['reservoir'].reservoir_depth
@@ -57,6 +47,9 @@ class EconomicModelAdams(EconomicModel):
         self.well_spacing = self.specs['reservoir'].well_spacing # inj-prod pair spacing
         self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
         self.num_patterns = self.num_patterns_sqrt ** 2
+
+        self.characterization_well_pos =  self.specs['production_well'].probability_of_success
+        self.characterization_well_diameter = self.specs['production_well'].diameter
 
         self.surface_pipe_diameter = self.specs['surface'].pipe_diameter
         self.surface_pipe_length_per_well_pair = self.specs['surface'].pipe_length_per_well_pair
@@ -76,38 +69,77 @@ class EconomicModelAdams(EconomicModel):
         self.discount_rate = self.specs['economic'].discount_rate
         self.capacity_factor = self.specs['economic'].capacity_factor
 
-        self.characterization_well_pos =  self.specs['production_well'].probability_of_success
-        self.characterization_well_diameter = self.specs['production_well'].diameter
+        self.check_inputs()
+
+        self.set_constants()
+
+
+    def check_inputs(self) -> None:
+        if self.well_pattern not in WELL_PATTERN_OPTIONS:
+            raise RuntimeError(f"Well pattern: {self.well_pattern} is not supported.")
+        if not self.project_maturity:
+            raise RuntimeError(f"project_maturity in 'economic' section is not defined.")
+        if self.project_maturity not in PROJECT_MATURITY_OPTIONS:
+            raise RuntimeError(f"project_maturity: {self.project_maturity} is not supported.")
+        if self.fluid_name not in FLUID_NAME_OPTIONS:
+            raise RuntimeError(f"fluid_name: {self.fluid_name} is not supported.")
+
+
+    def set_constants(self) -> None:
+
+        # multipliers
+        self.PPI_table = self.get_table(self.specs['economic'].PPI_table, header=1)
+        self.cost_mult_table = self.get_table(self.specs['economic'].cost_multiplier_table)
+
+        self.PPI = dict() # producer price index (PPI)
+        self.PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
+        self.PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
+        self.PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
+        self.PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
+        self.PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
+        self.PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
+        self.PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
+
+        self.cost_mult = dict() # [X_IC (indirect cost multiplier), X_PC (project contingency multiplier)]
+        self.cost_mult['wells'] = self.get_multiplier_values(component="Wells")
+        self.cost_mult['wellfield'] = self.get_multiplier_values(component="Well_field")
+        self.cost_mult['pipes'] = self.get_multiplier_values(component="Surface_pipes")
+        self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
+        self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
 
         # fluid type dependent parameters
-        self.AMA = self.get_AMA()
-        self.turbine_cost_multiplier = self.get_S_T_fluid() # turbine cost multiplier
-        self.pump_material_cost_multiplier = self.get_S_pump() # pump material multiplier
-        self.tower_design_coefficient = self.get_TDC()
+        self.active_monitoring_area = self.get_active_monitoring_area()
+        self.turbine_cost_multiplier = self.get_turbine_cost_multiplier()
+        self.pump_material_cost_multiplier = self.get_pump_material_cost_multiplier()
+        self.tower_design_coefficient = self.get_tower_design_coefficient()
 
 
-    def get_AMA(self) -> float:
+    def set_inlet_state(self, state: ModelState):
+        self.state = state  # surface
+
+
+    def get_active_monitoring_area(self) -> float:
         if self.fluid_name != 'CO2':
             return 0.
-        # L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get side length
-        L_wellzone = self.num_patterns_sqrt * 1000  # TODO: genGEO uses constant value... the equation above is prob. better
+        # L_wellzone = self.num_patterns_sqrt * 1000  # genGEO implementation (a constant value...)
+        L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get a side length
         return (L_wellzone + 1600.) ** 2  # Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
 
 
-    def get_S_T_fluid(self) -> float:
+    def get_turbine_cost_multiplier(self) -> float:
         if self.fluid_name != 'CO2':
             return 1.0
         return 1.2
 
 
-    def get_S_pump(self) -> float:
+    def get_pump_material_cost_multiplier(self) -> float:
         if self.fluid_name != 'H2O':
             return 2.09 # stailes steel (suitable for non-water fluids, such as CO2)
         return 1.0 # Iron (suitable for non-corrosive liquids, such as water or glycol)
 
 
-    def get_TDC(self) -> float:
-        design = self.specs['surface'].cooling_tower_design
+    def get_tower_design_coefficient(self) -> float:
+        design = self.specs['surface'].cooling_tower_design.upper()
         if design == 'CLOSED':
             if self.fluid_name == 'CO2':
                 return 1.2
@@ -136,59 +168,25 @@ class EconomicModelAdams(EconomicModel):
         return table
 
 
-    def set_constants(self) -> None:
-        self.PPI_table = self.get_table(self.specs['economic'].PPI_table, header=1)
-        self.cost_mult_table = self.get_table(self.specs['economic'].cost_multiplier_table)
-
-        self.PPI = dict() # producer price index (PPI)
-        self.PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
-        self.PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
-        self.PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
-        self.PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
-        self.PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
-        self.PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
-        self.PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
-
-        self.cost_mult = dict() # [X_IC (indirect cost multiplier), X_PC (project contingency multiplier)]
-        self.cost_mult['wells'] = self.get_multiplier_values(component="Wells")
-        self.cost_mult['wellfield'] = self.get_multiplier_values(component="Well_field")
-        self.cost_mult['pipes'] = self.get_multiplier_values(component="Surface_pipes")
-        self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
-        self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
-
-
     def get_PPI_value(self, col_name: str) -> float:
-        """
-
-        Args:
-            col_name:
-
-        Returns: producer price index (PPI)
-
-        """
         df = self.PPI_table
         year = self.cost_year
         val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind='linear')(year))
         if np.isnan(val):
             logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
-            val = float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
+            return float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
         return val
 
+
     def get_multiplier_values(self, component: str) -> list:
-        """
-
-        Args:
-            component:
-
-        Returns: X_IC (indirect cost multiplier), X_PC (project contingency multiplier)
-
-        """
         df = self.cost_mult_table
         idx = df.index[df['Component']==component]
         return df['X_IC'].iloc[idx].iloc[0], df['X_PC'].iloc[idx].iloc[0]
 
     """
+    +==================================================================================================================-
         section: wells
+    +==================================================================================================================-
     """
 
     def get_well_length(self, well_specs: dict) -> float:
@@ -227,30 +225,16 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
-        """
-
-        Args:
-            well_type: 'injection_well' or 'production_well'
-            num_wells: number of wells
-
-        Returns: total cost for wells with well_type
-
-        """
-        num_wells = 1 # TODO: test only. number of wells does not seem to be considered in genGEO...
-
+        # num_wells = 1 # TODO: test only. number of wells does not seem to be considered in genGEO...
         if well_type not in self.specs:
             return 0
         if well_type == 'injection_well' and self.project_maturity == 'BROWN_FIELD':
             return 0
-
         well_specs = self.specs[well_type]
         well_length = self.get_well_length(well_specs)
-        well_diameter = well_specs.diameter
-        probability_of_success = well_specs.probability_of_success
-
         return num_wells * self.get_individual_well_cost(L=well_length,
-                                                         d=well_diameter,
-                                                         pos=probability_of_success,
+                                                         d=well_specs.diameter,
+                                                         pos=well_specs.probability_of_success,
                                                          fluid_name=self.fluid_name)
 
 
@@ -261,23 +245,24 @@ class EconomicModelAdams(EconomicModel):
         return C_inj + C_prd
 
     """
-        section: field development
+    +==================================================================================================================-
+        section: field development / permitting
+    +==================================================================================================================-
     """
 
-    def get_dCO2_permitting(self, PPI: float, X_IC:float, X_PC: float) -> float:
+    def get_dCO2_permitting(self, PPI: float, X_IC:float, X_PC: float, AMA: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * self.AMA
+        return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * AMA
 
 
-    def get_dCO2_monitoring(self, PPI: float, X_IC:float, X_PC: float) -> float:
+    def get_dCO2_monitoring(self, PPI: float, X_IC:float, X_PC: float, AMA: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        num_patterns = self.num_patterns_sqrt ** 2
-        C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * self.AMA
-        C_monitoring_well = num_patterns * self.get_individual_well_cost(L=self.reservoir_depth,
-                                                                         d=self.monitoring_well_diameter,
-                                                                         pos=self.monitoring_well_probability_of_success)
+        C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * AMA
+        C_monitoring_well = self.num_patterns * self.get_individual_well_cost(L=self.reservoir_depth,
+                                                                              d=self.monitoring_well_diameter,
+                                                                              pos=self.monitoring_well_probability_of_success)
         return C_surface_monitoring + C_monitoring_well
 
     def get_permitting_cost(self) -> float:
@@ -287,22 +272,25 @@ class EconomicModelAdams(EconomicModel):
 
         PPI = self.PPI['permitting']
         X_IC, X_PC = self.cost_mult['wellfield']
+        AMA = self.active_monitoring_area
 
         C_permitting = X_IC * X_PC * PPI * 665700.
 
-        dC_CO2_permitting = self.get_dCO2_permitting(self.PPI['permitting'], X_IC, X_PC)
-        dC_CO2_monitoring = self.get_dCO2_monitoring(self.PPI['O&G-s'], X_IC, X_PC)
+        dC_CO2_permitting = self.get_dCO2_permitting(self.PPI['permitting'], X_IC, X_PC, AMA)
+        dC_CO2_monitoring = self.get_dCO2_monitoring(self.PPI['O&G-s'], X_IC, X_PC, AMA)
 
         return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
 
     """
+    +==================================================================================================================-
         section: exploration
+    +==================================================================================================================-
     """
 
     def get_dCO2_modeling(self, PPI: float, X_IC: float, X_PC: float) -> float:
         if self.fluid_name != 'CO2':
             return 0
-        return X_IC * X_PC * PPI * 44800 * (1/1e6) * self.AMA
+        return X_IC * X_PC * PPI * 44800 * (1/1e6) * self.active_monitoring_area
 
 
     def get_dCO2_characterization(self) -> float:
@@ -332,27 +320,20 @@ class EconomicModelAdams(EconomicModel):
         return C_modeling + dC_CO2_modeling + dC_CO2_characterization
 
     """
+    +==================================================================================================================-
         section: surface pipes
+    +==================================================================================================================-
     """
 
-    def get_surface_pipe_geometrical_parameters(self) -> list:
-        """
-
-        Returns: [L, D]
-                 where, L=total surface pipe length  (m), and D = surface pipe diameter (m)
-
-        """
+    def get_surface_pipe_total_length(self) -> float:
         L_single_pair = min(self.well_spacing, self.surface_pipe_length_per_well_pair) # single inj-prod pair
-        D = self.surface_pipe_diameter
         if self.well_pattern == 'DOUBLET':
-            return L_single_pair, D
+            return L_single_pair
         elif '5SPOT' in self.well_pattern:
-            num_patterns = self.num_patterns_sqrt ** 2
-            # L = num_patterns * 4 * L_single_pair
-            L = num_patterns * 4 * self.surface_pipe_length_per_well_pair #TODO: consistent with genGEO, but not sure if this is correct...
+            return self.num_patterns * 4 * L_single_pair
+            # L = self.num_patterns * 4 * self.surface_pipe_length_per_well_pair # genGEO method. not sure if this is correct...
         else:
             raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
-        return L, D
 
 
     def get_pipe_cost(self) -> float:
@@ -360,11 +341,14 @@ class EconomicModelAdams(EconomicModel):
             return 0
         PPI = self.PPI['pipes']
         X_IC, X_PC = self.cost_mult['pipes']
-        L, D = self.get_surface_pipe_geometrical_parameters()
+        L = self.get_surface_pipe_total_length()
+        D = self.surface_pipe_diameter
         return X_PC * X_IC * PPI * (2205. * D**2 + 134.) * L
 
     """
+    +==================================================================================================================-
         section: surface power plant
+    +==================================================================================================================-
     """
 
     def get_num_well_pairs_per_pattern(self) -> int:
@@ -454,7 +438,7 @@ class EconomicModelAdams(EconomicModel):
         C_condensing = self.get_C_condensing(cooling_mode) # specific condensing tower cost ($/kW)
 
         Q_Ref_BAC = 1.0e6 # nominal heat load (=1.0 MWth)
-        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser))
+        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
         C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
         return C_Ref_BAC * (abs(Q_cooler+Q_condenser)/Q_Ref_BAC)**0.8
 
@@ -489,15 +473,21 @@ class EconomicModelAdams(EconomicModel):
         return X_PC * X_IC * C_plant_BEC # total surface plant cost (TPC)
 
     """
+    +==================================================================================================================+
         section: executives
+    +==================================================================================================================+
     """
 
-    def run_capex_models(self):
-        self.results['well'] = self.get_wells_cost()
-        self.results['permitting'] = self.get_permitting_cost()
-        self.results['exploration'] = self.get_exploration_cost()
-        self.results['surface_gathering_system'] = self.get_pipe_cost()
-        self.results['surface_plant'] = self.get_power_plant_cost()
+    def compute_capex(self) -> None:
+        self.results['CAPEX_well'] = self.get_wells_cost()
+        self.results['CAPEX_permitting'] = self.get_permitting_cost()
+        self.results['CAPEX_exploration'] = self.get_exploration_cost()
+        self.results['CAPEX_surface_gathering_system'] = self.get_pipe_cost()
+        self.results['CAPEX_surface_plant'] = self.get_power_plant_cost()
+        val = 0
+        for key in self.results.keys():
+             val += self.results[key]
+        self.results['CAPEX_total'] = val
 
 
     def get_LCOE(self, CAPEX: float, capacity_W: float) -> float:
@@ -517,31 +507,16 @@ class EconomicModelAdams(EconomicModel):
         return CAPEX / capacity_W
 
 
-    def run_LCOE_model(self) -> None:
-        CAPEX_total = 0
-        for key in self.results.keys():
-             CAPEX_total += self.results[key]
-        self.results['CAPEX_total'] = CAPEX_total
-        self.results['LCOE'] = self.get_LCOE(CAPEX_total, self.W_net_total)
-        self.results['SpCC'] = self.get_specific_capital_cost(CAPEX_total, self.W_net_total)
+    def compute_LCOE(self) -> None:
+        self.results['LCOE'] = self.get_LCOE(self.results['CAPEX_total'], self.W_net_total)
+        self.results['SpCC'] = self.get_specific_capital_cost(self.results['CAPEX_total'], self.W_net_total)
         self.results['RF'] = self.results['LCOE'] / self.results['SpCC']
-
-
-    def postprocessing(self) -> None: #TODO: improve
-        d = dict()
-        for key in self.results.keys():
-            d[key] = [self.results[key]]
-        df = pd.DataFrame(d)
-        df.to_csv('results.csv')
 
 
     def execute(self) -> None:
 
-        self.run_capex_models()
+        self.compute_capex()
 
-        self.run_LCOE_model()
-
-        self.postprocessing()
-
+        self.compute_LCOE()
 
 

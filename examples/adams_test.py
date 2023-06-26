@@ -4,7 +4,6 @@ from tango.core.yaml_loader import load_from_yaml
 # specs = load_from_yaml('adamsmodel.yml')
 specs = load_from_yaml('adamsmodel_genGEO_example.yml')
 
-
 state = CGSModelStateAdams()
 model = CGSModelAdams(specs)
 model.init_state(state)
