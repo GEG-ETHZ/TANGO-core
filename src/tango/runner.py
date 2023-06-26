@@ -5,9 +5,18 @@ import sys
 import time
 import json
 import pandas as pd
+from tqdm import tqdm
 
+from dataclasses import dataclass
+from tango.core.config import *
 from tango.core.yaml_loader import load_from_yaml
 from tango.models.adams import *
+
+@dataclass
+class RunnerSpecs():
+    workflow: str # workflow option
+    file: str = '' # input file for the workflow (required only for external software options)
+
 
 class Runner:
 
@@ -61,42 +70,109 @@ class Runner:
         self.set_workflow()
 
 
-    def read_inputs(self):
+    def read_inputs(self) -> None:
         try:
             logging.info(f"Running TANGO using {self.input_file}")
             self.specs = load_from_yaml(self.input_file)
+            self.runspec = RunnerSpecs(**self.specs['runspec'])
         except:
             raise RuntimeError(f"Failed to read {self.input_file}")
+        logging.debug(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
 
 
-    def set_workflow(self) -> None:
-        #TODO: enable non CGS (conventional geothermal system) options
+    def set_STANDALONE_CGS(self) -> None:
         self.state = CGSModelStateAdams()
         self.model = CGSModelAdams(self.specs)
         self.model.initialize(self.state)
-        self.print_input_summary()
+        self.results = {'time_yr': [],
+                        'inj_well_H': [], 'inj_well_P': [], 'inj_well_Q': [], 'inj_well_S': [], 'inj_well_T': [], # surface (inlet)
+                        'prd_well_H': [], 'prd_well_P': [], 'prd_well_Q': [], 'prd_well_S': [], 'prd_well_T': [], # surface (outlet)
+                        'res_energy_extracted': [], # subsurface
+                        'q_boiler': [], 'q_condenser': [], 'q_cooler': [], 'q_desuperheater': [],
+                        'w_condenser': [], 'w_cooler': [], 'w_pump': [], 'w_turbine': [], 'w_net': []}
 
 
-    def print_input_summary(self) -> None:
-        logging.info(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
-        logging.debug(f"Detailed input summary for each component.")
-        for name in self.model.model_dict.keys():
-            logging.debug(f"{name}:\n{json.dumps(self.model.model_dict[name].specs.__dict__, indent=4)}")
+    def set_STANDALONE_AGS(self) -> None: # TODO: implement
+        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
+
+
+    def set_CMG(self) -> None: #TODO: implement
+        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
+
+
+    def set_workflow(self) -> None:
+        try:
+            getattr(self, f"set_{self.runspec.workflow}")()
+        except:
+            raise ValueError(f"workflow: {self.runspec.workflow} is not supported.")
+
+
+    def save_STANDALONE_CGS_results(self, current_yr: int) -> None:
+
+        self.results['time_yr'].append(current_yr)
+
+        self.results['inj_well_H'].append(self.state.injection_well.inlet_fluid.H)
+        self.results['inj_well_P'].append(self.state.injection_well.inlet_fluid.P)
+        self.results['inj_well_Q'].append(self.state.injection_well.inlet_fluid.Q)
+        self.results['inj_well_S'].append(self.state.injection_well.inlet_fluid.S)
+        self.results['inj_well_T'].append(self.state.injection_well.inlet_fluid.T)
+
+        self.results['res_energy_extracted'].append(self.state.reservoir.energy_extracted)
+
+        self.results['prd_well_P'].append(self.state.production_well.outlet_fluid.P)
+        self.results['prd_well_H'].append(self.state.production_well.outlet_fluid.H)
+        self.results['prd_well_Q'].append(self.state.production_well.outlet_fluid.Q)
+        self.results['prd_well_S'].append(self.state.production_well.outlet_fluid.S)
+        self.results['prd_well_T'].append(self.state.production_well.outlet_fluid.T)
+
+        self.results['q_boiler'].append(self.state.surface.q_boiler)
+        self.results['q_condenser'].append(self.state.surface.q_condenser)
+        self.results['q_cooler'].append(self.state.surface.q_cooler)
+        self.results['q_desuperheater'].append(self.state.surface.q_desuperheater)
+        self.results['w_condenser'].append(self.state.surface.w_condenser)
+        self.results['w_cooler'].append(self.state.surface.w_cooler)
+        self.results['w_pump'].append(self.state.surface.w_pump)
+        self.results['w_turbine'].append(self.state.surface.w_turbine)
+        self.results['w_net'].append(self.state.surface.w_net)
+
+
+    def save_STANDALONE_AGS_results(self) -> None: # TODO: implement
+        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
+
+
+    def save_CMG_results(self) -> None: #TODO: implement
+        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
+
+
+    def save_results(self, current_yr: int) -> None:
+        getattr(self, f"save_{self.runspec.workflow}_results")(current_yr)
 
 
     def run_models(self) -> None:
-        for i in range(self.specs['lifetime']): #TODO: check how lifetime comes into play
+
+        lifetime_yr = self.specs['common']['lifetime']
+        current_yr = self.specs['common']['start_year']
+
+        logging.info(f"Executing physics-based models: {list(self.model.model_dict.keys())}")
+
+        for i in tqdm(range(lifetime_yr), desc="Progress: ", ncols = 100):
+            self.save_results(current_yr)
             self.model.execute(self.state)
-            # TODO: save output time series
-        logging.info(f"Executing models: {list(self.model.model_dict.keys())}")
-        # self.model.execute(self.state)
+            current_yr += 1
+
+        logging.info(f"Executing economic models.")
         self.model.economic.execute()
 
 
     def post_processing(self) -> None: #TODO: improve
 
-        fname = os.path.splitext(self.input_file)[0] + ".csv"
-        logging.info(f"Output summary > {fname}:\n {json.dumps(self.model.economic.results, indent=4)}")
+        fname = os.path.splitext(self.input_file)[0] + "_smry.csv"
+        logging.info(f"Saving output summary of physics-based models > {fname}")
+        df = pd.DataFrame(self.results)
+        df.to_csv(fname, index=False)
+
+        fname = os.path.splitext(self.input_file)[0] + "_econ.csv"
+        logging.info(f"Saving output summary of economic models > {fname}")
         d = dict()
         for key in self.model.economic.results.keys():
             d[key] = [self.model.economic.results[key]]

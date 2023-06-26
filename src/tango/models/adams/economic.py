@@ -76,13 +76,15 @@ class EconomicModelAdams(EconomicModel):
 
     def check_inputs(self) -> None:
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
-            raise RuntimeError(f"Well pattern: {self.well_pattern} is not supported.")
+            raise ValueError(f"Well pattern: {self.well_pattern} is not supported.")
         if not self.project_maturity:
-            raise RuntimeError(f"project_maturity in 'economic' section is not defined.")
+            raise ValueError(f"project_maturity in 'economic' section is not defined.")
         if self.project_maturity not in PROJECT_MATURITY_OPTIONS:
-            raise RuntimeError(f"project_maturity: {self.project_maturity} is not supported.")
+            raise ValueError(f"project_maturity: {self.project_maturity} is not supported.")
         if self.fluid_name not in FLUID_NAME_OPTIONS:
-            raise RuntimeError(f"fluid_name: {self.fluid_name} is not supported.")
+            raise ValueError(f"fluid_name: {self.fluid_name} is not supported.")
+        if self.surface_cooling_tower_mode not in COOLING_MODE_OPTIONS:
+            raise ValueError(f"surface_cooling_tower_mode: {self.surface_cooling_tower_mode} is not supported.")
 
 
     def set_constants(self) -> None:
