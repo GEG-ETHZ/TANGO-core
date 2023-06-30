@@ -1,10 +1,11 @@
 runspec:
-  workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS' TODO: add external software option (e.g., CMG, etc.)
-#  file: 'cmg_input.dat'
+  workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS' TODO: implement external software option (e.g., CMG, etc.)
+#  file: 'cmg_input.dat' # optional
 
 common:
   fluid_name: 'CO2'
-  mass_flow_rate: 10.0  # kg/s (per well pair)
+  #mass_flow_rate: 10.0  # kg/s (injection rate)
+  mass_flow_rate: 20.0  # kg/s (injection rate)
   dt: 1.0  # year
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0
@@ -12,6 +13,10 @@ common:
   rock_k: 2.1  # W/m K
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
+  well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  num_patterns_sqrt: 1 # square root of number of 5 spots
+  project_maturity: 'green_field' # brown_field or green_field
   thermal_gradient: 0.035  # degC/m
   start_year: 2019
   lifetime: 25
@@ -21,32 +26,21 @@ reservoir:
   area: 250_000
   permeability: 5.0e-13    # m2
   porosity: 0.1
-  well_spacing: 707. # m (inj-prod pair)
-  well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot
-  num_patterns_sqrt: 1 # square root of number of 5 spots
 
 injection_well:
   vertical_deviation: 0.0  # degrees
-  diameter: 0.410  # m
-  num_cells: 300
-  epsilon: 55.e-6  # m
-  gravity_scale_factor: 1.0
+  diameter: 0.410 # m
 
 production_well:
   vertical_deviation: 0.0  # degrees
-  diameter: 0.410  # m
-  num_cells: 300
-  epsilon: 55.e-6  # m
-  gravity_scale_factor: 1.0
+  diameter: 0.410 # m
 
 surface:
-  ambient_temperature: 288.15  # K #TODO: check unit consistency
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
   eta_turbine: 0.78  # (-)
 
 economic:
-  project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
 
 

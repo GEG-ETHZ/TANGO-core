@@ -1,4 +1,7 @@
+import copy
+import logging
 from tango.models.base import *
+from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from dataclasses import dataclass
@@ -9,8 +12,8 @@ import numpy as np
 class WellSpecsAdams(CommonSpecs):
     """The well specs based on Adams et al. (2015)."""
     vertical_deviation: float = 0.0    # the vertical deviation angle defined in degrees
-    diameter: float = 0.14    # the well diameter (m)
-    epsilon: float = 0.01    # roughness of the well (m)
+    diameter: float = 0.4 # (m)
+    epsilon: float = 55.e-6  # roughness of the well (m)
     num_cells: int = 100    # number of cells that is used for discretization
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     well_length: float = None
@@ -29,10 +32,10 @@ class WellModelAdams(WellModel):
         self.specs = WellSpecsAdams(**specs)
 
         num_cells = self.specs.num_cells
-        self.m_dot = self.specs.mass_flow_rate
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
 
+        self.set_mdot()
         self.set_farfield_temperature()
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
         self.set_well_length()
@@ -55,6 +58,17 @@ class WellModelAdams(WellModel):
 
     def init_state(self):
         pass
+
+    def set_mdot(self) -> None:
+        """
+            - mass_flow_rate = flow rate at an injector (Kg/s)
+            - m_dot = flow rate at each well pair (Kg/s)
+        """
+        if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
+            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
+        self.m_dot = self.specs.mass_flow_rate
+        if self.specs.well_pattern == 'INVERTED_5SPOT':
+            self.m_dot = self.specs.mass_flow_rate / 4.0
 
     def set_well_length(self):
         if self.specs.well_length is None:
@@ -112,7 +126,11 @@ class WellModelAdams(WellModel):
             self.h[i] = self.h[i-1] - self.g*self.dz \
                         - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.m_dot
 
-            self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+            try:
+                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+            except Exception as e:
+                logging.warning(f"Failed to update fluid state using h and P: {e}. Updating fluid state using P and T")
+                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
 
             self.rho[i] = self.fluid_state_tmp.rho
             self.mu[i] = self.fluid_state_tmp.mu

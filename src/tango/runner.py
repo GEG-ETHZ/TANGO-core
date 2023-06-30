@@ -87,7 +87,6 @@ class Runner:
         self.results = {'time_yr': [],
                         'inj_well_H': [], 'inj_well_P': [], 'inj_well_Q': [], 'inj_well_S': [], 'inj_well_T': [], # surface (inlet)
                         'prd_well_H': [], 'prd_well_P': [], 'prd_well_Q': [], 'prd_well_S': [], 'prd_well_T': [], # surface (outlet)
-                        'res_energy_extracted': [], # subsurface
                         'q_boiler': [], 'q_condenser': [], 'q_cooler': [], 'q_desuperheater': [],
                         'w_condenser': [], 'w_cooler': [], 'w_pump': [], 'w_turbine': [], 'w_net': []}
 
@@ -104,7 +103,7 @@ class Runner:
         try:
             getattr(self, f"set_{self.runspec.workflow}")()
         except:
-            raise ValueError(f"workflow: {self.runspec.workflow} is not supported.")
+            raise ValueError(f"Something went wrong while setting up workflow: {self.runspec.workflow}")
 
 
     def save_STANDALONE_CGS_results(self, current_yr: int) -> None:
@@ -116,8 +115,6 @@ class Runner:
         self.results['inj_well_Q'].append(self.state.injection_well.inlet_fluid.Q)
         self.results['inj_well_S'].append(self.state.injection_well.inlet_fluid.S)
         self.results['inj_well_T'].append(self.state.injection_well.inlet_fluid.T)
-
-        self.results['res_energy_extracted'].append(self.state.reservoir.energy_extracted)
 
         self.results['prd_well_P'].append(self.state.production_well.outlet_fluid.P)
         self.results['prd_well_H'].append(self.state.production_well.outlet_fluid.H)
@@ -155,7 +152,7 @@ class Runner:
 
         logging.info(f"Executing physics-based models: {list(self.model.model_dict.keys())}")
 
-        for i in tqdm(range(lifetime_yr), desc="Progress: ", ncols = 100):
+        for i in tqdm(range(lifetime_yr), desc="Progress: ", ncols = 100, file=sys.stdout):
             self.save_results(current_yr)
             self.model.execute(self.state)
             current_yr += 1

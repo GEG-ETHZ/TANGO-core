@@ -1,9 +1,11 @@
 from tango.models.base import *
+from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from dataclasses import dataclass
 import numpy as np
 from math import erfc
+from math import e as exp
 
 @dataclass
 class ReservoirSpecsAdams(CommonSpecs):
@@ -13,10 +15,6 @@ class ReservoirSpecsAdams(CommonSpecs):
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
-    well_spacing: float = 707.0    # m
-    well_pattern: str = 'doublet'  # doublet, inverted_5spot
-    num_patterns_sqrt: int = 1  # square root of number of 5 spots
-    well_diameter: float = 0.4    # m
     p1: float = -1.9376
     p2: float = 1.743
     p3: float = 0.182
@@ -34,7 +32,7 @@ class ReservoirStateAdams(ReservoirState):
 
 
 class ReservoirModelAdams(ReservoirModel):
-    """The reservoir model based on Adams et al. (2015)."""
+    """The reservoir (1-D well-pair) model based on Adams et al. (2015)."""
     def __init__(self, specs: dict) -> None:
         self.specs = ReservoirSpecsAdams(**specs)
 
@@ -44,8 +42,8 @@ class ReservoirModelAdams(ReservoirModel):
         self.reference_temperature = self.initial_temperature - self.specs.surface_temperature
         self.temperature: float = self.initial_temperature
         self.fluid_name = self.specs.fluid_name
+        self.well_pattern = self.specs.well_pattern.upper()
 
-        self.m_dot = self.specs.mass_flow_rate
         g = GRAVITY_ACCELERATION # m/s2
         self.reference_pressure: float = self.specs.brine_density * g * h
 
@@ -57,12 +55,44 @@ class ReservoirModelAdams(ReservoirModel):
         rock_C_v = self.specs.rock_density * self.specs.rock_cp # volumetric heat capacity of rocks (J/m3)
         self.reference_energy = self.rock_volume * rock_C_v * T_ref
 
-    def update_impedance(self, mu, rho) -> None:
-        """Update the reservoir impedance using the 5-spot solution of Adams et al. (2020)."""
-        k, b = self.specs.permeability, self.specs.reservoir_depth
-        L, D = self.specs.well_spacing, self.specs.well_diameter
+        self.set_mdot()
+        self.set_impedance_func()
 
-        self.impedance = mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
+    def set_boundaries(self, inj_well_specs, prd_well_specs) -> None:
+        """get effective (average) wellbore diameter"""
+        self.specs.well_diameter = (inj_well_specs.diameter + prd_well_specs.diameter) / 2.0
+
+    def set_mdot(self) -> None:
+        """
+            - mass_flow_rate = flow rate at an injector (Kg/s)
+            - m_dot = flow rate at each well pair (Kg/s)
+        """
+        if self.well_pattern not in WELL_PATTERN_OPTIONS:
+            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
+        self.m_dot = self.specs.mass_flow_rate
+        if self.well_pattern == 'INVERTED_5SPOT':
+            self.m_dot = self.specs.mass_flow_rate / 4.0
+
+
+    def set_impedance_func(self) -> None:
+        if self.well_pattern == 'DOUBLET':
+            self.impedance_func = self.impedance_func_doublet
+        else:
+            self.impedance_func = self.impedance_func_5spot
+
+    @staticmethod
+    def impedance_func_5spot(mu, rho, k, b, L, D) -> float:
+        return mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
+
+    @staticmethod
+    def impedance_func_doublet(mu, rho, k, b, L, D) -> float:
+        return mu * np.log(L/(exp*D)) / (rho*k*b*np.pi)
+
+    def update_impedance(self, mu, rho) -> None:
+        """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
+        k, b = self.specs.permeability, self.specs.thickness
+        L, D = self.specs.well_spacing, self.specs.well_diameter
+        self.impedance = self.impedance_func(mu, rho, k, b, L, D)
 
     def update_temperature(self, state) -> None:
         """Update reservoir temperature using the thermal decay characterization of
@@ -100,7 +130,7 @@ class ReservoirModelAdams(ReservoirModel):
         average_rho = 0.5*(state.inlet_fluid.rho + state.outlet_fluid.rho)
 
         self.update_impedance(average_mu, average_rho)
-        self.delta_P = self.m_dot * self.impedance #TODO: number of wells may not be considered...
+        self.delta_P = self.m_dot * self.impedance #delta P between inj-prd pair
         self.update_temperature(state)
 
     @staticmethod

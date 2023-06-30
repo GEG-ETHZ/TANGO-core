@@ -13,8 +13,9 @@ class CommonSpecs:
     surface_pressure: float  # Pa
     thermal_gradient: float  # degC/m
     start_year: int 
-    # project_maturity: str
-    # well_pattern: str
-    # well_spacing: float
-    # num_patterns_sqrt: int
+    project_maturity: str
+    well_pattern: str
+    well_spacing: float
+    # well_diameter: float
+    num_patterns_sqrt: int
     lifetime: int # yr

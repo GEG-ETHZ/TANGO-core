@@ -21,13 +21,17 @@ class CGSModelAdams(Model):
         self.add_model('injection_well', WellModelAdams)
 
     def initialize(self, state: CGSModelStateAdams):
+
+        self.reservoir.set_boundaries(getattr(self, 'injection_well').specs,
+                                      getattr(self, 'production_well').specs) # set inlet and outlet specs
+
         self.reservoir.init_state(state.reservoir)
         self.surface.init_state(state.surface)
 
         getattr(self, 'injection_well').set_outlet_state(state.injection_well, state.reservoir)
         getattr(self, 'production_well').set_inlet_state(state.production_well, state.reservoir)
         getattr(self, 'surface').set_inlet_state(state.surface, state.production_well)
-        # getattr(self, 'production_well').set_outlet_state(state.power_plant)
+        getattr(self, 'surface').set_outlet_state(state.surface, state.injection_well)
 
         self.economic = EconomicModelAdams(specs = self.specs['common'] | self.specs['economic'],
                                            model_dict=self.model_dict)

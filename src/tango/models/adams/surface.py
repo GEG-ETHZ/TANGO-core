@@ -1,4 +1,5 @@
 from tango.models.base import *
+from tango.core.config import *
 from tango.core import FluidState
 from tango.model import ModelState
 from dataclasses import dataclass
@@ -8,7 +9,6 @@ class SurfaceSpecsAdams(CommonSpecs):
     """The power plant specs based on Adams et al. (2015)."""
     approach_temperature: float = 7.0    # The temperature difference between condensing and the surface temperature (K)
     pinch_temperature: float = 5.0    # (K)
-    ambient_temperature: float = 288.15    # (K)
     temperature_range: float = 0. # diff between inlet and exit fluid temperature.
     eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
     eta_pump: float = 0.75    # The pump efficiency (-)
@@ -44,38 +44,131 @@ class SurfaceModelAdams(SurfaceModel):
     def __init__(self, specs: dict):
         self.specs = SurfaceSpecsAdams(**specs)
         self.fluid_name = self.specs.fluid_name
+        self.X_CO2 = 1.0
 
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
+        self.condensation_temperature_range = 0
 
-    def init_state(self, state: SurfaceStateAdams):
-        state.outlet_fluid_condenser = FluidState.withQT(self.fluid_name, Q = 0.0, T = self.condensation_temperature)
+        self.set_constants()
 
+
+    def set_constants(self) -> None:
+
+        """
+            - mass_flow_rate = flow rate at an injector (Kg/s)
+            - m_dot = flow rate at each well pair (Kg/s)
+        """
+        if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
+            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
+        self.m_dot = self.specs.mass_flow_rate
+        if self.specs.well_pattern == 'INVERTED_5SPOT':
+            self.m_dot = self.specs.mass_flow_rate / 4.0
+
+        if self.specs.cooling_mode == 'WET':
+            self.coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
+            self.coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.]
+        elif self.specs.cooling_mode == 'DRY':
+            self.coeffs_cooling = [7.65e-1, 0., 0., 1.28e-1]
+            self.coeffs_condensing = [0.619, 0., 0., 0.]
+        else:
+            raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
+
+
+    def init_state(self, state: SurfaceStateAdams) -> None:
+        """
+        direct CO2 thermosiphon system:
+            production_well - turbine - condenser - pump - injection_well
+        #TODO: add options for other fluids (non-CO2)
+        """
+        state.outlet_fluid_turbine = FluidState.withQT(self.fluid_name, Q=1.0, T=self.condensation_temperature)
+
+        state.outlet_fluid_condenser = FluidState.withQT(self.fluid_name, Q=0.0, T=self.condensation_temperature)
         self.condensation_pressure = state.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
-        state.outlet_fluid_turbine = FluidState.withQT(self.fluid_name, Q = 1.0, T = self.condensation_temperature)
+        self.condenser_saturated_vapor_h = FluidState.withPQ(self.fluid_name, Q=1.0, P=self.condensation_pressure).H
+        self.condenser_saturated_liquid_h = FluidState.withPQ(self.fluid_name, Q=0.0, P=self.condensation_pressure).H
 
-        state.outlet_fluid = state.outlet_fluid_condenser
+        state.inlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
+
 
     def set_inlet_state(self, state, state_from) -> None:
-        state.inlet_fluid = state_from.outlet_fluid
+        state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
+
+
+    def set_outlet_state(self, state, state_from) -> None:
+        state.outlet_fluid = state_from.inlet_fluid # outlet_fluid at injection_well
+
 
     def update_turbine_power(self, state: SurfaceStateAdams) -> None:
         state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = state.inlet_fluid.S)
 
-        hs_outlet = state.outlet_fluid_turbine.H    # (J/kg)
-        h_inlet = state.inlet_fluid.H
-        m_dot = self.specs.mass_flow_rate    # (kg/s)
-        eta = self.specs.eta_turbine    # (-)
+        hs_outlet = state.outlet_fluid_turbine.H # (J/kg)
+        h_inlet = state.inlet_fluid.H            # (J/kg)
+        eta = self.specs.eta_turbine             # (-)
+        X_CO2 = 1.0 # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2
 
-        state.w_turbine = m_dot * eta * (h_inlet- hs_outlet)
+        state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet- hs_outlet)
 
-    def update_condensed_state(self) -> None:
-        pass
+
+    def BAC_regression_model(self, coeffs: list) -> float:
+        """
+        Baltimore Aircoil Specific (BAC) regression model for cooling and condensing costs
+        """
+        a, b, c, d = coeffs
+        T_ambient = self.specs.surface_temperature
+        dT_approach = self.specs.approach_temperature
+        dT_range = self.condensation_temperature_range
+        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach+dT_range)
+
+
+    def get_parasitic_power_fraction_cooling(self):
+        return self.BAC_regression_model(coeffs=self.coeffs_cooling)
+
+
+    def get_parasitic_power_fraction_condensing(self):
+        return self.BAC_regression_model(coeffs=self.coeffs_condensing)
+
+
+    def update_condenser_state(self, state: SurfaceStateAdams) -> None:
+
+        hs_outlet = state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
+        h_inlet = state.inlet_fluid.H  # (J/kg)
+        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2
+        eta = self.specs.eta_turbine  # (-)
+        h_saturated_vapor = self.condenser_saturated_vapor_h
+        h_condensed = self.condenser_saturated_liquid_h
+
+        h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet)
+
+        state.q_cooler = 0.
+        state.q_condenser = h_condensed - h_turbine_outlet
+        if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
+            state.q_cooler = h_saturated_vapor - h_turbine_outlet
+            state.q_condenser = h_condensed - h_saturated_vapor
+            T_turbine_outlet = FluidState.withHP(self.fluid_name, h_turbine_outlet, self.condensation_pressure).T
+            self.condensation_temperature_range = T_turbine_outlet - self.condensation_temperature
+
+        state.w_cooler = X_CO2 * state.q_cooler * self.get_parasitic_power_fraction_cooling()
+        state.w_condenser = X_CO2 * state.q_condenser * self.get_parasitic_power_fraction_condensing()
+
+
+    def update_pump_state(self, state: SurfaceStateAdams) -> None:
+        state.w_pump = 0. # TODO: Support non-CO2 fluid. (w_pump=0 for CO2 due to thermosiphon effect)
+
+
+    def update_net_state(self, state: SurfaceStateAdams) -> None:
+        state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
 
     def execute(self, state: SurfaceStateAdams) -> None:
+
         self.update_turbine_power(state)
 
+        self.update_condenser_state(state)
+
+        self.update_pump_state(state)
+
+        self.update_net_state(state)
+
     # def execute(self) -> None:
-    #     self.update_turbine_power()
     #     # TODO: temporary treatment below
     #      self.state.q_condenser = -93780.14908238029
     #     self.state.q_cooler = 0.

@@ -16,14 +16,13 @@ from scipy.interpolate import interp1d
 class EconomicSpecsAdams(CommonSpecs):
     PPI_table: str = 'PPI_table.xlsx'
     cost_multiplier_table: str = 'cost_multiplier_table.xlsx'
-    OPEX_cost_fraction: float = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant) TODO: check if this value makes sense.
+    OPEX_cost_fraction: float = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant)
     discount_rate: float = 0.096
     capacity_factor: float = 0.9
     monitoring_well_diameter: float = 0.216 # m
     monitoring_well_probability_of_success: float = 1.0
-    #TODO: add monitoring well desity?
     num_characterization_wells: int = 2
-    project_maturity: str =  ''
+    # project_maturity: str =  ''
 
 
 class EconomicStateAdams(EconomicState):
@@ -43,7 +42,7 @@ class EconomicModelAdams(EconomicModel):
 
         self.fluid_name = self.specs['reservoir'].fluid_name
         self.reservoir_depth = self.specs['reservoir'].reservoir_depth
-        self.well_pattern = self.specs['reservoir'].well_pattern.upper() # TODO: use enum
+        self.well_pattern = self.specs['reservoir'].well_pattern.upper()
         self.well_spacing = self.specs['reservoir'].well_spacing # inj-prod pair spacing
         self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
         self.num_patterns = self.num_patterns_sqrt ** 2
@@ -53,7 +52,7 @@ class EconomicModelAdams(EconomicModel):
 
         self.surface_pipe_diameter = self.specs['surface'].pipe_diameter
         self.surface_pipe_length_per_well_pair = self.specs['surface'].pipe_length_per_well_pair
-        self.surface_ambient_temperature = self.specs['surface'].ambient_temperature
+        self.surface_ambient_temperature = self.specs['surface'].surface_temperature
         self.surface_approach_temperature = self.specs['surface'].approach_temperature
         self.surface_temperature_range = self.specs['surface'].temperature_range
         self.surface_cooling_tower_mode = self.specs['surface'].cooling_mode
@@ -108,6 +107,14 @@ class EconomicModelAdams(EconomicModel):
         self.cost_mult['pipes'] = self.get_multiplier_values(component="Surface_pipes")
         self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
         self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
+
+        # coefficients for BAC regression models
+        if self.surface_cooling_tower_mode == 'WET':
+            self.coeffs_cooling = [5.58e3, 0., -1.77e1, 1.96e2]
+            self.coeffs_condensing = [4.08e3, -1.54e-2, -1.24e1, 0.]
+        else: # 'DRY':
+            self.coeffs_cooling = [7.31e3, 0., 0., 1.23e3]
+            self.coeffs_condensing = [1.91e3, 0., 0., 0.]
 
         # fluid type dependent parameters
         self.active_monitoring_area = self.get_active_monitoring_area()
@@ -227,7 +234,6 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
-        # num_wells = 1 # TODO: test only. number of wells does not seem to be considered in genGEO...
         if well_type not in self.specs:
             return 0
         if well_type == 'injection_well' and self.project_maturity == 'BROWN_FIELD':
@@ -364,19 +370,19 @@ class EconomicModelAdams(EconomicModel):
 
     def process_surface_state(self) -> None:
 
-        num_total_well_pairs = self.get_num_well_pairs_per_pattern() * self.num_patterns #TODO: check if this multiplier is not duplicated
+        num_total_well_pairs = self.get_num_well_pairs_per_pattern() * self.num_patterns
         m_dot = self.mass_flow_rate
-
-        self.Q_condenser_total = num_total_well_pairs * m_dot * self.state.q_condenser
+        #TODO: m_dot might not be necessary. check if this multiplier is not duplicated
+        self.Q_condenser_total = num_total_well_pairs * m_dot * self.state.q_condenser  # used
         self.Q_cooler_total = num_total_well_pairs * m_dot * self.state.q_cooler
         self.Q_preheater_total = num_total_well_pairs * m_dot * self.state.q_preheater
         self.Q_boiler_total = num_total_well_pairs * m_dot * self.state.q_boiler
-        self.Q_desuperheater_total = num_total_well_pairs * m_dot * self.state.q_desuperheater
+        self.Q_desuperheater_total = num_total_well_pairs * m_dot * self.state.q_desuperheater  # used
 
-        self.W_pump_total = num_total_well_pairs * m_dot * self.state.w_pump
-        self.W_turbine_total = num_total_well_pairs * m_dot * self.state.w_turbine
-        self.W_cooler_total = num_total_well_pairs * m_dot * self.state.w_cooler
-        self.W_condenser_total = num_total_well_pairs * m_dot * self.state.w_condenser
+        self.W_pump_total = num_total_well_pairs * m_dot * self.state.w_pump # used
+        self.W_turbine_total = num_total_well_pairs * m_dot * self.state.w_turbine  # used
+        self.W_cooler_total = num_total_well_pairs * m_dot * self.state.w_cooler # used
+        self.W_condenser_total = num_total_well_pairs * m_dot * self.state.w_condenser # used
         self.W_net_total = self.W_pump_total + self.W_turbine_total + self.W_cooler_total + self.W_condenser_total
 
 
@@ -405,24 +411,12 @@ class EconomicModelAdams(EconomicModel):
         return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach+dT_range)
 
 
-    def get_C_cooling(self, cooling_mode: str):
-        if cooling_mode == 'WET':
-            coeffs = [5.58e3, 0., -1.77e1, 1.96e2]
-        elif cooling_mode == 'DRY':
-            coeffs = [7.31e3, 0., 0., 1.23e3]
-        else:
-            raise ValueError(f"surface_cooling_tower_mode: {cooling_mode} is not supported")
-        return self.BAC_regression_model(coeffs)
+    def get_C_cooling(self):
+        return self.BAC_regression_model(coeffs=self.coeffs_cooling)
 
 
-    def get_C_condensing(self, cooling_mode: str):
-        if cooling_mode == 'WET':
-            coeffs = [4.08e3, -1.54e-2, -1.24e1, 0.]
-        elif cooling_mode == 'DRY':
-            coeffs = [1.91e3, 0., 0., 0.]
-        else:
-            raise ValueError(f"surface_cooling_tower_mode: {cooling_mode} is not supported")
-        return self.BAC_regression_model(coeffs)
+    def get_C_condensing(self):
+        return self.BAC_regression_model(coeffs=self.coeffs_condensing)
 
 
     def get_cooling_condensing_tower_cost(self) -> float:
@@ -435,9 +429,8 @@ class EconomicModelAdams(EconomicModel):
         W_pump = self.W_pump_total
         W_turbine = self.W_turbine_total
         
-        cooling_mode = self.surface_cooling_tower_mode
-        C_cooling = self.get_C_cooling(cooling_mode) # specific cooling tower cost ($/kW)
-        C_condensing = self.get_C_condensing(cooling_mode) # specific condensing tower cost ($/kW)
+        C_cooling = self.get_C_cooling() # specific cooling tower cost ($/kW)
+        C_condensing = self.get_C_condensing() # specific condensing tower cost ($/kW)
 
         Q_Ref_BAC = 1.0e6 # nominal heat load (=1.0 MWth)
         F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
@@ -496,7 +489,7 @@ class EconomicModelAdams(EconomicModel):
         if CAPEX <= 0 or capacity_W <= 0:
             return np.nan
         d = self.discount_rate
-        t = self.lifetime # TODO: check how lifetime comes into play in reservoir-wells
+        t = self.lifetime
         CF = self.capacity_factor
         F_OM = self.OPEX_cost_fraction
         CRF = d * (1. + d) ** t / ( (1. + d) ** t - 1.) # capital recovery factor
