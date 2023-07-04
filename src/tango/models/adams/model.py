@@ -13,25 +13,26 @@ class CGSModelStateAdams(ModelState):
 
 class CGSModelAdams(Model):
     """The model of the conventional geothermal system based on Adams model."""
-    def __init__(self, specs: dict):
+    def __init__(self, specs: dict): # TODO: who not inj->res->prd->surface?
         super().__init__(specs)
+        self.add_model('injection_well', WellModelAdams)
         self.add_model('reservoir', ReservoirModelAdams)
         self.add_model('production_well', WellModelAdams)
         self.add_model('surface', SurfaceModelAdams)
-        self.add_model('injection_well', WellModelAdams)
+
 
     def initialize(self, state: CGSModelStateAdams):
 
         self.reservoir.set_boundaries(getattr(self, 'injection_well').specs,
                                       getattr(self, 'production_well').specs) # set inlet and outlet specs
 
-        self.reservoir.init_state(state.reservoir)
         self.surface.init_state(state.surface)
+        self.reservoir.init_state(state.reservoir)
 
-        getattr(self, 'injection_well').set_outlet_state(state.injection_well, state.reservoir)
-        getattr(self, 'production_well').set_inlet_state(state.production_well, state.reservoir)
+        getattr(self, 'injection_well').set_inlet_state(state.injection_well, state.surface, well_type='injector')
+        getattr(self, 'reservoir').set_inlet_state(state.reservoir, state.injection_well)
+        getattr(self, 'production_well').set_inlet_state(state.production_well, state.reservoir, well_type='producer')
         getattr(self, 'surface').set_inlet_state(state.surface, state.production_well)
-        getattr(self, 'surface').set_outlet_state(state.surface, state.injection_well)
 
         self.economic = EconomicModelAdams(specs = self.specs['common'] | self.specs['economic'],
                                            model_dict=self.model_dict)

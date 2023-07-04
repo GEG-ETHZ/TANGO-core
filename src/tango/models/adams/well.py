@@ -35,7 +35,6 @@ class WellModelAdams(WellModel):
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
 
-        self.set_mdot()
         self.set_farfield_temperature()
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
         self.set_well_length()
@@ -67,7 +66,7 @@ class WellModelAdams(WellModel):
         if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
             raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
         self.m_dot = self.specs.mass_flow_rate
-        if self.specs.well_pattern == 'INVERTED_5SPOT':
+        if self.specs.well_pattern == 'INVERTED_5SPOT' and self.f_dir > 0: # self.f_dir > 0 means producer
             self.m_dot = self.specs.mass_flow_rate / 4.0
 
     def set_well_length(self):
@@ -85,23 +84,14 @@ class WellModelAdams(WellModel):
         T0 = self.specs.surface_temperature
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
-    def set_inlet_state(self, state, state_from) -> None:
+    def set_inlet_state(self, state, state_from, well_type: str = None) -> None:
         state.inlet_fluid = state_from.outlet_fluid
         state.outlet_fluid = FluidState.copy(state.inlet_fluid)
-
         self.fluid_state_tmp = state.outlet_fluid
         self.fluid_state_init = state.inlet_fluid
+        self.f_dir = 1.0 if well_type == 'producer' else -1.0 # +1: upwards, -1: downwards
+        self.set_mdot()
 
-        self.f_dir = 1.0  # flow direction
-
-    def set_outlet_state(self, state, state_from) -> None:
-        state.outlet_fluid = state_from.inlet_fluid
-        state.inlet_fluid = FluidState.copy(state.outlet_fluid)
-
-        self.fluid_state_tmp = state.inlet_fluid
-        self.fluid_state_init = state.outlet_fluid
-
-        self.f_dir = -1.0 # flow direction
 
     def set_gravity_multiplier(self, g_mult):
         self.g_mult = g_mult
@@ -121,16 +111,12 @@ class WellModelAdams(WellModel):
 
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
-            self.P[i] = self.P[i-1] - self.rho[i-1]*self.g*self.dz \
-                        - self.f_dir*self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            self.h[i] = self.h[i-1] - self.g*self.dz \
+            self.P[i] = self.P[i-1] - self.f_dir*self.rho[i-1]*self.g*self.dz \
+                        - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1]) #TODO: check with Powei
+            self.h[i] = self.h[i-1] - self.f_dir*self.g*self.dz \
                         - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.m_dot
 
-            try:
-                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
-            except Exception as e:
-                logging.warning(f"Failed to update fluid state using h and P: {e}. Updating fluid state using P and T")
-                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
+            self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
 
             self.rho[i] = self.fluid_state_tmp.rho
             self.mu[i] = self.fluid_state_tmp.mu

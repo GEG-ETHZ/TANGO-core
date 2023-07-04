@@ -11,7 +11,7 @@ class SurfaceSpecsAdams(CommonSpecs):
     pinch_temperature: float = 5.0    # (K)
     temperature_range: float = 0. # diff between inlet and exit fluid temperature.
     eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
-    eta_pump: float = 0.75    # The pump efficiency (-)
+    eta_pump: float = 0.90    # The pump efficiency (-)
     condensation_pressure_offset: float = 5e4   # (Pa)
     total_pipe_length: float = None # (m)
     pipe_diameter: float = 0.41 # (m)
@@ -25,8 +25,13 @@ class SurfaceStateAdams(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
         # power plant
+        self.inlet_fluid_turbine: FluidState
+        self.inlet_fluid_condenser: FluidState
+        self.inlet_fluid_pump: FluidState
         self.outlet_fluid_turbine: FluidState
         self.outlet_fluid_condenser: FluidState
+        self.outlet_fluid_pump: FluidState
+        self.dP_pump: float = 0.
         self.q_condenser: float = 0.
         self.q_cooler: float = 0.
         self.q_preheater: float = 0.
@@ -88,14 +93,18 @@ class SurfaceModelAdams(SurfaceModel):
         self.condenser_saturated_liquid_h = FluidState.withPQ(self.fluid_name, Q=0.0, P=self.condensation_pressure).H
 
         state.inlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
+        state.outlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
+
+        state.outlet_fluid = FluidState.copy(state.outlet_fluid_pump)
 
 
     def set_inlet_state(self, state, state_from) -> None:
         state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
 
 
-    def set_outlet_state(self, state, state_from) -> None:
-        state.outlet_fluid = state_from.inlet_fluid # outlet_fluid at injection_well
+    def set_outlet_state(self, state, state_to) -> None: # TODO: not really used...
+        state.outlet_fluid = state_to.inlet_fluid # outlet_fluid at injection_well
+        # state_to.inlet_fluid = state.outlet_fluid # maybe more intuitive?
 
 
     def update_turbine_power(self, state: SurfaceStateAdams) -> None:
@@ -152,11 +161,38 @@ class SurfaceModelAdams(SurfaceModel):
 
 
     def update_pump_state(self, state: SurfaceStateAdams) -> None:
-        state.w_pump = 0. # TODO: Support non-CO2 fluid. (w_pump=0 for CO2 due to thermosiphon effect)
+        """
+            Prototype implementation. Only supports fluid_name=CO2.
+            Currently assuming dP_pump = w_pump=0 for CO2 due to thermosiphon effect)
+            # TODO: Support non-CO2 fluids
+        """
+
+        eta = self.specs.eta_pump
+        P_pump_outlet = self.condensation_pressure + state.dP_pump
+
+        h_pump_inlet = state.inlet_fluid_pump.H
+        h_pump_outlet = state.inlet_fluid_pump.H
+        if state.dP_pump > 0:
+            state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=state.inlet_fluid_pump.S)
+            h_pump_outlet = h_pump_inlet + (state.outlet_fluid_pump.H - h_pump_inlet) / eta
+
+        state.w_pump = -1.0 * (h_pump_outlet - h_pump_inlet)
+
+        P_inj_inlet = P_pump_outlet + min(0., state.dP_pump) # if dP_pump <0, then choke.
+        state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
 
 
     def update_net_state(self, state: SurfaceStateAdams) -> None:
         state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
+
+    def overwrite_pump_state(self, state: SurfaceStateAdams, dP_pump: float) -> None:
+
+        state.dP_pump = dP_pump
+
+        self.update_pump_state(state)
+
+        self.update_net_state(state)
+
 
     def execute(self, state: SurfaceStateAdams) -> None:
 
@@ -167,12 +203,3 @@ class SurfaceModelAdams(SurfaceModel):
         self.update_pump_state(state)
 
         self.update_net_state(state)
-
-    # def execute(self) -> None:
-    #     # TODO: temporary treatment below
-    #      self.state.q_condenser = -93780.14908238029
-    #     self.state.q_cooler = 0.
-    #     self.state.w_turbine = 4561.923527055129
-    #     self.state.w_pump = -620.4393145114882
-    #     self.state.w_cooler  = 0
-    #     self.state.w_condenser = -2518.9228540823065
