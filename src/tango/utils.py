@@ -2,6 +2,8 @@ import argparse
 import os
 import logging
 import pandas as pd
+from tango.core.config import *
+
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
@@ -40,6 +42,31 @@ def set_logger(input_file: str, DEBUG: bool):
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope
     return x_lst[0] - y_lst[0] / dydx
+
+
+def append_results(d: dict, state: classmethod, base_name: str) -> None:
+    var_names = [var for var in dir(state) if not var.startswith("__")]
+    for name in var_names:
+        try:
+            val = getattr(state, name)
+            if isinstance(val, float) and name not in SKIP_REPORT_ATTRIBUTES:
+                s = f"{base_name}_{name}"
+                if s in d.keys():
+                    d[s].append(val)
+                else:
+                    d[s] = [val]
+        except:
+            continue
+
+
+def parse_results(d: dict, state_lst: list, base_name_lst: list, current_yr:int) -> None:
+    name = 'time_yr'
+    if name not in d.keys():
+        d[name] = [current_yr]
+    else:
+        d[name].append(current_yr)
+    for i, state in enumerate(state_lst):
+        append_results(d, state, base_name_lst[i])
 
 
 def write_results(input_file: str, results_physics: dict, results_econ: dict) -> None:
