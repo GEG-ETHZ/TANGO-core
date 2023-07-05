@@ -98,9 +98,6 @@ class ReservoirModelAdams(ReservoirModel):
     def set_inlet_state(self, state, state_from) -> None:
         state.inlet_fluid = state_from.outlet_fluid
 
-    def set_outlet_state(self, state, state_to) -> None:
-        state.outlet_fluid = state_to.inlet_fluid
-
     def update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
         k, b = self.specs.permeability, self.specs.thickness

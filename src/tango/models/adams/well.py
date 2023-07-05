@@ -34,6 +34,7 @@ class WellModelAdams(WellModel):
         num_cells = self.specs.num_cells
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
+        self.injector_mass_flow_rate = self.specs.mass_flow_rate
 
         self.set_farfield_temperature()
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
@@ -58,16 +59,14 @@ class WellModelAdams(WellModel):
     def init_state(self):
         pass
 
-    def set_mdot(self) -> None:
-        """
-            - mass_flow_rate = flow rate at an injector (Kg/s)
-            - m_dot = flow rate at each well pair (Kg/s)
-        """
+    def set_well_mass_flow_rate(self, well_type: str) -> None:
         if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
             raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
-        self.m_dot = self.specs.mass_flow_rate
-        if self.specs.well_pattern == 'INVERTED_5SPOT' and self.f_dir > 0: # self.f_dir > 0 means producer
-            self.m_dot = self.specs.mass_flow_rate / 4.0
+        self.well_mass_flow_rate = self.injector_mass_flow_rate
+        if self.specs.well_pattern == 'INVERTED_5SPOT' and well_type=='producer':
+            self.well_mass_flow_rate = self.injector_mass_flow_rate / 4.0 # 4=number of producers
+        elif self.specs.well_pattern == '5SPOT' and well_type == 'producer':
+            self.well_mass_flow_rate = self.injector_mass_flow_rate * 4.0 # 4=number of injectors
 
     def set_well_length(self):
         if self.specs.well_length is None:
@@ -90,7 +89,7 @@ class WellModelAdams(WellModel):
         self.fluid_state_tmp = state.outlet_fluid
         self.fluid_state_init = state.inlet_fluid
         self.f_dir = 1.0 if well_type == 'producer' else -1.0 # +1: upwards, -1: downwards
-        self.set_mdot()
+        self.set_well_mass_flow_rate(well_type)
 
 
     def set_gravity_multiplier(self, g_mult):
@@ -103,7 +102,7 @@ class WellModelAdams(WellModel):
         self.rho[0] = self.fluid_state_init.rho
         self.mu[0] = self.fluid_state_init.mu
         self.T_f[0] = self.fluid_state_init.T
-        self.u[0] = self.m_dot / self.cross_section_area / self.rho[0]
+        self.u[0] = self.well_mass_flow_rate / self.cross_section_area / self.rho[0]
 
     def update(self, *args) -> None:
         self.initialize_state()
@@ -114,14 +113,14 @@ class WellModelAdams(WellModel):
             self.P[i] = self.P[i-1] - self.f_dir*self.rho[i-1]*self.g*self.dz \
                         - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1]) #TODO: check with Powei
             self.h[i] = self.h[i-1] - self.f_dir*self.g*self.dz \
-                        - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.m_dot
+                        - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.well_mass_flow_rate
 
             self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
 
             self.rho[i] = self.fluid_state_tmp.rho
             self.mu[i] = self.fluid_state_tmp.mu
             self.T_f[i] = self.fluid_state_tmp.T
-            self.u[i] = self.m_dot / self.cross_section_area / self.rho[i]
+            self.u[i] = self.well_mass_flow_rate / self.cross_section_area / self.rho[i]
 
     def Q_loss(self, delta_T):
         """Returns the heat loss introduced Zhang et al., 2011 (10.1016/j.geothermics.2011.08.003).

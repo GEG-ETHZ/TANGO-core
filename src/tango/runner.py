@@ -58,11 +58,11 @@ class Runner:
         self.model.initialize(self.state)
 
 
-    def set_STANDALONE_AGS(self) -> None: # TODO: implement
+    def set_STANDALONE_AGS(self) -> None:
         raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
 
 
-    def set_CMG(self) -> None: #TODO: implement
+    def set_CMG(self) -> None:
         raise NotImplementedError(f"workflow: 'CMG' is not supported.")
 
 
@@ -130,14 +130,25 @@ class Runner:
 
         self.x_lst, self.y_lst = [], []
         current_yr = self.start_year
-        for i in tqdm(range(self.lifetime_yr), desc="Progress: ", ncols = 100, file=sys.stdout):
-            self.save_results(current_yr)
-            try:
-                self.step()
-                self.update_primary_variables()
-            except:
-                raise RuntimeError(f"Something went wrong at time step: {current_yr}")
-            current_yr += 1
+
+        """
+            compute over project lifetime
+        """
+        # for i in tqdm(range(self.lifetime_yr), desc="Progress: ", ncols = 100, file=sys.stdout):
+        #     self.save_results(current_yr)
+        #     try:
+        #         self.step()
+        #         self.update_primary_variables()
+        #     except:
+        #         raise RuntimeError(f"Something went wrong at time step: {current_yr}")
+        #     current_yr += 1
+
+        """
+            genGEO method
+        """
+        self.step()
+
+        self.save_results(current_yr)
 
         logging.info(f"Executing economic models.")
         self.model.economic.execute()

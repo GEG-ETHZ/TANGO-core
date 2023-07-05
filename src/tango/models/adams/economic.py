@@ -59,7 +59,7 @@ class EconomicModelAdams(EconomicModel):
 
         self.lifetime = self.specs['economic'].lifetime
         self.cost_year = self.specs['economic'].start_year
-        self.mass_flow_rate = self.specs['economic'].mass_flow_rate
+        self.injector_mass_flow_rate = self.specs['economic'].mass_flow_rate
         self.project_maturity = self.specs['economic'].project_maturity.upper()
         self.monitoring_well_diameter = self.specs['economic'].monitoring_well_diameter
         self.monitoring_well_probability_of_success = self.specs['economic'].monitoring_well_probability_of_success
@@ -108,6 +108,8 @@ class EconomicModelAdams(EconomicModel):
         self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
         self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
 
+        self.m_dot = self.get_mdot()
+
         # coefficients for BAC regression models
         if self.surface_cooling_tower_mode == 'WET':
             self.coeffs_cooling = [5.58e3, 0., -1.77e1, 1.96e2]
@@ -125,6 +127,18 @@ class EconomicModelAdams(EconomicModel):
 
     def set_inlet_state(self, state: ModelState):
         self.state = state  # surface
+
+
+    def get_mdot(self) -> float:
+        """
+            - mass_flow_rate = flow rate at an injector (Kg/s)
+            - m_dot = flow rate at each well pair (Kg/s)
+        """
+        if self.well_pattern == 'INVERTED_5SPOT':
+            return self.injector_mass_flow_rate / 4.0
+        else:
+            return self.injector_mass_flow_rate
+
 
 
     def get_active_monitoring_area(self) -> float:
@@ -234,6 +248,7 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
+        num_wells = 1 # TODO test
         if well_type not in self.specs:
             return 0
         if well_type == 'injection_well' and self.project_maturity == 'BROWN_FIELD':
@@ -368,21 +383,28 @@ class EconomicModelAdams(EconomicModel):
             raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
 
 
+    def get_well_pair_mass_flow_rate(self) -> float:
+        if self.well_pattern == 'INVERTED_5SPOT':
+            return self.injector_mass_flow_rate / 4.0
+        else:
+            return self.injector_mass_flow_rate
+
+
     def process_surface_state(self) -> None:
 
         num_total_well_pairs = self.get_num_well_pairs_per_pattern() * self.num_patterns
-        m_dot = self.mass_flow_rate
-        #TODO: m_dot might not be necessary. check if this multiplier is not duplicated
-        self.Q_condenser_total = num_total_well_pairs * m_dot * self.state.q_condenser  # used
-        self.Q_cooler_total = num_total_well_pairs * m_dot * self.state.q_cooler
-        self.Q_preheater_total = num_total_well_pairs * m_dot * self.state.q_preheater
-        self.Q_boiler_total = num_total_well_pairs * m_dot * self.state.q_boiler
-        self.Q_desuperheater_total = num_total_well_pairs * m_dot * self.state.q_desuperheater  # used
+        mult = num_total_well_pairs * self.m_dot
 
-        self.W_pump_total = num_total_well_pairs * m_dot * self.state.w_pump # used
-        self.W_turbine_total = num_total_well_pairs * m_dot * self.state.w_turbine  # used
-        self.W_cooler_total = num_total_well_pairs * m_dot * self.state.w_cooler # used
-        self.W_condenser_total = num_total_well_pairs * m_dot * self.state.w_condenser # used
+        self.Q_condenser_total = mult * self.state.q_condenser  # used
+        self.Q_cooler_total = mult * self.state.q_cooler
+        self.Q_preheater_total = mult * self.state.q_preheater
+        self.Q_boiler_total = mult * self.state.q_boiler
+        self.Q_desuperheater_total = mult * self.state.q_desuperheater  # used
+
+        self.W_pump_total = mult * self.state.w_pump # used
+        self.W_turbine_total = mult * self.state.w_turbine  # used
+        self.W_cooler_total = mult * self.state.w_cooler # used
+        self.W_condenser_total = mult * self.state.w_condenser # used
         self.W_net_total = self.W_pump_total + self.W_turbine_total + self.W_cooler_total + self.W_condenser_total
 
 
@@ -446,7 +468,7 @@ class EconomicModelAdams(EconomicModel):
 
         X_IC, X_PC = self.cost_mult['plant']
         X_SE = 1.39 # secondary equipment cost (control system, pumps, valuves, buildings, etc.)
-        X_CL = 0.58 # construction later cost
+        X_CL = 0.58 # construction labor cost
         X_CM = 0.11 # construction material cost
         X_ST = 0.00 # sales tax
         X_F = 0.04  # equipment freight

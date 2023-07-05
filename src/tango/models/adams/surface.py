@@ -59,15 +59,15 @@ class SurfaceModelAdams(SurfaceModel):
 
     def set_constants(self) -> None:
 
-        """
-            - mass_flow_rate = flow rate at an injector (Kg/s)
-            - m_dot = flow rate at each well pair (Kg/s)
-        """
-        if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
-            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
-        self.m_dot = self.specs.mass_flow_rate
-        if self.specs.well_pattern == 'INVERTED_5SPOT':
-            self.m_dot = self.specs.mass_flow_rate / 4.0
+        # """
+        #     - mass_flow_rate = flow rate at an injector (Kg/s)
+        #     - m_dot = flow rate at each well pair (Kg/s)
+        # """
+        # if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
+        #     raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
+        # self.m_dot = self.specs.mass_flow_rate
+        # if self.specs.well_pattern == 'INVERTED_5SPOT':
+        #     self.m_dot = self.specs.mass_flow_rate / 4.0
 
         if self.specs.cooling_mode == 'WET':
             self.coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
@@ -83,7 +83,6 @@ class SurfaceModelAdams(SurfaceModel):
         """
         direct CO2 thermosiphon system:
             production_well - turbine - condenser - pump - injection_well
-        #TODO: add options for other fluids (non-CO2)
         """
         state.outlet_fluid_turbine = FluidState.withQT(self.fluid_name, Q=1.0, T=self.condensation_temperature)
 
@@ -102,20 +101,15 @@ class SurfaceModelAdams(SurfaceModel):
         state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
 
 
-    def set_outlet_state(self, state, state_to) -> None: # TODO: not really used...
-        state.outlet_fluid = state_to.inlet_fluid # outlet_fluid at injection_well
-        # state_to.inlet_fluid = state.outlet_fluid # maybe more intuitive?
-
-
     def update_turbine_power(self, state: SurfaceStateAdams) -> None:
         state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = state.inlet_fluid.S)
 
         hs_outlet = state.outlet_fluid_turbine.H # (J/kg)
         h_inlet = state.inlet_fluid.H            # (J/kg)
         eta = self.specs.eta_turbine             # (-)
-        X_CO2 = 1.0 # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2
+        X_CO2 = 1.0 # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
 
-        state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet- hs_outlet)
+        state.w_turbine = X_CO2 * eta * (h_inlet - hs_outlet)
 
 
     def BAC_regression_model(self, coeffs: list) -> float:
@@ -141,7 +135,7 @@ class SurfaceModelAdams(SurfaceModel):
 
         hs_outlet = state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
         h_inlet = state.inlet_fluid.H  # (J/kg)
-        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2
+        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         eta = self.specs.eta_turbine  # (-)
         h_saturated_vapor = self.condenser_saturated_vapor_h
         h_condensed = self.condenser_saturated_liquid_h
@@ -161,13 +155,10 @@ class SurfaceModelAdams(SurfaceModel):
 
 
     def update_pump_state(self, state: SurfaceStateAdams) -> None:
-        """
-            Prototype implementation. Only supports fluid_name=CO2.
-            Currently assuming dP_pump = w_pump=0 for CO2 due to thermosiphon effect)
-            # TODO: Support non-CO2 fluids
-        """
 
         eta = self.specs.eta_pump
+        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+
         P_pump_outlet = self.condensation_pressure + state.dP_pump
 
         h_pump_inlet = state.inlet_fluid_pump.H
@@ -176,7 +167,7 @@ class SurfaceModelAdams(SurfaceModel):
             state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=state.inlet_fluid_pump.S)
             h_pump_outlet = h_pump_inlet + (state.outlet_fluid_pump.H - h_pump_inlet) / eta
 
-        state.w_pump = -1.0 * (h_pump_outlet - h_pump_inlet)
+        state.w_pump = -1.0 * X_CO2 * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., state.dP_pump) # if dP_pump <0, then choke.
         state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
