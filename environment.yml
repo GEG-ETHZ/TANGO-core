@@ -8,6 +8,7 @@ dependencies:
   - pip
   - python>=3.9
   - scipy
+  - pytest
   - pip:
       - pyyaml>=6.0
       - oyaml
