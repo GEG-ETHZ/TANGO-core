@@ -197,13 +197,13 @@ class FluidState:
     @property
     def Tcrit(self):
         """The fluid critical temperature (in K)"""
-        return CoolProp.PropsSI('TCRIT', "", 0, "", 0, self.cstate.Fluid)
+        return CoolProp.CoolProp.PropsSI('TCRIT', "", 0, "", 0, self.cstate.name())
 
 
     @property
     def Pcrit(self):
         """The fluid critical pressure (in Pa)"""
-        return CoolProp.PropsSI('PCRIT', "", 0, "", 0, self.cstate.Fluid)
+        return CoolProp.CoolProp.PropsSI('PCRIT', "", 0, "", 0, self.cstate.name())
 
 
     @T.setter
