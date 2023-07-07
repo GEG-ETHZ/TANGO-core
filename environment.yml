@@ -1,6 +1,5 @@
 name: tango
 channels:
-  - defaults
   - conda-forge
 dependencies:
   - coolprop>=6.4.1
