@@ -10,5 +10,6 @@ dependencies:
   - scipy
   - pip:
       - pyyaml>=6.0
+      - oyaml
       - setuptools
       - setuptools-scm
