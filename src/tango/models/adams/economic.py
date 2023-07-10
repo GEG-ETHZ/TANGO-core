@@ -45,9 +45,10 @@ class EconomicModelAdams(EconomicModel):
         self.reservoir_depth = self.specs['reservoir'].reservoir_depth
         self.well_pattern = self.specs['reservoir'].well_pattern.upper()
         self.well_spacing = self.specs['reservoir'].well_spacing # inj-prod pair spacing
-        self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
-        self.num_patterns = self.num_patterns_sqrt ** 2
-        # self.well_pattern_dimens = self.specs['reservoir'].well_pattern_dimens
+        # self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
+        # self.num_patterns = self.num_patterns_sqrt ** 2
+        self.well_pattern_dimens = self.specs['reservoir'].well_pattern_dimens
+        self.num_patterns = self.well_pattern_dimens[0] * self.well_pattern_dimens[1]
 
         self.characterization_well_pos =  self.specs['production_well'].probability_of_success
         self.characterization_well_diameter = self.specs['production_well'].diameter
@@ -78,6 +79,13 @@ class EconomicModelAdams(EconomicModel):
     def check_inputs(self) -> None:
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
             raise ValueError(f"Well pattern: {self.well_pattern} is not supported.")
+        if len(self.well_pattern_dimens) != 2:
+            raise ValueError(f"Something wrong with well_pattern_dimens: {self.well_pattern}. Input a list with two integer elements.")
+        if bool(list(filter(lambda x: not isinstance(x, int), self.well_pattern_dimens))):
+            raise ValueError(f"Something wrong with well_pattern_dimens: {self.well_pattern}. Input a list with two integer elements.")
+        if self.well_pattern == 'DOUBLET':
+            if bool(list(filter(lambda x: x > 1, self.well_pattern_dimens))):
+                raise ValueError(f"Multiple well_patterns is not supported for: {self.well_pattern}.")
         if not self.project_maturity:
             raise ValueError(f"project_maturity in 'economic' section is not defined.")
         if self.project_maturity not in PROJECT_MATURITY_OPTIONS:
@@ -110,8 +118,6 @@ class EconomicModelAdams(EconomicModel):
         self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
         self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
 
-        self.m_dot = self.get_mdot()
-
         # coefficients for BAC regression models
         if self.surface_cooling_tower_mode == 'WET':
             self.coeffs_cooling = [5.58e3, 0., -1.77e1, 1.96e2]
@@ -131,27 +137,15 @@ class EconomicModelAdams(EconomicModel):
         self.state = state  # surface
 
 
-    def get_mdot(self) -> float:
-        """
-            Returns: m_dot = flow rate at each well pair (Kg/s)
-        """
-        if self.well_pattern == 'INVERTED_5SPOT':
-            return self.injector_mass_flow_rate / 4.0
-        else:
-            return self.injector_mass_flow_rate
-
-
-
     def get_active_monitoring_area(self) -> float:
         if self.fluid_name != 'CO2':
             return 0.
-        L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get a side length
-        # L_pattern = self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get a side length. self.well_spacing= L of inj-prd pair
-        # NX, NY = self.well_pattern_dimens
-        # Lx = 1600. + NX * L_pattern
-        # Ly = 1600. + NY * L_pattern
-        return (L_wellzone + 1600.) ** 2  # Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
-        # return   (1600. + NX * L_pattern) * ()# Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
+        NX, NY = self.well_pattern_dimens
+        if self.well_pattern == 'DOUBLET':
+            L_pattern = self.well_spacing # L_pattern = pattern level length
+        elif '5SPOT' in self.well_pattern:
+            L_pattern = self.well_spacing * np.sqrt(2.0)  # *sqrt(2) to get a side length. self.well_spacing= L of inj-prd pair
+        return   (1600. + NX * L_pattern) * (1600. + NY * L_pattern)# Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
 
 
     def get_turbine_cost_multiplier(self) -> float:
@@ -224,15 +218,16 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_num_wells(self) -> list: # per pattern
+        NX, NY = self.well_pattern_dimens
         if self.well_pattern == 'DOUBLET':
             num_total_inj = 1
             num_total_prd = 1
         elif self.well_pattern == '5SPOT':
-            num_total_inj = (self.num_patterns_sqrt + 1) ** 2
-            num_total_prd = self.num_patterns
+            num_total_inj = (NX+1) * (NY+1)
+            num_total_prd = NX * NY
         elif self.well_pattern == 'INVERTED_5SPOT':
-            num_total_inj = self.num_patterns
-            num_total_prd = (self.num_patterns_sqrt + 1) ** 2
+            num_total_inj = NX * NY
+            num_total_prd = (NX+1) * (NY+1)
         else:
             raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
         return num_total_inj, num_total_prd
@@ -358,7 +353,6 @@ class EconomicModelAdams(EconomicModel):
             return L_single_pair
         elif '5SPOT' in self.well_pattern:
             return self.num_patterns * 4 * L_single_pair
-            # L = self.num_patterns * 4 * self.surface_pipe_length_per_well_pair # genGEO method. not sure if this is correct...
         else:
             raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
 
@@ -385,13 +379,6 @@ class EconomicModelAdams(EconomicModel):
             return 4
         else:
             raise NotImplementedError(f"well_pattern: {self.well_pattern} is not supported")
-
-
-    def get_well_pair_mass_flow_rate(self) -> float:
-        if self.well_pattern == 'INVERTED_5SPOT':
-            return self.injector_mass_flow_rate / 4.0
-        else:
-            return self.injector_mass_flow_rate
 
 
     def process_surface_state(self) -> None:

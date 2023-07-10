@@ -11,10 +11,9 @@ common:
   rock_k: 2.1  # W/m K
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
-  well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
-  num_patterns_sqrt: 1 # square root of number of 5 spots
-  # well_pattern_dimens: [2,2] # [num_patterns_x_dir, num_patterns_y_dir] test
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
   project_maturity: 'brown_field' # brown_field or green_field
   thermal_gradient: 0.035  # degC/m
   start_year: 2019

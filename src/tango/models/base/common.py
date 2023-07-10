@@ -17,5 +17,6 @@ class CommonSpecs:
     project_maturity: str
     well_pattern: str
     well_spacing: float
-    num_patterns_sqrt: int
+    well_pattern_dimens: list
+    # num_patterns_sqrt: int
     lifetime: int # yr
