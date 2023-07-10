@@ -2,6 +2,7 @@ from tango.models.base import *
 from tango.model import ModelState, Model
 from dataclasses import dataclass
 from tango.core.config import *
+from tango.core.constants import W_TO_KW, YEAR_TO_HOUR
 from tango.models.adams.well import WellSpecsAdams
 
 import logging
@@ -46,6 +47,7 @@ class EconomicModelAdams(EconomicModel):
         self.well_spacing = self.specs['reservoir'].well_spacing # inj-prod pair spacing
         self.num_patterns_sqrt = self.specs['reservoir'].num_patterns_sqrt
         self.num_patterns = self.num_patterns_sqrt ** 2
+        # self.well_pattern_dimens = self.specs['reservoir'].well_pattern_dimens
 
         self.characterization_well_pos =  self.specs['production_well'].probability_of_success
         self.characterization_well_diameter = self.specs['production_well'].diameter
@@ -131,8 +133,7 @@ class EconomicModelAdams(EconomicModel):
 
     def get_mdot(self) -> float:
         """
-            - mass_flow_rate = flow rate at an injector (Kg/s)
-            - m_dot = flow rate at each well pair (Kg/s)
+            Returns: m_dot = flow rate at each well pair (Kg/s)
         """
         if self.well_pattern == 'INVERTED_5SPOT':
             return self.injector_mass_flow_rate / 4.0
@@ -144,9 +145,13 @@ class EconomicModelAdams(EconomicModel):
     def get_active_monitoring_area(self) -> float:
         if self.fluid_name != 'CO2':
             return 0.
-        # L_wellzone = self.num_patterns_sqrt * 1000  # genGEO implementation (a constant value...)
         L_wellzone = self.num_patterns_sqrt * self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get a side length
+        # L_pattern = self.well_spacing * np.sqrt(2.0) # *sqrt(2) to get a side length. self.well_spacing= L of inj-prd pair
+        # NX, NY = self.well_pattern_dimens
+        # Lx = 1600. + NX * L_pattern
+        # Ly = 1600. + NY * L_pattern
         return (L_wellzone + 1600.) ** 2  # Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
+        # return   (1600. + NX * L_pattern) * ()# Active monitoring area = Area of Review (AoR) + 0.5 mile (800m)
 
 
     def get_turbine_cost_multiplier(self) -> float:
@@ -248,7 +253,6 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
-        num_wells = 1 # TODO test
         if well_type not in self.specs:
             return 0
         if well_type == 'injection_well' and self.project_maturity == 'BROWN_FIELD':
@@ -392,8 +396,7 @@ class EconomicModelAdams(EconomicModel):
 
     def process_surface_state(self) -> None:
 
-        num_total_well_pairs = self.get_num_well_pairs_per_pattern() * self.num_patterns
-        mult = num_total_well_pairs * self.m_dot
+        mult = self.get_num_well_pairs_per_pattern() * self.num_patterns
 
         self.Q_condenser_total = mult * self.state.q_condenser  # used
         self.Q_cooler_total = mult * self.state.q_cooler
@@ -507,21 +510,40 @@ class EconomicModelAdams(EconomicModel):
         self.results['CAPEX_total'] = val
 
 
-    def get_LCOE(self, CAPEX: float, capacity_W: float) -> float:
-        if CAPEX <= 0 or capacity_W <= 0:
+    def get_LCOE(self, CAPEX: float, W: float) -> float:
+        """
+
+        Args:
+            CAPEX: total capital expenditure [$]
+            W: electricity produced [We_yr]
+
+        Returns: Simple Levelized Cost of Energy (sLCOE) [$/kWh]
+                 source: https://www.nrel.gov/analysis/tech-lcoe-documentation.html
+
+        """
+        if CAPEX <= 0 or W <= 0:
             return np.nan
         d = self.discount_rate
         t = self.lifetime
         CF = self.capacity_factor
         F_OM = self.OPEX_cost_fraction
         CRF = d * (1. + d) ** t / ( (1. + d) ** t - 1.) # capital recovery factor
-        return CAPEX * (CRF + F_OM) / (capacity_W * CF * 8760)
+        return CAPEX * (CRF + F_OM) / (W * W_TO_KW * CF * YEAR_TO_HOUR)
 
 
-    def get_specific_capital_cost(self, CAPEX: float, capacity_W: float) -> float:
-        if CAPEX <= 0 or capacity_W <= 0:
+    def get_specific_capital_cost(self, CAPEX: float, W: float) -> float:
+        """
+
+        Args:
+            CAPEX: total capital expenditure [$]
+            W: electricity produced [We]
+
+        Returns: Specific capital cost [$/kWe]
+
+        """
+        if CAPEX <= 0 or W <= 0:
             return np.nan
-        return CAPEX / capacity_W
+        return CAPEX / (W * W_TO_KW)
 
 
     def compute_LCOE(self) -> None:
@@ -535,5 +557,3 @@ class EconomicModelAdams(EconomicModel):
         self.compute_capex()
 
         self.compute_LCOE()
-
-

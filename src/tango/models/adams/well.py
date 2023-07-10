@@ -111,11 +111,15 @@ class WellModelAdams(WellModel):
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
             self.P[i] = self.P[i-1] - self.f_dir*self.rho[i-1]*self.g*self.dz \
-                        - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1]) #TODO: check with Powei
+                        - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
             self.h[i] = self.h[i-1] - self.f_dir*self.g*self.dz \
                         - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.well_mass_flow_rate
 
-            self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+            try:
+                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+            except:
+                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
 
             self.rho[i] = self.fluid_state_tmp.rho
             self.mu[i] = self.fluid_state_tmp.mu

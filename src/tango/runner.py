@@ -75,14 +75,14 @@ class Runner:
 
     def converged(self) -> bool:
 
-        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.pressure
+        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
 
         if np.abs(dP_reservoir) < self.runspec.dP_reservoir_threshold:
             return True
 
         if not self.x_lst: # first call
             self.x_lst.append(copy.deepcopy(self.state.surface.dP_pump))
-            self.y_lst.append(self.state.reservoir.pressure_old - self.state.reservoir.pressure)
+            self.y_lst.append(self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P)
             root = 0.5 * dP_reservoir
         else:
             self.x_lst.append(copy.deepcopy(self.state.surface.dP_pump))
@@ -99,7 +99,7 @@ class Runner:
     def update_primary_variables(self) -> None:
         self.x_lst.clear()
         self.y_lst.clear()
-        self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.pressure)
+        self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
 
 
     def step(self) -> None:
@@ -143,9 +143,7 @@ class Runner:
         #         raise RuntimeError(f"Something went wrong at time step: {current_yr}")
         #     current_yr += 1
 
-        """
-            genGEO method
-        """
+        # genGEO method (one step only)
         self.step()
 
         self.save_results(current_yr)

@@ -71,12 +71,12 @@ def parse_results(d: dict, state_lst: list, base_name_lst: list, current_yr:int)
 
 def write_results(input_file: str, results_physics: dict, results_econ: dict) -> None:
 
-    fname = os.path.splitext(input_file)[0] + "_smry.csv"
+    fname = os.path.splitext(input_file)[0] + ".smry.csv"
     logging.info(f"Saving output summary of physics-based models > {fname}")
     df = pd.DataFrame(results_physics)
     df.to_csv(fname, index=False)
 
-    fname = os.path.splitext(input_file)[0] + "_econ.csv"
+    fname = os.path.splitext(input_file)[0] + ".econ.csv"
     logging.info(f"Saving output summary of economic models > {fname}")
     d = dict()
     for key in results_econ.keys():

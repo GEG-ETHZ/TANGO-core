@@ -1,3 +1,5 @@
+import logging
+
 from tango.models.base import *
 from tango.core.config import *
 from tango.core import FluidState
@@ -49,6 +51,7 @@ class SurfaceModelAdams(SurfaceModel):
     def __init__(self, specs: dict):
         self.specs = SurfaceSpecsAdams(**specs)
         self.fluid_name = self.specs.fluid_name
+        self.m_dot = self.specs.mass_flow_rate
         self.X_CO2 = 1.0
 
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
@@ -109,7 +112,7 @@ class SurfaceModelAdams(SurfaceModel):
         eta = self.specs.eta_turbine             # (-)
         X_CO2 = 1.0 # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
 
-        state.w_turbine = X_CO2 * eta * (h_inlet - hs_outlet)
+        state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet - hs_outlet) # (W)
 
 
     def BAC_regression_model(self, coeffs: list) -> float:
@@ -137,21 +140,21 @@ class SurfaceModelAdams(SurfaceModel):
         h_inlet = state.inlet_fluid.H  # (J/kg)
         X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         eta = self.specs.eta_turbine  # (-)
-        h_saturated_vapor = self.condenser_saturated_vapor_h
-        h_condensed = self.condenser_saturated_liquid_h
+        h_saturated_vapor = self.condenser_saturated_vapor_h # (J/kg)
+        h_condensed = self.condenser_saturated_liquid_h # (J/kg)
 
-        h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet)
+        h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet) # (J/kg)
 
-        state.q_cooler = 0.
-        state.q_condenser = h_condensed - h_turbine_outlet
+        state.q_cooler = 0. # (W)
+        state.q_condenser = self.m_dot * (h_condensed - h_turbine_outlet) # (W)
         if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
-            state.q_cooler = h_saturated_vapor - h_turbine_outlet
-            state.q_condenser = h_condensed - h_saturated_vapor
+            state.q_cooler = self.m_dot * (h_saturated_vapor - h_turbine_outlet)
+            state.q_condenser = self.m_dot * (h_condensed - h_saturated_vapor)
             T_turbine_outlet = FluidState.withHP(self.fluid_name, h_turbine_outlet, self.condensation_pressure).T
             self.condensation_temperature_range = T_turbine_outlet - self.condensation_temperature
 
-        state.w_cooler = X_CO2 * state.q_cooler * self.get_parasitic_power_fraction_cooling()
-        state.w_condenser = X_CO2 * state.q_condenser * self.get_parasitic_power_fraction_condensing()
+        state.w_cooler = X_CO2 * state.q_cooler * self.get_parasitic_power_fraction_cooling() # (W)
+        state.w_condenser = X_CO2 * state.q_condenser * self.get_parasitic_power_fraction_condensing() # (W)
 
 
     def update_pump_state(self, state: SurfaceStateAdams) -> None:
@@ -164,14 +167,22 @@ class SurfaceModelAdams(SurfaceModel):
         h_pump_inlet = state.inlet_fluid_pump.H
         h_pump_outlet = state.inlet_fluid_pump.H
         if state.dP_pump > 0:
-            state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=state.inlet_fluid_pump.S)
+            try:
+                state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=state.inlet_fluid_pump.S)
+            except:
+                logging.warning(f"Failed to update fluid state with PS. Updating with PT instead.")
+                state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=state.inlet_fluid_pump.T)
+
             h_pump_outlet = h_pump_inlet + (state.outlet_fluid_pump.H - h_pump_inlet) / eta
 
-        state.w_pump = -1.0 * X_CO2 * (h_pump_outlet - h_pump_inlet)
+        state.w_pump = -1.0 * X_CO2 *  self.m_dot * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., state.dP_pump) # if dP_pump <0, then choke.
-        state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
-
+        try:
+            state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
+        except:
+            logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+            state.outlet_fluid.updateHP(P=P_inj_inlet, T=state.outlet_fluid_pump.T)
 
     def update_net_state(self, state: SurfaceStateAdams) -> None:
         state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
