@@ -13,6 +13,7 @@ class ReservoirSpecsAdams(CommonSpecs):
     thickness: float = 305     # the reservoir thickness (in m)
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
+    net_to_gross_ratio: float = 1.0
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     initial_pressure: float = None
     initial_temperature: float = None
@@ -93,7 +94,10 @@ class ReservoirModelAdams(ReservoirModel):
 
     @staticmethod
     def impedance_func_5spot(mu, rho, k, b, L, D) -> float:
-        return mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
+        try:
+            return mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
+        except:
+            a=1
 
     @staticmethod
     def impedance_func_doublet(mu, rho, k, b, L, D) -> float:
@@ -110,10 +114,10 @@ class ReservoirModelAdams(ReservoirModel):
 
     def update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
-        k, b = self.specs.permeability, self.specs.thickness
+        k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
         L, D = self.specs.well_spacing, self.specs.well_diameter
-        self.impedance = self.impedance_func(mu, rho, k, b, L, D)
-
+        b_eff = b * NTG  # = effective thickness
+        self.impedance = self.impedance_func(mu, rho, k, b_eff, L, D)
 
     def update(self, state) -> None:
         """

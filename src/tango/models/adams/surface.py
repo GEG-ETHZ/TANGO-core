@@ -182,7 +182,7 @@ class SurfaceModelAdams(SurfaceModel):
             state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
         except:
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-            state.outlet_fluid.updateHP(P=P_inj_inlet, T=state.outlet_fluid_pump.T)
+            state.outlet_fluid.updatePT(P=P_inj_inlet, T=state.outlet_fluid_pump.T)
 
     def update_net_state(self, state: SurfaceStateAdams) -> None:
         state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
