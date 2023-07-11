@@ -1,8 +1,14 @@
 import argparse
 import os
 import logging
+
+import numpy as np
 import pandas as pd
+from oyaml import load, SafeLoader
+from datetime import datetime
+
 from tango.core.config import *
+from tango.core.constants import *
 
 
 def parse_args(args) -> argparse.Namespace:
@@ -39,6 +45,24 @@ def set_logger(input_file: str, DEBUG: bool):
     logging.getLogger('').addHandler(console)
 
 
+def load_from_yaml(filename: str):
+    with open(filename) as f:
+        specs = load(f, Loader=SafeLoader)
+    return specs
+
+
+def check_inputs(specs: dict) -> None:
+    if not isinstance(specs['common']['num_tsteps'], int):
+        raise RuntimeError(
+            f"Invalid variable type found in {specs['common']['num_tsteps']}: {type(specs['common']['num_tsteps'])}. Use type: int")
+    if specs['common']['num_tsteps'] < 1:
+        raise RuntimeError(
+            f"Invalid value found in {specs['common']['num_tsteps']}: Use an integer value greater than 0")
+    if specs['common']['dt'] > 5.0:
+        logging.warning(f"Large time step size found: {specs['common']['dt']}. It may result in inaccurate results.")
+    #TODO: add warning messages for unrealistic input values
+
+
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope
     return x_lst[0] - y_lst[0] / dydx
@@ -59,14 +83,29 @@ def append_results(d: dict, state: classmethod, base_name: str) -> None:
             continue
 
 
-def parse_results(d: dict, state_lst: list, base_name_lst: list, current_yr:int) -> None:
-    name = 'time_yr'
+def parse_results(d: dict, state_lst: list, base_name_lst: list, current_date:str) -> dict:
+    name = 'date'
     if name not in d.keys():
-        d[name] = [current_yr]
+        d[name] = [current_date]
     else:
-        d[name].append(current_yr)
+        d[name].append(current_date)
     for i, state in enumerate(state_lst):
         append_results(d, state, base_name_lst[i])
+
+
+def parse_results(d: dict, state, current_date:str) -> dict:
+    name = 'date'
+    if name not in d.keys():
+        d[name] = [current_date]
+    else:
+        d[name].append(current_date)
+    unit_names = [var for var in dir(state) if not var.startswith("__")]
+    for unit_name in unit_names:
+        if unit_name in REPORT_SETTINGS.keys():
+            unit_state = getattr(state, unit_name)
+            if REPORT_SETTINGS[unit_name]:
+                unit_state = getattr(unit_state, REPORT_SETTINGS[unit_name])
+            append_results(d, unit_state, unit_name)
 
 
 def write_results(input_file: str, results_physics: dict, results_econ: dict) -> None:

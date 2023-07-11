@@ -5,11 +5,13 @@ import time
 import json
 import pandas as pd
 import numpy as np
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
 from dataclasses import dataclass
 from tango.core.config import *
-from tango.core.yaml_loader import load_from_yaml
+from tango.core.constants import *
 from tango.models.adams import *
 from tango import utils
 
@@ -17,7 +19,7 @@ from tango import utils
 class RunnerSpecs():
     workflow: str # workflow option
     file: str = '' # input file for the workflow (required only for external software options)
-    max_num_itr: int = 10
+    max_num_itr: int = 20
     dP_reservoir_threshold: float = 1000. # (Pa) convergence criterion
 
 
@@ -43,12 +45,11 @@ class Runner:
     def read_inputs(self) -> None:
         try:
             logging.info(f"Running TANGO using {self.input_file}")
-            self.specs = load_from_yaml(self.input_file)
+            self.specs = utils.load_from_yaml(self.input_file)
         except:
             raise RuntimeError(f"Failed to read {self.input_file}")
+        utils.check_inputs(self.specs)
         self.runspec = RunnerSpecs(**self.specs['runspec'])
-        self.lifetime_yr = self.specs['common']['lifetime']
-        self.start_year = self.specs['common']['start_year']
         logging.debug(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
 
 
@@ -100,6 +101,7 @@ class Runner:
         self.x_lst.clear()
         self.y_lst.clear()
         self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
+        self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
 
 
     def step(self) -> None:
@@ -114,14 +116,10 @@ class Runner:
             logging.warning(f"Max number of iteration (={count}) has reached. Exiting iteration.")
 
 
-    def save_results(self, current_yr: int) -> None:
+    def save_results(self, current_date: datetime) -> None:
         utils.parse_results(d=self.results,
-                            state_lst=[self.state.injection_well.inlet_fluid,
-                                       self.state.reservoir.outlet_fluid,
-                                       self.state.production_well.outlet_fluid,
-                                       self.state.surface],
-                            base_name_lst = list(self.model.model_dict.keys()),
-                            current_yr=current_yr)
+                            state=self.state,
+                            current_date=current_date.strftime(DATETIME_FMT))
 
 
     def run_models(self) -> None:
@@ -129,27 +127,24 @@ class Runner:
         logging.info(f"Executing physics-based models: {list(self.model.model_dict.keys())}")
 
         self.x_lst, self.y_lst = [], []
-        current_yr = self.start_year
+        dt_months = np.round(self.specs['common']['dt'] * YEAR_TO_MONTH)
+        num_time_steps = self.specs['common']['num_tsteps']
+        current_date = datetime.strptime(self.specs['common']['start_date'], DATETIME_FMT)
 
         """
-            compute over project lifetime
+            loop over project lifetime
         """
-        # for i in tqdm(range(self.lifetime_yr), desc="Progress: ", ncols = 100, file=sys.stdout):
-        #     self.save_results(current_yr)
-        #     try:
-        #         self.step()
-        #         self.update_primary_variables()
-        #     except:
-        #         raise RuntimeError(f"Something went wrong at time step: {current_yr}")
-        #     current_yr += 1
-
-        # genGEO method (one step only)
-        self.step()
-
-        self.save_results(current_yr)
+        for i in tqdm(range(num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
+            try:
+                self.step()
+            except:
+                raise RuntimeError(f"Something went wrong at time step: {current_date}")
+            self.save_results(current_date)
+            self.update_primary_variables()
+            current_date = current_date + relativedelta(months=dt_months)
 
         logging.info(f"Executing economic models.")
-        self.model.economic.execute()
+        self.model.economic.execute(self.results)
 
 
     def post_processing(self) -> None:

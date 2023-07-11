@@ -5,7 +5,6 @@ class CommonSpecs:
     fluid_name: str
     mass_flow_rate: float  # kg/s
     # inj_fluid_temperature: float # K
-    dt: float # time step years
     reservoir_depth: float
     rock_density: float
     rock_cp: float
@@ -13,10 +12,11 @@ class CommonSpecs:
     surface_temperature: float  # K
     surface_pressure: float  # Pa
     thermal_gradient: float  # degC/m
-    start_year: int 
-    project_maturity: str
+    # project_maturity: str
     well_pattern: str
     well_spacing: float
     well_pattern_dimens: list
-    # num_patterns_sqrt: int
-    lifetime: int # yr
+    start_date: str
+    # lifetime: int # yr
+    num_tsteps: int
+    dt: float  # time step years

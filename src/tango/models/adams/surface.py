@@ -46,13 +46,13 @@ class SurfaceStateAdams(SurfaceState):
         self.w_net: float = 0.
 
 
-class SurfaceModelAdams(SurfaceModel): #TODO: implement water (binary stuff)
+class SurfaceModelAdams(SurfaceModel):
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         self.specs = SurfaceSpecsAdams(**specs)
         self.fluid_name = self.specs.fluid_name
         self.m_dot = self.specs.mass_flow_rate
-        self.X_CO2 = 1.0
+        self.X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
 
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
@@ -105,7 +105,7 @@ class SurfaceModelAdams(SurfaceModel): #TODO: implement water (binary stuff)
         hs_outlet = state.outlet_fluid_turbine.H # (J/kg)
         h_inlet = state.inlet_fluid.H            # (J/kg)
         eta = self.specs.eta_turbine             # (-)
-        X_CO2 = 1.0 # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        X_CO2 = self.X_CO2
 
         state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet - hs_outlet) # (W)
 
@@ -133,7 +133,7 @@ class SurfaceModelAdams(SurfaceModel): #TODO: implement water (binary stuff)
 
         hs_outlet = state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
         h_inlet = state.inlet_fluid.H  # (J/kg)
-        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        X_CO2 = self.X_CO2
         eta = self.specs.eta_turbine  # (-)
         h_saturated_vapor = self.condenser_saturated_vapor_h # (J/kg)
         h_condensed = self.condenser_saturated_liquid_h # (J/kg)
@@ -155,7 +155,7 @@ class SurfaceModelAdams(SurfaceModel): #TODO: implement water (binary stuff)
     def update_pump_state(self, state: SurfaceStateAdams) -> None:
 
         eta = self.specs.eta_pump
-        X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        X_CO2 = self.X_CO2
 
         P_pump_outlet = self.condensation_pressure + state.dP_pump
 

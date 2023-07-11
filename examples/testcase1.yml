@@ -1,23 +1,26 @@
+#
+# testcase1: simple DOUBLET case
+#
+
 runspec:
   workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS'
 
 common:
   fluid_name: 'CO2'
   mass_flow_rate: 200.0  # kg/s (injection rate)
-  dt: 0.5  # year
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3
-  rock_cp: 1000.0  # J/kg K
-  rock_k: 2.1  # W/m K
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal comductivity (W/(m*K))
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
-  project_maturity: 'brown_field' # brown_field or green_field
   thermal_gradient: 0.035  # degC/m
-  start_year: 2019
-  lifetime: 25
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 25 # number of time steps
+  dt: 1.0  # time step increment (year)
 
 reservoir:
   thickness: 300.0
@@ -38,6 +41,7 @@ surface:
   eta_turbine: 0.78  # (-)
 
 economic:
+  project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
 
 

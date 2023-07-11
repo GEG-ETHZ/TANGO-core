@@ -1,3 +1,7 @@
+#
+# testcase2: simple INVERTED_5SPOT case
+#
+
 runspec:
   workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS'
 
@@ -14,7 +18,6 @@ common:
   well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # length of inj-prod pair in m
   well_pattern_dimens: [3,2] # [num_patterns_x_dir, num_patterns_y_dir]
-  project_maturity: 'brown_field' # brown_field or green_field
   thermal_gradient: 0.035  # degC/m
   start_year: 2019
   lifetime: 25
@@ -38,6 +41,7 @@ surface:
   eta_turbine: 0.78  # (-)
 
 economic:
+  project_maturity: 'brown_field' # brown_field or green_field
   discount_rate: 0.095
 
 

@@ -6,3 +6,5 @@ FLUID_NAME_OPTIONS = ['CO2', 'H2O']
 SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
 COOLING_MODE_OPTIONS = ['WET', 'DRY']
 SKIP_REPORT_ATTRIBUTES = ['mass_rate', 'mu', 'rho']
+REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'inlet_fluid', 'production_well': 'outlet_fluid'}
+DATETIME_FMT = '%Y-%m-%d'

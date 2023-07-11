@@ -25,7 +25,8 @@ class ReservoirStateAdams(ReservoirState):
     def __init__(self):
         ReservoirState.__init__(self)
         self.energy_extracted = 0.0
-        self.pressure_old = 0. # reservoir pressure at previous time step (Pa)
+        self.energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
+        self.pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
 
 
 class ReservoirModelAdams(ReservoirModel):
@@ -169,8 +170,11 @@ class ReservoirModelAdams(ReservoirModel):
         h_prod = state.outlet_fluid.H
 
         reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
-        state.energy_extracted += self.m_dot * (h_prod-h_inj) * dt # J
+        # state.energy_extracted += self.m_dot * (h_prod-h_inj) * dt # J
+        state.energy_extracted = state.energy_extracted_old + self.m_dot * (h_prod - h_inj) * dt  # J
         psi = state.energy_extracted / reservoir_energy # (-)
+        # energy_extracted = self.m_dot * (h_prod-h_inj) * dt # J
+        # psi = energy_extracted / reservoir_energy # (-)
         gamma = self.depletion_curve(psi, p1, p2, p3)
 
         outlet_temperature = gamma * dT + state.inlet_fluid.T

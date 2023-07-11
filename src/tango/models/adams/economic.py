@@ -2,7 +2,7 @@ from tango.models.base import *
 from tango.model import ModelState, Model
 from dataclasses import dataclass
 from tango.core.config import *
-from tango.core.constants import W_TO_KW, YEAR_TO_HOUR
+from tango.core.constants import *
 from tango.models.adams.well import WellSpecsAdams
 
 import logging
@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from scipy.interpolate import interp1d
+from datetime import datetime
 
 
 @dataclass
@@ -23,7 +24,7 @@ class EconomicSpecsAdams(CommonSpecs):
     monitoring_well_diameter: float = 0.216 # m
     monitoring_well_probability_of_success: float = 1.0
     num_characterization_wells: int = 2
-    # project_maturity: str =  ''
+    project_maturity: str =  ''
 
 
 class EconomicStateAdams(EconomicState):
@@ -60,8 +61,8 @@ class EconomicModelAdams(EconomicModel):
         self.surface_temperature_range = self.specs['surface'].temperature_range
         self.surface_cooling_tower_mode = self.specs['surface'].cooling_mode
 
-        self.lifetime = self.specs['economic'].lifetime
-        self.cost_year = self.specs['economic'].start_year
+        self.lifetime = self.specs['economic'].num_tsteps * self.specs['economic'].dt
+        self.cost_year = datetime.strptime(self.specs['economic'].start_date, '%Y-%m-%d').year
         self.injector_mass_flow_rate = self.specs['economic'].mass_flow_rate
         self.project_maturity = self.specs['economic'].project_maturity.upper()
         self.monitoring_well_diameter = self.specs['economic'].monitoring_well_diameter
@@ -485,6 +486,29 @@ class EconomicModelAdams(EconomicModel):
     +==================================================================================================================+
     """
 
+    def get_annual_results(self, d) -> None:
+        """
+
+        Args:
+            results: a dictionary containing time series summary of physic-based simulation results
+
+            -> Get annual/averaged results for LCOE calculation
+
+        """
+        dt = self.specs['economic'].dt # dt in year
+        var_names = [var for var in dir(self.state) if not var.startswith("__")]
+        for name in var_names:
+            key = f"surface_{name}"
+            if key in d:
+                try:
+                    # getattr(self.state, name)
+                    setattr(self.state, name, np.mean(d[key]) / dt)
+                except:
+                    continue
+
+                # attr = np.mean(d[key]) / dt # 1: to skip initial condition. Overwrite some attributes
+
+
     def compute_capex(self) -> None:
         self.results['CAPEX_well'] = self.get_wells_cost()
         self.results['CAPEX_permitting'] = self.get_permitting_cost()
@@ -502,7 +526,7 @@ class EconomicModelAdams(EconomicModel):
 
         Args:
             CAPEX: total capital expenditure [$]
-            W: electricity produced [We_yr]
+            W: net electricity generated (annual) [We]
 
         Returns: Simple Levelized Cost of Energy (sLCOE) [$/kWh]
                  source: https://www.nrel.gov/analysis/tech-lcoe-documentation.html
@@ -534,12 +558,15 @@ class EconomicModelAdams(EconomicModel):
 
 
     def compute_LCOE(self) -> None:
+        self.results['Net_Electricity_Generated_kWe'] = self.W_net_total * W_TO_KW
         self.results['LCOE'] = self.get_LCOE(self.results['CAPEX_total'], self.W_net_total)
         self.results['SpCC'] = self.get_specific_capital_cost(self.results['CAPEX_total'], self.W_net_total)
         self.results['RF'] = self.results['LCOE'] / self.results['SpCC']
 
 
-    def execute(self) -> None:
+    def execute(self, results: dict) -> None:
+
+        self.get_annual_results(results)
 
         self.compute_capex()
 
