@@ -24,10 +24,6 @@ class ReservoirStateAdams(ReservoirState):
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
         ReservoirState.__init__(self)
-
-        # Parameters characterizing thermal decay
-        self.gamma = 1.0
-        self.psi = 0.0
         self.energy_extracted = 0.0
         self.pressure_old = 0. # reservoir pressure at previous time step (Pa)
 
@@ -172,12 +168,12 @@ class ReservoirModelAdams(ReservoirModel):
         h_inj = state.inlet_fluid.H
         h_prod = state.outlet_fluid.H
 
-        reservoir_energy = self.rock_volume * self.rock_C_v * dT
+        reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
         state.energy_extracted += self.m_dot * (h_prod-h_inj) * dt # J
-        state.psi = state.energy_extracted / reservoir_energy
-        state.gamma = self.depletion_curve(state.psi, p1, p2, p3)
+        psi = state.energy_extracted / reservoir_energy # (-)
+        gamma = self.depletion_curve(psi, p1, p2, p3)
 
-        outlet_temperature = state.gamma * dT + state.inlet_fluid.T
+        outlet_temperature = gamma * dT + state.inlet_fluid.T
 
         state.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
 
