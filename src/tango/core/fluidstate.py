@@ -185,7 +185,7 @@ class FluidState:
     @property
     def cp(self):
         """The fluid specific heat capacity at constant pressure (in J/(kg*K))."""
-        return self.cstate.cp * KJ_TO_J
+        return self.cstate.cpmass()
 
 
     @property

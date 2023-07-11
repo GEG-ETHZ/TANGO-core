@@ -13,7 +13,7 @@ class CGSModelStateAdams(ModelState):
 
 class CGSModelAdams(Model):
     """The model of the conventional geothermal system based on Adams model."""
-    def __init__(self, specs: dict): # TODO: who not inj->res->prd->surface?
+    def __init__(self, specs: dict):
         super().__init__(specs)
         self.add_model('injection_well', WellModelAdams)
         self.add_model('reservoir', ReservoirModelAdams)

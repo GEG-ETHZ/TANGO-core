@@ -11,15 +11,13 @@ from math import e as exp
 class ReservoirSpecsAdams(CommonSpecs):
     """Specifications for reservoir modeling based on Adams et. al (2015)"""
     thickness: float = 305     # the reservoir thickness (in m)
+    area: float = None
     porosity: float = 0.10    # the rock porosity in the reservoir (dimensionless)
     permeability: float = 5.0e-14 # the rock permeability in the reservoir (in m2)
     net_to_gross_ratio: float = 1.0
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     initial_pressure: float = None
     initial_temperature: float = None
-    p1: float = -1.9376
-    p2: float = 1.743
-    p3: float = 0.182
 
 
 class ReservoirStateAdams(ReservoirState):
@@ -32,7 +30,7 @@ class ReservoirStateAdams(ReservoirState):
         self.psi = 0.0
         self.energy_extracted = 0.0
         self.pressure_old = 0. # reservoir pressure at previous time step (Pa)
-        #self.pressure = 0.  # reservoir pressure at previous time step (Pa)
+
 
 class ReservoirModelAdams(ReservoirModel):
     """The reservoir (1-D well-pair) model based on Adams et al. (2015)."""
@@ -46,7 +44,7 @@ class ReservoirModelAdams(ReservoirModel):
 
         self.initial_pressure = self.get_initial_pressure()
 
-        self.area = 0.5 * (self.specs.well_spacing ** 2) # genGEO method
+        self.area = self.get_area()
         self.volume = self.specs.thickness * self.area
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
@@ -56,6 +54,12 @@ class ReservoirModelAdams(ReservoirModel):
 
         self.set_mdot()
         self.set_impedance_func()
+
+    def get_area(self) -> float:
+        if self.specs.area is None:
+            return 0.5 * (self.specs.well_spacing ** 2) # genGEO method. likely over estimated
+        return self.specs.area
+
 
     def get_initial_temperature(self) -> float:
         if self.specs.initial_temperature is not None:
@@ -94,20 +98,39 @@ class ReservoirModelAdams(ReservoirModel):
 
     @staticmethod
     def impedance_func_5spot(mu, rho, k, b, L, D) -> float:
-        try:
-            return mu * np.log(4.0*L/(np.pi*D)) / (rho*k*b)
-        except:
-            a=1
+        return mu * np.log(4.0 * L / (np.pi * D)) / (rho * k * b)
 
     @staticmethod
     def impedance_func_doublet(mu, rho, k, b, L, D) -> float:
         return mu * (np.log(L/(exp*D)) + D/L) / (rho*k*b*np.pi)
 
+    def set_depletion_curve_coeffs(self, state) -> list:
+
+        m_dot = self.m_dot # kg/s
+        b = self.specs.thickness # m
+        k_rock = self.specs.rock_k # thermal comductivity (W/m-K)
+        rho_rock = self.specs.rock_density  # kg/m3
+        rho_fluid = 0.5 * (state.inlet_fluid.rho + state.outlet_fluid.rho) # kg/m3
+        cp_rock = self.specs.rock_cp # specific heat capacity (J/(kg*K))
+        cp_fluid = 0.5 * (state.inlet_fluid.cp + state.outlet_fluid.cp) # specific heat capacity (J/(kg*K))
+        R = self.specs.well_spacing # m
+
+        coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock
+        coeff2 = k_rock * R * rho_fluid / rho_rock / cp_fluid / m_dot
+
+        p1 = np.minimum(-890.97 * coeff1 - 1.30, -1.3)
+        p2 = 0.4095 * np.exp(-0.7815 * p1)
+        p3 = np.clip(1 - (1.4646 * np.exp(-377.3 * coeff2)), 0., 1.)
+
+        return p1, p2, p3
+
+
     def init_state(self, state) -> None:
         state.inlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
         state.outlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
         state.pressure_old = self.initial_pressure
-        #state.pressure = self.initial_pressure
+        self.p1, self.p2, self.p3 = self.set_depletion_curve_coeffs(state)
+
 
     def set_inlet_state(self, state, state_from) -> None:
         state.inlet_fluid = state_from.outlet_fluid
@@ -141,7 +164,7 @@ class ReservoirModelAdams(ReservoirModel):
         # ... update reservoir temperature (outlet_temperature)
         #
 
-        p1, p2, p3 = self.specs.p1, self.specs.p2, self.specs.p3
+        p1, p2, p3 = self.p1, self.p2, self.p3
         dt = self.specs.dt * YEAR_TO_SECOND
 
         T_inj = state.inlet_fluid.T

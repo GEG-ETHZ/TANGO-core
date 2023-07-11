@@ -46,7 +46,7 @@ class SurfaceStateAdams(SurfaceState):
         self.w_net: float = 0.
 
 
-class SurfaceModelAdams(SurfaceModel):
+class SurfaceModelAdams(SurfaceModel): #TODO: implement water (binary stuff)
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         self.specs = SurfaceSpecsAdams(**specs)
@@ -66,11 +66,6 @@ class SurfaceModelAdams(SurfaceModel):
         #     - mass_flow_rate = flow rate at an injector (Kg/s)
         #     - m_dot = flow rate at each well pair (Kg/s)
         # """
-        # if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
-        #     raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
-        # self.m_dot = self.specs.mass_flow_rate
-        # if self.specs.well_pattern == 'INVERTED_5SPOT':
-        #     self.m_dot = self.specs.mass_flow_rate / 4.0
 
         if self.specs.cooling_mode == 'WET':
             self.coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]

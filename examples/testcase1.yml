@@ -4,9 +4,9 @@ runspec:
 common:
   fluid_name: 'CO2'
   mass_flow_rate: 200.0  # kg/s (injection rate)
-  dt: 1.0  # year
+  dt: 0.5  # year
   reservoir_depth: 2500.0 # m
-  rock_density: 2650.0
+  rock_density: 2650.0 # kg/m3
   rock_cp: 1000.0  # J/kg K
   rock_k: 2.1  # W/m K
   surface_temperature: 288.15  # K
