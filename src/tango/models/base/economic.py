@@ -1,5 +1,4 @@
 from abc import ABC
-# from tango.model import ModelState
 
 
 class EconomicSpecs(ABC):

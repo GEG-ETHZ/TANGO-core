@@ -8,7 +8,6 @@ runspec:
 common:
   fluid_name: 'CO2'
   mass_flow_rate: 200.0  # kg/s (injection rate)
-  dt: 1.0  # year
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0
   rock_cp: 1000.0  # J/kg K
@@ -19,8 +18,9 @@ common:
   well_spacing: 707. # length of inj-prod pair in m
   well_pattern_dimens: [3,2] # [num_patterns_x_dir, num_patterns_y_dir]
   thermal_gradient: 0.035  # degC/m
-  start_year: 2019
-  lifetime: 25
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 25 # number of time steps
+  dt: 1.0  # time step increment (year)
 
 reservoir:
   thickness: 300.0

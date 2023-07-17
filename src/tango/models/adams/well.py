@@ -24,6 +24,7 @@ class WellStateAdams(WellState):
     """The well state model"""
     def __init__(self) -> None:
         WellState.__init__(self)
+        self.dP_pump = 0. # dP at pump in a production well (Pa)
 
 
 class WellModelAdams(WellModel):
@@ -171,6 +172,12 @@ class WellModelAdams(WellModel):
         r = self.specs.epsilon / self.specs.diameter  # relative roughness
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
+
+    def overwrite_state(self, state: WellStateAdams, dP_pump: float) -> None:
+        """
+            for ORC to update dP pump at producer
+        """
+        pass
 
     def execute(self, *args) -> None:
         self.update()

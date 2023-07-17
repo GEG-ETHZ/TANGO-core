@@ -1,9 +1,8 @@
 from tango.models.base import *
-from tango.model import ModelState, Model
+from tango.models.base.model import *
 from dataclasses import dataclass
 from tango.core.config import *
 from tango.core.constants import *
-from tango.models.adams.well import WellSpecsAdams
 
 import logging
 import os

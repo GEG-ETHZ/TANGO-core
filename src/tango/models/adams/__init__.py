@@ -2,6 +2,8 @@ from .reservoir import ReservoirModelAdams, ReservoirSpecsAdams, ReservoirStateA
 from .well import WellModelAdams, WellSpecsAdams, WellStateAdams
 from .horizontal_well import HorizontalWellModelAdams
 from .injection_well import InjectionWellModelAdams
-from .surface import SurfaceModelAdams, SurfaceSpecsAdams, SurfaceStateAdams
+from .surface.base import SurfaceModelAdams, SurfaceSpecsAdams, SurfaceStateAdams
+from .surface.CPG import SurfaceModelAdamsCPG
+from .surface.ORC import SurfaceModelAdamsORC
 from .economic import EconomicModelAdams, EconomicSpecsAdams, EconomicStateAdams
 from .model import CGSModelAdams, CGSModelStateAdams, AGSModelAdams

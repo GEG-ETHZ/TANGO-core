@@ -1,5 +1,7 @@
-from tango.model import ModelState, Model
+from tango.models.base import *
 from tango.models.adams import *
+from tango.models.adams.surface import *
+from tango.core.config import *
 
 class CGSModelStateAdams(ModelState):
     """The state of the conventional geothermal system based on Adams model."""
@@ -18,7 +20,11 @@ class CGSModelAdams(Model):
         self.add_model('injection_well', WellModelAdams)
         self.add_model('reservoir', ReservoirModelAdams)
         self.add_model('production_well', WellModelAdams)
-        self.add_model('surface', SurfaceModelAdams)
+        self.add_model('surface', self.get_surface_model())
+
+
+    def get_surface_model(self):
+        return eval(f"SurfaceModelAdams{MAP_SURFACE_PLANT_DESIGN[self.reservoir.fluid_name]}")
 
 
     def initialize(self, state: CGSModelStateAdams):

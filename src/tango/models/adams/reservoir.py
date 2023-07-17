@@ -87,11 +87,9 @@ class ReservoirModelAdams(ReservoirModel):
             self.m_dot = self.specs.mass_flow_rate / 4.0
 
 
-    def set_impedance_func(self) -> None:
-        if self.well_pattern == 'DOUBLET':
-            self.impedance_func = self.impedance_func_doublet
-        else:
-            self.impedance_func = self.impedance_func_5spot
+    def set_impedance_fun(self) -> None:
+        self.impedance_func = getattr(self, f"impedance_func_{self.well_pattern.lower().split('_')[-1]}")
+
 
     @staticmethod
     def impedance_func_5spot(mu, rho, k, b, L, D) -> float:
@@ -170,11 +168,8 @@ class ReservoirModelAdams(ReservoirModel):
         h_prod = state.outlet_fluid.H
 
         reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
-        # state.energy_extracted += self.m_dot * (h_prod-h_inj) * dt # J
         state.energy_extracted = state.energy_extracted_old + self.m_dot * (h_prod - h_inj) * dt  # J
         psi = state.energy_extracted / reservoir_energy # (-)
-        # energy_extracted = self.m_dot * (h_prod-h_inj) * dt # J
-        # psi = energy_extracted / reservoir_energy # (-)
         gamma = self.depletion_curve(psi, p1, p2, p3)
 
         outlet_temperature = gamma * dT + state.inlet_fluid.T

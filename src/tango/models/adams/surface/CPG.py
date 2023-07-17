@@ -1,58 +1,14 @@
-import logging
-
-from tango.models.base import *
 from tango.core.config import *
 from tango.core import FluidState
-from tango.model import ModelState
-from dataclasses import dataclass
+from tango.models.adams.surface.base import *
 
-@dataclass
-class SurfaceSpecsAdams(CommonSpecs):
-    """The power plant specs based on Adams et al. (2015)."""
-    approach_temperature: float = 7.0    # The temperature difference between condensing and the surface temperature (K)
-    pinch_temperature: float = 5.0    # (K)
-    temperature_range: float = 0. # diff between inlet and exit fluid temperature.
-    eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
-    eta_pump: float = 0.90    # The pump efficiency (-)
-    condensation_pressure_offset: float = 5e4   # (Pa)
-    total_pipe_length: float = None # (m)
-    pipe_diameter: float = 0.41 # (m)
-    pipe_length_per_well_pair: float = 750 # (m)
-    cooling_tower_design: str = 'CLOSED' # cooling tower design
-    cooling_mode: str = 'WET' # WET or DRY
+import logging
 
+class SurfaceModelAdamsCPG(SurfaceModelAdams):
 
-class SurfaceStateAdams(SurfaceState):
-    """The power plant state based on Adams et al. (2015)."""
-    def __init__(self):
-        SurfaceState.__init__(self)
-        # power plant
-        self.inlet_fluid_turbine: FluidState
-        self.inlet_fluid_condenser: FluidState
-        self.inlet_fluid_pump: FluidState
-        self.outlet_fluid_turbine: FluidState
-        self.outlet_fluid_condenser: FluidState
-        self.outlet_fluid_pump: FluidState
-        self.dP_pump: float = 0.
-        self.q_condenser: float = 0.
-        self.q_cooler: float = 0.
-        self.q_preheater: float = 0.
-        self.q_boiler: float = 0.
-        self.q_desuperheater: float = 0.
-        self.w_turbine: float = 0.
-        self.w_pump: float = 0.
-        self.w_cooler: float = 0.
-        self.w_condenser: float = 0.
-        self.w_net: float = 0.
-
-
-class SurfaceModelAdams(SurfaceModel):
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        self.specs = SurfaceSpecsAdams(**specs)
-        self.fluid_name = self.specs.fluid_name
-        self.m_dot = self.specs.mass_flow_rate
-        self.X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        super().__init__(specs)
 
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
@@ -62,11 +18,6 @@ class SurfaceModelAdams(SurfaceModel):
 
     def set_constants(self) -> None:
 
-        # """
-        #     - mass_flow_rate = flow rate at an injector (Kg/s)
-        #     - m_dot = flow rate at each well pair (Kg/s)
-        # """
-
         if self.specs.cooling_mode == 'WET':
             self.coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
             self.coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.]
@@ -75,6 +26,14 @@ class SurfaceModelAdams(SurfaceModel):
             self.coeffs_condensing = [0.619, 0., 0., 0.]
         else:
             raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
+
+        self.X_CO2 = 0.0
+        if self.fluid_name == 'CO2':
+            self.X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+
+
+    def set_inlet_state(self, state, state_from) -> None:
+        state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
 
 
     def init_state(self, state: SurfaceStateAdams) -> None:
@@ -93,10 +52,6 @@ class SurfaceModelAdams(SurfaceModel):
         state.outlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
 
         state.outlet_fluid = FluidState.copy(state.outlet_fluid_pump)
-
-
-    def set_inlet_state(self, state, state_from) -> None:
-        state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
 
 
     def update_turbine_power(self, state: SurfaceStateAdams) -> None:
@@ -182,16 +137,15 @@ class SurfaceModelAdams(SurfaceModel):
     def update_net_state(self, state: SurfaceStateAdams) -> None:
         state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
 
-    def overwrite_pump_state(self, state: SurfaceStateAdams, dP_pump: float) -> None:
 
-        state.dP_pump = dP_pump
+    def overwrite_pump_state(self, state: SurfaceStateAdams) -> None:
 
         self.update_pump_state(state)
 
         self.update_net_state(state)
 
 
-    def execute(self, state: SurfaceStateAdams) -> None:
+    def update(self, state: SurfaceStateAdams) -> None:
 
         self.update_turbine_power(state)
 
@@ -200,3 +154,4 @@ class SurfaceModelAdams(SurfaceModel):
         self.update_pump_state(state)
 
         self.update_net_state(state)
+

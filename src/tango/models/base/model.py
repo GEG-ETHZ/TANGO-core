@@ -1,4 +1,10 @@
 from tango.models.base import *
+from abc import ABC
+
+
+class ModelSpecs(ABC):
+    pass
+
 
 class ModelState:
     """Where computed state for a geothermal power generation cost simulation are stored."""

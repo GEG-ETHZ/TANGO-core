@@ -60,6 +60,8 @@ def check_inputs(specs: dict) -> None:
             f"Invalid value found in {specs['common']['num_tsteps']}: Use an integer value greater than 0")
     if specs['common']['dt'] > 5.0:
         logging.warning(f"Large time step size found: {specs['common']['dt']}. It may result in inaccurate results.")
+    if specs['common']['fluid_name'] not in FLUID_NAME_OPTIONS:
+        raise RuntimeError(f"fluid_name: {specs['common']['fluid_name']} is not supported.")
     #TODO: add warning messages for unrealistic input values
 
 
