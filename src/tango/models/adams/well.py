@@ -16,7 +16,7 @@ class WellSpecsAdams(CommonSpecs):
     epsilon: float = 55.e-6  # roughness of the well (m)
     num_cells: int = 100    # number of cells that is used for discretization
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
-    well_length: float = None
+    well_length: float = None # well length (m)
     probability_of_success: float = 0.95
 
 
@@ -37,13 +37,12 @@ class WellModelAdams(WellModel):
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
         self.injector_mass_flow_rate = self.specs.mass_flow_rate
 
-        self.set_farfield_temperature()
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
         self.set_well_length()
 
         # discretization related parameters
         self.dL = self.well_length/num_cells
-        self.dz = self.specs.reservoir_depth/num_cells
+        self.dz = self.well_length/num_cells
         self.t_d = 0.0  # initialize the non-dimensional time
 
         # See Carslaw and Jaeger (1959) for the scaling of time.
@@ -60,13 +59,13 @@ class WellModelAdams(WellModel):
     def init_state(self):
         pass
 
-    def set_well_mass_flow_rate(self, well_type: str) -> None:
+    def set_well_mass_flow_rate(self, isProducer: bool) -> None:
         if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
             raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
         self.well_mass_flow_rate = self.injector_mass_flow_rate
-        if self.specs.well_pattern == 'INVERTED_5SPOT' and well_type=='producer':
+        if self.specs.well_pattern == 'INVERTED_5SPOT' and isProducer:
             self.well_mass_flow_rate = self.injector_mass_flow_rate / 4.0 # 4=number of producers
-        elif self.specs.well_pattern == '5SPOT' and well_type == 'producer':
+        elif self.specs.well_pattern == '5SPOT' and isProducer:
             self.well_mass_flow_rate = self.injector_mass_flow_rate * 4.0 # 4=number of injectors
 
     def set_well_length(self):
@@ -76,21 +75,22 @@ class WellModelAdams(WellModel):
         else:
             self.well_length = self.specs.well_length
 
-    def set_farfield_temperature(self):
-        self.zspace = np.linspace(0.0, self.specs.reservoir_depth, self.specs.num_cells+1)
+    def set_farfield_temperature(self, wellhead_depth: float):
+        self.zspace = np.linspace(wellhead_depth, self.well_length, self.specs.num_cells+1)
         self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5  # depth at cell centers
 
         dTdz = self.specs.thermal_gradient
         T0 = self.specs.surface_temperature
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
-    def set_inlet_state(self, state, state_from, well_type: str = None) -> None:
+    def set_inlet_state(self, state, state_from, isProducer: bool = False, wellhead_depth: float = 0.) -> None:
         state.inlet_fluid = state_from.outlet_fluid
         state.outlet_fluid = FluidState.copy(state.inlet_fluid)
         self.fluid_state_tmp = state.outlet_fluid
         self.fluid_state_init = state.inlet_fluid
-        self.f_dir = 1.0 if well_type == 'producer' else -1.0 # +1: upwards, -1: downwards
-        self.set_well_mass_flow_rate(well_type)
+        self.f_dir = 1.0 if isProducer else -1.0 # +1: upwards, -1: downwards
+        self.set_well_mass_flow_rate(isProducer)
+        self.set_farfield_temperature(wellhead_depth)
 
 
     def set_gravity_multiplier(self, g_mult):
@@ -108,14 +108,12 @@ class WellModelAdams(WellModel):
     def update(self, *args) -> None:
         self.initialize_state()
         self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
-
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
             self.P[i] = self.P[i-1] - self.f_dir*self.rho[i-1]*self.g*self.dz \
                         - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
             self.h[i] = self.h[i-1] - self.f_dir*self.g*self.dz \
                         - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.well_mass_flow_rate
-
             try:
                 self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
             except:
@@ -177,6 +175,7 @@ class WellModelAdams(WellModel):
         """
             for ORC to update dP pump at producer
         """
+        self.initialize_state_pump()
         pass
 
     def execute(self, *args) -> None:

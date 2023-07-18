@@ -35,6 +35,10 @@ production_well:
   vertical_deviation: 0.0  # degrees
   diameter: 0.410 # m
 
+production_well_pump:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
 surface:
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa

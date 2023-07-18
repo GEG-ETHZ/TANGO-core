@@ -6,4 +6,4 @@ from .surface.base import SurfaceModelAdams, SurfaceSpecsAdams, SurfaceStateAdam
 from .surface.CPG import SurfaceModelAdamsCPG
 from .surface.ORC import SurfaceModelAdamsORC
 from .economic import EconomicModelAdams, EconomicSpecsAdams, EconomicStateAdams
-from .model import CGSModelAdams, CGSModelStateAdams, AGSModelAdams
+from .model import CGSModelAdamsCPG, CGSModelStateAdamsCPG, CGSModelAdamsORC, CGSModelStateAdamsORC, AGSModelAdams

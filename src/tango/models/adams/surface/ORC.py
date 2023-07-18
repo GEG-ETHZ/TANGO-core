@@ -14,3 +14,7 @@ class SurfaceModelAdamsORC(SurfaceModelAdams):
         self.condensation_temperature_range = 0
 
         self.set_constants()
+
+
+    def update(self, state: SurfaceStateAdams) -> None:
+        pass

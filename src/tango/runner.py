@@ -12,11 +12,8 @@ class Runner:
         args = utils.parse_args(args)
         self.input_file = args.input_file
         utils.set_logger(input_file=self.input_file,
-                         DEBUG=args.debug,
-                         TEST=args.test)
-
+                         DEBUG=args.debug)
         self.read_inputs()
-
         self.set_runner()
 
 
@@ -41,14 +38,11 @@ class Runner:
         return runner
 
     def set_runner(self) -> None:
-
         Runner = self.get_runner()
-
         self.runner = Runner(self.specs, self.input_file)
 
 
     def start(self) -> None:
-
         self.runner.start()
 
 

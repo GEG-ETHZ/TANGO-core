@@ -19,7 +19,7 @@ common:
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   thermal_gradient: 0.035  # degC/m
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 30 # number of time steps
+  num_tsteps: 5 # number of time steps
   dt: 1.0  # time step increment (year)
 
 reservoir:

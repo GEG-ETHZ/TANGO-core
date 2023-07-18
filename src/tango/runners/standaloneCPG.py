@@ -8,6 +8,19 @@ class RunnerStandaloneCPG(Runner):
         super().__init__(specs, input_file)
         self.x_lst, self.y_lst = [], []
 
+    def set_STANDALONE_CGS(self) -> None:
+        self.state = CGSModelStateAdamsCPG()
+        self.model = CGSModelAdamsCPG(self.specs)
+        self.model.initialize(self.state)
+
+
+    def set_STANDALONE_AGS(self) -> None:
+        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
+
+
+    def set_CMG(self) -> None:
+        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
+
 
     def converged(self) -> bool:
 

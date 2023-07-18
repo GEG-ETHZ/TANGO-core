@@ -9,10 +9,8 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         super().__init__(specs)
-
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
-
         self.set_constants()
 
 

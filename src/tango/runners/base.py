@@ -37,20 +37,6 @@ class Runner:
         logging.debug(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
 
 
-    def set_STANDALONE_CGS(self) -> None:
-        self.state = CGSModelStateAdams()
-        self.model = CGSModelAdams(self.specs)
-        self.model.initialize(self.state)
-
-
-    def set_STANDALONE_AGS(self) -> None:
-        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
-
-
-    def set_CMG(self) -> None:
-        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
-
-
     def set_workflow(self) -> None:
         try:
             getattr(self, f"set_{self.runspec.workflow}")()
@@ -71,6 +57,7 @@ class Runner:
 
 
     def save_results(self, current_date: datetime) -> None:
+        """update self.results"""
         utils.parse_results(d=self.results,
                             state=self.state,
                             current_date=current_date.strftime(DATETIME_FMT))
@@ -109,11 +96,9 @@ class Runner:
         logging.info(
             "Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self.start_time))
 
-        # logging.shutdown()
 
     def start(self) -> None:
 
-        # self.initialize()
         self.set_workflow()
 
         self.run_models()

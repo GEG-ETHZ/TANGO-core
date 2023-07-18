@@ -25,17 +25,10 @@ def parse_args(args) -> argparse.Namespace:
                         required=False,
                         default=False,
                         action=argparse.BooleanOptionalAction)
-    parser.add_argument('-t',
-                        '--test',
-                        dest='test',
-                        help='run with test option',
-                        required=False,
-                        default=False,
-                        action=argparse.BooleanOptionalAction)
     return parser.parse_args(args)
 
 
-def set_logger(input_file: str, DEBUG: bool, TEST: bool = False):
+def set_logger(input_file: str, DEBUG: bool):
     if not os.path.isfile(input_file):
         raise FileNotFoundError(f'{input_file} not found')
     level = logging.INFO
@@ -47,10 +40,9 @@ def set_logger(input_file: str, DEBUG: bool, TEST: bool = False):
                         format='%(asctime)s, %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=level)
-    if not TEST:
-        console = logging.StreamHandler()
-        console.setLevel(level)
-        logging.getLogger('').addHandler(console)
+    console = logging.StreamHandler()
+    console.setLevel(level)
+    logging.getLogger('').addHandler(console)
 
 
 def load_from_yaml(filename: str):
@@ -63,8 +55,11 @@ def check_inputs(specs: dict) -> None:
     if specs['runspec']['workflow'] not in WORKFLOW_OPTIONS:
         raise RuntimeError(f"Invalid workflow found: {specs['runspec']['workflow']}")
     else:
-        if 'STANDALONE' in specs['runspec']['workflow'] and 'fluid_name' not in specs['common']:
-            raise RuntimeError(f"'fluid_name' is missing in 'common' section.")
+        if 'STANDALONE' in specs['runspec']['workflow']:
+            if 'fluid_name' not in specs['common']:
+                raise RuntimeError(f"'fluid_name' is missing in 'common' section.")
+        elif 'fluid_name' not in specs['common']:
+            specs['common']['fluid_name'] = ''
     if not isinstance(specs['common']['num_tsteps'], int):
         raise RuntimeError(
             f"Invalid variable type found in {specs['common']['num_tsteps']}: {type(specs['common']['num_tsteps'])}. Use type: int")
@@ -75,6 +70,17 @@ def check_inputs(specs: dict) -> None:
         logging.warning(f"Large time step size found: {specs['common']['dt']}. It may result in inaccurate results.")
     if specs['common']['fluid_name'] not in FLUID_NAME_OPTIONS:
         raise RuntimeError(f"fluid_name: {specs['common']['fluid_name']} is not supported.")
+    if 'production_well_pump' in specs: # treatment for a pump at producer in ORC
+        if 'well_length' not in specs['production_well_pump']:
+            specs['production_well_pump']['well_length'] = 0.2 * specs['common']['reservoir_depth']
+            logging.warning(f"Required value 'well_length' not found in 'production_well_pump'. Assining a default value (=0.2 * specs['common']['reservoir_depth'])")
+        if 'well_length' not in specs['production_well']:
+            specs['production_well']['well_length'] = specs['common']['reservoir_depth'] - specs['production_well_pump']['well_length']
+            logging.info(f"well_length for production well not found. Assigning a value = reservoir_depth - production_well_pump.well_length.")
+        elif specs['production_well']['well_length'] + specs['production_well_pump']['well_length'] > specs['common']['reservoir_depth']:
+            specs['production_well']['well_length'] = specs['common']['reservoir_depth'] - specs['production_well_pump']['well_length']
+            logging.warning(f"Sum of production_well.well_length and production_well_pump.well_length is greater than reservoir_depth. "
+                            f"Updating production_well.well_length (=reservoir_depth - production_well_pump.well_length)")
     #TODO: add warning messages for unrealistic input values
 
 

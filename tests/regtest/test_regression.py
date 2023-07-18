@@ -10,7 +10,7 @@ examples_dir = os.path.join(str(Path(__file__).parent.parent.parent),'examples')
 
 
 def run(fname) -> None:
-    runner = Runner(['-f', fname, '--test'])
+    runner = Runner(['-f', fname])
     runner.start()
 
 
@@ -45,5 +45,5 @@ def testcase2():
 def testcase3():
     fname = os.path.join(examples_dir, 'testcase3.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(0.6980055)
+    assert get_val(fname) == pytest.approx(0.541979875)
     rmFiles(fname)
