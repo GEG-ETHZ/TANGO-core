@@ -1,16 +1,58 @@
 from tango.core.config import *
 from tango.core import FluidState
 from tango.models.adams.surface.base import *
+from dataclasses import dataclass
 
 import logging
+
+@dataclass
+class SurfaceSpecsAdamsCPG(SurfaceSpecsAdams):
+    approach_temperature: float = 7.0    # The temperature difference between condensing and the surface temperature (K)
+    pinch_temperature: float = 5.0    # (K)
+    temperature_range: float = 0. # diff between inlet and exit fluid temperature.
+    eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
+    eta_pump: float = 0.90    # The pump efficiency (-)
+    condensation_pressure_offset: float = 5e4   # (Pa)
+    total_pipe_length: float = None # (m)
+    pipe_diameter: float = 0.41 # (m)
+    pipe_length_per_well_pair: float = 750 # (m)
+    cooling_tower_design: str = 'CLOSED' # cooling tower design
+    cooling_mode: str = 'WET' # WET or DRY
+
+
+class SurfaceStateAdamsCPG(SurfaceState): #TODO: cleanup states
+    def __init__(self):
+        SurfaceState.__init__(self)
+        self.inlet_fluid_turbine: FluidState
+        self.inlet_fluid_condenser: FluidState
+        self.inlet_fluid_pump: FluidState
+        self.outlet_fluid_turbine: FluidState
+        self.outlet_fluid_condenser: FluidState
+        self.outlet_fluid_pump: FluidState
+        self.dP_pump: float = 0.
+        self.q_condenser: float = 0.
+        self.q_cooler: float = 0.
+        self.q_preheater: float = 0.
+        self.q_boiler: float = 0.
+        self.q_desuperheater: float = 0.
+        self.w_turbine: float = 0.
+        self.w_pump: float = 0.
+        self.w_cooler: float = 0.
+        self.w_condenser: float = 0.
+        self.w_net: float = 0.
+
 
 class SurfaceModelAdamsCPG(SurfaceModelAdams):
 
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        super().__init__(specs)
+        SurfaceModelAdams.__init__(self)
+        self.specs = SurfaceSpecsAdamsCPG(**specs)
+        self.fluid_name = self.specs.fluid_name
+        # self.m_dot = self.specs.mass_flow_rate
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
+        self.set_mdot()
         self.set_constants()
 
 
@@ -34,7 +76,7 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
 
 
-    def init_state(self, state: SurfaceStateAdams) -> None:
+    def init_state(self, state) -> None:
         """
         direct CO2 thermosiphon system:
             production_well - turbine - condenser - pump - injection_well
@@ -52,7 +94,7 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         state.outlet_fluid = FluidState.copy(state.outlet_fluid_pump)
 
 
-    def update_turbine_power(self, state: SurfaceStateAdams) -> None:
+    def update_turbine_power(self, state) -> None:
         state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = state.inlet_fluid.S)
 
         hs_outlet = state.outlet_fluid_turbine.H # (J/kg)
@@ -82,7 +124,7 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         return self.BAC_regression_model(coeffs=self.coeffs_condensing)
 
 
-    def update_condenser_state(self, state: SurfaceStateAdams) -> None:
+    def update_condenser_state(self, state) -> None:
 
         hs_outlet = state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
         h_inlet = state.inlet_fluid.H  # (J/kg)
@@ -105,7 +147,7 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         state.w_condenser = X_CO2 * state.q_condenser * self.get_parasitic_power_fraction_condensing() # (W)
 
 
-    def update_pump_state(self, state: SurfaceStateAdams) -> None:
+    def update_pump_state(self, state) -> None:
 
         eta = self.specs.eta_pump
         X_CO2 = self.X_CO2
@@ -132,18 +174,18 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
             state.outlet_fluid.updatePT(P=P_inj_inlet, T=state.outlet_fluid_pump.T)
 
-    def update_net_state(self, state: SurfaceStateAdams) -> None:
+    def update_net_state(self, state) -> None:
         state.w_net = state.w_turbine + state.w_cooler + state.w_condenser + state.w_pump
 
 
-    def overwrite_pump_state(self, state: SurfaceStateAdams) -> None:
+    def overwrite_pump_state(self, state) -> None:
 
         self.update_pump_state(state)
 
         self.update_net_state(state)
 
 
-    def update(self, state: SurfaceStateAdams) -> None:
+    def update(self, state) -> None:
 
         self.update_turbine_power(state)
 

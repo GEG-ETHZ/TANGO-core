@@ -9,7 +9,7 @@ class CGSModelStateAdamsCPG(ModelState):
         self.injection_well = WellStateAdams()
         self.reservoir = ReservoirStateAdams()
         self.production_well = WellStateAdams()
-        self.surface = SurfaceStateAdams()
+        self.surface = SurfaceStateAdamsCPG()
 
 
 class CGSModelAdamsCPG(Model):
@@ -50,7 +50,7 @@ class CGSModelStateAdamsORC(ModelState):
         self.reservoir = ReservoirStateAdams()
         self.production_well = WellStateAdams()
         self.production_well_pump = WellStateAdams()
-        self.surface = SurfaceStateAdams()
+        self.surface = SurfaceStateAdamsORC()
 
 
 class CGSModelAdamsORC(Model):

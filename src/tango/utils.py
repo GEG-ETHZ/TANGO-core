@@ -73,14 +73,17 @@ def check_inputs(specs: dict) -> None:
     if 'production_well_pump' in specs: # treatment for a pump at producer in ORC
         if 'well_length' not in specs['production_well_pump']:
             specs['production_well_pump']['well_length'] = 0.2 * specs['common']['reservoir_depth']
-            logging.warning(f"Required value 'well_length' not found in 'production_well_pump'. Assining a default value (=0.2 * specs['common']['reservoir_depth'])")
+            logging.warning(f"Required value 'well_length' not found in 'production_well_pump'. Assining a default value (=0.2 * reservoir_depth)")
         if 'well_length' not in specs['production_well']:
             specs['production_well']['well_length'] = specs['common']['reservoir_depth'] - specs['production_well_pump']['well_length']
-            logging.info(f"well_length for production well not found. Assigning a value = reservoir_depth - production_well_pump.well_length.")
+            logging.info(f"well_length for production well not found. Assigning a default value = reservoir_depth - production_well_pump.well_length.")
         elif specs['production_well']['well_length'] + specs['production_well_pump']['well_length'] > specs['common']['reservoir_depth']:
             specs['production_well']['well_length'] = specs['common']['reservoir_depth'] - specs['production_well_pump']['well_length']
             logging.warning(f"Sum of production_well.well_length and production_well_pump.well_length is greater than reservoir_depth. "
                             f"Updating production_well.well_length (=reservoir_depth - production_well_pump.well_length)")
+    if specs['common']['fluid_name'] == 'H2O':
+        if 'refrigerant' not in specs['surface']:
+            logging.info(f"'refrigerant' for surface not found. Assigning a default value = 'R245fa'")
     #TODO: add warning messages for unrealistic input values
 
 

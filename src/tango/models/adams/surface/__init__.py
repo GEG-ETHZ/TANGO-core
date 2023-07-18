@@ -1,7 +1,7 @@
 import logging
 
-from .base import SurfaceModelAdams, SurfaceSpecsAdams, SurfaceStateAdams
-from .CPG import SurfaceModelAdamsCPG
-from .ORC import SurfaceModelAdamsORC
+from .base import SurfaceModelAdams
+from .CPG import SurfaceModelAdamsCPG, SurfaceStateAdamsCPG
+from .ORC import SurfaceModelAdamsORC, SurfaceStateAdamsORC
 
 

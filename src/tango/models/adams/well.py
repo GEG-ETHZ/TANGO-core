@@ -84,13 +84,14 @@ class WellModelAdams(WellModel):
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
     def set_inlet_state(self, state, state_from, isProducer: bool = False, wellhead_depth: float = 0.) -> None:
+        self.set_well_mass_flow_rate(isProducer)
+        self.set_farfield_temperature(wellhead_depth)
         state.inlet_fluid = state_from.outlet_fluid
         state.outlet_fluid = FluidState.copy(state.inlet_fluid)
+        state.mass_rate = self.well_mass_flow_rate
         self.fluid_state_tmp = state.outlet_fluid
         self.fluid_state_init = state.inlet_fluid
         self.f_dir = 1.0 if isProducer else -1.0 # +1: upwards, -1: downwards
-        self.set_well_mass_flow_rate(isProducer)
-        self.set_farfield_temperature(wellhead_depth)
 
 
     def set_gravity_multiplier(self, g_mult):
