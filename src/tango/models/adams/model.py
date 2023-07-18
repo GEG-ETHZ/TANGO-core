@@ -23,8 +23,8 @@ class CGSModelAdams(Model):
         self.add_model('surface', self.get_surface_model())
 
 
-    def get_surface_model(self):
-        return eval(f"SurfaceModelAdams{MAP_SURFACE_PLANT_DESIGN[self.reservoir.fluid_name]}")
+    def get_surface_model(self) -> object:
+        return eval(f"SurfaceModelAdams{MAP_FLUIDNAME_TO_SURFACE_PLANT_DESIGN[self.reservoir.fluid_name]}")
 
 
     def initialize(self, state: CGSModelStateAdams):

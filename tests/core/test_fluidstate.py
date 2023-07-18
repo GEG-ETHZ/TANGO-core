@@ -1,4 +1,8 @@
-from tango.core import FluidState
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+from src.tango.core import FluidState
 
 from CoolProp.CoolProp import PropsSI
 import pytest

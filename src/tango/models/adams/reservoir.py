@@ -87,7 +87,7 @@ class ReservoirModelAdams(ReservoirModel):
             self.m_dot = self.specs.mass_flow_rate / 4.0
 
 
-    def set_impedance_fun(self) -> None:
+    def set_impedance_func(self) -> None:
         self.impedance_func = getattr(self, f"impedance_func_{self.well_pattern.lower().split('_')[-1]}")
 
 

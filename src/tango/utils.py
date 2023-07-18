@@ -25,10 +25,17 @@ def parse_args(args) -> argparse.Namespace:
                         required=False,
                         default=False,
                         action=argparse.BooleanOptionalAction)
+    parser.add_argument('-t',
+                        '--test',
+                        dest='test',
+                        help='run with test option',
+                        required=False,
+                        default=False,
+                        action=argparse.BooleanOptionalAction)
     return parser.parse_args(args)
 
 
-def set_logger(input_file: str, DEBUG: bool):
+def set_logger(input_file: str, DEBUG: bool, TEST: bool = False):
     if not os.path.isfile(input_file):
         raise FileNotFoundError(f'{input_file} not found')
     level = logging.INFO
@@ -40,9 +47,10 @@ def set_logger(input_file: str, DEBUG: bool):
                         format='%(asctime)s, %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=level)
-    console = logging.StreamHandler()
-    console.setLevel(level)
-    logging.getLogger('').addHandler(console)
+    if not TEST:
+        console = logging.StreamHandler()
+        console.setLevel(level)
+        logging.getLogger('').addHandler(console)
 
 
 def load_from_yaml(filename: str):
@@ -52,6 +60,11 @@ def load_from_yaml(filename: str):
 
 
 def check_inputs(specs: dict) -> None:
+    if specs['runspec']['workflow'] not in WORKFLOW_OPTIONS:
+        raise RuntimeError(f"Invalid workflow found: {specs['runspec']['workflow']}")
+    else:
+        if 'STANDALONE' in specs['runspec']['workflow'] and 'fluid_name' not in specs['common']:
+            raise RuntimeError(f"'fluid_name' is missing in 'common' section.")
     if not isinstance(specs['common']['num_tsteps'], int):
         raise RuntimeError(
             f"Invalid variable type found in {specs['common']['num_tsteps']}: {type(specs['common']['num_tsteps'])}. Use type: int")
