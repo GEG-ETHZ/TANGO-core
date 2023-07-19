@@ -4,8 +4,8 @@ from tango.core import FluidState
 
 
 class SurfaceSpecsAdams(CommonSpecs):
+    epsilon: float = 55.e-6  # roughness of surface pipe (m)
     pipe_diameter: float = 0.41 # (m)
-    pipe_length_per_well_pair: float = 750 # (m)
 
 
 class SurfaceModelAdams(SurfaceModel):

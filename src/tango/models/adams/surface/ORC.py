@@ -21,7 +21,7 @@ class SurfaceStateAdamsORC(SurfaceState):
         self.outlet_fluid: FluidState
         self.dP_pump: float = 0.
         self.dP_pipes: float = 0.
-        self.temperature_old: float = 333.15 # K temperature at previous time step
+        self.outlet_temperature_tmp: float = 0.
         self.w_net: float = 0.
 
         
@@ -31,7 +31,10 @@ class SurfaceModelAdamsORC(SurfaceModelAdams):
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
         self.specs = SurfaceSpecsAdamsORC(**specs)
+        self.fluid_name = self.specs.fluid_name
         self.refrigerant_name = self.specs.refrigerant
+        self.cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
+        self.set_mdot()
         self.set_max_boiling_temperature()
 
 
@@ -61,18 +64,58 @@ class SurfaceModelAdamsORC(SurfaceModelAdams):
         state.outlet_fluid = FluidState.withPT(self.fluid_name,
                                                P=self.specs.initial_outlet_pressure,
                                                T=self.specs.initial_outlet_temperature)
+        state.outlet_temperature_tmp = state.outlet_fluid.T
 
 
-    def pipe(self):
-        """update state due to pressure drop between producer wellhead and surface plant inlet"""
-        # get friction factor
+    def friction_factor(self, rho, mu, u) -> float:
+        """Returns the friction factor calculated using the Haaland equation (1983).
 
-        pass
+        Args:
+            rho (float): the fluid density (kg/m3)
+            mu (float): the dynamic viscosity (Pa s)
+            u (float): the flow velocity (m/s)
 
+        Returns:
+            float: the friction factor (-)
+        """
+        Re = rho*u*self.specs.diameter / mu  # Reynolds number
+        r = self.specs.epsilon / self.specs.diameter  # relative roughness
+
+        return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
+
+
+    def get_friction_factor(self, rho: float, mu: float, u: float) -> float:
+        d = self.specs.pipe_diameter
+        epsilon = self.specs.epsilon
+        Re = rho * u * d / mu  # Reynolds number
+        r = epsilon / d
+        return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
+
+
+    def get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
+        d = self.specs.pipe_diameter
+        L = self.specs.well_spacing
+        return 0.5 * ff * L * rho * u ** 2 / d
+
+    def upadte_state_pipe(self, state) -> None:
+        """update state at surface pile (pressure drop between producer wellhead and surface plant inlet)"""
+
+        rho = state.inlet_fluid.rho
+        mu = state.inlet_fluid.mu
+        u = self.m_dot / self.cross_sectional_area / rho
+
+        ff = self.get_friction_factor(rho, mu, u)
+        state.dP_pipe = self.get_pipe_pressure_drop(rho, u, ff)
+
+        state.inlet_fluid.updatePT(P=state.inlet_fluid.P - state.dP_pipe, T=state.inlet_fluid.T)
 
 
     def update(self, state) -> None:
 
-        self.pipe(state)
+        self.upadte_state_pipe(state)
 
         pass
+
+
+    def overwrite_outlet_state(self, state, P, T) -> None:
+        state.outlet_fluid.updatePT(P, T)

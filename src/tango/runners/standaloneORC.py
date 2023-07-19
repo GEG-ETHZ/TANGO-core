@@ -30,7 +30,7 @@ class RunnerStandaloneORC(Runner):
     def converged(self) -> bool:
 
         dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
-        dT_surface = self.state.surface.temperature_old - self.state.surface.outlet_fluid.T
+        dT_surface = self.state.surface.outlet_temperature_tmp - self.state.surface.outlet_fluid.T
         dP_surface = self.state.surface.inlet_fluid.P - self.state.surface.outlet_fluid.P - self.state.surface.dP_pipes
 
         if np.abs(dP_reservoir) < self.runspec.dP_reservoir_threshold and \
@@ -46,7 +46,7 @@ class RunnerStandaloneORC(Runner):
         self.y3_lst.append(dP_surface)
         if len(self.x1_lst) == 1: # first call
             root1 = self.state.surface.outlet_fluid.P + dP_reservoir
-            # self.state.surface.outlet_fluid.T = self.state.surface.outlet_fluid.T # implicitly updated
+            root2 = self.state.surface.outlet_fluid.T
             root3 = -1.0 * dP_surface
         else:
             root1 = utils.newton(self.x1_lst, self.y1_lst) #TODO: try solving all together
@@ -55,7 +55,8 @@ class RunnerStandaloneORC(Runner):
             self.x1_lst.pop(0), self.x2_lst.pop(0), self.x3_lst.pop(0)
             self.y1_lst.pop(0), self.y2_lst.pop(0), self.y3_lst.pop(0)
 
-        self.model.surface.overwrite_outlet_state(state=self.state.surface) #TODO: update this
+        self.model.surface.overwrite_outlet_state(state=self.state.surface, P=root1, T=root2)
+        self.state.production_well.dP_pump = root3
 
         return False
 
@@ -65,5 +66,5 @@ class RunnerStandaloneORC(Runner):
         self.y1_lst.clear(), self.y2_lst.clear(), self.y3_lst.clear()
         self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
         self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
-        self.state.surface.temperature_old = copy.deepcopy(self.state.surface.outlet_fluid.T) #TODO: check
+        self.state.surface.outlet_temperature_tmp = copy.deepcopy(self.state.surface.outlet_fluid.T)
 

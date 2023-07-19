@@ -7,7 +7,7 @@ runspec:
 
 common:
   fluid_name: 'H2O'
-  mass_flow_rate: 200.0  # kg/s (injection rate)
+  mass_flow_rate: 5.0  # kg/s (injection rate) ~2700 bbl/d
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3
   rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
@@ -40,9 +40,6 @@ production_well_pump:
   diameter: 0.410 # m
 
 surface:
-  approach_temperature: 7.0  # K
-  condensation_pressure_offset: 50_000.0  # Pa
-  eta_turbine: 0.78  # (-)
   refrigerant: 'R245fa'
 
 economic:

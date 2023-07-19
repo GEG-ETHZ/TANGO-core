@@ -53,12 +53,7 @@ class EconomicModelAdams(EconomicModel):
         self.characterization_well_pos =  self.specs['production_well'].probability_of_success
         self.characterization_well_diameter = self.specs['production_well'].diameter
 
-        self.surface_pipe_diameter = self.specs['surface'].pipe_diameter
-        self.surface_pipe_length_per_well_pair = self.specs['surface'].pipe_length_per_well_pair
-        self.surface_ambient_temperature = self.specs['surface'].surface_temperature
-        self.surface_approach_temperature = self.specs['surface'].approach_temperature
-        self.surface_temperature_range = self.specs['surface'].temperature_range
-        self.surface_cooling_tower_mode = self.specs['surface'].cooling_mode
+        self.set_surface()
 
         self.lifetime = self.specs['economic'].num_tsteps * self.specs['economic'].dt
         self.cost_year = datetime.strptime(self.specs['economic'].start_date, '%Y-%m-%d').year
@@ -74,6 +69,18 @@ class EconomicModelAdams(EconomicModel):
         self.check_inputs()
 
         self.set_constants()
+
+
+    def set_surface(self) -> None: #TODO: improve
+        self.surface_pipe_diameter = self.specs['surface'].pipe_diameter
+        if self.fluid_name == 'CO2':
+            self.surface_ambient_temperature = self.specs['surface'].surface_temperature
+            self.surface_approach_temperature = self.specs['surface'].approach_temperature
+            self.surface_temperature_range = self.specs['surface'].temperature_range
+            self.surface_cooling_tower_mode = self.specs['surface'].cooling_mode
+        else:
+            pass
+
 
 
     def check_inputs(self) -> None:
@@ -92,8 +99,9 @@ class EconomicModelAdams(EconomicModel):
             raise ValueError(f"project_maturity: {self.project_maturity} is not supported.")
         if self.fluid_name not in FLUID_NAME_OPTIONS:
             raise ValueError(f"fluid_name: {self.fluid_name} is not supported.")
-        if self.surface_cooling_tower_mode not in COOLING_MODE_OPTIONS:
-            raise ValueError(f"surface_cooling_tower_mode: {self.surface_cooling_tower_mode} is not supported.")
+        if self.fluid_name == 'CO2':
+            if self.surface_cooling_tower_mode not in COOLING_MODE_OPTIONS:
+                raise ValueError(f"surface_cooling_tower_mode: {self.surface_cooling_tower_mode} is not supported.")
 
 
     def set_constants(self) -> None:
@@ -118,6 +126,18 @@ class EconomicModelAdams(EconomicModel):
         self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
         self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
 
+        self.set_coeffs()
+
+        # fluid type dependent parameters
+        self.active_monitoring_area = self.get_active_monitoring_area()
+        self.turbine_cost_multiplier = self.get_turbine_cost_multiplier()
+        self.pump_material_cost_multiplier = self.get_pump_material_cost_multiplier()
+        self.tower_design_coefficient = self.get_tower_design_coefficient()
+
+
+    def set_coeffs(self) -> None:
+        if self.fluid_name == 'H2O':
+            return
         # coefficients for BAC regression models
         if self.surface_cooling_tower_mode == 'WET':
             self.coeffs_cooling = [5.58e3, 0., -1.77e1, 1.96e2]
@@ -125,12 +145,6 @@ class EconomicModelAdams(EconomicModel):
         else: # 'DRY':
             self.coeffs_cooling = [7.31e3, 0., 0., 1.23e3]
             self.coeffs_condensing = [1.91e3, 0., 0., 0.]
-
-        # fluid type dependent parameters
-        self.active_monitoring_area = self.get_active_monitoring_area()
-        self.turbine_cost_multiplier = self.get_turbine_cost_multiplier()
-        self.pump_material_cost_multiplier = self.get_pump_material_cost_multiplier()
-        self.tower_design_coefficient = self.get_tower_design_coefficient()
 
 
     def set_inlet_state(self, state: ModelState):
@@ -161,6 +175,8 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_tower_design_coefficient(self) -> float:
+        if self.fluid_name == 'H2O':
+            return 1.0
         design = self.specs['surface'].cooling_tower_design.upper()
         if design == 'CLOSED':
             if self.fluid_name == 'CO2':
@@ -213,7 +229,7 @@ class EconomicModelAdams(EconomicModel):
 
     def get_well_length(self, well_specs: dict) -> float:
         if well_specs.well_length is not None:
-            return well_specs.well_length
+            return well_specs.well_length #TODO: add treatment for pump length
         return self.reservoir_depth / np.cos(np.deg2rad(well_specs.vertical_deviation))
 
 
@@ -348,7 +364,8 @@ class EconomicModelAdams(EconomicModel):
     """
 
     def get_surface_pipe_total_length(self) -> float:
-        L_single_pair = min(self.well_spacing, self.surface_pipe_length_per_well_pair) # single inj-prod pair
+        # L_single_pair = min(self.well_spacing, self.surface_pipe_length_per_well_pair) # single inj-prod pair
+        L_single_pair = self.well_spacing  # single inj-prod pair
         if self.well_pattern == 'DOUBLET':
             return L_single_pair
         elif '5SPOT' in self.well_pattern:

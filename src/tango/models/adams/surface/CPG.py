@@ -15,7 +15,7 @@ class SurfaceSpecsAdamsCPG(SurfaceSpecsAdams):
     condensation_pressure_offset: float = 5e4   # (Pa)
     total_pipe_length: float = None # (m)
     pipe_diameter: float = 0.41 # (m)
-    pipe_length_per_well_pair: float = 750 # (m)
+    # pipe_length_per_well_pair: float = 750 # (m)
     cooling_tower_design: str = 'CLOSED' # cooling tower design
     cooling_mode: str = 'WET' # WET or DRY
 
@@ -49,7 +49,6 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         SurfaceModelAdams.__init__(self)
         self.specs = SurfaceSpecsAdamsCPG(**specs)
         self.fluid_name = self.specs.fluid_name
-        # self.m_dot = self.specs.mass_flow_rate
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
         self.set_mdot()

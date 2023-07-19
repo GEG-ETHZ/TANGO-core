@@ -94,11 +94,19 @@ class WellModelAdams(WellModel):
         self.f_dir = 1.0 if isProducer else -1.0 # +1: upwards, -1: downwards
 
 
-    def set_gravity_multiplier(self, g_mult):
+    def set_gravity_multiplier(self, g_mult) -> None:
         self.g_mult = g_mult
         self.g = self.g_mult*self.g
 
-    def initialize_state(self) -> None:
+    def initialize_inlet_state(self, state) -> None:
+        if state.dP_pump <= 0.:
+            return
+        self.fluid_state_init.updatePT(P=self.fluid_state_init.P + state.dP_pump,
+                                       T=self.fluid_state_init.T)
+
+
+    def initialize_state(self, state) -> None:
+        self.initialize_inlet_state(state)
         self.P[0] = self.fluid_state_init.P
         self.h[0] = self.fluid_state_init.H
         self.rho[0] = self.fluid_state_init.rho
@@ -106,8 +114,8 @@ class WellModelAdams(WellModel):
         self.T_f[0] = self.fluid_state_init.T
         self.u[0] = self.well_mass_flow_rate / self.cross_section_area / self.rho[0]
 
-    def update(self, *args) -> None:
-        self.initialize_state()
+    def update(self, state) -> None:
+        self.initialize_state(state)
         self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
@@ -179,5 +187,5 @@ class WellModelAdams(WellModel):
         self.initialize_state_pump()
         pass
 
-    def execute(self, *args) -> None:
-        self.update()
+    def execute(self, state) -> None:
+        self.update(state)
