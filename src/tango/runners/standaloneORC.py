@@ -31,7 +31,7 @@ class RunnerStandaloneORC(Runner):
 
         dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
         dT_surface = self.state.surface.outlet_temperature_tmp - self.state.surface.outlet_fluid.T
-        dP_surface = self.state.surface.inlet_fluid.P - self.state.surface.outlet_fluid.P - self.state.surface.dP_pipes
+        dP_surface = self.state.surface.inlet_fluid.P - self.state.surface.outlet_fluid.P - self.state.surface.dP_pipe
 
         if np.abs(dP_reservoir) < self.runspec.dP_reservoir_threshold and \
            np.abs(dT_surface) < self.runspec.dT_surface_threshold and \
@@ -40,7 +40,7 @@ class RunnerStandaloneORC(Runner):
 
         self.x1_lst.append(copy.deepcopy(self.state.surface.outlet_fluid.P))
         self.x2_lst.append(copy.deepcopy(self.state.surface.outlet_fluid.T))
-        self.x3_lst.append(copy.deepcopy(self.state.production_well.dP_pump))
+        self.x3_lst.append(copy.deepcopy(self.state.production_well_pump.dP_pump))
         self.y1_lst.append(dP_reservoir)
         self.y2_lst.append(dT_surface)
         self.y3_lst.append(dP_surface)
@@ -56,7 +56,9 @@ class RunnerStandaloneORC(Runner):
             self.y1_lst.pop(0), self.y2_lst.pop(0), self.y3_lst.pop(0)
 
         self.model.surface.overwrite_outlet_state(state=self.state.surface, P=root1, T=root2)
-        self.state.production_well.dP_pump = root3
+        self.state.production_well_pump.overwrite_state(state=self.state.production_well_pump,
+                                                        dP_surface=dP_surface,
+                                                        dP_pump=root3)
 
         return False
 

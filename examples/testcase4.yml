@@ -41,6 +41,7 @@ production_well_pump:
 
 surface:
   refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost' # min_cost or max_power
 
 economic:
   project_maturity: 'green_field' # brown_field or green_field

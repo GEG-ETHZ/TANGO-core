@@ -9,4 +9,5 @@ SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
 COOLING_MODE_OPTIONS = ['WET', 'DRY']
 SKIP_REPORT_ATTRIBUTES = ['mass_rate', 'mu', 'rho']
 REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'inlet_fluid', 'production_well': 'outlet_fluid'}
+MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
 DATETIME_FMT = '%Y-%m-%d'

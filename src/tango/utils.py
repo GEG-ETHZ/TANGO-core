@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from oyaml import load, SafeLoader
 from datetime import datetime
-
+from pathlib import Path
 from tango.core.config import *
 from tango.core.constants import *
 
@@ -105,6 +105,24 @@ def append_results(d: dict, state: classmethod, base_name: str) -> None:
                     d[s] = [val]
         except:
             continue
+
+
+def get_table(fname: str, header: int = 0) -> pd.DataFrame:
+    path = fname
+    if not os.path.isabs(fname):
+        path = os.path.join(Path(__file__).parent.parent.parent, 'data', fname)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{path} not found.")
+    try:
+        ext = os.path.splitext(path)[1]
+        if ext.lower() == '.csv':
+            return pd.read_csv(path)
+        elif ext.lower() == '.xlsx':
+            return pd.read_excel(path, header=header)
+        else:
+            raise RuntimeError(f"Failed to read {path}. Extension: {ext} is not supported")
+    except:
+        raise RuntimeError(f"Failed to read {path}.")
 
 
 def parse_results(d: dict, state_lst: list, base_name_lst: list, current_date:str) -> dict:

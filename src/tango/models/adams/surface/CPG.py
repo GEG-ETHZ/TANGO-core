@@ -6,18 +6,18 @@ from dataclasses import dataclass
 import logging
 
 @dataclass
-class SurfaceSpecsAdamsCPG(SurfaceSpecsAdams):
-    approach_temperature: float = 7.0    # The temperature difference between condensing and the surface temperature (K)
-    pinch_temperature: float = 5.0    # (K)
+class SurfaceSpecsAdamsCPG(CommonSpecs):
+    approach_temperature: float = 7.0  # The temperature difference between condensing and the surface temperature (K)
     temperature_range: float = 0. # diff between inlet and exit fluid temperature.
-    eta_turbine: float = 0.78    # The isentropic efficiency of the turbine (-)
     eta_pump: float = 0.90    # The pump efficiency (-)
     condensation_pressure_offset: float = 5e4   # (Pa)
     total_pipe_length: float = None # (m)
     pipe_diameter: float = 0.41 # (m)
-    # pipe_length_per_well_pair: float = 750 # (m)
+    epsilon: float = 55.e-6  # roughness of surface pipe (m)
+    eta_turbine: float = 0.78 # The isentropic efficiency of the turbine (-)
     cooling_tower_design: str = 'CLOSED' # cooling tower design
     cooling_mode: str = 'WET' # WET or DRY
+
 
 
 class SurfaceStateAdamsCPG(SurfaceState): #TODO: cleanup states
@@ -48,27 +48,13 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
         self.specs = SurfaceSpecsAdamsCPG(**specs)
+        # self.specs = SurfaceSpecsAdamsCPG(specs)
         self.fluid_name = self.specs.fluid_name
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0
+        self.X_CO2 = 1.0 if self.fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self.set_mdot()
         self.set_constants()
-
-
-    def set_constants(self) -> None:
-
-        if self.specs.cooling_mode == 'WET':
-            self.coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
-            self.coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.]
-        elif self.specs.cooling_mode == 'DRY':
-            self.coeffs_cooling = [7.65e-1, 0., 0., 1.28e-1]
-            self.coeffs_condensing = [0.619, 0., 0., 0.]
-        else:
-            raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
-
-        self.X_CO2 = 0.0
-        if self.fluid_name == 'CO2':
-            self.X_CO2 = 1.0  # CO2 mass fraction of produced fluid #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
 
 
     def set_inlet_state(self, state, state_from) -> None:
@@ -102,25 +88,6 @@ class SurfaceModelAdamsCPG(SurfaceModelAdams):
         X_CO2 = self.X_CO2
 
         state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet - hs_outlet) # (W)
-
-
-    def BAC_regression_model(self, coeffs: list) -> float:
-        """
-        Baltimore Aircoil Specific (BAC) regression model for cooling and condensing costs
-        """
-        a, b, c, d = coeffs
-        T_ambient = self.specs.surface_temperature
-        dT_approach = self.specs.approach_temperature
-        dT_range = self.condensation_temperature_range
-        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach+dT_range)
-
-
-    def get_parasitic_power_fraction_cooling(self):
-        return self.BAC_regression_model(coeffs=self.coeffs_cooling)
-
-
-    def get_parasitic_power_fraction_condensing(self):
-        return self.BAC_regression_model(coeffs=self.coeffs_condensing)
 
 
     def update_condenser_state(self, state) -> None:

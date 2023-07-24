@@ -1,18 +1,18 @@
 from tango.models.base import *
 from tango.models.base.model import *
-from dataclasses import dataclass
 from tango.core.config import *
 from tango.core.constants import *
+from tango import utils
+from dataclasses import dataclass
+from scipy.interpolate import interp1d
+from datetime import datetime
 
 import logging
 import os
 import pandas as pd
 import numpy as np
-from pathlib import Path
-from scipy.interpolate import interp1d
-from datetime import datetime
 
-
+#TODO: make separete files for different surface facility (CPG, ORC) and inhert base Econ classes
 @dataclass
 class EconomicSpecsAdams(CommonSpecs):
     PPI_table: str = 'PPI_table.xlsx'
@@ -107,8 +107,8 @@ class EconomicModelAdams(EconomicModel):
     def set_constants(self) -> None:
 
         # multipliers
-        self.PPI_table = self.get_table(self.specs['economic'].PPI_table, header=1)
-        self.cost_mult_table = self.get_table(self.specs['economic'].cost_multiplier_table)
+        self.PPI_table = utils.get_table(self.specs['economic'].PPI_table, header=1)
+        self.cost_mult_table = utils.get_table(self.specs['economic'].cost_multiplier_table)
 
         self.PPI = dict() # producer price index (PPI)
         self.PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
@@ -190,20 +190,6 @@ class EconomicModelAdams(EconomicModel):
                 raise ValueError(f"Surface cooling tower design: {design} with fluid: {self.fluid_name} is not supported")
         else:
             raise ValueError(f"Surface cooling tower design: {design} is not supported")
-
-
-    @staticmethod
-    def get_table(fname: str, header:int = 0) -> pd.DataFrame:
-        path = fname
-        if not os.path.isabs(fname):
-            path = os.path.join(Path(__file__).parent.parent.parent.parent.parent, 'data', fname)
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"{path} not found.")
-        try:
-            table = pd.read_excel(path, header=header)
-        except:
-            raise RuntimeError(f"Failed to read {path}.")
-        return table
 
 
     def get_PPI_value(self, col_name: str) -> float:
@@ -517,12 +503,9 @@ class EconomicModelAdams(EconomicModel):
             key = f"surface_{name}"
             if key in d:
                 try:
-                    # getattr(self.state, name)
                     setattr(self.state, name, np.mean(d[key]) / dt)
                 except:
                     continue
-
-                # attr = np.mean(d[key]) / dt # 1: to skip initial condition. Overwrite some attributes
 
 
     def compute_capex(self) -> None:

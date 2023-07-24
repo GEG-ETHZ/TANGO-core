@@ -6,7 +6,7 @@ from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from dataclasses import dataclass
 import numpy as np
-
+#TODO: separete well classes into inj, prd, prd_pump, horizontal, etc.
 
 @dataclass
 class WellSpecsAdams(CommonSpecs):
@@ -180,12 +180,14 @@ class WellModelAdams(WellModel):
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
 
-    def overwrite_state(self, state: WellStateAdams, dP_pump: float) -> None:
+    def overwrite_state(self, state, dP_surface: float, dP_pump: float) -> None:
         """
             for ORC to update dP pump at producer
         """
-        self.initialize_state_pump()
-        pass
+        if state.dP_pump == 0 and dP_surface > 0.:
+            return # no pumping is needed
+        state.dP_pump = max(dP_pump, 0.)
+
 
     def execute(self, state) -> None:
         self.update(state)
