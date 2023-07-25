@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-import logging
 from tango import utils
 from tango.runner import Runner
 

@@ -226,6 +226,8 @@ def write_results(input_file: str, results_physics: dict, results_econ: dict) ->
     df = pd.DataFrame(results_physics)
     df.to_csv(fname, index=False)
 
+    if results_econ == None:
+        return
     fname = os.path.splitext(input_file)[0] + ".econ.csv"
     logging.info(f"Saving output summary of economic models > {fname}")
     d = dict()
