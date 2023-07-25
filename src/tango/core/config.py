@@ -1,0 +1,13 @@
+WELL_PATTERN_OPTIONS = ['DOUBLET', '5SPOT', 'INVERTED_5SPOT']
+PROJECT_MATURITY_OPTIONS = ['GREEN_FIELD', 'BROWN_FIELD']
+REGRIGERANT_OPTIONS = ['R245fa', 'R600a'] # 'R600a'?
+MAP_WELLPATTERN_TO_NUM_WELLS = {'DOUBLET': [1, 1], '5SPOT': [4, 1], 'INVERTED_5SPOT': [1, 4]} # [num_inj, num_prod]
+MAP_FLUIDNAME_TO_SURFACE_PLANT_DESIGN = {'CO2': 'CPG', 'H2O': 'ORC'}
+MAP_MODELNAME_TO_SURFACE_PLANT_DESIGN = {'AdamsCPG': 'CPG', 'AdamsORC': 'ORC'}
+FLUID_NAME_OPTIONS = ['CO2', 'H2O']
+SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
+COOLING_MODE_OPTIONS = ['WET', 'DRY']
+SKIP_REPORT_ATTRIBUTES = ['mass_rate', 'mu', 'rho']
+REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'inlet_fluid', 'production_well': 'outlet_fluid'}
+MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
+DATETIME_FMT = '%Y-%m-%d'

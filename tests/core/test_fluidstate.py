@@ -1,4 +1,8 @@
-from tango.core import FluidState
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+from src.tango.core import FluidState
 
 from CoolProp.CoolProp import PropsSI
 import pytest
@@ -39,9 +43,9 @@ def test_FluidState():
     assert state1.T == pytest.approx(321.0)
     check(state1)
 
-    state2 = FluidState.withPH("Water", state1.P, state1.H)
-    assert state2.P == pytest.approx(state1.P)
+    state2 = FluidState.withHP("Water", state1.H, state1.P)
     assert state2.H == pytest.approx(state1.H)
+    assert state2.P == pytest.approx(state1.P)
     check(state2)
 
     state3 = FluidState.withPS("Water", state2.P, state2.S)
@@ -49,10 +53,10 @@ def test_FluidState():
     assert state3.S == pytest.approx(state2.S)
     check(state3)
 
-    state4 = FluidState.withPQ("Water", state3.P, Q = 0)
-    assert state4.P == pytest.approx(state3.P)
+    state4 = FluidState.withPQ("Water", P = state3.P, Q = 0)
     assert state4.Q == pytest.approx(0.0)
+    assert state4.P == pytest.approx(state3.P)
 
-    state5 = FluidState.withTQ("Water", state4.T, Q = 1)
-    assert state5.T == pytest.approx(state4.T)
+    state5 = FluidState.withQT("Water", Q = 1, T = state4.T)
     assert state5.Q == pytest.approx(1.0)
+    assert state5.T == pytest.approx(state4.T)

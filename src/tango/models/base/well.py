@@ -1,4 +1,5 @@
 from abc import ABC
+from tango.core import FluidState
 
 class WellSpecs:
     """Implements the common interface for classes providing well specifications."""
@@ -7,7 +8,10 @@ class WellSpecs:
 
 class WellState(ABC):
     """Implements the common interface for classes defining state for well modeling computations."""
-    pass
+    def __init__(self):
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
 class WellModel(ABC):

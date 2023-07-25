@@ -1,0 +1,52 @@
+#
+# testcase1: simple DOUBLET case (Water-based)
+#
+
+runspec:
+  workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS'
+
+common:
+  fluid_name: 'H2O'
+  mass_flow_rate: 5.0  # kg/s (injection rate) ~2700 bbl/d
+  reservoir_depth: 2500.0 # m
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal comductivity (W/(m*K))
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
+  thermal_gradient: 0.035  # degC/m
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 1 # number of time steps
+  dt: 1.0  # time step increment (year)
+
+reservoir:
+  thickness: 300.0
+  permeability: 5.0e-14    # m2 ~50mD
+  porosity: 0.1
+
+injection_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
+production_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
+production_well_pump:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
+surface:
+  refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost' # min_cost or max_power
+
+economic:
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095
+
+
+
+
