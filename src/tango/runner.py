@@ -43,10 +43,7 @@ class Runner:
             surface_facility_type = MAP_MODELNAME_TO_SURFACE_PLANT_DESIGN[self.specs['runspec']['workflow']['surface']]
         except:
             raise RuntimeError(f"Surface model: {self.specs['runspec']['workflow']['surface']} is not supported.")
-        self.x_lst, self.y_lst = [], []
-        self.x1_lst, self.y1_lst = [], []
-        self.x2_lst, self.y2_lst = [], []
-        self.x3_lst, self.y3_lst = [], []
+        getattr(self, f"initialize_temp_vars_{surface_facility_type}")()
         self.converged = getattr(self, f"converged_{surface_facility_type}")
         self.update_primary_variables = getattr(self, f"update_primary_variables_{surface_facility_type}")
 
@@ -129,6 +126,10 @@ class Runner:
         functions for CPG  
     """
 
+    def initialize_temp_vars_CPG(self) -> None:
+        self.x_lst, self.y_lst = [], []
+
+
     def converged_CPG(self) -> bool:
 
         dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
@@ -161,6 +162,12 @@ class Runner:
     """ 
         functions for ORC  
     """
+
+    def initialize_temp_vars_ORC(self) -> None:
+        self.x1_lst, self.y1_lst = [], []
+        self.x2_lst, self.y2_lst = [], []
+        self.x3_lst, self.y3_lst = [], []
+
 
     def converged_ORC(self) -> bool:
 

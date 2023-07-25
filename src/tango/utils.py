@@ -70,6 +70,8 @@ def check_inputs(specs: dict) -> None:
     if 'surface' not in specs['runspec']['workflow'].keys():
         raise RuntimeError(f"Required compute_node: 'surface' not found in runspec.workflow.")
     for compute_node in specs['runspec']['workflow'].keys():
+        if compute_node not in COMPUTE_NODE_OPTIONS:
+            raise RuntimeError(f"Compute node: {compute_node} is not supported. Compute node options: {COMPUTE_NODE_OPTIONS}")
         if compute_node not in specs.keys():
             raise RuntimeError(f"Compute node: {compute_node} section not found in the input file.")
 

@@ -59,9 +59,9 @@ class Workflow(Model):
         """initialize econ model, if applicable"""
         self.economic = None
         if self.econ_model_name is not None:
-            Econ = eval(get_attr_name('economic', self.econ_model_name, 'Model'))
-            self.economic = Econ(specs = self.specs['common'] | self.specs['economic'],
-                                 model_dict=self.model_dict)
+            EconModel = eval(get_attr_name('economic', self.econ_model_name, 'Model'))
+            self.economic = EconModel(specs = self.specs['common'] | self.specs['economic'],
+                                      model_dict=self.model_dict)
             self.economic.set_inlet_state(state.surface)
 
 
