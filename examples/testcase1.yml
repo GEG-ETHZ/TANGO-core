@@ -3,7 +3,13 @@
 #
 
 runspec:
-  workflow: 'STANDALONE_CGS' # default='STANDALONE_CGS'
+  workflow: # dict: {'compute node name': 'model name'} #TODO: come up with a better model name (e.g., TANGONative)
+    injection_well: 'Adams'
+    reservoir: 'Adams'
+    production_well: 'Adams'
+    surface: 'AdamsCPG'  # CPG (for CO2) or ORC (for H2O)
+    economic: 'Adams'
+  max_num_itr: 20 # optional. default=20
 
 common:
   fluid_name: 'CO2'
@@ -11,7 +17,7 @@ common:
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3
   rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
-  rock_k: 2.1  # thermal comductivity (W/(m*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot

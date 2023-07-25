@@ -52,25 +52,49 @@ def load_from_yaml(filename: str):
 
 
 def check_inputs(specs: dict) -> None:
-    if specs['runspec']['workflow'] not in WORKFLOW_OPTIONS:
-        raise RuntimeError(f"Invalid workflow found: {specs['runspec']['workflow']}")
-    else:
-        if 'STANDALONE' in specs['runspec']['workflow']:
-            if 'fluid_name' not in specs['common']:
-                raise RuntimeError(f"'fluid_name' is missing in 'common' section.")
-        elif 'fluid_name' not in specs['common']:
-            specs['common']['fluid_name'] = ''
-    if not isinstance(specs['common']['num_tsteps'], int):
-        raise RuntimeError(
-            f"Invalid variable type found in {specs['common']['num_tsteps']}: {type(specs['common']['num_tsteps'])}. Use type: int")
-    if specs['common']['num_tsteps'] < 1:
-        raise RuntimeError(
-            f"Invalid value found in {specs['common']['num_tsteps']}: Use an integer value greater than 0")
-    if specs['common']['dt'] > 5.0:
-        logging.warning(f"Large time step size found: {specs['common']['dt']}. It may result in inaccurate results.")
-    if specs['common']['fluid_name'] not in FLUID_NAME_OPTIONS:
-        raise RuntimeError(f"fluid_name: {specs['common']['fluid_name']} is not supported.")
+
+    #
+    # ... runspec section
+    #
+
+    if 'runspec' not in specs:
+        raise RuntimeError(f"Required field: 'runspec' not found in the input file.")
+    if 'workflow' not in specs['runspec']:
+        raise RuntimeError(f"Required field: 'workflow' not found in runspec section.")
+    if 'surface' not in specs['runspec']['workflow'].keys():
+        raise RuntimeError(f"Required compute_node: 'surface' not found in runspec.workflow.")
+    for compute_node in specs['runspec']['workflow'].keys():
+        if compute_node not in specs.keys():
+            raise RuntimeError(f"Compute node: {compute_node} section not found in the input file.")
+
+    #
+    # ... common section
+    #
+
+    if 'common' in specs:
+        if 'fluid_name' in specs['common']:
+            if specs['common']['fluid_name'] not in FLUID_NAME_OPTIONS:
+                raise RuntimeError(f"fluid_name: {specs['common']['fluid_name']} is not supported.")
+        if 'well_pattern' in specs['common']:
+            if specs['common']['well_pattern'] not in WELL_PATTERN_OPTIONS:
+                raise ValueError(f"Well pattern: {specs['common']['well_pattern']} is not supported.")
+            if len(specs['common']['well_pattern_dimens']) != 2:
+                raise ValueError(
+                    f"Something wrong with well_pattern_dimens: {specs['common']['well_pattern']}. Input a list with two integer elements.")
+            if bool(list(filter(lambda x: not isinstance(x, int), specs['common']['well_pattern_dimens']))):
+                raise ValueError(
+                    f"Something wrong with well_pattern_dimens: {specs['common']['well_pattern']}. Input a list with two integer elements.")
+            if specs['common']['well_pattern'] == 'DOUBLET':
+                if bool(list(filter(lambda x: x > 1, specs['common']['well_pattern_dimens']))):
+                    raise ValueError(f"Multiple well_patterns is not supported for: {specs['common']['well_pattern']}.")
+
+    #
+    # ... well(s) section
+    #
+
     if 'production_well_pump' in specs: # treatment for a pump at producer in ORC
+        if 'production_well' not in specs:
+            raise RuntimeError(f"Required section: production_well not found in the input file.")
         if 'well_length' not in specs['production_well_pump']:
             specs['production_well_pump']['well_length'] = 0.2 * specs['common']['reservoir_depth']
             logging.warning(f"Required value 'well_length' not found in 'production_well_pump'. Assining a default value (=0.2 * reservoir_depth)")
@@ -81,11 +105,45 @@ def check_inputs(specs: dict) -> None:
             specs['production_well']['well_length'] = specs['common']['reservoir_depth'] - specs['production_well_pump']['well_length']
             logging.warning(f"Sum of production_well.well_length and production_well_pump.well_length is greater than reservoir_depth. "
                             f"Updating production_well.well_length (=reservoir_depth - production_well_pump.well_length)")
-    if specs['common']['fluid_name'] == 'H2O':
-        if 'refrigerant' not in specs['surface']:
-            logging.info(f"'refrigerant' for surface not found. Assigning a default value = 'R245fa'")
-    #TODO: add warning messages for unrealistic input values
+        if 'wellhead_depth' not in specs['production_well']:
+            specs['production_well']['wellhead_depth'] = specs['production_well_pump']['well_length']
 
+    #
+    # ... reservoir section
+    #
+
+    if 'reservoir' in specs: # get effective (average) wellbore diameter for reservoir
+        val = 0.41
+        if 'injection_well' in specs:
+            if 'diameter' in specs['injection_well']:
+                val = specs['injection_well']['diameter']
+        if 'production_well' in specs:
+            if 'diameter' in specs['production_well']:
+                val = 0.5 * (val + specs['production_well']['diameter'])
+        specs['reservoir']['well_eff_diameter'] = val
+
+    #
+    # ... surface section
+    #
+
+    if 'common' in specs:
+        if 'fluid_name' in specs['common']:
+            if specs['common']['fluid_name'] == 'H2O':
+                if 'refrigerant' not in specs['surface']:
+                    logging.warning(f"'refrigerant' for surface not found. Assigning a default value = 'R245fa'")
+
+    #
+    # ... economic section
+    #
+
+    if 'economic' in specs:
+        if 'project_maturity' not in specs['economic']:
+            raise ValueError(f"project_maturity in 'economic' section is not defined.")
+        if specs['economic']['project_maturity'].upper() not in PROJECT_MATURITY_OPTIONS:
+            raise ValueError(f"project_maturity: {specs['economic']['project_maturity']} is not supported.")
+
+    #TODO: optimize input checking
+    #TODO: add warning messages for unrealistic input values
 
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope

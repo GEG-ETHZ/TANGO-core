@@ -21,8 +21,8 @@ class SurfaceModelAdams(SurfaceModel):
             self.m_dot = self.specs.mass_flow_rate / 4.0
 
 
-    def set_inlet_state(self, state, state_from) -> None:
-        state.inlet_fluid = state_from.outlet_fluid # inlet_fluid at production_well
+    def set_inlet_state(self, state_self, state_from) -> None:
+        state_self.inlet_fluid = state_from.outlet_fluid
 
 
     def set_constants(self) -> None:

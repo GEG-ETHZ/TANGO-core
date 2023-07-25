@@ -2,8 +2,8 @@ import logging
 from tango import utils
 from tango.core.config import *
 from tango.runners.base import RunnerSpecs, Runner
-from tango.runners.standaloneCPG import RunnerStandaloneCPG
-from tango.runners.standaloneORC import RunnerStandaloneORC
+from tango.runners.CPG import *
+from tango.runners.ORC import *
 
 class Runner:
 
@@ -24,18 +24,15 @@ class Runner:
         except:
             raise RuntimeError(f"Failed to read {self.input_file}")
         utils.check_inputs(self.specs)
-        self.workflow = self.specs['runspec']['workflow'].upper()
 
 
     def get_runner(self) -> object:
-        name = 'Runner' \
-             + self.workflow.split('_')[0].lower().capitalize() \
-             + MAP_FLUIDNAME_TO_SURFACE_PLANT_DESIGN[self.specs['common']['fluid_name']]
+        name = 'Runner' + self.specs['runspec']['workflow']['surface']
         try:
-            runner = eval(name)
+            return eval(name)
         except:
-            raise NotImplementedError(f"workflow: {self.workflow} is not supported.")
-        return runner
+            raise NotImplementedError(f"workflow: {self.specs['runspec']['workflow']['surface']} is not supported.")
+
 
     def set_runner(self) -> None:
         Runner = self.get_runner()

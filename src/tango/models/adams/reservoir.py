@@ -18,6 +18,7 @@ class ReservoirSpecsAdams(CommonSpecs):
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     initial_pressure: float = None
     initial_temperature: float = None
+    well_eff_diameter: float = 0.41 # effective (average) wellbore diameter (inj and prod) (m)
 
 
 class ReservoirStateAdams(ReservoirState):
@@ -45,6 +46,7 @@ class ReservoirModelAdams(ReservoirModel):
         self.volume = self.specs.thickness * self.area
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
+        self.specs.well_diameter = self.specs.well_eff_diameter
 
         T_ref = self.initial_temperature - self.specs.surface_temperature # reference temperature
         self.rock_C_v = self.specs.rock_density * self.specs.rock_cp # volumetric heat capacity of rocks (J/m3)
@@ -71,9 +73,6 @@ class ReservoirModelAdams(ReservoirModel):
         h = self.specs.reservoir_depth
         return self.specs.brine_density * g * h
 
-    def set_boundaries(self, inj_well_specs, prd_well_specs) -> None:
-        """get effective (average) wellbore diameter"""
-        self.specs.well_diameter = 0.5 * (inj_well_specs.diameter + prd_well_specs.diameter)
 
     def set_mdot(self) -> None:
         """
@@ -127,8 +126,8 @@ class ReservoirModelAdams(ReservoirModel):
         self.p1, self.p2, self.p3 = self.set_depletion_curve_coeffs(state)
 
 
-    def set_inlet_state(self, state, state_from) -> None:
-        state.inlet_fluid = state_from.outlet_fluid
+    def set_inlet_state(self, state_self, state_from) -> None:
+        state_self.inlet_fluid = state_from.outlet_fluid
 
     def update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""

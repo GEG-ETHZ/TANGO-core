@@ -6,7 +6,6 @@ from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from dataclasses import dataclass
 import numpy as np
-#TODO: separete well classes into inj, prd, prd_pump, horizontal, etc.
 
 @dataclass
 class WellSpecsAdams(CommonSpecs):
@@ -18,13 +17,7 @@ class WellSpecsAdams(CommonSpecs):
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     well_length: float = None # well length (m)
     probability_of_success: float = 0.95
-
-
-class WellStateAdams(WellState):
-    """The well state model"""
-    def __init__(self) -> None:
-        WellState.__init__(self)
-        self.dP_pump = 0. # dP at pump in a production well (Pa)
+    wellhead_depth: float = 0.
 
 
 class WellModelAdams(WellModel):
@@ -32,15 +25,16 @@ class WellModelAdams(WellModel):
     def __init__(self, specs: dict):
         self.specs = WellSpecsAdams(**specs)
 
-        num_cells = self.specs.num_cells
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
         self.injector_mass_flow_rate = self.specs.mass_flow_rate
 
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
         self.set_well_length()
+        self.set_farfield_temperature()
 
         # discretization related parameters
+        num_cells = self.specs.num_cells
         self.dL = self.well_length/num_cells
         self.dz = self.well_length/num_cells
         self.t_d = 0.0  # initialize the non-dimensional time
@@ -56,17 +50,10 @@ class WellModelAdams(WellModel):
         self.T_f = np.zeros(num_cells)  # fluid temperature (K)
         self.u = np.zeros(num_cells)  # flow velocity (m/s)
 
-    def init_state(self):
+
+    def init_state(self, state):
         pass
 
-    def set_well_mass_flow_rate(self, isProducer: bool) -> None:
-        if self.specs.well_pattern not in WELL_PATTERN_OPTIONS:
-            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
-        self.well_mass_flow_rate = self.injector_mass_flow_rate
-        if self.specs.well_pattern == 'INVERTED_5SPOT' and isProducer:
-            self.well_mass_flow_rate = self.injector_mass_flow_rate / 4.0 # 4=number of producers
-        elif self.specs.well_pattern == '5SPOT' and isProducer:
-            self.well_mass_flow_rate = self.injector_mass_flow_rate * 4.0 # 4=number of injectors
 
     def set_well_length(self):
         if self.specs.well_length is None:
@@ -75,38 +62,30 @@ class WellModelAdams(WellModel):
         else:
             self.well_length = self.specs.well_length
 
-    def set_farfield_temperature(self, wellhead_depth: float):
-        self.zspace = np.linspace(wellhead_depth, self.well_length, self.specs.num_cells+1)
+
+    def set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
+        self.zspace = np.linspace(self.specs.wellhead_depth, self.well_length, self.specs.num_cells+1)
         self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5  # depth at cell centers
 
         dTdz = self.specs.thermal_gradient
         T0 = self.specs.surface_temperature
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
-    def set_inlet_state(self, state, state_from, isProducer: bool = False, wellhead_depth: float = 0.) -> None:
-        self.set_well_mass_flow_rate(isProducer)
-        self.set_farfield_temperature(wellhead_depth)
-        state.inlet_fluid = state_from.outlet_fluid
-        state.outlet_fluid = FluidState.copy(state.inlet_fluid)
-        state.mass_rate = self.well_mass_flow_rate
-        self.fluid_state_tmp = state.outlet_fluid
-        self.fluid_state_init = state.inlet_fluid
-        self.f_dir = 1.0 if isProducer else -1.0 # +1: upwards, -1: downwards
+
+    def set_inlet_state(self, state_self, state_from) -> None:
+        state_self.inlet_fluid = state_from.outlet_fluid
+        state_self.outlet_fluid = FluidState.copy(state_self.inlet_fluid)
+        state_self.mass_rate = self.well_mass_flow_rate
+        self.fluid_state_tmp = state_self.outlet_fluid
+        self.fluid_state_init = state_self.inlet_fluid
 
 
     def set_gravity_multiplier(self, g_mult) -> None:
         self.g_mult = g_mult
         self.g = self.g_mult*self.g
 
-    def initialize_inlet_state(self, state) -> None:
-        if state.dP_pump <= 0.:
-            return
-        self.fluid_state_init.updatePT(P=self.fluid_state_init.P + state.dP_pump,
-                                       T=self.fluid_state_init.T)
 
-
-    def initialize_state(self, state) -> None:
-        self.initialize_inlet_state(state)
+    def initialize_state(self) -> None:
         self.P[0] = self.fluid_state_init.P
         self.h[0] = self.fluid_state_init.H
         self.rho[0] = self.fluid_state_init.rho
@@ -114,8 +93,9 @@ class WellModelAdams(WellModel):
         self.T_f[0] = self.fluid_state_init.T
         self.u[0] = self.well_mass_flow_rate / self.cross_section_area / self.rho[0]
 
-    def update(self, state) -> None:
-        self.initialize_state(state)
+
+    def update(self) -> None:
+        self.initialize_state()
         self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
         for i in range(1, self.specs.num_cells):
             ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
@@ -134,6 +114,7 @@ class WellModelAdams(WellModel):
             self.T_f[i] = self.fluid_state_tmp.T
             self.u[i] = self.well_mass_flow_rate / self.cross_section_area / self.rho[i]
 
+
     def Q_loss(self, delta_T):
         """Returns the heat loss introduced Zhang et al., 2011 (10.1016/j.geothermics.2011.08.003).
 
@@ -151,6 +132,7 @@ class WellModelAdams(WellModel):
 
         return 2.0 * self.dL * np.pi * self.specs.rock_k * beta * delta_T
 
+
     def delta_P_loss(self, friction_factor: float, rho: float, u: float) -> float:
         """Returns the pressure loss calculated using the Darcy--Weisbach equation.
 
@@ -163,6 +145,7 @@ class WellModelAdams(WellModel):
             float: the pressure loss (Pa)
         """
         return 0.5*friction_factor*self.dL*rho*u**2 / self.specs.diameter
+
 
     def friction_factor(self, rho, mu, u) -> float:
         """Returns the friction factor calculated using the Haaland equation (1983).
@@ -179,15 +162,3 @@ class WellModelAdams(WellModel):
         r = self.specs.epsilon / self.specs.diameter  # relative roughness
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
-
-    def overwrite_state(self, state, dP_surface: float, dP_pump: float) -> None:
-        """
-            for ORC to update dP pump at producer
-        """
-        if state.dP_pump == 0 and dP_surface > 0.:
-            return # no pumping is needed
-        state.dP_pump = max(dP_pump, 0.)
-
-
-    def execute(self, state) -> None:
-        self.update(state)

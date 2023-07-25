@@ -29,6 +29,6 @@ class Model:
         self.model_dict[name] = model
         setattr(self, name, model)
 
-    def execute(self, state: ModelState):
+    def execute(self, state):
         for name, model in self.model_dict.items():
             model.execute(getattr(state, name))

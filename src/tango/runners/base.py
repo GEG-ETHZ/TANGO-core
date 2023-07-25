@@ -11,12 +11,12 @@ from tqdm import tqdm
 from dataclasses import dataclass
 from tango.core.config import *
 from tango.core.constants import *
-from tango.models.adams import *
+from tango.workflow import *
 from tango import utils
 
 @dataclass
 class RunnerSpecs():
-    workflow: str # workflow option
+    workflow: dict # workflow option
     # convergence criteria
     max_num_itr: int = 20
     dP_reservoir_threshold: float = 1000. # (Pa)
@@ -39,7 +39,9 @@ class Runner:
 
     def set_workflow(self) -> None:
         try:
-            getattr(self, f"set_{self.runspec.workflow}")()
+            self.state = WorkflowState(self.runspec.workflow)
+            self.workflow = Workflow(self.specs, self.runspec.workflow)
+            self.workflow.initialize(self.state)
         except:
             raise ValueError(f"Something went wrong while setting up workflow: {self.runspec.workflow}")
 
@@ -48,7 +50,7 @@ class Runner:
         count = 0
         for j in range(self.runspec.max_num_itr):
             count += 1
-            self.model.execute(self.state)
+            self.workflow.execute(self.state)
             if self.converged():
                 logging.debug(f"Converged after {count} iterations")
                 break
@@ -65,7 +67,7 @@ class Runner:
 
     def run_models(self) -> None:
 
-        logging.info(f"Executing physics-based models: {list(self.model.model_dict.keys())}")
+        logging.info(f"Executing physics-based models: {list(self.workflow.model_dict.keys())}")
 
         dt_months = np.round(self.specs['common']['dt'] * YEAR_TO_MONTH)
         num_time_steps = self.specs['common']['num_tsteps']
@@ -83,15 +85,16 @@ class Runner:
             self.update_primary_variables()
             current_date = current_date + relativedelta(months=dt_months)
 
-        logging.info(f"Executing economic models.")
-        self.model.economic.execute(self.results)
+        if self.workflow.economic is not None:
+            logging.info(f"Executing economic models.")
+            self.workflow.economic.execute(self.results)
 
 
     def post_processing(self) -> None:
 
         utils.write_results(input_file=self.input_file,
                             results_physics=self.results,
-                            results_econ=self.model.economic.results)
+                            results_econ=self.workflow.economic.results)
 
         logging.info(
             "Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self.start_time))

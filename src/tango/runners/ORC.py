@@ -2,7 +2,7 @@ import copy
 
 from tango.runners.base import *
 
-class RunnerStandaloneORC(Runner):
+class RunnerAdamsORC(Runner):
 
     def __init__(self,
                  specs: dict,
@@ -11,20 +11,6 @@ class RunnerStandaloneORC(Runner):
         self.x1_lst, self.y1_lst = [], []
         self.x2_lst, self.y2_lst = [], []
         self.x3_lst, self.y3_lst = [], []
-
-
-    def set_STANDALONE_CGS(self) -> None:
-        self.state = CGSModelStateAdamsORC()
-        self.model = CGSModelAdamsORC(self.specs)
-        self.model.initialize(self.state)
-
-
-    def set_STANDALONE_AGS(self) -> None:
-        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
-
-
-    def set_CMG(self) -> None:
-        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
 
 
     def converged(self) -> bool:
@@ -55,7 +41,7 @@ class RunnerStandaloneORC(Runner):
             self.x1_lst.pop(0), self.x2_lst.pop(0), self.x3_lst.pop(0)
             self.y1_lst.pop(0), self.y2_lst.pop(0), self.y3_lst.pop(0)
 
-        self.model.surface.overwrite_outlet_state(state=self.state.surface, P=root1, T=root2)
+        self.workflow.surface.overwrite_outlet_state(state=self.state.surface, P=root1, T=root2)
         self.state.production_well_pump.overwrite_state(state=self.state.production_well_pump,
                                                         dP_surface=dP_surface,
                                                         dP_pump=root3)

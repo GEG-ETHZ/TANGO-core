@@ -1,25 +1,12 @@
 from tango.runners.base import *
 
-class RunnerStandaloneCPG(Runner):
+class RunnerAdamsCPG(Runner):
 
     def __init__(self,
                  specs: dict,
                  input_file: str):
         super().__init__(specs, input_file)
         self.x_lst, self.y_lst = [], []
-
-    def set_STANDALONE_CGS(self) -> None:
-        self.state = CGSModelStateAdamsCPG()
-        self.model = CGSModelAdamsCPG(self.specs)
-        self.model.initialize(self.state)
-
-
-    def set_STANDALONE_AGS(self) -> None:
-        raise NotImplementedError(f"workflow: 'STANDALONE_AGS' is not supported.")
-
-
-    def set_CMG(self) -> None:
-        raise NotImplementedError(f"workflow: 'CMG' is not supported.")
 
 
     def converged(self) -> bool:
@@ -38,7 +25,7 @@ class RunnerStandaloneCPG(Runner):
             self.x_lst.pop(0)
             self.y_lst.pop(0)
 
-        self.model.surface.overwrite_pump_state(state=self.state.surface)
+        self.workflow.surface.overwrite_pump_state(state=self.state.surface)
 
         return False
 

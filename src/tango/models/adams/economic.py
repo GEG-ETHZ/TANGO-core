@@ -84,21 +84,6 @@ class EconomicModelAdams(EconomicModel):
 
 
     def check_inputs(self) -> None:
-        if self.well_pattern not in WELL_PATTERN_OPTIONS:
-            raise ValueError(f"Well pattern: {self.well_pattern} is not supported.")
-        if len(self.well_pattern_dimens) != 2:
-            raise ValueError(f"Something wrong with well_pattern_dimens: {self.well_pattern}. Input a list with two integer elements.")
-        if bool(list(filter(lambda x: not isinstance(x, int), self.well_pattern_dimens))):
-            raise ValueError(f"Something wrong with well_pattern_dimens: {self.well_pattern}. Input a list with two integer elements.")
-        if self.well_pattern == 'DOUBLET':
-            if bool(list(filter(lambda x: x > 1, self.well_pattern_dimens))):
-                raise ValueError(f"Multiple well_patterns is not supported for: {self.well_pattern}.")
-        if not self.project_maturity:
-            raise ValueError(f"project_maturity in 'economic' section is not defined.")
-        if self.project_maturity not in PROJECT_MATURITY_OPTIONS:
-            raise ValueError(f"project_maturity: {self.project_maturity} is not supported.")
-        if self.fluid_name not in FLUID_NAME_OPTIONS:
-            raise ValueError(f"fluid_name: {self.fluid_name} is not supported.")
         if self.fluid_name == 'CO2':
             if self.surface_cooling_tower_mode not in COOLING_MODE_OPTIONS:
                 raise ValueError(f"surface_cooling_tower_mode: {self.surface_cooling_tower_mode} is not supported.")
@@ -147,7 +132,7 @@ class EconomicModelAdams(EconomicModel):
             self.coeffs_condensing = [1.91e3, 0., 0., 0.]
 
 
-    def set_inlet_state(self, state: ModelState):
+    def set_inlet_state(self, state):
         self.state = state  # surface
 
 

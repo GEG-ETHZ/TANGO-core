@@ -1,5 +1,5 @@
 from tango.models.base import *
-from tango.models.adams import WellModelAdams
+from tango.models.adams.well.base import WellModelAdams
 import numpy as np
 
 class HorizontalWellModelAdams(WellModelAdams):
