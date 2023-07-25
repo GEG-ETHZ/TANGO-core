@@ -28,7 +28,9 @@ def parse_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def set_logger(input_file: str, DEBUG: bool):
+def set_logger(args):
+    input_file = args.input_file
+    DEBUG = args.debug
     if not os.path.isfile(input_file):
         raise FileNotFoundError(f'{input_file} not found')
     level = logging.INFO
@@ -46,8 +48,12 @@ def set_logger(input_file: str, DEBUG: bool):
 
 
 def load_from_yaml(filename: str):
-    with open(filename) as f:
-        specs = load(f, Loader=SafeLoader)
+    try:
+        with open(filename) as f:
+            specs = load(f, Loader=SafeLoader)
+    except:
+        raise RuntimeError(f"Failed to read {filename}")
+    check_inputs(specs)
     return specs
 
 
@@ -144,6 +150,11 @@ def check_inputs(specs: dict) -> None:
 
     #TODO: optimize input checking
     #TODO: add warning messages for unrealistic input values
+
+
+def get_runner_name():
+    pass
+
 
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope

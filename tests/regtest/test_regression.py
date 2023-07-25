@@ -1,7 +1,7 @@
 import sys, os
 from pathlib import Path
 sys.path.append(os.path.join(str(Path(__file__).parent.parent.parent),'src'))
-from tango.runner import Runner
+from tango.tango_cli import TANGO
 import pandas as pd
 import pytest
 import shutil
@@ -10,8 +10,8 @@ examples_dir = os.path.join(str(Path(__file__).parent.parent.parent),'examples')
 
 
 def run(fname) -> None:
-    runner = Runner(['-f', fname])
-    runner.start()
+    tango = TANGO(['-f', fname])
+    tango.run()
 
 
 def get_val(fname) -> float:
