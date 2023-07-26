@@ -12,7 +12,7 @@ import numpy as np
 current_directory = os.getcwd()
 
 # Define the relative path to the training data folder from the current directory
-training_data_folder = "../../../../PBML_surrogates/SBT_surrogate_TANGO"
+training_data_folder = "../../../../PBML_surrogates"
 basis_models_folder = "Basis_fts_and_models"
 
 # Create the full absolute path to the training parameters file
