@@ -96,9 +96,11 @@ class ReservoirModelAdams(ReservoirModel):
 
     @staticmethod
     def impedance_func_doublet(mu, rho, k, b, L, D) -> float:
-        return mu * (np.log(L/(exp*D)) + D/L) / (rho*k*b*np.pi)
+        return mu * (np.log(L / (exp * D)) + D / L) / (rho * k * b * np.pi)  # ref
+        # return mu * np.log(L /D) / (rho * k * b * np.pi) # genGEO
 
-    def set_depletion_curve_coeffs(self, state) -> list:
+
+    def set_depletion_curve_coeffs(self, state) -> list: #TODO: check if this needs to be updated at every time step
 
         m_dot = self.m_dot # kg/s
         b = self.specs.thickness # m

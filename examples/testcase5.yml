@@ -1,0 +1,44 @@
+#
+# testcase1: simple case w/o surface
+#
+
+runspec:
+  workflow: # dict: {'compute node name': 'model name'}
+    injection_well: 'Adams'
+    reservoir: 'Adams'
+    production_well: 'Adams'
+
+common:
+  fluid_name: 'CO2'
+  mass_flow_rate: 200.0  # kg/s (injection rate)
+  reservoir_depth: 2500.0 # m
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
+  thermal_gradient: 0.035  # degC/m
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 5 # number of time steps
+  dt: 1.0  # time step increment (year)
+
+reservoir:
+  thickness: 300.0
+  permeability: 5.0e-14    # m2 ~50mD
+  porosity: 0.1
+
+injection_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
+production_well:
+  vertical_deviation: 0.0  # degrees
+  diameter: 0.410 # m
+
+
+
+
+

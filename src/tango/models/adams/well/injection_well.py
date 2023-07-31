@@ -23,5 +23,13 @@ class InjectionWellModelAdams(WellModelAdams):
         self.f_dir = -1.0 # downwards
 
 
+    def overwrite_inlet_fluid_state_PT(self, P: float = None, T: float = None):
+        if P != None and T == None:
+            T = self.fluid_state_init.T
+        elif P == None and T != None:
+            P = self.fluid_state_init.P
+        self.fluid_state_init.updatePT(P, T)
+
+
     def execute(self, *args) -> None:
         self.update()

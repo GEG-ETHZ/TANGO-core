@@ -1,6 +1,7 @@
 import argparse
 import os
 import logging
+import sys
 
 import numpy as np
 import pandas as pd
@@ -67,8 +68,8 @@ def check_inputs(specs: dict) -> None:
         raise RuntimeError(f"Required field: 'runspec' not found in the input file.")
     if 'workflow' not in specs['runspec']:
         raise RuntimeError(f"Required field: 'workflow' not found in runspec section.")
-    if 'surface' not in specs['runspec']['workflow'].keys():
-        raise RuntimeError(f"Required compute_node: 'surface' not found in runspec.workflow.")
+    # if 'surface' not in specs['runspec']['workflow'].keys():
+    #     raise RuntimeError(f"Required compute_node: 'surface' not found in runspec.workflow.")
     for compute_node in specs['runspec']['workflow'].keys():
         if compute_node not in COMPUTE_NODE_OPTIONS:
             raise RuntimeError(f"Compute node: {compute_node} is not supported. Compute node options: {COMPUTE_NODE_OPTIONS}")
@@ -161,6 +162,19 @@ def get_runner_name():
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope
     return x_lst[0] - y_lst[0] / dydx
+
+
+# def newton3(x1_lst: list, x2_lst: list, x3_lst: list,
+#            y1_lst: list, y2_lst: list, y3_lst: list) -> float:
+#     dx1, dy1 = (x1_lst[1] - x1_lst[0]), (y1_lst[1] - y1_lst[0])
+#     dx2, dy2 = (x2_lst[1] - x2_lst[0]), (y2_lst[1] - y2_lst[0])
+#     dx3, dy3 = (x3_lst[1] - x3_lst[0]), (y3_lst[1] - y3_lst[0])
+#     A = np.array([[dy1/dx1, dy1/dx2, dy1/dx3],
+#                   [dy2/dx1, dy2/dx2, dy2/dx3],
+#                   [dy3/dx1, dy3/dx2, dy3/dx3]])
+#     b = np.array([y1_lst[0], y2_lst[0], y3_lst[0]])
+#     dx = np.linalg.solve(A,b)
+#     return x1_lst[0] - dx[0], x2_lst[0] - dx[1], x3_lst[2] - dx[2]
 
 
 def append_results(d: dict, state: classmethod, base_name: str) -> None:

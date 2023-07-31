@@ -4,6 +4,7 @@ import sys
 import time
 import json
 import numpy as np
+import inspect
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
@@ -16,12 +17,8 @@ from tango import utils
 
 @dataclass
 class RunnerSpecs():
+    # title: str = 'title' # title of run
     workflow: dict # workflow option
-    # convergence criteria
-    max_num_itr: int = 20
-    dP_reservoir_threshold: float = 1000. # (Pa)
-    dT_surface_threshold: float = 0.5  # (K)
-    dP_surface_threshold: float = 100 # (Pa)
 
 
 class Runner:
@@ -33,54 +30,44 @@ class Runner:
         self.input_file = input_file
         self.runspec = RunnerSpecs(**self.specs['runspec'])
         self.results = dict()
-        self.set_func()
         self.start_time = time.time()
         logging.debug(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
 
 
-    def set_func(self) -> None:
-        try:
-            surface_facility_type = MAP_MODELNAME_TO_SURFACE_PLANT_DESIGN[self.specs['runspec']['workflow']['surface']]
-        except:
-            raise RuntimeError(f"Surface model: {self.specs['runspec']['workflow']['surface']} is not supported.")
-        getattr(self, f"initialize_temp_vars_{surface_facility_type}")()
-        self.converged = getattr(self, f"converged_{surface_facility_type}")
-        self.update_primary_variables = getattr(self, f"update_primary_variables_{surface_facility_type}")
-
-
     def set_workflow(self) -> None:
         try:
-            self.state = WorkflowState(self.runspec.workflow)
+            state = WorkflowState(self.runspec.workflow)
             self.workflow = Workflow(self.specs, self.runspec.workflow)
-            self.workflow.initialize(self.state)
+            self.workflow.initialize(state)
         except:
             raise ValueError(f"Something went wrong while setting up workflow: {self.runspec.workflow}")
 
 
     def step(self) -> None:
+        """ Advance one time step"""
         count = 0
-        for j in range(self.runspec.max_num_itr):
-            count += 1
-            self.workflow.execute(self.state)
-            if self.converged():
-                logging.debug(f"Converged after {count} iterations")
+        while True:
+            if self.workflow.system.max_itr_reached(count):
                 break
-        if count == self.runspec.max_num_itr:
-            logging.warning(f"Max number of iteration (={count}) has reached. Exiting iteration.")
+            count += 1
+            self.workflow.execute()
+            if self.workflow.system.balanced():
+                logging.debug(f"System balanced after {count} iterations")
+                break
+            self.workflow.system.update()
+        self.workflow.system.update_time_dependent_vars()
 
 
     def save_results(self, current_date: datetime) -> None:
         """update self.results"""
         utils.parse_results(d=self.results,
-                            state=self.state,
+                            state=self.workflow.state,
                             current_date=current_date.strftime(DATETIME_FMT))
 
 
     def run_models(self) -> None:
 
         logging.info(f"Running TANGO using {self.input_file}")
-
-        logging.info(f"Executing physics-based models: {list(self.workflow.model_dict.keys())}")
 
         dt_months = np.round(self.specs['common']['dt'] * YEAR_TO_MONTH)
         num_time_steps = self.specs['common']['num_tsteps']
@@ -95,11 +82,9 @@ class Runner:
             except:
                 raise RuntimeError(f"Something went wrong at time step: {current_date}")
             self.save_results(current_date)
-            self.update_primary_variables()
             current_date = current_date + relativedelta(months=dt_months)
 
         if self.workflow.economic is not None:
-            logging.info(f"Executing economic models.")
             self.workflow.economic.execute(self.results)
 
 
@@ -122,88 +107,76 @@ class Runner:
         self.post_processing()
 
 
-    """ 
-        functions for CPG  
     """
-
-    def initialize_temp_vars_CPG(self) -> None:
-        self.x_lst, self.y_lst = [], []
-
-
-    def converged_CPG(self) -> bool:
-
-        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
-
-        if np.abs(dP_reservoir) < self.runspec.dP_reservoir_threshold:
-            return True
-
-        self.x_lst.append(copy.deepcopy(self.state.surface.dP_pump))
-        self.y_lst.append(dP_reservoir)
-        if len(self.x_lst) == 1: # first call
-            self.state.surface.dP_pump = 0.5 * dP_reservoir
-        else:
-            self.state.surface.dP_pump = utils.newton(self.x_lst, self.y_lst)
-            self.x_lst.pop(0)
-            self.y_lst.pop(0)
-
-        self.workflow.surface.overwrite_pump_state(state=self.state.surface)
-
-        return False
-
-
-    def update_primary_variables_CPG(self) -> None:
-        self.x_lst.clear()
-        self.y_lst.clear()
-        self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
-        self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
-        self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
-
-
-    """ 
         functions for ORC  
     """
 
-    def initialize_temp_vars_ORC(self) -> None:
-        self.x1_lst, self.y1_lst = [], []
-        self.x2_lst, self.y2_lst = [], []
-        self.x3_lst, self.y3_lst = [], []
+    def local_loop_Pinj(self) -> None:
+        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+        x_lst, y_lst = [], []
+        count = 0
+        while np.abs(dP_reservoir) > self.runspec.dP_reservoir_threshold:
+            if self.max_itr_reached(count):
+                break
+            x_lst.append(copy.deepcopy(self.state.injection_well.inlet_fluid.P))
+            y_lst.append(dP_reservoir)
+            if len(x_lst) == 1:  # first call
+                root = x_lst[0] + dP_reservoir
+            else:
+                root = utils.newton(x_lst, y_lst)
+                x_lst.pop(0), y_lst.pop(0)
+
+            self.workflow.injection_well.overwrite_inlet_fluid_state_PT(P=root)
+            self.workflow.injection_well.execute()
+            self.workflow.reservoir.execute(state=self.state.reservoir)
+            dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+            count += 1
+
+
+    def local_loop_dP_pump(self) -> None:
+        dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
+        if self.state.production_well_pump.dP_pump == 0. and dP_surface >= 0:
+            return # no pummping needed
+        x_lst, y_lst = [], []
+        count = 0
+        while np.abs(dP_surface) > self.runspec.dP_surface_threshold:
+            if self.max_itr_reached(count):
+                break
+            x_lst.append(copy.deepcopy(self.state.production_well_pump.dP_pump))
+            y_lst.append(dP_surface)
+            if len(x_lst) == 1:  # first call
+                root = -1.0 * dP_surface
+            else:
+                root = utils.newton(x_lst, y_lst)
+                x_lst.pop(0), y_lst.pop(0)
+
+            self.workflow.production_well_pump.overwrite_inlet_fluid_state_P(state=self.state.production_well_pump,
+                                                                             dP_pump=root)
+            self.workflow.production_well_pump.execute()
+            self.workflow.surface.update_state_pipe(state=self.state.surface)
+
+            dP_surface = self.state.production_well_pump.outlet_fluid.P \
+                       - self.state.injection_well.inlet_fluid.P \
+                       - self.state.surface.dP_pipe
+            count += 1
+        self.workflow.production_well_pump.update_w_pump(state=self.state.production_well_pump)
 
 
     def converged_ORC(self) -> bool:
 
-        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
-        dT_surface = self.state.surface.outlet_temperature_tmp - self.state.surface.outlet_fluid.T
-        dP_surface = self.state.surface.inlet_fluid.P - self.state.surface.outlet_fluid.P - self.state.surface.dP_pipe
-
-        if np.abs(dP_reservoir) < self.runspec.dP_reservoir_threshold and \
-           np.abs(dT_surface) < self.runspec.dT_surface_threshold and \
-           np.abs(dP_surface) < self.runspec.dP_surface_threshold:
+        dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
+        if np.abs(dT_surface) < self.runspec.dT_surface_threshold:
             return True
 
-        self.x1_lst.append(copy.deepcopy(self.state.surface.outlet_fluid.P))
-        self.x2_lst.append(copy.deepcopy(self.state.surface.outlet_fluid.T))
-        self.x3_lst.append(copy.deepcopy(self.state.production_well_pump.dP_pump))
-        self.y1_lst.append(dP_reservoir)
-        self.y2_lst.append(dT_surface)
-        self.y3_lst.append(dP_surface)
-        if len(self.x1_lst) == 1: # first call
-            root1 = self.state.surface.outlet_fluid.P + dP_reservoir
-            root2 = self.state.surface.outlet_fluid.T
-            root3 = -1.0 * dP_surface
-        else:
-            root1 = utils.newton(self.x1_lst, self.y1_lst) #TODO: try solving all together
-            root2 = utils.newton(self.x2_lst, self.y2_lst)
-            root3 = utils.newton(self.x3_lst, self.y3_lst)
-            self.x1_lst.pop(0), self.x2_lst.pop(0), self.x3_lst.pop(0)
-            self.y1_lst.pop(0), self.y2_lst.pop(0), self.y3_lst.pop(0)
+        self.local_loop_Pinj()
 
-        self.workflow.surface.overwrite_outlet_state(state=self.state.surface, P=root1, T=root2)
-        self.state.production_well_pump.overwrite_state(state=self.state.production_well_pump,
-                                                        dP_surface=dP_surface,
-                                                        dP_pump=root3)
+        self.workflow.production_well.execute()
+
+        self.local_loop_dP_pump()
+
+        self.workflow.surface.execute(state=self.state.surface)
 
         return False
-
 
     def update_primary_variables_ORC(self) -> None:
         self.x1_lst.clear(), self.x2_lst.clear(), self.x3_lst.clear()
@@ -211,3 +184,5 @@ class Runner:
         self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
         self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
         self.state.surface.outlet_temperature_tmp = copy.deepcopy(self.state.surface.outlet_fluid.T)
+
+    #TODO: Implement AGS. Test cases with multiple compute nodes with the same name (e.g., inj_well-inj_well)

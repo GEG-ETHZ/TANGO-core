@@ -7,7 +7,7 @@ runspec:
     injection_well: 'Adams'
     reservoir: 'Adams'
     production_well: 'Adams'
-    surface: 'AdamsCPG'  # CPG (for CO2) or ORC (for H2O)
+    surface: 'CPGAdams'  # CPG (for CO2) or ORC (for H2O)
     economic: 'Adams'
 
 common:
