@@ -18,6 +18,7 @@ class WellSpecsAdams(CommonSpecs):
     well_length: float = None # well length (m)
     probability_of_success: float = 0.95
     wellhead_depth: float = 0.
+    eta_pump: float = 0.90  # The pump efficiency (-)
 
 
 class WellModelAdams(WellModel):
@@ -75,9 +76,9 @@ class WellModelAdams(WellModel):
     def set_inlet_state(self, state_self, state_from) -> None:
         state_self.inlet_fluid = state_from.outlet_fluid
         state_self.outlet_fluid = FluidState.copy(state_self.inlet_fluid)
-        state_self.mass_rate = self.well_mass_flow_rate
         self.fluid_state_tmp = state_self.outlet_fluid
         self.fluid_state_init = state_self.inlet_fluid
+        state_self.mass_rate = self.well_mass_flow_rate
 
 
     def set_gravity_multiplier(self, g_mult) -> None:

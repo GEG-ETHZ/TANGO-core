@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import logging
 
 @dataclass
-class SurfaceSpecsAdamsCPG(CommonSpecs):
+class SurfaceSpecsCPGAdams(CommonSpecs):
     approach_temperature: float = 7.0  # The temperature difference between condensing and the surface temperature (K)
     temperature_range: float = 0. # diff between inlet and exit fluid temperature.
     eta_pump: float = 0.90    # The pump efficiency (-)
@@ -19,7 +19,7 @@ class SurfaceSpecsAdamsCPG(CommonSpecs):
     cooling_mode: str = 'WET' # WET or DRY
 
 
-class SurfaceStateAdamsCPG(SurfaceState): #TODO: cleanup states
+class SurfaceStateCPGAdams(SurfaceState): #TODO: cleanup states
     def __init__(self):
         SurfaceState.__init__(self)
         self.inlet_fluid_turbine: FluidState
@@ -41,13 +41,12 @@ class SurfaceStateAdamsCPG(SurfaceState): #TODO: cleanup states
         self.w_net: float = 0.
 
 
-class SurfaceModelAdamsCPG(SurfaceModelAdams):
+class SurfaceModelCPGAdams(SurfaceModelAdams):
 
     """The power plant model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
-        self.specs = SurfaceSpecsAdamsCPG(**specs)
-        # self.specs = SurfaceSpecsAdamsCPG(specs)
+        self.specs = SurfaceSpecsCPGAdams(**specs)
         self.fluid_name = self.specs.fluid_name
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.condensation_temperature_range = 0

@@ -7,7 +7,7 @@ class ModelSpecs(ABC):
 
 
 class ModelState:
-    """Where computed state for a geothermal power generation cost simulation are stored."""
+    """Model states for each compute node"""
 
     def __init__(self, specs: dict):
         self.specs = specs
@@ -17,7 +17,7 @@ class ModelState:
 
 
 class Model:
-    """Used to execute a geothermal power generation cost simulation."""
+    """Compute model for each compute node and their execution"""
 
     def __init__(self, specs: dict):
         self.specs = specs
@@ -32,3 +32,19 @@ class Model:
     def execute(self, state):
         for name, model in self.model_dict.items():
             model.execute(getattr(state, name))
+
+
+class System:
+    """High level class that oversees model states and compute models"""
+    def __init__(self, state):
+        self.state = state
+
+    def max_itr_reached(self, count) -> bool:
+        return True
+
+    def balanced(self) -> bool:
+        return True
+
+    def update(self) -> None:
+        pass
+

@@ -13,7 +13,7 @@ from scipy.interpolate import interp1d
 
 
 @dataclass
-class SurfaceSpecsAdamsORC(CommonSpecs):
+class SurfaceSpecsORCAdams(CommonSpecs):
     approach_temperature: float = 7.0  # The temperature difference between condensing and the surface temperature (K)
     pinch_temperature: float = 5.0  # (K)
     temperature_range: float = 0.  # diff between inlet and exit fluid temperature.
@@ -45,7 +45,7 @@ class SurfaceStateORCFluid():
     q_condenser: float = 0.
 
 
-class SurfaceStateAdamsORC(SurfaceState):
+class SurfaceStateORCAdams(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
         # self.inlet_fluid: FluidState
@@ -68,12 +68,12 @@ class SurfaceStateAdamsORC(SurfaceState):
         self.w_net: float = 0.
 
 
-class SurfaceModelAdamsORC(SurfaceModelAdams):
+class SurfaceModelORCAdams(SurfaceModelAdams):
     """The power plant model based on Adams et al. (2015)."""
 
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
-        self.specs = SurfaceSpecsAdamsORC(**specs)
+        self.specs = SurfaceSpecsORCAdams(**specs)
         self.fluid_name = self.specs.fluid_name
         self.refrigerant_name = self.specs.refrigerant
         self.cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
@@ -92,7 +92,7 @@ class SurfaceModelAdamsORC(SurfaceModelAdams):
         """
         ORC_fluid_state = FluidState.withPT(self.refrigerant_name,
                                             P=self.specs.initial_outlet_pressure,
-                                            T=self.specs.initial_outlet_temperature)
+                                            T=self.specs.initial_outlet_temperature) # P and T are arbitrary here.
         self.ORC_fluid_Pcrit = ORC_fluid_state.Pcrit
         self.ORC_fluid_Tcrit = ORC_fluid_state.Tcrit
         P_min = FluidState.withQT(self.refrigerant_name, Q=1.0,

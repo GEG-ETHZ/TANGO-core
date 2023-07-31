@@ -1,5 +1,6 @@
 from tango.models.base import *
 from tango.models.adams import *
+from tango.models.adams.model import *
 from tango.models.adams.well import *
 from tango.models.adams.surface import *
 # from tango.models.surrogate import * # TODO: implement
@@ -14,7 +15,6 @@ def get_attr_name(compute_node_name: str, model_name: str, attr_type: str):
 
 
 class WorkflowState(ModelState):
-    """The state of the conventional geothermal system based on Adams model."""
     def __init__(self, workflow: dict):
         for compute_node in workflow.keys():
             model_name = workflow[compute_node]
@@ -26,53 +26,69 @@ class WorkflowState(ModelState):
 
 
 class Workflow(Model):
-    """The model of the conventional geothermal system based on Adams model."""
     def __init__(self, specs: dict, workflow: dict):
         super().__init__(specs)
         self.workflow = workflow
         self.econ_model_name = self.workflow.pop('economic', None)
+        self.economic = None
+        self.surface = None
         for compute_node in self.workflow.keys():
             model_name = self.workflow[compute_node]
             attr_name = get_attr_name(compute_node, model_name, 'Model')
-            self.add_model(compute_node, eval(attr_name))
             try:
                 self.add_model(compute_node, eval(attr_name))
             except:
                 raise RuntimeError(f"Failed to add model: {attr_name}. Model name:{model_name} for compute node: {compute_node} is not supported.")
 
 
-    def init_compute_nodes(self, state) -> None:
+    def init_compute_nodes(self) -> None:
         """initialize each compute node"""
         for compute_node in self.workflow.keys():
-            getattr(self, compute_node).init_state(getattr(state, compute_node))
+            getattr(self, compute_node).init_state(getattr(self.state, compute_node))
 
 
-    def init_connections(self, state) -> None:
+    def init_connections(self) -> None:
         """initialize connections between compute nodes"""
         compute_nodes = [*self.workflow]
         for idx, compute_node in enumerate(self.workflow.keys()):
-            getattr(self, compute_node).set_inlet_state(state_self=getattr(state, compute_nodes[idx]),
-                                                        state_from=getattr(state, compute_nodes[idx-1]))
+            getattr(self, compute_node).set_inlet_state(state_self=getattr(self.state, compute_nodes[idx]),
+                                                        state_from=getattr(self.state, compute_nodes[idx-1]))
 
 
-    def init_econ_model(self, state) -> None:
+    def init_system(self) -> None:
+        """
+            initialize system that oversees all the compute nodes and their states.
+            system type varies depending on surface compute node
+        """
+        system_attr_name = 'System' if self.surface == None else f"System{self.workflow['surface']}"
+        try:
+            System = eval(system_attr_name)
+            self.system = System(state=self.state, models=self.model_dict)
+        except:
+            raise RuntimeError(f"Failed to instantiate System class. Surface model name: {self.workflow['surface']} is not supported.")
+
+
+    def init_econ_model(self) -> None:
         """initialize econ model, if applicable"""
-        self.economic = None
         if self.econ_model_name is not None:
-            Econ = eval(get_attr_name('economic', self.econ_model_name, 'Model'))
-            self.economic = Econ(specs = self.specs['common'] | self.specs['economic'],
-                                 model_dict=self.model_dict)
-            self.economic.set_inlet_state(state.surface)
+            EconModel = eval(get_attr_name('economic', self.econ_model_name, 'Model'))
+            self.economic = EconModel(specs = self.specs['common'] | self.specs['economic'],
+                                      model_dict=self.model_dict)
+            self.economic.set_inlet_state(self.state.surface)
 
 
     def initialize(self, state):
 
-        self.init_compute_nodes(state)
+        self.state = state
 
-        self.init_connections(state)
+        self.init_compute_nodes()
 
-        self.init_econ_model(state)
+        self.init_connections()
+
+        self.init_system()
+
+        self.init_econ_model()
 
 
-    def execute(self, state): #-> ModelResult:
-        return super().execute(state)
+    def execute(self): #-> ModelResult:
+        return super().execute(self.state)
