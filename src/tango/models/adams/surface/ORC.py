@@ -55,7 +55,7 @@ class SurfaceStateORCAdams(SurfaceState):
         self.dT_range: float = 0.
         self.dT_LMTD_preheater: float = 0.
         self.dT_LMTD_boiler: float = 0.
-        self.outlet_temperature_tmp: float = 0.
+        # self.outlet_temperature_tmp: float = 0.
         self.w_pump: float = 0.
         self.w_turbine: float = 0.
         self.w_cooler: float = 0.
@@ -130,7 +130,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
                 f"A value {x} is outside the interpolation range in ORC_Tboil_optimum_table. Extrapolating a value for {col_name}.")
             return float(
                 interp1d(df.T_C, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
-        return val + C_TO_K
+        return val
 
 
     def init_state(self, state) -> None:
@@ -141,7 +141,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         state.outlet_fluid = FluidState.withPT(self.fluid_name,
                                                P=self.specs.initial_outlet_pressure,
                                                T=self.specs.initial_outlet_temperature)
-        state.outlet_temperature_tmp = state.outlet_fluid.T
+        # state.outlet_temperature_tmp = state.outlet_fluid.T
 
 
     def friction_factor(self, rho, mu, u) -> float:
@@ -190,7 +190,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
     def get_values_from_table(self, T_inlet):
 
-        T_boiling = self.get_value_from_table(x=T_inlet, col_name='T_boil_C')
+        T_boiling = self.get_value_from_table(x=T_inlet, col_name='T_boil_C') + C_TO_K
         dT_pinch = self.get_value_from_table(x=T_inlet, col_name='dT_pinch_C')
 
         if np.isnan(T_boiling):

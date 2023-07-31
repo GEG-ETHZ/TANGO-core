@@ -47,7 +47,7 @@ class Workflow(Model):
             getattr(self, compute_node).init_state(getattr(self.state, compute_node))
 
 
-    def init_connections(self) -> None:
+    def init_connections(self) -> None: #TODO: Implement tree data structure
         """initialize connections between compute nodes"""
         compute_nodes = [*self.workflow]
         for idx, compute_node in enumerate(self.workflow.keys()):
