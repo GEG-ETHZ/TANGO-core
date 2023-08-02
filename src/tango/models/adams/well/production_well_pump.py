@@ -25,27 +25,30 @@ class ProductionWellPumpModelAdams(ProductionWellModelAdams):
         self.dP_pump_max = 1.0e7 #TODO: make it modifiable
 
 
-    def init_state(self, state):
-        state.inlet_P_old = copy.deepcopy()
+    def set_inlet_P_tmp(self):
+        self.inlet_P_tmp = copy.deepcopy(self.fluid_state_init.P) # inlet P w/o pumping
 
 
-    def overwrite_inlet_fluid_state_P(self, state, dP_pump):
-        state.dP_pump = max(dP_pump, 0.)
-        state.dP_pump = min(state.dP_pump, self.dP_pump_max)
-        self.fluid_state_init.updatePT(P=self.fluid_state_init.P + state.dP_pump,
-                                       T=self.fluid_state_init.T)
-
+    # def update_inlet_P(self, state, P: float = None):
+    #     if P == None:
+    #         P = self.fluid_state_init.P
+    #     self.fluid_state_init.updatePT(P=P + state.dP_pump, T=self.fluid_state_init.T)
+    def update_inlet_P(self, state):
+        # if P == None:
+        #     P = self.fluid_state_init.P
+        self.fluid_state_init.updatePT(P=self.inlet_P_tmp + state.dP_pump, T=self.fluid_state_init.T)
 
     def update_w_pump(self, state):
-        if state.w_pump <= 0.:
+        if state.dP_pump <= 0.:
             return
         inlet_fluid_state_0 = FluidState.withPT(self.specs.fluid_name,
                                                 P=self.fluid_state_init.P - state.dP_pump,
                                                 T=self.fluid_state_init.T) # state w/o pumping
-        state.w_pump = self.well_mass_flow_rate * (self.fluid_state_init.H - inlet_fluid_state_0.H) / self.specs.eta_pump
+        state.w_pump = self.well_mass_flow_rate * (inlet_fluid_state_0.H - self.fluid_state_init.H) / self.specs.eta_pump
 
 
-    # def execute(self, *args) -> None:
-    #     # self.initialize_inlet_state()
-    #     self.update()
-
+    def execute(self, state) -> None:
+        self.set_inlet_P_tmp()
+        self.update_inlet_P(state)
+        self.update()
+        self.update_w_pump(state)
