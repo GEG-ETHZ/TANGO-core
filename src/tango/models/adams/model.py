@@ -25,7 +25,7 @@ class SystemAdams(System):
 
     def max_itr_reached(self, count) -> bool:
         if count > self.max_num_itr:
-            logging.warning(f"Max number of iteration (={count}) has reached in {inspect.stack()[1][3]}. Exiting iteration.")
+            logging.warning(f"Max number of iteration (={count}) has reached in '{inspect.stack()[1][3]}'. Exiting iteration.")
             return True
         return False
 

@@ -373,16 +373,16 @@ class EconomicModelAdams(EconomicModel):
 
         mult = self.get_num_well_pairs_per_pattern() * self.num_patterns
 
-        self.Q_condenser_total = mult * self.state.q_condenser  # used
+        self.Q_condenser_total = mult * self.state.q_condenser
         self.Q_cooler_total = mult * self.state.q_cooler
         self.Q_preheater_total = mult * self.state.q_preheater
         self.Q_boiler_total = mult * self.state.q_boiler
-        self.Q_desuperheater_total = mult * self.state.q_desuperheater  # used
+        self.Q_desuperheater_total = mult * self.state.q_desuperheater
 
-        self.W_pump_total = mult * self.state.w_pump # used
-        self.W_turbine_total = mult * self.state.w_turbine  # used
-        self.W_cooler_total = mult * self.state.w_cooler # used
-        self.W_condenser_total = mult * self.state.w_condenser # used
+        self.W_pump_total = mult * self.state.w_pump
+        self.W_turbine_total = mult * self.state.w_turbine
+        self.W_cooler_total = mult * self.state.w_cooler
+        self.W_condenser_total = mult * self.state.w_condenser
         self.W_net_total = self.W_pump_total + self.W_turbine_total + self.W_cooler_total + self.W_condenser_total
 
 
