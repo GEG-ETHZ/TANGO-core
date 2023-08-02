@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import joblib
 import CoolProp
 import CoolProp.CoolProp as CP
-
-
 import os
 import numpy as np
 
