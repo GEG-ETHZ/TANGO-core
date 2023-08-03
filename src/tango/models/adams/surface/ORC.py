@@ -42,28 +42,29 @@ class SurfaceStateORCFluid():
     q_preheater: float = 0.
     q_boiler: float = 0.
     q_desuperheater: float = 0.
+    q_recuperator: float = 0.
     q_condenser: float = 0.
 
 
 class SurfaceStateORCAdams(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
-        # self.inlet_fluid: FluidState
-        # self.outlet_fluid: FluidState
         self.dP_pump: float = 0.
         self.dP_pipe: float = 0.
         self.dT_range: float = 0.
         self.dT_LMTD_preheater: float = 0.
         self.dT_LMTD_boiler: float = 0.
-        # self.outlet_temperature_tmp: float = 0.
+        self.dT_LMTD_recuperator: float = 0.
         self.w_pump: float = 0.
         self.w_turbine: float = 0.
         self.w_cooler: float = 0.
         self.w_condenser: float = 0.
+        self.w_downhole_pump: float = 0.
         self.q_cooler: float = 0.
         self.q_preheater: float = 0.
         self.q_boiler: float = 0.
         self.q_desuperheater: float = 0.
+        self.q_recuparator: float = 0.
         self.q_condenser: float = 0.
         self.w_net: float = 0.
 
@@ -290,6 +291,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         state.q_boiler = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_boiler
         state.q_desuperheater = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_cooler
         state.q_condenser = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_condenser
+        state.q_recuperator = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_recuperator
         state.w_turbine = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_turbine
         state.w_pump = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_pump
         state.w_cooler = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_cooler
@@ -324,7 +326,6 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
         self.update_state_fluid(state)
 
-        # self.udpate_
 
     def overwrite_outlet_state(self, state, P, T) -> None:
         state.outlet_fluid.updatePT(P, T)
