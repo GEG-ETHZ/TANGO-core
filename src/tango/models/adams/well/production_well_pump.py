@@ -13,7 +13,7 @@ class ProductionWellPumpStateAdams(WellState):
     """The well state model"""
     def __init__(self) -> None:
         WellState.__init__(self)
-        self.inlet_P_old: float = 0
+        # self.inlet_P_old: float = 0
         self.dP_pump: float = 0.
         self.w_pump: float = 0.
 
@@ -29,13 +29,7 @@ class ProductionWellPumpModelAdams(ProductionWellModelAdams):
         self.inlet_P_tmp = copy.deepcopy(self.fluid_state_init.P) # inlet P w/o pumping
 
 
-    # def update_inlet_P(self, state, P: float = None):
-    #     if P == None:
-    #         P = self.fluid_state_init.P
-    #     self.fluid_state_init.updatePT(P=P + state.dP_pump, T=self.fluid_state_init.T)
     def update_inlet_P(self, state):
-        # if P == None:
-        #     P = self.fluid_state_init.P
         self.fluid_state_init.updatePT(P=self.inlet_P_tmp + state.dP_pump, T=self.fluid_state_init.T)
 
     def update_w_pump(self, state):

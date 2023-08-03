@@ -23,6 +23,7 @@ class SystemAdams(System):
         self.x_lst, self.y_lst = [], []
         self.max_num_itr = CONVERGENCE_CRITERIA['max_num_itr']
 
+
     def max_itr_reached(self, count) -> bool:
         if count > self.max_num_itr:
             logging.warning(f"Max number of iteration (={count}) has reached in '{inspect.stack()[1][3]}'. Exiting iteration.")
@@ -170,6 +171,7 @@ class SystemORCAdams(SystemAdams):
                        - self.state.injection_well.inlet_fluid.P \
                        - self.state.surface.dP_pipe
             count += 1
+        self.state.surface.w_downhole_pump = self.state.production_well_pump.w_pump
 
 
     def update_injection_well_inlet_T(self) -> None:

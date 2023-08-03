@@ -164,19 +164,6 @@ def newton(x_lst: list, y_lst: list) -> float:
     return x_lst[0] - y_lst[0] / dydx
 
 
-# def newton3(x1_lst: list, x2_lst: list, x3_lst: list,
-#            y1_lst: list, y2_lst: list, y3_lst: list) -> float:
-#     dx1, dy1 = (x1_lst[1] - x1_lst[0]), (y1_lst[1] - y1_lst[0])
-#     dx2, dy2 = (x2_lst[1] - x2_lst[0]), (y2_lst[1] - y2_lst[0])
-#     dx3, dy3 = (x3_lst[1] - x3_lst[0]), (y3_lst[1] - y3_lst[0])
-#     A = np.array([[dy1/dx1, dy1/dx2, dy1/dx3],
-#                   [dy2/dx1, dy2/dx2, dy2/dx3],
-#                   [dy3/dx1, dy3/dx2, dy3/dx3]])
-#     b = np.array([y1_lst[0], y2_lst[0], y3_lst[0]])
-#     dx = np.linalg.solve(A,b)
-#     return x1_lst[0] - dx[0], x2_lst[0] - dx[1], x3_lst[2] - dx[2]
-
-
 def append_results(d: dict, state: classmethod, base_name: str) -> None:
     var_names = [var for var in dir(state) if not var.startswith("__")]
     for name in var_names:
@@ -251,3 +238,12 @@ def write_results(input_file: str, results_physics: dict, results_econ: dict) ->
         d[key] = [results_econ[key]]
     df = pd.DataFrame(d)
     df.to_csv(fname, index=False)
+
+
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+
+def merge_object_dict(obj, dict):
+    d = vars(obj) | dict
+    return Struct(**d)

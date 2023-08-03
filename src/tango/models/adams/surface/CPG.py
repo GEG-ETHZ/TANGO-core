@@ -34,6 +34,7 @@ class SurfaceStateCPGAdams(SurfaceState): #TODO: cleanup states
         self.q_preheater: float = 0.
         self.q_boiler: float = 0.
         self.q_desuperheater: float = 0.
+        self.q_recuperator: float = 0.
         self.w_turbine: float = 0.
         self.w_pump: float = 0.
         self.w_cooler: float = 0.
