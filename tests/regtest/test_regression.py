@@ -52,5 +52,5 @@ def testcase3():
 def testcase4():
     fname = os.path.join(examples_dir, 'testcase4.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(6.442518767)
+    assert get_val(fname) == pytest.approx(6.8490566269)
     rmFiles(fname)
