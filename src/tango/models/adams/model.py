@@ -18,8 +18,8 @@ class ModelAdams(Model):
 
 class SystemAdams(System):
 
-    def __init__(self, state):
-        super().__init__(state)
+    def __init__(self, state, models):
+        super().__init__(state, models)
         self.x_lst, self.y_lst = [], []
         self.max_num_itr = CONVERGENCE_CRITERIA['max_num_itr']
 
@@ -41,7 +41,7 @@ class SystemAdams(System):
 class SystemCPGAdams(SystemAdams):
 
     def __init__(self, state, models):
-        super().__init__(state)
+        super().__init__(state, models)
         self.surface_model = models['surface']
         self.set_convergence_criteria()
 

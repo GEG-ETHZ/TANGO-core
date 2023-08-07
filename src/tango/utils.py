@@ -91,8 +91,11 @@ def check_inputs(specs: dict) -> None:
                 raise ValueError(
                     f"Something wrong with well_pattern_dimens: {specs['common']['well_pattern']}. Input a list with two integer elements.")
             if bool(list(filter(lambda x: not isinstance(x, int), specs['common']['well_pattern_dimens']))):
-                raise ValueError(
-                    f"Something wrong with well_pattern_dimens: {specs['common']['well_pattern']}. Input a list with two integer elements.")
+                try:
+                    specs['common']['well_pattern_dimens'] = [int(x) for x in specs['common']['well_pattern_dimens']]
+                except:
+                    raise ValueError(
+                        f"Something wrong with well_pattern_dimens: {specs['common']['well_pattern']}. Input a list with two integer elements.")
             if specs['common']['well_pattern'] == 'DOUBLET':
                 if bool(list(filter(lambda x: x > 1, specs['common']['well_pattern_dimens']))):
                     raise ValueError(f"Multiple well_patterns is not supported for: {specs['common']['well_pattern']}.")

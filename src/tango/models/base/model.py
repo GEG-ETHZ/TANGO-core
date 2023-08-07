@@ -33,17 +33,20 @@ class Model:
         for name, model in self.model_dict.items():
             model.execute(getattr(state, name))
 
-
 class System:
     """High level class that oversees model states and compute models"""
-    def __init__(self, state):
+    def __init__(self, state, models):
         self.state = state
+        self.models = models
 
     def max_itr_reached(self, count) -> bool:
-        return True
+        return False
 
     def balanced(self) -> bool:
         return True
+
+    def update_time_dependent_vars(self) -> None:
+        pass
 
     def update(self) -> None:
         pass

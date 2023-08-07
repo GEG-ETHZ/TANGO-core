@@ -32,6 +32,8 @@ class Workflow(Model):
         self.econ_model_name = self.workflow.pop('economic', None)
         self.economic = None
         self.surface = None
+        self.reservoir = None
+        self.horizontal_well = None
         for compute_node in self.workflow.keys():
             model_name = self.workflow[compute_node]
             attr_name = get_attr_name(compute_node, model_name, 'Model')
@@ -60,7 +62,8 @@ class Workflow(Model):
             initialize system that oversees all the compute nodes and their states.
             system type varies depending on surface compute node
         """
-        system_attr_name = 'System' if self.surface == None else f"System{self.workflow['surface']}"
+        AGS = self.reservoir == None and self.horizontal_well != None
+        system_attr_name = 'System' if self.surface == None or AGS else f"System{self.workflow['surface']}"
         try:
             System = eval(system_attr_name)
             self.system = System(state=self.state, models=self.model_dict)

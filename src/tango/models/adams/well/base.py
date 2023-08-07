@@ -10,15 +10,16 @@ import numpy as np
 @dataclass
 class WellSpecsAdams(CommonSpecs):
     """The well specs based on Adams et al. (2015)."""
-    vertical_deviation: float = 0.0    # the vertical deviation angle defined in degrees
+    vertical_deviation: float = 0.0    # vertical deviation angle defined in degrees
     diameter: float = 0.4 # (m)
     epsilon: float = 55.e-6  # roughness of the well (m)
     num_cells: int = 100    # number of cells that is used for discretization
     gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     well_length: float = None # well length (m)
     probability_of_success: float = 0.95
-    wellhead_depth: float = 0.
+    wellhead_depth: float = 0. # wellhead measured depth (m)
     eta_pump: float = 0.90  # The pump efficiency (-)
+    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
 
 
 class WellModelAdams(WellModel):
@@ -29,6 +30,7 @@ class WellModelAdams(WellModel):
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
         self.injector_mass_flow_rate = self.specs.mass_flow_rate
+        self.specs.wellhead_depth
 
         self.set_gravity_multiplier(self.specs.gravity_scale_factor)
         self.set_well_length()
