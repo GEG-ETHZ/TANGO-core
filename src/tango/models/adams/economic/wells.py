@@ -1,3 +1,4 @@
+#TODO: add horizontal well cost
 class EconModelWells:
 
     def __init__(self,

@@ -1,4 +1,4 @@
-COMPUTE_NODE_OPTIONS = ['surface', 'injection_well', 'production_well', 'production_well_pump', 'reservoir', 'economic']
+COMPUTE_NODE_OPTIONS = ['surface', 'injection_well', 'production_well', 'horizontal_well', 'production_well_pump', 'reservoir', 'economic']
 WELL_PATTERN_OPTIONS = ['DOUBLET', '5SPOT', 'INVERTED_5SPOT']
 PROJECT_MATURITY_OPTIONS = ['GREEN_FIELD', 'BROWN_FIELD']
 REGRIGERANT_OPTIONS = ['R245fa', 'R600a'] # 'R600a'?
