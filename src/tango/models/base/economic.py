@@ -20,10 +20,6 @@ class EconomicModel(ABC):
         pass
 
 
-    # def set_inlet_state(self, state: ModelState):
-    #     pass
-
-
     def execute(self, state: EconomicState) -> None:
         # raise NotImplementedError("Define execute method for your derived EconomicsModel class.")
         pass

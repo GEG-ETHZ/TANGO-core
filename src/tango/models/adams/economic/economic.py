@@ -43,11 +43,11 @@ class EconomicModelAdams(EconomicModel):
         self.specs = EconomicSpecsAdams(**specs)
         self.model_dict = model_dict
         self.set_constants()
-        self.set_models()
+        self._set_models()
         self.results = dict()
 
 
-    def set_models(self) -> None:
+    def _set_models(self) -> None:
         self.set_well_model()
         self.set_permitting_model()
         self.set_exploration_model()

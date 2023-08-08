@@ -25,82 +25,96 @@ class ReservoirStateAdams(ReservoirState):
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
         ReservoirState.__init__(self)
-        self.energy_extracted = 0.0
-        self.energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
-        self.pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
+        self._energy_extracted = 0.0
+        self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
+        self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
+
+
+    def set_pressure_old(self, val) -> None:
+        self._pressure_old = val
+
+
+    def get_energy_extracted(self) -> float:
+        return self._energy_extracted
+
+
+    def get_del_pressure(self) -> float:
+        return self._pressure_old - self.outlet_fluid.P
+
+
+    def update_pressure_old(self) -> None:
+        self._pressure_old = self.outlet_fluid.P
+
+
+    def update_energy_extracted(self, del_) -> None:
+        self._energy_extracted = self._energy_extracted_old + del_
+
+
+    def update_energy_extracted_old(self) -> None:
+        self._energy_extracted_old = self._energy_extracted
 
 
 class ReservoirModelAdams(ReservoirModel):
     """The reservoir (1-D well-pair) model based on Adams et al. (2015)."""
     def __init__(self, specs: dict) -> None:
         self.specs = ReservoirSpecsAdams(**specs)
-
-        self.initial_temperature = self.get_initial_temperature()
-        self.reference_temperature = self.initial_temperature - self.specs.surface_temperature
         self.fluid_name = self.specs.fluid_name
         self.well_pattern = self.specs.well_pattern.upper()
 
-        self.initial_pressure = self.get_initial_pressure()
-
-        self.area = self.get_area()
+        self.area = self._compute_area()
         self.volume = self.specs.thickness * self.area
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
-        self.specs.well_diameter = self.specs.well_eff_diameter
-
-        T_ref = self.initial_temperature - self.specs.surface_temperature # reference temperature
         self.rock_C_v = self.specs.rock_density * self.specs.rock_cp # volumetric heat capacity of rocks (J/m3)
 
-        self.set_mdot()
-        self.set_impedance_func()
+        self.initial_temperature = self._compute_initial_temperature()
+        self.initial_pressure = self._compute_initial_pressure()
 
-    def get_area(self) -> float:
-        if self.specs.area is None:
-            return 0.5 * (self.specs.well_spacing ** 2) # genGEO method. likely over estimated
-        return self.specs.area
+        self.specs.well_diameter = self.specs.well_eff_diameter
+
+        self._set_mdot()
+        self._set_impedance_func()
+
+    def _compute_area(self) -> float:
+        return 0.5 * (self.specs.well_spacing ** 2) if self.specs.area is None else self.specs.area
 
 
-    def get_initial_temperature(self) -> float:
+    def _compute_initial_temperature(self) -> float:
         if self.specs.initial_temperature is not None:
             return self.specs.initial_temperature
         h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
         return T0 + h * dTdz # deg C
 
-    def get_initial_pressure(self) -> float:
+
+    def _compute_initial_pressure(self) -> float:
         if self.specs.initial_pressure is not None:
             return self.specs.initial_pressure
-        g = GRAVITY_ACCELERATION # m/s2
-        h = self.specs.reservoir_depth
-        return self.specs.brine_density * g * h
+        return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
 
-    def set_mdot(self) -> None:
+    def _set_mdot(self) -> None:
         """
             - mass_flow_rate = flow rate at an injector (Kg/s)
             - m_dot = flow rate at each well pair (Kg/s)
         """
-        if self.well_pattern not in WELL_PATTERN_OPTIONS:
-            raise RuntimeError(f"well_pattern: {self.well_pattern} is not supported")
-        self.m_dot = self.specs.mass_flow_rate
-        if self.well_pattern == 'INVERTED_5SPOT':
-            self.m_dot = self.specs.mass_flow_rate / 4.0
+        self.m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
 
 
-    def set_impedance_func(self) -> None:
-        self.impedance_func = getattr(self, f"impedance_func_{self.well_pattern.lower().split('_')[-1]}")
+    def _set_impedance_func(self) -> None:
+        self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}")
 
 
     @staticmethod
-    def impedance_func_5spot(mu, rho, k, b, L, D) -> float:
+    def _impedance_func_5spot(mu, rho, k, b, L, D) -> float:
         return mu * np.log(4.0 * L / (np.pi * D)) / (rho * k * b)
 
     @staticmethod
-    def impedance_func_doublet(mu, rho, k, b, L, D) -> float:
+    def _impedance_func_doublet(mu, rho, k, b, L, D) -> float:
         return mu * (np.log(L / (exp * D)) + D / L) / (rho * k * b * np.pi)  # ref
         # return mu * np.log(L /D) / (rho * k * b * np.pi) # genGEO
 
 
-    def set_depletion_curve_coeffs(self, state) -> list: #TODO: check if this needs to be updated at every time step
+    def _compute_depletion_curve_coeffs(self, state) -> list:
 
         m_dot = self.m_dot # kg/s
         b = self.specs.thickness # m
@@ -121,30 +135,36 @@ class ReservoirModelAdams(ReservoirModel):
         return p1, p2, p3
 
 
-    def init_state(self, state) -> None:
-        state.inlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
-        state.outlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
-        state.pressure_old = self.initial_pressure
-        self.p1, self.p2, self.p3 = self.set_depletion_curve_coeffs(state)
-
-
-    def set_inlet_state(self, state_self, state_from) -> None:
-        state_self.inlet_fluid = state_from.outlet_fluid
-
-    def update_impedance(self, mu, rho) -> None:
+    def _update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
         k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
         L, D = self.specs.well_spacing, self.specs.well_diameter
         b_eff = b * NTG  # = effective thickness
         self.impedance = self.impedance_func(mu, rho, k, b_eff, L, D)
 
+
+    def _depletion_curve(self, psi) -> float:
+        p1, p2, p3 = self.p1, self.p2, self.p3
+        if psi <= (-p1/p2):
+            return 1 - (1 - p3) * (1 - 0.5*erfc(p2*psi + p1))
+        else:
+            C = 1.13
+            return 1 - (1 - p3) * (1 - 0.5*np.exp(-C*(p2*psi + p1)))
+
+
+    def init_state(self, state) -> None:
+        state.inlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
+        state.outlet_fluid = FluidState.withPT(self.fluid_name, self.initial_pressure, self.initial_temperature)
+        state.set_pressure_old(self.initial_pressure)
+        self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs(state)
+
+
+    def set_inlet_state(self, state_self, state_from) -> None:
+        state_self.inlet_fluid = state_from.outlet_fluid
+
+
     def update(self, state) -> None:
-        """
-
-        Args:
-            state: outlet state of injection_well
-
-        """
+        """Update reservoir state given inlet state (outlet fluid state of injection well)"""
 
         #
         # ... update reservoir pressure (outlet_pressure)
@@ -152,7 +172,7 @@ class ReservoirModelAdams(ReservoirModel):
 
         average_mu = 0.5*(state.inlet_fluid.mu + state.outlet_fluid.mu)
         average_rho = 0.5*(state.inlet_fluid.rho + state.outlet_fluid.rho)
-        self.update_impedance(average_mu, average_rho)
+        self._update_impedance(average_mu, average_rho)
 
         outlet_pressure = state.inlet_fluid.P - self.m_dot * self.impedance
 
@@ -160,7 +180,6 @@ class ReservoirModelAdams(ReservoirModel):
         # ... update reservoir temperature (outlet_temperature)
         #
 
-        p1, p2, p3 = self.p1, self.p2, self.p3
         dt = self.specs.dt * YEAR_TO_SECOND
 
         T_inj = state.inlet_fluid.T
@@ -169,10 +188,9 @@ class ReservoirModelAdams(ReservoirModel):
         h_prod = state.outlet_fluid.H
 
         reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
-        state.energy_extracted = state.energy_extracted_old + self.m_dot * (h_prod - h_inj) * dt  # J
-        psi = state.energy_extracted / reservoir_energy # (-)
-        gamma = self.depletion_curve(psi, p1, p2, p3)
-
+        state.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt) # J
+        psi = state.get_energy_extracted() / reservoir_energy  # (-)
+        gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + state.inlet_fluid.T
 
         state.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
@@ -180,11 +198,3 @@ class ReservoirModelAdams(ReservoirModel):
 
     def execute(self, state) -> None:
         self.update(state)
-
-    @staticmethod
-    def depletion_curve(psi, p1, p2, p3) -> float:
-        if psi <= (-p1/p2):
-            return 1 - (1 - p3) * (1 - 0.5*erfc(p2*psi + p1))
-        else:
-            C = 1.13
-            return 1 - (1 - p3) * (1 - 0.5*np.exp(-C*(p2*psi + p1)))

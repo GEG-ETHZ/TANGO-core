@@ -80,13 +80,13 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         self.cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
         self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self.ORC_fluid_state = SurfaceStateORCFluid()
-        self.set_mdot()
-        self.set_constants()
-        self.set_max_boiling_temperature()
-        self.set_lookup_tables()
+        self._set_mdot()
+        self._set_constants()
+        self._set_max_boiling_temperature()
+        self._set_lookup_tables()
 
 
-    def set_max_boiling_temperature(self) -> float:
+    def _set_max_boiling_temperature(self) -> float:
         """
             get max boiling temperature that will be used as a constraint for the organic fluid at the temperature
             with max saturated vapor entropy
@@ -107,20 +107,20 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         self.max_boiling_temperature = FluidState.withPS(self.refrigerant_name, P=P_max, S=S_max).T
 
 
-    def set_lookup_tables(self) -> None:
+    def _set_lookup_tables(self) -> None:
         """set ORC_Tboil_optimum table. Note that the unit is in deg. C"""
         fname = f"ORC_Tboil_optimum_{MAP_ORC_OPTNAME_TO_TABLE_NAME[self.specs.ORC_opt_mode]}_{self.refrigerant_name}.csv"
         self.ORC_Tboil_optimum_table = utils.get_table(fname)
 
 
-    def get_value_from_table(self, x: float, col_name: str) -> float:
+    def _get_value_from_table(self, x: float, col_name: str) -> float:
         """
 
         Args:
             x: temperature in K
             col_name: T_boil_C or dT_pinch_C
 
-        Returns: interpolated value (T_boil_C or dT_pinch_C)
+        Returns: interpolated (extrapolated, if x is outside the range) value (T_boil_C or dT_pinch_C)
 
         """
         x += K_TO_C
@@ -134,18 +134,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         return val
 
 
-    def init_state(self, state) -> None:
-        """
-        ORC system:
-            production_well - xxxx - injection_well
-        """
-        state.outlet_fluid = FluidState.withPT(self.fluid_name,
-                                               P=self.specs.initial_outlet_pressure,
-                                               T=self.specs.initial_outlet_temperature)
-        # state.outlet_temperature_tmp = state.outlet_fluid.T
-
-
-    def friction_factor(self, rho, mu, u) -> float:
+    def _compute_friction_factor(self, rho: float, mu: float, u: float) -> float:
         """Returns the friction factor calculated using the Haaland equation (1983).
 
         Args:
@@ -156,13 +145,6 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         Returns:
             float: the friction factor (-)
         """
-        Re = rho * u * self.specs.diameter / mu  # Reynolds number
-        r = self.specs.epsilon / self.specs.diameter  # relative roughness
-
-        return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
-
-
-    def get_friction_factor(self, rho: float, mu: float, u: float) -> float:
         d = self.specs.pipe_diameter
         epsilon = self.specs.epsilon
         Re = rho * u * d / mu  # Reynolds number
@@ -170,30 +152,28 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
 
 
-    def get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
+    def _get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
         d = self.specs.pipe_diameter
         L = self.specs.well_spacing
         return 0.5 * ff * L * rho * u ** 2 / d
 
 
-    def update_state_pipe(self, state) -> None:
+    def _update_state_pipe(self, state) -> None:
         """update state at surface pile (pressure drop between producer wellhead and surface plant inlet)"""
 
         rho = state.inlet_fluid.rho
         mu = state.inlet_fluid.mu
         u = self.m_dot / self.cross_sectional_area / rho
 
-        ff = self.get_friction_factor(rho, mu, u)
-        state.dP_pipe = self.get_pipe_pressure_drop(rho, u, ff)
+        ff = self._compute_friction_factor(rho, mu, u)
+        state.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
 
         state.inlet_fluid.updatePT(P=state.inlet_fluid.P - state.dP_pipe, T=state.inlet_fluid.T)
 
 
-    def get_values_from_table(self, T_inlet):
-
-        T_boiling = self.get_value_from_table(x=T_inlet, col_name='T_boil_C') + C_TO_K
-        dT_pinch = self.get_value_from_table(x=T_inlet, col_name='dT_pinch_C')
-
+    def _get_values_from_table(self, T_inlet):
+        T_boiling = self._get_value_from_table(x=T_inlet, col_name='T_boil_C') + C_TO_K
+        dT_pinch = self._get_value_from_table(x=T_inlet, col_name='dT_pinch_C')
         if np.isnan(T_boiling):
             raise RuntimeError(f"Nan ORC T_boiling found.")
         if np.isnan(dT_pinch):
@@ -202,14 +182,13 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
             raise RuntimeError(f"ORC T_boiling is greater than critical point.")
         if dT_pinch < 0:
             raise RuntimeError(f"Negative ORC dT_pinch found.")
-
         return T_boiling, dT_pinch
 
 
-    def update_state_fluid(self, state) -> None: #TODO: clean up
+    def _update_state_fluid(self, state) -> None: #TODO: clean up
 
         T_inlet = state.inlet_fluid.T
-        self.T_boiling, self.dT_pinch = self.get_values_from_table(T_inlet)
+        self.T_boiling, self.dT_pinch = self._get_values_from_table(T_inlet)
 
         # State 1 (Condenser -> Pump)
         fluid_state_pump_inlet = FluidState.withQT(self.refrigerant_name,
@@ -264,8 +243,8 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
         # cooling tower parastic load
         self.condensation_temperature_range = fluid_state_cooler.T - fluid_state_condenser_inlet.T
-        self.ORC_fluid_state.w_cooler = self.ORC_fluid_state.q_cooler * self.get_parasitic_power_fraction_cooling() # (W)
-        self.ORC_fluid_state.w_condenser = self.ORC_fluid_state.q_condenser * self.get_parasitic_power_fraction_condensing() # (W)
+        self.ORC_fluid_state.w_cooler = self.ORC_fluid_state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
+        self.ORC_fluid_state.w_condenser = self.ORC_fluid_state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
 
         #
         # ... Water (assume pressure 100 kPa above saturation)
@@ -316,16 +295,21 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
             div = dT_A_b / dT_B_b
             state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        # return temperature
         state.outlet_fluid = FluidState.withPT(self.fluid_name, P=T_inlet, T=T_13)
+
+
+    def init_state(self, state) -> None:
+        state.outlet_fluid = FluidState.withPT(self.fluid_name,
+                                               P=self.specs.initial_outlet_pressure,
+                                               T=self.specs.initial_outlet_temperature)
+
+
+    def overwrite_state_pipe(self, state) -> None:
+        self._update_state_pipe(state)
 
 
     def update(self, state) -> None:
 
-        self.update_state_pipe(state)
+        self._update_state_pipe(state)
 
-        self.update_state_fluid(state)
-
-
-    def overwrite_outlet_state(self, state, P, T) -> None:
-        state.outlet_fluid.updatePT(P, T)
+        self._update_state_fluid(state)

@@ -34,8 +34,8 @@ class SystemAdams(System):
     def update_time_dependent_vars(self) -> None:
         self.x_lst.clear()
         self.y_lst.clear()
-        self.state.reservoir.pressure_old = copy.deepcopy(self.state.reservoir.outlet_fluid.P)
-        self.state.reservoir.energy_extracted_old = copy.deepcopy(self.state.reservoir.energy_extracted)
+        self.state.reservoir.update_pressure_old()
+        self.state.reservoir.update_energy_extracted_old()
 
 
 class SystemCPGAdams(SystemAdams):
@@ -43,15 +43,15 @@ class SystemCPGAdams(SystemAdams):
     def __init__(self, state, models):
         super().__init__(state, models)
         self.surface_model = models['surface']
-        self.set_convergence_criteria()
+        self._set_convergence_criteria()
 
 
-    def set_convergence_criteria(self) -> None:
+    def _set_convergence_criteria(self) -> None:
         self.dP_reservoir_threshold: float = CONVERGENCE_CRITERIA['dP_reservoir']
 
 
     def balanced(self) -> bool:
-        self.dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+        self.dP_reservoir = self.state.reservoir.get_del_pressure()
         if np.abs(self.dP_reservoir) < self.dP_reservoir_threshold:
             return True
         return False
@@ -73,59 +73,26 @@ class SystemCPGAdams(SystemAdams):
 class SystemORCAdams(SystemAdams):
 
     def __init__(self, state, models):
-        super().__init__(state)
-        self.set_models(models)
-        self.set_convergence_criteria()
+        super().__init__(state, models)
+        self._set_models(models)
+        self._set_convergence_criteria()
 
 
-    def set_models(self, models: dict) -> None:
+    def _set_models(self, models: dict) -> None:
         for name in models.keys():
             setattr(self, name, models[name])
 
 
-    def set_convergence_criteria(self) -> None:
+    def _set_convergence_criteria(self) -> None:
         self.dP_reservoir_threshold: float = CONVERGENCE_CRITERIA['dP_reservoir']
         self.dP_surface_threshold: float = CONVERGENCE_CRITERIA['dP_surface']
         self.dT_surface_threshold: float = CONVERGENCE_CRITERIA['dT_surface']
 
 
-    def balanced(self) -> bool:
-        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
-        dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
-        dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
-        if  np.abs(dP_reservoir) < self.dP_reservoir_threshold and \
-            np.abs(dP_surface) < self.dP_surface_threshold and \
-            np.abs(dT_surface) < self.dT_surface_threshold:
-            return True
-        return False
-
-
-    def update(self) -> None:
-        """update unknown variables to balance the system"""
-        count = 0
-        while not self.balanced():
-
-            if self.max_itr_reached(count):
-                break
-
-            self.update_injection_well_inlet_P()
-
-            self.production_well.execute()
-
-            self.production_well_pump.execute(state=self.state.production_well_pump)
-
-            self.update_production_well_pump()
-
-            self.surface.execute(state=self.state.surface)
-
-            self.update_injection_well_inlet_T()
-
-            count += 1
-
-
-    def update_injection_well_inlet_P(self) -> None:
+    def _update_injection_well_inlet_P(self) -> None:
         """Local iterations to update injection well inlet pressure"""
-        dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+        # dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+        dP_reservoir = self.state.reservoir.get_del_pressure()
         x_lst, y_lst = [], []
         count = 0
         while np.abs(dP_reservoir) > self.dP_reservoir_threshold:
@@ -142,11 +109,12 @@ class SystemORCAdams(SystemAdams):
             self.injection_well.overwrite_inlet_fluid_state_PT(P=root)
             self.injection_well.execute()
             self.reservoir.execute(state=self.state.reservoir)
-            dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+            # dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+            dP_reservoir = self.state.reservoir.get_del_pressure()
             count += 1
 
 
-    def update_production_well_pump(self) -> None:
+    def _update_production_well_pump(self) -> None:
         """Local iterations to update dP_pump in production well with pump"""
         dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
         if self.state.production_well_pump.dP_pump == 0. and dP_surface >= 0:
@@ -166,7 +134,7 @@ class SystemORCAdams(SystemAdams):
             self.state.production_well_pump.dP_pump = min(max(root, 0.), self.production_well_pump.dP_pump_max)
             self.production_well_pump.update_inlet_P(state=self.state.production_well_pump)
             self.production_well_pump.update()
-            self.surface.update_state_pipe(state=self.state.surface)
+            self.surface.overwrite_state_pipe(state=self.state.surface)
             dP_surface = self.state.production_well_pump.outlet_fluid.P \
                        - self.state.injection_well.inlet_fluid.P \
                        - self.state.surface.dP_pipe
@@ -174,7 +142,8 @@ class SystemORCAdams(SystemAdams):
         self.state.surface.w_downhole_pump = self.state.production_well_pump.w_pump
 
 
-    def update_injection_well_inlet_T(self) -> None:
+    def _update_injection_well_inlet_T(self) -> None:
+        """Local iterations to update temperature at injection well"""
         dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
         self.x_lst.append(copy.deepcopy(self.state.injection_well.inlet_fluid.T))
         self.y_lst.append(dT_surface)
@@ -187,5 +156,36 @@ class SystemORCAdams(SystemAdams):
         self.injection_well.overwrite_inlet_fluid_state_PT(T=root)
 
 
-    #TODO: Implement AGS. Test cases with multiple compute nodes with the same name (e.g., inj_well-inj_well),
-    #      and possibly connecting to the same node
+    def balanced(self) -> bool:
+        # dP_reservoir = self.state.reservoir.pressure_old - self.state.reservoir.outlet_fluid.P
+        dP_reservoir = self.state.reservoir.get_del_pressure()
+        dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
+        dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
+        if  np.abs(dP_reservoir) < self.dP_reservoir_threshold and \
+            np.abs(dP_surface) < self.dP_surface_threshold and \
+            np.abs(dT_surface) < self.dT_surface_threshold:
+            return True
+        return False
+
+
+    def update(self) -> None:
+        """update unknown variables to balance the system"""
+        count = 0
+        while not self.balanced():
+
+            if self.max_itr_reached(count):
+                break
+
+            self._update_injection_well_inlet_P()
+
+            self.production_well.execute()
+
+            self.production_well_pump.execute(state=self.state.production_well_pump)
+
+            self._update_production_well_pump()
+
+            self.surface.execute(state=self.state.surface)
+
+            self._update_injection_well_inlet_T()
+
+            count += 1
