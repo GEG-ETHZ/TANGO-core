@@ -29,11 +29,6 @@ common:
   num_tsteps: 25 # number of time steps
   dt: 1.0  # time step increment (year)
 
-#reservoir:
-#  thickness: 300.0
-#  permeability: 5.0e-14    # m2 ~50mD
-#  porosity: 0.1
-
 injection_well:
   vertical_deviation: 0.0  # degrees
   diameter: 0.410 # m

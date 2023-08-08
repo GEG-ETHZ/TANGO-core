@@ -22,8 +22,8 @@ class HorizontalWellModelAdams(WellModelAdams):
         self.f_dir = -1.0 # not used?
 
         # overwrite static parameters for horizontal well
-        self.set_well_length()
-        self.set_farfield_temperature()
+        self._set_well_length()
+        self._set_farfield_temperature()
         num_cells = self.specs.num_cells
         self.dL = self.well_length/num_cells
         self.dz = self.dZ/num_cells
@@ -46,7 +46,7 @@ class HorizontalWellModelAdams(WellModelAdams):
         state_self.mass_rate = self.well_mass_flow_rate
 
 
-    def set_well_length(self):
+    def _set_well_length(self):
         if self.specs.well_length is None:
             assert self.specs.vertical_deviation >= 0
             horizontal_deviation = 90. - self.specs.vertical_deviation
@@ -56,7 +56,7 @@ class HorizontalWellModelAdams(WellModelAdams):
             self.well_length = self.specs.well_length
 
 
-    def set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
+    def _set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
         self.dZ = self.well_length * np.tan(self.horizontal_deviation_rad)
         Z0 = self.specs.reservoir_depth if self.specs.wellhead_depth < 1e-10 else self.specs.wellhead_depth
         self.zspace = np.linspace(Z0, Z0 + self.dZ, self.specs.num_cells+1)
@@ -67,5 +67,5 @@ class HorizontalWellModelAdams(WellModelAdams):
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
 
-    def execute(self, *args) -> None:
-        self.update()
+    # def execute(self, *args) -> None:
+    #     self.update()

@@ -158,10 +158,6 @@ def check_inputs(specs: dict) -> None:
     #TODO: add warning messages for unrealistic input values
 
 
-def get_runner_name():
-    pass
-
-
 def newton(x_lst: list, y_lst: list) -> float:
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])  # slope
     return x_lst[0] - y_lst[0] / dydx

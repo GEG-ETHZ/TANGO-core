@@ -15,93 +15,90 @@ from tango.core.constants import *
 from tango.workflow import *
 from tango import utils
 
-@dataclass
-class RunnerSpecs():
-    # title: str = 'title' # title of run
-    workflow: dict # workflow option
-
+# @dataclass
+# class RunnerSpecs():
+#     workflow: dict # workflow
 
 class Runner:
 
     def __init__(self,
                  specs: dict,
                  input_file: str):
-        self.specs = specs
-        self.input_file = input_file
-        self.runspec = RunnerSpecs(**self.specs['runspec'])
-        self.results = dict()
-        self.start_time = time.time()
-        logging.debug(f"Input summary:\n{json.dumps(self.specs, indent=4)}")
+        self._specs = specs
+        self._input_file = input_file
+        self._dt_months = np.round(self._specs['common']['dt'] * YEAR_TO_MONTH)
+        self._num_time_steps = self._specs['common']['num_tsteps']
+        self._start_date = datetime.strptime(self._specs['common']['start_date'], DATETIME_FMT)
+
+        self._results = dict()
+        self._start_time = time.time()
+        logging.debug(f"Input summary:\n{json.dumps(self._specs, indent=4)}")
 
 
-    def set_workflow(self) -> None:
+    def _set_workflow(self) -> None:
         try:
-            state = WorkflowState(self.runspec.workflow)
-            self.workflow = Workflow(self.specs, self.runspec.workflow)
-            self.workflow.initialize(state)
+            state = WorkflowState(self._specs['runspec']['workflow'])
+            self._workflow = Workflow(self._specs)
+            self._workflow.initialize(state)
         except:
-            raise ValueError(f"Something went wrong while setting up workflow: {self.runspec.workflow}")
+            raise ValueError(f"Something went wrong while setting up workflow.")
 
 
-    def step(self) -> None:
+    def _step(self) -> None:
         """ Advance one time step"""
         count = 0
         while True:
-            if self.workflow.system.max_itr_reached(count):
+            if self._workflow.system.max_itr_reached(count):
                 break
             count += 1
-            self.workflow.execute()
-            if self.workflow.system.balanced():
+            self._workflow.execute()
+            if self._workflow.system.balanced():
                 logging.debug(f"System balanced after {count} iterations")
                 break
-            self.workflow.system.update()
-        self.workflow.system.update_time_dependent_vars()
+            self._workflow.system.update()
+        self._workflow.system.update_time_dependent_vars()
 
 
-    def save_results(self, current_date: datetime) -> None:
+    def _save_results(self, current_date: datetime) -> None:
         """update self.results"""
-        utils.parse_results(d=self.results,
-                            state=self.workflow.state,
+        utils.parse_results(d=self._results,
+                            state=self._workflow.state,
                             current_date=current_date.strftime(DATETIME_FMT))
 
 
-    def run_models(self) -> None:
+    def _run_models(self) -> None:
 
-        logging.info(f"Running TANGO using {self.input_file}")
-
-        dt_months = np.round(self.specs['common']['dt'] * YEAR_TO_MONTH)
-        num_time_steps = self.specs['common']['num_tsteps']
-        current_date = datetime.strptime(self.specs['common']['start_date'], DATETIME_FMT)
+        logging.info(f"Running TANGO using {self._input_file}")
 
         """
             loop over project lifetime
         """
-        for i in tqdm(range(num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
+
+        current_date = self._start_date
+        for i in tqdm(range(self._num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
             try:
-                self.step()
+                self._step()
             except:
                 raise RuntimeError(f"Something went wrong at time step: {current_date}")
-            self.save_results(current_date)
-            current_date = current_date + relativedelta(months=dt_months)
+            self._save_results(current_date)
+            current_date = current_date + relativedelta(months=self._dt_months)
 
-        if self.workflow.economic is not None:
-            self.workflow.economic.execute(self.results)
+        if self._workflow.economic is not None:
+            self._workflow.economic.execute(self._results)
 
 
-    def post_processing(self) -> None:
-
-        utils.write_results(input_file=self.input_file,
-                            results_physics=self.results,
-                            results_econ= self.workflow.economic.results if self.workflow.economic != None else None)
-
+    def _post_processing(self) -> None:
+        utils.write_results(input_file=self._input_file,
+                            results_physics=self._results,
+                            results_econ= self._workflow.economic.results if self._workflow.economic != None else None)
         logging.info(
-            "Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self.start_time))
+            "Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))
 
 
     def start(self) -> None:
 
-        self.set_workflow()
+        self._set_workflow()
 
-        self.run_models()
+        self._run_models()
 
-        self.post_processing()
+        self._post_processing()

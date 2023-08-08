@@ -29,7 +29,3 @@ class InjectionWellModelAdams(WellModelAdams):
         elif P == None and T != None:
             P = self.fluid_state_init.P
         self.fluid_state_init.updatePT(P, T)
-
-
-    def execute(self, *args) -> None:
-        self.update()

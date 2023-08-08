@@ -30,11 +30,10 @@ class WellModelAdams(WellModel):
         self.g = GRAVITY_ACCELERATION
         self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
         self.injector_mass_flow_rate = self.specs.mass_flow_rate
-        self.specs.wellhead_depth
 
-        self.set_gravity_multiplier(self.specs.gravity_scale_factor)
-        self.set_well_length()
-        self.set_farfield_temperature()
+        self._set_gravity_multiplier(self.specs.gravity_scale_factor)
+        self._set_well_length()
+        self._set_farfield_temperature()
 
         # discretization related parameters
         num_cells = self.specs.num_cells
@@ -54,11 +53,7 @@ class WellModelAdams(WellModel):
         self.u = np.zeros(num_cells)  # flow velocity (m/s)
 
 
-    def init_state(self, state):
-        pass
-
-
-    def set_well_length(self):
+    def _set_well_length(self):
         if self.specs.well_length is None:
             vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
             self.well_length = self.specs.reservoir_depth / np.cos(vertical_deviation_rad)
@@ -66,7 +61,7 @@ class WellModelAdams(WellModel):
             self.well_length = self.specs.well_length
 
 
-    def set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
+    def _set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
         self.zspace = np.linspace(self.specs.wellhead_depth, self.well_length, self.specs.num_cells+1)
         self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5  # depth at cell centers
 
@@ -75,20 +70,12 @@ class WellModelAdams(WellModel):
         self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
 
 
-    def set_inlet_state(self, state_self, state_from) -> None:
-        state_self.inlet_fluid = state_from.outlet_fluid
-        state_self.outlet_fluid = FluidState.copy(state_self.inlet_fluid)
-        self.fluid_state_tmp = state_self.outlet_fluid
-        self.fluid_state_init = state_self.inlet_fluid
-        state_self.mass_rate = self.well_mass_flow_rate
-
-
-    def set_gravity_multiplier(self, g_mult) -> None:
+    def _set_gravity_multiplier(self, g_mult) -> None:
         self.g_mult = g_mult
         self.g = self.g_mult*self.g
 
 
-    def initialize_state(self) -> None:
+    def _initialize_state(self) -> None:
         self.P[0] = self.fluid_state_init.P
         self.h[0] = self.fluid_state_init.H
         self.rho[0] = self.fluid_state_init.rho
@@ -97,28 +84,7 @@ class WellModelAdams(WellModel):
         self.u[0] = self.well_mass_flow_rate / self.cross_section_area / self.rho[0]
 
 
-    def update(self) -> None:
-        self.initialize_state()
-        self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
-        for i in range(1, self.specs.num_cells):
-            ff = self.friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
-            self.P[i] = self.P[i-1] - self.f_dir*self.rho[i-1]*self.g*self.dz \
-                        - self.delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            self.h[i] = self.h[i-1] - self.f_dir*self.g*self.dz \
-                        - self.Q_loss(self.T_f[i-1] - self.T_r[i-1]) / self.well_mass_flow_rate
-            try:
-                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
-            except:
-                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
-
-            self.rho[i] = self.fluid_state_tmp.rho
-            self.mu[i] = self.fluid_state_tmp.mu
-            self.T_f[i] = self.fluid_state_tmp.T
-            self.u[i] = self.well_mass_flow_rate / self.cross_section_area / self.rho[i]
-
-
-    def Q_loss(self, delta_T):
+    def _compute_Q_loss(self, delta_T) -> float:
         """Returns the heat loss introduced Zhang et al., 2011 (10.1016/j.geothermics.2011.08.003).
 
         Args:
@@ -136,21 +102,21 @@ class WellModelAdams(WellModel):
         return 2.0 * self.dL * np.pi * self.specs.rock_k * beta * delta_T
 
 
-    def delta_P_loss(self, friction_factor: float, rho: float, u: float) -> float:
+    def _compute_delta_P_loss(self, ff: float, rho: float, u: float) -> float:
         """Returns the pressure loss calculated using the Darcy--Weisbach equation.
 
         Args:
-            friction_factor (float): the friction factor (-)
+            ff (float): the friction factor (-)
             rho (float): the fluid density (kg/m3)
             u (float): the flow velocity (m/s)
 
         Returns:
             float: the pressure loss (Pa)
         """
-        return 0.5*friction_factor*self.dL*rho*u**2 / self.specs.diameter
+        return 0.5 * ff * self.dL * rho * u ** 2 / self.specs.diameter
 
 
-    def friction_factor(self, rho, mu, u) -> float:
+    def _compute_friction_factor(self, rho, mu, u) -> float:
         """Returns the friction factor calculated using the Haaland equation (1983).
 
         Args:
@@ -165,3 +131,39 @@ class WellModelAdams(WellModel):
         r = self.specs.epsilon / self.specs.diameter  # relative roughness
 
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
+
+
+    def init_state(self, state):
+        pass
+
+
+    def set_inlet_state(self, state_self, state_from) -> None:
+        state_self.inlet_fluid = state_from.outlet_fluid
+        state_self.outlet_fluid = FluidState.copy(state_self.inlet_fluid)
+        self.fluid_state_tmp = state_self.outlet_fluid
+        self.fluid_state_init = state_self.inlet_fluid
+        state_self.mass_rate = self.well_mass_flow_rate
+
+
+    def update(self) -> None:
+        self._initialize_state()
+        self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
+        for i in range(1, self.specs.num_cells):
+            ff = self._compute_friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
+            dP_loss = self._compute_delta_P_loss(ff, self.rho[i-1], self.u[i-1])
+            Q_loss = self._compute_Q_loss(self.T_f[i-1] - self.T_r[i-1])
+            self.P[i] = self.P[i - 1] - self.f_dir * self.rho[i - 1] * self.g * self.dz - dP_loss
+            self.h[i] = self.h[i - 1] - self.f_dir * self.g * self.dz - Q_loss / self.well_mass_flow_rate
+            try:
+                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+            except:
+                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
+            self.rho[i] = self.fluid_state_tmp.rho
+            self.mu[i] = self.fluid_state_tmp.mu
+            self.T_f[i] = self.fluid_state_tmp.T
+            self.u[i] = self.well_mass_flow_rate / self.cross_section_area / self.rho[i]
+
+
+    def execute(self, *args) -> None:
+        self.update()

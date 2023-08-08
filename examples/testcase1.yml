@@ -29,7 +29,7 @@ common:
   dt: 1.0  # time step increment (year)
 
 reservoir:
-  thickness: 300.0
+  thickness: 300.0 # m
   permeability: 5.0e-14    # m2 ~50mD
   porosity: 0.1
 

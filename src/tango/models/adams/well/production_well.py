@@ -27,7 +27,3 @@ class ProductionWellModelAdams(WellModelAdams):
         self.well_mass_flow_rate = self.injector_mass_flow_rate # doublet
         if self.specs.well_pattern == 'INVERTED_5SPOT':
             self.well_mass_flow_rate = self.well_mass_flow_rate / 4.0 # 4=number of producers
-
-
-    def execute(self, *args) -> None:
-        self.update()
