@@ -90,9 +90,8 @@ class Runner:
     def _post_processing(self) -> None:
         utils.write_results(input_file=self._input_file,
                             results_physics=self._results,
-                            results_econ= self._workflow.economic.results if self._workflow.economic != None else None)
-        logging.info(
-            "Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))
+                            results_econ= self._workflow.economic.get_results() if self._workflow.economic != None else None)
+        logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))
 
 
     def start(self) -> None:

@@ -41,93 +41,92 @@ class EconomicModelAdams(EconomicModel):
 
     def __init__(self, specs: dict, model_dict: dict) -> None:
         self.specs = EconomicSpecsAdams(**specs)
-        self.model_dict = model_dict
-        self.set_constants()
-        self._set_models()
-        self.results = dict()
+        self._model_dict = model_dict
+        self._initialize_constants()
+        self._initialize_models()
+        self._results = dict()
 
 
-    def _set_models(self) -> None:
-        self.set_well_model()
-        self.set_permitting_model()
-        self.set_exploration_model()
-        self.set_surface_pipe_model()
-        self.set_surface_power_plant_model()
+    def _initialize_models(self) -> None:
+        self._instantiate_well_model()
+        self._instantiate_permitting_model()
+        self._instantiate_exploration_model()
+        self._instantiate_surface_pipe_model()
+        self._instantiate_surface_power_plant_model()
 
 
-    def set_well_model(self) -> None:
-        inj_well_model = get_model_obj(d=self.model_dict, name='injection_well')
-        prd_well_model = get_model_obj(d=self.model_dict, name='production_well')
-        if 'production_well_pump' in self.model_dict.keys():
-            L = self.model_dict['production_well_pump'].get_well_length()
+    def _instantiate_well_model(self) -> None:
+        inj_well_model = get_model_obj(d=self._model_dict, name='injection_well')
+        prd_well_model = get_model_obj(d=self._model_dict, name='production_well')
+        if 'production_well_pump' in self._model_dict.keys():
+            L = self._model_dict['production_well_pump'].get_well_length()
             prd_well_model.update_well_length(pump_well_length=L)
         specs = utils.merge_object_dict(self.specs,
-                                        dict={'PPI': self.PPI['O&G'],
-                                              'multipliers': self.cost_mult['wells']})
-        self.well_model = EconModelWells(specs=specs,
-                                         injection_well=inj_well_model,
-                                         production_well=prd_well_model)
+                                        dict={'PPI': self._PPI['O&G'],
+                                        'multipliers': self._cost_mult['wells']})
+        self._well_model = EconModelWells(specs=specs,
+                                          injection_well=inj_well_model,
+                                          production_well=prd_well_model)
 
 
-    def set_permitting_model(self) -> None:
+    def _instantiate_permitting_model(self) -> None:
         specs = utils.merge_object_dict(self.specs,
-                                        dict={'PPI_permitting': self.PPI['permitting'],
-                                              'PPI_OnGs': self.PPI['O&G-s'],
-                                              'multipliers': self.cost_mult['wellfield']})
-        self.permitting_model = EconModelPermitting(specs=specs,
-                                                    well_econ_model=self.well_model)
+                                        dict={'PPI_permitting': self._PPI['permitting'],
+                                              'PPI_OnGs': self._PPI['O&G-s'],
+                                              'multipliers': self._cost_mult['wellfield']})
+        self._permitting_model = EconModelPermitting(specs=specs,
+                                                     well_econ_model=self._well_model)
 
 
-    def set_exploration_model(self) -> None:
+    def _instantiate_exploration_model(self) -> None:
         specs = utils.merge_object_dict(self.specs,
-                                        dict={'PPI': self.PPI['O&G-s'],
-                                              'multipliers': self.cost_mult['exploration']})
-        self.exploration_model = EconModelExploration(specs=specs,
-                                                      well_econ_model=self.well_model)
+                                        dict={'PPI': self._PPI['O&G-s'],
+                                              'multipliers': self._cost_mult['exploration']})
+        self._exploration_model = EconModelExploration(specs=specs,
+                                                       well_econ_model=self._well_model)
 
-    def set_surface_pipe_model(self) -> None:
-        self.surface_model = get_model_obj(d=self.model_dict, name='surface')
+    def _instantiate_surface_pipe_model(self) -> None:
         specs = utils.merge_object_dict(self.specs,
-                                        dict={'PPI': self.PPI['pipes'],
-                                              'multipliers': self.cost_mult['pipes']})
-        self.surface_pipe_model = EconModelSurfacePipes(specs=specs,
-                                                        surface_model=self.surface_model)
+                                        dict={'PPI': self._PPI['pipes'],
+                                        'multipliers': self._cost_mult['pipes']})
+        self._surface_pipe_model = EconModelSurfacePipes(specs=specs,
+                                                         surface_model=get_model_obj(d=self._model_dict, name='surface'))
 
 
-    def set_surface_power_plant_model(self) -> None:
+    def _instantiate_surface_power_plant_model(self) -> None:
         specs = utils.merge_object_dict(self.specs,
-                                        dict={'PPI_PE': self.PPI['PE'],
-                                              'PPI_pump': self.PPI['pump'],
-                                              'PPI_TG': self.PPI['T-G'],
-                                              'PPI_HX': self.PPI['HX'],
-                                              'multipliers': self.cost_mult['plant']})
-        self.surface_power_plant_model = EconModelSurfacePowerPlant(specs=specs,
-                                                                    surface_model=self.surface_model)
+                                        dict={'PPI_PE': self._PPI['PE'],
+                                              'PPI_pump': self._PPI['pump'],
+                                              'PPI_TG': self._PPI['T-G'],
+                                              'PPI_HX': self._PPI['HX'],
+                                              'multipliers': self._cost_mult['plant']})
+        self._surface_power_plant_model = EconModelSurfacePowerPlant(specs=specs,
+                                                                     surface_model=get_model_obj(d=self._model_dict, name='surface'))
 
 
-    def set_constants(self) -> None:
+    def _initialize_constants(self) -> None:
 
         # multipliers
-        self.cost_year = datetime.strptime(self.specs.start_date, DATETIME_FMT).year
-        self.PPI_table = utils.get_table(self.specs.PPI_table, header=1)
-        self.cost_mult_table = utils.get_table(self.specs.cost_multiplier_table)
+        self._cost_year = datetime.strptime(self.specs.start_date, DATETIME_FMT).year
+        self._PPI_table = utils.get_table(self.specs.PPI_table, header=1)
+        self._cost_mult_table = utils.get_table(self.specs.cost_multiplier_table)
 
-        self.PPI = dict() # producer price index (PPI)
-        self.PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
-        self.PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
-        self.PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
-        self.PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
-        self.PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
-        self.PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
-        self.PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
-        self.PPI['HX'] = self.get_PPI_value(col_name="PPI_HX")
+        self._PPI = dict() # producer price index (PPI)
+        self._PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
+        self._PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
+        self._PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
+        self._PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
+        self._PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
+        self._PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
+        self._PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
+        self._PPI['HX'] = self.get_PPI_value(col_name="PPI_HX")
 
-        self.cost_mult = dict() # [X_IC (indirect cost multiplier), X_PC (project contingency multiplier)]
-        self.cost_mult['wells'] = self.get_multiplier_values(component="Wells")
-        self.cost_mult['wellfield'] = self.get_multiplier_values(component="Well_field")
-        self.cost_mult['pipes'] = self.get_multiplier_values(component="Surface_pipes")
-        self.cost_mult['plant'] = self.get_multiplier_values(component="Surface_plant")
-        self.cost_mult['exploration'] = self.get_multiplier_values(component="Exploration")
+        self._cost_mult = dict() # [X_IC (indirect cost multiplier), X_PC (project contingency multiplier)]
+        self._cost_mult['wells'] = self._get_multiplier_values(component="Wells")
+        self._cost_mult['wellfield'] = self._get_multiplier_values(component="Well_field")
+        self._cost_mult['pipes'] = self._get_multiplier_values(component="Surface_pipes")
+        self._cost_mult['plant'] = self._get_multiplier_values(component="Surface_plant")
+        self._cost_mult['exploration'] = self._get_multiplier_values(component="Exploration")
 
         self.specs.project_maturity = self.specs.project_maturity.upper()
         self.specs.active_monitoring_area = self.get_active_monitoring_area()
@@ -135,7 +134,7 @@ class EconomicModelAdams(EconomicModel):
 
 
     def set_inlet_state(self, state):
-        self.state = state  # surface
+        self._state = state  # surface
 
 
     def get_active_monitoring_area(self) -> float:
@@ -150,8 +149,8 @@ class EconomicModelAdams(EconomicModel):
 
 
     def get_PPI_value(self, col_name: str) -> float:
-        df = self.PPI_table
-        year = self.cost_year
+        df = self._PPI_table
+        year = self._cost_year
         val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind='linear')(year))
         if np.isnan(val):
             logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
@@ -159,52 +158,53 @@ class EconomicModelAdams(EconomicModel):
         return val
 
 
-    def get_multiplier_values(self, component: str) -> list:
-        df = self.cost_mult_table
+    def _get_multiplier_values(self, component: str) -> list:
+        df = self._cost_mult_table
         idx = df.index[df['Component']==component]
         return df['X_IC'].iloc[idx].iloc[0], df['X_PC'].iloc[idx].iloc[0]
 
 
-    def get_annual_results(self, d) -> None:
+    def _get_annual_results(self, d) -> None:
         """
         Args:
             results: a dictionary containing time series summary of physic-based simulation results
             -> Get annual/averaged results for LCOE calculation
         """
         dt = self.specs.dt # dt in year
-        var_names = [var for var in dir(self.state) if not var.startswith("__")]
+        var_names = [var for var in dir(self._state) if not var.startswith("__")]
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
                 try:
-                    setattr(self.state, name, np.mean(d[key]) / dt)
+                    setattr(self._state, name, np.mean(d[key]) / dt)
                 except:
                     continue
 
 
-    def compute_capex(self) -> None:
-        self.results['CAPEX_well'] = self.well_model.execute()
-        self.results['CAPEX_permitting'] = self.permitting_model.execute()
-        self.results['CAPEX_exploration'] = self.exploration_model.execute()
-        self.results['CAPEX_surface_gathering_system'] = self.surface_pipe_model.execute()
-        self.results['CAPEX_surface_plant'] = self.surface_power_plant_model.execute(self.state)
+    def _compute_capex(self) -> None:
+        self._results['CAPEX_well'] = self._well_model.execute()
+        self._results['CAPEX_permitting'] = self._permitting_model.execute()
+        self._results['CAPEX_exploration'] = self._exploration_model.execute()
+        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_model.execute()
+        self._results['CAPEX_surface_plant'] = self._surface_power_plant_model.execute(self._state)
         val = 0
-        for key in self.results.keys():
-             val += self.results[key]
-        self.results['CAPEX_total'] = val
+        for key in self._results.keys():
+             val += self._results[key]
+        self._results['CAPEX_total'] = val
 
 
-    def get_LCOE(self, CAPEX: float, W: float) -> float:
+    def _get_LCOE(self, W: float) -> float:
         """
 
         Args:
-            CAPEX: total capital expenditure [$]
-            W: net electricity generated (annual) [We]
+            W: electricity produced [We]
 
         Returns: Simple Levelized Cost of Energy (sLCOE) [$/kWh]
                  source: https://www.nrel.gov/analysis/tech-lcoe-documentation.html
 
+
         """
+        CAPEX = self._results['CAPEX_total'] # total capital expenditure [$]
         if CAPEX <= 0 or W <= 0:
             return np.nan
         d = self.specs.discount_rate
@@ -215,33 +215,36 @@ class EconomicModelAdams(EconomicModel):
         return CAPEX * (CRF + F_OM) / (W * W_TO_KW * CF * YEAR_TO_HOUR)
 
 
-    def get_specific_capital_cost(self, CAPEX: float, W: float) -> float:
+    def _get_specific_capital_cost(self, W: float) -> float:
         """
 
         Args:
-            CAPEX: total capital expenditure [$]
             W: electricity produced [We]
 
         Returns: Specific capital cost [$/kWe]
 
         """
+        CAPEX = self._results['CAPEX_total'] # total capital expenditure [$]
         if CAPEX <= 0 or W <= 0:
             return np.nan
         return CAPEX / (W * W_TO_KW)
 
 
-    def compute_LCOE(self) -> None:
-        W_net_total = self.surface_power_plant_model.W_net_total
-        self.results['Net_Electricity_Generated_kWe'] = W_net_total * W_TO_KW
-        self.results['LCOE'] = self.get_LCOE(self.results['CAPEX_total'], W_net_total)
-        self.results['SpCC'] = self.get_specific_capital_cost(self.results['CAPEX_total'], W_net_total)
-        self.results['RF'] = self.results['LCOE'] / self.results['SpCC']
+    def _compute_LCOE(self) -> None:
+        W_net_total = self._surface_power_plant_model.get_net_W_total()
+        self._results['Net_Electricity_Generated_kWe'] = W_TO_KW * W_net_total
+        self._results['LCOE'] = self._get_LCOE(W_net_total)
+        self._results['SpCC'] = self._get_specific_capital_cost(W_net_total)
+
+
+    def get_results(self) -> dict:
+        return self._results
 
 
     def execute(self, results: dict) -> None:
 
-        self.get_annual_results(results)
+        self._get_annual_results(results)
 
-        self.compute_capex()
+        self._compute_capex()
 
-        self.compute_LCOE()
+        self._compute_LCOE()
