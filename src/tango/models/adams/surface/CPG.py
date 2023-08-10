@@ -56,10 +56,10 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
         self.specs = SurfaceSpecsCPGAdams(**specs)
-        self.fluid_name = self.specs.fluid_name
-        self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self.condensation_temperature_range = 0
-        self.X_CO2 = 1.0 if self.fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        self._fluid_name = self.specs.fluid_name
+        self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
+        self._condensation_temperature_range = 0
+        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self._set_mdot()
         self._set_constants()
 
@@ -70,16 +70,16 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
         hs_outlet = state.outlet_fluid_turbine.H # (J/kg)
         h_inlet = state.inlet_fluid.H            # (J/kg)
         eta = self.specs.eta_turbine             # (-)
-        X_CO2 = self.X_CO2
+        X_CO2 = self._X_CO2
 
-        state.w_turbine = X_CO2 * self.m_dot * eta * (h_inlet - hs_outlet) # (W)
+        state.w_turbine = X_CO2 * self._m_dot * eta * (h_inlet - hs_outlet) # (W)
 
 
     def _update_condenser_state(self, state) -> None:
 
         hs_outlet = state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
         h_inlet = state.inlet_fluid.H  # (J/kg)
-        X_CO2 = self.X_CO2
+        X_CO2 = self._X_CO2
         eta = self.specs.eta_turbine  # (-)
         h_saturated_vapor = self.condenser_saturated_vapor_h # (J/kg)
         h_condensed = self.condenser_saturated_liquid_h # (J/kg)
@@ -87,12 +87,12 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
         h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet) # (J/kg)
 
         state.q_cooler = 0. # (W)
-        state.q_condenser = self.m_dot * (h_condensed - h_turbine_outlet) # (W)
+        state.q_condenser = self._m_dot * (h_condensed - h_turbine_outlet) # (W)
         if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
-            state.q_cooler = self.m_dot * (h_saturated_vapor - h_turbine_outlet)
-            state.q_condenser = self.m_dot * (h_condensed - h_saturated_vapor)
-            T_turbine_outlet = FluidState.withHP(self.fluid_name, h_turbine_outlet, self.condensation_pressure).T
-            self.condensation_temperature_range = T_turbine_outlet - self.condensation_temperature
+            state.q_cooler = self._m_dot * (h_saturated_vapor - h_turbine_outlet)
+            state.q_condenser = self._m_dot * (h_condensed - h_saturated_vapor)
+            T_turbine_outlet = FluidState.withHP(self._fluid_name, h_turbine_outlet, self.condensation_pressure).T
+            self._condensation_temperature_range = T_turbine_outlet - self._condensation_temperature
 
         state.w_cooler = X_CO2 * state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
         state.w_condenser = X_CO2 * state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
@@ -101,7 +101,7 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
     def _update_pump_state(self, state) -> None:
 
         eta = self.specs.eta_pump
-        X_CO2 = self.X_CO2
+        X_CO2 = self._X_CO2
 
         dP_pump = state.get_dP_pump()
         P_pump_outlet = self.condensation_pressure + dP_pump
@@ -116,7 +116,7 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
                 state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=state.inlet_fluid_pump.T)
             h_pump_outlet = h_pump_inlet + (state.outlet_fluid_pump.H - h_pump_inlet) / eta
 
-        state.w_pump = -1.0 * X_CO2 *  self.m_dot * (h_pump_outlet - h_pump_inlet)
+        state.w_pump = -1.0 * X_CO2 *  self._m_dot * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         try:
@@ -134,15 +134,15 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
         direct CO2 thermosiphon system:
             production_well - turbine - condenser - pump - injection_well
         """
-        state.outlet_fluid_turbine = FluidState.withQT(self.fluid_name, Q=1.0, T=self.condensation_temperature)
+        state.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
 
-        state.outlet_fluid_condenser = FluidState.withQT(self.fluid_name, Q=0.0, T=self.condensation_temperature)
+        state.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
         self.condensation_pressure = state.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
-        self.condenser_saturated_vapor_h = FluidState.withPQ(self.fluid_name, Q=1.0, P=self.condensation_pressure).H
-        self.condenser_saturated_liquid_h = FluidState.withPQ(self.fluid_name, Q=0.0, P=self.condensation_pressure).H
+        self.condenser_saturated_vapor_h = FluidState.withPQ(self._fluid_name, Q=1.0, P=self.condensation_pressure).H
+        self.condenser_saturated_liquid_h = FluidState.withPQ(self._fluid_name, Q=0.0, P=self.condensation_pressure).H
 
-        state.inlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
-        state.outlet_fluid_pump = FluidState.withPT(self.fluid_name, self.condensation_pressure, self.condensation_temperature)
+        state.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
+        state.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
 
         state.outlet_fluid = FluidState.copy(state.outlet_fluid_pump)
 

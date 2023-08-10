@@ -22,8 +22,6 @@ class HorizontalWellModelAdams(WellModelAdams):
         self._f_dir = -1.0 # not used?
 
         # overwrite static parameters for horizontal well
-        # self._well_length = self._compute_well_length()
-        # self._initialize_farfield_temperature()
         self._dL = self._well_length / self._num_cells
         self._dz = self._dZ / self._num_cells
 

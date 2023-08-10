@@ -1,5 +1,5 @@
 #
-# testcase1: simple AGS case (CPG)
+# testcase1: simple AGS case (CO2)
 #
 
 runspec:
@@ -13,8 +13,7 @@ runspec:
 
 common:
   fluid_name: 'CO2'
-#  mass_flow_rate: 5.0  # kg/s (injection rate)
-  mass_flow_rate: 1.0  # kg/s (injection rate)
+  mass_flow_rate: 5.0  # kg/s (injection rate)
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3
   rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
@@ -26,7 +25,7 @@ common:
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
   thermal_gradient: 0.035  # degC/m
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 25 # number of time steps
+  num_tsteps: 5 # number of time steps
   dt: 1.0  # time step increment (year)
 
 injection_well:
