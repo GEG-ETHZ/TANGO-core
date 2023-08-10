@@ -22,84 +22,112 @@ class WellSpecsAdams(CommonSpecs):
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
 
 
+class WellStateAdams(WellState):
+    """The well state model"""
+    def __init__(self) -> None:
+        WellState.__init__(self)
+        self._t_d: float = 0. # dimensionless time at current time step
+        self._t_d_old: float = 0. # dimensionless time at previos time step
+
+
+    def get_dimensionless_time(self) -> float:
+        return self._t_d
+
+
+    def get_dimensionless_time_old(self) -> float:
+        return self._t_d_old
+
+
+    def update_dimensionless_time(self, del_t) -> None:
+        self._t_d = self._t_d_old + del_t
+
+
+    def update_dimensionless_time_old(self) -> None:
+        self._t_d_old = self._t_d
+
+
 class WellModelAdams(WellModel):
     """The well model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        self.specs = WellSpecsAdams(**specs)
+        self._specs = WellSpecsAdams(**specs)
+        self._injector_mass_flow_rate = self._specs.mass_flow_rate
 
-        self.g = GRAVITY_ACCELERATION
-        self.cross_section_area = 0.25 * np.pi * self.specs.diameter**2
-        self.injector_mass_flow_rate = self.specs.mass_flow_rate
+        # geometric parameters
+        self._diameter = self._specs.diameter
+        self._relative_roughness = self._specs.epsilon / self._diameter
+        self._cross_sectional_area = 0.25 * np.pi * self._diameter ** 2
+        self._well_length = self._compute_well_length()
 
-        self._set_gravity_multiplier(self.specs.gravity_scale_factor)
-        self._set_well_length()
-        self._set_farfield_temperature()
-
-        # discretization related parameters
-        num_cells = self.specs.num_cells
-        self.dL = self.well_length/num_cells
-        self.dz = self.well_length/num_cells
-        self.t_d = 0.0  # initialize the non-dimensional time
-
-        # See Carslaw and Jaeger (1959) for the scaling of time.
-        self.t_scaling_factor = 4.0 * self.specs.rock_k \
-                                / (self.specs.rock_density*self.specs.rock_cp*self.specs.diameter**2)
-
-        self.P = np.zeros(num_cells)  # pressure (Pa)
-        self.h = np.zeros(num_cells)  # specific enthalpy (J/kg)
-        self.rho = np.zeros(num_cells)  # fluid density (kg/m3)
-        self.mu = np.zeros(num_cells)  # fluid dynamic viscosity (Pa s)
-        self.T_f = np.zeros(num_cells)  # fluid temperature (K)
-        self.u = np.zeros(num_cells)  # flow velocity (m/s)
+        # other parameters
+        self._initialize_discretized_vars()
+        self._initialize_farfield_temperature()
+        self._set_gravity_multiplier()
+        self._t_scaling_factor = self._compute_time_scaling_factor()
 
 
-    def _set_well_length(self):
-        if self.specs.well_length is None:
-            vertical_deviation_rad = np.deg2rad(self.specs.vertical_deviation)
-            self.well_length = self.specs.reservoir_depth / np.cos(vertical_deviation_rad)
+
+    def _compute_well_length(self) -> float:
+        if self._specs.well_length is None:
+            return self._specs.reservoir_depth / np.cos(np.deg2rad(self._specs.vertical_deviation))
         else:
-            self.well_length = self.specs.well_length
+            return self._specs.well_length
 
 
-    def _set_farfield_temperature(self): # wellhead_depth is to overwrite T_r if prd_pump exists
-        self.zspace = np.linspace(self.specs.wellhead_depth, self.well_length, self.specs.num_cells+1)
-        self.zspace = (self.zspace[1:] + self.zspace[:-1]) * 0.5  # depth at cell centers
-
-        dTdz = self.specs.thermal_gradient
-        T0 = self.specs.surface_temperature
-        self.T_r = T0 + self.zspace * dTdz  # rock temperature (K)
-
-
-    def _set_gravity_multiplier(self, g_mult) -> None:
-        self.g_mult = g_mult
-        self.g = self.g_mult*self.g
+    def _initialize_farfield_temperature(self) -> None:
+        zspace = np.linspace(self._specs.wellhead_depth, self._well_length, self._num_cells+1)
+        zspace = (zspace[1:] + zspace[:-1]) * 0.5  # depth at cell centers
+        dTdz = self._specs.thermal_gradient
+        T0 = self._specs.surface_temperature
+        self._T_r = T0 + zspace * dTdz  # rock temperature (K)
 
 
-    def _initialize_state(self) -> None:
-        self.P[0] = self.fluid_state_init.P
-        self.h[0] = self.fluid_state_init.H
-        self.rho[0] = self.fluid_state_init.rho
-        self.mu[0] = self.fluid_state_init.mu
-        self.T_f[0] = self.fluid_state_init.T
-        self.u[0] = self.well_mass_flow_rate / self.cross_section_area / self.rho[0]
+    def _initialize_discretized_vars(self) -> None:
+        num_cells = self._specs.num_cells
+        self._num_cells = num_cells
+        self._dL = self._well_length/num_cells
+        self._dz = self._well_length/num_cells
+        self._P = np.zeros(num_cells)  # pressure (Pa)
+        self._h = np.zeros(num_cells)  # specific enthalpy (J/kg)
+        self._rho = np.zeros(num_cells)  # fluid density (kg/m3)
+        self._mu = np.zeros(num_cells)  # fluid dynamic viscosity (Pa s)
+        self._T_f = np.zeros(num_cells)  # fluid temperature (K)
+        self._u = np.zeros(num_cells)  # flow velocity (m/s)
 
 
-    def _compute_Q_loss(self, delta_T) -> float:
+    def _set_gravity_multiplier(self) -> None:
+        self._g = GRAVITY_ACCELERATION * self._specs.gravity_scale_factor
+
+
+    def _compute_time_scaling_factor(self) -> float:
+        """Carslaw and Jaeger (1959) for the scaling of time."""
+        return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter ** 2)
+
+    def _initialize_state(self, state) -> None:
+        state.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
+        self._P[0] = self.fluid_state_init.P
+        self._h[0] = self.fluid_state_init.H
+        self._rho[0] = self.fluid_state_init.rho
+        self._mu[0] = self.fluid_state_init.mu
+        self._T_f[0] = self.fluid_state_init.T
+        self._u[0] = self._well_mass_flow_rate / self._cross_sectional_area / self._rho[0]
+
+
+    def _compute_Q_loss(self, delta_T: float, t_d: float) -> float:
         """Returns the heat loss introduced Zhang et al., 2011 (10.1016/j.geothermics.2011.08.003).
 
         Args:
             delta_T (float): temperature differences between the farfield and fluid (K)
+            t_d (float): dimensionless time (-)
 
         Returns:
             float: the heat loss
         """
-        t_d = self.t_d
         if t_d <= 2.8:
             beta = (np.pi*t_d)**-0.5 + 0.5 - 0.25*(t_d/np.pi)**0.5 + 0.125*t_d
         else:
             beta = 2.0/(np.log(4.0*t_d) - 1.16) - 1.16/(np.log(4.0*t_d) - 1.16)**2
 
-        return 2.0 * self.dL * np.pi * self.specs.rock_k * beta * delta_T
+        return 2.0 * self._dL * np.pi * self._specs.rock_k * beta * delta_T
 
 
     def _compute_delta_P_loss(self, ff: float, rho: float, u: float) -> float:
@@ -113,7 +141,7 @@ class WellModelAdams(WellModel):
         Returns:
             float: the pressure loss (Pa)
         """
-        return 0.5 * ff * self.dL * rho * u ** 2 / self.specs.diameter
+        return 0.5 * ff * self._dL * rho * u ** 2 / self._diameter
 
 
     def _compute_friction_factor(self, rho, mu, u) -> float:
@@ -127,10 +155,21 @@ class WellModelAdams(WellModel):
         Returns:
             float: the friction factor (-)
         """
-        Re = rho*u*self.specs.diameter / mu  # Reynolds number
-        r = self.specs.epsilon / self.specs.diameter  # relative roughness
-
+        Re = rho * u * self._diameter / mu  # Reynolds number
+        r = self._relative_roughness  # relative roughness
         return (-1.8*np.log10((r/3.7)**1.11 + 6.9/Re))**-2.0
+
+
+    def get_well_length(self) -> float:
+        return self._well_length
+
+
+    def get_diameter(self) -> float:
+        return self._diameter
+
+
+    def get_probability_of_success(self) -> float:
+        return self._specs.probability_of_success
 
 
     def init_state(self, state):
@@ -142,28 +181,31 @@ class WellModelAdams(WellModel):
         state_self.outlet_fluid = FluidState.copy(state_self.inlet_fluid)
         self.fluid_state_tmp = state_self.outlet_fluid
         self.fluid_state_init = state_self.inlet_fluid
-        state_self.mass_rate = self.well_mass_flow_rate
+        state_self.mass_rate = self._well_mass_flow_rate
 
 
-    def update(self) -> None:
-        self._initialize_state()
-        self.t_d += self.t_scaling_factor * self.specs.dt * YEAR_TO_SECOND
-        for i in range(1, self.specs.num_cells):
-            ff = self._compute_friction_factor(self.rho[i-1], self.mu[i-1], self.u[i-1])
-            dP_loss = self._compute_delta_P_loss(ff, self.rho[i-1], self.u[i-1])
-            Q_loss = self._compute_Q_loss(self.T_f[i-1] - self.T_r[i-1])
-            self.P[i] = self.P[i - 1] - self.f_dir * self.rho[i - 1] * self.g * self.dz - dP_loss
-            self.h[i] = self.h[i - 1] - self.f_dir * self.g * self.dz - Q_loss / self.well_mass_flow_rate
+    def update(self, state) -> None:
+        """update dynamic variables along wellbore"""
+        self._initialize_state(state)
+        t_d = state.get_dimensionless_time()
+        g, dz, f_dir = self._g, self._dz, self._f_dir
+        mdot, A = self._well_mass_flow_rate, self._cross_sectional_area
+        for i in range(1, self._num_cells):
+            ff = self._compute_friction_factor(self._rho[i-1], self._mu[i-1], self._u[i-1])
+            dP_loss = self._compute_delta_P_loss(ff, self._rho[i-1], self._u[i-1])
+            Q_loss = self._compute_Q_loss(delta_T=self._T_f[i-1] - self._T_r[i-1], t_d=t_d)
+            self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
+            self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
             try:
-                self.fluid_state_tmp.updateHP(self.h[i], self.P[i])
+                self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
             except:
                 logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-                self.fluid_state_tmp.updatePT(self.P[i], self.T_f[i])
-            self.rho[i] = self.fluid_state_tmp.rho
-            self.mu[i] = self.fluid_state_tmp.mu
-            self.T_f[i] = self.fluid_state_tmp.T
-            self.u[i] = self.well_mass_flow_rate / self.cross_section_area / self.rho[i]
+                self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
+            self._rho[i] = self.fluid_state_tmp.rho
+            self._mu[i] = self.fluid_state_tmp.mu
+            self._T_f[i] = self.fluid_state_tmp.T
+            self._u[i] = mdot / A / self._rho[i]
 
 
-    def execute(self, *args) -> None:
-        self.update()
+    def execute(self, state) -> None:
+        self.update(state)

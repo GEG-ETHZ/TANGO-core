@@ -13,7 +13,7 @@ runspec:
 
 common:
   fluid_name: 'H2O'
-  # mass_flow_rate: 5.0  # kg/s (injection rate) ~2700 bbl/d
+#  mass_flow_rate: 5.0  # kg/s (injection rate) ~2700 bbl/d
   mass_flow_rate: 40.0  # kg/s (injection rate) ~5400 bbl/d
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3

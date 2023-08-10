@@ -9,11 +9,10 @@ from dataclasses import dataclass
 import numpy as np
 
 
-class ProductionWellPumpStateAdams(WellState):
+class ProductionWellPumpStateAdams(WellStateAdams):
     """The well state model"""
     def __init__(self) -> None:
-        WellState.__init__(self)
-        # self.inlet_P_old: float = 0
+        WellStateAdams.__init__(self)
         self.dP_pump: float = 0.
         self.w_pump: float = 0.
 
@@ -32,17 +31,18 @@ class ProductionWellPumpModelAdams(ProductionWellModelAdams):
     def update_inlet_P(self, state):
         self.fluid_state_init.updatePT(P=self.inlet_P_tmp + state.dP_pump, T=self.fluid_state_init.T)
 
+
     def update_w_pump(self, state):
         if state.dP_pump <= 0.:
             return
-        inlet_fluid_state_0 = FluidState.withPT(self.specs.fluid_name,
+        inlet_fluid_state_0 = FluidState.withPT(self._specs.fluid_name,
                                                 P=self.fluid_state_init.P - state.dP_pump,
                                                 T=self.fluid_state_init.T) # state w/o pumping
-        state.w_pump = self.well_mass_flow_rate * (inlet_fluid_state_0.H - self.fluid_state_init.H) / self.specs.eta_pump
+        state.w_pump = self._well_mass_flow_rate * (inlet_fluid_state_0.H - self.fluid_state_init.H) / self._specs.eta_pump
 
 
     def execute(self, state) -> None:
         self.set_inlet_P_tmp()
         self.update_inlet_P(state)
-        self.update()
+        self.update(state)
         self.update_w_pump(state)

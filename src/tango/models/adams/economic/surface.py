@@ -151,7 +151,6 @@ class EconModelSurfacePowerPlant:
         self.dT_LMTD_preheater = self.state.dT_LMTD_preheater
         self.dT_LMTD_boiler = self.state.dT_LMTD_boiler
         self.dT_LMTD_recuperator = self.state.dT_LMTD_recuperator
-        # self.dT_LMTD_recuperator = self.state.dT_LMTD_recuperator
 
 
     def get_turbine_generator_cost(self) -> float:

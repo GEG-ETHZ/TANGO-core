@@ -28,7 +28,6 @@ class SurfaceStateCPGAdams(SurfaceState): #TODO: cleanup states
         self.outlet_fluid_turbine: FluidState
         self.outlet_fluid_condenser: FluidState
         self.outlet_fluid_pump: FluidState
-        self.dP_pump: float = 0.
         self.q_condenser: float = 0.
         self.q_cooler: float = 0.
         self.q_preheater: float = 0.
@@ -40,6 +39,15 @@ class SurfaceStateCPGAdams(SurfaceState): #TODO: cleanup states
         self.w_cooler: float = 0.
         self.w_condenser: float = 0.
         self.w_net: float = 0.
+        self._dP_pump: float = 0.
+
+
+    def get_dP_pump(self) -> float:
+        return self._dP_pump
+
+
+    def update_dP_pump(self, val) -> None:
+        self._dP_pump = val
 
 
 class SurfaceModelCPGAdams(SurfaceModelAdams):
@@ -95,11 +103,12 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
         eta = self.specs.eta_pump
         X_CO2 = self.X_CO2
 
-        P_pump_outlet = self.condensation_pressure + state.dP_pump
+        dP_pump = state.get_dP_pump()
+        P_pump_outlet = self.condensation_pressure + dP_pump
 
         h_pump_inlet = state.inlet_fluid_pump.H
         h_pump_outlet = state.inlet_fluid_pump.H
-        if state.dP_pump > 0:
+        if dP_pump > 0:
             try:
                 state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=state.inlet_fluid_pump.S)
             except:
@@ -109,7 +118,7 @@ class SurfaceModelCPGAdams(SurfaceModelAdams):
 
         state.w_pump = -1.0 * X_CO2 *  self.m_dot * (h_pump_outlet - h_pump_inlet)
 
-        P_inj_inlet = P_pump_outlet + min(0., state.dP_pump) # if dP_pump <0, then choke.
+        P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         try:
             state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
         except:

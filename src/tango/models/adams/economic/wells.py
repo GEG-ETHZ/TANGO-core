@@ -41,14 +41,14 @@ class EconModelWells:
 
 
     def get_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
-        well_model = getattr(self, well_type) # get well model object
+        well_model = getattr(self, well_type, None) # get well model object
         if well_model == None:
             return 0
         if well_type == 'injection_well' and self.specs.project_maturity == 'BROWN_FIELD':
             return 0
-        return num_wells * self.get_individual_well_cost(L=well_model.well_length,
-                                                         d=well_model.specs.diameter,
-                                                         pos=well_model.specs.probability_of_success,
+        return num_wells * self.get_individual_well_cost(L=well_model.get_well_length(),
+                                                         d=well_model.get_diameter(),
+                                                         pos=well_model.get_probability_of_success(),
                                                          fluid_name=self.specs.fluid_name)
 
 
