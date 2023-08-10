@@ -3,8 +3,7 @@ from abc import ABC
 
 class EconomicSpecs(ABC):
     def __init__(self):
-        self.CAPEX = 0.
-        self.OPEX = 0.
+        pass
 
 
 class EconomicState(ABC):
