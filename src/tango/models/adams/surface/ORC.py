@@ -33,7 +33,7 @@ class SurfaceSpecsORCAdams(CommonSpecs):
 
 @dataclass
 class SurfaceStateORCFluid():
-    """"dataclass to store ORC fluid state"""
+    """"dataclass to store ORC states"""
     w_pump: float = 0.
     w_turbine: float = 0.
     w_cooler: float = 0.
@@ -49,6 +49,7 @@ class SurfaceStateORCFluid():
 class SurfaceStateORCAdams(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
+        self.ORC_fluid: FluidState
         self.dP_pump: float = 0.
         self.dP_pipe: float = 0.
         self.dT_range: float = 0.
@@ -69,17 +70,25 @@ class SurfaceStateORCAdams(SurfaceState):
         self.w_net: float = 0.
 
 
+    def get_del_pressure(self) -> float:
+        return self.inlet_fluid.P - self.outlet_fluid.P - self.dP_pipe
+
+
+    # def get_del_temperature(self) -> float:
+    #     return self.inlet_fluid.T - self.outlet_fluid.T
+
+
 class SurfaceModelORCAdams(SurfaceModelAdams):
     """The power plant model based on Adams et al. (2015)."""
 
     def __init__(self, specs: dict):
         SurfaceModelAdams.__init__(self)
         self.specs = SurfaceSpecsORCAdams(**specs)
-        self.fluid_name = self.specs.fluid_name
-        self.refrigerant_name = self.specs.refrigerant
-        self.cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
-        self.condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self.ORC_fluid_state = SurfaceStateORCFluid()
+        self._fluid_name = self.specs.fluid_name
+        self._refrigerant_name = self.specs.refrigerant
+        self._cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
+        self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
+        self._ORC_state = SurfaceStateORCFluid()
         self._set_mdot()
         self._set_constants()
         self._set_max_boiling_temperature()
@@ -91,26 +100,24 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
             get max boiling temperature that will be used as a constraint for the organic fluid at the temperature
             with max saturated vapor entropy
         """
-        ORC_fluid_state = FluidState.withPT(self.refrigerant_name,
+        self._ORC_fluid_state = FluidState.withPT(self._refrigerant_name,
                                             P=self.specs.initial_outlet_pressure,
                                             T=self.specs.initial_outlet_temperature) # P and T are arbitrary here.
-        self.ORC_fluid_Pcrit = ORC_fluid_state.Pcrit
-        self.ORC_fluid_Tcrit = ORC_fluid_state.Tcrit
-        P_min = FluidState.withQT(self.refrigerant_name, Q=1.0,
-                                  T=273.15).P  # assume min pressure is condensing at 0 deg.C
-        P_arr = np.linspace(P_min, self.ORC_fluid_Pcrit, 1000)
+        ORC_fluid_Pcrit = self._ORC_fluid_state.Pcrit
+        P_min = FluidState.withQT(self._refrigerant_name, Q=1.0, T=273.15).P  # assume min pressure is condensing at 0 deg.C
+        P_arr = np.linspace(P_min, ORC_fluid_Pcrit, 1000)
         S_arr = np.zeros(len(P_arr))
         for i, P in enumerate(P_arr):
-            S_arr[i] = FluidState.withPQ(self.refrigerant_name, P=P, Q=1.0).S
+            S_arr[i] = FluidState.withPQ(self._refrigerant_name, P=P, Q=1.0).S
         S_max = np.max(S_arr)
         P_max = P_arr[np.argmax(S_arr)]
-        self.max_boiling_temperature = FluidState.withPS(self.refrigerant_name, P=P_max, S=S_max).T
+        self._max_boiling_temperature = FluidState.withPS(self._refrigerant_name, P=P_max, S=S_max).T
 
 
     def _set_lookup_tables(self) -> None:
         """set ORC_Tboil_optimum table. Note that the unit is in deg. C"""
-        fname = f"ORC_Tboil_optimum_{MAP_ORC_OPTNAME_TO_TABLE_NAME[self.specs.ORC_opt_mode]}_{self.refrigerant_name}.csv"
-        self.ORC_Tboil_optimum_table = utils.get_table(fname)
+        fname = f"ORC_Tboil_optimum_{MAP_ORC_OPTNAME_TO_TABLE_NAME[self.specs.ORC_opt_mode]}_{self._refrigerant_name}.csv"
+        self._ORC_Tboil_optimum_table = utils.get_table(fname)
 
 
     def _get_value_from_table(self, x: float, col_name: str) -> float:
@@ -124,7 +131,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
         """
         x += K_TO_C
-        df = self.ORC_Tboil_optimum_table
+        df = self._ORC_Tboil_optimum_table
         val = float(interp1d(df.T_C, df[col_name], bounds_error=False, kind='linear')(x))
         if np.isnan(val):
             logging.warning(
@@ -163,7 +170,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
         rho = state.inlet_fluid.rho
         mu = state.inlet_fluid.mu
-        u = self.m_dot / self.cross_sectional_area / rho
+        u = self._m_dot / self._cross_sectional_area / rho
 
         ff = self._compute_friction_factor(rho, mu, u)
         state.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
@@ -178,7 +185,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
             raise RuntimeError(f"Nan ORC T_boiling found.")
         if np.isnan(dT_pinch):
             raise RuntimeError(f"Nan ORC dT_pinch found.")
-        if T_boiling > self.ORC_fluid_Tcrit:
+        if T_boiling > self._ORC_fluid_state.Tcrit:
             raise RuntimeError(f"ORC T_boiling is greater than critical point.")
         if dT_pinch < 0:
             raise RuntimeError(f"Negative ORC dT_pinch found.")
@@ -188,45 +195,45 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
     def _update_state_fluid(self, state) -> None: #TODO: clean up
 
         T_inlet = state.inlet_fluid.T
-        self.T_boiling, self.dT_pinch = self._get_values_from_table(T_inlet)
+        T_boiling, dT_pinch = self._get_values_from_table(T_inlet)
 
         # State 1 (Condenser -> Pump)
-        fluid_state_pump_inlet = FluidState.withQT(self.refrigerant_name,
+        fluid_state_pump_inlet = FluidState.withQT(self._refrigerant_name,
                                                    Q=0.0,
-                                                   T=self.condensation_temperature)  # saturated liquid
+                                                   T=self._condensation_temperature)  # saturated liquid
 
         # State 6 (Desuperheater/Cooler -> Condenser)
-        fluid_state_condenser_inlet = FluidState.withQT(self.refrigerant_name,
+        fluid_state_condenser_inlet = FluidState.withQT(self._refrigerant_name,
                                                         Q=1.0,
                                                         T=fluid_state_pump_inlet.T)  # saturated vapor
 
         # State 3 (Preheater -> Boiler)
-        fluid_state_boiler_inlet = FluidState.withQT(self.refrigerant_name,
+        fluid_state_boiler_inlet = FluidState.withQT(self._refrigerant_name,
                                                      Q=0.0,
-                                                     T=self.T_boiling)  # saturated liquid
+                                                     T=T_boiling)  # saturated liquid
 
         # State 4 (Boiler -> Turbine)
-        fluid_state_turbine_inlet = FluidState.withQT(self.refrigerant_name,
+        fluid_state_turbine_inlet = FluidState.withQT(self._refrigerant_name,
                                                       Q=1.0,
                                                       T=fluid_state_boiler_inlet.T)  # saturated vapor
 
         # State 5 (Turbine -> Desuperheater/Cooler)
-        fluid_state_cooler_inlet = FluidState.withPS(self.refrigerant_name,
+        fluid_state_cooler_inlet = FluidState.withPS(self._refrigerant_name,
                                                      P=fluid_state_pump_inlet.P,
                                                      S=fluid_state_turbine_inlet.S)
         hs_cooler_inlet = fluid_state_cooler_inlet.H
         h_cooler_inlet = fluid_state_turbine_inlet.H - self.specs.eta_turbine * (fluid_state_turbine_inlet.H - hs_cooler_inlet)
-        fluid_state_cooler = FluidState.withHP(self.refrigerant_name,
+        fluid_state_cooler = FluidState.withHP(self._refrigerant_name,
                                                H=h_cooler_inlet,
                                                P=fluid_state_pump_inlet.P)
 
         # State 2 (Pump -> Preheater)
-        fluid_state_preheater_inlet = FluidState.withPS(self.refrigerant_name,
+        fluid_state_preheater_inlet = FluidState.withPS(self._refrigerant_name,
                                                         P=fluid_state_boiler_inlet.P,
                                                         S=fluid_state_pump_inlet.S)
         hs_preheater_inlet = fluid_state_preheater_inlet.H
         h_preheater = fluid_state_pump_inlet.H - ((fluid_state_pump_inlet.H - hs_preheater_inlet) / self.specs.eta_pump)
-        fluid_state_preheater = FluidState.withHP(self.refrigerant_name,
+        fluid_state_preheater = FluidState.withHP(self._refrigerant_name,
                                                   H=h_preheater,
                                                   P=fluid_state_boiler_inlet.P)
 
@@ -234,47 +241,47 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
         # ... ORC fluid heat/work
         #
 
-        self.ORC_fluid_state.w_pump = fluid_state_pump_inlet.H - fluid_state_preheater.H
-        self.ORC_fluid_state.q_preheater = fluid_state_boiler_inlet.H - fluid_state_preheater.H
-        self.ORC_fluid_state.q_boiler = fluid_state_turbine_inlet.H - fluid_state_boiler_inlet.H
-        self.ORC_fluid_state.w_turbine = fluid_state_turbine_inlet.H - fluid_state_cooler.H
-        self.ORC_fluid_state.q_cooler = fluid_state_condenser_inlet.H - fluid_state_cooler.H
-        self.ORC_fluid_state.q_condenser = fluid_state_pump_inlet.H - fluid_state_condenser_inlet.H
+        self._ORC_state.w_pump = fluid_state_pump_inlet.H - fluid_state_preheater.H
+        self._ORC_state.q_preheater = fluid_state_boiler_inlet.H - fluid_state_preheater.H
+        self._ORC_state.q_boiler = fluid_state_turbine_inlet.H - fluid_state_boiler_inlet.H
+        self._ORC_state.w_turbine = fluid_state_turbine_inlet.H - fluid_state_cooler.H
+        self._ORC_state.q_cooler = fluid_state_condenser_inlet.H - fluid_state_cooler.H
+        self._ORC_state.q_condenser = fluid_state_pump_inlet.H - fluid_state_condenser_inlet.H
 
         # cooling tower parastic load
-        self.condensation_temperature_range = fluid_state_cooler.T - fluid_state_condenser_inlet.T
-        self.ORC_fluid_state.w_cooler = self.ORC_fluid_state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
-        self.ORC_fluid_state.w_condenser = self.ORC_fluid_state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self._condensation_temperature_range = fluid_state_cooler.T - fluid_state_condenser_inlet.T
+        self._ORC_state.w_cooler = self._ORC_state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
+        self._ORC_state.w_condenser = self._ORC_state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
 
         #
         # ... Water (assume pressure 100 kPa above saturation)
         #
 
-        fluid_state_water = FluidState.withQT(self.fluid_name, Q=0., T=T_inlet)
+        fluid_state_water = FluidState.withQT(self._fluid_name, Q=0., T=T_inlet)
         Psat_water = fluid_state_water.P
         cp_water = fluid_state_water.cp
 
         # Water state 11, inlet, 12, mid, 13 exit
         T_11 = T_inlet
-        T_12 = self.T_boiling + self.dT_pinch
-        mdot_ratio = cp_water * (T_11 - T_12) / self.ORC_fluid_state.q_boiler
-        T_13 = T_12 - mdot_ratio * self.ORC_fluid_state.q_preheater / cp_water
-        if T_13 < (fluid_state_preheater.T + self.dT_pinch): # check that T_C(13) isn't below pinch constraint
-            T_13 = fluid_state_preheater.T + self.dT_pinch # pinch constraint is here, not at 12, outlet is pump temp plus pinch
-            R = self.ORC_fluid_state.q_boiler / (self.ORC_fluid_state.q_boiler + self.ORC_fluid_state.q_preheater)
+        T_12 = T_boiling + dT_pinch
+        mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
+        T_13 = T_12 - mdot_ratio * self._ORC_state.q_preheater / cp_water
+        if T_13 < (fluid_state_preheater.T + dT_pinch): # check that T_C(13) isn't below pinch constraint
+            T_13 = fluid_state_preheater.T + dT_pinch # pinch constraint is here, not at 12, outlet is pump temp plus pinch
+            R = self._ORC_state.q_boiler / (self._ORC_state.q_boiler + self._ORC_state.q_preheater)
             T_12 = T_11 - (T_11 - T_13) * R
-            mdot_ratio = cp_water * (T_11 - T_12) / self.ORC_fluid_state.q_boiler
+            mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
 
         # Calculate water heat/work
-        state.q_preheater = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_preheater
-        state.q_boiler = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_boiler
-        state.q_desuperheater = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_cooler
-        state.q_condenser = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_condenser
-        state.q_recuperator = mdot_ratio * self.m_dot * self.ORC_fluid_state.q_recuperator
-        state.w_turbine = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_turbine
-        state.w_pump = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_pump
-        state.w_cooler = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_cooler
-        state.w_condenser = mdot_ratio * self.m_dot * self.ORC_fluid_state.w_condenser
+        state.q_preheater = mdot_ratio * self._m_dot * self._ORC_state.q_preheater
+        state.q_boiler = mdot_ratio * self._m_dot * self._ORC_state.q_boiler
+        state.q_desuperheater = mdot_ratio * self._m_dot * self._ORC_state.q_cooler
+        state.q_condenser = mdot_ratio * self._m_dot * self._ORC_state.q_condenser
+        state.q_recuperator = mdot_ratio * self._m_dot * self._ORC_state.q_recuperator
+        state.w_turbine = mdot_ratio * self._m_dot * self._ORC_state.w_turbine
+        state.w_pump = mdot_ratio * self._m_dot * self._ORC_state.w_pump
+        state.w_cooler = mdot_ratio * self._m_dot * self._ORC_state.w_cooler
+        state.w_condenser = mdot_ratio * self._m_dot * self._ORC_state.w_condenser
         state.w_net = state.w_turbine + state.w_pump + state.w_cooler + state.w_condenser
 
         # Calculate temperatures
@@ -299,7 +306,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
 
 
     def init_state(self, state) -> None:
-        state.outlet_fluid = FluidState.withPT(self.fluid_name,
+        state.outlet_fluid = FluidState.withPT(self._fluid_name,
                                                P=self.specs.initial_outlet_pressure,
                                                T=self.specs.initial_outlet_temperature)
 

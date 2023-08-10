@@ -1,5 +1,5 @@
 #
-# testcase4: simple ORC case (Water-based)
+# testcase1: simple DOUBLET case (Water-based)
 #
 
 runspec:
@@ -13,20 +13,19 @@ runspec:
 
 common:
   fluid_name: 'H2O'
-#  mass_flow_rate: 5.0  # kg/s (injection rate) ~2700 bbl/d
-  mass_flow_rate: 40.0  # kg/s (injection rate) ~5400 bbl/d
+  mass_flow_rate: 10.0  # kg/s (injection rate)
   reservoir_depth: 2500.0 # m
   rock_density: 2650.0 # kg/m3
   rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
   rock_k: 2.1  # thermal comductivity (W/(m*K))
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
-  well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir] test
   thermal_gradient: 0.035  # degC/m
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 5 # number of time steps
+  num_tsteps: 1 # number of time steps
   dt: 1.0  # time step increment (year)
 
 reservoir:
@@ -53,7 +52,4 @@ surface:
 economic:
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
-
-
-
 

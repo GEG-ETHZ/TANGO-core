@@ -80,18 +80,12 @@ class SystemORCAdams(SystemAdams):
     def __init__(self, state, models):
         super().__init__(state, models)
         self._set_models(models)
-        self._set_limits()
         self._set_convergence_criteria()
 
 
     def _set_models(self, models: dict) -> None:
         for name in models.keys():
             setattr(self, name, models[name])
-
-
-    def _set_limits(self) -> None:
-        self._MIN_INJ_PRESSURE = ATMOSPHERIC_PRESSURE
-        self._MIN_INJ_TEMPERATURE = MIN_INJ_TEMPERATURE
 
 
     def _set_convergence_criteria(self) -> None:
@@ -115,8 +109,7 @@ class SystemORCAdams(SystemAdams):
             else:
                 root = utils.newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            root = max(root, self._MIN_INJ_PRESSURE)
-            self.injection_well.overwrite_inlet_fluid_state_PT(P=root)
+            self.state.injection_well.update_inlet_fluid_state_PT(P=root)
             self.injection_well.execute(state=self.state.injection_well)
             self.reservoir.execute(state=self.state.reservoir)
             dP_reservoir = self.state.reservoir.get_del_pressure()
@@ -125,36 +118,36 @@ class SystemORCAdams(SystemAdams):
 
     def _update_production_well_pump(self) -> None:
         """Local iterations to update dP_pump in production well with pump"""
-        dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
-        if self.state.production_well_pump.dP_pump == 0. and dP_surface >= 0:
-            return # no pummping needed
+        dP_pump = self.state.production_well_pump.get_dP_pump()
+        dP_surface = self.state.surface.get_del_pressure()
+        if dP_pump == 0. and dP_surface >= 0:
+            return # no pummping needed----------
         x_lst, y_lst = [], []
         count = 0
         while np.abs(dP_surface) > self._CONVERGENCE_CRIT_DP_SURFACE:
             if self.max_itr_reached(count):
                 break
-            x_lst.append(copy.deepcopy(self.state.production_well_pump.dP_pump))
+            x_lst.append(copy.deepcopy(dP_pump))
             y_lst.append(dP_surface)
             if len(x_lst) == 1:  # first call
                 root = -1.0 * dP_surface
             else:
                 root = utils.newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            self.state.production_well_pump.dP_pump = min(max(root, 0.), self.production_well_pump.dP_pump_max)
-            self.production_well_pump.update_inlet_P(state=self.state.production_well_pump)
+            self.state.production_well_pump.set_dP_pump(root)
+            self.state.production_well_pump.update_inlet_fluid_state_with_pump()
             self.production_well_pump.update(state=self.state.production_well_pump)
             self.surface.overwrite_state_pipe(state=self.state.surface)
-            dP_surface = self.state.production_well_pump.outlet_fluid.P \
-                       - self.state.injection_well.inlet_fluid.P \
-                       - self.state.surface.dP_pipe
+            dP_pump = self.state.production_well_pump.get_dP_pump()
+            dP_surface = self.state.surface.get_del_pressure()
             count += 1
-        self.state.surface.w_downhole_pump = self.state.production_well_pump.w_pump
+        self.state.surface.w_downhole_pump = self.state.production_well_pump.get_w_pump()
 
 
     def _update_injection_well_inlet_T(self) -> None:
         """Local iterations to update temperature at injection well"""
-        dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
-        self.x_lst.append(copy.deepcopy(self.state.injection_well.inlet_fluid.T))
+        dT_surface = self.state.injection_well.get_del_temperature()
+        self.x_lst.append(copy.deepcopy(self.state.injection_well.get_inlet_temperature_tmp()))
         self.y_lst.append(dT_surface)
         if len(self.x_lst) == 1: # first call
             root = self.state.surface.outlet_fluid.T
@@ -163,16 +156,17 @@ class SystemORCAdams(SystemAdams):
                 root = utils.newton(self.x_lst, self.y_lst)
             except:
                 root= -1. # dummy
-            root = max(root, self._MIN_INJ_TEMPERATURE)
+            root = max(root, MIN_INJ_TEMPERATURE)
             self.x_lst.pop(0)
             self.y_lst.pop(0)
-        self.injection_well.overwrite_inlet_fluid_state_PT(T=root)
+        self.state.injection_well.update_inlet_fluid_state_PT(T=root)
+        self.state.injection_well.update_inlet_temperature_tmp()
 
 
     def balanced(self) -> bool:
         dP_reservoir = self.state.reservoir.get_del_pressure()
-        dP_surface = self.state.surface.inlet_fluid.P - self.state.injection_well.inlet_fluid.P - self.state.surface.dP_pipe
-        dT_surface = self.state.injection_well.inlet_fluid.T - self.state.surface.outlet_fluid.T
+        dP_surface = self.state.surface.get_del_pressure()
+        dT_surface = self.state.injection_well.get_del_temperature()
         if  np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR and \
             np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE and \
             np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE:

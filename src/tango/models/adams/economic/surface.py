@@ -72,8 +72,6 @@ class EconModelSurfacePowerPlant:
             raise ValueError(f"Surface cooling tower design: {design} is not supported")
 
     def set_constants(self) -> None:
-        # if self.specs.fluid_name == 'H2O': #TODO: check.
-        #     return
         if self.surface_model == None:
             return
 
