@@ -295,7 +295,7 @@ class SurfaceModelORCAdams(SurfaceModelAdams):
             div = dT_A_b / dT_B_b
             state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        state.outlet_fluid = FluidState.withPT(self.fluid_name, P=T_inlet, T=T_13)
+        state.outlet_fluid.updatePT(P=state.inlet_fluid.P, T=T_13)
 
 
     def init_state(self, state) -> None:

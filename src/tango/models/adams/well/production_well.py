@@ -9,21 +9,25 @@ import logging
 import numpy as np
 
 
-class ProductionWellStateAdams(WellState):
+class ProductionWellStateAdams(WellStateAdams):
     """The well state model"""
     def __init__(self) -> None:
-        WellState.__init__(self)
+        WellStateAdams.__init__(self)
 
 
 class ProductionWellModelAdams(WellModelAdams):
-    """The injection well model based on Adams et al. (2015)."""
+    """The production well model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         WellModelAdams.__init__(self, specs)
-        self.f_dir = 1.0 # upwards
-        self.set_well_mass_flow_rate()
+        self._f_dir = 1.0 # upwards
+        self._well_mass_flow_rate = self._compute_well_mass_flow_rate()
 
 
-    def set_well_mass_flow_rate(self) -> None:
-        self.well_mass_flow_rate = self.injector_mass_flow_rate # doublet
-        if self.specs.well_pattern == 'INVERTED_5SPOT':
-            self.well_mass_flow_rate = self.well_mass_flow_rate / 4.0 # 4=number of producers
+    def _compute_well_mass_flow_rate(self) -> float:
+        """compute production well mass flow rate per well"""
+        return self._injector_mass_flow_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self._injector_mass_flow_rate
+
+
+    def update_well_length(self, pump_well_length: float) -> None:
+        """sum up lengths of production well + pump well for economic calculation"""
+        self._well_length += pump_well_length

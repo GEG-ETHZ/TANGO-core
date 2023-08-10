@@ -59,7 +59,8 @@ class EconomicModelAdams(EconomicModel):
         inj_well_model = get_model_obj(d=self.model_dict, name='injection_well')
         prd_well_model = get_model_obj(d=self.model_dict, name='production_well')
         if 'production_well_pump' in self.model_dict.keys():
-            prd_well_model.well_length += self.model_dict['production_well_pump'].well_length
+            L = self.model_dict['production_well_pump'].get_well_length()
+            prd_well_model.update_well_length(pump_well_length=L)
         specs = utils.merge_object_dict(self.specs,
                                         dict={'PPI': self.PPI['O&G'],
                                               'multipliers': self.cost_mult['wells']})

@@ -9,18 +9,18 @@ from dataclasses import dataclass
 import numpy as np
 
 
-class InjectionWellStateAdams(WellState):
+class InjectionWellStateAdams(WellStateAdams):
     """The well state model"""
     def __init__(self) -> None:
-        WellState.__init__(self)
+        WellStateAdams.__init__(self)
 
 
 class InjectionWellModelAdams(WellModelAdams):
     """The injection well model based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
         WellModelAdams.__init__(self, specs)
-        self.well_mass_flow_rate = self.injector_mass_flow_rate
-        self.f_dir = -1.0 # downwards
+        self._well_mass_flow_rate = self._injector_mass_flow_rate
+        self._f_dir = -1.0 # downwards
 
 
     def overwrite_inlet_fluid_state_PT(self, P: float = None, T: float = None):

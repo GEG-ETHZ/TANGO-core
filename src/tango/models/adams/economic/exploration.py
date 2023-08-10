@@ -19,9 +19,9 @@ class EconModelExploration:
         # if self.specs.fluid_name != 'CO2':
         #     return 0
         num_wells = self.specs.num_characterization_wells
-        pos = self.well_econ_model.production_well.specs.probability_of_success
+        pos = self.well_econ_model.production_well.get_probability_of_success()
         C_characterization_well = self.well_econ_model.get_individual_well_cost(L=self.specs.reservoir_depth,
-                                                                                d=self.well_econ_model.production_well.specs.diameter,
+                                                                                d=self.well_econ_model.production_well.get_diameter(),
                                                                                 pos=1.0)
         return 0.2 * num_wells * C_characterization_well / pos
 
