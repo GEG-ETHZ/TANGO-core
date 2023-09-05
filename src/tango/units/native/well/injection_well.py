@@ -45,6 +45,7 @@ class InjectionWellUnitNative(WellUnitNative):
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0 # downwards
         self._set_mult()
+        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:

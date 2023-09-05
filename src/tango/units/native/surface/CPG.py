@@ -69,6 +69,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._set_mult()
         self._set_constants()
 
+        self.init_state()
+
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['surface']

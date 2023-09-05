@@ -109,7 +109,7 @@ class EconUnitSurfacePowerPlant:
             self.execute = self._execute_ORC
             self._process_surface_state = self._process_surface_state_ORC
         else:
-            raise ValueErrorr(f"Surface power plant time: {power_plant_type} is not supported.")
+            raise ValueError(f"Surface power plant time: {power_plant_type} is not supported.")
 
 
     def _process_surface_state_CPG(self) -> None:

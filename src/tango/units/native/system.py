@@ -17,7 +17,7 @@ def get_unit_class(type_: str, unit_name: str) -> object:
     try:
         return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
     except:
-        raise ValueErrorr(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
+        raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
 
 class SystemNative(System):
@@ -29,20 +29,13 @@ class SystemNative(System):
 
 
     def _process_specs(self) -> None:
-        # self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
         self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
-        # specs = dict()
-        # for id in self.graph.nodes:
-        #     node = self.graph.nodes[id]
-        #     specs[node['type']] = node['specs']
-        # specs['common'] = self.specs['props'] | self.specs['schedule']
-        # return specs
 
 
     def _set_node_object(self, node) -> None:
-        if getattr(self, f"{node['type']}_unit", None) != None:
+        if getattr(self.unit, f"{node['type']}", None) != None:
             if node['type'] not in MULTIPLE_UNIT_NODE_OPTIONS:  # check if multiple node with the same unit type
-                raise ValueErrorr(f"Multiple node type: {node['type']} is not supported.")
+                raise ValueError(f"Multiple node type: {node['type']} is not supported.")
         self.unit.add_unit(node['unit'], node['type'])
 
 
@@ -52,7 +45,6 @@ class SystemNative(System):
             node = self.graph.nodes[id]
             Unit = get_unit_class(node['type'], node['unit'])
             node['unit'] = Unit(id, self.specs)
-            node['unit'].init_state()
             self._set_node_object(node)
 
 
