@@ -21,6 +21,7 @@ class ProductionWellUnitNative(WellUnitNative):
         WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._f_dir = 1.0 # upwards
         self._well_mass_flow_rate = self._compute_well_mass_flow_rate()
+        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:

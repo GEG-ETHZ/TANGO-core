@@ -37,7 +37,7 @@ class SurfaceSpecsORCNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
         refrigerant_options = ['R600a', 'R245fa']
         if self.refrigerant not in refrigerant_options:
-            raise ValueErrorr(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
+            raise ValueError(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
 
 
 
@@ -99,6 +99,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._set_constants()
         self._set_max_boiling_temperature()
         self._set_lookup_tables()
+
+        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:
@@ -194,13 +196,13 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         T_boiling = self._get_value_from_table(x=T_inlet, col_name='T_boil_C') + C_TO_K
         dT_pinch = self._get_value_from_table(x=T_inlet, col_name='dT_pinch_C')
         if np.isnan(T_boiling):
-            raise ValueErrorr(f"Nan ORC T_boiling found.")
+            raise ValueError(f"Nan ORC T_boiling found.")
         if np.isnan(dT_pinch):
-            raise ValueErrorr(f"Nan ORC dT_pinch found.")
+            raise ValueError(f"Nan ORC dT_pinch found.")
         if T_boiling > self._ORC_fluid_state.Tcrit:
-            raise ValueErrorr(f"ORC T_boiling is greater than critical point.")
+            raise ValueError(f"ORC T_boiling is greater than critical point.")
         if dT_pinch < 0:
-            raise ValueErrorr(f"Negative ORC dT_pinch found.")
+            raise ValueError(f"Negative ORC dT_pinch found.")
         return T_boiling, dT_pinch
 
 

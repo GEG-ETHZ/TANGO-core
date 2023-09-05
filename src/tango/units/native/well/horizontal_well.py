@@ -25,6 +25,8 @@ class HorizontalWellUnitNative(WellUnitNative):
         self._dL = self._well_length / self._num_cells
         self._dz = self._dZ / self._num_cells
 
+        self.init_state()
+
 
     def _process_specs(self, id, specs) -> dict:
         if isinstance(specs['horizontal_well'], list): # multiple h_wells

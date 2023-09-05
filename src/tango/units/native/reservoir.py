@@ -85,6 +85,8 @@ class ReservoirUnitNative(UnitNative):
         self._initialize_mdot_mult()
         self._set_impedance_func()
 
+        self.init_state()
+
 
     def _process_specs(self, specs) -> dict:
         if 'well_eff_diameter' not in specs['reservoir']:

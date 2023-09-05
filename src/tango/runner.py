@@ -20,7 +20,7 @@ def get_workflow_class(type_: str) -> object:
     try:
         return eval(WORKFLOW_OPTIONS[type_])
     except:
-        raise ValueErrorr(f"workflow type: {type_} is not supported.")
+        raise ValueError(f"workflow type: {type_} is not supported.")
 
 
 class Runner:

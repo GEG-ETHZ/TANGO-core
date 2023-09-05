@@ -52,7 +52,7 @@ class EconomicSpecsNative(CommonSpecs):
             raise ValueError(f"Invalid 'well_pattern_dimens' found. Please input a list with two integer elements instead.")
         if self.well_pattern in ['DOUBLET', 'AGS']:
             if self.well_pattern_dimens[0] > 1 and self.well_pattern_dimens[1] > 1:
-                raise ValueErrorr(f"Multiple well_pattern: {self.well_pattern} is not supported")
+                raise ValueError(f"Multiple well_pattern: {self.well_pattern} is not supported")
 
 
 class EconomicStateNative(UnitStateNative):
@@ -77,7 +77,7 @@ class EconomicUnitNative(UnitNative):
             unit_name = self.specs['graph']['nodes'][key]['unit']
             unit_type = self.specs['graph']['nodes'][key]['type']
             if unit_name.lower() not in UNIT_OPTIONS_FOR_ECONUNIT['native'][unit_type]:
-                raise ValueErrorr(f"Unit type: {_type} (node_id='{key}') is not supported.")
+                raise ValueError(f"Unit type: {_type} (node_id='{key}') is not supported.")
 
 
     def _process_specs(self, nodes) -> dict:

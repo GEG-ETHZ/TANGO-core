@@ -47,13 +47,14 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
     """The production well unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict):
         ProductionWellUnitNative.__init__(self, id, specs)
+        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:
         if 'production_well' not in specs:
             raise RuntimeError(f"Required unit when using unit: 'production_well' is not found.")
         if specs['production_well_pump']['well_length'] > specs['production_well']['well_length']:
-            raise ValueErrorr(f"Unrealistic value found: 'well_length' of 'production_well_pump' is greater than production well length")
+            raise ValueError(f"Unrealistic value found: 'well_length' of 'production_well_pump' is greater than production well length")
         return specs['common'] | specs['production_well_pump']
 
 

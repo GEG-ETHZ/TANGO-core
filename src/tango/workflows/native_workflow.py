@@ -15,14 +15,14 @@ def get_system_class(type_: str) -> object:
     try:
         return eval(SYSTEM_OPTIONS[type_.lower()])
     except:
-        raise ValueErrorr(f"System type: {type_} is not supported.")
+        raise ValueError(f"System type: {type_} is not supported.")
 
 
 def get_unit_class(type_: str, unit_name: str) -> object:
     try:
         return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
     except:
-        raise ValueErrorr(f"Unit type: {type_} is not supported.")
+        raise ValueError(f"Unit type: {type_} is not supported.")
 
 
 
