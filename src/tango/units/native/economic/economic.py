@@ -32,7 +32,7 @@ def merge_object_dict(obj, dict) -> object:
 class EconomicSpecsNative(CommonSpecs):
     project_maturity: str = None
     type: str = ''
-    PPI_table: str = 'PPI_table.xlsx'
+    PPI_table: str = 'PPI_Table.xlsx'
     cost_multiplier_table: str = 'cost_multiplier_table.xlsx'
     OPEX_cost_fraction: float = 0.045 # Operation and maintainance (O&M) (or OPEX) fraction (=C_O&M / C_geothermal_plant)
     discount_rate: float = 0.096
