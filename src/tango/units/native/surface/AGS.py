@@ -3,8 +3,8 @@ import logging
 
 from tango.core.config import *
 from tango.core import FluidState
-from tango.models.native.common import CommonSpecs
-from tango.models.native.surface.base import *
+from tango.units.native.common import CommonSpecs
+from tango.units.native.surface.base import *
 from dataclasses import dataclass
 
 
@@ -20,8 +20,8 @@ class SurfaceStateAGSNative(SurfaceState):
         self.outlet_fluid_state: FluidState
 
 
-class SurfaceModelAGSNative(SurfaceModelNative):
+class SurfaceUnitAGSNative(SurfaceUnitNative):
 
     def __init__(self, specs: dict):
-        SurfaceModelNative.__init__(self, specs)
+        SurfaceUnitNative.__init__(self, specs)
         self.specs = SurfaceSpecsCPGNative.from_dict(specs)

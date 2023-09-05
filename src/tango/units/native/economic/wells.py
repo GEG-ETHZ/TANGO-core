@@ -1,23 +1,23 @@
-class EconModelWells:
+class EconUnitWells:
 
     def __init__(self,
                  specs: dict,
-                 model_dict: dict):
+                 unit_dict: dict):
         self._specs = specs
         self._PPI = self._specs.PPI
         self._X_IC, self._X_PC = specs.multipliers
-        self._set_model_objects(model_dict)
+        self._set_unit_objects(unit_dict)
         self._initialize_production_well_length()
 
 
-    def _set_model_objects(self, model_dict) -> None:
-        well_model_names = ['injection_well', 'production_well', 'production_well_pump', 'horizontal_well']
-        for name in well_model_names:
-            if name in model_dict.keys():
+    def _set_unit_objects(self, unit_dict) -> None:
+        well_unit_names = ['injection_well', 'production_well', 'production_well_pump', 'horizontal_well']
+        for name in well_unit_names:
+            if name in unit_dict.keys():
                 if name == 'horizontal_well':
-                    setattr(self, name, model_dict[name])
+                    setattr(self, name, unit_dict[name])
                 else:
-                    setattr(self, name, model_dict[name][0])
+                    setattr(self, name, unit_dict[name][0])
             else:
                 setattr(self, name, None)
 
@@ -56,22 +56,22 @@ class EconModelWells:
     def _compute_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
         if well_type == 'injection_well' and self._specs.project_maturity == 'BROWN_FIELD':
             return 0
-        well_model = getattr(self, well_type, None)
-        if well_model == None:
+        well_unit = getattr(self, well_type, None)
+        if well_unit == None:
             return 0.
         if well_type == 'horizontal_well':
             self._specs.horizontal_well_cost_multiplier = 1.0
             val = 0.
-            for h_well_model in well_model:
-                val += self.compute_individual_well_cost(L=h_well_model.get_well_length(),
-                                                         d=h_well_model.get_diameter(),
-                                                         pos=h_well_model.get_probability_of_success(),
+            for h_well_unit in well_unit:
+                val += self.compute_individual_well_cost(L=h_well_unit.get_well_length(),
+                                                         d=h_well_unit.get_diameter(),
+                                                         pos=h_well_unit.get_probability_of_success(),
                                                          fluid_name=self._specs.fluid_name)
             return num_wells * self._specs.horizontal_well_cost_multiplier * val
         else:
-            return num_wells * self.compute_individual_well_cost(L=well_model.get_well_length(),
-                                                                 d=well_model.get_diameter(),
-                                                                 pos=well_model.get_probability_of_success(),
+            return num_wells * self.compute_individual_well_cost(L=well_unit.get_well_length(),
+                                                                 d=well_unit.get_diameter(),
+                                                                 pos=well_unit.get_probability_of_success(),
                                                                  fluid_name=self._specs.fluid_name)
 
 

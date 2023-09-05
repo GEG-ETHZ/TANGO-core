@@ -4,17 +4,17 @@ SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
                   'native_orc': 'SystemORCNative'}
 
-MODEL_OPTIONS = {'surface': {'native_cpg': 'SurfaceModelCPGNative',
-                             'native_orc': 'SurfaceModelORCNative'},
-                 'injection_well': {'native': 'InjectionWellModelNative'},
-                 'production_well': {'native': 'ProductionWellModelNative'},
-                 'horizontal_well': {'native': 'HorizontalWellModelNative'},
-                 'production_well_pump': {'native': 'ProductionWellPumpModelNative'},
-                 'reservoir': {'native': 'ReservoirModelNative'},
+UNIT_OPTIONS = {'surface': {'native_cpg': 'SurfaceUnitCPGNative',
+                             'native_orc': 'SurfaceUnitORCNative'},
+                 'injection_well': {'native': 'InjectionWellUnitNative'},
+                 'production_well': {'native': 'ProductionWellUnitNative'},
+                 'horizontal_well': {'native': 'HorizontalWellUnitNative'},
+                 'production_well_pump': {'native': 'ProductionWellPumpUnitNative'},
+                 'reservoir': {'native': 'ReservoirUnitNative'},
                  'stream': {'native': 'StreamNative'},
-                 'economic': {'native': 'EconomicModelNative'}} # {'node_type_name': 'ModelClassName'}
+                 'economic': {'native': 'EconomicUnitNative'}} # {'node_type_name': 'UnitClassName'}
 
-MODEL_STATE_OPTIONS = {'surface': {'native_cpg': 'SurfaceStateCPGNative',
+UNIT_STATE_OPTIONS = {'surface': {'native_cpg': 'SurfaceStateCPGNative',
                                    'native_orc': 'SurfaceStateORCNative'},
                        'injection_well': {'native': 'InjectionWellStateNative'},
                        'production_well': {'native': 'ProductionWellStateNative'},
@@ -22,20 +22,21 @@ MODEL_STATE_OPTIONS = {'surface': {'native_cpg': 'SurfaceStateCPGNative',
                        'production_well_pump': {'native': 'ProductionWellPumpStateNative'},
                        'reservoir': {'native': 'ReservoirStateNative'},
                        'stream': {'native': 'StreamStateNative'},
-                       'economic': {'native': 'EconomicStateNative'}} # {'node_type_name': 'ModelStateClassName'}
+                       'economic': {'native': 'EconomicStateNative'}} # {'node_type_name': 'UnitStateClassName'}
 
-MODEL_OPTIONS_FOR_ECONMODEL = { 'native': {
+UNIT_OPTIONS_FOR_ECONUNIT = { 'native':
+                                {
                                            'surface': ['native_cpg', 'native_orc'],
                                            'injection_well': ['native'],
                                            'production_well': ['native'],
                                            'production_well_pump': ['native'],
                                            'horizontal_well': ['native'],
                                            'reservoir': ['native']
-                                          }
-                              }
+                                }
+                            }
 
 
-MULTIPLE_MODEL_NODE_OPTIONS = ['horizontal_well']
+MULTIPLE_UNIT_NODE_OPTIONS = ['horizontal_well']
 
 MAP_FLUIDNAME_TO_SURFACE_DESIGN = {'CO2': 'CPG', 'H2O': 'ORC'}
 

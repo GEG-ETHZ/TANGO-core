@@ -9,7 +9,7 @@ from tango.core.abstracts.workflow import *
 from tango.core.constants import *
 from tango.core.config import *
 from tango import utils
-from tango.models.native import *
+from tango.units.native import *
 
 def get_system_class(type_: str) -> object:
     try:
@@ -18,11 +18,11 @@ def get_system_class(type_: str) -> object:
         raise ValueErrorr(f"System type: {type_} is not supported.")
 
 
-def get_model_class(type_: str, model_name: str) -> object:
+def get_unit_class(type_: str, unit_name: str) -> object:
     try:
-        return eval(MODEL_OPTIONS[type_.lower()][model_name.lower()])
+        return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
     except:
-        raise ValueErrorr(f"Model type: {type_} is not supported.")
+        raise ValueErrorr(f"Unit type: {type_} is not supported.")
 
 
 
@@ -40,19 +40,19 @@ class NativeWorkflow(Workflow):
 
     def _init_system(self) -> None:
         """
-            initialize physical system - a collection of compte nodes (models) and their connections
+            initialize physical system - a collection of compte nodes (units) and their connections
             system takes care of 'techno (physics)' part of TANGO computations
         """
         System = get_system_class(utils.system_name(self.specs))
         self.system = System(self.specs)
 
 
-    def _init_econ_model(self) -> None:
-        """initialize econ model, if applicable"""
+    def _init_econ_unit(self) -> None:
+        """initialize econ unit, if applicable"""
         self.economic = None
         if 'economic' in self.specs:
-            Model = get_model_class(type_='economic', model_name=self.specs['economic']['type'])
-            self.economic = Model(specs=self.specs, nodes=self.system.graph.nodes)
+            Unit = get_unit_class(type_='economic', unit_name=self.specs['economic']['type'])
+            self.economic = Unit(specs=self.specs, nodes=self.system.graph.nodes)
 
 
     def _solve(self) -> None:
@@ -84,7 +84,7 @@ class NativeWorkflow(Workflow):
 
     def initialize(self) -> None:
         self._init_system()
-        self._init_econ_model()
+        self._init_econ_unit()
 
 
     def execute(self) -> None:

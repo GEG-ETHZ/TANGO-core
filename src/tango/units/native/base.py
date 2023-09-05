@@ -1,8 +1,8 @@
-from tango.core.abstracts.model import *
+from tango.core.abstracts.unit import *
 from tango.core import FluidState
 
 
-class ModelStateNative(ModelState):
+class UnitStateNative(UnitState):
 
     def __init__(self):
         self.mass_rate: float = 0.0
@@ -10,7 +10,7 @@ class ModelStateNative(ModelState):
         self.outlet_fluid: FluidState
 
 
-class ModelNative(Model):
+class UnitNative(Unit):
 
     def __init__(self, specs) -> None:
         super().__init__(specs)

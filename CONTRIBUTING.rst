@@ -1,7 +1,7 @@
 .. todo:: THIS IS SUPPOSED TO BE AN EXAMPLE. MODIFY IT ACCORDING TO YOUR NEEDS!
 
    The document assumes you are using a source repository service that promotes a
-   contribution model similar to `GitHub's fork and pull request workflow`_.
+   contribution unit similar to `GitHub's fork and pull request workflow`_.
    While this is true for the majority of services (like GitHub, GitLab,
    BitBucket), it might not be the case for private repositories (e.g., when
    using Gerrit).

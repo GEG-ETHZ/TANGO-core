@@ -1,13 +1,13 @@
-class EconModelPermitting:
+class EconUnitPermitting:
 
     def __init__(self,
                  specs: dict,
-                 well_econ_model: object):
+                 well_econ_unit: object):
         self._specs = specs
         self._PPI_permitting = self._specs.PPI_permitting
         self._PPI_OnGs = self._specs.PPI_OnGs
         self._X_IC, self._X_PC = self._specs.multipliers
-        self._well_econ_model = well_econ_model
+        self._well_econ_unit = well_econ_unit
 
 
     def _compute_dCO2_permitting(self) -> float:
@@ -26,7 +26,7 @@ class EconModelPermitting:
         PPI = self._PPI_OnGs
         AMA = self._specs.active_monitoring_area
         C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * AMA
-        C_monitoring_well = self._specs.num_patterns * self._well_econ_model.compute_individual_well_cost(d=self._specs.monitoring_well_diameter,
+        C_monitoring_well = self._specs.num_patterns * self._well_econ_unit.compute_individual_well_cost(d=self._specs.monitoring_well_diameter,
                                                                                                           pos=self._specs.monitoring_well_probability_of_success)
         return C_surface_monitoring + C_monitoring_well
 

@@ -5,19 +5,19 @@ import numpy as np
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import GRAVITY_ACCELERATION
-from tango.models.native.well.base import *
+from tango.units.native.well.base import *
 
 
 class HorizontalWellStateNative(WellStateNative):
-    """The well state model"""
+    """The well state unit"""
     def __init__(self) -> None:
         WellStateNative.__init__(self)
 
 
-class HorizontalWellModelNative(WellModelNative):
+class HorizontalWellUnitNative(WellUnitNative):
 
     def __init__(self, specs: dict):
-        WellModelNative.__init__(self, specs=self._process_specs(specs))
+        WellUnitNative.__init__(self, specs=self._process_specs(specs))
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0
 

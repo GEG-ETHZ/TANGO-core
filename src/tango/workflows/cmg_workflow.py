@@ -11,4 +11,4 @@ class CMGWorkflow(Workflow): #TODO: Implement
 
         # run CMG
 
-        # run economic model
+        # run economic unit

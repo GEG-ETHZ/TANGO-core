@@ -1,7 +1,7 @@
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import *
-from tango.models.native.well.base import *
+from tango.units.native.well.base import *
 
 import copy
 import logging
@@ -10,7 +10,7 @@ import numpy as np
 
 
 class InjectionWellStateNative(WellStateNative):
-    """The well state model"""
+    """The well state unit"""
     def __init__(self) -> None:
         WellStateNative.__init__(self)
         self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
@@ -38,10 +38,10 @@ class InjectionWellStateNative(WellStateNative):
         self.inlet_fluid.updatePT(P, T)
 
 
-class InjectionWellModelNative(WellModelNative):
-    """The injection well model based on Adams et al. (2015)."""
+class InjectionWellUnitNative(WellUnitNative):
+    """The injection well unit based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        WellModelNative.__init__(self, specs=self._process_specs(specs))
+        WellUnitNative.__init__(self, specs=self._process_specs(specs))
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0 # downwards
         self._set_mult()

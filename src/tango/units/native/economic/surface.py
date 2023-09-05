@@ -1,15 +1,15 @@
 import numpy as np
 
 
-class EconModelSurfacePipes:
+class EconUnitSurfacePipes:
 
     def __init__(self,
                  specs: dict,
-                 model: object):
+                 unit: object):
         self._specs = specs
         self._PPI = self._specs.PPI
         self._X_IC, self._X_PC = self._specs.multipliers
-        self._surface_model = model
+        self._surface_unit = unit
 
     def _compute_surface_pipe_total_length(self) -> float:
         L_single_pair = self._specs.well_spacing  # single inj-prod pair
@@ -21,27 +21,27 @@ class EconModelSurfacePipes:
             raise ValueErrortedError(f"well_pattern: {self._specs.well_pattern} is not supported")
 
     def execute(self) -> float:
-        if self._surface_model == None:
+        if self._surface_unit == None:
             return 0
         L = self._compute_surface_pipe_total_length()
-        D = self._surface_model.specs.pipe_diameter
+        D = self._surface_unit.specs.pipe_diameter
         return self._X_PC * self._X_IC * self._PPI * (2205. * D ** 2 + 134.) * L
 
 
-class EconModelSurfacePowerPlant:
+class EconUnitSurfacePowerPlant:
 
     def __init__(self,
                  specs: dict,
-                 model: object):
+                 unit: object):
         self._specs = specs
         self._PPI_PE = self._specs.PPI_PE
         self._PPI_pump = self._specs.PPI_pump
         self._PPI_TG = self._specs.PPI_TG
         self._PPI_HX = self._specs.PPI_HX
         self._X_IC, self._X_PC = self._specs.multipliers
-        self._surface_model = model
+        self._surface_unit = unit
         self._initialize_constants()
-        self._initialize_models()
+        self._initialize_units()
 
 
     def _get_turbine_cost_multiplier(self) -> float:
@@ -59,7 +59,7 @@ class EconModelSurfacePowerPlant:
     def _get_tower_design_coefficient(self) -> float:
         if self._specs.fluid_name == 'H2O':
             return 1.0
-        design = self._surface_model.specs.cooling_tower_design.upper()
+        design = self._surface_unit.specs.cooling_tower_design.upper()
         if design == 'CLOSED':
             if self._specs.fluid_name == 'CO2':
                 return 1.2
@@ -76,16 +76,16 @@ class EconModelSurfacePowerPlant:
 
 
     def _initialize_constants(self) -> None:
-        if self._surface_model == None:
+        if self._surface_unit == None:
             return
 
-        self._surface_pipe_diameter = self._surface_model.specs.pipe_diameter
-        self._surface_ambient_temperature = self._surface_model.specs.surface_temperature
-        self._surface_approach_temperature = self._surface_model.specs.approach_temperature
-        self._surface_temperature_range = self._surface_model.specs.temperature_range
-        self._surface_cooling_tower_mode = self._surface_model.specs.cooling_mode
+        self._surface_pipe_diameter = self._surface_unit.specs.pipe_diameter
+        self._surface_ambient_temperature = self._surface_unit.specs.surface_temperature
+        self._surface_approach_temperature = self._surface_unit.specs.approach_temperature
+        self._surface_temperature_range = self._surface_unit.specs.temperature_range
+        self._surface_cooling_tower_mode = self._surface_unit.specs.cooling_mode
 
-        # coefficients for BAC regression models
+        # coefficients for BAC regression units
         if self._surface_cooling_tower_mode == 'WET':
             self._coeffs_cooling = [5.58e3, 0., -1.77e1, 1.96e2]
             self._coeffs_condensing = [4.08e3, -1.54e-2, -1.24e1, 0.]
@@ -98,10 +98,10 @@ class EconModelSurfacePowerPlant:
         self._tower_design_coefficient = self._get_tower_design_coefficient()
 
 
-    def _initialize_models(self) -> None:
-        if self._surface_model == None:
+    def _initialize_units(self) -> None:
+        if self._surface_unit == None:
             return
-        power_plant_type = str(self._surface_model.__module__).split('.')[-1]
+        power_plant_type = str(self._surface_unit.__module__).split('.')[-1]
         if power_plant_type == 'CPG':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
@@ -201,7 +201,7 @@ class EconModelSurfacePowerPlant:
 
     def _execute_CPG(self, state) -> float:
 
-        if self._surface_model == None:
+        if self._surface_unit == None:
             return 0.
 
         X_SE = 1.39  # secondary equipment cost (control system, pumps, valuves, buildings, etc.)
@@ -256,7 +256,7 @@ class EconModelSurfacePowerPlant:
 
     def _execute_ORC(self, state) -> float:
 
-        if self._surface_model == None:
+        if self._surface_unit == None:
             return 0.
 
         X_SE = 1.39  # secondary equipment cost (control system, pumps, valuves, buildings, etc.)

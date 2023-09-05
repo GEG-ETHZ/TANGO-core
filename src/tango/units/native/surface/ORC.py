@@ -1,8 +1,8 @@
 from tango.core.constants import *
 from tango.core.config import *
 from tango.core import FluidState
-from tango.models.native.common import CommonSpecs
-from tango.models.native.surface.base import *
+from tango.units.native.common import CommonSpecs
+from tango.units.native.surface.base import *
 from tango import utils
 from dataclasses import dataclass
 
@@ -84,11 +84,11 @@ class SurfaceStateORCNative(SurfaceState):
         return self.inlet_fluid.P - self.outlet_fluid.P - self.dP_pipe
 
 
-class SurfaceModelORCNative(SurfaceModelNative):
-    """The power plant model based on Adams et al. (2015)."""
+class SurfaceUnitORCNative(SurfaceUnitNative):
+    """The power plant unit based on Adams et al. (2015)."""
 
     def __init__(self, specs: dict):
-        SurfaceModelNative.__init__(self, specs)
+        SurfaceUnitNative.__init__(self, specs)
         self.specs = SurfaceSpecsORCNative.from_dict(self._process_specs(specs))
         self._fluid_name = self.specs.fluid_name
         self._refrigerant_name = self.specs.refrigerant
