@@ -40,8 +40,8 @@ class InjectionWellStateNative(WellStateNative):
 
 class InjectionWellUnitNative(WellUnitNative):
     """The injection well unit based on Adams et al. (2015)."""
-    def __init__(self, specs: dict):
-        WellUnitNative.__init__(self, specs=self._process_specs(specs))
+    def __init__(self, id: str, specs: dict):
+        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0 # downwards
         self._set_mult()

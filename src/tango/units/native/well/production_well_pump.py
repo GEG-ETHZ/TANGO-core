@@ -45,8 +45,8 @@ class ProductionWellPumpStateNative(WellStateNative):
 
 class ProductionWellPumpUnitNative(ProductionWellUnitNative):
     """The production well unit based on Adams et al. (2015)."""
-    def __init__(self, specs: dict):
-        ProductionWellUnitNative.__init__(self, specs)
+    def __init__(self, id: str, specs: dict):
+        ProductionWellUnitNative.__init__(self, id, specs)
 
 
     def _process_specs(self, specs) -> dict:

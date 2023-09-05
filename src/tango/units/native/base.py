@@ -12,8 +12,8 @@ class UnitStateNative(UnitState):
 
 class UnitNative(Unit):
 
-    def __init__(self, specs) -> None:
-        super().__init__(specs)
+    def __init__(self, id, specs) -> None:
+        super().__init__(id, specs)
         self.inlet_streams = list()
         self.outlet_streams = list()
 

@@ -56,8 +56,8 @@ class WellStateNative(UnitStateNative):
 
 class WellUnitNative(UnitNative):
     """The well unit based on Adams et al. (2015)."""
-    def __init__(self, specs: dict):
-        super().__init__(specs)
+    def __init__(self, id: str, specs: dict):
+        super().__init__(id, specs)
         self._specs = WellSpecsNative.from_dict(specs)
 
         # geometric parameters

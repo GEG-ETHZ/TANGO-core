@@ -87,8 +87,8 @@ class SurfaceStateORCNative(SurfaceState):
 class SurfaceUnitORCNative(SurfaceUnitNative):
     """The power plant unit based on Adams et al. (2015)."""
 
-    def __init__(self, specs: dict):
-        SurfaceUnitNative.__init__(self, specs)
+    def __init__(self, id: str, specs: dict):
+        SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsORCNative.from_dict(self._process_specs(specs))
         self._fluid_name = self.specs.fluid_name
         self._refrigerant_name = self.specs.refrigerant

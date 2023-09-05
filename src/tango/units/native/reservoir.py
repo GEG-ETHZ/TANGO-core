@@ -64,8 +64,8 @@ class ReservoirStateNative(UnitStateNative):
 
 class ReservoirUnitNative(UnitNative):
     """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
-    def __init__(self, specs: dict) -> None:
-        super().__init__(specs)
+    def __init__(self, id: str, specs: dict) -> None:
+        super().__init__(id, specs)
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self.fluid_name = self.specs.fluid_name
         self.well_pattern = self.specs.well_pattern.upper()

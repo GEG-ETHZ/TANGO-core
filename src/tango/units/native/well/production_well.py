@@ -17,8 +17,8 @@ class ProductionWellStateNative(WellStateNative):
 
 class ProductionWellUnitNative(WellUnitNative):
     """The production well unit based on Adams et al. (2015)."""
-    def __init__(self, specs: dict):
-        WellUnitNative.__init__(self, specs=self._process_specs(specs))
+    def __init__(self, id: str, specs: dict):
+        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._f_dir = 1.0 # upwards
         self._well_mass_flow_rate = self._compute_well_mass_flow_rate()
 

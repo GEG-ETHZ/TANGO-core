@@ -22,6 +22,6 @@ class SurfaceStateAGSNative(SurfaceState):
 
 class SurfaceUnitAGSNative(SurfaceUnitNative):
 
-    def __init__(self, specs: dict):
-        SurfaceUnitNative.__init__(self, specs)
+    def __init__(self, id: str, specs: dict):
+        SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsCPGNative.from_dict(specs)

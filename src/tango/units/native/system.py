@@ -28,13 +28,15 @@ class SystemNative(System):
         self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
 
-    def _process_specs(self) -> dict:
-        specs = dict()
-        for id in self.graph.nodes:
-            node = self.graph.nodes[id]
-            specs[node['type']] = node['specs']
-        specs['common'] = self.specs['graph']['specs'] | self.specs['schedule']
-        return specs
+    def _process_specs(self) -> None:
+        # self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
+        self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
+        # specs = dict()
+        # for id in self.graph.nodes:
+        #     node = self.graph.nodes[id]
+        #     specs[node['type']] = node['specs']
+        # specs['common'] = self.specs['props'] | self.specs['schedule']
+        # return specs
 
 
     def _set_node_object(self, node) -> None:
@@ -45,11 +47,11 @@ class SystemNative(System):
 
 
     def _init_nodes(self) -> None:
-        specs = self._process_specs()
+        self._process_specs()
         for id in self.graph.nodes:
             node = self.graph.nodes[id]
             Unit = get_unit_class(node['type'], node['unit'])
-            node['unit'] = Unit(specs)
+            node['unit'] = Unit(id, self.specs)
             node['unit'].init_state()
             self._set_node_object(node)
 
@@ -96,8 +98,7 @@ class SystemNative(System):
     def execute(self) -> None: #TODO: update for one-multiple connections (traverse graph)
         """execute a series of units accosiated with compute nodes within the system"""
         for id in self.graph.nodes:
-            node = self.graph.nodes[id]
-            node['unit'].execute()
+            self.graph.nodes[id]['unit'].execute()
 
 
 class SystemCPGNative(SystemNative):
