@@ -4,34 +4,87 @@ SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
                   'native_orc': 'SystemORCNative'}
 
-UNIT_OPTIONS = {'surface': {'native_cpg': 'SurfaceUnitCPGNative',
-                             'native_orc': 'SurfaceUnitORCNative'},
-                 'injection_well': {'native': 'InjectionWellUnitNative'},
-                 'production_well': {'native': 'ProductionWellUnitNative'},
-                 'horizontal_well': {'native': 'HorizontalWellUnitNative'},
-                 'production_well_pump': {'native': 'ProductionWellPumpUnitNative'},
-                 'reservoir': {'native': 'ReservoirUnitNative'},
-                 'stream': {'native': 'StreamNative'},
-                 'economic': {'native': 'EconomicUnitNative'}} # {'node_type_name': 'UnitClassName'}
+UNIT_OPTIONS = {
+                    'surface':
+                        {
+                            'native_cpg': 'SurfaceUnitCPGNative',
+                            'native_orc': 'SurfaceUnitORCNative'
+                        },
+                    'injection_well':
+                        {
+                            'native': 'InjectionWellUnitNative'
+                        },
+                    'production_well':
+                        {
+                        'native': 'ProductionWellUnitNative'
+                        },
+                    'horizontal_well':
+                        {
+                            'native': 'HorizontalWellUnitNative'
+                        },
+                    'production_well_pump':
+                        {
+                            'native': 'ProductionWellPumpUnitNative'
+                        },
+                    'reservoir':
+                        {
+                            'native': 'ReservoirUnitNative'
+                        },
+                    'stream':
+                        {
+                            'native': 'StreamNative'
+                        },
+                    'economic':
+                        {
+                            'native': 'EconomicUnitNative'
+                        }
+                } # {'node_type_name': 'UnitClassName'}
 
-UNIT_STATE_OPTIONS = {'surface': {'native_cpg': 'SurfaceStateCPGNative',
-                                   'native_orc': 'SurfaceStateORCNative'},
-                       'injection_well': {'native': 'InjectionWellStateNative'},
-                       'production_well': {'native': 'ProductionWellStateNative'},
-                       'horizontal_well': {'native': 'HorizontalWellStateNative'},
-                       'production_well_pump': {'native': 'ProductionWellPumpStateNative'},
-                       'reservoir': {'native': 'ReservoirStateNative'},
-                       'stream': {'native': 'StreamStateNative'},
-                       'economic': {'native': 'EconomicStateNative'}} # {'node_type_name': 'UnitStateClassName'}
+UNIT_STATE_OPTIONS = {
+                        'surface':
+                            {
+                                'native_cpg': 'SurfaceStateCPGNative',
+                                'native_orc': 'SurfaceStateORCNative'
+                            },
+                       'injection_well':
+                           {
+                               'native': 'InjectionWellStateNative'
+                           },
+                       'production_well':
+                           {
+                               'native': 'ProductionWellStateNative'
+                           },
+                       'horizontal_well':
+                           {
+                               'native': 'HorizontalWellStateNative'
+                           },
+                       'production_well_pump':
+                           {
+                               'native': 'ProductionWellPumpStateNative'
+                           },
+                       'reservoir':
+                           {
+                               'native': 'ReservoirStateNative'
+                           },
+                       'stream':
+                           {
+                               'native': 'StreamStateNative'
+                           },
+                       'economic':
+                           {
+                               'native': 'EconomicStateNative'
+                           }
+                     } # {'node_type_name': 'UnitStateClassName'}
 
-UNIT_OPTIONS_FOR_ECONUNIT = { 'native':
+UNIT_OPTIONS_FOR_ECONUNIT = {
+                            'native':
                                 {
-                                           'surface': ['native_cpg', 'native_orc'],
-                                           'injection_well': ['native'],
-                                           'production_well': ['native'],
-                                           'production_well_pump': ['native'],
-                                           'horizontal_well': ['native'],
-                                           'reservoir': ['native']
+                                    'surface': ['native_cpg', 'native_orc'],
+                                    'injection_well': ['native'],
+                                    'production_well': ['native'],
+                                    'production_well_pump': ['native'],
+                                    'horizontal_well': ['native'],
+                                    'reservoir': ['native']
                                 }
                             }
 
