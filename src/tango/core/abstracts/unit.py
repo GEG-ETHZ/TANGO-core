@@ -16,7 +16,8 @@ class UnitState(ABC):
 
 class Unit(ABC):
 
-    def __init__(self, specs) -> None:
+    def __init__(self, id, specs) -> None:
+        self.id = id
         self.specs = specs
 
 

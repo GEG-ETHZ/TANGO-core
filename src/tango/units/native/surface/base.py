@@ -10,8 +10,8 @@ class SurfaceState(UnitStateNative):
 
 class SurfaceUnitNative(UnitNative):
     """The power plant unit based on Adams et al. (2015)."""
-    def __init__(self, specs):
-        super().__init__(specs)
+    def __init__(self, id, specs):
+        super().__init__(id, specs)
 
 
 

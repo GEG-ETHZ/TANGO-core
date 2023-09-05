@@ -64,7 +64,7 @@ class EconomicStateNative(UnitStateNative):
 class EconomicUnitNative(UnitNative):
 
     def __init__(self, specs: dict, nodes) -> None:
-        super().__init__(specs)
+        super().__init__('econ', specs)
         self._compatibility_check()
         self._process_specs(nodes)
         self._set_unit_dict(nodes)
@@ -81,9 +81,7 @@ class EconomicUnitNative(UnitNative):
 
 
     def _process_specs(self, nodes) -> dict:
-        self.specs = EconomicSpecsNative.from_dict(self.specs['graph']['specs'] | \
-                                                   self.specs['schedule'] | \
-                                                   self.specs['economic'])
+        self.specs = EconomicSpecsNative.from_dict(self.specs['common'] | self.specs['economic'])
 
 
     def _set_unit_dict(self, nodes) -> None:
@@ -188,7 +186,7 @@ class EconomicUnitNative(UnitNative):
 
 
     def get_active_monitoring_area(self) -> float:
-        if self.specs.fluid_name != 'CO2' or self.specs.well_pattern == 'AGS': #TODO: check.
+        if self.specs.fluid_name != 'CO2' or self.specs.well_pattern == 'AGS':
             return 0.
         NX, NY = self.specs.well_pattern_dimens
         if self.specs.well_pattern == 'DOUBLET':

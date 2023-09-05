@@ -16,8 +16,8 @@ class HorizontalWellStateNative(WellStateNative):
 
 class HorizontalWellUnitNative(WellUnitNative):
 
-    def __init__(self, specs: dict):
-        WellUnitNative.__init__(self, specs=self._process_specs(specs))
+    def __init__(self, id, specs: dict):
+        WellUnitNative.__init__(self, id, specs=self._process_specs(id, specs))
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0
 
@@ -26,9 +26,22 @@ class HorizontalWellUnitNative(WellUnitNative):
         self._dz = self._dZ / self._num_cells
 
 
-    def _process_specs(self, specs) -> dict:
+    def _process_specs(self, id, specs) -> dict:
+        if isinstance(specs['horizontal_well'], list): # multiple h_wells
+            specs_tmp = copy.deepcopy(specs)
+            specs = dict()
+            specs['common'] = specs_tmp['common']
+            specs['horizontal_well'] = None
+            for d in specs_tmp['horizontal_well']:
+                if id in d.keys():
+                    specs['horizontal_well'] = d[id]
+                    break
+            if specs['horizontal_well'] == None:
+                raise RuntimeError(f"Failed to read horizontal_well specs for id: {id}")
         if 'wellhead_depth' not in specs['horizontal_well']:
             raise RuntimeError(f"Required parameter 'wellhead_depth' is not found in specs")
+        if np.abs(specs['common']['well_spacing'] - specs['horizontal_well']['well_length']) < 1e-5:
+            logging.warning("Inconsistent well_spacing and horizontal_well length found.")
         return specs['common'] | specs['horizontal_well']
 
 
