@@ -17,16 +17,16 @@ graph:
     surface_temperature: 288.15  # K
     surface_pressure: 100_000  # Pa
   nodes:
-    # compute nodes. each consists of a model and its state
+    # compute nodes. each consists of a unit and its state
     inj_1: # unique id
       type: 'injection_well'
-      model: 'native'
+      unit: 'native'
       specs:
         well_length: 2500. # m
         diameter: 0.410 # m
     h_well:
       type: 'horizontal_well'
-      model: 'native'
+      unit: 'native'
       specs:
         wellhead_depth: 2500. # m
         well_length: 2500. # m
@@ -34,13 +34,13 @@ graph:
         vertical_deviation: 90 # deg
     prd_1:
       type: 'production_well'
-      model: 'native'
+      unit: 'native'
       specs:
         well_length: 2500. # m
         diameter: 0.410 # m
     surface:
       type: 'surface'
-      model: 'native_CPG'
+      unit: 'native_CPG'
       specs:
         pipe_diameter: 0.41 # m
         approach_temperature: 7.0  # K

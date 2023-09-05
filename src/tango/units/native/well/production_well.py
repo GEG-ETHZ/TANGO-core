@@ -1,7 +1,7 @@
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.models.native.well.base import *
+from tango.units.native.well.base import *
 
 from dataclasses import dataclass
 import copy
@@ -10,15 +10,15 @@ import numpy as np
 
 
 class ProductionWellStateNative(WellStateNative):
-    """The well state model"""
+    """The well state unit"""
     def __init__(self) -> None:
         WellStateNative.__init__(self)
 
 
-class ProductionWellModelNative(WellModelNative):
-    """The production well model based on Adams et al. (2015)."""
+class ProductionWellUnitNative(WellUnitNative):
+    """The production well unit based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        WellModelNative.__init__(self, specs=self._process_specs(specs))
+        WellUnitNative.__init__(self, specs=self._process_specs(specs))
         self._f_dir = 1.0 # upwards
         self._well_mass_flow_rate = self._compute_well_mass_flow_rate()
 

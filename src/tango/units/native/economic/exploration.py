@@ -1,12 +1,12 @@
-class EconModelExploration:
+class EconUnitExploration:
 
     def __init__(self,
                  specs: dict,
-                 well_econ_model: object):
+                 well_econ_unit: object):
         self._specs = specs
         self._PPI = self._specs.PPI
         self._X_IC, self._X_PC = self._specs.multipliers
-        self._well_econ_model = well_econ_model
+        self._well_econ_unit = well_econ_unit
 
 
     def _compute_dCO2_modeling(self) -> float:
@@ -19,8 +19,8 @@ class EconModelExploration:
         if self._specs.fluid_name != 'CO2':
             return 0
         num_wells = self._specs.num_characterization_wells
-        pos = self._well_econ_model.production_well.get_probability_of_success()
-        C_characterization_well = self._well_econ_model.compute_individual_well_cost(d=self._well_econ_model.production_well.get_diameter(),
+        pos = self._well_econ_unit.production_well.get_probability_of_success()
+        C_characterization_well = self._well_econ_unit.compute_individual_well_cost(d=self._well_econ_unit.production_well.get_diameter(),
                                                                                      pos=1.0)
         return 0.2 * num_wells * C_characterization_well / pos
 

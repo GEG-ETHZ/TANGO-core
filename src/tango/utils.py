@@ -73,14 +73,14 @@ def check_inputs(specs: dict) -> None:
 
 
 def system_name(specs) -> str:
-    model_types = []
+    unit_types = []
     for key in specs['graph']['nodes'].keys():
         node = specs['graph']['nodes'][key]
-        sys_name = node['model'].strip().split('_')[0]
+        sys_name = node['unit'].strip().split('_')[0]
         if 'surface' == node['type']:
-            sys_name = node['model']
-        model_types.append(node['type'])
-    if 'horizontal_well' in model_types and 'reservoir' not in model_types:
+            sys_name = node['unit']
+        unit_types.append(node['type'])
+    if 'horizontal_well' in unit_types and 'reservoir' not in unit_types:
         sys_name = sys_name.split('_')[0] # AGS
     return sys_name
 
@@ -115,12 +115,12 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
     else:
         d[name].append(current_date)
     for id in nodes:
-        state = nodes[id]['model'].state
-        model_name = nodes[id]['type']
-        if model_name in REPORT_SETTINGS.keys():
-            if REPORT_SETTINGS[model_name]:
-                state = getattr(state, REPORT_SETTINGS[model_name])
-            append_results(d, state, model_name)
+        state = nodes[id]['unit'].state
+        unit_name = nodes[id]['type']
+        if unit_name in REPORT_SETTINGS.keys():
+            if REPORT_SETTINGS[unit_name]:
+                state = getattr(state, REPORT_SETTINGS[unit_name])
+            append_results(d, state, unit_name)
 
 
 def append_results(d: dict, state: classmethod, base_name: str) -> None:
@@ -143,14 +143,14 @@ def write_results(input_file: str, results: tuple) -> None:
     physics_results, econ_results = results
 
     fname = os.path.splitext(input_file)[0] + ".smry.csv"
-    logging.info(f"Saving output summary of physics-based models > {fname}")
+    logging.info(f"Saving output summary of physics-based units > {fname}")
     df = pd.DataFrame(physics_results)
     df.to_csv(fname, index=False)
 
     if econ_results == None:
         return
     fname = os.path.splitext(input_file)[0] + ".econ.csv"
-    logging.info(f"Saving output summary of economic models > {fname}")
+    logging.info(f"Saving output summary of economic units > {fname}")
     d = dict()
     for key in econ_results.keys():
         d[key] = [econ_results[key]]

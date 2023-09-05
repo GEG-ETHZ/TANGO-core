@@ -9,13 +9,13 @@ import numpy as np
 
 from tango.core.config import *
 from tango.core.constants import *
-from tango.models.native.model import *
-from tango.models.native.common import CommonSpecs
-from tango.models.native.economic import *
+from tango.units.native.base import *
+from tango.units.native.common import CommonSpecs
+from tango.units.native.economic import *
 from tango import utils
 
 
-def get_model_obj(d, name) -> object:
+def get_unit_obj(d, name) -> object:
     return None if name not in d else d[name]
 
 
@@ -55,29 +55,29 @@ class EconomicSpecsNative(CommonSpecs):
                 raise ValueErrorr(f"Multiple well_pattern: {self.well_pattern} is not supported")
 
 
-class EconomicStateNative(ModelStateNative):
+class EconomicStateNative(UnitStateNative):
     """Economics state based on Adams et. al (2015)."""
     def __init__(self):
-        ModelStateNative.__init__(self)
+        UnitStateNative.__init__(self)
 
 
-class EconomicModelNative(ModelNative):
+class EconomicUnitNative(UnitNative):
 
     def __init__(self, specs: dict, nodes) -> None:
         super().__init__(specs)
         self._compatibility_check()
         self._process_specs(nodes)
-        self._set_model_dict(nodes)
+        self._set_unit_dict(nodes)
         self._initialize_constants()
-        self._initialize_models()
+        self._initialize_units()
         self._results = dict()
 
     def _compatibility_check(self) -> dict:
         for key in self.specs['graph']['nodes'].keys():
-            model_name = self.specs['graph']['nodes'][key]['model']
-            model_type = self.specs['graph']['nodes'][key]['type']
-            if model_name.lower() not in MODEL_OPTIONS_FOR_ECONMODEL['native'][model_type]:
-                raise ValueErrorr(f"Model type: {model_type} (node_id='{key}') is not supported.")
+            unit_name = self.specs['graph']['nodes'][key]['unit']
+            unit_type = self.specs['graph']['nodes'][key]['type']
+            if unit_name.lower() not in UNIT_OPTIONS_FOR_ECONUNIT['native'][unit_type]:
+                raise ValueErrorr(f"Unit type: {_type} (node_id='{key}') is not supported.")
 
 
     def _process_specs(self, nodes) -> dict:
@@ -86,70 +86,70 @@ class EconomicModelNative(ModelNative):
                                                    self.specs['economic'])
 
 
-    def _set_model_dict(self, nodes) -> None:
-        self.model_dict = dict()
+    def _set_unit_dict(self, nodes) -> None:
+        self.unit_dict = dict()
         self.state_dict = dict()
         for id in nodes:
-            self.model_dict[nodes[id]['type']] = []
+            self.unit_dict[nodes[id]['type']] = []
             self.state_dict[nodes[id]['type']] = []
         for id in nodes:
-            self.model_dict[nodes[id]['type']].append(nodes[id]['model'])
-            self.state_dict[nodes[id]['type']].append(nodes[id]['model'].state)
+            self.unit_dict[nodes[id]['type']].append(nodes[id]['unit'])
+            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'].state)
 
 
-    def _initialize_models(self) -> None:
-        self._instantiate_well_model()
-        self._instantiate_permitting_model()
-        self._instantiate_exploration_model()
-        self._instantiate_surface_pipe_model()
-        self._instantiate_surface_power_plant_model()
+    def _initialize_units(self) -> None:
+        self._instantiate_well_unit()
+        self._instantiate_permitting_unit()
+        self._instantiate_exploration_unit()
+        self._instantiate_surface_pipe_unit()
+        self._instantiate_surface_power_plant_unit()
 
 
-    def _instantiate_well_model(self) -> None:
+    def _instantiate_well_unit(self) -> None:
         specs = merge_object_dict(self.specs,
                                   dict={'PPI': self._PPI['O&G'],
                                   'multipliers': self._cost_mult['wells']})
-        self._well_model = EconModelWells(specs=specs,
-                                          model_dict=self.model_dict)
+        self._well_unit = EconUnitWells(specs=specs,
+                                        unit_dict=self.unit_dict)
 
 
-    def _instantiate_permitting_model(self) -> None:
+    def _instantiate_permitting_unit(self) -> None:
         specs = merge_object_dict(self.specs,
                                   dict={'PPI_permitting': self._PPI['permitting'],
                                         'PPI_OnGs': self._PPI['O&G-s'],
                                         'multipliers': self._cost_mult['wellfield']})
-        self._permitting_model = EconModelPermitting(specs=specs,
-                                                     well_econ_model=self._well_model)
+        self._permitting_unit = EconUnitPermitting(specs=specs,
+                                                   well_econ_unit=self._well_unit)
 
 
-    def _instantiate_exploration_model(self) -> None:
+    def _instantiate_exploration_unit(self) -> None:
         specs = merge_object_dict(self.specs,
                                   dict={'PPI': self._PPI['O&G-s'],
                                         'multipliers': self._cost_mult['exploration']})
-        self._exploration_model = EconModelExploration(specs=specs,
-                                                       well_econ_model=self._well_model)
+        self._exploration_unit = EconUnitExploration(specs=specs,
+                                                     well_econ_unit=self._well_unit)
 
-    def _instantiate_surface_pipe_model(self) -> None:
-        self.surface_model, self.surface_state = None, None
-        if 'surface' in self.model_dict.keys():
-            self.surface_model = self.model_dict['surface'][0]
+    def _instantiate_surface_pipe_unit(self) -> None:
+        self.surface_unit, self.surface_state = None, None
+        if 'surface' in self.unit_dict.keys():
+            self.surface_unit = self.unit_dict['surface'][0]
             self.surface_state = self.state_dict['surface'][0]
         specs = merge_object_dict(self.specs,
                                   dict={'PPI': self._PPI['pipes'],
                                   'multipliers': self._cost_mult['pipes']})
-        self._surface_pipe_model = EconModelSurfacePipes(specs=specs,
-                                                         model=self.surface_model)
+        self._surface_pipe_unit = EconUnitSurfacePipes(specs=specs,
+                                                       unit=self.surface_unit)
 
 
-    def _instantiate_surface_power_plant_model(self) -> None:
+    def _instantiate_surface_power_plant_unit(self) -> None:
         specs = merge_object_dict(self.specs,
                                   dict={'PPI_PE': self._PPI['PE'],
                                         'PPI_pump': self._PPI['pump'],
                                         'PPI_TG': self._PPI['T-G'],
                                         'PPI_HX': self._PPI['HX'],
                                         'multipliers': self._cost_mult['plant']})
-        self._surface_power_plant_model = EconModelSurfacePowerPlant(specs=specs,
-                                                                     model=self.surface_model)
+        self._surface_power_plant_unit = EconUnitSurfacePowerPlant(specs=specs,
+                                                                     unit=self.surface_unit)
 
 
     def _initialize_constants(self) -> None:
@@ -233,11 +233,11 @@ class EconomicModelNative(ModelNative):
 
 
     def _compute_capex(self) -> None:
-        self._results['CAPEX_well'] = self._well_model.execute()
-        self._results['CAPEX_permitting'] = self._permitting_model.execute()
-        self._results['CAPEX_exploration'] = self._exploration_model.execute()
-        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_model.execute()
-        self._results['CAPEX_surface_plant'] = self._surface_power_plant_model.execute(self.surface_state)
+        self._results['CAPEX_well'] = self._well_unit.execute()
+        self._results['CAPEX_permitting'] = self._permitting_unit.execute()
+        self._results['CAPEX_exploration'] = self._exploration_unit.execute()
+        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute()
+        self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state)
         val = 0
         for key in self._results.keys():
              val += self._results[key]
@@ -282,7 +282,7 @@ class EconomicModelNative(ModelNative):
 
 
     def _compute_LCOE(self) -> None:
-        W_net_total = self._surface_power_plant_model.get_net_W_total()
+        W_net_total = self._surface_power_plant_unit.get_net_W_total()
         self._results['Net_Electricity_Generated_kWe'] = W_TO_KW * W_net_total
         self._results['LCOE'] = self._get_LCOE(W_net_total)
         self._results['SpCC'] = self._get_specific_capital_cost(W_net_total)
@@ -300,5 +300,5 @@ class EconomicModelNative(ModelNative):
 
         self._compute_LCOE()
 
-#TODO: current genGEO-based econ model is too complicated. Implement a simpler method as a native econ model.
-#      Then move this whole package to tango.models.genGEO.economic
+#TODO: current genGEO-based econ unit is too complicated. Implement a simpler method as a native econ unit.
+#      Then move this whole package to tango.units.genGEO.economic

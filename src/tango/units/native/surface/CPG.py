@@ -2,8 +2,8 @@ import logging
 
 from tango.core.config import *
 from tango.core import FluidState
-from tango.models.native.common import CommonSpecs
-from tango.models.native.surface.base import *
+from tango.units.native.common import CommonSpecs
+from tango.units.native.surface.base import *
 from dataclasses import dataclass
 
 @dataclass
@@ -56,11 +56,11 @@ class SurfaceStateCPGNative(SurfaceState):
         self._dP_pump = val
 
 
-class SurfaceModelCPGNative(SurfaceModelNative):
+class SurfaceUnitCPGNative(SurfaceUnitNative):
 
-    """The power plant model based on Adams et al. (2015)."""
+    """The power plant unit based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        SurfaceModelNative.__init__(self, specs)
+        SurfaceUnitNative.__init__(self, specs)
         self.specs = SurfaceSpecsCPGNative.from_dict(self._process_specs(specs))
         self._fluid_name = self.specs.fluid_name
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature

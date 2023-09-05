@@ -6,11 +6,11 @@ import numpy as np
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION, MAX_PRD_PUMP_DP
-from tango.models.native.well import *
+from tango.units.native.well import *
 
 
 class ProductionWellPumpStateNative(WellStateNative):
-    """The well state model"""
+    """The well state unit"""
     def __init__(self) -> None:
         WellStateNative.__init__(self)
         self._dP_pump: float = 0.
@@ -43,15 +43,15 @@ class ProductionWellPumpStateNative(WellStateNative):
         self.inlet_fluid.updatePT(P, T)
 
 
-class ProductionWellPumpModelNative(ProductionWellModelNative):
-    """The production well model based on Adams et al. (2015)."""
+class ProductionWellPumpUnitNative(ProductionWellUnitNative):
+    """The production well unit based on Adams et al. (2015)."""
     def __init__(self, specs: dict):
-        ProductionWellModelNative.__init__(self, specs)
+        ProductionWellUnitNative.__init__(self, specs)
 
 
     def _process_specs(self, specs) -> dict:
         if 'production_well' not in specs:
-            raise RuntimeError(f"Required model when using model: 'production_well' is not found.")
+            raise RuntimeError(f"Required unit when using unit: 'production_well' is not found.")
         if specs['production_well_pump']['well_length'] > specs['production_well']['well_length']:
             raise ValueErrorr(f"Unrealistic value found: 'well_length' of 'production_well_pump' is greater than production well length")
         return specs['common'] | specs['production_well_pump']

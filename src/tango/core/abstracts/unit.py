@@ -1,11 +1,11 @@
 from abc import ABC
 
 
-class ModelSpecs(ABC):
+class UnitSpecs(ABC):
     pass
 
 
-class ModelState(ABC):
+class UnitState(ABC):
 
     def __init__(self):
         pass
@@ -14,15 +14,15 @@ class ModelState(ABC):
         pass
 
 
-class Model(ABC):
+class Unit(ABC):
 
     def __init__(self, specs) -> None:
         self.specs = specs
 
 
     def init_state(self) -> None:
-        raise NotImplementedError("Implement 'init_state' method in your derived Model class.")
+        raise NotImplementedError("Implement 'init_state' method in your derived Unit class.")
 
 
     def execute(self) -> None:
-        raise NotImplementedError("Implement 'execute' method in your derived Model class.")
+        raise NotImplementedError("Implement 'execute' method in your derived Unit class.")

@@ -1,15 +1,15 @@
 from tango.core.config import *
 from tango.core import FluidState
-from tango.models.native.model import *
+from tango.units.native.base import *
 
-class SurfaceState(ModelStateNative):
+class SurfaceState(UnitStateNative):
 
     def __init__(self) -> None:
-        ModelStateNative.__init__(self)
+        UnitStateNative.__init__(self)
 
 
-class SurfaceModelNative(ModelNative):
-    """The power plant model based on Adams et al. (2015)."""
+class SurfaceUnitNative(UnitNative):
+    """The power plant unit based on Adams et al. (2015)."""
     def __init__(self, specs):
         super().__init__(specs)
 
@@ -36,7 +36,7 @@ class SurfaceModelNative(ModelNative):
 
     def _BAC_regression_model(self, coeffs: list) -> float:
         """
-        Baltimore Aircoil Specific (BAC) regression model for cooling and condensing costs
+        Baltimore Aircoil Specific (BAC) regression unit for cooling and condensing costs
         """
         a, b, c, d = coeffs
         T_ambient = self.specs.surface_temperature

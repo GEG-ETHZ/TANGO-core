@@ -5,13 +5,13 @@ from math import e as exp
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.models.native.model import *
+from tango.units.native.base import *
 from .common import CommonSpecs
 from dataclasses import dataclass
 
 @dataclass
 class ReservoirSpecsNative(CommonSpecs):
-    """Specifications for reservoir modeling based on Adams et. al (2015)"""
+    """Specifications for reservoir unit based on Adams et. al (2015)"""
     reservoir_depth: float = None
     thickness: float = None     # the reservoir thickness (in m)
     porosity: float = None    # the rock porosity in the reservoir (dimensionless)
@@ -29,10 +29,10 @@ class ReservoirSpecsNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class ReservoirStateNative(ModelStateNative):
+class ReservoirStateNative(UnitStateNative):
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
-        ModelStateNative.__init__(self)
+        UnitStateNative.__init__(self)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
         self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
@@ -62,8 +62,8 @@ class ReservoirStateNative(ModelStateNative):
         self._energy_extracted_old = self._energy_extracted
 
 
-class ReservoirModelNative(ModelNative):
-    """The reservoir (1-D well-pair) model based on Adams et al. (2015)."""
+class ReservoirUnitNative(UnitNative):
+    """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
     def __init__(self, specs: dict) -> None:
         super().__init__(specs)
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
@@ -131,7 +131,7 @@ class ReservoirModelNative(ModelNative):
     def _set_impedance_func(self) -> None:
         self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None)
         if self.impedance_func == None:
-            raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir model.")
+            raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")
 
 
     @staticmethod
