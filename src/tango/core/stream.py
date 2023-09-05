@@ -1,23 +1,20 @@
-from tango.core.abstracts.stream import *
 from tango.core import FluidState
 
 
-class StreamStateNative(StreamState):
+class StreamState:
+
     def __init__(self) -> None:
-        StreamState.__init__(self)
         self.mass_rate: float = 0.0
         self.fluid_state: FluidState
 
 
 
-class StreamNative(Stream):
+class Stream:
 
     def __init__(self, id: str) -> None:
-        super().__init__(id)
-
+        self.id = id
+        self.state = StreamState()
 
     def init_state(self, state) -> None:
-        self.state = StreamStateNative()
-        self.state.fluid_state = state.outlet_fluid
         self.state.mass_rate = state.mass_rate
-
+        self.state.fluid_state = state.outlet_fluid
