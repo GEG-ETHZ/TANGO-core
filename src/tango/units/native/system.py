@@ -6,12 +6,12 @@ import inspect
 
 from tango.core.config import *
 from tango.core.constants import *
+from tango.core.stream import *
 from tango.core.abstracts.system import *
 from tango.utils import *
 from tango.units.native import *
 from tango.units.native.well import *
 from tango.units.native.surface import *
-from tango.units.native.stream import *
 
 def get_unit_class(type_: str, unit_name: str) -> object:
     try:
@@ -57,7 +57,7 @@ class SystemNative(System):
     def _init_edges(self) -> None:
         for u, v, d in self.graph.edges(data=True):
             source, target = d['source'], d['target']
-            stream = StreamNative(id=d['id'])
+            stream = Stream(id=d['id'])
             stream.init_state(self.graph.nodes[source]['unit'].state)
             self.graph.nodes[source]['unit'].set_outlet_stream(stream.state)
             self.graph.nodes[target]['unit'].set_inlet_stream(stream.state)
