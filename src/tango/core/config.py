@@ -1,9 +1,49 @@
-COMPUTE_NODE_OPTIONS = ['surface', 'injection_well', 'production_well', 'horizontal_well', 'production_well_pump', 'reservoir', 'economic']
-WELL_PATTERN_OPTIONS = ['DOUBLET', '5SPOT', 'INVERTED_5SPOT']
+WORKFLOW_OPTIONS = {'native': 'NativeWorkflow'}
+
+SYSTEM_OPTIONS = {'native': 'SystemNative',
+                  'native_cpg': 'SystemCPGNative',
+                  'native_orc': 'SystemORCNative'}
+
+MODEL_OPTIONS = {'surface': {'native_cpg': 'SurfaceModelCPGNative',
+                             'native_orc': 'SurfaceModelORCNative'},
+                 'injection_well': {'native': 'InjectionWellModelNative'},
+                 'production_well': {'native': 'ProductionWellModelNative'},
+                 'horizontal_well': {'native': 'HorizontalWellModelNative'},
+                 'production_well_pump': {'native': 'ProductionWellPumpModelNative'},
+                 'reservoir': {'native': 'ReservoirModelNative'},
+                 'stream': {'native': 'StreamNative'},
+                 'economic': {'native': 'EconomicModelNative'}} # {'node_type_name': 'ModelClassName'}
+
+MODEL_STATE_OPTIONS = {'surface': {'native_cpg': 'SurfaceStateCPGNative',
+                                   'native_orc': 'SurfaceStateORCNative'},
+                       'injection_well': {'native': 'InjectionWellStateNative'},
+                       'production_well': {'native': 'ProductionWellStateNative'},
+                       'horizontal_well': {'native': 'HorizontalWellStateNative'},
+                       'production_well_pump': {'native': 'ProductionWellPumpStateNative'},
+                       'reservoir': {'native': 'ReservoirStateNative'},
+                       'stream': {'native': 'StreamStateNative'},
+                       'economic': {'native': 'EconomicStateNative'}} # {'node_type_name': 'ModelStateClassName'}
+
+MODEL_OPTIONS_FOR_ECONMODEL = { 'native': {
+                                           'surface': ['native_cpg', 'native_orc'],
+                                           'injection_well': ['native'],
+                                           'production_well': ['native'],
+                                           'production_well_pump': ['native'],
+                                           'horizontal_well': ['native'],
+                                           'reservoir': ['native']
+                                          }
+                              }
+
+
+MULTIPLE_MODEL_NODE_OPTIONS = ['horizontal_well']
+
+MAP_FLUIDNAME_TO_SURFACE_DESIGN = {'CO2': 'CPG', 'H2O': 'ORC'}
+
+WELL_PATTERN_OPTIONS = ['DOUBLET', '5SPOT', 'INVERTED_5SPOT', 'AGS']
 PROJECT_MATURITY_OPTIONS = ['GREEN_FIELD', 'BROWN_FIELD']
-REGRIGERANT_OPTIONS = ['R245fa', 'R600a'] # 'R600a'?
+REGRIGERANT_OPTIONS = ['R245fa', 'R600a']
 MAP_WELLPATTERN_TO_NUM_WELLS = {'DOUBLET': [1, 1], '5SPOT': [4, 1], 'INVERTED_5SPOT': [1, 4]} # [num_inj, num_prod]
-MAP_FLUIDNAME_TO_SURFACE_PLANT_DESIGN = {'CO2': 'CPG', 'H2O': 'ORC'}
+
 FLUID_NAME_OPTIONS = ['CO2', 'H2O']
 SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
 COOLING_MODE_OPTIONS = ['WET', 'DRY']
@@ -12,4 +52,3 @@ REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well':
 MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
 DATETIME_FMT = '%Y-%m-%d'
 CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0.5, 'max_num_itr': 20}
-# CONVERGENCE_CRITERIA = {'dP_reservoir': 10000, 'dP_surface': 500, 'dT_surface': 10, 'max_num_itr': 30}
