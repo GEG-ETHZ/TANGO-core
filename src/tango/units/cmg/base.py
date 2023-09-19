@@ -34,18 +34,16 @@ class CMGBaseUnit(Unit):
         self.np = self.specs.np
         self.version = self.specs.version
         self.nosim = self.specs.nosim
-
-
-    def initialize(self) -> None:
         self._parse_args()
 
 
     def _get_program(self) -> str:
+        #TODO: use CMG_HOME env var
         # cmg_dir = CMG_PATH[utils.get_os()] #TODO: uncomment
         # exe_fld_name = CMG_EXE_FLD[utils.get_os()]  # TODO: uncomment
         cmg_dir = '/Users/tonishi/workdir/CMG' # temporary treatment to test in Mac
         os_fld = 'Win_x64' # temporary treatment to test in Mac
-        simulator_dir = os.path.join(cmg_dir, self.simulator.upper())
+        simulator_dir = os.path.join(cmg_dir, self.simulator.upper()) #TODO: add more checking.
         if self.version == None:
             # flds = [x[0] for x in os.walk(simulator_dir)]
             flds = [name for name in os.listdir(simulator_dir) if os.path.isdir(os.path.join(simulator_dir, name))]
@@ -61,18 +59,15 @@ class CMGBaseUnit(Unit):
 
 
     def _parse_args(self) -> None:
-
-        template = CMG_CMG_TEMPLATE
-        if self.nosim:
-            template += ' -checkonly'
-
         d_tmp = dict()
         d_tmp['program'] = self._get_program().replace('\\','/') #TODO: check if this replacement works in linux
         d_tmp['inputfilepath'] = self.inputfilepath.replace('\\','/')
         d_tmp['np'] = str(self.np)
         d_tmp['wd'] = os.path.dirname(self.inputfilepath).replace('\\','/') # working dir
         try:
+            template = template + ' -checkonly' if self.nosim else CMG_CMG_TEMPLATE
             self.cmd = Template(template).substitute(d_tmp)
+            #TODO: sudo su .... in linux?
         except:
             RuntimeError(f"Failed to parse args (template: {template})")
 
@@ -83,5 +78,6 @@ class CMGBaseUnit(Unit):
             proc = subprocess.run(self.cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if proc.returncode != 0:
                 logging.warning(f"CMG simulation exited with non-zero return code: {proc.returncode}")
+            #TODO: add output
         else:
             raise NotImplementedError(f"Queue option: {queue} has not yet been implemented.")

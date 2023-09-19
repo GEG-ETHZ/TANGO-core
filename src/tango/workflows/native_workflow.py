@@ -27,6 +27,8 @@ class NativeWorkflow(Workflow):
         self._dt_months = np.round(self.specs['schedule']['dt'] * YEAR_TO_MONTH)
         self._num_time_steps = self.specs['schedule']['num_tsteps']
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
+        self._init_system()
+        self._init_econ_unit()
         self._results = dict()
 
 
@@ -72,11 +74,6 @@ class NativeWorkflow(Workflow):
     def _post_processing(self) -> None:
         utils.write_results(input_file=self._input_file,
                             results=(self._results,self.economic.get_results() if self.economic != None else None))
-
-
-    def initialize(self) -> None:
-        self._init_system()
-        self._init_econ_unit()
 
 
     def execute(self) -> None:
