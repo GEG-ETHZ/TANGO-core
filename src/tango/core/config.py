@@ -133,4 +133,4 @@ CMG_EXE = {
                  'gem': 'gm{version}.exe'
           }
 
-CMG_CMG_TEMPLATE = "$program -f $inputfilepath -wd $wd -parasol $np -log"
+CMG_CMG_TEMPLATE = '"$program" -f "$inputfilepath" -wd "$wd" -parasol $np'
