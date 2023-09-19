@@ -4,7 +4,7 @@
 
 graph:
   nodes:
-    subsurface: # unique id
+    subsurface: # root node
       type: 'cmg'
       unit: 'imex'
   edges:

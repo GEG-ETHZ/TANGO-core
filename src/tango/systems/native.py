@@ -36,27 +36,74 @@ class SystemNative(System):
             node = self.graph.nodes[id]
             Unit = get_unit_class(node['type'], node['unit'])
             node['unit'] = Unit(id, self.specs)
+            node['id'] = id
             self._set_node_object(node)
+        self.root_node_id = list(self.graph.nodes)[0]
+        self.root_node = self.graph.nodes[self.root_node_id]
 
-
-    def _init_edges(self) -> None:
+    def _init_edges(self) -> None: #TODO: add some treatments for cases where the system is not closed (e.g., source=None)
         for u, v, d in self.graph.edges(data=True):
             source, target = d['source'], d['target']
-            stream = Stream(id=d['id'])
-            stream.init_state(self.graph.nodes[source]['unit'].state)
+            stream = Stream(id=d['id'], state=self.graph.nodes[source]['unit'].state)
             self.graph.nodes[source]['unit'].set_outlet_stream(stream.state)
             self.graph.nodes[target]['unit'].set_inlet_stream(stream.state)
-            self.graph.nodes[target]['unit'].init_boundary_states(self.graph.nodes[source]['unit'].state)
-            #TODO: add some treatments for cases where the system is not closed (e.g., source=None)
-        for id in self.graph.nodes:
-            if len(self.graph.nodes[id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[id]['unit'].outlet_streams) == 0:
-                logging.warning(f"Connections are not defined for node: '{id}'")
+            self.graph.nodes[target]['unit'].init_inlet_state(self.graph.nodes[source]['unit'].state)
+        self._graph_check()
 
 
     def _input_check(self, required_units) -> None:
         for unit_name in required_units:
             if getattr(self.unit, unit_name, None) == None:
                 raise RuntimeError(f"Required unit: {unit_name} is not found.")
+
+
+    def _graph_check(self) -> None:
+        for _, d1 in self.graph.adj[self.root_node_id].items():
+            if d1['target'] != self.root_node_id:
+                for _, d2 in self.graph.adj[d1['target']].items():
+                    if d2['source'] != self.root_node_id and d2['target'] == d1['target']:
+                        raise RuntimeError("Multiple nodes at root node level is not found.")
+        for id in self.graph.nodes:
+            if len(self.graph.nodes[id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[id]['unit'].outlet_streams) == 0:
+                logging.warning(f"Connections are not defined for node: '{id}'")
+
+
+    def _reset(self) -> None:
+        for id in self.graph.nodes:
+            node = self.graph.nodes[id]['visited'] = False
+
+
+    def _update_node(self, node) -> None:
+        if node['visited'] == True:
+            return
+        if node != self.root_node:
+            for id in self._source_nodes(node):
+                self._update_node(self.graph.nodes[id])
+        node['unit'].execute()
+        node['visited'] = True
+
+
+    def _source_nodes(self, node) -> list:
+        nodes = list()
+        for _, d in self.graph.adj[node['id']].items():
+            if d['target'] == node['id']:
+                nodes.append(d['source'])
+        return nodes
+
+
+    def _next_nodes(self, node) -> list:
+        nodes = list()
+        for _, d in self.graph.adj[node['id']].items():
+            if d['source'] == node['id']:
+                nodes.append(d['target'])
+        return nodes
+
+
+    def _is_terminal(self) -> bool:
+        for id in self.graph.nodes:
+            if self.graph.nodes[id]['visited'] == False:
+                return False
+        return True
 
 
     def balanced(self) -> bool:
@@ -80,8 +127,13 @@ class SystemNative(System):
 
     def execute(self) -> None: #TODO: update for one-multiple connections (traverse graph)
         """execute a series of units accosiated with compute nodes within the system"""
-        for id in self.graph.nodes:
-            self.graph.nodes[id]['unit'].execute()
+        self._reset()
+        current_node = self.root_node
+        self._update_node(current_node)
+        while not self._is_terminal():
+            for id in self._next_nodes(current_node):
+                self._update_node(self.graph.nodes[id])
+            current_node = self.graph.nodes[id]
 
 
 class SystemCPGNative(SystemNative):
