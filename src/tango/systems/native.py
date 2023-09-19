@@ -9,15 +9,6 @@ from tango.core.constants import *
 from tango.core.stream import *
 from tango.core.abstracts.system import *
 from tango.utils import *
-from tango.units.native import *
-from tango.units.native.well import *
-from tango.units.native.surface import *
-
-def get_unit_class(type_: str, unit_name: str) -> object:
-    try:
-        return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
-    except:
-        raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
 
 class SystemNative(System):

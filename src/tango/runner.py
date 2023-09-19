@@ -14,11 +14,12 @@ from tango.core.config import *
 from tango.core.constants import *
 from tango.utils import load_from_yaml
 from tango.workflows.native_workflow import *
+from tango.workflows.cmg_workflow import *
 
 
 def get_workflow_class(type_: str) -> object:
     try:
-        return eval(WORKFLOW_OPTIONS[type_])
+        return eval(WORKFLOW_OPTIONS[type_.lower()])
     except:
         raise ValueError(f"workflow type: {type_} is not supported.")
 

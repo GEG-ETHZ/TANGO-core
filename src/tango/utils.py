@@ -11,7 +11,12 @@ from enum import Enum
 
 from tango.core.config import *
 from tango.core.constants import *
-
+from tango.units.native import *
+from tango.units.native.well import *
+from tango.units.native.surface import *
+from tango.units.cmg.imex import *
+from tango.units.cmg.gem import *
+from tango.units.cmg.coflow import *
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
@@ -59,6 +64,16 @@ def load_from_yaml(filename: str):
     return specs
 
 
+def get_os() -> str:
+    if sys.platform.lower().startswith('win'):
+        return 'WIN'
+    elif sys.platform.lower().startswith('linux'):
+        return 'LINUX'
+    # sys.platform.lower().startswith('darwin'): # <- mac OS
+    else:
+        raise RuntimeError(f"OS: {sys.platform} is not supported.")
+
+
 def check_inputs(specs: dict) -> None:
     required_sections = {'graph': ['nodes', 'edges'],
                          'runspec': ['workflow']}
@@ -83,6 +98,13 @@ def system_name(specs) -> str:
     if 'horizontal_well' in unit_types and 'reservoir' not in unit_types:
         sys_name = sys_name.split('_')[0] # AGS
     return sys_name
+
+
+def get_unit_class(type_: str, unit_name: str) -> object:
+    try:
+        return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
+    except:
+        raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
 
 def newton(x_lst: list, y_lst: list) -> float:

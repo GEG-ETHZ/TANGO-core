@@ -1,4 +1,5 @@
-WORKFLOW_OPTIONS = {'native': 'NativeWorkflow'}
+WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
+                    'cmg': 'CMGWorkflow'}
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
@@ -33,6 +34,12 @@ UNIT_OPTIONS = {
                     'stream':
                         {
                             'native': 'StreamNative'
+                        },
+                    'cmg':
+                        {
+                            'imex': 'ImexUnit',
+                            'gem': 'GemUnit',
+                            'coflow': 'CoFlowUnit'
                         },
                     'economic':
                         {
@@ -106,3 +113,24 @@ REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well':
 MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
 DATETIME_FMT = '%Y-%m-%d'
 CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0.5, 'max_num_itr': 20}
+
+#
+# ... CMG configs
+#
+
+CMG_PATH = {
+                'WIN': "C:\Program Files\CMG",
+                'LINUX': 'xxx'
+           }
+
+CMG_EXE_FLD = {
+                   'WIN': "Win_x64",
+                   'LINUX': 'xxx'
+              }
+
+CMG_EXE = {
+                 'imex': "mx{version}.exe",
+                 'gem': 'gm{version}.exe'
+          }
+
+CMG_CMG_TEMPLATE = "$program -f $inputfilepath -wd $wd -parasol $np -log"
