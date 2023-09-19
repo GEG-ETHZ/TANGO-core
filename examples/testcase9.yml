@@ -1,0 +1,32 @@
+#
+# testcase9: CMG workflow
+#
+
+graph:
+  nodes:
+    subsurface: # unique id
+      type: 'imex'
+      unit: 'cmg'
+  edges:
+    1:
+      source: null
+      target: null
+
+
+# simulation input
+
+runspec:
+  title: 'CMG GEM Example Case'
+  workflow: 'CMG' # type of physical system
+
+cmg:
+  inputfilepath: 'filepath' #input file (.dat) path
+  queue: 'local' # local, Euler, etc.
+  np: 1 # number of processors. optional (default=1)
+  version: 2023.10 # version. optional (default-latest)
+  nosim: False # optional (default=False)
+
+#economic: # optional
+#  type: 'native'
+#  project_maturity: 'green_field' # brown_field or green_field
+#  discount_rate: 0.095
