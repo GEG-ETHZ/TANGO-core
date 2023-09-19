@@ -5,8 +5,8 @@
 graph:
   nodes:
     subsurface: # unique id
-      type: 'imex'
-      unit: 'cmg'
+      type: 'cmg'
+      unit: 'imex'
   edges:
     1:
       source: null
@@ -20,10 +20,10 @@ runspec:
   workflow: 'CMG' # type of physical system
 
 cmg:
-  inputfilepath: 'filepath' #input file (.dat) path
+  inputfilepath: '/Users/tonishi/workdir/data/drm2/mxdrm002.dat' #input file (.dat) path
   queue: 'local' # local, Euler, etc.
   np: 1 # number of processors. optional (default=1)
-  version: 2023.10 # version. optional (default-latest)
+#  version: 2023.10 # version. optional (default-latest)
   nosim: False # optional (default=False)
 
 #economic: # optional

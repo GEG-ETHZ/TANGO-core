@@ -1,3 +1,4 @@
+import copy
 from abc import ABC
 import networkx as nx
 
