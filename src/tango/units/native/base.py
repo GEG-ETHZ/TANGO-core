@@ -26,8 +26,8 @@ class UnitNative(Unit):
         self.outlet_streams.append(sl)
 
 
-    def init_boundary_states(self, state_source) -> None:
-        self.state.inlet_fluid = FluidState.copy(state_source.outlet_fluid)
+    def init_inlet_state(self, inlet_state) -> None:
+        self.state.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
 
     def update_inlet_state(self) -> None:

@@ -4,7 +4,7 @@
 
 graph:
   nodes:
-    inj_1: # unique id
+    inj_1: # root node
       type: 'injection_well'
       unit: 'native'
     reservoir:

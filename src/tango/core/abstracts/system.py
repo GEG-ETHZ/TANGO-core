@@ -23,7 +23,7 @@ class System(ABC):
 
 
     def _build_graph(self) -> None:
-        nodes = [(k, v) for k, v in self.specs['graph']['nodes'].items()]
+        nodes = [(k, v | {'visited': False}) for k, v in self.specs['graph']['nodes'].items()]
         edges = [(v['source'], v['target'], v | {'id': k}) for k, v in self.specs['graph']['edges'].items()]
         self.graph = nx.Graph()
         self.graph.add_nodes_from(nodes)

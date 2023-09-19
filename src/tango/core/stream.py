@@ -11,10 +11,9 @@ class StreamState:
 
 class Stream:
 
-    def __init__(self, id: str) -> None:
+    def __init__(self, id: str, state) -> None:
         self.id = id
         self.state = StreamState()
-
-    def init_state(self, state) -> None:
         self.state.mass_rate = state.mass_rate
         self.state.fluid_state = state.outlet_fluid
+
