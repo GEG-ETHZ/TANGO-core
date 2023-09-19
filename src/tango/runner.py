@@ -35,7 +35,6 @@ class Runner:
     def _initialize_workflow(self) -> None:
         Workflow = get_workflow_class(self._specs['runspec']['workflow'])
         self._workflow = Workflow(self._specs, self._input_file)
-        self._workflow.initialize()
 
 
     def start(self) -> None:

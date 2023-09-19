@@ -6,6 +6,8 @@ class CMGWorkflow(Workflow): #TODO: Implement
     def __init__(self, specs: dict, input_file: str):
         super().__init__(specs)
         self._input_file = input_file
+        self._init_system()
+        self._init_econ_unit()
         self._results = dict()
 
 
@@ -21,11 +23,6 @@ class CMGWorkflow(Workflow): #TODO: Implement
         """initialize econ unit, if applicable"""
         self.economic = None
         #TODO: Implement
-
-
-    def initialize(self) -> None:
-        self._init_system()
-        self._init_econ_unit()
 
 
     def execute(self) -> None:
