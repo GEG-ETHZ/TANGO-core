@@ -194,9 +194,11 @@ def plot_electricity_output(fluid, depth, GeoGrad, NumLaterals, Well_spacing,
     T_inj_K = T_inj + 273.15  # K     Reinjection temperature
     P_inj_Pa = P_inj * 1e5  # Pa    Reinjection pressure
 
-    inj_enthalpy = CP.PropsSI("HMASS", "T", T_inj_K, "P", P_inj_Pa, "CO2")  # Reinjection enthalpy
+    h_inj = CP.PropsSI("HMASS", "T", T_inj_K, "P", P_inj_Pa, "CO2")  # Reinjection enthalpy
 
-    print("Calculating Production temperature, Production pressure and Heat generation arrays")
+    
+
+    print("Calculating Production temperature, Production pressure and Heat generation arrays:")
     print("---------------------------------")
     
     
@@ -216,8 +218,12 @@ def plot_electricity_output(fluid, depth, GeoGrad, NumLaterals, Well_spacing,
                                                m_dot=m_dot, P_inj=P_inj, k_r=k_r, Cp_r=Cp_r, rho_r=rho_r, T_surf=T_surf,
                                                T_inj=T_inj, Well_diam=Well_diam)
 
+    
+    print(" ")
+    print(" ")
+    print("Calculating Heat-to-Power Conversion:")
     print("---------------------------------")
-    print("Calculating Heat-to-Power Conversion")
+    
     
     
     if fluid == "CO2":
@@ -250,14 +256,14 @@ def plot_electricity_output(fluid, depth, GeoGrad, NumLaterals, Well_spacing,
                 if P_out_guess > 74e5:     # Critical pressure of CO2
                     h_turb_out = CP.PropsSI('HMASS', 'P', P_out_guess, 'SMASS', s_turb_in, "CO2")
                     phase = CP.PhaseSI('P', P_out_guess, 'SMASS', s_turb_in, "CO2")
-                    P_out_guess = P_out_guess - 0.5e5
+                    P_out_guess = P_out_guess - 2e5
                     #print(phase)
             
                 else:
                     phase = "liquid"
             
             
-            P_turb_out = P_out_guess + 0.5e5
+            P_turb_out = P_out_guess + 1e5
             h_turb_out_list.append(CP.PropsSI('HMASS', 'P', P_turb_out, 'SMASS', s_turb_in, "CO2"))
     
     
@@ -270,25 +276,105 @@ def plot_electricity_output(fluid, depth, GeoGrad, NumLaterals, Well_spacing,
         
         W_turbine = m_dot * (h1 - h2_irr)
         electricity_output_MWe = W_turbine/1e6
-
-        plt.plot(times_SBT_years, prod_heat, linestyle = "--", alpha = 0.5, color = "red", label = "Original heat production (MWth)")      # Plot heat if you want to see conversion efficiency
+        
+        residual_heat = m_dot * (h2_irr - h_inj) 
+        residual_heat_MW = residual_heat / 1e6
+    
+        
+        plt.plot(times_SBT_years, prod_heat, linestyle = "--", color = "red", label = "Original heat production (MWth)")      # Plot heat if you want to see conversion efficiency
         plt.plot(times_SBT_years, electricity_output_MWe, color = "gold", label = "Resulting electricity output (MWe)")
-
+        plt.plot(times_SBT_years, residual_heat_MW, linestyle = "dotted" , color = "orange", label = "Residual heat (MWth)")
+        
         plt.ylabel("Energy (MW)")
         plt.xlabel("Time (years)")
         plt.legend()
+        plt.grid()
         plt.show()
 
     elif fluid == "H2O":
-        # TODO Implement water-based electricity generation via a binary cycle (ORC power plant)
         print("Water-based electricity generation calculated using an idealized ORC plant")
 
+        # TODO Implement water-based electricity generation via a binary cycle (ORC power plant)
+        
+        # Reference paper validating the use of refrigerant R245fa or R1234ze(E) for cascade-ORCs in geothermal plants:
+        # https://doi.org/10.3390/en15197294
+        
+        # ORC process assumptions
+        
+        RF = "R245fa" # or "R1234zeE"    # TODO enable more refrigerant options suitable for more prod temperatures. 
+        
+        # TODO introduce if statement that chooses the refrigerant based on the resulting production temperature.
+        eta_pump = 0.75
+        eta_turbine = 0.78   # (-) Efficiency of the turbine  (Adams et al, 2015)
 
-plot_electricity_output(fluid = "CO2", depth = 7000, GeoGrad = 50, NumLaterals = 5, Well_spacing = 1000,
-                             m_dot = 30, P_inj = 100, k_r = 3.0 , Cp_r = 1000, rho_r = 2700, T_surf = 20,
-                             T_inj = 20, Well_diam = 0.27)
+        # Production and injection physical state and process assumptions
+
+        # Geothermal energy production calculations
+        
+        prod_enthalpies = []
+        prod_entropies = []
+        h_turb_out_list = []
 
 
+        for T, P in zip(prod_temperatures, prod_pressures):
+            enthalpy = CP.PropsSI("HMASS", "T", T+273.15, "P", P*1e5, "CO2")
+            entropy = CP.PropsSI("SMASS", "T", T+273.15, "P", P*1e5, "CO2")
+            #prod_phase = CP.PhaseSI("T", T+273.15, "P", P*1e5, "CO2")
+            prod_enthalpies.append(enthalpy)
+            
+    
+        prod_enthalpies = np.array(prod_enthalpies)
+        Q_well = (prod_enthalpies - h_inj) # J/s
+
+        # ORC electricity production calculations and process assumptions
+
+        T_turb_in = 145 # C - superheated   # TODO implement conditionals 
+        T_pump_in = 25 # C - supercooled
+        T_vap_HP = T_turb_in - 5 # C - refrigerant evaporation temperature at high pressure   # TODO implement conditionals
+        T_vap_LP = 30 # C - refrigerant evaporation temperature at low pressure   # TODO implement conditionals
+
+        P_HP = CP.PropsSI('P', 'T', T_vap_HP+273.15, 'Q', 0.5, RF)/1e5 # Pa -high pressure
+        P_LP = CP.PropsSI('P', 'T', T_vap_LP+273.15, 'Q', 0.5, RF)/1e5 # Pa - low pressure
+
+        s1 = CP.PropsSI('SMASS', 'T', T_turb_in+273.15, 'P', P_HP*1e5, RF) # J/kg.K
+        h1 = CP.PropsSI('HMASS', 'T', T_turb_in+273.15, 'P', P_HP*1e5, RF) # J/kg
+        h2_s = CP.PropsSI('HMASS', 'P', P_LP*1e5, 'SMASS', s1, RF) # J/kg
+        h2 = h1 - (h1-h2_s)*eta_turbine # J/kg
+
+        s3 = CP.PropsSI('SMASS', 'T', T_pump_in+273.15, 'P', P_LP*1e5, RF) # J/kg.K
+        h3 = CP.PropsSI('HMASS', 'T', T_pump_in+273.15, 'P', P_LP*1e5, RF) # J/kg
+        h4_s = CP.PropsSI('HMASS', 'P', P_HP*1e5, 'SMASS', s3, RF) # J/kg
+        h4 = h3 - (h3-h4_s)*eta_pump # J/kg
+
+        m_dot_ORC = m_dot * Q_well/(h1 - h4) # kg/s
+
+        W_turbine = m_dot_ORC * (h1 - h2) # J/s
+        W_pump = m_dot_ORC * (h4 - h3) # J/s
+
+        electricity_output_MWe = (W_turbine-W_pump)/1e6 # MW
+        
+        
+        # CHECK HOW TO DO THE PROPER CALCULATION OF THIS RESIDUAL HEAT:
+        residual_heat = m_dot_ORC * (h2-h3)
+        residual_heat_MW = residual_heat / 1e6
+        
+        #plt.plot(times_SBT_years, prod_pressures, linestyle = "--", color = "red", label = "Original heat production (MWth)")      # Plot heat if you want to see conversion efficiency
+        #plt.plot(times_SBT_years, prod_temperatures, linestyle = "--", color = "red", label = "Original heat production (MWth)")      # Plot heat if you want to see conversion efficiency
+        plt.plot(times_SBT_years, prod_heat, linestyle = "--", color = "red", label = "Original heat production (MWth)")      # Plot heat if you want to see conversion efficiency
+        plt.plot(times_SBT_years, electricity_output_MWe, color = "gold", label = "Resulting electricity output (MWe)")
+        plt.plot(times_SBT_years, residual_heat_MW, linestyle = "dotted" , color = "orange", label = "Residual heat (MWth)")
+        
+        plt.ylabel("Energy (MW)")
+        plt.xlabel("Time (years)")
+        plt.legend()
+        plt.grid()
+        plt.show()
+        
+        
+        print("The average production temperature over 30 years is:")
+        print(np.mean(prod_temperatures))
+        print("The average production pressure over 30 years is:")
+        print(np.mean(prod_pressures))
 
 
 # LIST OF PARAMETERS AND UNITS
