@@ -4,6 +4,7 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
 SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
+                  'dwsim_cpg': 'SystemExternal',
                   'native_orc': 'SystemORCNative'}
 
 UNIT_OPTIONS = {
@@ -11,6 +12,7 @@ UNIT_OPTIONS = {
                         {
                             'native_cpg': 'SurfaceUnitCPGNative',
                             'moose_cpg': 'SurfaceUnitCPGNative',
+                            'dwsim_cpg': 'SurfaceUnitCPGDWSIM',
                             'native_orc': 'SurfaceUnitORCNative'
                         },
                     'injection_well':
@@ -55,11 +57,12 @@ UNIT_STATE_OPTIONS = {
                             {
                                 'native_cpg': 'SurfaceStateCPGNative',
                                 'moose_cpg': 'SurfaceStateCPGNative',
+                                'dwsim_cpg': 'SurfaceStateCPGDWSIM',
                                 'native_orc': 'SurfaceStateORCNative'
                             },
                        'injection_well':
                            {
-                               'native': 'InjectionWellStateNative',
+                               'native': 'UnitState',
                                'moose': 'UnitState'
                            },
                        'production_well':
@@ -91,7 +94,7 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'moose_cpg', 'native_orc'],
+                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'native_orc'],
                                     'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
@@ -124,9 +127,9 @@ CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0
 #
 
 CMG_PATH = {
-                'WIN': r"C:\Program Files\CMG",
-                'LINUX': 'xxx'
-           }
+    'WIN': r"C:\Program Files\CMG",
+    'LINUX': 'xxx'
+}
 
 CMG_EXE_FLD = {
                    'WIN': "Win_x64",
