@@ -7,27 +7,7 @@ from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
-from tango.units.native.common import CommonSpecs
-
-
-@dataclass
-class WellSpecsNative(CommonSpecs):
-    """The well specs based on Adams et al. (2015)."""
-    well_length: float = None  # well length (m)
-    diameter: float = None # (m)
-    vertical_deviation: float = None    # vertical deviation angle defined in degrees
-    epsilon: float = 55.e-6  # roughness of the well (m)
-    num_cells: int = 100    # number of cells that is used for discretization
-    gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
-    probability_of_success: float = 0.95
-    wellhead_depth: float = 0. # wellhead measured depth (m)
-    eta_pump: float = 0.90  # The pump efficiency (-)
-    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
-    def __post_init__(self):
-        required_fields = ['well_length', 'diameter']
-        for s in required_fields:
-            if getattr(self, s, None) == None:
-                raise RuntimeError(f"Required parameter: {s} is not found.")
+from tango.units.native.common import WellSpecsNative
 
 
 class WellStateNative(UnitState):
