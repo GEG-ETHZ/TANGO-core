@@ -9,7 +9,7 @@ import numpy as np
 
 from tango.core.config import *
 from tango.core.constants import *
-from tango.units.native.base import *
+from tango.core.abstracts.unit import *
 from tango.units.native.common import CommonSpecs
 from tango.units.native.economic import *
 from tango import utils
@@ -55,13 +55,13 @@ class EconomicSpecsNative(CommonSpecs):
                 raise ValueError(f"Multiple well_pattern: {self.well_pattern} is not supported")
 
 
-class EconomicStateNative(UnitStateNative):
+class EconomicStateNative(UnitState):
     """Economics state based on Adams et. al (2015)."""
     def __init__(self):
-        UnitStateNative.__init__(self)
+        UnitState.__init__(self)
 
 
-class EconomicUnitNative(UnitNative):
+class EconomicUnitNative(Unit):
 
     def __init__(self, specs: dict, nodes) -> None:
         super().__init__('econ', specs)

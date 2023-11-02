@@ -1,14 +1,14 @@
 from tango.core.config import *
 from tango.core import FluidState
-from tango.units.native.base import *
+from tango.core.abstracts.unit import *
 
-class SurfaceState(UnitStateNative):
+class SurfaceState(UnitState):
 
     def __init__(self) -> None:
-        UnitStateNative.__init__(self)
+        UnitState.__init__(self)
 
 
-class SurfaceUnitNative(UnitNative):
+class SurfaceUnitNative(Unit):
     """The power plant unit based on Adams et al. (2015)."""
     def __init__(self, id, specs):
         super().__init__(id, specs)

@@ -6,7 +6,7 @@ import numpy as np
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.units.native.base import *
+from tango.core.abstracts.unit import *
 from tango.units.native.common import CommonSpecs
 
 
@@ -30,10 +30,10 @@ class WellSpecsNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class WellStateNative(UnitStateNative):
+class WellStateNative(UnitState):
     """The well state unit"""
     def __init__(self) -> None:
-        UnitStateNative.__init__(self)
+        UnitState.__init__(self)
         self._t_d: float = 0. # dimensionless time at current time step
         self._t_d_old: float = 0. # dimensionless time at previos time step
 
@@ -54,7 +54,7 @@ class WellStateNative(UnitStateNative):
         self._t_d_old = self._t_d
 
 
-class WellUnitNative(UnitNative):
+class WellUnitNative(Unit):
     """The well unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict):
         super().__init__(id, specs)

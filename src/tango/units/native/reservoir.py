@@ -5,7 +5,7 @@ from math import e as exp
 from tango.core.config import *
 from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.units.native.base import *
+from tango.core.abstracts.unit import *
 from .common import CommonSpecs
 from dataclasses import dataclass
 
@@ -29,10 +29,10 @@ class ReservoirSpecsNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class ReservoirStateNative(UnitStateNative):
+class ReservoirStateNative(UnitState):
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
-        UnitStateNative.__init__(self)
+        UnitState.__init__(self)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
         self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
@@ -62,7 +62,7 @@ class ReservoirStateNative(UnitStateNative):
         self._energy_extracted_old = self._energy_extracted
 
 
-class ReservoirUnitNative(UnitNative):
+class ReservoirUnitNative(Unit):
     """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict) -> None:
         super().__init__(id, specs)
