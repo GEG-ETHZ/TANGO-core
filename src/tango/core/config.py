@@ -3,17 +3,20 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
+                  'moose_cpg': 'SystemExternal',
                   'native_orc': 'SystemORCNative'}
 
 UNIT_OPTIONS = {
                     'surface':
                         {
                             'native_cpg': 'SurfaceUnitCPGNative',
+                            'moose_cpg': 'SurfaceUnitCPGNative',
                             'native_orc': 'SurfaceUnitORCNative'
                         },
                     'injection_well':
                         {
-                            'native': 'InjectionWellUnitNative'
+                            'native': 'InjectionWellUnitNative',
+                            'moose': 'WellUnitMOOSE'
                         },
                     'production_well':
                         {
@@ -51,11 +54,13 @@ UNIT_STATE_OPTIONS = {
                         'surface':
                             {
                                 'native_cpg': 'SurfaceStateCPGNative',
+                                'moose_cpg': 'SurfaceStateCPGNative',
                                 'native_orc': 'SurfaceStateORCNative'
                             },
                        'injection_well':
                            {
-                               'native': 'InjectionWellStateNative'
+                               'native': 'InjectionWellStateNative',
+                               'moose': 'UnitState'
                            },
                        'production_well':
                            {
@@ -86,8 +91,8 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'native_orc'],
-                                    'injection_well': ['native'],
+                                    'surface': ['native_cpg', 'moose_cpg', 'native_orc'],
+                                    'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
                                     'horizontal_well': ['native'],
@@ -119,7 +124,7 @@ CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0
 #
 
 CMG_PATH = {
-                'WIN': "C:\Program Files\CMG",
+                'WIN': r"C:\Program Files\CMG",
                 'LINUX': 'xxx'
            }
 
