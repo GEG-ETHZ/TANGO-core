@@ -29,7 +29,9 @@ class TangoMooseInterface:
         return os.path.join(os.path.dirname(moose_input_path), bc_file)
 
 
-    def _set_initial_bc(self, pressure=8000000, flowrate=0.01, temperature=300):
+    # To DO: the intial BC values should come from the other unit, but it cause convergence issues in MOOSE
+    # (rapis jump of BC over a short period)
+    def _set_initial_bc(self, pressure=8000000, flowrate=0.02, temperature=300):
         self.pressure_from_TANGO = pressure
         self.flowrate_from_TANGO = flowrate
         self.temperature_from_TANGO = temperature
@@ -108,15 +110,15 @@ class TangoMooseInterface:
             timestep_match, success_match = self.parse_moose_output(line)
             if timestep_match:
                 current_timestep, time, dt = self.extract_timestep_info(timestep_match)
-                print(self.pressure_from_TANGO)
                 self.write_csv_row(self.pressure_bc_path, time, self.pressure_from_TANGO)
                 self.write_csv_row(self.temperature_bc_path, time, self.temperature_from_TANGO)
+                self.write_csv_row(self.flowrate_bc_path, time, self.flowrate_from_TANGO)
                 if int(current_timestep) > 1:
                     self.pressure_from_MOOSE, self.flowrate_from_MOOSE, self.temperature_from_MOOSE = self.get_last_row_value(post_processor_path)
                 else:
-                    self.pressure_from_MOOSE = 8000000
-                    self.flowrate_from_MOOSE = 0.01
-                    self.temperature_from_MOOSE = 300
+                    self.pressure_from_MOOSE = self.pressure_from_TANGO
+                    self.flowrate_from_MOOSE = self.flowrate_from_TANGO
+                    self.temperature_from_MOOSE = self.temperature_from_TANGO
                 # self.read_csv_contents(self.pressure_bc_path)
                 # self.read_csv_contents(self.temperature_bc_path)
                 self.process.send_signal(signal.SIGSTOP)

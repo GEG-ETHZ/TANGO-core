@@ -10,6 +10,7 @@ from tango.core.constants import *
 from tango.core.config import *
 from tango import utils
 from tango.systems.native import *
+from tango.systems.external import *
 
 def get_system_class(type_: str) -> object:
     try:
