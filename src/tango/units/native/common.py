@@ -31,20 +31,68 @@ class CommonSpecs:
 
 
 @dataclass
-class WellSpecsNative(CommonSpecs):
-    """The well specs based on Adams et al. (2015)."""
+class WellSpecs(CommonSpecs):
+    """General well specs"""
     well_length: float = None  # well length (m)
     diameter: float = None # (m)
-    vertical_deviation: float = None    # vertical deviation angle defined in degrees
     epsilon: float = 55.e-6  # roughness of the well (m)
-    num_cells: int = 100    # number of cells that is used for discretization
-    gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
     probability_of_success: float = 0.95
-    wellhead_depth: float = 0. # wellhead measured depth (m)
     eta_pump: float = 0.90  # The pump efficiency (-)
-    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     def __post_init__(self):
         required_fields = ['well_length', 'diameter']
         for s in required_fields:
             if getattr(self, s, None) == None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
+
+
+@dataclass
+class WellSpecsNative(WellSpecs):
+    """The well specs based on Adams et al. (2015)."""
+    vertical_deviation: float = None    # vertical deviation angle defined in degrees
+    num_cells: int = 100    # number of cells that is used for discretization
+    gravity_scale_factor: float = 1.0    # the scale factor used for changing the direction of gravity
+    wellhead_depth: float = 0. # wellhead measured depth (m)
+    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+
+
+@dataclass
+class WellSpecsMOOSE(WellSpecs):
+    """MOOSE well specs"""
+    yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase15.yml"
+    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/src/tango/units/external/MOOSE/well/AGS_Mahmoud_template.i"
+    output_directory: str = "/Users/morteza/Documents/projects/moskito2"
+    output_file_name: str = "AGS_Mahmoud.i"
+    moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/moskito-opt'
+    moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/AGS_Mahmoud.i'
+    post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/gg_out.csv'
+    pressure_bc_file: str = 'pc.csv'
+    flowrate_bc_file: str = 'qc.csv'
+    temperature_bc_file: str = 'tc.csv'
+
+
+@dataclass
+class SurfaceSpecsCPGNative(CommonSpecs):
+    pipe_diameter: float = None  # (m)
+    approach_temperature: float = None  # The temperature difference between condensing and the surface temperature (K)
+    condensation_pressure_offset: float = None  # (Pa)
+    temperature_range: float = 0. # diff between inlet and exit fluid temperature.
+    eta_pump: float = 0.90    # The pump efficiency (-)
+    total_pipe_length: float = None # (m)
+    epsilon: float = 55.e-6  # roughness of surface pipe (m)
+    eta_turbine: float = 0.78 # The isentropic efficiency of the turbine (-)
+    cooling_tower_design: str = 'CLOSED' # cooling tower design
+    cooling_mode: str = 'WET' # WET or DRY
+    def __post_init__(self):
+        required_fields = ['pipe_diameter', 'approach_temperature', 'condensation_pressure_offset']
+        for s in required_fields:
+            if getattr(self, s, None) == None:
+                raise RuntimeError(f"Required parameter: {s} is not found.")
+
+
+@dataclass
+class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
+    local_script_path = "/Users/morteza/Documents/projects/TANGO/src/tango/interfaces/tango_dwsim_interface.py"
+    remote_username = "morteza"
+    remote_ip = "10.211.55.3"
+    remote_script_path = "/Users/morteza/Desktop/new.py"
+    PP_csv_file = "/Users/morteza/Desktop/data.csv"
