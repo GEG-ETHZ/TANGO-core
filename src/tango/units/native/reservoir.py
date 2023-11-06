@@ -235,3 +235,5 @@ class ReservoirUnitNative(Unit):
     def execute(self) -> None:
         self.update_inlet_state()
         self.update()
+        print("reservoir_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
+        print("reservoir_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)

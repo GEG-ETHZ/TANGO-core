@@ -59,7 +59,7 @@ class WellSpecsNative(WellSpecs):
 class WellSpecsMOOSE(WellSpecs):
     """MOOSE well specs"""
     yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase15.yml"
-    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/src/tango/units/external/MOOSE/well/AGS_Mahmoud_template.i"
+    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/AGS_Mahmoud_template.i"
     output_directory: str = "/Users/morteza/Documents/projects/moskito2"
     output_file_name: str = "AGS_Mahmoud.i"
     moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/moskito-opt'
