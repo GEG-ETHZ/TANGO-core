@@ -34,7 +34,8 @@ UNIT_OPTIONS = {
                         },
                     'reservoir':
                         {
-                            'native': 'ReservoirUnitNative'
+                            'native': 'ReservoirUnitNative',
+                            'moose': 'ReservoirUnitPorousflow'
                         },
                     'stream':
                         {
@@ -79,7 +80,8 @@ UNIT_STATE_OPTIONS = {
                            },
                        'reservoir':
                            {
-                               'native': 'ReservoirStateNative'
+                               'native': 'ReservoirStateNative',
+                               'moose': 'UnitState'
                            },
                        'stream':
                            {
@@ -99,7 +101,7 @@ UNIT_OPTIONS_FOR_ECONUNIT = {
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
                                     'horizontal_well': ['native'],
-                                    'reservoir': ['native']
+                                    'reservoir': ['native', 'moose']
                                 }
                             }
 
