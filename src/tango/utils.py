@@ -19,6 +19,7 @@ from tango.units.cmg.gem import *
 from tango.units.cmg.coflow import *
 from tango.units.external.MOOSE.well.well import *
 from tango.units.external.DWSIM.CPG import *
+from tango.units.external.MOOSE.reservoir.reservoir import *
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')

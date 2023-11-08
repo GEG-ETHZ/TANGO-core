@@ -8,25 +8,7 @@ from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from .common import CommonSpecs
 from dataclasses import dataclass
-
-@dataclass
-class ReservoirSpecsNative(CommonSpecs):
-    """Specifications for reservoir unit based on Adams et. al (2015)"""
-    reservoir_depth: float = None
-    thickness: float = None     # the reservoir thickness (in m)
-    porosity: float = None    # the rock porosity in the reservoir (dimensionless)
-    permeability: float = None # the rock permeability in the reservoir (in m2)
-    area: float = None
-    net_to_gross_ratio: float = 1.0
-    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
-    initial_pressure: float = None
-    initial_temperature: float = None
-    well_eff_diameter: float = 0.41 # effective (average) wellbore diameter (inj and prod) (m)
-    def __post_init__(self):
-        required_fields = ['reservoir_depth', 'thickness', 'porosity', 'permeability']
-        for s in required_fields:
-            if getattr(self, s, None) == None:
-                raise RuntimeError(f"Required parameter: {s} is not found.")
+from tango.units.native.common import ReservoirSpecsNative
 
 
 class ReservoirStateNative(UnitState):

@@ -96,3 +96,44 @@ class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
     remote_ip = "10.211.55.3"
     remote_script_path = "/Users/morteza/Desktop/new.py"
     PP_csv_file = "/Users/morteza/Desktop/data.csv"
+
+@dataclass
+class ReservoirSpecs(CommonSpecs):
+    """General well specs"""
+    reservoir_depth: float = None
+    porosity: float = None    # the rock porosity in the reservoir (dimensionless)
+    permeability: float = None # the rock permeability in the reservoir (in m2)
+    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    initial_pressure: float = None
+    initial_temperature: float = None
+
+
+@dataclass
+class ReservoirSpecsNative(ReservoirSpecs):
+    """Specifications for reservoir unit based on Adams et. al (2015)"""
+    thickness: float = None     # the reservoir thickness (in m)
+    area: float = None
+    net_to_gross_ratio: float = 1.0
+    well_eff_diameter: float = 0.41 # effective (average) wellbore diameter (inj and prod) (m)
+    def __post_init__(self):
+        required_fields = ['reservoir_depth', 'thickness', 'porosity', 'permeability']
+        # required_fields = ['porosity', 'permeability']
+        for s in required_fields:
+            if getattr(self, s, None) == None:
+                raise RuntimeError(f"Required parameter: {s} is not found.")
+
+@dataclass
+class ReservoirSpecsPorousflow(ReservoirSpecs):
+    """MOOSE well specs"""
+    moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/porous_flow-opt'
+    moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/reservoir.i'
+    post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/res_out.csv'
+    pressure_bc_file: str = 'pcres.csv'
+    flowrate_bc_file: str = 'qcres.csv'
+    temperature_bc_file: str = 'tcres.csv'
+    def __post_init__(self):
+        required_fields = ['reservoir_depth', 'porosity', 'permeability']
+        # required_fields = ['porosity', 'permeability']
+        for s in required_fields:
+            if getattr(self, s, None) == None:
+                raise RuntimeError(f"Required parameter: {s} is not found.")
