@@ -54,7 +54,7 @@ injection_well:
   well_length: 2500. # m
   diameter: 0.1429 # m
   epsilon: 1.e-4  # roughness of the well (m)
-  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase16.yml"
+  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml"
 
 
 schedule:
