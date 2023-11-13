@@ -125,7 +125,7 @@ class ReservoirSpecsNative(ReservoirSpecs):
 @dataclass
 class ReservoirSpecsPorousflow(ReservoirSpecs):
     """MOOSE well specs"""
-    moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/porous_flow-opt'
+    moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/porous-flow-opt'
     moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/reservoir.i'
     post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/res_out.csv'
     pressure_bc_file: str = 'pcres.csv'
