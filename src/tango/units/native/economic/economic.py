@@ -41,6 +41,7 @@ class EconomicSpecsNative(CommonSpecs):
     monitoring_well_probability_of_success: float = 1.0
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
+    well_cost_model: str = 'gengeo'
     def __post_init__(self):
         required_fields = ['project_maturity', 'type']
         for s in required_fields:
