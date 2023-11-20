@@ -94,3 +94,4 @@ economic: # optional
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
+  well_cost_model: 'gengeo'

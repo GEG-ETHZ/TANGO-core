@@ -57,13 +57,28 @@ class EconUnitWells:
         if well_type == 'injection_well' and self._specs.project_maturity == 'BROWN_FIELD':
             return 0
         well_unit = getattr(self, well_type, None)
+
+        well_cost_mapping = {
+            'gengeo': 1.0,
+            'ppgd': 1.0,
+            'halliburton': 2500.0/1500.0,
+            'st_gallen': 2889.0/1500.0,
+            'bavaria': 3333.0/1500.0,
+            'swiss': 2907.0/1500.0,
+        }
+
+        if self._specs.well_cost_model in well_cost_mapping:
+            h_factor = well_cost_mapping[self._specs.well_cost_model]
+        else:
+            raise ValueError(f"The provided well_cost_model: {self._specs.well_cost_model} is not supported")
+
         if well_unit == None:
             return 0.
         if well_type == 'horizontal_well':
             self._specs.horizontal_well_cost_multiplier = 1.0
             val = 0.
             for h_well_unit in well_unit:
-                val += self.compute_individual_well_cost(L=h_well_unit.get_well_length(),
+                val += h_factor * self.compute_individual_well_cost(L=h_well_unit.get_well_length(),
                                                          d=h_well_unit.get_diameter(),
                                                          pos=h_well_unit.get_probability_of_success(),
                                                          fluid_name=self._specs.fluid_name)
@@ -85,7 +100,22 @@ class EconUnitWells:
                 L = self.production_well.get_well_length()
                 if self.production_well_pump != None:
                     L += self.production_well_pump.get_well_length()
-        C_well = self._X_IC * self._X_PC * self._PPI * (0.105 * L ** 2 + 1776. * d * L + 275300.) # well cost (base line)
+
+        well_cost_formulas = {
+            'gengeo': lambda L, d, self: self._X_IC * self._X_PC * self._PPI * (0.105 * L ** 2 + 1776. * d * L + 275300.),
+            'halliburton': lambda L, d, self: 1500 * L,
+            'st_gallen': lambda L, d, self: 1500 * L,
+            'bavaria': lambda L, d, self: 1500 * L,
+            'swiss': lambda L, d, self: 1500 * L,
+            'ppgd': lambda L, d, self: 969 * L,
+        }
+
+        if self._specs.well_cost_model in well_cost_formulas:
+            C_well = well_cost_formulas[self._specs.well_cost_model](L, d, self)
+        else:
+            raise ValueError(f"The provided well_cost_model: {self._specs.well_cost_model} is not supported")
+
+
         dC_CO2_well = self._compute_dC_CO2_well(d, L, fluid_name) # adjustment for CO2
         return (C_well + dC_CO2_well) / pos
 
