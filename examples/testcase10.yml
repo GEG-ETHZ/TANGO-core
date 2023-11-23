@@ -7,9 +7,6 @@ graph:
     inj_1:
       type: 'injection_well' # naming should be revised
       unit: 'moose'
-    prd_1:
-      type: 'production_well' # should be removed!
-      unit: 'native'
     surface:
       type: 'surface'
       unit: 'dwsim_cpg'
@@ -19,9 +16,6 @@ graph:
       target: 'inj_1'
     2:
       source: 'inj_1'
-      target: 'prd_1'
-    3:
-      source: 'prd_1'
       target: 'surface'
 
 # simulation input
@@ -45,10 +39,6 @@ surface:
   approach_temperature: 7.0  # K
   condensation_pressure_offset: 50_000.0  # Pa
   eta_turbine: 0.78  # (-)
-
-production_well:
-  well_length: 0.000001 # m
-  diameter: 0.410 # m
 
 injection_well:
   well_length: 2500. # m

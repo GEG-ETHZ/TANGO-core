@@ -9,8 +9,8 @@ from tango.core.abstracts.workflow import *
 from tango.core.constants import *
 from tango.core.config import *
 from tango import utils
-from tango.systems.native import *
-from tango.systems.external import *
+from tango.orchestrators.native import *
+from tango.orchestrators.external import *
 
 def get_system_class(type_: str) -> object:
     try:
@@ -38,8 +38,8 @@ class NativeWorkflow(Workflow):
             initialize physical system - a collection of compte nodes (units) and their connections
             system takes care of 'techno (physics)' part of TANGO computations
         """
-        System = get_system_class(utils.system_name(self.specs))
-        self.system = System(self.specs)
+        UnitManager = get_system_class(utils.system_name(self.specs))
+        self.orchestrator = UnitManager(self.specs)
 
 
     def _init_econ_unit(self) -> None:
@@ -47,28 +47,28 @@ class NativeWorkflow(Workflow):
         self.economic = None
         if 'economic' in self.specs:
             Unit = get_unit_class(type_='economic', unit_name=self.specs['economic']['type'])
-            self.economic = Unit(specs=self.specs, nodes=self.system.graph.nodes)
+            self.economic = Unit(specs=self.specs, nodes=self.orchestrator.graph.nodes)
 
 
-    def _solve(self) -> None:
+    def _native_system_iteration(self) -> None:
         """update some unknown variables to balance the system. Then advance one time step"""
         count = 0
         while True:
-            if self.system.max_itr_reached(count):
+            if self.orchestrator.max_itr_reached(count):
                 break
             count += 1
-            self.system.execute() # run compute nodes defined within the graph
-            if self.system.balanced():
+            self.orchestrator.execute() # run compute nodes defined within the graph
+            if self.orchestrator.balanced():
                 logging.debug(f"System balanced after {count} iterations")
                 break
-            self.system.update()
-        self.system.update_time_dependent_vars()
+            self.orchestrator.update()
+        self.orchestrator.update_time_dependent_vars()
 
 
     def _save_results(self, current_date: datetime) -> None:
         """update self.results"""
         utils.parse_results(d=self._results,
-                            nodes=self.system.graph.nodes,
+                            nodes=self.orchestrator.graph.nodes,
                             current_date=current_date.strftime(DATETIME_FMT))
 
 
@@ -78,10 +78,13 @@ class NativeWorkflow(Workflow):
 
 
     def execute(self) -> None:
-
         current_date = self._start_date
+        # print(type(self.orchestrator).__name__ )
         for i in tqdm(range(self._num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
-            self._solve()
+            if (type(self.orchestrator).__name__ != 'SystemExternal'):
+                self._native_system_iteration()
+            else:
+                self.orchestrator.execute()
             self._save_results(current_date)
             current_date = current_date + relativedelta(months=self._dt_months)
 

@@ -7,11 +7,11 @@ import inspect
 from tango.core.config import *
 from tango.core.constants import *
 from tango.core.stream import *
-from tango.core.abstracts.system import *
+from tango.core.abstracts.orchestrator import *
 from tango.utils import *
 
 
-class SystemNative(System):
+class SystemNative(UnitManager):
 
     def __init__(self, specs):
         super().__init__(specs)
@@ -24,6 +24,18 @@ class SystemNative(System):
             logging.warning(f"Max number of iteration (={count}) has reached in '{inspect.stack()[1][3]}'. Exiting iteration.")
             return True
         return False
+
+
+    def balanced(self) -> bool:
+        return True
+
+
+    def update_time_dependent_vars(self) -> None:
+        pass
+
+
+    def update(self) -> None:
+        pass
 
 
 class SystemCPGNative(SystemNative):

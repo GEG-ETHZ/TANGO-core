@@ -5,11 +5,11 @@ import inspect
 from tango.core.config import *
 from tango.core.constants import *
 from tango.core.stream import *
-from tango.core.abstracts.system import *
+from tango.core.abstracts.orchestrator import *
 from tango.utils import *
 
 
-class SystemCMG(System):
+class SystemCMG(UnitManager):
 
     def __init__(self, specs):
         super().__init__(specs)

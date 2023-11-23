@@ -14,7 +14,7 @@ class Unit:
         setattr(self, name, unit)
 
 
-class System(ABC):
+class UnitManager(ABC):
 
     def __init__(self, specs):
         self.specs = specs
@@ -24,25 +24,10 @@ class System(ABC):
         self._init_edges()
 
 
-    def balanced(self) -> bool:
-        return True
-
-
-    def update_time_dependent_vars(self) -> None:
-        pass
-
-
-    def update(self) -> None:
-        pass
-
-
-    def max_itr_reached(self, count) -> bool:
-        return False
-
     def _build_graph(self) -> None:
         nodes = [(k, v | {'visited': False}) for k, v in self.specs['graph']['nodes'].items()]
         edges = [(v['source'], v['target'], v | {'id': k}) for k, v in self.specs['graph']['edges'].items()]
-        self.graph = nx.Graph()
+        self.graph = nx.DiGraph()
         self.graph.add_nodes_from(nodes)
         self.graph.add_edges_from(edges)
 

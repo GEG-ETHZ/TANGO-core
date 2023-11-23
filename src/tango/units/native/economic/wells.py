@@ -75,14 +75,13 @@ class EconUnitWells:
         if well_unit == None:
             return 0.
         if well_type == 'horizontal_well':
-            self._specs.horizontal_well_cost_multiplier = 1.0
             val = 0.
             for h_well_unit in well_unit:
                 val += h_factor * self.compute_individual_well_cost(L=h_well_unit.get_well_length(),
                                                          d=h_well_unit.get_diameter(),
                                                          pos=h_well_unit.get_probability_of_success(),
                                                          fluid_name=self._specs.fluid_name)
-            return num_wells * self._specs.horizontal_well_cost_multiplier * val
+            return num_wells * val
         else:
             return num_wells * self.compute_individual_well_cost(L=well_unit.get_well_length(),
                                                                  d=well_unit.get_diameter(),
