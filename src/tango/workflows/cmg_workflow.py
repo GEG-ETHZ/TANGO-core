@@ -1,5 +1,5 @@
 from tango.core.abstracts.workflow import Workflow
-from tango.systems.cmg import *
+from tango.orchestrators.cmg import *
 
 class CMGWorkflow(Workflow): #TODO: Implement
 
