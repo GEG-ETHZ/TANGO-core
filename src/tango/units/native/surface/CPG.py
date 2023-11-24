@@ -48,12 +48,12 @@ class SurfaceStateCPGNative(SurfaceState):
         self._dP_pump: float = 0.
 
 
-    def get_dP_pump(self) -> float:
-        return self._dP_pump
+    # def get_dP_pump(self) -> float:
+    #     return self._dP_pump
 
 
-    def update_dP_pump(self, val) -> None:
-        self._dP_pump = val
+    # def update_dP_pump(self, val) -> None:
+    #     self._dP_pump = val
 
 
 class SurfaceUnitCPGNative(SurfaceUnitNative):
@@ -115,7 +115,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         eta = self.specs.eta_pump
         X_CO2 = self._X_CO2
 
-        dP_pump = self.state.get_dP_pump()
+        dP_pump = self.get_dP_pump()
         P_pump_outlet = self.condensation_pressure + dP_pump
 
         h_pump_inlet = self.state.inlet_fluid_pump.H
@@ -190,3 +190,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.update_outlet_streams()
 
 
+    def update_dP_pump(self, val) -> None:
+        self.state._dP_pump = val
+
+    def get_dP_pump(self) -> float:
+        return self.state._dP_pump

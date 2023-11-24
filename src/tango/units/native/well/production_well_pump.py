@@ -17,30 +17,30 @@ class ProductionWellPumpStateNative(WellStateNative):
         self._w_pump: float = 0.
 
 
-    def set_dP_pump(self, val) -> None:
-        self._dP_pump = min(max(val, 0.), MAX_PRD_PUMP_DP)
+    # def set_dP_pump(self, val) -> None:
+    #     self._dP_pump = min(max(val, 0.), MAX_PRD_PUMP_DP)
 
 
     def set_w_pump(self, val) -> None:
         self._w_pump = val
 
 
-    def get_dP_pump(self) -> None:
-        return self._dP_pump
+    # def get_dP_pump(self) -> None:
+    #     return self._dP_pump
 
 
-    def get_w_pump(self) -> None:
-        return self._w_pump
+    # def get_w_pump(self) -> None:
+    #     return self._w_pump
 
 
-    def set_inlet_pressure(self) -> None:
-        self._inlet_pressure_tmp = self.inlet_fluid.P
+    # def set_inlet_pressure(self) -> None:
+    #     self._inlet_pressure_tmp = self.inlet_fluid.P
 
 
-    def update_inlet_fluid_state_with_pump(self) -> None:
-        P = self._inlet_pressure_tmp + self._dP_pump
-        T = self.inlet_fluid.T
-        self.inlet_fluid.updatePT(P, T)
+    # def update_inlet_fluid_state_with_pump(self) -> None:
+    #     P = self._inlet_pressure_tmp + self._dP_pump
+    #     T = self.inlet_fluid.T
+    #     self.inlet_fluid.updatePT(P, T)
 
 
 class ProductionWellPumpUnitNative(ProductionWellUnitNative):
@@ -68,7 +68,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
 
     def update_w_pump(self):
-        dP_pump = self.state.get_dP_pump()
+        dP_pump = self.get_dP_pump()
         if dP_pump <= 0.:
             return
         inlet_fluid_state_0 = FluidState.withPT(self._specs.fluid_name,
@@ -80,7 +80,28 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
     def execute(self) -> None:
         self.update_inlet_state()
-        self.state.set_inlet_pressure()
-        self.state.update_inlet_fluid_state_with_pump()
+        self.set_inlet_pressure()
+        self.update_inlet_fluid_state_with_pump()
         self.update()
         self.update_w_pump()
+
+    def set_dP_pump(self, val) -> None:
+        self.state._dP_pump = min(max(val, 0.), MAX_PRD_PUMP_DP)
+
+
+    def get_dP_pump(self) -> None:
+        return self.state._dP_pump
+
+
+    def set_inlet_pressure(self) -> None:
+        self._inlet_pressure_tmp = self.state.inlet_fluid.P
+
+
+    def update_inlet_fluid_state_with_pump(self) -> None:
+        P = self._inlet_pressure_tmp + self.state._dP_pump
+        T = self.state.inlet_fluid.T
+        self.state.inlet_fluid.updatePT(P, T)
+
+
+    def get_w_pump(self) -> None:
+        return self.state._w_pump

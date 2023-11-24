@@ -33,8 +33,8 @@ class WellStateNative():
         self._t_d = self._t_d_old + del_t
 
 
-    def update_dimensionless_time_old(self) -> None:
-        self._t_d_old = self._t_d
+    # def update_dimensionless_time_old(self) -> None:
+    #     self._t_d_old = self._t_d
 
 
 class WellUnitNative(Unit):
@@ -199,3 +199,7 @@ class WellUnitNative(Unit):
         self.update()
         print("production_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
         print("production_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+
+
+    def update_dimensionless_time_old(self) -> None:
+        self.state._t_d_old = self.state._t_d

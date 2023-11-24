@@ -16,26 +16,26 @@ class InjectionWellStateNative(WellStateNative):
         self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
 
 
-    def get_inlet_temperature_tmp(self) -> float:
-        return self._injection_temperature_tmp
+    # def get_inlet_temperature_tmp(self) -> float:
+    #     return self._injection_temperature_tmp
 
 
-    def get_del_temperature(self, T:float) -> float:
-        return self._injection_temperature_tmp - T
+    # def get_del_temperature(self, T:float) -> float:
+    #     return self._injection_temperature_tmp - T
 
 
-    def update_inlet_temperature_tmp(self) -> None:
-        self._injection_temperature_tmp = self.inlet_fluid.T
+    # def update_inlet_temperature_tmp(self) -> None:
+    #     self._injection_temperature_tmp = self.inlet_fluid.T
 
 
-    def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
-        if P != None and T == None:
-            P = max(P, ATMOSPHERIC_PRESSURE)
-            T = self.inlet_fluid.T
-        elif P == None and T != None:
-            P = self.inlet_fluid.P
-            T = max(T, MIN_INJ_TEMPERATURE)
-        self.inlet_fluid.updatePT(P, T)
+    # def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
+    #     if P != None and T == None:
+    #         P = max(P, ATMOSPHERIC_PRESSURE)
+    #         T = self.inlet_fluid.T
+    #     elif P == None and T != None:
+    #         P = self.inlet_fluid.P
+    #         T = max(T, MIN_INJ_TEMPERATURE)
+    #     self.inlet_fluid.updatePT(P, T)
 
 
 class InjectionWellUnitNative(WellUnitNative):
@@ -71,7 +71,7 @@ class InjectionWellUnitNative(WellUnitNative):
 
     def init_inlet_state(self, inlet_state) -> None:
         self.state.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
-        self.state.update_inlet_temperature_tmp()
+        self.update_inlet_temperature_tmp()
 
 
     def update_inlet_state(self) -> None:
@@ -101,3 +101,24 @@ class InjectionWellUnitNative(WellUnitNative):
         elif P == None and T != None:
             P = self.fluid_state_init.P
         self.fluid_state_init.updatePT(P, T)
+
+
+    def get_del_temperature(self, T:float) -> float:
+        return self.state._injection_temperature_tmp - T
+
+
+    def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
+        if P != None and T == None:
+            P = max(P, ATMOSPHERIC_PRESSURE)
+            T = self.state.inlet_fluid.T
+        elif P == None and T != None:
+            P = self.state.inlet_fluid.P
+            T = max(T, MIN_INJ_TEMPERATURE)
+        self.state.inlet_fluid.updatePT(P, T)
+
+
+    def update_inlet_temperature_tmp(self) -> None:
+        self.state._injection_temperature_tmp = self.state.inlet_fluid.T
+
+    def get_inlet_temperature_tmp(self) -> float:
+        return self.state._injection_temperature_tmp
