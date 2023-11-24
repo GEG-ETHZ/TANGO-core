@@ -10,12 +10,15 @@ from tango.core.abstracts.unit import *
 from tango.units.native.common import WellSpecsNative
 
 
-class WellStateNative(UnitState):
+class WellStateNative():
     """The well state unit"""
     def __init__(self) -> None:
-        UnitState.__init__(self)
+        # UnitState.__init__(self)
         self._t_d: float = 0. # dimensionless time at current time step
         self._t_d_old: float = 0. # dimensionless time at previos time step
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def get_dimensionless_time(self) -> float:

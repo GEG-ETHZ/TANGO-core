@@ -6,15 +6,15 @@ class UnitSpecs(ABC):
     pass
 
 
-class UnitState(ABC):
-
-    def __init__(self):
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
-
-    def update(self) -> None:
-        pass
+# class UnitState(ABC):
+#
+#     def __init__(self):
+#         self.mass_rate: float = 0.0
+#         self.inlet_fluid: FluidState
+#         self.outlet_fluid: FluidState
+#
+#     def update(self) -> None:
+#         pass
 
 
 class Unit(ABC):
