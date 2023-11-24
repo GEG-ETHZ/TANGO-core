@@ -56,10 +56,13 @@ class EconomicSpecsNative(CommonSpecs):
                 raise ValueError(f"Multiple well_pattern: {self.well_pattern} is not supported")
 
 
-class EconomicStateNative(UnitState):
+class EconomicStateNative():
     """Economics state based on Adams et. al (2015)."""
     def __init__(self):
-        UnitState.__init__(self)
+        # UnitState.__init__(self)
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
 class EconomicUnitNative(Unit):

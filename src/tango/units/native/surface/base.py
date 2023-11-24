@@ -2,10 +2,13 @@ from tango.core.config import *
 from tango.core import FluidState
 from tango.core.abstracts.unit import *
 
-class SurfaceState(UnitState):
+class SurfaceState():
 
     def __init__(self) -> None:
-        UnitState.__init__(self)
+        # UnitState.__init__(self)
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
 class SurfaceUnitNative(Unit):

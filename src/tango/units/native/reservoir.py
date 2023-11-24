@@ -11,13 +11,16 @@ from dataclasses import dataclass
 from tango.units.native.common import ReservoirSpecsNative
 
 
-class ReservoirStateNative(UnitState):
+class ReservoirStateNative():
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
-        UnitState.__init__(self)
+        # UnitState.__init__(self)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
         self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def set_pressure_old(self, val) -> None:
