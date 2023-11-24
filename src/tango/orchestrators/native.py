@@ -51,7 +51,7 @@ class SystemCPGNative(SystemNative):
 
 
     def balanced(self) -> bool:
-        self.dP_reservoir = self.unit.reservoir.state.get_del_pressure()
+        self.dP_reservoir = self.unit.reservoir.get_del_pressure()
         if np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR:
             return True
         return False
@@ -59,7 +59,7 @@ class SystemCPGNative(SystemNative):
 
     def update(self) -> None:
         """update unknown to balance the system"""
-        self.x_lst.append(self.unit.surface.state.get_dP_pump())
+        self.x_lst.append(self.unit.surface.get_dP_pump())
         self.y_lst.append(self.dP_reservoir)
         if len(self.x_lst) == 1: # first call
             root = 0.5 * self.dP_reservoir
@@ -67,17 +67,17 @@ class SystemCPGNative(SystemNative):
             root = newton(self.x_lst, self.y_lst)
             self.x_lst.pop(0)
             self.y_lst.pop(0)
-        self.unit.surface.state.update_dP_pump(root)
+        self.unit.surface.update_dP_pump(root)
         self.unit.surface.overwrite_pump_state()
 
 
     def update_time_dependent_vars(self) -> None:
         self.x_lst.clear()
         self.y_lst.clear()
-        self.unit.reservoir.state.update_pressure_old()
-        self.unit.reservoir.state.update_energy_extracted_old()
-        self.unit.injection_well.state.update_dimensionless_time_old()
-        self.unit.production_well.state.update_dimensionless_time_old()
+        self.unit.reservoir.update_pressure_old()
+        self.unit.reservoir.update_energy_extracted_old()
+        self.unit.injection_well.update_dimensionless_time_old()
+        self.unit.production_well.update_dimensionless_time_old()
 
 
 
@@ -99,7 +99,7 @@ class SystemORCNative(SystemNative):
     def _update_injection_well_inlet_P(self) -> None:
         """Local iterations to update injection well inlet pressure"""
         self.unit.injection_well.update_inlet_state()
-        dP_reservoir = self.unit.reservoir.state.get_del_pressure()
+        dP_reservoir = self.unit.reservoir.get_del_pressure()
         x_lst, y_lst = [], []
         count = 0
         while np.abs(dP_reservoir) > self._CONVERGENCE_CRIT_DP_RESERVOIR:
@@ -112,17 +112,17 @@ class SystemORCNative(SystemNative):
             else:
                 root = newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            self.unit.injection_well.state.update_inlet_fluid_state_PT(P=root)
+            self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
             self.unit.injection_well.update()
             self.unit.reservoir.execute()
-            dP_reservoir = self.unit.reservoir.state.get_del_pressure()
+            dP_reservoir = self.unit.reservoir.get_del_pressure()
             count += 1
 
 
     def _compute_dP_surface(self) -> float:
         return self.unit.production_well_pump.state.outlet_fluid.P \
              - self.unit.injection_well.state.inlet_fluid.P \
-             - self.unit.surface.state.dP_pipe
+             - self.unit.surface.dP_pipe
 
 
     def _update_production_well(self) -> None:
@@ -133,7 +133,7 @@ class SystemORCNative(SystemNative):
 
     def _update_production_well_pump(self) -> None:
         """Local iterations to update dP_pump in production well with pump"""
-        dP_pump = self.unit.production_well_pump.state.get_dP_pump()
+        dP_pump = self.unit.production_well_pump.get_dP_pump()
         dP_surface = self._compute_dP_surface()
         if dP_pump == 0. and dP_surface >= 0:
             return # no pummping needed
@@ -149,15 +149,15 @@ class SystemORCNative(SystemNative):
             else:
                 root = newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            self.unit.production_well_pump.state.set_dP_pump(root)
-            self.unit.production_well_pump.state.update_inlet_fluid_state_with_pump()
+            self.unit.production_well_pump.set_dP_pump(root)
+            self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
             self.unit.production_well_pump.update()
             self.unit.surface.update_inlet_state()
             self.unit.surface.overwrite_state_pipe()
-            dP_pump = self.unit.production_well_pump.state.get_dP_pump()
+            dP_pump = self.unit.production_well_pump.get_dP_pump()
             dP_surface = self._compute_dP_surface()
             count += 1
-        self.unit.surface.state.w_downhole_pump = self.unit.production_well_pump.state.get_w_pump()
+        self.unit.surface.state.w_downhole_pump = self.unit.production_well_pump.get_w_pump()
 
 
     def _update_surface(self) -> None:
@@ -168,8 +168,8 @@ class SystemORCNative(SystemNative):
     def _update_injection_well_inlet_T(self) -> None:
         """Local iterations to update temperature at injection well"""
         self.unit.surface.execute()
-        dT_surface = self.unit.injection_well.state.get_del_temperature(T=self.unit.surface.state.outlet_fluid.T)
-        self.x_lst.append(copy.deepcopy(self.unit.injection_well.state.get_inlet_temperature_tmp()))
+        dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.state.outlet_fluid.T)
+        self.x_lst.append(copy.deepcopy(self.unit.injection_well.get_inlet_temperature_tmp()))
         self.y_lst.append(dT_surface)
         if len(self.x_lst) == 1: # first call
             root = self.unit.surface.state.outlet_fluid.T
@@ -181,14 +181,14 @@ class SystemORCNative(SystemNative):
             root = max(root, MIN_INJ_TEMPERATURE)
             self.x_lst.pop(0)
             self.y_lst.pop(0)
-        self.unit.injection_well.state.update_inlet_fluid_state_PT(T=root)
-        self.unit.injection_well.state.update_inlet_temperature_tmp()
+        self.unit.injection_well.update_inlet_fluid_state_PT(T=root)
+        self.unit.injection_well.update_inlet_temperature_tmp()
 
 
     def balanced(self) -> bool:
-        dP_reservoir = self.unit.reservoir.state.get_del_pressure()
+        dP_reservoir = self.unit.reservoir.get_del_pressure()
         dP_surface = self._compute_dP_surface()
-        dT_surface = self.unit.injection_well.state.get_del_temperature(T=self.unit.surface.state.outlet_fluid.T)
+        dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.state.outlet_fluid.T)
         if  np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR and \
             np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE and \
             np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE:
@@ -216,8 +216,8 @@ class SystemORCNative(SystemNative):
     def update_time_dependent_vars(self) -> None:
         self.x_lst.clear()
         self.y_lst.clear()
-        self.unit.reservoir.state.update_pressure_old()
-        self.unit.reservoir.state.update_energy_extracted_old()
-        self.unit.injection_well.state.update_dimensionless_time_old()
-        self.unit.production_well.state.update_dimensionless_time_old()
-        self.unit.production_well_pump.state.update_dimensionless_time_old()
+        self.unit.reservoir.update_pressure_old()
+        self.unit.reservoir.update_energy_extracted_old()
+        self.unit.injection_well.update_dimensionless_time_old()
+        self.unit.production_well.update_dimensionless_time_old()
+        self.unit.production_well_pump.update_dimensionless_time_old()

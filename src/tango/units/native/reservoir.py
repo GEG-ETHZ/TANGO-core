@@ -31,20 +31,20 @@ class ReservoirStateNative():
         return self._energy_extracted
 
 
-    def get_del_pressure(self) -> float:
-        return self._pressure_old - self.outlet_fluid.P
+    # def get_del_pressure(self) -> float:
+    #     return self._pressure_old - self.outlet_fluid.P
 
 
-    def update_pressure_old(self) -> None:
-        self._pressure_old = self.outlet_fluid.P
+    # def update_pressure_old(self) -> None:
+    #     self._pressure_old = self.outlet_fluid.P
 
 
     def update_energy_extracted(self, del_) -> None:
         self._energy_extracted = self._energy_extracted_old + del_
 
 
-    def update_energy_extracted_old(self) -> None:
-        self._energy_extracted_old = self._energy_extracted
+    # def update_energy_extracted_old(self) -> None:
+    #     self._energy_extracted_old = self._energy_extracted
 
 
 class ReservoirUnitNative(Unit):
@@ -222,3 +222,15 @@ class ReservoirUnitNative(Unit):
         self.update()
         print("reservoir_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
         print("reservoir_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+
+
+    def get_del_pressure(self) -> float:
+        return self.state._pressure_old - self.state.outlet_fluid.P
+
+
+    def update_pressure_old(self) -> None:
+        self.state._pressure_old = self.state.outlet_fluid.P
+
+
+    def update_energy_extracted_old(self) -> None:
+        self.state._energy_extracted_old = self.state._energy_extracted

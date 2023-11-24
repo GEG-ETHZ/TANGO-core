@@ -61,7 +61,7 @@ class SurfaceStateORCNative(SurfaceState):
         SurfaceState.__init__(self)
         self.ORC_fluid: FluidState
         self.dP_pump: float = 0.
-        self.dP_pipe: float = 0.
+        # self.dP_pipe: float = 0.
         self.dT_range: float = 0.
         self.dT_LMTD_preheater: float = 0.
         self.dT_LMTD_boiler: float = 0.
@@ -80,8 +80,8 @@ class SurfaceStateORCNative(SurfaceState):
         self.w_net: float = 0.
 
 
-    def get_del_pressure(self) -> float:
-        return self.inlet_fluid.P - self.outlet_fluid.P - self.dP_pipe
+    # def get_del_pressure(self) -> float:
+    #     return self.inlet_fluid.P - self.outlet_fluid.P - self.dP_pipe
 
 
 class SurfaceUnitORCNative(SurfaceUnitNative):
@@ -99,6 +99,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._set_constants()
         self._set_max_boiling_temperature()
         self._set_lookup_tables()
+
+        self.dP_pipe: float = 0.
 
         self.init_state()
 
@@ -186,9 +188,9 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         u = mdot / self._cross_sectional_area / rho
 
         ff = self._compute_friction_factor(rho, mu, u)
-        self.state.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
+        self.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
 
-        self.state.inlet_fluid.updatePT(P=self.state.inlet_fluid.P - self.state.dP_pipe,
+        self.state.inlet_fluid.updatePT(P=self.state.inlet_fluid.P - self.dP_pipe,
                                         T=self.state.inlet_fluid.T)
 
 
