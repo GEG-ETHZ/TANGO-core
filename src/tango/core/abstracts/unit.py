@@ -35,7 +35,7 @@ class Unit(ABC):
 
 
     def init_inlet_state(self, inlet_state) -> None:
-        self.state.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
 
     def update_inlet_state(self) -> None:
@@ -51,9 +51,9 @@ class Unit(ABC):
             H_ave += wt * sl.fluid_state.H
         self.state.mass_rate = total_mass_rate
         try:
-            self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
-            self.state.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
 
     def update_outlet_streams(self) -> None:
