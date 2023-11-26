@@ -77,10 +77,11 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def _update_turbine_power(self) -> None:
-        self.state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.state.inlet_fluid.S)
+        self.inlet_fluid = self.state.inlet_fluid
+        self.state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.inlet_fluid.S)
 
         hs_outlet = self.state.outlet_fluid_turbine.H # (J/kg)
-        h_inlet = self.state.inlet_fluid.H            # (J/kg)
+        h_inlet = self.inlet_fluid.H            # (J/kg)
         eta = self.specs.eta_turbine             # (-)
         X_CO2 = self._X_CO2
 
@@ -90,7 +91,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
     def _update_condenser_state(self) -> None:
 
         hs_outlet = self.state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
-        h_inlet = self.state.inlet_fluid.H  # (J/kg)
+        h_inlet = self.inlet_fluid.H  # (J/kg)
         X_CO2 = self._X_CO2
         eta = self.specs.eta_turbine  # (-)
         h_saturated_vapor = self.condenser_saturated_vapor_h # (J/kg)
@@ -118,14 +119,14 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         dP_pump = self.get_dP_pump()
         P_pump_outlet = self.condensation_pressure + dP_pump
 
-        h_pump_inlet = self.state.inlet_fluid_pump.H
-        h_pump_outlet = self.state.inlet_fluid_pump.H
+        h_pump_inlet = self.inlet_fluid_pump.H
+        h_pump_outlet = self.inlet_fluid_pump.H
         if dP_pump > 0:
             try:
-                self.state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.state.inlet_fluid_pump.S)
+                self.state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
             except:
                 logging.warning(f"Failed to update fluid state with PS. Updating with PT instead.")
-                self.state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.state.inlet_fluid_pump.T)
+                self.state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
             h_pump_outlet = h_pump_inlet + (self.state.outlet_fluid_pump.H - h_pump_inlet) / eta
 
         self.state.w_pump = -1.0 * X_CO2 *  self.state.mass_rate * (h_pump_outlet - h_pump_inlet)
@@ -152,6 +153,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.state = SurfaceStateCPGNative()
         if P != None and T != None:
             self.state.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
+            self.inlet_fluid = self.state.inlet_fluid
 
         self.state.mass_rate = self.specs.mass_flow_rate
 
@@ -164,7 +166,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.condenser_saturated_vapor_h = FluidState.withPQ(self._fluid_name, Q=1.0, P=self.condensation_pressure).H
         self.condenser_saturated_liquid_h = FluidState.withPQ(self._fluid_name, Q=0.0, P=self.condensation_pressure).H
 
-        self.state.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
+        self.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
         self.state.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
 
         self.state.outlet_fluid = FluidState.copy(self.state.outlet_fluid_pump)

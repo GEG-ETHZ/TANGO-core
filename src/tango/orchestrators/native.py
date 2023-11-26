@@ -105,7 +105,7 @@ class SystemORCNative(SystemNative):
         while np.abs(dP_reservoir) > self._CONVERGENCE_CRIT_DP_RESERVOIR:
             if self.max_itr_reached(count):
                 break
-            x_lst.append(copy.deepcopy(self.unit.injection_well.state.inlet_fluid.P))
+            x_lst.append(copy.deepcopy(self.unit.injection_well.inlet_fluid.P))
             y_lst.append(dP_reservoir)
             if len(x_lst) == 1:  # first call
                 root = x_lst[0] + dP_reservoir
@@ -121,7 +121,7 @@ class SystemORCNative(SystemNative):
 
     def _compute_dP_surface(self) -> float:
         return self.unit.production_well_pump.state.outlet_fluid.P \
-             - self.unit.injection_well.state.inlet_fluid.P \
+             - self.unit.injection_well.inlet_fluid.P \
              - self.unit.surface.dP_pipe
 
 

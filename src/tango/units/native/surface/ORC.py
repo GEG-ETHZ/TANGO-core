@@ -181,17 +181,17 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
     def _update_state_pipe(self) -> None:
         """update state at surface pile (pressure drop between producer wellhead and surface plant inlet)"""
-
-        rho = self.state.inlet_fluid.rho
-        mu = self.state.inlet_fluid.mu
+        self.inlet_fluid = self.state.inlet_fluid
+        rho = self.inlet_fluid.rho
+        mu = self.inlet_fluid.mu
         mdot = 1. / self._m_dot_mult * self.state.mass_rate
         u = mdot / self._cross_sectional_area / rho
 
         ff = self._compute_friction_factor(rho, mu, u)
         self.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
 
-        self.state.inlet_fluid.updatePT(P=self.state.inlet_fluid.P - self.dP_pipe,
-                                        T=self.state.inlet_fluid.T)
+        self.inlet_fluid.updatePT(P=self.inlet_fluid.P - self.dP_pipe,
+                                        T=self.inlet_fluid.T)
 
 
     def _get_values_from_table(self, T_inlet):
@@ -211,7 +211,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
     def _update_state_fluid(self) -> None:
 
         state = self.state
-        T_inlet = state.inlet_fluid.T
+        T_inlet = self.inlet_fluid.T
         T_boiling, dT_pinch = self._get_values_from_table(T_inlet)
 
         # State 1 (Condenser -> Pump)
@@ -319,7 +319,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        state.outlet_fluid.updatePT(P=state.inlet_fluid.P, T=T_13)
+        state.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
 
         self.outlet_fluid = state.outlet_fluid
 
@@ -335,6 +335,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.mass_rate = self.specs.mass_flow_rate
 
         self.state.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
+        self.inlet_fluid = self.state.inlet_fluid
         self.state.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
         self.outlet_fluid = self.state.outlet_fluid

@@ -69,7 +69,9 @@ class InjectionWellUnitNative(WellUnitNative):
         self.mass_rate = self._well_mass_flow_rate
 
         self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+
+        self.inlet_fluid = self.state.inlet_fluid
+        self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
         self.outlet_fluid = self.state.outlet_fluid
 
@@ -118,15 +120,15 @@ class InjectionWellUnitNative(WellUnitNative):
     def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
         if P != None and T == None:
             P = max(P, ATMOSPHERIC_PRESSURE)
-            T = self.state.inlet_fluid.T
+            T = self.inlet_fluid.T
         elif P == None and T != None:
-            P = self.state.inlet_fluid.P
+            P = self.inlet_fluid.P
             T = max(T, MIN_INJ_TEMPERATURE)
-        self.state.inlet_fluid.updatePT(P, T)
+        self.inlet_fluid.updatePT(P, T)
 
 
     def update_inlet_temperature_tmp(self) -> None:
-        self.state._injection_temperature_tmp = self.state.inlet_fluid.T
+        self.state._injection_temperature_tmp = self.inlet_fluid.T
 
     def get_inlet_temperature_tmp(self) -> float:
         return self.state._injection_temperature_tmp
