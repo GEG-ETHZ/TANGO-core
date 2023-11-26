@@ -49,8 +49,13 @@ class ProductionWellUnitNative(WellUnitNative):
         T = self._specs.surface_temperature if T == None else T
         self.state = ProductionWellStateNative()
         self.state.mass_rate = self._well_mass_flow_rate
+
+        self.mass_rate = self._well_mass_flow_rate
+
         self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
         self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+
+        self.outlet_fluid = self.state.outlet_fluid
 
 
     def update_well_length(self, pump_well_length: float) -> None:

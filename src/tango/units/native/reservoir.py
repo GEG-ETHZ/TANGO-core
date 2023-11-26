@@ -72,6 +72,8 @@ class ReservoirUnitNative(Unit):
 
         self.init_state()
 
+        self.mass_rate: float = 0.0
+
 
     def _process_specs(self, specs) -> dict:
         if 'well_eff_diameter' not in specs['reservoir']:
@@ -175,6 +177,9 @@ class ReservoirUnitNative(Unit):
         self.state = ReservoirStateNative()
         self.state.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.state.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+
+        self.outlet_fluid = self.state.outlet_fluid
+
         self.state.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
 
@@ -213,7 +218,13 @@ class ReservoirUnitNative(Unit):
         outlet_temperature = gamma * dT + state.inlet_fluid.T
 
         state.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
+
+        self.outlet_fluid = state.outlet_fluid
+
         state.mass_rate = self.m_dot
+
+        self.mass_rate = state.mass_rate
+
         self.update_outlet_streams()
 
 

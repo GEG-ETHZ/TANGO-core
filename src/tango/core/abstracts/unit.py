@@ -61,9 +61,9 @@ class Unit(ABC):
         for sl in self.outlet_streams:
             sl.mass_rate = self.state.mass_rate / len(self.outlet_streams)
             try:
-                sl.fluid_state.updateHP(H=self.state.outlet_fluid.H, P=self.state.outlet_fluid.P)
+                sl.fluid_state.updateHP(H=self.outlet_fluid.H, P=self.outlet_fluid.P)
             except:
-                sl.fluid_state.updatePT(P=self.state.outlet_fluid.P, T=self.state.outlet_fluid.T)
+                sl.fluid_state.updatePT(P=self.outlet_fluid.P, T=self.outlet_fluid.T)
 
 
     def init_state(self) -> None:
