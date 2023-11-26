@@ -65,8 +65,13 @@ class InjectionWellUnitNative(WellUnitNative):
         T = self._specs.surface_temperature if T == None else T
         self.state = InjectionWellStateNative()
         self.state.mass_rate = self._well_mass_flow_rate
+
+        self.mass_rate = self._well_mass_flow_rate
+
         self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
         self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+
+        self.outlet_fluid = self.state.outlet_fluid
 
 
     def init_inlet_state(self, inlet_state) -> None:
@@ -89,6 +94,9 @@ class InjectionWellUnitNative(WellUnitNative):
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
         self.state.mass_rate = self._m_dot_mult * total_mass_rate
+
+        self.mass_rate = self.state.mass_rate
+
         try:
             self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:

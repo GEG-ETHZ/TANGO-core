@@ -191,6 +191,9 @@ class WellUnitNative(Unit):
             self._u[i] = mdot / A / self._rho[i]
 
         self.state.outlet_fluid.updateHP(self._h[i], self._P[i])
+
+        self.outlet_fluid = self.state.outlet_fluid
+
         self.update_outlet_streams()
 
 

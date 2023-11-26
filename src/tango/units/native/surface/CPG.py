@@ -137,6 +137,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
             self.state.outlet_fluid.updatePT(P=P_inj_inlet, T=self.state.outlet_fluid_pump.T)
 
+        self.outlet_fluid = self.state.outlet_fluid
+
     def _update_net_state(self) -> None:
         self.state.w_net = self.state.w_turbine + self.state.w_cooler + self.state.w_condenser + self.state.w_pump
 
@@ -153,6 +155,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self.state.mass_rate = self.specs.mass_flow_rate
 
+        self.mass_rate = self.specs.mass_flow_rate
+
         self.state.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
 
         self.state.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
@@ -164,6 +168,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.state.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
 
         self.state.outlet_fluid = FluidState.copy(self.state.outlet_fluid_pump)
+
+        self.outlet_fluid = self.state.outlet_fluid
 
 
     def overwrite_pump_state(self) -> None:

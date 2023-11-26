@@ -320,6 +320,9 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
         state.outlet_fluid.updatePT(P=state.inlet_fluid.P, T=T_13)
+
+        self.outlet_fluid = state.outlet_fluid
+
         self.update_outlet_streams()
 
 
@@ -328,8 +331,13 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         T = self.specs.initial_outlet_temperature if T == None else T
         self.state = SurfaceStateORCNative()
         self.state.mass_rate = self.specs.mass_flow_rate
+
+        self.mass_rate = self.specs.mass_flow_rate
+
         self.state.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.state.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
+
+        self.outlet_fluid = self.state.outlet_fluid
 
 
     def overwrite_state_pipe(self) -> None:
