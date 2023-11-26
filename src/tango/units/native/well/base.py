@@ -98,7 +98,6 @@ class WellUnitNative(Unit):
 
     def _initialize_state(self) -> None:
         self.state.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
-        self.inlet_fluid = self.state.inlet_fluid
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
@@ -207,3 +206,25 @@ class WellUnitNative(Unit):
 
     def update_dimensionless_time_old(self) -> None:
         self.state._t_d_old = self.state._t_d
+
+
+    def init_inlet_state(self, inlet_state) -> None:
+        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+
+
+    def update_inlet_state(self) -> None:
+        """ update inlet state based on inlet streams (mass flow rate weighted average) """
+        total_mass_rate = 0.
+        for sl in self.inlet_streams:
+            total_mass_rate += sl.mass_rate
+        T_ave, P_ave, H_ave = 0., 0., 0.
+        for sl in self.inlet_streams:
+            wt = sl.mass_rate / total_mass_rate
+            T_ave += wt * sl.fluid_state.T
+            P_ave += wt * sl.fluid_state.P
+            H_ave += wt * sl.fluid_state.H
+        self.state.mass_rate = total_mass_rate
+        try:
+            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+        except:
+            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)

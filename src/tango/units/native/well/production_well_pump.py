@@ -64,10 +64,10 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
         self.mass_rate = self._well_mass_flow_rate
 
-        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name,
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name,
                                                    self._specs.surface_pressure,
                                                    self._specs.surface_temperature)
-        self.inlet_fluid = self.state.inlet_fluid
+
         self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
         self.outlet_fluid = self.state.outlet_fluid

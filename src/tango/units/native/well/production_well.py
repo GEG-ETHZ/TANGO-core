@@ -52,8 +52,8 @@ class ProductionWellUnitNative(WellUnitNative):
 
         self.mass_rate = self._well_mass_flow_rate
 
-        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
+        self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
         self.outlet_fluid = self.state.outlet_fluid
 

@@ -68,41 +68,16 @@ class InjectionWellUnitNative(WellUnitNative):
 
         self.mass_rate = self._well_mass_flow_rate
 
-        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
 
-        self.inlet_fluid = self.state.inlet_fluid
         self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
         self.outlet_fluid = self.state.outlet_fluid
 
 
     def init_inlet_state(self, inlet_state) -> None:
-        self.state.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
         self.update_inlet_temperature_tmp()
-
-
-    def update_inlet_state(self) -> None:
-        """
-         updated inlet state based on inlet streams
-                 (mass flow rate weighted average)
-        """
-        total_mass_rate = 0.
-        for sl in self.inlet_streams:
-            total_mass_rate += sl.mass_rate
-        T_ave, P_ave, H_ave = 0., 0., 0.
-        for sl in self.inlet_streams:
-            wt = sl.mass_rate / total_mass_rate
-            T_ave += wt * sl.fluid_state.T
-            P_ave += wt * sl.fluid_state.P
-            H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = self._m_dot_mult * total_mass_rate
-
-        self.mass_rate = self.state.mass_rate
-
-        try:
-            self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
-        except:
-            self.state.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
 
     def overwrite_inlet_fluid_state_PT(self, P: float = None, T: float = None):
