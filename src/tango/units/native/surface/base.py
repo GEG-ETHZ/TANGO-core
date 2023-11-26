@@ -56,6 +56,10 @@ class SurfaceUnitNative(Unit):
         return self._BAC_regression_model(coeffs=self._coeffs_condensing)
 
 
+    def init_inlet_state(self, inlet_state) -> None:
+        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+
+
     def update_inlet_state(self) -> None:
         """
          updated inlet state based on inlet streams
@@ -72,13 +76,13 @@ class SurfaceUnitNative(Unit):
             H_ave += wt * sl.fluid_state.H
         self.state.mass_rate = self._m_dot_mult * total_mass_rate
         try:
-            self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
-            self.state.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
 
     def execute(self) -> None:
         self.update_inlet_state()
         self.update()
-        print("surface_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
-        print("surface_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+        # print("surface_in ", self.inlet_fluid.P, self.inlet_fluid.T)
+        # print("surface_out ", self.outlet_fluid.P, self.outlet_fluid.T)

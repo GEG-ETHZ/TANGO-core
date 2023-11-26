@@ -181,7 +181,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
     def _update_state_pipe(self) -> None:
         """update state at surface pile (pressure drop between producer wellhead and surface plant inlet)"""
-        self.inlet_fluid = self.state.inlet_fluid
+
         rho = self.inlet_fluid.rho
         mu = self.inlet_fluid.mu
         mdot = 1. / self._m_dot_mult * self.state.mass_rate
@@ -334,8 +334,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         self.mass_rate = self.specs.mass_flow_rate
 
-        self.state.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
-        self.inlet_fluid = self.state.inlet_fluid
+        self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.state.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
         self.outlet_fluid = self.state.outlet_fluid
