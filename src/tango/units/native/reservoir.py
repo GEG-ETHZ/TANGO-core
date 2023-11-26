@@ -175,8 +175,7 @@ class ReservoirUnitNative(Unit):
         P = self.initial_pressure if P==None else P
         T = self.initial_temperature if T == None else T
         self.state = ReservoirStateNative()
-        self.state.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
-        self.inlet_fluid = self.state.inlet_fluid
+        self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.state.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
         self.outlet_fluid = self.state.outlet_fluid
@@ -189,7 +188,6 @@ class ReservoirUnitNative(Unit):
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
 
         state = self.state
-        self.inlet_fluid = state.inlet_fluid
         self.m_dot = self.m_dot_mult * state.mass_rate
 
         #
@@ -233,8 +231,8 @@ class ReservoirUnitNative(Unit):
     def execute(self) -> None:
         self.update_inlet_state()
         self.update()
-        print("reservoir_in ", self.inlet_fluid.P, self.inlet_fluid.T)
-        print("reservoir_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+        # print("reservoir_in ", self.inlet_fluid.P, self.inlet_fluid.T)
+        # print("reservoir_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
 
     def get_del_pressure(self) -> float:
@@ -247,3 +245,25 @@ class ReservoirUnitNative(Unit):
 
     def update_energy_extracted_old(self) -> None:
         self.state._energy_extracted_old = self.state._energy_extracted
+
+
+    def init_inlet_state(self, inlet_state) -> None:
+        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+
+
+    def update_inlet_state(self) -> None:
+        """ update inlet state based on inlet streams (mass flow rate weighted average) """
+        total_mass_rate = 0.
+        for sl in self.inlet_streams:
+            total_mass_rate += sl.mass_rate
+        T_ave, P_ave, H_ave = 0., 0., 0.
+        for sl in self.inlet_streams:
+            wt = sl.mass_rate / total_mass_rate
+            T_ave += wt * sl.fluid_state.T
+            P_ave += wt * sl.fluid_state.P
+            H_ave += wt * sl.fluid_state.H
+        self.state.mass_rate = total_mass_rate
+        try:
+            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+        except:
+            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)

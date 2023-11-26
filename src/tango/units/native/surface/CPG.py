@@ -65,7 +65,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._fluid_name = self.specs.fluid_name
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self._condensation_temperature_range = 0
-        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like inlet_fluid.X_CO2 for multphase flow
         self._set_mult()
         self._set_constants()
 
@@ -77,7 +77,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def _update_turbine_power(self) -> None:
-        self.inlet_fluid = self.state.inlet_fluid
         self.state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.inlet_fluid.S)
 
         hs_outlet = self.state.outlet_fluid_turbine.H # (J/kg)
@@ -152,8 +151,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self.state = SurfaceStateCPGNative()
         if P != None and T != None:
-            self.state.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
-            self.inlet_fluid = self.state.inlet_fluid
+            self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
         self.state.mass_rate = self.specs.mass_flow_rate
 
