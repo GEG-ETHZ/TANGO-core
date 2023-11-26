@@ -98,14 +98,15 @@ class WellUnitNative(Unit):
 
     def _initialize_state(self) -> None:
         self.state.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
-        self.fluid_state_init = self.state.inlet_fluid
+        self.inlet_fluid = self.state.inlet_fluid
+        self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
         self._rho[0] = self.fluid_state_init.rho
         self._mu[0] = self.fluid_state_init.mu
         self._T_f[0] = self.fluid_state_init.T
         self._u[0] = self.state.mass_rate / self._cross_sectional_area / self._rho[0]
-        self.fluid_state_tmp = FluidState.copy(self.state.inlet_fluid)
+        self.fluid_state_tmp = FluidState.copy(self.inlet_fluid)
 
 
     def _compute_Q_loss(self, delta_T: float, t_d: float) -> float:
@@ -200,7 +201,7 @@ class WellUnitNative(Unit):
     def execute(self) -> None:
         self.update_inlet_state()
         self.update()
-        print("production_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
+        print("production_in ", self.inlet_fluid.P, self.inlet_fluid.T)
         print("production_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
 
 

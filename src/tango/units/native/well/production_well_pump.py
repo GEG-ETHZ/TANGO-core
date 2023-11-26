@@ -67,7 +67,8 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name,
                                                    self._specs.surface_pressure,
                                                    self._specs.surface_temperature)
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+        self.inlet_fluid = self.state.inlet_fluid
+        self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
         self.outlet_fluid = self.state.outlet_fluid
 
@@ -99,13 +100,13 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
 
     def set_inlet_pressure(self) -> None:
-        self._inlet_pressure_tmp = self.state.inlet_fluid.P
+        self._inlet_pressure_tmp = self.inlet_fluid.P
 
 
     def update_inlet_fluid_state_with_pump(self) -> None:
         P = self._inlet_pressure_tmp + self.state._dP_pump
-        T = self.state.inlet_fluid.T
-        self.state.inlet_fluid.updatePT(P, T)
+        T = self.inlet_fluid.T
+        self.inlet_fluid.updatePT(P, T)
 
 
     def get_w_pump(self) -> None:
