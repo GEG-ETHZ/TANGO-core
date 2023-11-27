@@ -74,7 +74,7 @@ class SurfaceUnitNative(Unit):
             T_ave += wt * sl.fluid_state.T
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = self._m_dot_mult * total_mass_rate
+        self.mass_rate = self._m_dot_mult * total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:

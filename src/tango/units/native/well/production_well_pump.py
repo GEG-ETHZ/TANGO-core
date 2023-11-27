@@ -60,9 +60,9 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
     def init_state(self):
         self.state = ProductionWellPumpStateNative()
-        self.state.mass_rate = self._well_mass_flow_rate
-
         self.mass_rate = self._well_mass_flow_rate
+
+        # self.mass_rate = self._well_mass_flow_rate
 
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name,
                                                    self._specs.surface_pressure,

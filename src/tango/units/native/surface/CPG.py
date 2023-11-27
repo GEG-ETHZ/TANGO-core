@@ -84,7 +84,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         eta = self.specs.eta_turbine             # (-)
         X_CO2 = self._X_CO2
 
-        self.state.w_turbine = X_CO2 * self.state.mass_rate * eta * (h_inlet - hs_outlet) # (W)
+        self.state.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet) # (W)
 
 
     def _update_condenser_state(self) -> None:
@@ -99,10 +99,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet) # (J/kg)
 
         self.state.q_cooler = 0. # (W)
-        self.state.q_condenser = self.state.mass_rate * (h_condensed - h_turbine_outlet) # (W)
+        self.state.q_condenser = self.mass_rate * (h_condensed - h_turbine_outlet) # (W)
         if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
-            self.state.q_cooler = self.state.mass_rate * (h_saturated_vapor - h_turbine_outlet)
-            self.state.q_condenser = self.state.mass_rate * (h_condensed - h_saturated_vapor)
+            self.state.q_cooler = self.mass_rate * (h_saturated_vapor - h_turbine_outlet)
+            self.state.q_condenser = self.mass_rate * (h_condensed - h_saturated_vapor)
             T_turbine_outlet = FluidState.withHP(self._fluid_name, h_turbine_outlet, self.condensation_pressure).T
             self._condensation_temperature_range = T_turbine_outlet - self._condensation_temperature
 
@@ -128,7 +128,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
                 self.state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
             h_pump_outlet = h_pump_inlet + (self.state.outlet_fluid_pump.H - h_pump_inlet) / eta
 
-        self.state.w_pump = -1.0 * X_CO2 *  self.state.mass_rate * (h_pump_outlet - h_pump_inlet)
+        self.state.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         try:
@@ -152,9 +152,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         if P != None and T != None:
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-        self.state.mass_rate = self.specs.mass_flow_rate
-
         self.mass_rate = self.specs.mass_flow_rate
+
+        # self.mass_rate = self.specs.mass_flow_rate
 
         self.state.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
 

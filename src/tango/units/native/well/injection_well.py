@@ -64,9 +64,9 @@ class InjectionWellUnitNative(WellUnitNative):
         P = self._specs.surface_pressure if P==None else P
         T = self._specs.surface_temperature if T == None else T
         self.state = InjectionWellStateNative()
-        self.state.mass_rate = self._well_mass_flow_rate
-
         self.mass_rate = self._well_mass_flow_rate
+
+        # self.mass_rate = self._well_mass_flow_rate
 
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
 

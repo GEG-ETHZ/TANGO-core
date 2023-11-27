@@ -180,7 +180,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         rho = self.inlet_fluid.rho
         mu = self.inlet_fluid.mu
-        mdot = 1. / self._m_dot_mult * self.state.mass_rate
+        mdot = 1. / self._m_dot_mult * self.mass_rate
         u = mdot / self._cross_sectional_area / rho
 
         ff = self._compute_friction_factor(rho, mu, u)
@@ -286,15 +286,15 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
 
         # Calculate water heat/work
-        state.q_preheater = mdot_ratio * state.mass_rate * self._ORC_state.q_preheater
-        state.q_boiler = mdot_ratio * state.mass_rate * self._ORC_state.q_boiler
-        state.q_desuperheater = mdot_ratio * state.mass_rate * self._ORC_state.q_cooler
-        state.q_condenser = mdot_ratio * state.mass_rate * self._ORC_state.q_condenser
-        state.q_recuperator = mdot_ratio * state.mass_rate * self._ORC_state.q_recuperator
-        state.w_turbine = mdot_ratio * state.mass_rate * self._ORC_state.w_turbine
-        state.w_pump = mdot_ratio * state.mass_rate * self._ORC_state.w_pump
-        state.w_cooler = mdot_ratio * state.mass_rate * self._ORC_state.w_cooler
-        state.w_condenser = mdot_ratio * state.mass_rate * self._ORC_state.w_condenser
+        state.q_preheater = mdot_ratio * self.mass_rate * self._ORC_state.q_preheater
+        state.q_boiler = mdot_ratio * self.mass_rate * self._ORC_state.q_boiler
+        state.q_desuperheater = mdot_ratio * self.mass_rate * self._ORC_state.q_cooler
+        state.q_condenser = mdot_ratio * self.mass_rate * self._ORC_state.q_condenser
+        state.q_recuperator = mdot_ratio * self.mass_rate * self._ORC_state.q_recuperator
+        state.w_turbine = mdot_ratio * self.mass_rate * self._ORC_state.w_turbine
+        state.w_pump = mdot_ratio * self.mass_rate * self._ORC_state.w_pump
+        state.w_cooler = mdot_ratio * self.mass_rate * self._ORC_state.w_cooler
+        state.w_condenser = mdot_ratio * self.mass_rate * self._ORC_state.w_condenser
         state.w_net = state.w_turbine + state.w_pump + state.w_cooler + state.w_condenser
 
         # Calculate temperatures
@@ -324,7 +324,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         P = self.specs.initial_outlet_pressure if P==None else P
         T = self.specs.initial_outlet_temperature if T == None else T
         self.state = SurfaceStateORCNative()
-        self.state.mass_rate = self.specs.mass_flow_rate
+        # self.state.mass_rate = self.specs.mass_flow_rate
 
         self.mass_rate = self.specs.mass_flow_rate
 
