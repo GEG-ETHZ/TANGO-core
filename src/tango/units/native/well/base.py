@@ -190,9 +190,9 @@ class WellUnitNative(Unit):
             self._T_f[i] = self.fluid_state_tmp.T
             self._u[i] = mdot / A / self._rho[i]
 
-        self.state.outlet_fluid.updateHP(self._h[i], self._P[i])
+        self.outlet_fluid.updateHP(self._h[i], self._P[i])
 
-        self.outlet_fluid = self.state.outlet_fluid
+        # self.outlet_fluid = self.state.outlet_fluid
 
         self.update_outlet_streams()
 
@@ -201,7 +201,7 @@ class WellUnitNative(Unit):
         self.update_inlet_state()
         self.update()
         print("production_in ", self.inlet_fluid.P, self.inlet_fluid.T)
-        print("production_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+        print("production_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
 
     def update_dimensionless_time_old(self) -> None:

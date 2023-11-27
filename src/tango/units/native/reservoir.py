@@ -178,7 +178,7 @@ class ReservoirUnitNative(Unit):
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-        self.state.outlet_fluid = self.outlet_fluid
+        # self.state.outlet_fluid = self.outlet_fluid
 
         self.state.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
@@ -219,7 +219,7 @@ class ReservoirUnitNative(Unit):
 
         self.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
 
-        state.outlet_fluid = self.outlet_fluid
+        # state.outlet_fluid = self.outlet_fluid
 
         state.mass_rate = self.m_dot
 

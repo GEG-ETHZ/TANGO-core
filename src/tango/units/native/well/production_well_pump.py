@@ -68,9 +68,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
                                                    self._specs.surface_pressure,
                                                    self._specs.surface_temperature)
 
-        self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
-
-        self.outlet_fluid = self.state.outlet_fluid
+        self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
 
     def update_w_pump(self):

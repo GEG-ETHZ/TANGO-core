@@ -70,9 +70,7 @@ class InjectionWellUnitNative(WellUnitNative):
 
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
 
-        self.state.outlet_fluid = FluidState.copy(self.inlet_fluid)
-
-        self.outlet_fluid = self.state.outlet_fluid
+        self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
 
     def init_inlet_state(self, inlet_state) -> None:
