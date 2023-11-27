@@ -13,29 +13,6 @@ class InjectionWellStateNative(WellStateNative):
     """The well state unit"""
     def __init__(self) -> None:
         WellStateNative.__init__(self)
-        self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
-
-
-    # def get_inlet_temperature_tmp(self) -> float:
-    #     return self._injection_temperature_tmp
-
-
-    # def get_del_temperature(self, T:float) -> float:
-    #     return self._injection_temperature_tmp - T
-
-
-    # def update_inlet_temperature_tmp(self) -> None:
-    #     self._injection_temperature_tmp = self.inlet_fluid.T
-
-
-    # def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
-    #     if P != None and T == None:
-    #         P = max(P, ATMOSPHERIC_PRESSURE)
-    #         T = self.inlet_fluid.T
-    #     elif P == None and T != None:
-    #         P = self.inlet_fluid.P
-    #         T = max(T, MIN_INJ_TEMPERATURE)
-    #     self.inlet_fluid.updatePT(P, T)
 
 
 class InjectionWellUnitNative(WellUnitNative):
@@ -46,6 +23,7 @@ class InjectionWellUnitNative(WellUnitNative):
         self._f_dir = -1.0 # downwards
         self._set_mult()
         self.init_state()
+        self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
 
 
     def _process_specs(self, specs) -> dict:
@@ -66,8 +44,6 @@ class InjectionWellUnitNative(WellUnitNative):
         self.state = InjectionWellStateNative()
         self.mass_rate = self._well_mass_flow_rate
 
-        # self.mass_rate = self._well_mass_flow_rate
-
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
 
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
@@ -87,7 +63,7 @@ class InjectionWellUnitNative(WellUnitNative):
 
 
     def get_del_temperature(self, T:float) -> float:
-        return self.state._injection_temperature_tmp - T
+        return self._injection_temperature_tmp - T
 
 
     def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
@@ -101,7 +77,7 @@ class InjectionWellUnitNative(WellUnitNative):
 
 
     def update_inlet_temperature_tmp(self) -> None:
-        self.state._injection_temperature_tmp = self.inlet_fluid.T
+        self._injection_temperature_tmp = self.inlet_fluid.T
 
     def get_inlet_temperature_tmp(self) -> float:
-        return self.state._injection_temperature_tmp
+        return self._injection_temperature_tmp

@@ -10,8 +10,6 @@ from tango.units.native.well.base import *
 
 class HorizontalWellStateNative(WellStateNative):
     """The well state unit"""
-    def __init__(self) -> None:
-        WellStateNative.__init__(self)
 
 
 class HorizontalWellUnitNative(WellUnitNative):

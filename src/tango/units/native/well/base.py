@@ -12,29 +12,6 @@ from tango.units.native.common import WellSpecsNative
 
 class WellStateNative():
     """The well state unit"""
-    def __init__(self) -> None:
-        # UnitState.__init__(self)
-        self._t_d: float = 0. # dimensionless time at current time step
-        self._t_d_old: float = 0. # dimensionless time at previos time step
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
-
-
-    def get_dimensionless_time(self) -> float:
-        return self._t_d
-
-
-    def get_dimensionless_time_old(self) -> float:
-        return self._t_d_old
-
-
-    def update_dimensionless_time(self, del_t) -> None:
-        self._t_d = self._t_d_old + del_t
-
-
-    # def update_dimensionless_time_old(self) -> None:
-    #     self._t_d_old = self._t_d
 
 
 class WellUnitNative(Unit):
@@ -54,6 +31,12 @@ class WellUnitNative(Unit):
         self._initialize_farfield_temperature()
         self._set_gravity_multiplier()
         self._t_scaling_factor = self._compute_time_scaling_factor()
+
+        self._t_d: float = 0. # dimensionless time at current time step
+        self._t_d_old: float = 0. # dimensionless time at previos time step
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def _set_well_length(self) -> float:
@@ -97,7 +80,7 @@ class WellUnitNative(Unit):
 
 
     def _initialize_state(self) -> None:
-        self.state.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
+        self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
@@ -171,7 +154,7 @@ class WellUnitNative(Unit):
     def update(self) -> None:
         """update dynamic variables along wellbore"""
         self._initialize_state()
-        t_d = self.state.get_dimensionless_time()
+        t_d = self.get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
         mdot, A = self.mass_rate, self._cross_sectional_area
         for i in range(1, self._num_cells):
@@ -192,8 +175,6 @@ class WellUnitNative(Unit):
 
         self.outlet_fluid.updateHP(self._h[i], self._P[i])
 
-        # self.outlet_fluid = self.state.outlet_fluid
-
         self.update_outlet_streams()
 
 
@@ -205,7 +186,7 @@ class WellUnitNative(Unit):
 
 
     def update_dimensionless_time_old(self) -> None:
-        self.state._t_d_old = self.state._t_d
+        self._t_d_old = self._t_d
 
 
     def init_inlet_state(self, inlet_state) -> None:
@@ -228,3 +209,15 @@ class WellUnitNative(Unit):
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+
+
+    def get_dimensionless_time(self) -> float:
+        return self._t_d
+
+
+    def get_dimensionless_time_old(self) -> float:
+        return self._t_d_old
+
+
+    def update_dimensionless_time(self, del_t) -> None:
+        self._t_d = self._t_d_old + del_t

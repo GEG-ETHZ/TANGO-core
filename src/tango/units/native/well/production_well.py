@@ -11,8 +11,6 @@ import numpy as np
 
 class ProductionWellStateNative(WellStateNative):
     """The well state unit"""
-    def __init__(self) -> None:
-        WellStateNative.__init__(self)
 
 
 class ProductionWellUnitNative(WellUnitNative):

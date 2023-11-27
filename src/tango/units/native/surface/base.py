@@ -5,17 +5,16 @@ from tango.core.abstracts.unit import *
 class SurfaceState():
 
     def __init__(self) -> None:
-        # UnitState.__init__(self)
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
+        pass
 
 
 class SurfaceUnitNative(Unit):
     """The power plant unit based on Adams et al. (2015)."""
     def __init__(self, id, specs):
         super().__init__(id, specs)
-
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def _set_mult(self) -> None:
