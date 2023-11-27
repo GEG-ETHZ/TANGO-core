@@ -13,8 +13,8 @@ from tango.units.native.common import ReservoirSpecsNative
 
 class ReservoirStateNative():
     """Resevoir state based on Adams et. al (2015)."""
-    def __init__(self):
-        self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
+    # def __init__(self):
+        # self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
 
 
 class ReservoirUnitNative(Unit):
@@ -39,6 +39,8 @@ class ReservoirUnitNative(Unit):
         # self._set_mdot()
         self._initialize_mdot_mult()
         self._set_impedance_func()
+
+        self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
 
         self.init_state()
 
@@ -147,8 +149,6 @@ class ReservoirUnitNative(Unit):
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-        # self.state.outlet_fluid = self.outlet_fluid
-
         self.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
 
@@ -156,7 +156,6 @@ class ReservoirUnitNative(Unit):
     def update(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
 
-        state = self.state
         self.m_dot = self.m_dot_mult * self.mass_rate
 
         #
@@ -190,8 +189,6 @@ class ReservoirUnitNative(Unit):
 
         self.mass_rate = self.m_dot
 
-        # self.mass_rate = state.mass_rate
-
         self.update_outlet_streams()
 
 
@@ -203,11 +200,11 @@ class ReservoirUnitNative(Unit):
 
 
     def get_del_pressure(self) -> float:
-        return self.state._pressure_old - self.outlet_fluid.P
+        return self._pressure_old - self.outlet_fluid.P
 
 
     def update_pressure_old(self) -> None:
-        self.state._pressure_old = self.outlet_fluid.P
+        self._pressure_old = self.outlet_fluid.P
 
 
     def update_energy_extracted_old(self) -> None:
@@ -245,4 +242,4 @@ class ReservoirUnitNative(Unit):
 
 
     def set_pressure_old(self, val) -> None:
-        self.state._pressure_old = val
+        self._pressure_old = val
