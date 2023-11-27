@@ -50,7 +50,7 @@ class UnitManager(ABC):
             stream = Stream(id=d['id'], state=self.graph.nodes[source]['unit'])
             self.graph.nodes[source]['unit'].set_outlet_stream(stream.state)
             self.graph.nodes[target]['unit'].set_inlet_stream(stream.state)
-            self.graph.nodes[target]['unit'].init_inlet_state(self.graph.nodes[source]['unit'].state)
+            self.graph.nodes[target]['unit'].init_inlet_state(self.graph.nodes[source]['unit'])
         self._graph_check()
 
 

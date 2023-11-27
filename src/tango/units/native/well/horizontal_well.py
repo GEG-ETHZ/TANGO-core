@@ -75,9 +75,7 @@ class HorizontalWellUnitNative(WellUnitNative):
         initial_pressure = self._specs.brine_density * GRAVITY_ACCELERATION * h
         initial_temperature = T0 + h * dTdz
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
-        self.state.outlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
+        self.outlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
 
         self.mass_rate = self._well_mass_flow_rate
-
-        self.outlet_fluid = self.state.outlet_fluid
 

@@ -132,10 +132,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         try:
-            self.state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
+            self.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
         except:
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-            self.state.outlet_fluid.updatePT(P=P_inj_inlet, T=self.state.outlet_fluid_pump.T)
+            self.outlet_fluid.updatePT(P=P_inj_inlet, T=self.state.outlet_fluid_pump.T)
 
 
     def _update_net_state(self) -> None:
@@ -166,9 +166,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
         self.state.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
 
-        self.state.outlet_fluid = FluidState.copy(self.state.outlet_fluid_pump)
-
-        self.outlet_fluid = self.state.outlet_fluid
+        self.outlet_fluid = FluidState.copy(self.state.outlet_fluid_pump)
 
 
     def overwrite_pump_state(self) -> None:
