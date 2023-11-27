@@ -15,13 +15,6 @@ class ReservoirStateNative():
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
         self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
-        self.mass_rate: float = 0.0
-        # self.inlet_fluid: FluidState
-        # self.outlet_fluid: FluidState
-
-
-    def set_pressure_old(self, val) -> None:
-        self._pressure_old = val
 
 
 class ReservoirUnitNative(Unit):
@@ -53,6 +46,7 @@ class ReservoirUnitNative(Unit):
 
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
+        self.mass_rate: float = 0.0
         self.inlet_fluid: FluidState
         self.outlet_fluid: FluidState
 
@@ -155,7 +149,7 @@ class ReservoirUnitNative(Unit):
 
         # self.state.outlet_fluid = self.outlet_fluid
 
-        self.state.set_pressure_old(self.initial_pressure)
+        self.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
 
 
@@ -248,3 +242,7 @@ class ReservoirUnitNative(Unit):
 
     def update_energy_extracted(self, del_) -> None:
         self._energy_extracted = self._energy_extracted_old + del_
+
+
+    def set_pressure_old(self, val) -> None:
+        self.state._pressure_old = val
