@@ -104,7 +104,7 @@ class WellUnitNative(Unit):
         self._rho[0] = self.fluid_state_init.rho
         self._mu[0] = self.fluid_state_init.mu
         self._T_f[0] = self.fluid_state_init.T
-        self._u[0] = self.state.mass_rate / self._cross_sectional_area / self._rho[0]
+        self._u[0] = self.mass_rate / self._cross_sectional_area / self._rho[0]
         self.fluid_state_tmp = FluidState.copy(self.inlet_fluid)
 
 
@@ -173,7 +173,7 @@ class WellUnitNative(Unit):
         self._initialize_state()
         t_d = self.state.get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
-        mdot, A = self.state.mass_rate, self._cross_sectional_area
+        mdot, A = self.mass_rate, self._cross_sectional_area
         for i in range(1, self._num_cells):
             ff = self._compute_friction_factor(self._rho[i-1], self._mu[i-1], self._u[i-1])
             dP_loss = self._compute_delta_P_loss(ff, self._rho[i-1], self._u[i-1])
@@ -223,7 +223,7 @@ class WellUnitNative(Unit):
             T_ave += wt * sl.fluid_state.T
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = total_mass_rate
+        self.mass_rate = total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:

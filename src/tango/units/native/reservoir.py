@@ -14,37 +14,14 @@ from tango.units.native.common import ReservoirSpecsNative
 class ReservoirStateNative():
     """Resevoir state based on Adams et. al (2015)."""
     def __init__(self):
-        # UnitState.__init__(self)
-        self._energy_extracted = 0.0
-        self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
         self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
         self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
+        # self.inlet_fluid: FluidState
+        # self.outlet_fluid: FluidState
 
 
     def set_pressure_old(self, val) -> None:
         self._pressure_old = val
-
-
-    def get_energy_extracted(self) -> float:
-        return self._energy_extracted
-
-
-    # def get_del_pressure(self) -> float:
-    #     return self._pressure_old - self.outlet_fluid.P
-
-
-    # def update_pressure_old(self) -> None:
-    #     self._pressure_old = self.outlet_fluid.P
-
-
-    def update_energy_extracted(self, del_) -> None:
-        self._energy_extracted = self._energy_extracted_old + del_
-
-
-    # def update_energy_extracted_old(self) -> None:
-    #     self._energy_extracted_old = self._energy_extracted
 
 
 class ReservoirUnitNative(Unit):
@@ -73,6 +50,11 @@ class ReservoirUnitNative(Unit):
         self.init_state()
 
         self.mass_rate: float = 0.0
+
+        self._energy_extracted = 0.0
+        self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def _process_specs(self, specs) -> dict:
@@ -104,13 +86,6 @@ class ReservoirUnitNative(Unit):
             return self.specs.initial_pressure
         return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
-
-    # def _set_mdot(self) -> None:
-    #     """
-    #         - mass_flow_rate = flow rate at an injector (Kg/s)
-    #         - m_dot = flow rate at each well pair (Kg/s)
-    #     """
-    #     self.m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
 
     def _initialize_mdot_mult(self) -> None:
         """multiplier to convert injection flow rate to m_dot (well-pair level flow rate)"""
@@ -188,7 +163,7 @@ class ReservoirUnitNative(Unit):
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
 
         state = self.state
-        self.m_dot = self.m_dot_mult * state.mass_rate
+        self.m_dot = self.m_dot_mult * self.mass_rate
 
         #
         # ... update reservoir pressure (outlet_pressure)
@@ -212,18 +187,16 @@ class ReservoirUnitNative(Unit):
         h_prod = self.outlet_fluid.H
 
         reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
-        state.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt) # J
-        psi = state.get_energy_extracted() / reservoir_energy  # (-)
+        self.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt) # J
+        psi = self.get_energy_extracted() / reservoir_energy  # (-)
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
 
         self.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
 
-        # state.outlet_fluid = self.outlet_fluid
+        self.mass_rate = self.m_dot
 
-        state.mass_rate = self.m_dot
-
-        self.mass_rate = state.mass_rate
+        # self.mass_rate = state.mass_rate
 
         self.update_outlet_streams()
 
@@ -231,8 +204,8 @@ class ReservoirUnitNative(Unit):
     def execute(self) -> None:
         self.update_inlet_state()
         self.update()
-        # print("reservoir_in ", self.inlet_fluid.P, self.inlet_fluid.T)
-        # print("reservoir_out ", self.outlet_fluid.P, self.outlet_fluid.T)
+        print("reservoir_in ", self.inlet_fluid.P, self.inlet_fluid.T)
+        print("reservoir_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
 
     def get_del_pressure(self) -> float:
@@ -244,7 +217,7 @@ class ReservoirUnitNative(Unit):
 
 
     def update_energy_extracted_old(self) -> None:
-        self.state._energy_extracted_old = self.state._energy_extracted
+        self._energy_extracted_old = self._energy_extracted
 
 
     def init_inlet_state(self, inlet_state) -> None:
@@ -262,8 +235,16 @@ class ReservoirUnitNative(Unit):
             T_ave += wt * sl.fluid_state.T
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = total_mass_rate
+        self.mass_rate = total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+
+
+    def get_energy_extracted(self) -> float:
+        return self._energy_extracted
+
+
+    def update_energy_extracted(self, del_) -> None:
+        self._energy_extracted = self._energy_extracted_old + del_

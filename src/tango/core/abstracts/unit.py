@@ -49,7 +49,7 @@ class Unit(ABC):
             T_ave += wt * sl.fluid_state.T
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = total_mass_rate
+        self.mass_rate = total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
@@ -59,7 +59,7 @@ class Unit(ABC):
     def update_outlet_streams(self) -> None:
         """ update outlet state based assuming uniform stream distribution """
         for sl in self.outlet_streams:
-            sl.mass_rate = self.state.mass_rate / len(self.outlet_streams)
+            sl.mass_rate = self.mass_rate / len(self.outlet_streams)
             try:
                 sl.fluid_state.updateHP(H=self.outlet_fluid.H, P=self.outlet_fluid.P)
             except:
