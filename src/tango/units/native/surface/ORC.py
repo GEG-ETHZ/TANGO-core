@@ -80,10 +80,6 @@ class SurfaceStateORCNative(SurfaceState):
         self.w_net: float = 0.
 
 
-    # def get_del_pressure(self) -> float:
-    #     return self.inlet_fluid.P - self.outlet_fluid.P - self.dP_pipe
-
-
 class SurfaceUnitORCNative(SurfaceUnitNative):
     """The power plant unit based on Adams et al. (2015)."""
 
@@ -320,8 +316,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
         state.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
-
-        self.outlet_fluid = state.outlet_fluid
 
         self.update_outlet_streams()
 

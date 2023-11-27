@@ -139,9 +139,9 @@ class ReservoirUnitNative(Unit):
         b = self.specs.thickness # m
         k_rock = self.specs.rock_k # thermal comductivity (W/m-K)
         rho_rock = self.specs.rock_density  # kg/m3
-        rho_fluid = 0.5 * (self.inlet_fluid.rho + self.state.outlet_fluid.rho) # kg/m3
+        rho_fluid = 0.5 * (self.inlet_fluid.rho + self.outlet_fluid.rho) # kg/m3
         cp_rock = self.specs.rock_cp # specific heat capacity (J/(kg*K))
-        cp_fluid = 0.5 * (self.inlet_fluid.cp + self.state.outlet_fluid.cp) # specific heat capacity (J/(kg*K))
+        cp_fluid = 0.5 * (self.inlet_fluid.cp + self.outlet_fluid.cp) # specific heat capacity (J/(kg*K))
         R = self.specs.well_spacing # m
 
         coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock
@@ -176,9 +176,9 @@ class ReservoirUnitNative(Unit):
         T = self.initial_temperature if T == None else T
         self.state = ReservoirStateNative()
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
-        self.state.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+        self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-        self.outlet_fluid = self.state.outlet_fluid
+        self.state.outlet_fluid = self.outlet_fluid
 
         self.state.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
@@ -194,8 +194,8 @@ class ReservoirUnitNative(Unit):
         # ... update reservoir pressure (outlet_pressure)
         #
 
-        average_mu = 0.5*(self.inlet_fluid.mu + state.outlet_fluid.mu)
-        average_rho = 0.5*(self.inlet_fluid.rho + state.outlet_fluid.rho)
+        average_mu = 0.5*(self.inlet_fluid.mu + self.outlet_fluid.mu)
+        average_rho = 0.5*(self.inlet_fluid.rho + self.outlet_fluid.rho)
         self._update_impedance(average_mu, average_rho)
 
         outlet_pressure = self.inlet_fluid.P - self.m_dot * self.impedance
@@ -209,7 +209,7 @@ class ReservoirUnitNative(Unit):
         T_inj = self.inlet_fluid.T
         dT = self.initial_temperature - T_inj
         h_inj = self.inlet_fluid.H
-        h_prod = state.outlet_fluid.H
+        h_prod = self.outlet_fluid.H
 
         reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
         state.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt) # J
@@ -217,9 +217,9 @@ class ReservoirUnitNative(Unit):
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
 
-        state.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
+        self.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
 
-        self.outlet_fluid = state.outlet_fluid
+        state.outlet_fluid = self.outlet_fluid
 
         state.mass_rate = self.m_dot
 
@@ -236,11 +236,11 @@ class ReservoirUnitNative(Unit):
 
 
     def get_del_pressure(self) -> float:
-        return self.state._pressure_old - self.state.outlet_fluid.P
+        return self.state._pressure_old - self.outlet_fluid.P
 
 
     def update_pressure_old(self) -> None:
-        self.state._pressure_old = self.state.outlet_fluid.P
+        self.state._pressure_old = self.outlet_fluid.P
 
 
     def update_energy_extracted_old(self) -> None:

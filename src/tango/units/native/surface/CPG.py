@@ -137,7 +137,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
             self.state.outlet_fluid.updatePT(P=P_inj_inlet, T=self.state.outlet_fluid_pump.T)
 
-        self.outlet_fluid = self.state.outlet_fluid
 
     def _update_net_state(self) -> None:
         self.state.w_net = self.state.w_turbine + self.state.w_cooler + self.state.w_condenser + self.state.w_pump
