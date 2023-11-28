@@ -59,25 +59,25 @@ class SurfaceStateORCFluid():
 class SurfaceStateORCNative(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
-        self.ORC_fluid: FluidState
-        self.dP_pump: float = 0.
-        # self.dP_pipe: float = 0.
-        self.dT_range: float = 0.
-        self.dT_LMTD_preheater: float = 0.
-        self.dT_LMTD_boiler: float = 0.
-        self.dT_LMTD_recuperator: float = 0.
-        self.w_pump: float = 0.
-        self.w_turbine: float = 0.
-        self.w_cooler: float = 0.
-        self.w_condenser: float = 0.
-        self.w_downhole_pump: float = 0.
-        self.q_cooler: float = 0.
-        self.q_preheater: float = 0.
-        self.q_boiler: float = 0.
-        self.q_desuperheater: float = 0.
-        self.q_recuparator: float = 0.
-        self.q_condenser: float = 0.
-        self.w_net: float = 0.
+        # self.ORC_fluid: FluidState
+        # self.dP_pump: float = 0.
+        # # self.dP_pipe: float = 0.
+        # self.dT_range: float = 0.
+        # self.dT_LMTD_preheater: float = 0.
+        # self.dT_LMTD_boiler: float = 0.
+        # self.dT_LMTD_recuperator: float = 0.
+        # self.w_pump: float = 0.
+        # self.w_turbine: float = 0.
+        # self.w_cooler: float = 0.
+        # self.w_condenser: float = 0.
+        # self.w_downhole_pump: float = 0.
+        # self.q_cooler: float = 0.
+        # self.q_preheater: float = 0.
+        # self.q_boiler: float = 0.
+        # self.q_desuperheater: float = 0.
+        # self.q_recuparator: float = 0.
+        # self.q_condenser: float = 0.
+        # self.w_net: float = 0.
 
 
 class SurfaceUnitORCNative(SurfaceUnitNative):
@@ -97,6 +97,26 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._set_lookup_tables()
 
         self.dP_pipe: float = 0.
+
+        self.ORC_fluid: FluidState
+        self.dP_pump: float = 0.
+        # self.dP_pipe: float = 0.
+        self.dT_range: float = 0.
+        self.dT_LMTD_preheater: float = 0.
+        self.dT_LMTD_boiler: float = 0.
+        self.dT_LMTD_recuperator: float = 0.
+        self.w_pump: float = 0.
+        self.w_turbine: float = 0.
+        self.w_cooler: float = 0.
+        self.w_condenser: float = 0.
+        self.w_downhole_pump: float = 0.
+        self.q_cooler: float = 0.
+        self.q_preheater: float = 0.
+        self.q_boiler: float = 0.
+        self.q_desuperheater: float = 0.
+        self.q_recuparator: float = 0.
+        self.q_condenser: float = 0.
+        self.w_net: float = 0.
 
         self.init_state()
 
@@ -286,34 +306,34 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
 
         # Calculate water heat/work
-        state.q_preheater = mdot_ratio * self.mass_rate * self._ORC_state.q_preheater
-        state.q_boiler = mdot_ratio * self.mass_rate * self._ORC_state.q_boiler
-        state.q_desuperheater = mdot_ratio * self.mass_rate * self._ORC_state.q_cooler
-        state.q_condenser = mdot_ratio * self.mass_rate * self._ORC_state.q_condenser
-        state.q_recuperator = mdot_ratio * self.mass_rate * self._ORC_state.q_recuperator
-        state.w_turbine = mdot_ratio * self.mass_rate * self._ORC_state.w_turbine
-        state.w_pump = mdot_ratio * self.mass_rate * self._ORC_state.w_pump
-        state.w_cooler = mdot_ratio * self.mass_rate * self._ORC_state.w_cooler
-        state.w_condenser = mdot_ratio * self.mass_rate * self._ORC_state.w_condenser
-        state.w_net = state.w_turbine + state.w_pump + state.w_cooler + state.w_condenser
+        self.q_preheater = mdot_ratio * self.mass_rate * self._ORC_state.q_preheater
+        self.q_boiler = mdot_ratio * self.mass_rate * self._ORC_state.q_boiler
+        self.q_desuperheater = mdot_ratio * self.mass_rate * self._ORC_state.q_cooler
+        self.q_condenser = mdot_ratio * self.mass_rate * self._ORC_state.q_condenser
+        self.q_recuperator = mdot_ratio * self.mass_rate * self._ORC_state.q_recuperator
+        self.w_turbine = mdot_ratio * self.mass_rate * self._ORC_state.w_turbine
+        self.w_pump = mdot_ratio * self.mass_rate * self._ORC_state.w_pump
+        self.w_cooler = mdot_ratio * self.mass_rate * self._ORC_state.w_cooler
+        self.w_condenser = mdot_ratio * self.mass_rate * self._ORC_state.w_condenser
+        self.w_net = self.w_turbine + self.w_pump + self.w_cooler + self.w_condenser
 
         # Calculate temperatures
-        state.dT_range_CT = fluid_state_cooler.T - fluid_state_condenser_inlet.T
+        self.dT_range_CT = fluid_state_cooler.T - fluid_state_condenser_inlet.T
         dT_A_p = T_13 - fluid_state_preheater.T
         dT_B_p = T_12 - fluid_state_boiler_inlet.T
         if dT_A_p == dT_B_p:
-            state.dT_LMTD_preheater = dT_A_p
+            self.dT_LMTD_preheater = dT_A_p
         else:
             div = dT_A_p/dT_B_p
-            state.dT_LMTD_preheater = (dT_A_p - dT_B_p) / (math.log(abs(div)) * np.sign(div))
+            self.dT_LMTD_preheater = (dT_A_p - dT_B_p) / (math.log(abs(div)) * np.sign(div))
 
         dT_A_b = T_12 - fluid_state_boiler_inlet.T
         dT_B_b = T_11 - fluid_state_turbine_inlet.T
         if dT_A_b == dT_B_b:
-            state.dT_LMTD_boiler = dT_A_b
+            self.dT_LMTD_boiler = dT_A_b
         else:
             div = dT_A_b / dT_B_b
-            state.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
+            self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
         self.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
 

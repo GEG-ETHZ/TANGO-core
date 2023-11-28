@@ -34,18 +34,18 @@ class SurfaceStateCPGNative(SurfaceState):
         # self.outlet_fluid_turbine: FluidState
         # self.outlet_fluid_condenser: FluidState
         # self.outlet_fluid_pump: FluidState
-        self.q_condenser: float = 0.
-        self.q_cooler: float = 0.
-        self.q_preheater: float = 0.
-        self.q_boiler: float = 0.
-        self.q_desuperheater: float = 0.
-        self.q_recuperator: float = 0.
-        self.w_turbine: float = 0.
-        self.w_pump: float = 0.
-        self.w_cooler: float = 0.
-        self.w_condenser: float = 0.
-        self.w_net: float = 0.
-        self._dP_pump: float = 0.
+        # self.q_condenser: float = 0.
+        # self.q_cooler: float = 0.
+        # self.q_preheater: float = 0.
+        # self.q_boiler: float = 0.
+        # self.q_desuperheater: float = 0.
+        # self.q_recuperator: float = 0.
+        # self.w_turbine: float = 0.
+        # self.w_pump: float = 0.
+        # self.w_cooler: float = 0.
+        # self.w_condenser: float = 0.
+        # self.w_net: float = 0.
+        # self._dP_pump: float = 0.
 
 
     # def get_dP_pump(self) -> float:
@@ -76,6 +76,19 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.outlet_fluid_condenser: FluidState
         self.outlet_fluid_pump: FluidState
 
+        self.q_condenser: float = 0.
+        self.q_cooler: float = 0.
+        self.q_preheater: float = 0.
+        self.q_boiler: float = 0.
+        self.q_desuperheater: float = 0.
+        self.q_recuperator: float = 0.
+        self.w_turbine: float = 0.
+        self.w_pump: float = 0.
+        self.w_cooler: float = 0.
+        self.w_condenser: float = 0.
+        self.w_net: float = 0.
+        self._dP_pump: float = 0.
+
         self.init_state()
 
 
@@ -91,7 +104,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         eta = self.specs.eta_turbine             # (-)
         X_CO2 = self._X_CO2
 
-        self.state.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet) # (W)
+        self.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet) # (W)
 
 
     def _update_condenser_state(self) -> None:
@@ -105,16 +118,16 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet) # (J/kg)
 
-        self.state.q_cooler = 0. # (W)
-        self.state.q_condenser = self.mass_rate * (h_condensed - h_turbine_outlet) # (W)
+        self.q_cooler = 0. # (W)
+        self.q_condenser = self.mass_rate * (h_condensed - h_turbine_outlet) # (W)
         if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
-            self.state.q_cooler = self.mass_rate * (h_saturated_vapor - h_turbine_outlet)
-            self.state.q_condenser = self.mass_rate * (h_condensed - h_saturated_vapor)
+            self.q_cooler = self.mass_rate * (h_saturated_vapor - h_turbine_outlet)
+            self.q_condenser = self.mass_rate * (h_condensed - h_saturated_vapor)
             T_turbine_outlet = FluidState.withHP(self._fluid_name, h_turbine_outlet, self.condensation_pressure).T
             self._condensation_temperature_range = T_turbine_outlet - self._condensation_temperature
 
-        self.state.w_cooler = X_CO2 * self.state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
-        self.state.w_condenser = X_CO2 * self.state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self.w_cooler = X_CO2 * self.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
+        self.w_condenser = X_CO2 * self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
 
 
     def _update_pump_state(self) -> None:
@@ -135,7 +148,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
                 self.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
             h_pump_outlet = h_pump_inlet + (self.outlet_fluid_pump.H - h_pump_inlet) / eta
 
-        self.state.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
+        self.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         try:
@@ -146,7 +159,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def _update_net_state(self) -> None:
-        self.state.w_net = self.state.w_turbine + self.state.w_cooler + self.state.w_condenser + self.state.w_pump
+        self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
 
 
     def init_state(self, P: float=None, T: float=None) -> None:
@@ -201,7 +214,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def update_dP_pump(self, val) -> None:
-        self.state._dP_pump = val
+        self._dP_pump = val
 
     def get_dP_pump(self) -> float:
-        return self.state._dP_pump
+        return self._dP_pump
