@@ -28,12 +28,12 @@ class SurfaceSpecsCPGNative(CommonSpecs):
 class SurfaceStateCPGNative(SurfaceState):
     def __init__(self):
         SurfaceState.__init__(self)
-        self.inlet_fluid_turbine: FluidState
-        self.inlet_fluid_condenser: FluidState
-        self.inlet_fluid_pump: FluidState
-        self.outlet_fluid_turbine: FluidState
-        self.outlet_fluid_condenser: FluidState
-        self.outlet_fluid_pump: FluidState
+        # self.inlet_fluid_turbine: FluidState
+        # self.inlet_fluid_condenser: FluidState
+        # self.inlet_fluid_pump: FluidState
+        # self.outlet_fluid_turbine: FluidState
+        # self.outlet_fluid_condenser: FluidState
+        # self.outlet_fluid_pump: FluidState
         self.q_condenser: float = 0.
         self.q_cooler: float = 0.
         self.q_preheater: float = 0.
@@ -69,6 +69,13 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._set_mult()
         self._set_constants()
 
+        self.inlet_fluid_turbine: FluidState
+        self.inlet_fluid_condenser: FluidState
+        self.inlet_fluid_pump: FluidState
+        self.outlet_fluid_turbine: FluidState
+        self.outlet_fluid_condenser: FluidState
+        self.outlet_fluid_pump: FluidState
+
         self.init_state()
 
 
@@ -77,9 +84,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def _update_turbine_power(self) -> None:
-        self.state.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.inlet_fluid.S)
+        self.outlet_fluid_turbine.updatePS(P = self.condensation_pressure, S = self.inlet_fluid.S)
 
-        hs_outlet = self.state.outlet_fluid_turbine.H # (J/kg)
+        hs_outlet = self.outlet_fluid_turbine.H # (J/kg)
         h_inlet = self.inlet_fluid.H            # (J/kg)
         eta = self.specs.eta_turbine             # (-)
         X_CO2 = self._X_CO2
@@ -89,7 +96,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
     def _update_condenser_state(self) -> None:
 
-        hs_outlet = self.state.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
+        hs_outlet = self.outlet_fluid_turbine.H  # Ideal (eta=1.0) enthalpy of outlet fluid (J/kg)
         h_inlet = self.inlet_fluid.H  # (J/kg)
         X_CO2 = self._X_CO2
         eta = self.specs.eta_turbine  # (-)
@@ -122,11 +129,11 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         h_pump_outlet = self.inlet_fluid_pump.H
         if dP_pump > 0:
             try:
-                self.state.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
+                self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
             except:
                 logging.warning(f"Failed to update fluid state with PS. Updating with PT instead.")
-                self.state.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
-            h_pump_outlet = h_pump_inlet + (self.state.outlet_fluid_pump.H - h_pump_inlet) / eta
+                self.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
+            h_pump_outlet = h_pump_inlet + (self.outlet_fluid_pump.H - h_pump_inlet) / eta
 
         self.state.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
 
@@ -135,7 +142,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             self.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
         except:
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-            self.outlet_fluid.updatePT(P=P_inj_inlet, T=self.state.outlet_fluid_pump.T)
+            self.outlet_fluid.updatePT(P=P_inj_inlet, T=self.outlet_fluid_pump.T)
 
 
     def _update_net_state(self) -> None:
@@ -156,17 +163,17 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         # self.mass_rate = self.specs.mass_flow_rate
 
-        self.state.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
+        self.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
 
-        self.state.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
-        self.condensation_pressure = self.state.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
+        self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
+        self.condensation_pressure = self.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
         self.condenser_saturated_vapor_h = FluidState.withPQ(self._fluid_name, Q=1.0, P=self.condensation_pressure).H
         self.condenser_saturated_liquid_h = FluidState.withPQ(self._fluid_name, Q=0.0, P=self.condensation_pressure).H
 
         self.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
-        self.state.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
+        self.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
 
-        self.outlet_fluid = FluidState.copy(self.state.outlet_fluid_pump)
+        self.outlet_fluid = FluidState.copy(self.outlet_fluid_pump)
 
 
     def overwrite_pump_state(self) -> None:
