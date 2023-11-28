@@ -96,7 +96,7 @@ class EconomicUnitNative(Unit):
             self.state_dict[nodes[id]['type']] = []
         for id in nodes:
             self.unit_dict[nodes[id]['type']].append(nodes[id]['unit'])
-            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'].state)
+            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'])
 
 
     def _initialize_units(self) -> None:
