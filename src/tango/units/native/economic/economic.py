@@ -224,8 +224,7 @@ class EconomicUnitNative(Unit):
             -> Get annual/averaged results for LCOE calculation
         """
         dt = self.specs.dt # dt in year
-        # var_names = [var for var in dir(self.surface_state) if not var.startswith("__")]
-        var_names = ['_dP_pump', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_net', 'w_pump', 'w_turbine']
+        var_names = ['dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
