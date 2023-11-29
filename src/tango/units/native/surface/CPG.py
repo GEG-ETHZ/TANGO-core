@@ -105,6 +105,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         X_CO2 = self._X_CO2
 
         self.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet) # (W)
+        print(self.w_turbine)
 
 
     def _update_condenser_state(self) -> None:

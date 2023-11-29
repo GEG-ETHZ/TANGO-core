@@ -127,6 +127,7 @@ class EconUnitSurfacePowerPlant:
         self._W_cooler_total = mult * self._state.w_cooler
         self._W_condenser_total = mult * self._state.w_condenser
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_cooler_total + self._W_condenser_total
+        print(self._W_turbine_total, 'total')
 
 
     def _process_surface_state_ORC(self) -> None:
