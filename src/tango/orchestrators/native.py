@@ -157,7 +157,7 @@ class SystemORCNative(SystemNative):
             dP_pump = self.unit.production_well_pump.get_dP_pump()
             dP_surface = self._compute_dP_surface()
             count += 1
-        self.unit.surface.state.w_downhole_pump = self.unit.production_well_pump.get_w_pump()
+        self.unit.surface.w_downhole_pump = self.unit.production_well_pump.get_w_pump()
 
 
     def _update_surface(self) -> None:
