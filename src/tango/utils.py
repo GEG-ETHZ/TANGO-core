@@ -140,7 +140,7 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
     else:
         d[name].append(current_date)
     for id in nodes:
-        state = nodes[id]['unit'].state
+        state = nodes[id]['unit']
         unit_name = nodes[id]['type']
         if unit_name in REPORT_SETTINGS.keys():
             if REPORT_SETTINGS[unit_name]:
