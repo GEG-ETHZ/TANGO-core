@@ -8,10 +8,6 @@ from tango.core.constants import GRAVITY_ACCELERATION
 from tango.units.native.well.base import *
 
 
-# class HorizontalWellStateNative(WellStateNative):
-#     """The well state unit"""
-
-
 class HorizontalWellUnitNative(WellUnitNative):
 
     def __init__(self, id, specs: dict):
@@ -68,7 +64,6 @@ class HorizontalWellUnitNative(WellUnitNative):
 
 
     def init_state(self) -> None:
-        # self.state = HorizontalWellStateNative()
         h, dTdz, T0 = self._specs.wellhead_depth, self._specs.thermal_gradient, self._specs.surface_temperature
         initial_pressure = self._specs.brine_density * GRAVITY_ACCELERATION * h
         initial_temperature = T0 + h * dTdz

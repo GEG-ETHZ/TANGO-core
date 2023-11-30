@@ -9,10 +9,6 @@ from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION, MAX_PRD_P
 from tango.units.native.well import *
 
 
-# class ProductionWellPumpStateNative(WellStateNative):
-#     """The well state unit"""
-
-
 class ProductionWellPumpUnitNative(ProductionWellUnitNative):
     """The production well unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict):
@@ -31,15 +27,10 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
 
     def init_state(self):
-        # self.state = ProductionWellPumpStateNative()
         self.mass_rate = self._well_mass_flow_rate
-
-        # self.mass_rate = self._well_mass_flow_rate
-
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name,
                                                    self._specs.surface_pressure,
                                                    self._specs.surface_temperature)
-
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
 
