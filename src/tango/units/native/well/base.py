@@ -175,7 +175,7 @@ class WellUnitNative(Unit):
 
 
     def execute(self) -> None:
-        self.update_inlet_state()
+        # self.update_inlet_state()
         self.update()
         print("production_in ", self.inlet_fluid.P, self.inlet_fluid.T)
         print("production_out ", self.outlet_fluid.P, self.outlet_fluid.T)
@@ -189,22 +189,22 @@ class WellUnitNative(Unit):
         self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
 
-    def update_inlet_state(self) -> None:
-        """ update inlet state based on inlet streams (mass flow rate weighted average) """
-        total_mass_rate = 0.
-        for sl in self.inlet_streams:
-            total_mass_rate += sl.mass_rate
-        T_ave, P_ave, H_ave = 0., 0., 0.
-        for sl in self.inlet_streams:
-            wt = sl.mass_rate / total_mass_rate
-            T_ave += wt * sl.fluid_state.T
-            P_ave += wt * sl.fluid_state.P
-            H_ave += wt * sl.fluid_state.H
-        self.mass_rate = total_mass_rate
-        try:
-            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
-        except:
-            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+    # def update_inlet_state(self) -> None:
+    #     """ update inlet state based on inlet streams (mass flow rate weighted average) """
+    #     total_mass_rate = 0.
+    #     for sl in self.inlet_streams:
+    #         total_mass_rate += sl.mass_rate
+    #     T_ave, P_ave, H_ave = 0., 0., 0.
+    #     for sl in self.inlet_streams:
+    #         wt = sl.mass_rate / total_mass_rate
+    #         T_ave += wt * sl.fluid_state.T
+    #         P_ave += wt * sl.fluid_state.P
+    #         H_ave += wt * sl.fluid_state.H
+    #     self.mass_rate = total_mass_rate
+    #     try:
+    #         self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+    #     except:
+    #         self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
 
     def get_dimensionless_time(self) -> float:

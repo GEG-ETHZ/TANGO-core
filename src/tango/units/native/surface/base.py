@@ -76,7 +76,7 @@ class SurfaceUnitNative(Unit):
 
 
     def execute(self) -> None:
-        self.update_inlet_state()
+        # self.update_inlet_state()
         self.update()
         # print("surface_in ", self.inlet_fluid.P, self.inlet_fluid.T)
         # print("surface_out ", self.outlet_fluid.P, self.outlet_fluid.T)
