@@ -171,7 +171,7 @@ class WellUnitNative(Unit):
 
         self.outlet_fluid.updateHP(self._h[i], self._P[i])
 
-        self.update_outlet_streams()
+        # self.update_outlet_streams()
 
 
     def execute(self) -> None:

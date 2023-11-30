@@ -95,6 +95,7 @@ class UnitManager(ABC):
                 self._update_node(self.graph.nodes[id])
         node['unit'].update_inlet_state()
         node['unit'].execute()
+        node['unit'].update_outlet_streams()
         node['visited'] = True
 
 

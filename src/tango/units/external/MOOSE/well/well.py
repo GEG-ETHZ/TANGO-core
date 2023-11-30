@@ -117,7 +117,7 @@ class WellUnitMOOSE(MOOSERunner):
         self.interface.flowrate_from_TANGO = self.state.mass_rate/self.state.inlet_fluid.rho
         self.interface.run(self.post_processor_path)
         self.state.outlet_fluid.updatePT(self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE)
-        self.update_outlet_streams()
+        # self.update_outlet_streams()
 
 
     def execute(self) -> None:

@@ -180,7 +180,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self._update_net_state()
 
-        self.update_outlet_streams()
+        # self.update_outlet_streams()
 
 
     def update_dP_pump(self, val) -> None:

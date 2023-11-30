@@ -311,7 +311,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         self.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
 
-        self.update_outlet_streams()
+        # self.update_outlet_streams()
 
 
     def init_state(self, P: float=None, T: float=None) -> None:
