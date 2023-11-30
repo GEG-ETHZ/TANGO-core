@@ -182,7 +182,7 @@ class ReservoirUnitNative(Unit):
 
         self.mass_rate = self.m_dot
 
-        self.update_outlet_streams()
+        # self.update_outlet_streams()
 
 
     def execute(self) -> None:
