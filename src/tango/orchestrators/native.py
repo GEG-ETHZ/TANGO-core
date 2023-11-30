@@ -114,6 +114,7 @@ class SystemORCNative(SystemNative):
                 x_lst.pop(0), y_lst.pop(0)
             self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
             self.unit.injection_well.update()
+            self.unit.reservoir.update_inlet_state()
             self.unit.reservoir.execute()
             dP_reservoir = self.unit.reservoir.get_del_pressure()
             count += 1
@@ -126,7 +127,9 @@ class SystemORCNative(SystemNative):
 
 
     def _update_production_well(self) -> None:
+        self.unit.production_well.update_inlet_state()
         self.unit.production_well.execute()
+        self.unit.production_well_pump.update_inlet_state()
         self.unit.production_well_pump.execute()
         self._update_production_well_pump()
 
@@ -161,12 +164,14 @@ class SystemORCNative(SystemNative):
 
 
     def _update_surface(self) -> None:
+        self.unit.surface.update_inlet_state()
         self.unit.surface.execute()
         self.unit.injection_well.update_inlet_state()
 
 
     def _update_injection_well_inlet_T(self) -> None:
         """Local iterations to update temperature at injection well"""
+        self.unit.surface.update_inlet_state()
         self.unit.surface.execute()
         dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.outlet_fluid.T)
         self.x_lst.append(copy.deepcopy(self.unit.injection_well.get_inlet_temperature_tmp()))

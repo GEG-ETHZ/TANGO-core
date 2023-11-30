@@ -93,6 +93,7 @@ class UnitManager(ABC):
         if node != self.root_node:
             for id in self._source_nodes(node):
                 self._update_node(self.graph.nodes[id])
+        node['unit'].update_inlet_state()
         node['unit'].execute()
         node['visited'] = True
 

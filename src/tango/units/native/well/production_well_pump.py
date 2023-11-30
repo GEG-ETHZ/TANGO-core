@@ -46,7 +46,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
 
     def execute(self) -> None:
-        self.update_inlet_state()
+        # self.update_inlet_state()
         self.set_inlet_pressure()
         self.update_inlet_fluid_state_with_pump()
         self.update()
