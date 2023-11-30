@@ -25,37 +25,6 @@ class SurfaceSpecsCPGNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-# class SurfaceStateCPGNative(SurfaceState):
-#     def __init__(self):
-#         SurfaceState.__init__(self)
-        # self.inlet_fluid_turbine: FluidState
-        # self.inlet_fluid_condenser: FluidState
-        # self.inlet_fluid_pump: FluidState
-        # self.outlet_fluid_turbine: FluidState
-        # self.outlet_fluid_condenser: FluidState
-        # self.outlet_fluid_pump: FluidState
-        # self.q_condenser: float = 0.
-        # self.q_cooler: float = 0.
-        # self.q_preheater: float = 0.
-        # self.q_boiler: float = 0.
-        # self.q_desuperheater: float = 0.
-        # self.q_recuperator: float = 0.
-        # self.w_turbine: float = 0.
-        # self.w_pump: float = 0.
-        # self.w_cooler: float = 0.
-        # self.w_condenser: float = 0.
-        # self.w_net: float = 0.
-        # self._dP_pump: float = 0.
-
-
-    # def get_dP_pump(self) -> float:
-    #     return self._dP_pump
-
-
-    # def update_dP_pump(self, val) -> None:
-    #     self._dP_pump = val
-
-
 class SurfaceUnitCPGNative(SurfaceUnitNative):
 
     """The power plant unit based on Adams et al. (2015)."""

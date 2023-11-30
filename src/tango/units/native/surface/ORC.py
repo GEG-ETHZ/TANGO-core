@@ -40,7 +40,6 @@ class SurfaceSpecsORCNative(CommonSpecs):
             raise ValueError(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
 
 
-
 @dataclass
 class SurfaceStateORCFluid():
     """"dataclass to store ORC states"""
@@ -54,30 +53,6 @@ class SurfaceStateORCFluid():
     q_desuperheater: float = 0.
     q_recuperator: float = 0.
     q_condenser: float = 0.
-
-
-class SurfaceStateORCNative(SurfaceState):
-    def __init__(self):
-        SurfaceState.__init__(self)
-        # self.ORC_fluid: FluidState
-        # self.dP_pump: float = 0.
-        # # self.dP_pipe: float = 0.
-        # self.dT_range: float = 0.
-        # self.dT_LMTD_preheater: float = 0.
-        # self.dT_LMTD_boiler: float = 0.
-        # self.dT_LMTD_recuperator: float = 0.
-        # self.w_pump: float = 0.
-        # self.w_turbine: float = 0.
-        # self.w_cooler: float = 0.
-        # self.w_condenser: float = 0.
-        # self.w_downhole_pump: float = 0.
-        # self.q_cooler: float = 0.
-        # self.q_preheater: float = 0.
-        # self.q_boiler: float = 0.
-        # self.q_desuperheater: float = 0.
-        # self.q_recuparator: float = 0.
-        # self.q_condenser: float = 0.
-        # self.w_net: float = 0.
 
 
 class SurfaceUnitORCNative(SurfaceUnitNative):
@@ -226,7 +201,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
     def _update_state_fluid(self) -> None:
 
-        state = self.state
         T_inlet = self.inlet_fluid.T
         T_boiling, dT_pinch = self._get_values_from_table(T_inlet)
 
@@ -343,8 +317,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
     def init_state(self, P: float=None, T: float=None) -> None:
         P = self.specs.initial_outlet_pressure if P==None else P
         T = self.specs.initial_outlet_temperature if T == None else T
-        self.state = SurfaceStateORCNative()
-        # self.state.mass_rate = self.specs.mass_flow_rate
 
         self.mass_rate = self.specs.mass_flow_rate
 

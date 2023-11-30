@@ -9,12 +9,6 @@ from dataclasses import dataclass
 import numpy as np
 
 
-# class InjectionWellStateNative(WellStateNative):
-#     """The well state unit"""
-#     def __init__(self) -> None:
-#         WellStateNative.__init__(self)
-
-
 class InjectionWellUnitNative(WellUnitNative):
     """The injection well unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict):
@@ -41,7 +35,6 @@ class InjectionWellUnitNative(WellUnitNative):
     def init_state(self, P: float=None, T: float=None) -> None:
         P = self._specs.surface_pressure if P==None else P
         T = self._specs.surface_temperature if T == None else T
-        # self.state = InjectionWellStateNative()
         self.mass_rate = self._well_mass_flow_rate
 
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
