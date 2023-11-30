@@ -9,8 +9,8 @@ import logging
 import numpy as np
 
 
-class ProductionWellStateNative(WellStateNative):
-    """The well state unit"""
+# class ProductionWellStateNative(WellStateNative):
+#     """The well state unit"""
 
 
 class ProductionWellUnitNative(WellUnitNative):
@@ -45,7 +45,7 @@ class ProductionWellUnitNative(WellUnitNative):
     def init_state(self, P: float=None, T: float=None) -> None:
         P = self._specs.surface_pressure if P==None else P
         T = self._specs.surface_temperature if T == None else T
-        self.state = ProductionWellStateNative()
+        # self.state = ProductionWellStateNative()
         self.mass_rate = self._well_mass_flow_rate
 
         # self.mass_rate = self._well_mass_flow_rate

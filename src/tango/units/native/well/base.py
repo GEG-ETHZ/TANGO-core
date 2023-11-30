@@ -10,8 +10,8 @@ from tango.core.abstracts.unit import *
 from tango.units.native.common import WellSpecsNative
 
 
-class WellStateNative():
-    """The well state unit"""
+# class WellStateNative():
+#     """The well state unit"""
 
 
 class WellUnitNative(Unit):

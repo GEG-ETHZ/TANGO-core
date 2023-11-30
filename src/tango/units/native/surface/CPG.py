@@ -25,9 +25,9 @@ class SurfaceSpecsCPGNative(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class SurfaceStateCPGNative(SurfaceState):
-    def __init__(self):
-        SurfaceState.__init__(self)
+# class SurfaceStateCPGNative(SurfaceState):
+#     def __init__(self):
+#         SurfaceState.__init__(self)
         # self.inlet_fluid_turbine: FluidState
         # self.inlet_fluid_condenser: FluidState
         # self.inlet_fluid_pump: FluidState
@@ -169,7 +169,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             production_well - turbine - condenser - pump - injection_well
         """
 
-        self.state = SurfaceStateCPGNative()
+        # self.state = SurfaceStateCPGNative()
         if P != None and T != None:
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
