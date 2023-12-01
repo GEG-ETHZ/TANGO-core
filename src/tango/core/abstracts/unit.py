@@ -24,6 +24,9 @@ class Unit(ABC):
         self.specs = specs
         self.inlet_streams = list()
         self.outlet_streams = list()
+        self.mass_rate: float = 0.0
+        self.inlet_fluid: FluidState
+        self.outlet_fluid: FluidState
 
 
     def set_inlet_stream(self, sl) -> None:
