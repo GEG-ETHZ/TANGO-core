@@ -45,12 +45,19 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         self.set_w_pump(w_pump)
 
 
-    def execute(self) -> None:
+    def update2(self) -> None:
         # self.update_inlet_state()
         self.set_inlet_pressure()
         self.update_inlet_fluid_state_with_pump()
         self.update()
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
         self.update_w_pump()
+
+
+    def execute(self) -> None:
+        # self.update_inlet_state()
+        self.update2()
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
 
     def set_dP_pump(self, val) -> None:
         self._dP_pump = min(max(val, 0.), MAX_PRD_PUMP_DP)

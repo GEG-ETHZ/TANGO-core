@@ -169,7 +169,10 @@ class WellUnitNative(Unit):
             self._T_f[i] = self.fluid_state_tmp.T
             self._u[i] = mdot / A / self._rho[i]
 
-        self.outlet_fluid.updateHP(self._h[i], self._P[i])
+        self.ppp = self._P[i]
+        self.hhh = self._h[i]
+        self.ttt = self._T_f[i]
+        # self.outlet_fluid.updateHP(self._h[i], self._P[i])
 
         # self.update_outlet_streams()
 
@@ -177,6 +180,7 @@ class WellUnitNative(Unit):
     def execute(self) -> None:
         # self.update_inlet_state()
         self.update()
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
         print("production_in ", self.inlet_fluid.P, self.inlet_fluid.T)
         print("production_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
