@@ -75,7 +75,7 @@ class SurfaceUnitNative(Unit):
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         # self.update_inlet_state()
         self.update()
         self.outlet_fluid.updatePT(self.ppp, self.ttt)

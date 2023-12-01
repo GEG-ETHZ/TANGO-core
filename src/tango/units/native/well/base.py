@@ -177,7 +177,7 @@ class WellUnitNative(Unit):
         # self.update_outlet_streams()
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         # self.update_inlet_state()
         self.update()
         self.outlet_fluid.updateHP(self.hhh, self.ppp)

@@ -72,7 +72,7 @@ class CMGBaseUnit(Unit):
             RuntimeError(f"Failed to parse args (template: {template})")
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         logging.info(f"Starting cmd: {self.cmd}")
         if self.specs.queue == 'local':
             proc = subprocess.run(self.cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

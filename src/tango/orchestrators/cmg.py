@@ -40,10 +40,10 @@ class SystemCMG(UnitManager):
 
 
 
-    def execute(self) -> None: #TODO: update for one-multiple connections (traverse graph)
+    def stream_interface(self) -> None: #TODO: update for one-multiple connections (traverse graph)
         """execute a series of units accosiated with compute nodes within the system"""
-        self.nodes[0][1]['unit'].execute()
+        self.nodes[0][1]['unit'].stream_interface()
 
 
         # for id in self.graph.nodes:
-        #     self.graph.nodes[id]['unit'].execute()
+        #     self.graph.nodes[id]['unit'].stream_interface()

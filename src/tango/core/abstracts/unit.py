@@ -73,5 +73,5 @@ class Unit(ABC):
         raise NotImplementedError("Implement 'init_state' method in your derived Unit class.")
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         raise NotImplementedError("Implement 'execute' method in your derived Unit class.")
