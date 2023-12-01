@@ -64,7 +64,7 @@ class ReservoirUnitNative(Unit):
         self.mass_rate = self.m_dot
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         self.update()
         self.outlet_fluid.updatePT(self.ppp, self.ttt)
 

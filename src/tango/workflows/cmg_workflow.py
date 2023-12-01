@@ -25,7 +25,7 @@ class CMGWorkflow(Workflow): #TODO: Implement
         #TODO: Implement
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
 
         self.system.execute()
 
