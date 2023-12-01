@@ -309,7 +309,11 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        self.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
+        # self.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
+
+        self.ppp = self.inlet_fluid.P
+        self.hhh = self.inlet_fluid.H
+        self.ttt = T_13
 
         # self.update_outlet_streams()
 

@@ -121,11 +121,15 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
 
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
-        try:
-            self.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
-        except:
-            logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-            self.outlet_fluid.updatePT(P=P_inj_inlet, T=self.outlet_fluid_pump.T)
+        # try:
+        #     self.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
+        # except:
+        #     logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+        #     self.outlet_fluid.updatePT(P=P_inj_inlet, T=self.outlet_fluid_pump.T)
+
+        self.ppp = P_inj_inlet
+        self.hhh = h_pump_outlet
+        self.ttt = self.outlet_fluid_pump.T
 
 
     def _update_net_state(self) -> None:
@@ -162,6 +166,13 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
     def overwrite_pump_state(self) -> None:
 
         self._update_pump_state()
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        # self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        # try:
+        #     self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        # except:
+        #     # logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+        #     self.outlet_fluid.updatePT(self.ppp, self.ttt)
 
         self._update_net_state()
 
@@ -177,6 +188,13 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_condenser_state()
 
         self._update_pump_state()
+        # self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        # try:
+        #     self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        # except:
+        #     # logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+        #     self.outlet_fluid.updatePT(self.ppp, self.ttt)
 
         self._update_net_state()
 

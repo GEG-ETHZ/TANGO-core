@@ -178,7 +178,10 @@ class ReservoirUnitNative(Unit):
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
 
-        self.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
+        self.ppp = outlet_pressure
+        self.ttt = outlet_temperature
+
+        # self.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
 
         self.mass_rate = self.m_dot
 
@@ -188,6 +191,7 @@ class ReservoirUnitNative(Unit):
     def execute(self) -> None:
         # self.update_inlet_state()
         self.update()
+        self.outlet_fluid.updatePT(self.ppp, self.ttt)
         print("reservoir_in ", self.inlet_fluid.P, self.inlet_fluid.T)
         print("reservoir_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
