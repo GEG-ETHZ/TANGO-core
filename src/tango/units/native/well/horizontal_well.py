@@ -12,14 +12,27 @@ class HorizontalWellUnitNative(WellUnitNative):
 
     def __init__(self, id, specs: dict):
         WellUnitNative.__init__(self, id, specs=self._process_specs(id, specs))
+        self._specs_post_processor_hw()
+        self.init_stream_interface()
+
+    # ----------------------------------------- Public Functions ----------------------------------------- #
+
+    def init_stream_interface(self) -> None:
+        h, dTdz, T0 = self._specs.wellhead_depth, self._specs.thermal_gradient, self._specs.surface_temperature
+        initial_pressure = self._specs.brine_density * GRAVITY_ACCELERATION * h
+        initial_temperature = T0 + h * dTdz
+        self.mass_rate = self._well_mass_flow_rate
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
+        self.outlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
+
+    # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _specs_post_processor_hw(self) -> float:
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0
-
         # overwrite static parameters for horizontal well
         self._dL = self._well_length / self._num_cells
         self._dz = self._dZ / self._num_cells
-
-        self.init_state()
 
 
     def _process_specs(self, id, specs) -> dict:
@@ -61,14 +74,3 @@ class HorizontalWellUnitNative(WellUnitNative):
         dTdz = self._specs.thermal_gradient
         T0 = self._specs.surface_temperature
         self._T_r = T0 + zspace * dTdz  # rock temperature (K)
-
-
-    def init_state(self) -> None:
-        h, dTdz, T0 = self._specs.wellhead_depth, self._specs.thermal_gradient, self._specs.surface_temperature
-        initial_pressure = self._specs.brine_density * GRAVITY_ACCELERATION * h
-        initial_temperature = T0 + h * dTdz
-        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
-        self.outlet_fluid = FluidState.withPT(self._specs.fluid_name, initial_pressure, initial_temperature)
-
-        self.mass_rate = self._well_mass_flow_rate
-

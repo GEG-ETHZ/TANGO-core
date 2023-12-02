@@ -77,7 +77,7 @@ class SurfaceUnitNative(Unit):
 
     def stream_interface(self) -> None:
         # self.update_inlet_state()
-        self.update()
+        self.process_stream()
         self.outlet_fluid.updatePT(self.ppp, self.ttt)
         # try:
         #     self.outlet_fluid.updateHP(self.hhh, self.ppp)

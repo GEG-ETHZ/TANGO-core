@@ -179,7 +179,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.update_outlet_streams()
 
 
-    def update(self) -> None:
+    def process_stream(self) -> None:
 
         # self.update_inlet_state()
 

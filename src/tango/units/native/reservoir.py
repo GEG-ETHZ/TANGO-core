@@ -17,22 +17,24 @@ class ReservoirUnitNative(Unit):
     def __init__(self, id: str, specs: dict) -> None:
         super().__init__(id, specs)
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
-        self._specs_post_processor()
         self._init_storing_attributes()
-        self.init_state()
+        self._specs_post_processor()
+        self.init_stream_interface()
+        self._thermal_depletion()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
-    def init_state(self, P: float = None, T: float = None) -> None:
+
+    def init_stream_interface(self, P: float = None, T: float = None) -> None:
         P = self.initial_pressure if P == None else P
         T = self.initial_temperature if T == None else T
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-        self._set_pressure_old(self.initial_pressure)
-        self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
+    def stream_interface(self) -> None:
+        self.process_stream()
+        self.outlet_fluid.updatePT(self.ppp, self.ttt)
 
-
-    def update(self) -> None:
+    def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
 
         self.m_dot = self.m_dot_mult * self.mass_rate
@@ -63,11 +65,6 @@ class ReservoirUnitNative(Unit):
         self.ttt = outlet_temperature
         self.mass_rate = self.m_dot
 
-
-    def stream_interface(self) -> None:
-        self.update()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
-
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native reservoir units. They will be called by the native
     # orchestrator for iterative computations. Please don't set them for external reservoir units, as they
@@ -76,18 +73,14 @@ class ReservoirUnitNative(Unit):
     def get_del_pressure(self) -> float:
         return self._pressure_old - self.outlet_fluid.P
 
-
     def update_pressure_old(self) -> None:
         self._pressure_old = self.outlet_fluid.P
-
 
     def update_energy_extracted_old(self) -> None:
         self._energy_extracted_old = self._energy_extracted
 
-
     def update_energy_extracted(self, del_) -> None:
         self._energy_extracted = self._energy_extracted_old + del_
-
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
@@ -104,13 +97,12 @@ class ReservoirUnitNative(Unit):
         self.specs.well_diameter = self.specs.well_eff_diameter
         self._initialize_mdot_mult()
         self._set_impedance_func()
-
+        self._set_pressure_old(self.initial_pressure)
 
     def _init_storing_attributes(self) -> float:
         self._pressure_old = 0.0  # reservoir pressure at previous time step (Pa)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0  # reservoir energy extracted at previous time step (J)
-
 
     def _process_specs(self, specs) -> dict:
         if 'well_eff_diameter' not in specs['reservoir']:
@@ -124,10 +116,8 @@ class ReservoirUnitNative(Unit):
             specs['reservoir']['well_eff_diameter'] = val
         return specs['common'] | specs['reservoir']
 
-
     def _compute_area(self) -> float:
         return 0.5 * (self.specs.well_spacing ** 2) if self.specs.area is None else self.specs.area
-
 
     def _compute_initial_temperature(self) -> float:
         if self.specs.initial_temperature is not None:
@@ -135,34 +125,28 @@ class ReservoirUnitNative(Unit):
         h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
         return T0 + h * dTdz  # deg C
 
-
     def _compute_initial_pressure(self) -> float:
         if self.specs.initial_pressure is not None:
             return self.specs.initial_pressure
         return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
-
     def _initialize_mdot_mult(self) -> None:
         """multiplier to convert injection flow rate to m_dot (well-pair level flow rate)"""
         self.m_dot_mult = 0.25 if self.well_pattern == 'INVERTED_5SPOT' else 1.0
-
 
     def _set_impedance_func(self) -> None:
         self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None)
         if self.impedance_func == None:
             raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")
 
-
     @staticmethod
     def _impedance_func_5spot(mu, rho, k, b, L, D) -> float:
         return mu * np.log(4.0 * L / (np.pi * D)) / (rho * k * b)
-
 
     @staticmethod
     def _impedance_func_doublet(mu, rho, k, b, L, D) -> float:
         return mu * (np.log(L / (exp * D)) + D / L) / (rho * k * b * np.pi)  # ref
         # return mu * np.log(L /D) / (rho * k * b * np.pi) # genGEO
-
 
     def _compute_depletion_curve_coeffs(self) -> list:
 
@@ -184,14 +168,12 @@ class ReservoirUnitNative(Unit):
 
         return p1, p2, p3
 
-
     def _update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
         k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
         L, D = self.specs.well_spacing, self.specs.well_diameter
         b_eff = b * NTG  # = effective thickness
         self.impedance = self.impedance_func(mu, rho, k, b_eff, L, D)
-
 
     def _depletion_curve(self, psi) -> float:
         p1, p2, p3 = self.p1, self.p2, self.p3
@@ -201,10 +183,11 @@ class ReservoirUnitNative(Unit):
             C = 1.13
             return 1 - (1 - p3) * (1 - 0.5 * np.exp(-C * (p2 * psi + p1)))
 
-
     def _get_energy_extracted(self) -> float:
         return self._energy_extracted
 
-
     def _set_pressure_old(self, val) -> None:
         self._pressure_old = val
+
+    def _thermal_depletion(self) -> None:
+        self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
