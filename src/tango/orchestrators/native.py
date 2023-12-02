@@ -68,7 +68,8 @@ class SystemCPGNative(SystemNative):
             self.x_lst.pop(0)
             self.y_lst.pop(0)
         self.unit.surface.update_dP_pump(root)
-        self.unit.surface.overwrite_pump_state()
+        # self.unit.surface.overwrite_pump_state()
+        self.unit.surface.process_stream()
 
 
     def update_time_dependent_vars(self) -> None:
@@ -78,8 +79,6 @@ class SystemCPGNative(SystemNative):
         self.unit.reservoir.update_energy_extracted_old()
         self.unit.injection_well.update_dimensionless_time_old()
         self.unit.production_well.update_dimensionless_time_old()
-
-
 
 
 class SystemORCNative(SystemNative):
