@@ -84,7 +84,7 @@ def test_production_well():
 def test_surface():
 
     unit = SurfaceUnitCPGNative(id, specs_CO2)
-    unit.init_state(P=1.0e7, T=330.)
+    unit.init_stream_interface(P=1.0e7, T=330.)
     unit.process_stream()
     assert unit.outlet_fluid.P == pytest.approx(6053084.8456)
     assert unit.outlet_fluid.T == pytest.approx(295.150)

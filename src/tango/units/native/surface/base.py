@@ -5,55 +5,18 @@ from tango.core.abstracts.unit import *
 
 class SurfaceUnitNative(Unit):
     """The power plant unit based on Adams et al. (2015)."""
+
     def __init__(self, id, specs):
         super().__init__(id, specs)
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
 
+    # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def _set_mult(self) -> None:
-        """
-            - m_dot_mult is to convert m_dot (well-pair level mass flow rate) at a producer
-              to a pattern level mass flow rate (=injection mass flow rate)
-        """
-        self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
+    def stream_interface(self) -> None:
+        self.process_stream()
+        self.outlet_fluid.updatePT(self.ppp, self.ttt)
 
-
-    def _set_constants(self) -> None:
-        if self.specs.cooling_mode == 'WET':
-            self._coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
-            self._coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.]
-        elif self.specs.cooling_mode == 'DRY':
-            self._coeffs_cooling = [7.65e-1, 0., 0., 1.28e-1]
-            self._coeffs_condensing = [0.619, 0., 0., 0.]
-        else:
-            raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
-
-
-    def _BAC_regression_model(self, coeffs: list) -> float:
-        """
-        Baltimore Aircoil Specific (BAC) regression unit for cooling and condensing costs
-        """
-        a, b, c, d = coeffs
-        T_ambient = self.specs.surface_temperature
-        dT_approach = self.specs.approach_temperature
-        dT_range = self._condensation_temperature_range
-        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach+dT_range)
-
-
-    def _get_parasitic_power_fraction_cooling(self):
-        return self._BAC_regression_model(coeffs=self._coeffs_cooling)
-
-
-    def _get_parasitic_power_fraction_condensing(self):
-        return self._BAC_regression_model(coeffs=self._coeffs_condensing)
-
-
-    def init_inlet_state(self, inlet_state) -> None:
-        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
-
-
+    # This public function is already defined in the Unit class and is overridden here. It's an exception.
+    # Please avoid re-defining the methods of the Unit class as far as possible.
     def update_inlet_state(self) -> None:
         """
          updated inlet state based on inlet streams
@@ -74,18 +37,37 @@ class SurfaceUnitNative(Unit):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
+    # ----------------------------------------- Private Functions ---------------------------------------- #
 
-    def stream_interface(self) -> None:
-        # self.update_inlet_state()
-        self.process_stream()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
-        # try:
-        #     self.outlet_fluid.updateHP(self.hhh, self.ppp)
-        # except:
-        #     self.outlet_fluid.updatePT(self.ppp, self.ttt)
-        # try:
-        #     self.outlet_fluid.updatePT(self.ppp, self.ttt)
-        # except:
-        #     self.outlet_fluid.updateHP(self.hhh, self.ppp)
-        # print("surface_in ", self.inlet_fluid.P, self.inlet_fluid.T)
-        # print("surface_out ", self.outlet_fluid.P, self.outlet_fluid.T)
+    def _set_mult(self) -> None:
+        """
+            - m_dot_mult is to convert m_dot (well-pair level mass flow rate) at a producer
+              to a pattern level mass flow rate (=injection mass flow rate)
+        """
+        self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
+
+    def _set_constants(self) -> None:
+        if self.specs.cooling_mode == 'WET':
+            self._coeffs_cooling = [1.2, 0., -3.79e-3, 1.95e-2]
+            self._coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.]
+        elif self.specs.cooling_mode == 'DRY':
+            self._coeffs_cooling = [7.65e-1, 0., 0., 1.28e-1]
+            self._coeffs_condensing = [0.619, 0., 0., 0.]
+        else:
+            raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
+
+    def _BAC_regression_model(self, coeffs: list) -> float:
+        """
+        Baltimore Aircoil Specific (BAC) regression unit for cooling and condensing costs
+        """
+        a, b, c, d = coeffs
+        T_ambient = self.specs.surface_temperature
+        dT_approach = self.specs.approach_temperature
+        dT_range = self._condensation_temperature_range
+        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+
+    def _get_parasitic_power_fraction_cooling(self):
+        return self._BAC_regression_model(coeffs=self._coeffs_cooling)
+
+    def _get_parasitic_power_fraction_condensing(self):
+        return self._BAC_regression_model(coeffs=self._coeffs_condensing)
