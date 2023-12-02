@@ -15,24 +15,83 @@ class WellUnitNative(Unit):
     def __init__(self, id: str, specs: dict):
         super().__init__(id, specs)
         self._specs = WellSpecsNative.from_dict(specs)
+        self._specs_post_processor()
+        self._init_storing_attributes()
+        # the public function (init_stream_interface) is set in the derived classes.
 
-        # geometric parameters
+    # ----------------------------------------- Public Functions ----------------------------------------- #
+
+    def stream_interface(self) -> None:
+        self.process_stream()
+        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+
+
+    def process_stream(self) -> None:
+        """update dynamic variables along wellbore"""
+        self._initialize_state()
+        t_d = self._get_dimensionless_time()
+        g, dz, f_dir = self._g, self._dz, self._f_dir
+        mdot, A = self.mass_rate, self._cross_sectional_area
+        for i in range(1, self._num_cells):
+            ff = self._compute_friction_factor(self._rho[i-1], self._mu[i-1], self._u[i-1])
+            dP_loss = self._compute_delta_P_loss(ff, self._rho[i-1], self._u[i-1])
+            Q_loss = self._compute_Q_loss(delta_T=self._T_f[i-1] - self._T_r[i-1], t_d=t_d)
+            self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
+            self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
+            try:
+                self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
+            except:
+                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+                self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
+            self._rho[i] = self.fluid_state_tmp.rho
+            self._mu[i] = self.fluid_state_tmp.mu
+            self._T_f[i] = self.fluid_state_tmp.T
+            self._u[i] = mdot / A / self._rho[i]
+        self.ppp = self._P[i]
+        self.hhh = self._h[i]
+        self.ttt = self._T_f[i]
+
+    # -------------------------------------- data storing Functions -------------------------------------- #
+    # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native
+    # orchestrator for iterative computations, while others are invoked by the economic unit. Please avoid
+    # setting them for external wellbore units, as they will not be called by the native orchestrator,
+    # and the economic inputs will need to be provided manually.
+
+    def get_well_length(self) -> float:
+        return self._well_length
+
+
+    def get_diameter(self) -> float:
+        return self._diameter
+
+
+    def get_probability_of_success(self) -> float:
+        return self._specs.probability_of_success
+
+
+    def update_dimensionless_time_old(self) -> None:
+        self._t_d_old = self._t_d
+
+
+    def update_dimensionless_time(self, del_t) -> None:
+        self._t_d = self._t_d_old + del_t
+
+    # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _specs_post_processor(self) -> float:
         self._diameter = self._specs.diameter
         self._relative_roughness = self._specs.epsilon / self._diameter
         self._cross_sectional_area = 0.25 * np.pi * self._diameter ** 2
         self._well_length = self._set_well_length()
-
-        # other parameters
         self._initialize_discretized_vars()
         self._initialize_farfield_temperature()
         self._set_gravity_multiplier()
         self._t_scaling_factor = self._compute_time_scaling_factor()
 
+
+    def _init_storing_attributes(self) -> float:
         self._t_d: float = 0. # dimensionless time at current time step
         self._t_d_old: float = 0. # dimensionless time at previos time step
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
 
 
     def _set_well_length(self) -> float:
@@ -135,89 +194,5 @@ class WellUnitNative(Unit):
         return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
 
 
-    def get_well_length(self) -> float:
-        return self._well_length
-
-
-    def get_diameter(self) -> float:
-        return self._diameter
-
-
-    def get_probability_of_success(self) -> float:
-        return self._specs.probability_of_success
-
-
-    def update(self) -> None:
-        """update dynamic variables along wellbore"""
-        self._initialize_state()
-        t_d = self.get_dimensionless_time()
-        g, dz, f_dir = self._g, self._dz, self._f_dir
-        mdot, A = self.mass_rate, self._cross_sectional_area
-        for i in range(1, self._num_cells):
-            ff = self._compute_friction_factor(self._rho[i-1], self._mu[i-1], self._u[i-1])
-            dP_loss = self._compute_delta_P_loss(ff, self._rho[i-1], self._u[i-1])
-            Q_loss = self._compute_Q_loss(delta_T=self._T_f[i-1] - self._T_r[i-1], t_d=t_d)
-            self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
-            self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
-            try:
-                self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
-            except:
-                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-                self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
-            self._rho[i] = self.fluid_state_tmp.rho
-            self._mu[i] = self.fluid_state_tmp.mu
-            self._T_f[i] = self.fluid_state_tmp.T
-            self._u[i] = mdot / A / self._rho[i]
-
-        self.ppp = self._P[i]
-        self.hhh = self._h[i]
-        self.ttt = self._T_f[i]
-        # self.outlet_fluid.updateHP(self._h[i], self._P[i])
-
-        # self.update_outlet_streams()
-
-
-    def stream_interface(self) -> None:
-        # self.update_inlet_state()
-        self.update()
-        self.outlet_fluid.updateHP(self.hhh, self.ppp)
-        print("production_in ", self.inlet_fluid.P, self.inlet_fluid.T)
-        print("production_out ", self.outlet_fluid.P, self.outlet_fluid.T)
-
-
-    def update_dimensionless_time_old(self) -> None:
-        self._t_d_old = self._t_d
-
-
-    def init_inlet_state(self, inlet_state) -> None:
-        self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
-
-
-    # def update_inlet_state(self) -> None:
-    #     """ update inlet state based on inlet streams (mass flow rate weighted average) """
-    #     total_mass_rate = 0.
-    #     for sl in self.inlet_streams:
-    #         total_mass_rate += sl.mass_rate
-    #     T_ave, P_ave, H_ave = 0., 0., 0.
-    #     for sl in self.inlet_streams:
-    #         wt = sl.mass_rate / total_mass_rate
-    #         T_ave += wt * sl.fluid_state.T
-    #         P_ave += wt * sl.fluid_state.P
-    #         H_ave += wt * sl.fluid_state.H
-    #     self.mass_rate = total_mass_rate
-    #     try:
-    #         self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
-    #     except:
-    #         self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
-
-
-    def get_dimensionless_time(self) -> float:
+    def _get_dimensionless_time(self) -> float:
         return self._t_d
-
-
-    def get_dimensionless_time_old(self) -> float:
-        return self._t_d_old
-
-
-    def update_dimensionless_time(self, del_t) -> None:
-        self._t_d = self._t_d_old + del_t

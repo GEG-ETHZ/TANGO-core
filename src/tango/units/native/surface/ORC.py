@@ -332,7 +332,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._update_state_pipe()
 
 
-    def update(self) -> None:
+    def process_stream(self) -> None:
 
         self._update_state_pipe()
 
