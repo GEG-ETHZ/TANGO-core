@@ -40,60 +40,55 @@ class SurfaceSpecsORCNative(CommonSpecs):
             raise ValueError(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
 
 
-@dataclass
-class SurfaceStateORCFluid():
-    """"dataclass to store ORC states"""
-    w_pump: float = 0.
-    w_turbine: float = 0.
-    w_cooler: float = 0.
-    w_condenser: float = 0.
-    q_cooler: float = 0.
-    q_preheater: float = 0.
-    q_boiler: float = 0.
-    q_desuperheater: float = 0.
-    q_recuperator: float = 0.
-    q_condenser: float = 0.
-
-
 class SurfaceUnitORCNative(SurfaceUnitNative):
     """The power plant unit based on Adams et al. (2015)."""
 
     def __init__(self, id: str, specs: dict):
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsORCNative.from_dict(self._process_specs(specs))
+        self._specs_post_processor()
+        self._init_storing_attributes()
+        self.init_stream_interface()
+
+    # ----------------------------------------- Public Functions ----------------------------------------- #
+
+    def init_stream_interface(self, P: float=None, T: float=None) -> None:
+        P = self.specs.initial_outlet_pressure if P==None else P
+        T = self.specs.initial_outlet_temperature if T == None else T
+        self.mass_rate = self.specs.mass_flow_rate
+        self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
+        self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
+
+
+    def process_stream(self) -> None:
+        self._update_state_pipe()
+        self._update_state_fluid()
+
+    # -------------------------------------- data storing Functions -------------------------------------- #
+    # This PUBLIC function is specific to native ORC units. It will be called by the native orchestrator
+    # for iterative computations. Please don't set it for external ORC units, as it will not be called by
+    # the native orchestrator, and the solution is not iterative.
+
+    def overwrite_state_pipe(self) -> None:
+        self._update_state_pipe()
+
+    # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name
         self._refrigerant_name = self.specs.refrigerant
         self._cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self._ORC_state = SurfaceStateORCFluid()
         self._set_mult()
         self._set_constants()
         self._set_max_boiling_temperature()
         self._set_lookup_tables()
 
-        self.dP_pipe: float = 0.
 
-        self.ORC_fluid: FluidState
-        self.dP_pump: float = 0.
-        # self.dP_pipe: float = 0.
-        self.dT_range: float = 0.
-        self.dT_LMTD_preheater: float = 0.
-        self.dT_LMTD_boiler: float = 0.
+    def _init_storing_attributes(self) -> float:
         self.dT_LMTD_recuperator: float = 0.
-        self.w_pump: float = 0.
-        self.w_turbine: float = 0.
-        self.w_cooler: float = 0.
-        self.w_condenser: float = 0.
         self.w_downhole_pump: float = 0.
         self.q_cooler: float = 0.
-        self.q_preheater: float = 0.
-        self.q_boiler: float = 0.
-        self.q_desuperheater: float = 0.
-        self.q_recuparator: float = 0.
-        self.q_condenser: float = 0.
-        self.w_net: float = 0.
-
-        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:
@@ -127,13 +122,11 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
     def _get_value_from_table(self, x: float, col_name: str) -> float:
         """
-
         Args:
             x: temperature in K
             col_name: T_boil_C or dT_pinch_C
 
         Returns: interpolated (extrapolated, if x is outside the range) value (T_boil_C or dT_pinch_C)
-
         """
         x += K_TO_C
         df = self._ORC_Tboil_optimum_table
@@ -148,7 +141,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
     def _compute_friction_factor(self, rho: float, mu: float, u: float) -> float:
         """Returns the friction factor calculated using the Haaland equation (1983).
-
         Args:
             rho (float): the fluid density (kg/m3)
             mu (float): the dynamic viscosity (Pa s)
@@ -177,10 +169,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         mu = self.inlet_fluid.mu
         mdot = 1. / self._m_dot_mult * self.mass_rate
         u = mdot / self._cross_sectional_area / rho
-
         ff = self._compute_friction_factor(rho, mu, u)
         self.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
-
         self.inlet_fluid.updatePT(P=self.inlet_fluid.P - self.dP_pipe,
                                         T=self.inlet_fluid.T)
 
@@ -248,17 +238,17 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         # ... ORC fluid heat/work
         #
 
-        self._ORC_state.w_pump = fluid_state_pump_inlet.H - fluid_state_preheater.H
-        self._ORC_state.q_preheater = fluid_state_boiler_inlet.H - fluid_state_preheater.H
-        self._ORC_state.q_boiler = fluid_state_turbine_inlet.H - fluid_state_boiler_inlet.H
-        self._ORC_state.w_turbine = fluid_state_turbine_inlet.H - fluid_state_cooler.H
-        self._ORC_state.q_cooler = fluid_state_condenser_inlet.H - fluid_state_cooler.H
-        self._ORC_state.q_condenser = fluid_state_pump_inlet.H - fluid_state_condenser_inlet.H
+        self.aux_w_pump = fluid_state_pump_inlet.H - fluid_state_preheater.H
+        self.aux_q_preheater = fluid_state_boiler_inlet.H - fluid_state_preheater.H
+        self.aux_q_boiler = fluid_state_turbine_inlet.H - fluid_state_boiler_inlet.H
+        self.aux_w_turbine = fluid_state_turbine_inlet.H - fluid_state_cooler.H
+        self.aux_q_cooler = fluid_state_condenser_inlet.H - fluid_state_cooler.H
+        self.aux_q_condenser = fluid_state_pump_inlet.H - fluid_state_condenser_inlet.H
 
         # cooling tower parastic load
         self._condensation_temperature_range = fluid_state_cooler.T - fluid_state_condenser_inlet.T
-        self._ORC_state.w_cooler = self._ORC_state.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
-        self._ORC_state.w_condenser = self._ORC_state.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self.aux_w_cooler = self.aux_q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
+        self.aux_w_condenser = self.aux_q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
 
         #
         # ... Water (assume pressure 100 kPa above saturation)
@@ -271,24 +261,25 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         # Water state 11, inlet, 12, mid, 13 exit
         T_11 = T_inlet
         T_12 = T_boiling + dT_pinch
-        mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
-        T_13 = T_12 - mdot_ratio * self._ORC_state.q_preheater / cp_water
+        mdot_ratio = cp_water * (T_11 - T_12) / self.aux_q_boiler
+        T_13 = T_12 - mdot_ratio * self.aux_q_preheater / cp_water
         if T_13 < (fluid_state_preheater.T + dT_pinch): # check that T_C(13) isn't below pinch constraint
             T_13 = fluid_state_preheater.T + dT_pinch # pinch constraint is here, not at 12, outlet is pump temp plus pinch
-            R = self._ORC_state.q_boiler / (self._ORC_state.q_boiler + self._ORC_state.q_preheater)
+            R = self.aux_q_boiler / (self.aux_q_boiler + self.aux_q_preheater)
             T_12 = T_11 - (T_11 - T_13) * R
-            mdot_ratio = cp_water * (T_11 - T_12) / self._ORC_state.q_boiler
+            mdot_ratio = cp_water * (T_11 - T_12) / self.aux_q_boiler
 
         # Calculate water heat/work
-        self.q_preheater = mdot_ratio * self.mass_rate * self._ORC_state.q_preheater
-        self.q_boiler = mdot_ratio * self.mass_rate * self._ORC_state.q_boiler
-        self.q_desuperheater = mdot_ratio * self.mass_rate * self._ORC_state.q_cooler
-        self.q_condenser = mdot_ratio * self.mass_rate * self._ORC_state.q_condenser
-        self.q_recuperator = mdot_ratio * self.mass_rate * self._ORC_state.q_recuperator
-        self.w_turbine = mdot_ratio * self.mass_rate * self._ORC_state.w_turbine
-        self.w_pump = mdot_ratio * self.mass_rate * self._ORC_state.w_pump
-        self.w_cooler = mdot_ratio * self.mass_rate * self._ORC_state.w_cooler
-        self.w_condenser = mdot_ratio * self.mass_rate * self._ORC_state.w_condenser
+        self.q_preheater = mdot_ratio * self.mass_rate * self.aux_q_preheater
+        self.q_boiler = mdot_ratio * self.mass_rate * self.aux_q_boiler
+        self.q_desuperheater = mdot_ratio * self.mass_rate * self.aux_q_cooler
+        self.q_condenser = mdot_ratio * self.mass_rate * self.aux_q_condenser
+        # To Do: self._ORC_state.q_recuperator should be defined!
+        self.q_recuperator = 0
+        self.w_turbine = mdot_ratio * self.mass_rate * self.aux_w_turbine
+        self.w_pump = mdot_ratio * self.mass_rate * self.aux_w_pump
+        self.w_cooler = mdot_ratio * self.mass_rate * self.aux_w_cooler
+        self.w_condenser = mdot_ratio * self.mass_rate * self.aux_w_condenser
         self.w_net = self.w_turbine + self.w_pump + self.w_cooler + self.w_condenser
 
         # Calculate temperatures
@@ -309,31 +300,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        # self.outlet_fluid.updatePT(P=self.inlet_fluid.P, T=T_13)
-
         self.ppp = self.inlet_fluid.P
         self.hhh = self.inlet_fluid.H
         self.ttt = T_13
-
-        # self.update_outlet_streams()
-
-
-    def init_state(self, P: float=None, T: float=None) -> None:
-        P = self.specs.initial_outlet_pressure if P==None else P
-        T = self.specs.initial_outlet_temperature if T == None else T
-
-        self.mass_rate = self.specs.mass_flow_rate
-
-        self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
-        self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
-
-
-    def overwrite_state_pipe(self) -> None:
-        self._update_state_pipe()
-
-
-    def process_stream(self) -> None:
-
-        self._update_state_pipe()
-
-        self._update_state_fluid()
