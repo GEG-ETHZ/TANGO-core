@@ -4,9 +4,9 @@ import csv
 from tango.units.native.common import SurfaceSpecsCPGDWSIM
 
 
-class SurfaceStateCPGDWSIM(SurfaceState):
+class SurfaceStateCPGDWSIM():
     def __init__(self):
-        SurfaceState.__init__(self)
+        # SurfaceState.__init__(self)
         self.q_condenser: float = 0.
         self.q_cooler: float = 0.
         self.q_preheater: float = 0.
@@ -71,7 +71,9 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
 
     def _update_pump_state(self) -> None:
         X_CO2 = self._X_CO2
-        self.state.outlet_fluid.updatePT(P_Pump_outlet_DWSIM, T_Pump_outlet_DWSIM)
+        self.outlet_fluid.updatePT(P_Pump_outlet_DWSIM, T_Pump_outlet_DWSIM)
+        self.ppp = P_Pump_outlet_DWSIM
+        self.ttt = T_Pump_outlet_DWSIM
         self.state.w_pump = X_CO2 * w_Pump_DWSIM
 
     def _update_net_state(self) -> None:
@@ -85,9 +87,9 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         """
         self.state = SurfaceStateCPGDWSIM()
         # To Do: change the pressure temperature values!
-        self.state.inlet_fluid = FluidState.withPT(self._fluid_name, 8000000, 300)
-        self.state.mass_rate = self.specs.mass_flow_rate
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+        self.inlet_fluid = FluidState.withPT(self._fluid_name, 8000000, 300)
+        self.mass_rate = self.specs.mass_flow_rate
+        self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
     def windows_scp_communication(self, command):
         try:
@@ -111,10 +113,10 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
             return str(e)
 
 
-    def update(self) -> None:
+    def process_stream(self) -> None:
         try:
             scp_command = f"scp {self.local_script_path} {self.remote_username}@{self.remote_ip}:{self.remote_script_path}"
-            ssh_command = f'ssh {self.remote_username}@{self.remote_ip} "python {self.remote_script_path} {self.state.inlet_fluid.P} {self.state.inlet_fluid.T} {self.state.mass_rate}"'
+            ssh_command = f'ssh {self.remote_username}@{self.remote_ip} "python {self.remote_script_path} {self.inlet_fluid.P} {self.inlet_fluid.T} {self.mass_rate}"'
             self.windows_scp_communication(scp_command)
             self.windows_ssh_communication(ssh_command)
             self.read_last_row(self.PP_csv_file)
