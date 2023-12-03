@@ -87,7 +87,7 @@ class WellUnitMOOSE(MOOSERunner):
 
 
     def _initialize_state(self) -> None:
-        self.fluid_state_init = self.state.inlet_fluid
+        self.fluid_state_init = self.inlet_fluid
 
 
 #######################################################
@@ -109,22 +109,24 @@ class WellUnitMOOSE(MOOSERunner):
         return self._specs.probability_of_success
 
 
-    def update(self) -> None:
+    def process_stream(self) -> None:
         """update dynamic variables along wellbore"""
         self._initialize_state()
-        self.interface.pressure_from_TANGO = self.state.inlet_fluid.P
-        self.interface.temperature_from_TANGO = self.state.inlet_fluid.T
-        self.interface.flowrate_from_TANGO = self.state.mass_rate/self.state.inlet_fluid.rho
+        self.interface.pressure_from_TANGO = self.inlet_fluid.P
+        self.interface.temperature_from_TANGO = self.inlet_fluid.T
+        self.interface.flowrate_from_TANGO = self.mass_rate/self.inlet_fluid.rho
         self.interface.run(self.post_processor_path)
-        self.state.outlet_fluid.updatePT(self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE)
-        # self.update_outlet_streams()
+        # self.outlet_fluid.updatePT(self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE)
+        self.ppp = self.interface.pressure_from_MOOSE
+        self.ttt = self.interface.temperature_from_MOOSE
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         self.update_inlet_state()
-        self.update()
-        print("injection_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
-        print("injection_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+        self.process_stream()
+        self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        print("injection_in ", self.inlet_fluid.P, self.inlet_fluid.T)
+        print("injection_out ", self.outlet_fluid.P, self.outlet_fluid.T)
 
 
     def _process_specs(self, specs) -> dict:
@@ -142,11 +144,11 @@ class WellUnitMOOSE(MOOSERunner):
     def init_state(self, P: float=None, T: float=None) -> None:
         P = self._specs.surface_pressure if P==None else P
         T = self._specs.surface_temperature if T == None else T
-        self.state = UnitState()
-        self.state.mass_rate = self._well_mass_flow_rate
-        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
-        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
-        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+        # self.state = UnitState()
+        self.mass_rate = self._well_mass_flow_rate
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
+        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
+        self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
 
     def update_inlet_state(self) -> None:
@@ -163,8 +165,8 @@ class WellUnitMOOSE(MOOSERunner):
             T_ave += wt * sl.fluid_state.T
             P_ave += wt * sl.fluid_state.P
             H_ave += wt * sl.fluid_state.H
-        self.state.mass_rate = self._m_dot_mult * total_mass_rate
+        self.mass_rate = self._m_dot_mult * total_mass_rate
         try:
-            self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+            self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
         except:
-            self.state.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
