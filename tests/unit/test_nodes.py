@@ -90,7 +90,7 @@ def test_surface():
     assert unit.outlet_fluid.T == pytest.approx(295.150)
 
     unit = SurfaceUnitORCNative(id, specs_H2O)
-    unit.init_state(P=1.0e7, T=330.)
+    unit.init_stream_interface(P=1.0e7, T=330.)
     unit.process_stream()
     assert unit.ttt == pytest.approx(317.141317)
     assert unit.ppp == pytest.approx(9999899.413)
