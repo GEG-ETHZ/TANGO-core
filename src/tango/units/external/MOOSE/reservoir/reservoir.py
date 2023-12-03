@@ -59,26 +59,28 @@ class ReservoirUnitPorousflow(Unit):
     def init_state(self, P: float=None, T:float=None) -> None:
         P = self.initial_pressure if P==None else P
         T = self.initial_temperature if T == None else T
-        self.state = UnitState()
-        self.state.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
-        self.state.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+        # self.state = UnitState()
+        self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+        self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
 
-    def update(self) -> None:
+    def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
-        state = self.state
-        self.m_dot = self.m_dot_mult * state.mass_rate
-        self.interface.pressure_from_TANGO = self.state.inlet_fluid.P
-        self.interface.temperature_from_TANGO = self.state.inlet_fluid.T
-        self.interface.flowrate_from_TANGO = self.state.mass_rate/self.state.inlet_fluid.rho
+        # state = self.state
+        self.m_dot = self.m_dot_mult * self.mass_rate
+        self.interface.pressure_from_TANGO = self.inlet_fluid.P
+        self.interface.temperature_from_TANGO = self.inlet_fluid.T
+        self.interface.flowrate_from_TANGO = self.mass_rate/self.inlet_fluid.rho
         self.interface.run(self.post_processor_path)
-        self.state.outlet_fluid.updatePT(self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE)
-        state.mass_rate = self.m_dot
-        self.update_outlet_streams()
+        # self.outlet_fluid.updatePT(self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE)
+        self.mass_rate = self.m_dot
+        self.ppp = self.interface.pressure_from_MOOSE
+        self.ttt = self.interface.temperature_from_MOOSE
+        # self.update_outlet_streams()
 
 
-    def execute(self) -> None:
+    def stream_interface(self) -> None:
         self.update_inlet_state()
-        self.update()
-        print("res_in ", self.state.inlet_fluid.P, self.state.inlet_fluid.T)
-        print("res_out ", self.state.outlet_fluid.P, self.state.outlet_fluid.T)
+        self.process_stream()
+        print("res_in ", self.inlet_fluid.P, self.inlet_fluid.T)
+        print("res_out ", self.outlet_fluid.P, self.outlet_fluid.T)
