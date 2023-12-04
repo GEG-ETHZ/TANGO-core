@@ -46,7 +46,7 @@ class WellUnitMOOSE(MOOSERunner):
     def get_probability_of_success(self) -> float:
         return self._specs.probability_of_success
 
-    # To Do: These three functions should return three vectors!
+    # TODO: These three functions should return three vectors!
     def get_well_length(self) -> float:
         return self._well_length
 
@@ -82,7 +82,7 @@ class WellUnitMOOSE(MOOSERunner):
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._set_mult()
 
-    # To Do: Do the same for well type and diameter
+    # TODO: Do the same for well type and diameter
     def _set_well_length(self) -> float:
         if self._specs.well_length is None:
             raise RuntimeError(f"Required parameter 'well_length' is not found in specs.")

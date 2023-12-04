@@ -16,7 +16,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def init_stream_interface(self, P: float=None, T: float=None) -> None:
-        # To Do: change the pressure temperature values!
+        # TODO: change the pressure temperature values!
         self.inlet_fluid = FluidState.withPT(self._fluid_name, 8000000, 300)
         self.mass_rate = self.specs.mass_flow_rate
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
@@ -57,7 +57,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
 
     def _init_storing_attributes(self) -> float:
         self._dP_pump: float = 0.
-        # To Do: the below initialization should be removed!
+        # TODO: the below initialization should be removed!
         self._condensation_temperature_range = 0
         self.q_preheater: float = 0.
         self.q_boiler: float = 0.
@@ -105,7 +105,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         try:
             cmd = command
             scp_child = pexpect.spawn(cmd)
-            # To DO: ssh connection without password
+            # TODO: ssh connection without password
             scp_child.expect('password:')
             scp_child.sendline("1")
             scp_child.expect(pexpect.EOF, timeout=300)

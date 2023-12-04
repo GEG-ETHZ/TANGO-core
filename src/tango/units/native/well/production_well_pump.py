@@ -1,11 +1,5 @@
-import copy
-import logging
-from dataclasses import dataclass
-import numpy as np
-
-from tango.core.config import *
 from tango.core import FluidState
-from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION, MAX_PRD_PUMP_DP
+from tango.core.constants import MAX_PRD_PUMP_DP
 from tango.units.native.well import *
 
 

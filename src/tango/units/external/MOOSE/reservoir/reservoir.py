@@ -46,7 +46,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.initial_pressure = self._compute_initial_pressure()
         self._initialize_mdot_mult()
 
-        # To DO: generate MOOSE input should be added here!
+        # TODO: generate MOOSE input should be added here!
         self.post_processor_path = self.specs.post_processor_path
 
         self.interface = TangoMooseInterface(

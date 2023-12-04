@@ -1,10 +1,5 @@
 import copy
-import logging
-import numpy as np
 
-from tango.core.config import *
-from tango.core import FluidState
-from tango.core.constants import GRAVITY_ACCELERATION
 from tango.units.native.well.base import *
 
 

@@ -29,7 +29,7 @@ class TangoMooseInterface:
         return os.path.join(os.path.dirname(moose_input_path), bc_file)
 
 
-    # To DO: the intial BC values should come from the other unit, but it cause convergence issues in MOOSE
+    # TODO: the intial BC values should come from the other unit, but it cause convergence issues in MOOSE
     # (rapis jump of BC over a short period)
     def _set_initial_bc(self, pressure=8000000, flowrate=0.02, temperature=300):
         self.pressure_from_TANGO = pressure
