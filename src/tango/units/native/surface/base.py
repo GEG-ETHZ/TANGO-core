@@ -12,8 +12,9 @@ class SurfaceUnitNative(Unit):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:
-        self.process_stream()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
     # This public function is already defined in the Unit class and is overridden here. It's an exception.
     # Please avoid re-defining the methods of the Unit class as far as possible.

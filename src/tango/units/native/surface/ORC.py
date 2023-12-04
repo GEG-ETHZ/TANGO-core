@@ -63,6 +63,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
     def process_stream(self) -> None:
         self._update_state_pipe()
         self._update_state_fluid()
+        return self.P_out, self.T_out, self.mass_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # This PUBLIC function is specific to native ORC units. It will be called by the native orchestrator
@@ -300,6 +301,5 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        self.ppp = self.inlet_fluid.P
-        self.hhh = self.inlet_fluid.H
-        self.ttt = T_13
+        self.P_out = self.inlet_fluid.P
+        self.T_out = T_13

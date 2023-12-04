@@ -27,16 +27,19 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
 
     def stream_interface(self) -> None:
-        self.process_stream_pump()
-        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
 
 
     def process_stream_pump(self) -> None:
         self._set_inlet_pressure()
         self.update_inlet_fluid_state_with_pump()
         self.process_stream()
-        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        h_out, P_out, m_rate = self.process_stream()
         self._update_w_pump()
+
+        return h_out, P_out, m_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native production pump units. They will be called by the native

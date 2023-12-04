@@ -63,8 +63,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_turbine_power()
         self._update_condenser_state()
         self._update_pump_state()
-        self.outlet_fluid.updateHP(self.hhh, self.ppp)
         self._update_net_state()
+
+        return self.P_out, self.T_out, self.mass_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native CPG units. They will be called by the native
@@ -153,9 +154,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
         P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
 
-        self.ppp = P_inj_inlet
-        self.hhh = h_pump_outlet
-        self.ttt = self.outlet_fluid_pump.T
+        self.P_out = P_inj_inlet
+        self.T_out = self.outlet_fluid_pump.T
 
 
     def _update_net_state(self) -> None:
