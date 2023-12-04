@@ -38,6 +38,8 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         self._update_net_state()
         self.update_outlet_streams()
 
+        return self.P_out, self.T_out, self.mass_rate
+
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _specs_post_processor(self) -> float:
@@ -91,9 +93,8 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
 
     def _update_pump_state(self) -> None:
         X_CO2 = self._X_CO2
-        self.outlet_fluid.updatePT(P_Pump_outlet_DWSIM, T_Pump_outlet_DWSIM)
-        self.ppp = P_Pump_outlet_DWSIM
-        self.ttt = T_Pump_outlet_DWSIM
+        self.P_out = P_Pump_outlet_DWSIM
+        self.T_out = T_Pump_outlet_DWSIM
         self.w_pump = X_CO2 * w_Pump_DWSIM
 
     def _update_net_state(self) -> None:

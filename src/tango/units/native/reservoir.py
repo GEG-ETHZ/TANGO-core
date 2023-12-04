@@ -31,8 +31,9 @@ class ReservoirUnitNative(Unit):
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
     def stream_interface(self) -> None:
-        self.process_stream()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
     def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
@@ -61,9 +62,7 @@ class ReservoirUnitNative(Unit):
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
 
-        self.ppp = outlet_pressure
-        self.ttt = outlet_temperature
-        self.mass_rate = self.m_dot
+        return outlet_pressure, outlet_temperature, self.m_dot
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native reservoir units. They will be called by the native

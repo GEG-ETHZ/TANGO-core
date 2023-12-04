@@ -39,15 +39,19 @@ def test_injection_well():
 
     unit = InjectionWellUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=6.e6, T=295.15)
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(12320526.240)
-    assert unit.ttt == pytest.approx(347.14151104)
+    outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
+    unit.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+    outlet_temperature = unit.outlet_fluid.T
+    assert outlet_pressure == pytest.approx(12320526.240)
+    assert outlet_temperature == pytest.approx(347.14151104)
 
     unit = InjectionWellUnitNative(id, specs_H2O)
     unit.init_stream_interface(P=1.e5, T=295.15)
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(24439888.119)
-    assert unit.ttt == pytest.approx(302.99120246)
+    outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
+    unit.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+    outlet_temperature = unit.outlet_fluid.T
+    assert outlet_pressure == pytest.approx(24439888.119)
+    assert outlet_temperature == pytest.approx(302.99120246)
 
 
 def test_reservoir():
@@ -55,31 +59,35 @@ def test_reservoir():
     unit = ReservoirUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=2.7579e+7, T=330.)
     unit._thermal_depletion()
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(27578999.9)
-    assert unit.ttt == pytest.approx(375.6035)
+    outlet_pressure, outlet_temperature, mass_rate = unit.process_stream()
+    assert outlet_pressure == pytest.approx(27578999.9)
+    assert outlet_temperature == pytest.approx(375.6035)
 
     unit = ReservoirUnitNative(id, specs_H2O)
     unit.init_stream_interface(P=2.7579e+7, T=330.)
     unit._thermal_depletion()
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(27579000.0)
-    assert unit.ttt == pytest.approx(375.65)
+    outlet_pressure, outlet_temperature, mass_rate = unit.process_stream()
+    assert outlet_pressure == pytest.approx(27579000.0)
+    assert outlet_temperature == pytest.approx(375.65)
 
 
 def test_production_well():
 
     unit = ProductionWellUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=2.8e7, T=375.0)
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(13913705.3614)
-    assert unit.ttt == pytest.approx(337.876370365)
+    outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
+    unit.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+    outlet_temperature = unit.outlet_fluid.T
+    assert outlet_pressure == pytest.approx(13913705.3614)
+    assert outlet_temperature == pytest.approx(337.876370365)
 
     unit = ProductionWellUnitNative(id, specs_H2O)
     unit.init_stream_interface(P=2.8e7, T=375.0)
-    unit.process_stream()
-    assert unit.ppp == pytest.approx(9180870.3324)
-    assert unit.ttt == pytest.approx(367.11120669)
+    outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
+    unit.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+    outlet_temperature = unit.outlet_fluid.T
+    assert outlet_pressure == pytest.approx(9180870.3324)
+    assert outlet_temperature == pytest.approx(367.11120669)
 
 def test_surface():
 
@@ -92,7 +100,7 @@ def test_surface():
     unit = SurfaceUnitORCNative(id, specs_H2O)
     unit.init_stream_interface(P=1.0e7, T=330.)
     unit.process_stream()
-    assert unit.ttt == pytest.approx(317.141317)
-    assert unit.ppp == pytest.approx(9999899.413)
+    assert unit.T_out == pytest.approx(317.141317)
+    assert unit.P_out == pytest.approx(9999899.413)
 
 

@@ -22,8 +22,9 @@ class WellUnitNative(Unit):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:
-        self.process_stream()
-        self.outlet_fluid.updateHP(self.hhh, self.ppp)
+        outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
 
 
     def process_stream(self) -> None:
@@ -47,9 +48,8 @@ class WellUnitNative(Unit):
             self._mu[i] = self.fluid_state_tmp.mu
             self._T_f[i] = self.fluid_state_tmp.T
             self._u[i] = mdot / A / self._rho[i]
-        self.ppp = self._P[i]
-        self.hhh = self._h[i]
-        self.ttt = self._T_f[i]
+
+        return self._h[i], self._P[i], self.mass_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native

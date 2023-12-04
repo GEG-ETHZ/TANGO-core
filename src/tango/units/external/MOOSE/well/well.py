@@ -22,19 +22,20 @@ class WellUnitMOOSE(MOOSERunner):
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple:
         """update dynamic variables along wellbore"""
         self.interface.pressure_from_TANGO = self.inlet_fluid.P
         self.interface.temperature_from_TANGO = self.inlet_fluid.T
         self.interface.flowrate_from_TANGO = self.mass_rate/self.inlet_fluid.rho
         self.interface.run(self.post_processor_path)
-        self.ppp = self.interface.pressure_from_MOOSE
-        self.ttt = self.interface.temperature_from_MOOSE
+
+        return self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE, self.mass_rate
 
 
     def stream_interface(self) -> None:
-        self.process_stream()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native

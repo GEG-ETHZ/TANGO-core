@@ -69,7 +69,8 @@ class SystemCPGNative(SystemNative):
             self.y_lst.pop(0)
         self.unit.surface.update_dP_pump(root)
         # self.unit.surface.overwrite_pump_state()
-        self.unit.surface.process_stream()
+        outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
+        self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
 
     def update_time_dependent_vars(self) -> None:
@@ -112,8 +113,8 @@ class SystemORCNative(SystemNative):
                 root = newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
             self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
-            self.unit.injection_well.process_stream()
-            self.unit.injection_well.outlet_fluid.updateHP(self.unit.injection_well.hhh, self.unit.injection_well.ppp)
+            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.injection_well.process_stream()
+            self.unit.injection_well.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
             self.unit.reservoir.update_inlet_state()
             self.unit.reservoir.stream_interface()
             self.unit.reservoir.update_outlet_streams()
@@ -157,8 +158,8 @@ class SystemORCNative(SystemNative):
                 x_lst.pop(0), y_lst.pop(0)
             self.unit.production_well_pump.set_dP_pump(root)
             self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
-            self.unit.production_well_pump.process_stream()
-            self.unit.production_well_pump.outlet_fluid.updateHP(self.unit.production_well_pump.hhh, self.unit.production_well_pump.ppp)
+            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
+            self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
             self.unit.surface.update_inlet_state()
             self.unit.surface.overwrite_state_pipe()
             dP_pump = self.unit.production_well_pump.get_dP_pump()
