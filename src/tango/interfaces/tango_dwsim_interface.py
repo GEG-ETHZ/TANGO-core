@@ -10,8 +10,8 @@ import csv
 
 class DWSIMSimulationModifier:
     def __init__(self, dwsim_path, simulation_file_path, csv_file):
-        self.csv_file = csv_file
-        self.add_dwsim_references(dwsim_path)
+        self._csv_file = csv_file
+        self._add_dwsim_references(dwsim_path)
 
         from DWSIM.Interfaces.Enums.GraphicObjects import ObjectType
         from DWSIM.Thermodynamics import Streams, PropertyPackages
@@ -20,11 +20,11 @@ class DWSIMSimulationModifier:
         from DWSIM.GlobalSettings import Settings
 
         Directory.SetCurrentDirectory(dwsim_path)
-        self.interf = Automation3()
-        self.flowsheet = self.interf.LoadFlowsheet(simulation_file_path)
+        self._interf = Automation3()
+        self._flowsheet = self._interf.LoadFlowsheet(simulation_file_path)
 
 
-    def add_dwsim_references(self, dwsim_path):
+    def _add_dwsim_references(self, dwsim_path):
         clr.AddReference(dwsim_path + "CapeOpen.dll")
         clr.AddReference(dwsim_path + "DWSIM.Automation.dll")
         clr.AddReference(dwsim_path + "DWSIM.Interfaces.dll")
@@ -37,32 +37,32 @@ class DWSIMSimulationModifier:
         clr.AddReference(dwsim_path + "DWSIM.Thermodynamics.ThermoC.dll")
 
 
-    def DWSIM_inputs(self, pressure, temperature, mass_rate):
-        pp_inlet_stream = self.flowsheet.GetObject("Turbine_inlet")
+    def _DWSIM_inputs(self, pressure, temperature, mass_rate):
+        pp_inlet_stream = self._flowsheet.GetObject("Turbine_inlet")
         inlet_stream_obj = pp_inlet_stream.GetAsObject()
         inlet_stream_obj.SetTemperature(temperature)
         inlet_stream_obj.SetPressure(pressure)
         inlet_stream_obj.SetMassFlow(mass_rate)
 
 
-    def DWSIM_runner(self, pressure, temperature, mass_rate):
-        self.DWSIM_inputs(pressure, temperature, mass_rate)
-        self.interf.CalculateFlowsheet2(self.flowsheet)
+    def _DWSIM_runner(self, pressure, temperature, mass_rate):
+        self._DWSIM_inputs(pressure, temperature, mass_rate)
+        self._interf.CalculateFlowsheet2(self._flowsheet)
 
 
-    def DWSIM_data_extractor(self, PP_object_name, new_class_name):
-        pp_object = self.flowsheet.GetObject(PP_object_name)
+    def _DWSIM_data_extractor(self, PP_object_name, new_class_name):
+        pp_object = self._flowsheet.GetObject(PP_object_name)
         setattr(self, new_class_name, pp_object.GetAsObject())
 
 
-    def save_modified_simulation(self, save_path):
+    def _save_modified_simulation(self, save_path):
         save_path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), save_path)
-        self.interf.SaveFlowsheet(self.flowsheet, save_path, True)
+        self._interf.SaveFlowsheet(self._flowsheet, save_path, True)
         print("Modified simulation saved to:", save_path)
 
 
-    def write_row(self, row_data):
-        with open(self.csv_file, mode='a', newline='') as file:
+    def _write_row(self, row_data):
+        with open(self._csv_file, mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(row_data)
 
@@ -76,9 +76,9 @@ class DWSIMSimulationModifier:
         return variable_names
 
 
-    def append_variables_to_csv(self, variables):
-        if not os.path.exists(self.csv_file):
-            with open(self.csv_file, mode='a', newline='') as file:
+    def _append_variables_to_csv(self, variables):
+        if not os.path.exists(self._csv_file):
+            with open(self._csv_file, mode='a', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow(variables)
 
@@ -94,19 +94,19 @@ class DWSIMSimulationModifier:
             sys.exit(1)
 
 
-    def extract_simulation_data(self):
-        self.DWSIM_data_extractor("Turbine_inlet", "TurbineInlet")
-        self.DWSIM_data_extractor("Turbine", "Turbine")
-        self.DWSIM_data_extractor("Turbine_outlet", "TurbineOutlet")
-        self.DWSIM_data_extractor("Cooler", "Cooler")
-        self.DWSIM_data_extractor("Cooler_outlet", "CoolerOutlet")
-        self.DWSIM_data_extractor("Condenser", "Condenser")
-        self.DWSIM_data_extractor("Condenser_outlet", "CondenserOutlet")
-        self.DWSIM_data_extractor("Pump", "Pump")
-        self.DWSIM_data_extractor("Pump_outlet", "PumpOutlet")
+    def _extract_simulation_data(self):
+        self._DWSIM_data_extractor("Turbine_inlet", "TurbineInlet")
+        self._DWSIM_data_extractor("Turbine", "Turbine")
+        self._DWSIM_data_extractor("Turbine_outlet", "TurbineOutlet")
+        self._DWSIM_data_extractor("Cooler", "Cooler")
+        self._DWSIM_data_extractor("Cooler_outlet", "CoolerOutlet")
+        self._DWSIM_data_extractor("Condenser", "Condenser")
+        self._DWSIM_data_extractor("Condenser_outlet", "CondenserOutlet")
+        self._DWSIM_data_extractor("Pump", "Pump")
+        self._DWSIM_data_extractor("Pump_outlet", "PumpOutlet")
 
 
-    def process_data_and_write_to_csv(self):
+    def _process_data_and_write_to_csv(self):
         T_Turbine_inlet_DWSIM = self.TurbineInlet.GetTemperature()
         P_Turbine_inlet_DWSIM = self.TurbineInlet.GetPressure()
 
@@ -138,15 +138,15 @@ class DWSIMSimulationModifier:
                      'T_Condenser_outlet_DWSIM', 'P_Condenser_outlet_DWSIM', 'w_Pump_DWSIM',
                      'T_Pump_outlet_DWSIM', 'P_Pump_outlet_DWSIM']
 
-        self.append_variables_to_csv(variables)
-        self.write_row(data_row)
+        self._append_variables_to_csv(variables)
+        self._write_row(data_row)
 
 
     def process_and_save_data(self, pressure, temperature, mass_rate):
-        self.DWSIM_runner(pressure, temperature, mass_rate)
-        self.extract_simulation_data()
-        self.save_modified_simulation("modified_simulation.dwxmz")
-        self.process_data_and_write_to_csv()
+        self._DWSIM_runner(pressure, temperature, mass_rate)
+        self._extract_simulation_data()
+        self._save_modified_simulation("modified_simulation.dwxmz")
+        self._process_data_and_write_to_csv()
 
 
 dwsim_path = "C:\\Users\\Morteza\\AppData\\Local\\DWSIM\\"

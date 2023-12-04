@@ -24,12 +24,12 @@ class WellUnitMOOSE(MOOSERunner):
 
     def process_stream(self) -> tuple:
         """update dynamic variables along wellbore"""
-        self.interface.pressure_from_TANGO = self.inlet_fluid.P
-        self.interface.temperature_from_TANGO = self.inlet_fluid.T
-        self.interface.flowrate_from_TANGO = self.mass_rate/self.inlet_fluid.rho
-        self.interface.run(self.post_processor_path)
+        self._interface.pressure_from_TANGO = self.inlet_fluid.P
+        self._interface.temperature_from_TANGO = self.inlet_fluid.T
+        self._interface.flowrate_from_TANGO = self.mass_rate/self.inlet_fluid.rho
+        self._interface.run(self._post_processor_path)
 
-        return self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE, self.mass_rate
+        return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native
@@ -64,7 +64,7 @@ class WellUnitMOOSE(MOOSERunner):
         output_file_name = self._specs.output_file_name
 
         self._generate_moose_input(yaml_file_path, template_file_path, output_directory, output_file_name)
-        self.post_processor_path = self._specs.post_processor_path
+        self._post_processor_path = self._specs.post_processor_path
 
         self._interface_instance(
                 self._specs.moose_executable_path,

@@ -18,7 +18,7 @@ class MOOSERunner(Unit):
                             flowrate_bc_file,
                             temperature_bc_file):
 
-        self.interface = TangoMooseInterface(moose_executable_path,
+        self._interface = TangoMooseInterface(moose_executable_path,
                                              moose_input_path,
                                              pressure_bc_file,
                                              flowrate_bc_file,
