@@ -1,5 +1,5 @@
 from tango.core.constants import GRAVITY_ACCELERATION
-from tango.units.native.common import ReservoirSpecsPorousflow
+from tango.units.dataclasses import ReservoirSpecsPorousflow
 from tango.units.external.MOOSE.base import *
 
 

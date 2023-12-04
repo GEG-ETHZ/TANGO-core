@@ -4,7 +4,7 @@ from math import e as exp
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
-from tango.units.native.common import ReservoirSpecsNative
+from tango.units.dataclasses import ReservoirSpecsNative
 
 
 class ReservoirUnitNative(Unit):

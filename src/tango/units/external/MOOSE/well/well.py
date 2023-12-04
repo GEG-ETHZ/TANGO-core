@@ -1,5 +1,5 @@
 from tango.core.abstracts.unit import *
-from tango.units.native.common import CommonSpecs, WellSpecsMOOSE
+from tango.units.dataclasses import CommonSpecs, WellSpecsMOOSE
 from tango.units.external.MOOSE.base import *
 
 
