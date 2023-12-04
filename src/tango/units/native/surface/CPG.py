@@ -1,7 +1,5 @@
 import logging
 
-from tango.core.config import *
-from tango.core import FluidState
 from tango.units.native.common import CommonSpecs
 from tango.units.native.surface.base import *
 from dataclasses import dataclass
@@ -46,7 +44,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
         self.mass_rate = self.specs.mass_flow_rate
-        # To Do: Is it really necessary to do the below calculations?
+        # TODO: Is it really necessary to do the below calculations?
         #------------------------------------------------------------
         self.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
         self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
@@ -91,7 +89,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
     def _init_storing_attributes(self) -> float:
         self._dP_pump: float = 0.
-        # To Do: the below initialization should be removed!
+        # TODO: the below initialization should be removed!
         self._condensation_temperature_range = 0
         self.q_preheater: float = 0.
         self.q_boiler: float = 0.

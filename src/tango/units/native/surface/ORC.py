@@ -1,6 +1,5 @@
 from tango.core.constants import *
 from tango.core.config import *
-from tango.core import FluidState
 from tango.units.native.common import CommonSpecs
 from tango.units.native.surface.base import *
 from tango import utils
@@ -9,7 +8,6 @@ from dataclasses import dataclass
 import logging
 import math
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 
 
@@ -275,7 +273,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.q_boiler = mdot_ratio * self.mass_rate * self.aux_q_boiler
         self.q_desuperheater = mdot_ratio * self.mass_rate * self.aux_q_cooler
         self.q_condenser = mdot_ratio * self.mass_rate * self.aux_q_condenser
-        # To Do: self._ORC_state.q_recuperator should be defined!
+        # TODO: self._ORC_state.q_recuperator should be defined!
         self.q_recuperator = 0
         self.w_turbine = mdot_ratio * self.mass_rate * self.aux_w_turbine
         self.w_pump = mdot_ratio * self.mass_rate * self.aux_w_pump
