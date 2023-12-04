@@ -23,13 +23,13 @@ class ReservoirUnitPorousflow(MOOSERunner):
     def process_stream(self) -> tuple:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
         self.m_dot = self.m_dot_mult * self.mass_rate
-        self.interface.pressure_from_TANGO = self.inlet_fluid.P
-        self.interface.temperature_from_TANGO = self.inlet_fluid.T
-        self.interface.flowrate_from_TANGO = self.mass_rate / self.inlet_fluid.rho
-        self.interface.run(self.post_processor_path)
+        self._interface.pressure_from_TANGO = self.inlet_fluid.P
+        self._interface.temperature_from_TANGO = self.inlet_fluid.T
+        self._interface.flowrate_from_TANGO = self.mass_rate / self.inlet_fluid.rho
+        self._interface.run(self._post_processor_path)
         self.mass_rate = self.m_dot
 
-        return self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE, self.mass_rate
+        return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
@@ -41,9 +41,9 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self._initialize_mdot_mult()
 
         # TODO: generate MOOSE input should be added here!
-        self.post_processor_path = self.specs.post_processor_path
+        self._post_processor_path = self.specs.post_processor_path
 
-        self.interface = TangoMooseInterface(
+        self._interface = TangoMooseInterface(
             self.specs.moose_executable_path,
             self.specs.moose_input_path,
             self.specs.pressure_bc_file,

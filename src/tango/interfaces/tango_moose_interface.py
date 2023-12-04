@@ -12,17 +12,17 @@ class TangoMooseInterface:
                  flowrate_bc_file,
                  temperature_bc_file):
 
-        self.pressure_bc_path = self._set_bc_path(moose_input_path, pressure_bc_file)
-        self.flowrate_bc_path = self._set_bc_path(moose_input_path, flowrate_bc_file)
-        self.temperature_bc_path = self._set_bc_path(moose_input_path, temperature_bc_file)
+        self._pressure_bc_path = self._set_bc_path(moose_input_path, pressure_bc_file)
+        self._flowrate_bc_path = self._set_bc_path(moose_input_path, flowrate_bc_file)
+        self._temperature_bc_path = self._set_bc_path(moose_input_path, temperature_bc_file)
 
         self._setup_process(moose_executable_path, moose_input_path)
 
         self._set_initial_bc()
 
-        self._setup_csv_file(self.pressure_bc_path, self.pressure_from_TANGO)
-        self._setup_csv_file(self.flowrate_bc_path, self.flowrate_from_TANGO)
-        self._setup_csv_file(self.temperature_bc_path, self.temperature_from_TANGO)
+        self._setup_csv_file(self._pressure_bc_path, self.pressure_from_TANGO)
+        self._setup_csv_file(self._flowrate_bc_path, self.flowrate_from_TANGO)
+        self._setup_csv_file(self._temperature_bc_path, self.temperature_from_TANGO)
 
 
     def _set_bc_path(self, moose_input_path, bc_file):
@@ -45,7 +45,7 @@ class TangoMooseInterface:
 
     def _setup_process(self, moose_executable_path, moose_input_path):
         command = [moose_executable_path, '-i', moose_input_path]
-        self.process = subprocess.Popen(
+        self._process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, bufsize=1, universal_newlines=True)
 
@@ -69,7 +69,7 @@ class TangoMooseInterface:
         print(f"Time Step {current_timestep}, time = {time}, dt = {dt:.2f}")
 
 
-    def write_csv_row(self, path, time, last_row_value):
+    def _write_csv_row(self, path, time, last_row_value):
         with open(path, mode='a', newline='', buffering=1) as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow([time, last_row_value])
@@ -103,31 +103,31 @@ class TangoMooseInterface:
             raise ValueError("Error while parsing CSV data.") from e
 
 
-    def run_moose_simulation(self, post_processor_path):
-        self.process.send_signal(signal.SIGCONT)
-        for line in self.process.stdout:
+    def _run_moose_simulation(self, post_processor_path):
+        self._process.send_signal(signal.SIGCONT)
+        for line in self._process.stdout:
             print(line.strip())
             timestep_match, success_match = self.parse_moose_output(line)
             if timestep_match:
                 current_timestep, time, dt = self.extract_timestep_info(timestep_match)
-                self.write_csv_row(self.pressure_bc_path, time, self.pressure_from_TANGO)
-                self.write_csv_row(self.temperature_bc_path, time, self.temperature_from_TANGO)
-                self.write_csv_row(self.flowrate_bc_path, time, self.flowrate_from_TANGO)
+                self._write_csv_row(self._pressure_bc_path, time, self.pressure_from_TANGO)
+                self._write_csv_row(self._temperature_bc_path, time, self.temperature_from_TANGO)
+                self._write_csv_row(self._flowrate_bc_path, time, self.flowrate_from_TANGO)
                 if int(current_timestep) > 1:
                     self.pressure_from_MOOSE, self.flowrate_from_MOOSE, self.temperature_from_MOOSE = self.get_last_row_value(post_processor_path)
                 else:
                     self.pressure_from_MOOSE = self.pressure_from_TANGO
                     self.flowrate_from_MOOSE = self.flowrate_from_TANGO
                     self.temperature_from_MOOSE = self.temperature_from_TANGO
-                # self.read_csv_contents(self.pressure_bc_path)
-                # self.read_csv_contents(self.temperature_bc_path)
-                self.process.send_signal(signal.SIGSTOP)
+                # self.read_csv_contents(self._pressure_bc_path)
+                # self.read_csv_contents(self._temperature_bc_path)
+                self._process.send_signal(signal.SIGSTOP)
                 break
 
 
     def run(self, post_processor_path):
         try:
-            self.run_moose_simulation(post_processor_path)
+            self._run_moose_simulation(post_processor_path)
         except subprocess.CalledProcessError as e:
             print(f"Error running MOOSE: {e}")
         except Exception as e:

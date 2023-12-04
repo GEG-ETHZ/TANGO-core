@@ -24,11 +24,11 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
 
     def process_stream(self) -> None:
         try:
-            scp_command = f"scp {self.local_script_path} {self.remote_username}@{self.remote_ip}:{self.remote_script_path}"
-            ssh_command = f'ssh {self.remote_username}@{self.remote_ip} "python {self.remote_script_path} {self.inlet_fluid.P} {self.inlet_fluid.T} {self.mass_rate}"'
+            scp_command = f"scp {self._local_script_path} {self._remote_username}@{self._remote_ip}:{self._remote_script_path}"
+            ssh_command = f'ssh {self._remote_username}@{self._remote_ip} "python {self._remote_script_path} {self.inlet_fluid.P} {self.inlet_fluid.T} {self.mass_rate}"'
             self._windows_scp_communication(scp_command)
             self._windows_ssh_communication(ssh_command)
-            self._read_last_row(self.PP_csv_file)
+            self._read_last_row(self._PP_csv_file)
         except pexpect.ExceptionPexpect as pe:
             print(f"An error occurred with pexpect: {pe}")
 
@@ -36,7 +36,6 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
-        self.update_outlet_streams()
 
         return self.P_out, self.T_out, self.mass_rate
 
@@ -48,11 +47,11 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self._set_mult()
         self._set_constants()
-        self.local_script_path = self.specs.local_script_path
-        self.remote_ip = self.specs.remote_ip
-        self.remote_script_path = self.specs.remote_script_path
-        self.PP_csv_file = self.specs.PP_csv_file
-        self.remote_username = self.specs.remote_username
+        self._local_script_path = self.specs.local_script_path
+        self._remote_ip = self.specs.remote_ip
+        self._remote_script_path = self.specs.remote_script_path
+        self._PP_csv_file = self.specs.PP_csv_file
+        self._remote_username = self.specs.remote_username
 
 
     def _initialize_attributes(self) -> float:
