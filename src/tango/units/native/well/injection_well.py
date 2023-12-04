@@ -8,7 +8,7 @@ class InjectionWellUnitNative(WellUnitNative):
         WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._specs_post_processor_iw()
         self.init_stream_interface()
-        self._init_storing_attributes_hw()
+        self._initialize_attributes_hw()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -53,7 +53,7 @@ class InjectionWellUnitNative(WellUnitNative):
         self._set_mult()
 
 
-    def _init_storing_attributes_hw(self) -> float:
+    def _initialize_attributes_hw(self) -> float:
         self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
 
 

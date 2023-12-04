@@ -12,7 +12,7 @@ class WellUnitNative(Unit):
         super().__init__(id, specs)
         self._specs = WellSpecsNative.from_dict(specs)
         self._specs_post_processor()
-        self._init_storing_attributes()
+        self._initialize_attributes()
         # the public function (init_stream_interface) is set in the derived classes.
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
@@ -85,7 +85,7 @@ class WellUnitNative(Unit):
         self._t_scaling_factor = self._compute_time_scaling_factor()
 
 
-    def _init_storing_attributes(self) -> float:
+    def _initialize_attributes(self) -> float:
         self._t_d: float = 0. # dimensionless time at current time step
         self._t_d_old: float = 0. # dimensionless time at previos time step
 

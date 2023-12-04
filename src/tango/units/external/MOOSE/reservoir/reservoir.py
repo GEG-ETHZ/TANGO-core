@@ -1,7 +1,5 @@
 from tango.core.constants import GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import *
 from tango.units.native.common import ReservoirSpecsPorousflow
-from tango.interfaces.tango_moose_interface import *
 from tango.units.external.MOOSE.base import *
 
 
@@ -22,7 +20,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
         self.m_dot = self.m_dot_mult * self.mass_rate
         self.interface.pressure_from_TANGO = self.inlet_fluid.P
@@ -30,12 +28,8 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.interface.flowrate_from_TANGO = self.mass_rate / self.inlet_fluid.rho
         self.interface.run(self.post_processor_path)
         self.mass_rate = self.m_dot
-        self.ppp = self.interface.pressure_from_MOOSE
-        self.ttt = self.interface.temperature_from_MOOSE
 
-    def stream_interface(self) -> None:
-        self.process_stream()
-        self.outlet_fluid.updatePT(self.ppp, self.ttt)
+        return self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE, self.mass_rate
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
