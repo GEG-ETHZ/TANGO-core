@@ -7,7 +7,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
     """The production well unit based on Adams et al. (2015)."""
     def __init__(self, id: str, specs: dict):
         ProductionWellUnitNative.__init__(self, id, specs)
-        self._init_storing_attributes_p()
+        self._initialize_attributes_p()
         self.init_stream_interface()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
@@ -59,7 +59,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
-    def _init_storing_attributes_p(self) -> float:
+    def _initialize_attributes_p(self) -> float:
         self._dP_pump: float = 0.
         self._w_pump: float = 0.
 

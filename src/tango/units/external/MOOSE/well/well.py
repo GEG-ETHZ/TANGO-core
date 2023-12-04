@@ -31,12 +31,6 @@ class WellUnitMOOSE(MOOSERunner):
 
         return self.interface.pressure_from_MOOSE, self.interface.temperature_from_MOOSE, self.mass_rate
 
-
-    def stream_interface(self) -> None:
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native
     # orchestrator for iterative computations, while others are invoked by the economic unit. Please avoid

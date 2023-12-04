@@ -45,7 +45,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsORCNative.from_dict(self._process_specs(specs))
         self._specs_post_processor()
-        self._init_storing_attributes()
+        self._initialize_attributes()
         self.init_stream_interface()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
@@ -84,7 +84,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._set_lookup_tables()
 
 
-    def _init_storing_attributes(self) -> float:
+    def _initialize_attributes(self) -> float:
         self.dT_LMTD_recuperator: float = 0.
         self.w_downhole_pump: float = 0.
         self.q_cooler: float = 0.

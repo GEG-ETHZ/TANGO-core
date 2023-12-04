@@ -25,6 +25,12 @@ class MOOSERunner(Unit):
                                              temperature_bc_file)
 
 
+    def stream_interface(self) -> None:
+        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+        self.mass_rate = mass_rate
+        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+
+
     def _generate_moose_input(self, yaml_file_path, template_file_path, output_directory, output_file_name):
 
         with open(yaml_file_path, 'r') as yaml_file:

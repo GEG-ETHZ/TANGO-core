@@ -13,7 +13,7 @@ class ReservoirUnitNative(Unit):
     def __init__(self, id: str, specs: dict) -> None:
         super().__init__(id, specs)
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
-        self._init_storing_attributes()
+        self._initialize_attributes()
         self._specs_post_processor()
         self.init_stream_interface()
         self._thermal_depletion()
@@ -94,7 +94,7 @@ class ReservoirUnitNative(Unit):
         self._set_impedance_func()
         self._set_pressure_old(self.initial_pressure)
 
-    def _init_storing_attributes(self) -> float:
+    def _initialize_attributes(self) -> float:
         self._pressure_old = 0.0  # reservoir pressure at previous time step (Pa)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0  # reservoir energy extracted at previous time step (J)
