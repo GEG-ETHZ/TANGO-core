@@ -3,7 +3,7 @@ import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
-from tango.units.native.common import WellSpecsNative
+from tango.units.dataclasses import WellSpecsNative
 
 
 class WellUnitNative(Unit):

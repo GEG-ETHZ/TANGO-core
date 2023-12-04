@@ -3,7 +3,7 @@ import logging
 
 from tango.core.config import *
 from tango.core import FluidState
-from tango.units.native.common import CommonSpecs
+from tango.units.dataclasses import CommonSpecs
 from tango.units.native.surface.base import *
 from dataclasses import dataclass
 

@@ -10,7 +10,7 @@ import numpy as np
 from tango.core.config import *
 from tango.core.constants import *
 from tango.core.abstracts.unit import *
-from tango.units.native.common import CommonSpecs
+from tango.units.dataclasses import CommonSpecs
 from tango.units.native.economic import *
 from tango import utils
 
