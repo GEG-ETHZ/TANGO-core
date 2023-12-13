@@ -97,6 +97,12 @@ class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
     remote_script_path = "/Users/morteza/Desktop/new.py"
     PP_csv_file = "/Users/morteza/Desktop/data.csv"
 
+
+@dataclass
+class SurfaceSpecsCPGTESPy(SurfaceSpecsCPGNative):
+    yaml_file_path = '/Users/morteza/Documents/projects/TANGO/examples/testcase12.yml'
+
+
 @dataclass
 class ReservoirSpecs(CommonSpecs):
     """General well specs"""

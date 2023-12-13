@@ -5,6 +5,7 @@ SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
                   'dwsim_cpg': 'SystemExternal',
+                  'tespy_cpg': 'SystemExternal',
                   'native_orc': 'SystemORCNative'}
 
 UNIT_OPTIONS = {
@@ -13,6 +14,7 @@ UNIT_OPTIONS = {
                             'native_cpg': 'SurfaceUnitCPGNative',
                             'moose_cpg': 'SurfaceUnitCPGNative',
                             'dwsim_cpg': 'SurfaceUnitCPGDWSIM',
+                            'tespy_cpg': 'SurfaceUnitCPGTESPy',
                             'native_orc': 'SurfaceUnitORCNative'
                         },
                     'injection_well':
@@ -59,6 +61,7 @@ UNIT_STATE_OPTIONS = {
                                 'native_cpg': 'SurfaceStateCPGNative',
                                 'moose_cpg': 'SurfaceStateCPGNative',
                                 'dwsim_cpg': 'SurfaceStateCPGDWSIM',
+                                'tespy_cpg': 'SurfaceStateCPGTESPy',
                                 'native_orc': 'SurfaceStateORCNative'
                             },
                        'injection_well':
@@ -96,7 +99,7 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'native_orc'],
+                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg', 'native_orc'],
                                     'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
