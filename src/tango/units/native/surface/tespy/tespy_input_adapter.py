@@ -4,18 +4,22 @@ from tespy.networks import Network
 import yaml
 
 
-class PowerPlantBase:
+class PowerPlant:
+    def __init__(self, yaml_file_path, inlet_pressure, inlet_temperature, mass_rate, fluid_composition):
 
-    def __init__(self, yaml_file_path):
-
-        self.nw = Network(p_unit='bar', T_unit='C', h_unit='kJ / kg', iterinfo=False)
-        self.components, self.connections = self.read_yaml_file(yaml_file_path)
+        self._nw = Network(p_unit='bar', T_unit='C', h_unit='kJ / kg', iterinfo=False)
+        self.components, self.connections = self._read_yaml_file(yaml_file_path,
+                                                                 inlet_pressure,
+                                                                 inlet_temperature,
+                                                                 mass_rate,
+                                                                 fluid_composition)
         for connection in self.connections.values():
-            self.nw.add_conns(connection)
+            self._nw.add_conns(connection)
 
-        self.set_attributes_and_solve()
+        self._solve()
 
-    def read_yaml_file(self, yaml_file_path):
+
+    def _read_yaml_file(self, yaml_file_path, inlet_pressure, inlet_temperature, mass_rate, fluid_composition):
         with open(yaml_file_path, 'r') as file:
             yaml_data = file.read()
         data = yaml.safe_load(yaml_data)
@@ -24,19 +28,31 @@ class PowerPlantBase:
             (component_type, data.get(component_type, {}))
             for component_type, node in data['power_plant_graph']['nodes'].items()
         ]
+
         connections_list = [
-            (data['power_plant_graph']['edges'][edge]['source'],
-             data['power_plant_graph']['edges'][edge]['target'],
-             data['power_plant_graph']['edges'][edge].get('attributes', {}))
+            (
+                data['power_plant_graph']['edges'][edge]['source'],
+                data['power_plant_graph']['edges'][edge]['target'],
+                data['power_plant_graph']['edges'][edge].get('attributes', {})
+            ) if 'attributes' in data['power_plant_graph']['edges'][edge] else
+            (
+                data['power_plant_graph']['edges'][edge]['source'],
+                data['power_plant_graph']['edges'][edge]['target'],
+                {} if data['power_plant_graph']['edges'][edge]['source'] != 'inlet' else
+                # {'m': mass_rate, 'T': inlet_temperature, 'p': inlet_pressure, 'fluid': {'CO2': 1}}
+                {'m': mass_rate, 'T': inlet_temperature, 'p': inlet_pressure, 'fluid': fluid_composition}
+
+            )
             for edge in data['power_plant_graph']['edges']
         ]
 
-        components = self.create_components(component_data, data)
-        connections = self.create_connections(connections_list, components)
+        components = self._create_components(component_data, data)
+        connections = self._create_connections(connections_list, components)
 
         return components, connections
 
-    def create_components(self, component_data, data):
+
+    def _create_components(self, component_data, data):
         component_types = {
             name: globals().get(node['type'])
             for name, node in data['power_plant_graph']['nodes'].items()
@@ -50,7 +66,8 @@ class PowerPlantBase:
 
         return components
 
-    def create_connections(self, connections_list, components):
+
+    def _create_connections(self, connections_list, components):
         connection_instances = {}
         for conn in connections_list:
             from_component, to_component, attr = conn[0], conn[1], conn[2] if len(conn) > 2 else {}
@@ -64,13 +81,7 @@ class PowerPlantBase:
 
         return connection_instances
 
-    def set_attributes_and_solve(self):
-        self.nw.solve('design')
-        self.nw.print_results()
 
-
-# yaml_file_path = '/Users/morteza/PycharmProjects/tespy/belphi2.yml'
-# yaml_file_path = '/Users/morteza/Documents/projects/TANGO/examples/testcase1.yml'
-# pp = PowerPlantBase(yaml_file_path)
-# print(pp.components['turbine'].P.val)
-
+    def _solve(self):
+        self._nw.solve('design')
+        self._nw.print_results()

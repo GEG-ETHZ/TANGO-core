@@ -30,6 +30,9 @@ class ReservoirUnitNative(Unit):
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
         self.mass_rate = mass_rate
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        # print('\n')
+        # print(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        # print(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""

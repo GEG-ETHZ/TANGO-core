@@ -13,6 +13,9 @@ class SurfaceUnitNative(Unit):
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
         self.mass_rate = mass_rate
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        # print('\n')
+        # print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        # print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     # This public function is already defined in the Unit class and is overridden here. It's an exception.
     # Please avoid re-defining the methods of the Unit class as far as possible.
