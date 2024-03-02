@@ -3,9 +3,13 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'native_cpg': 'SystemCPGNative',
+                  # 'native_cpg': 'SystemExternal',
                   'moose_cpg': 'SystemExternal',
                   'dwsim_cpg': 'SystemExternal',
                   'tespy_cpg': 'SystemExternal',
+                  'tespy_orc': 'SystemExternal',
+                  'tespy_sf': 'SystemExternal',
+                  'tespy_df': 'SystemExternal',
                   'native_orc': 'SystemORCNative'}
 
 UNIT_OPTIONS = {
@@ -15,6 +19,9 @@ UNIT_OPTIONS = {
                             'moose_cpg': 'SurfaceUnitCPGNative',
                             'dwsim_cpg': 'SurfaceUnitCPGDWSIM',
                             'tespy_cpg': 'SurfaceUnitCPGTESPy',
+                            'tespy_orc': 'SurfaceUnitORCTESPy',
+                            'tespy_sf': 'SurfaceUnitSingleFlashTESPy',
+                            'tespy_df': 'SurfaceUnitDoubleFlashTESPy',
                             'native_orc': 'SurfaceUnitORCNative'
                         },
                     'injection_well':
@@ -62,6 +69,9 @@ UNIT_STATE_OPTIONS = {
                                 'moose_cpg': 'SurfaceStateCPGNative',
                                 'dwsim_cpg': 'SurfaceStateCPGDWSIM',
                                 'tespy_cpg': 'SurfaceStateCPGTESPy',
+                                'tespy_orc': 'SurfaceStateORCTESPy',
+                                'tespy_sf': 'SurfaceStateSingleFlashTESPy',
+                                'tespy_df': 'SurfaceStateDoubleFlashTESPy',
                                 'native_orc': 'SurfaceStateORCNative'
                             },
                        'injection_well':
@@ -99,7 +109,7 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg', 'native_orc'],
+                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg',  'tespy_orc', 'tespy_sf', 'tespy_df', 'native_orc'],
                                     'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],

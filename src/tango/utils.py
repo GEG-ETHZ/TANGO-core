@@ -21,6 +21,9 @@ from tango.units.external.MOOSE.well.well import *
 from tango.units.external.DWSIM.CPG import *
 from tango.units.external.MOOSE.reservoir.reservoir import *
 from tango.units.native.surface.tespy.CPG import *
+from tango.units.native.surface.tespy.tespy_ORC import *
+from tango.units.native.surface.tespy.tespy_SF import *
+from tango.units.native.surface.tespy.tespy_DF import *
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
