@@ -129,12 +129,24 @@
     point = '500 0 0'
     variable = 'temperature'
   [../]
+    [belphip]
+      type = PointValue
+      variable = porepressure
+      point = '1500 0 0'
+      outputs = 'csv'
+    []
+    [belphit]
+      type = PointValue
+      variable = temperature
+      point = '1500 0 0'
+      outputs = 'csv'
+    []
 []
 
 [UserObjects]
   [dictator]
     type = PorousFlowDictator
-    porous_flow_vars = 'temperature porepressure'  
+    porous_flow_vars = 'temperature porepressure'
     number_fluid_phases = 1
     number_fluid_components = 1
   []
@@ -177,7 +189,7 @@
     temperature = temperature
   []
   [phase]
-    type = PorousFlow1PhaseP 
+    type = PorousFlow1PhaseP
     porepressure = porepressure
     capillary_pressure = pc
   []
@@ -191,11 +203,11 @@
   []
   [porosity]
     type=PorousFlowPorosityConst
-    porosity = 0.01  
+    porosity = 0.01
   []
   [permeability]
     type = PorousFlowPermeabilityConst
-    permeability = '8e-13 0 0  0 8e-13 0  0 0 8e-13' 
+    permeability = '8e-13 0 0  0 8e-13 0  0 0 8e-13'
   []
   [relperm]
     type = PorousFlowRelativePermeabilityCorey
@@ -204,18 +216,18 @@
   []
   [thermal_conductivity]
     type = PorousFlowThermalConductivityIdeal
-    dry_thermal_conductivity = '2.5 0 0  0 2.5 0  0 0 2.5' 
+    dry_thermal_conductivity = '2.5 0 0  0 2.5 0  0 0 2.5'
   []
   [internal_energy]
     type = PorousFlowMatrixInternalEnergy
-    specific_heat_capacity = 920 
-    density = 2600 
+    specific_heat_capacity = 920
+    density = 2600
   []
   [undrained_density]
     type = GenericConstantMaterial
     prop_names = density
-    prop_values = 2400 
-  [] 
+    prop_values = 2400
+  []
 []
 
 [Preconditioning]
@@ -302,6 +314,21 @@
 #   nl_abs_tol = 1e-9
 # []
 
+
+# [Postprocessors]
+#   [belphip]
+#     type = PointValue
+#     variable = porepressure
+#     point = '1500 0 0'
+#     outputs = 'csv'
+#   []
+#   [belphit]
+#     type = PointValue
+#     variable = temperature
+#     point = '1500 0 0'
+#     outputs = 'csv'
+#   []
+# []
 
 # [Postprocessors]
 #   [belphip]

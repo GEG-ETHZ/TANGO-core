@@ -110,7 +110,7 @@ class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
 
 @dataclass
 class SurfaceSpecsCPGTESPy(SurfaceSpecsCPGNative):
-    yaml_file_path = '/Users/morteza/Documents/projects/TANGO/examples/testcase20.yml'
+    yaml_file_path = '/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml'
 
 @dataclass
 class SurfaceSpecsORCTESPy(SurfaceSpecsCPGNative):
@@ -152,23 +152,20 @@ class ReservoirSpecsNative(ReservoirSpecs):
 @dataclass
 class ReservoirSpecsPorousflow(ReservoirSpecs):
     """MOOSE well specs"""
-    # moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/porous-flow-opt'
-    # moose_executable_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/porous_flow-opt'
-    # moose_input_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/pf.i'
-    # post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/pf_out.csv'
-    # pressure_bc_file: str = 'pc.csv'
-    # flowrate_bc_file: str = 'qc.csv'
-    # temperature_bc_file: str = 'tc.csv'
-    yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase20.yml"
-    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/AGS_Mahmoud_template.i"
-    output_directory: str = "/Users/morteza/Documents/projects/moskito2"
-    output_file_name: str = "AGS_Mahmoud.i"
-    moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/moskito-opt'
-    moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/AGS_Mahmoud.i'
-    post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/gg_out.csv'
-    pressure_bc_file: str = 'pc.csv'
-    flowrate_bc_file: str = 'qc.csv'
-    temperature_bc_file: str = 'tc.csv'
+    # moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/moskito-opt'
+    # moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/reservoir.i'
+    # post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/res_out.csv'
+    yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase17.yml"
+    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/pf.i"
+    output_directory: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow'
+    output_file_name: str = "pf_copy.i"
+    moose_executable_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/porous_flow-opt'
+    moose_input_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/pf.i'
+    post_processor_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/pf_out.csv'
+    pressure_bc_file: str = 'pcres.csv'
+    flowrate_bc_file: str = 'qcres.csv'
+    temperature_bc_file: str = 'tcres.csv'
+
     def __post_init__(self):
         required_fields = ['reservoir_depth', 'porosity', 'permeability']
         # required_fields = ['porosity', 'permeability']

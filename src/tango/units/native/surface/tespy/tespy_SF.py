@@ -41,9 +41,12 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
-        # print('outside', self.T_out, self.P_out)
+        print('\n')
+        print(f'PP inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
-        return self.P_out, self.T_out, 5
+        return self.P_out, self.T_out, 10
+        # return 10000000, 320, 10
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
