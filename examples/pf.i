@@ -40,9 +40,9 @@
      boundary = 'left right top bottom'
    []
    [pressure]
-    type = DirichletBC
+    type = FunctionDirichletBC
     variable = porepressure
-    value = 52000000
+    function = csv_data
     boundary = injection_node
   []
  []

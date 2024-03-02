@@ -32,8 +32,9 @@ class ReservoirUnitPorousflow(MOOSERunner):
         print('\n')
         print(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
         print(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        print(f'reservoir outlet -> P = {self._interface.pressure_from_MOOSE}, T = {self._interface.temperature_from_MOOSE}')
 
-        return self._interface.pressure_from_MOOSE + 20000000, self._interface.temperature_from_MOOSE, self.mass_rate
+        return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate
         # return 55000000, 455, self.mass_rate
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
