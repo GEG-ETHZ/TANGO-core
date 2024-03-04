@@ -94,8 +94,9 @@ class TangoMooseInterface:
                 rows = list(csv_reader)
                 if len(rows) > 1:
                     last_row = rows[-1]
-                    print('jegaram', float(last_row[2]), float(last_row[4]), float(last_row[3]))
-                    return (float(last_row[2]), float(last_row[4]), float(last_row[3]))
+                    print('jegaram', float(last_row[1]), float(last_row[2]), float(last_row[3]))
+                    # return (float(last_row[2]), float(last_row[4]), float(last_row[3]))
+                    return (float(last_row[1]), float(last_row[2]), float(last_row[3]))
                 else:
                     raise ValueError("CSV file does not contain data rows.")
         except FileNotFoundError as e:
