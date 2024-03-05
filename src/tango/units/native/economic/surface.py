@@ -170,6 +170,7 @@ class EconUnitSurfacePowerPlant:
         self._W_condenser_total = mult * self._state.w_condenser
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_condenser_total
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_condenser_total
+        self._W_pump_prod = 9000000
 
 
 
@@ -340,7 +341,8 @@ class EconUnitSurfacePowerPlant:
 
         C_cooling_condensing_tower = self._compute_condensing_tower_cost()
 
-        C_pump_prod = 0.0
+        # C_pump_prod = 0.0
+        C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
 
         C_flash_separator = self._state.flash_separator_cost
 

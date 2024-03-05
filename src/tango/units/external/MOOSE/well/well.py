@@ -37,7 +37,7 @@ class WellUnitMOOSE(MOOSERunner):
         print(self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate)
 
         # return self._interface.pressure_from_MOOSE + 1000000, self._interface.temperature_from_MOOSE, self.mass_rate
-        return self._interface.pressure_from_MOOSE + 5000000, self._interface.temperature_from_MOOSE, 0.01
+        return self._interface.pressure_from_MOOSE + 9000000, self._interface.temperature_from_MOOSE, 0.01
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native

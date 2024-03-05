@@ -277,7 +277,7 @@
 [Executioner]
   type = Transient
   start_time = 0
-  end_time = 630720000
+  end_time = 1576800
   l_max_its = 100
   nl_abs_tol = 1e-6
   solve_type = NEWTON

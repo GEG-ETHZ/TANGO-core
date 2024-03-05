@@ -36,7 +36,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
         # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1})
         # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=self.inlet_fluid.P/100000.0, temperature=self.inlet_fluid.T-273.15, mass_rate=self.mass_rate, working_fluid={'water': 1})
         # self.pp = SingleFlash(fluid={'water': 1}, m=5, T=150, p=40)
-        self.pp = SingleFlash(fluid={'water': 1}, m=5, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0)
+        self.pp = SingleFlash(fluid={'water': 1}, m=10, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0)
         self._update_turbine_power()
         self._update_condenser_state()
         self._update_pump_state()
@@ -53,7 +53,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
     def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 1.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self._set_mult()
         self._set_constants()
 
@@ -95,6 +95,8 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
         self.T_out = self.pp.T_out
         # self.T_out = 313.15
         self.w_pump = X_CO2 * (-self.pp.pump.P.val-self.pp.pump2.P.val)
+        self._W_pump_prod = 9000000
+        print('self.w_pump', self.w_pump)
         # print(self.P_out, self.T_out)
 
     def _update_net_state(self) -> None:
@@ -114,7 +116,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
 
 
 class SingleFlash:
-    def __init__(self, fluid={'water': 1}, m=5, T=150, p=40):
+    def __init__(self, fluid={'water': 1}, m=10, T=150, p=40):
         self.fluid = fluid
         self.m = m
         self.T = T
