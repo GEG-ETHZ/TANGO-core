@@ -8,6 +8,8 @@ class SurfaceUnitNative(Unit):
         super().__init__(id, specs)
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
+    def get_specs(self):
+        return self.specs
 
     def stream_interface(self) -> None:
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()

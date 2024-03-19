@@ -29,6 +29,10 @@ class Unit(ABC):
         self.outlet_fluid: FluidState
 
 
+    def get_specs(self):
+        return self._specs
+
+
     def set_inlet_stream(self, sl) -> None:
         self.inlet_streams.append(sl)
 

@@ -73,6 +73,10 @@ class NativeWorkflow(Workflow):
 
 
     def _post_processing(self) -> None:
+
+        utils.write_inputs(input_file=self._input_file,
+                           units=self.orchestrator.unit)
+
         utils.write_results(input_file=self._input_file,
                             results=(self._results,self.economic.get_results() if self.economic != None else None))
 

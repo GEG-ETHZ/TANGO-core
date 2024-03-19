@@ -13,6 +13,7 @@ from scipy.interpolate import interp1d
 
 @dataclass
 class SurfaceSpecsORCNative(CommonSpecs):
+    plant_type: str = 'Organic Rankine Cycle'
     pipe_diameter: float = None  # (m)
     approach_temperature: float = None  # The temperature difference between condensing and the surface temperature (K)
     condensation_pressure_offset: float = None  # (Pa)

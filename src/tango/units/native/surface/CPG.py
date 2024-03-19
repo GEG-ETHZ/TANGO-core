@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class SurfaceSpecsCPGNative(CommonSpecs):
+    plant_type: str = 'CPG'
     pipe_diameter: float = None  # (m)
     approach_temperature: float = None  # The temperature difference between condensing and the surface temperature (K)
     condensation_pressure_offset: float = None  # (Pa)

@@ -4,6 +4,7 @@ import logging
 import sys
 import numpy as np
 import pandas as pd
+import json
 from oyaml import load, SafeLoader
 from datetime import datetime
 from pathlib import Path
@@ -163,6 +164,27 @@ def append_results(d: dict, state: classmethod, base_name: str) -> None:
         except:
             continue
 
+
+def write_inputs(input_file: str, units) -> None:
+    fname = os.path.splitext(input_file)[0] + ".input_smry.json"
+    logging.info(f"Saving output summary of inputs > {fname}")
+    d = dict()
+    unit_names = [var for var in dir(units) if not var.startswith("__")]
+    for unit_name in unit_names:
+        try:
+            unit = getattr(units, unit_name)
+            specs = unit.get_specs()
+            var_names = [var for var in dir(specs) if not var.startswith("__")]
+            d[unit_name] = dict()
+            for var in var_names:
+                if var == 'from_dict':
+                    continue
+                d[unit_name][var] = getattr(specs, var)
+        except:
+            continue
+
+    with open(fname, 'w', encoding='utf-8') as f:
+        json.dump(d, f, ensure_ascii=False, indent=4, default=lambda o: '<not serializable>')
 
 def write_results(input_file: str, results: tuple) -> None:
 
