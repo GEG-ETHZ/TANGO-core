@@ -42,9 +42,10 @@ def get_val(fname) -> float:
 
 
 def rmFiles(fname):
-    files = [fname.replace('.yml', '.log'),
+    files = [fname.replace('.yml', '.log'),git
              fname.replace('.yml', '.econ.csv'),
-             fname.replace('.yml', '.smry.csv')]
+             fname.replace('.yml', '.smry.csv'),
+             fname.replace('.yml', '.input_smry.csv'),]
     for file in files:
         if os.path.exists(file):
             os.remove(file)
