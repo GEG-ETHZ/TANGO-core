@@ -42,7 +42,7 @@ def get_val(fname) -> float:
 
 
 def rmFiles(fname):
-    files = [fname.replace('.yml', '.log'),git
+    files = [fname.replace('.yml', '.log'),
              fname.replace('.yml', '.econ.csv'),
              fname.replace('.yml', '.smry.csv'),
              fname.replace('.yml', '.input_smry.csv'),]
