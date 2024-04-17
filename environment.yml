@@ -4,7 +4,7 @@ channels:
   - conda-forge
 
 dependencies:
-  - coolprop>=6.4.1
+  - coolprop>=6.4.1pip
   - joblib
   - matplotlib
   - numpy>=1.23.5

@@ -13,6 +13,8 @@ from tango.core.abstracts.unit import *
 from tango.units.dataclasses import CommonSpecs
 from tango.units.native.economic import *
 from tango import utils
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 
 def get_unit_obj(d, name) -> object:
@@ -42,6 +44,11 @@ class EconomicSpecsNative(CommonSpecs):
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
     well_cost_model: str = 'gengeo'
+    wellbore_solver: str = 'native'
+    # well_length_list: List[int] = field(default_factory=lambda: [200, 3300, 1572.42, 3760.5, 200, 3300, 1572.42, 3760.5])
+    # well_diameter_list: List[int] = field(default_factory=lambda: [0.5588, 0.4318, 0.3115, 0.21, 0.5588, 0.4318, 0.3115, 0.21])
+    well_length_list: List[int] = field(default_factory=lambda: [50, 1950, 2800, 200, 50, 1950, 2800, 200])
+    well_diameter_list: List[int] = field(default_factory=lambda: [0.5588, 0.4318, 0.3115, 0.2454, 0.5588, 0.4318, 0.3115, 0.2454])
     def __post_init__(self):
         required_fields = ['project_maturity', 'type']
         for s in required_fields:
@@ -239,6 +246,7 @@ class EconomicUnitNative(Unit):
         self._results['CAPEX_permitting'] = self._permitting_unit.execute()
         self._results['CAPEX_exploration'] = self._exploration_unit.execute()
         self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute()
+        print('self.surface_state2', self.surface_state.w_net)
         self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state)
         val = 0
         for key in self._results.keys():

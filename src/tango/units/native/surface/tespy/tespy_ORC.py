@@ -39,7 +39,9 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
-        print('outside', self.T_out, self.P_out)
+        print('\n')
+        print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
         return self.P_out, self.T_out, self.mass_rate
 
@@ -68,28 +70,36 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
 
     def _update_turbine_power(self) -> None:
         # self.w_turbine = -self.pp.components['turbine'].P.val
+        # self.dT_range_CT = 5
+        self.dT_LMTD_preheater = self.pp.dT_LMTD_boiler
+        self.dT_LMTD_boiler = self.pp.dT_LMTD_boiler
+        self.dT_LMTD_recuperator = 0
+        self.q_recuperator = 0
+        self.w_downhole_pump = 0.
         self.w_turbine = -self.pp.turbine.P.val
+        print('self.w_turbine', self.w_turbine)
 
 
     def _update_condenser_state(self) -> None:
-        X_CO2 = self._X_CO2
-        self.q_cooler = X_CO2 * self.pp.q_cooler
-        self.q_condenser = X_CO2 * self.pp.q_condenser
+        self.q_cooler = self.pp.q_cooler
+        self.q_condenser = self.pp.q_condenser
         # self._condensation_temperature_range = self.pp.turbine_condenser.T.val - self.pp.connections['condenser_cooler'].T.val
         self._condensation_temperature_range = 3.0
-        self.w_cooler = X_CO2 * self.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
-        self.w_condenser = X_CO2 * self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self.w_cooler = self.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
+        self.w_condenser = self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
 
 
     def _update_pump_state(self) -> None:
-        X_CO2 = self._X_CO2
-        self.P_out = self.pp.P_out + 10000000
+        # self.P_out = self.pp.P_out
+        self.P_out = 4000000
         self.T_out = self.pp.T_out
-        self.w_pump = X_CO2 * -self.pp.pump.P.val
+        self.w_pump = -self.pp.pump.P.val
+        print('self.pp.P_out', self.pp.P_out)
         print(self.P_out, self.T_out)
 
     def _update_net_state(self) -> None:
         self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
+        print('self.w_net', self.w_net)
 
 
 
@@ -105,7 +115,7 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
 
 
 class OrganicRankineCycle:
-    def __init__(self, refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1}):
+    def __init__(self, refrigerant='R245fa', pressure=20, temperature=110, mass_rate=8, working_fluid={'water': 1}):
         self.refrigerant = refrigerant
         self.pressure = pressure
         self.temperature = temperature
@@ -147,7 +157,7 @@ class OrganicRankineCycle:
         self.des.set_attr(pr1=1, pr2=1)
         self.so1_des.set_attr(fluid=self.working_fluid, T=self.temperature, p=self.pressure, m=self.mass_rate)
         saturation_temp = CP.PropsSI('T', 'P', 1100000, 'Q', 0, self.refrigerant) - 273.15
-        self.cc_des.set_attr(fluid={self.refrigerant: 1}, p=11, m=35)
+        self.cc_des.set_attr(fluid={self.refrigerant: 1}, p=11, m=11)
         self.des_turbine.set_attr(T=saturation_temp+0.2)
         self.turbine.set_attr(eta_s=1)
         self.turbine_condenser.set_attr(p=1)
@@ -221,8 +231,8 @@ class OrganicRankineCycle:
 
         self.q_preheater = (h5 - h4) * self.turbine_condenser.m.val * 1000
         self.q_boiler = (h6 - h5) * self.turbine_condenser.m.val * 1000
-        self.q_cooler = (h7 - h8) * self.turbine_condenser.m.val * 1000
-        self.q_condenser = (h8 - h9) * self.turbine_condenser.m.val * 1000
+        self.q_cooler = -(h7 - h8) * self.turbine_condenser.m.val * 1000
+        self.q_condenser = -(h8 - h9) * self.turbine_condenser.m.val * 1000
 
         # Calculate temperatures based on enthalpies and pressures
         t2 = CP.PropsSI('T', 'P', self.so1_des.p.val*100000, 'H', h2*1000, self.refrigerant) - 273.15
@@ -262,3 +272,76 @@ class OrganicRankineCycle:
         h8 = CP.PropsSI('H', 'P', self.turbine_condenser.p.val*100000, 'Q', 1, self.refrigerant) / 1000.0
         h9 = self.condenser_pump.h.val / 1000.0
         return h1, h2, h3, h4, h5, h6, h7, h8, h9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class CycleDiagramPlotter:
+#     def __init__(self, fluid, points, connections):
+#         self.fluid = fluid
+#         self.points = points
+#         self.connections = connections
+#
+#     def plot_diagram(self):
+#         diagram = FluidPropertyDiagram(fluid=self.fluid)
+#         diagram.set_unit_system(T='°C', h='kJ/kg', p='bar')
+#         Q = np.linspace(0, 1, 2)
+#         T = np.arange(0, 251, 25)
+#         p = np.geomspace(0.01, 1000, 6) * 1e5
+#         v = np.geomspace(0.001, 10, 0)
+#         s = np.linspace(1000, 10000, 0)
+#         h = np.linspace(0, 3600, 19)
+#         diagram.set_isolines(Q=Q, T=T, p=p, v=v, s=s, h=h)
+#         diagram.calc_isolines()
+#
+#         fig, ax = plt.subplots(1, figsize=(8, 5))
+#         diagram.draw_isolines(diagram_type='logph', fig=fig, ax=ax, x_min=0, x_max=1000, y_min=0.01, y_max=1000)
+#
+#         for key, value in self.points.items():
+#             ax.plot(value['h'], value['p'], 'o', label=f"Point {key}")
+#
+#         for start, end in self.connections:
+#             start_h, start_p = self.points[start]['h'], self.points[start]['p']
+#             end_h, end_p = self.points[end]['h'], self.points[end]['p']
+#             ax.plot([start_h, end_h], [start_p, end_p], 'k-')  # 'k-' for black lines
+#
+#         ax.set_xlabel('Enthalpy [kJ/kg]')
+#         ax.set_ylabel('Pressure [bar]')
+#         ax.set_yscale('log')
+#         ax.legend(loc='best')
+#         plt.tight_layout()
+#         plt.show()
+#
+#
+#
+# orc = OrganicRankineCycle()
+# orc.solve()
+# print(orc.T_out)
+# print(orc.des_si1.p.val)
+# # print('kkk = ', orc.dT_LMTD_preheater, orc.dT_LMTD_boiler, orc.T_out, orc.P_out)
+# # print('sss = ', orc.q_preheater, orc.q_boiler, orc.q_cooler, orc.q_condenser)
+# points, connections = orc.prepare_plot_data()
+# plotter = CycleDiagramPlotter(orc.refrigerant, points, connections)
+# plotter.plot_diagram()

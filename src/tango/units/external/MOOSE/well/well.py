@@ -34,10 +34,23 @@ class WellUnitMOOSE(MOOSERunner):
         print('\n')
         print(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
         print(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
-        print(self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate)
+        # print(self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate)
 
         # return self._interface.pressure_from_MOOSE + 1000000, self._interface.temperature_from_MOOSE, self.mass_rate
-        return self._interface.pressure_from_MOOSE + 9000000, self._interface.temperature_from_MOOSE, 0.01
+        # return self._interface.pressure_from_MOOSE + 9000000, self._interface.temperature_from_MOOSE, 0.01
+        # return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 20
+        # print('self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 20', self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 20)
+
+
+        # return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 20
+
+
+
+        if (self._interface.temperature_from_MOOSE > 350):
+            return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 45
+        else:
+            return 2000000, 383, 45
+
 
     # -------------------------------------- data storing Functions -------------------------------------- #
     # These PUBLIC functions are specific to native wellbore units. Some of them are called by the native

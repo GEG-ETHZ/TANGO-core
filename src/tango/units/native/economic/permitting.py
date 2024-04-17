@@ -38,5 +38,6 @@ class EconUnitPermitting:
         C_permitting = self._X_IC * self._X_PC * self._PPI_permitting * 665700.
         dC_CO2_permitting = self._compute_dCO2_permitting()
         dC_CO2_monitoring = self._compute_dCO2_monitoring()
+        print('C_permitting , dC_CO2_permitting , dC_CO2_monitoring', C_permitting , dC_CO2_permitting , dC_CO2_monitoring)
 
         return C_permitting + dC_CO2_permitting + dC_CO2_monitoring

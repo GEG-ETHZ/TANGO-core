@@ -1,0 +1,124 @@
+#
+# testcase10: AGS (MOOSE + DWSIM)
+#
+
+graph:
+  nodes:
+    inj_1:
+      type: 'injection_well' # naming should be revised
+      unit: 'moose'
+    surface:
+      type: 'surface'
+      unit: 'tespy_cpg'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'surface'
+
+power_plant_graph:
+  nodes:
+    inlet:
+      type: 'Source'
+      unit: 'native'
+    turbine:
+      type: 'Turbine'
+      unit: 'native'
+    condenser:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+    cooler:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+    pump:
+      type: 'Compressor'
+      unit: 'native'
+    outlet:
+      type: 'Sink'
+      unit: 'native'
+  edges:
+    1:
+      source: 'inlet'
+      target: 'turbine'
+    2:
+      source: 'turbine'
+      target: 'condenser'
+      attributes:
+        p: 60
+    3:
+      source: 'condenser'
+      target: 'cooler'
+      attributes:
+        x: 0
+        p0: 60
+    4:
+      source: 'cooler'
+      target: 'pump'
+      attributes:
+        T: 15
+    5:
+      source: 'pump'
+      target: 'outlet'
+      attributes:
+        p: 100
+
+# simulation input
+
+runspec:
+  title: 'AGS (MOOSE + DWSIM)'
+  workflow: 'native'
+
+props:
+  fluid_name: 'CO2'
+  brine_density: 1000 # kg/m3
+  rock_density: 2200.0 # kg/m3
+  rock_cp: 850.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.0  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.029  # degC/m
+
+surface:
+  surface_temperature: 300.0  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.1429 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78  # (-)
+
+injection_well:
+  well_length: 2500. # m
+  diameter: 0.1429 # m
+  epsilon: 1.e-4  # roughness of the well (m)
+  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml"
+  well_length_list: [100.0, 200.0, 300.0]
+  well_diameter_list: [0.2, 0.3, 0.4]
+
+turbine:
+  eta_s: 0.9
+
+condenser:
+  pr: 1
+
+cooler:
+  pr: 1
+
+pump:
+  eta_s: 0.9
+
+
+schedule:
+  mass_flow_rate: 20.0  # kg/s (injection rate per pattern)
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 5 # number of time steps
+  dt: 5.0  # time step increment (year)
+  end_time: 630720000
+
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095

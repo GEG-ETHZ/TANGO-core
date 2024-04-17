@@ -36,7 +36,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
         # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1})
         # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=self.inlet_fluid.P/100000.0, temperature=self.inlet_fluid.T-273.15, mass_rate=self.mass_rate, working_fluid={'water': 1})
         # self.pp = SingleFlash(fluid={'water': 1}, m=5, T=150, p=40)
-        self.pp = SingleFlash(fluid={'water': 1}, m=10, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0)
+        self.pp = SingleFlash(fluid={'water': 1}, m=45, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0)
         self._update_turbine_power()
         self._update_condenser_state()
         self._update_pump_state()
@@ -45,7 +45,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
         print(f'PP inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
         print(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
-        return self.P_out, self.T_out, 10
+        return self.P_out, self.T_out, 45
         # return 10000000, 320, 10
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
@@ -53,7 +53,7 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
     def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 1.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        # self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 1.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self._set_mult()
         self._set_constants()
 
@@ -77,25 +77,26 @@ class SurfaceUnitSingleFlashTESPy(SurfaceUnitNative):
 
 
     def _update_condenser_state(self) -> None:
-        X_CO2 = self._X_CO2
+        # X_CO2 = self._X_CO2
         # self.q_cooler = 0
-        self.q_condenser = -X_CO2 * self.pp.q_condenser
+        self.q_condenser = -self.pp.q_condenser
         # self._condensation_temperature_range = self.pp.turbine_condenser.T.val - self.pp.connections['condenser_cooler'].T.val
         self._condensation_temperature_range = 3.0
         self.w_cooler = 0
-        self.w_condenser = X_CO2 * self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self.w_condenser = self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
         self.flash_separator_cost = 280.3*pow(self.pp.so_v.m.val, 0.67)
         self.expansion_valve_cost = 114.5*(self.pp.so_v.m.val)
 
 
     def _update_pump_state(self) -> None:
-        X_CO2 = self._X_CO2
+        # X_CO2 = self._X_CO2
+        print('X_CO2', self._fluid_name)
         self.P_out = self.pp.P_out
         # self.P_out = 4000000
         self.T_out = self.pp.T_out
         # self.T_out = 313.15
-        self.w_pump = X_CO2 * (-self.pp.pump.P.val-self.pp.pump2.P.val)
-        self._W_pump_prod = 9000000
+        self.w_pump = (-self.pp.pump.P.val-self.pp.pump2.P.val)
+        self.w_downhole_pump = -0
         print('self.w_pump', self.w_pump)
         # print(self.P_out, self.T_out)
 
@@ -155,12 +156,12 @@ class SingleFlash:
     def _configure_components(self):
         self.t.set_attr(eta_s=1.0)
         self.so_v.set_attr(fluid=self.fluid, m=self.m, T=self.T, p=self.p, design=['m'])
-        self.v_ds.set_attr(p=0.12)
+        self.v_ds.set_attr(p=0.5)
         self.t_con.set_attr(p=0.05)
         self.con_pump.set_attr(p=0.05, x=0)
         self.pump.set_attr(eta_s=1)
-        self.pump_sit.set_attr(p=30)
-        self.pump2_sil.set_attr(p=30)
+        self.pump_sit.set_attr(p=50)
+        self.pump2_sil.set_attr(p=50)
         self.pump2.set_attr(eta_s=1.0)
 
     def solve(self):
@@ -212,3 +213,82 @@ class SingleFlash:
         self.H_out = (self.t_con.m.val*h7 + self.ds_pump2.m.val*h8)/(self.t_con.m.val + self.ds_pump2.m.val)
         self.T_out = CP.PropsSI('T', 'P', self.pump_sit.p.val*100000, 'H', self.H_out*1000, 'Water')
         self.P_out = self.pump_sit.p.val*100000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class CycleDiagramPlotter:
+#     def __init__(self, fluid, points, connections):
+#         self.fluid = fluid
+#         self.points = points
+#         self.connections = connections
+#
+#     def plot_diagram(self):
+#         diagram = FluidPropertyDiagram(fluid=self.fluid)
+#         diagram.set_unit_system(T='°C', h='kJ/kg', p='bar')
+#         Q = np.linspace(0, 1, 2)
+#         T = np.arange(25, 501, 25)
+#         p = np.geomspace(0.01, 1000, 6) * 1e5
+#         v = np.geomspace(0.001, 10, 0)
+#         s = np.linspace(1000, 10000, 0)
+#         h = np.linspace(0, 3600, 19)
+#         diagram.set_isolines(Q=Q, T=T, p=p, v=v, s=s, h=h)
+#         diagram.calc_isolines()
+#
+#         fig, ax = plt.subplots(1, figsize=(8, 5))
+#         diagram.draw_isolines(diagram_type='logph', fig=fig, ax=ax, x_min=0, x_max=3000, y_min=0.01, y_max=1000)
+#
+#         for key, value in self.points.items():
+#             ax.plot(value['h'], value['p'], 'o', label=f"Point {key}")
+#
+#         for start, end in self.connections:
+#             start_h, start_p = self.points[start]['h'], self.points[start]['p']
+#             end_h, end_p = self.points[end]['h'], self.points[end]['p']
+#             ax.plot([start_h, end_h], [start_p, end_p], 'k-')
+#
+#         ax.set_xlabel('Enthalpy [kJ/kg]')
+#         ax.set_ylabel('Pressure [bar]')
+#         ax.set_yscale('log')
+#         ax.legend(loc='best')
+#         plt.tight_layout()
+#         plt.show()
+#
+#
+# # Customize the input parameters as desired
+# orc = SingleFlash(fluid={'water': 1}, m=45, T=170, p=30)
+# # orc.solve()
+# print('lll', orc.q_condenser, orc.H_out, orc.T_out, orc.t.P.val)
+# points, connections = orc.prepare_plot_data()
+# plotter = CycleDiagramPlotter('H2O', points, connections)
+# plotter.plot_diagram()

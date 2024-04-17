@@ -1,6 +1,6 @@
 [Mesh]
   type = FileMesh
-  file = ags.msh
+  file = ags2.msh
 []
 
 [FluidProperties]
@@ -32,26 +32,54 @@
     well_type = 1
     eos_uo = eos
     viscosity_uo = viscosity
-    well_diameter = {{ diameter }}
+    well_diameter = 0.244475
     roughness_type = rough
-    roughness = {{ epsilon }}
+    roughness = 1e-04
     gravity = '0 0 -9.8'
-    block = '0_2000_i 2000_3500_i 3500_4500_i'
-    #outputs = exodus
+    block = '0_200_i 200_3500_i 3500_5000_i'
+    outputs = exodus
   [../]
-  [./injection_vertical_lat]
+  [./injection_vertical_lat1]
     type = MoskitoLatHeat_Inc_Formation_1p
     temperature_inner = T
-    outer_diameters = '{{ diameter }} 0.1778 0.2168'
-    conductivities = '43.75 0.7'
-    formation_density = {{ rock_density }}
-    formation_heat_capacity = {{ rock_cp }}
+    outer_diameters = '0.244475 0.274475 0.346075 0.376075 0.473075 0.503075 0.5588'
+    conductivities = '43.75 0.7 43.75 0.7 43.75 0.7'
+    formation_density = 2200
+    formation_heat_capacity = 850
     formation_temperature_function = grad_func
     convective_thermal_resistance = true
     nondimensional_time_function = Hasan_Kabir_2012
-    #outputs = exodus
-    block = '0_2000_i 2000_3500_i 3500_4500_i'
-    formation_thermal_conductivity = {{ rock_k }}
+    outputs = exodus
+    block = '0_200_i'
+    formation_thermal_conductivity = 3.0
+  [../]
+  [./injection_vertical_lat2]
+    type = MoskitoLatHeat_Inc_Formation_1p
+    temperature_inner = T
+    outer_diameters = '0.244475 0.274475 0.346075 0.376075 0.4318'
+    conductivities = '43.75 0.7 43.75 0.7'
+    formation_density = 2200
+    formation_heat_capacity = 850
+    formation_temperature_function = grad_func
+    convective_thermal_resistance = true
+    nondimensional_time_function = Hasan_Kabir_2012
+    outputs = exodus
+    block = '200_3500_i'
+    formation_thermal_conductivity = 3.0
+  [../]
+  [./injection_vertical_lat3]
+    type = MoskitoLatHeat_Inc_Formation_1p
+    temperature_inner = T
+    outer_diameters = '0.244475 0.274475 0.31115'
+    conductivities = '43.75 0.7'
+    formation_density = 2200
+    formation_heat_capacity = 850
+    formation_temperature_function = grad_func
+    convective_thermal_resistance = true
+    nondimensional_time_function = Hasan_Kabir_2012
+    outputs = exodus
+    block = '3500_5000_i'
+    formation_thermal_conductivity = 3.0
   [../]
   [./injection_horizontal]
     type = MoskitoFluidWell_1p1c
@@ -62,26 +90,26 @@
     well_type = 1
     eos_uo = eos
     viscosity_uo = viscosity
-    well_diameter = {{ diameter }}
+    well_diameter = 0.212725
     roughness_type = rough
-    roughness = {{ epsilon }}
+    roughness = 1e-04
     gravity = '0 0 -9.8'
-    block = 'horizontal_i curved_i'
-    #outputs = exodus
+    block = 'not_cased_i'
+    outputs = exodus
   [../]
   [./injection_horizontal_lat]
     type = MoskitoLatHeat_Inc_Formation_1p
     temperature_inner = T
-    outer_diameters = '{{ diameter }} 0.1778 0.2168'
-    conductivities = '43.75 0.7'
-    formation_density = {{ rock_density }}
-    formation_heat_capacity = {{ rock_cp }}
+    outer_diameters = '0.212725 0.213725'
+    conductivities = '3.0'
+    formation_density = 2200
+    formation_heat_capacity = 850
     formation_temperature_function = grad_func
     convective_thermal_resistance = true
     nondimensional_time_function = Hasan_Kabir_2012
-    #outputs = exodus
-    block = 'horizontal_i curved_i'
-    formation_thermal_conductivity = {{ rock_k }}
+    outputs = exodus
+    block = 'not_cased_i'
+    formation_thermal_conductivity = 3.0
   [../]
  [./production_horizontal]
     type = MoskitoFluidWell_1p1c
@@ -92,26 +120,26 @@
     well_type = 1
     eos_uo = eos
     viscosity_uo = viscosity
-    well_diameter = {{ diameter }}
+    well_diameter = 0.212725
     roughness_type = rough
-    roughness = {{ epsilon }}
+    roughness = 1e-04
     gravity = '0 0 -9.8'
-    block = 'horizontal_p curved_p'
-    #outputs = exodus
+    block = 'not_cased_p'
+    outputs = exodus
   [../]
   [./production_horizontal_lat]
     type = MoskitoLatHeat_Inc_Formation_1p
     temperature_inner = T
-    outer_diameters = '{{ diameter }} 0.1778 0.2168'
-    conductivities = '43.75 0.7'
-    formation_density = {{ rock_density }}
-    formation_heat_capacity = {{ rock_cp }}
+    outer_diameters = '0.212725 0.213725'
+    conductivities = '3.0'
+    formation_density = 2200
+    formation_heat_capacity = 850
     formation_temperature_function = grad_func
     convective_thermal_resistance = true
     nondimensional_time_function = Hasan_Kabir_2012
-    #outputs = exodus
-    block = 'horizontal_p curved_p'
-    formation_thermal_conductivity = {{ rock_k }}
+    outputs = exodus
+    block = 'not_cased_p'
+    formation_thermal_conductivity = 3.0
   [../]
 [./production_vertical]
     type = MoskitoFluidWell_1p1c
@@ -122,27 +150,55 @@
     well_type = 1
     eos_uo = eos
     viscosity_uo = viscosity
-    well_diameter = {{ diameter }}
+    well_diameter = 0.244475
     roughness_type = rough
-    roughness = {{ epsilon }}
+    roughness = 1e-04
     gravity = '0 0 -9.8'
-    block = '0_2000_p 2000_3500_p 3500_4500_p'
-    #outputs = exodus
+    block = '0_200_p 200_3500_p 3500_5000_p'
+    outputs = exodus
   [../]
-  [./production_vertical_lat]
+  [./production_vertical_lat1]
     type = MoskitoLatHeat_Inc_Formation_1p
     temperature_inner = T
-    outer_diameters = '{{ diameter }} 0.1778 0.2168'
-    conductivities = '43.75 0.7'
-    formation_density = {{ rock_density }}
-    formation_heat_capacity = {{ rock_cp }}
+    outer_diameters = '0.244475 0.274475 0.346075 0.376075 0.473075 0.503075 0.5588'
+    conductivities = '43.75 0.7 43.75 0.01 43.75 0.01'
+    formation_density = 2200
+    formation_heat_capacity = 850
     formation_temperature_function = grad_func
     convective_thermal_resistance = true
     nondimensional_time_function = Hasan_Kabir_2012
-    #outputs = exodus
-    block = '0_2000_p 2000_3500_p 3500_4500_p'
-    formation_thermal_conductivity = {{ rock_k }}
-  [../]    
+    outputs = exodus
+    block = '0_200_p'
+    formation_thermal_conductivity = 3.0
+  [../]
+  [./production_vertical_lat2]
+    type = MoskitoLatHeat_Inc_Formation_1p
+    temperature_inner = T
+    outer_diameters = '0.244475 0.274475 0.346075 0.376075 0.4318'
+    conductivities = '43.75 0.7 43.75 0.01'
+    formation_density = 2200
+    formation_heat_capacity = 850
+    formation_temperature_function = grad_func
+    convective_thermal_resistance = true
+    nondimensional_time_function = Hasan_Kabir_2012
+    outputs = exodus
+    block = '200_3500_p'
+    formation_thermal_conductivity = 3.0
+  [../]
+  [./production_vertical_lat3]
+    type = MoskitoLatHeat_Inc_Formation_1p
+    temperature_inner = T
+    outer_diameters = '0.244475 0.274475 0.31115'
+    conductivities = '43.75 0.7'
+    formation_density = 2200
+    formation_heat_capacity = 850
+    formation_temperature_function = grad_func
+    convective_thermal_resistance = true
+    nondimensional_time_function = Hasan_Kabir_2012
+    outputs = exodus
+    block = '3500_5000_p'
+    formation_thermal_conductivity = 3.0
+  [../]
 []
 
 [Functions]
@@ -155,18 +211,18 @@
   [../]
   [./conc]
     type = ParsedFunction
-    expression = 'if(t>16000 & t<73000, 1.72, 0.25)'
+    value = 'if(t>16000 & t<73000, 1.72, 0.25)'
     # value = 0.4
   [../]
   [./grad_func]
     type = ParsedFunction
-    expression ='{{ surface_temperature }} - z * {{ thermal_gradient }}'
+    value ='283.15 - z * 0.03'
   [../]
   [./conductivity_gradient]
     type = ParsedFunction
-    expression ='1.5 - z * 0.00075'
+    value ='1.5 - z * 0.00075'
   [../]
-   [./csv_data]
+  [./csv_data]
     type = MoskitoConstant
     data_file = pc.csv
     direction = RIGHT
@@ -196,12 +252,12 @@
     boundary = inlet
     function = csv_data
   [../]
-  [./qleft]
-    type = FunctionDirichletBC
-    variable = q
-    boundary = inlet
-    function = csv_dataq
-  [../]
+    [./qleft]
+      type = FunctionDirichletBC
+      variable = q
+      boundary = inlet
+      function = '0.02484'
+    [../]
   [./tleft]
     type = FunctionDirichletBC
     variable = T
@@ -214,19 +270,19 @@
   [./T]
     [./InitialCondition]
       type = FunctionIC
-      function = '{{ surface_temperature }} - z * {{ thermal_gradient }}'
+      function = '283.15 - z * 0.03'
       variable = T
     [../]
   [../]
   [./p]
     [./InitialCondition]
       type = FunctionIC
-      function = '12000000 -10000 * z'
+      function = '10000000 -10000 * z'
       variable = p
     [../]
   [../]
   [./q]
-    initial_condition = 0.026
+    initial_condition = 0.02
   [../]
 []
 
@@ -306,7 +362,7 @@
 [Executioner]
   type = Transient
   start_time = 0
-  end_time = {{ end_time }}
+  end_time = 630720000
   l_max_its = 100
   solve_type = NEWTON
   steady_state_detection = false
@@ -316,7 +372,13 @@
   [../]
 []
 
+# [Outputs]
+#   exodus = true
+#   print_linear_residuals = true
+# []
+
 [Outputs]
+  # execute_on = 'timestep_end'
   file_base = gg_out
   exodus = true
   csv = true
@@ -326,19 +388,19 @@
   [belphip]
     type = PointValue
     variable = p
-    point = '-50 0 0'
+    point = '-100 0 0'
     outputs = 'csv'
   []
   [belphit]
     type = PointValue
     variable = T
-    point = '-50 0 0'
+    point = '-100 0 0'
     outputs = 'csv'
   []
   [belphiq]
     type = PointValue
     variable = q
-    point = '-50 0 0'
+    point = '-100 0 0'
     outputs = 'csv'
   []
 []

@@ -36,22 +36,25 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
         # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1})
         # (self, fluid={'water': 1}, m=50, T=175, p=60, p2=4, p_t2=0.5) OrganicRankineCycle(refrigerant='R245fa', pressure=self.inlet_fluid.P/100000.0, temperature=self.inlet_fluid.T-273.15, mass_rate=self.mass_rate, working_fluid={'water': 1})
         # self.pp = DoubleFlash(fluid={'water': 1}, m=5, T=150, p=40, p2=2, p_t2=0.05)
-        print('pp inlet', self.inlet_fluid.P/100000.0, self.inlet_fluid.T-273.15)
-        self.pp = DoubleFlash(fluid={'water': 1}, m=5, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0, p2=2, p_t2=0.05)
+        # print('pp inlet', self.inlet_fluid.P/100000.0, self.inlet_fluid.T-273.15)
+        self.pp = DoubleFlash(fluid={'water': 1}, m=45, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0, p2=2, p_t2=0.05)
         self._update_turbine_power()
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
+        print('\n')
+        print(f'PP inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
-        # return self.P_out, self.T_out, self.mass_rate
-        return 10000000, 313.15, 10
+        return self.P_out, self.T_out, 45
+        # return 10000000, 313.15, 45
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
-        self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
+        # self._X_CO2 = 1.0 if self._fluid_name == 'CO2' else 0.0 #TODO: implement something like state.inlet_fluid.X_CO2 for multphase flow
         self._set_mult()
         self._set_constants()
 
@@ -75,22 +78,23 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
 
 
     def _update_condenser_state(self) -> None:
-        X_CO2 = self._X_CO2
+        # X_CO2 = self._X_CO2
         # self.q_cooler = X_CO2 * self.pp.q_cooler
-        self.q_condenser = -X_CO2 * self.pp.q_condenser
+        self.q_condenser = -self.pp.q_condenser
         # self._condensation_temperature_range = self.pp.turbine_condenser.T.val - self.pp.connections['condenser_cooler'].T.val
         self._condensation_temperature_range = 3.0
         self.w_cooler = 0
-        self.w_condenser = X_CO2 * self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+        self.w_condenser = self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
         self.flash_separator_cost = 280.3*pow(self.pp.so_v.m.val, 0.67) + 280.3*pow(self.pp.ds_v2.m.val, 0.67)
         self.expansion_valve_cost = 114.5*(self.pp.so_v.m.val + self.pp.ds_v2.m.val)
 
 
     def _update_pump_state(self) -> None:
-        X_CO2 = self._X_CO2
+        # X_CO2 = self._X_CO2
         self.P_out = self.pp.P_out
         self.T_out = self.pp.T_out
-        self.w_pump = X_CO2 * (-self.pp.pump1.P.val-self.pp.pump2.P.val)
+        self.w_pump = (-self.pp.pump1.P.val-self.pp.pump2.P.val)
+        self.w_downhole_pump = -0
         print('pp outlet', self.P_out, self.T_out)
 
     def _update_net_state(self) -> None:
@@ -162,9 +166,9 @@ class DoubleFlash:
         self.t.set_attr(eta_s=1.0)
         self.so_v.set_attr(fluid=self.fluid, m=self.m, T=self.T, p=self.p, design=['m'])
         self.v_ds.set_attr(p=self.p2)
-        self.t_sit.set_attr(p=0.12)
+        self.t_sit.set_attr(p=0.05)
 
-        self.v2_ds2.set_attr(p=0.12)
+        self.v2_ds2.set_attr(p=0.2)
         self.t2.set_attr(eta_s=1.0)
         self.t2_con.set_attr(p=self.p_t2)
         self.con_pump2.set_attr(p=self.p_t2, x=0)
@@ -236,7 +240,63 @@ class DoubleFlash:
     def _calculate_heat_transfers(self):
        h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12 = self._get_enthalpies()
 
-       self.q_condenser = (h9 - h10)*self.t2_con.m.val*1000
+       self.q_condenser = (h9 - h10)*self.t2_con.m.val*1000 + (h5 - h10)*self.t_sit.m.val*1000
        self.H_out = (self.con_pump2.m.val*h12 + self.ds2_pump1.m.val*h11)/(self.con_pump2.m.val + self.ds2_pump1.m.val)
        self.T_out = CP.PropsSI('T', 'P', self.pump2_sig.p.val*100000, 'H', self.H_out*1000, 'Water')
        self.P_out = self.pump2_sig.p.val*100000
+
+
+
+
+
+
+
+# class CycleDiagramPlotter:
+#     def __init__(self, fluid, points, connections):
+#         self.fluid = fluid
+#         self.points = points
+#         self.connections = connections
+#
+#     def plot_diagram(self):
+#         diagram = FluidPropertyDiagram(fluid=self.fluid)
+#         diagram.set_unit_system(T='°C', h='kJ/kg', p='bar')
+#         Q = np.linspace(0, 1, 2)
+#         T = np.arange(25, 501, 25)
+#         p = np.geomspace(0.01, 1000, 6) * 1e5
+#         diagram.set_isolines(Q=Q, T=T, p=p)
+#         diagram.calc_isolines()
+#
+#         fig, ax = plt.subplots(1, figsize=(8, 5))
+#         diagram.draw_isolines(diagram_type='logph', fig=fig, ax=ax, x_min=0, x_max=3000, y_min=0.01, y_max=1000)
+#
+#         for key, value in self.points.items():
+#             ax.plot(value['h'], value['p'], 'o', label=f"Point {key}")
+#
+#         for start, end in self.connections:
+#             start_h, start_p = self.points[start]['h'], self.points[start]['p']
+#             end_h, end_p = self.points[end]['h'], self.points[end]['p']
+#             ax.plot([start_h, end_h], [start_p, end_p], 'k-')
+#
+#         ax.set_xlabel('Enthalpy [kJ/kg]')
+#         ax.set_ylabel('Pressure [bar]')
+#         ax.set_yscale('log')
+#         ax.legend(loc='best')
+#         plt.tight_layout()
+#         plt.show()
+#
+#
+# # Initialize and solve the advanced water circuit
+# awc = DoubleFlash(fluid={'water': 1}, m=45, T=170, p=40, p2=1, p_t2=0.05)
+# print('lll', awc.q_condenser, awc.H_out, awc.T_out, awc.t.P.val+awc.t2.P.val)
+# # awc.solve()
+#
+# # Prepare plot data and plot the cycle diagram
+# points, connections = awc.prepare_plot_data()
+# plotter = CycleDiagramPlotter('H2O', points, connections)
+# plotter.plot_diagram()
+#
+#
+# print(280.3*pow(awc.so_v.m.val, 0.67))
+# print(280.3*pow(awc.ds_v2.m.val, 0.67))
+# print(114.5*awc.so_v.m.val)
+# print(114.5*awc.ds_v2.m.val)

@@ -45,10 +45,10 @@ runspec:
 
 props:
   fluid_name: 'H2O'
-  brine_density: 1000 # kg/m3
-  rock_density: 2650.0 # kg/m3
-  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
-  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  brine_density: 1000
+  rock_density: 2650.0
+  rock_cp: 1000.0
+  rock_k: 2.1
   thermal_gradient: 0.035  # degC/m
 surface:
   surface_temperature: 288.15  # K

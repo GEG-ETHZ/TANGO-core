@@ -45,7 +45,7 @@ injection_well:
   diameter: 0.2429 # m
   epsilon: 1.e-4  # roughness of the well (m)
   yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase20.yml"
-  template_file_path: "/Users/morteza/Documents/projects/TANGO/examples/injection.i"
+  template_file_path: "/Users/morteza/Documents/projects/TANGO/examples/injection2.i"
   output_file_name: "injection_copy.i"
   moose_input_path: '/Users/morteza/Documents/projects/moskito2/injection_copy.i'
   post_processor_path: '/Users/morteza/Documents/projects/TANGO/src/tango/production_out.csv'
@@ -67,8 +67,8 @@ schedule:
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 100 # number of time steps
-  dt: 5.0  # time step increment (year)
+  num_tsteps: 38 # number of time steps
+  dt: 1.0  # time step increment (year)
   end_time: 630720000
 
 economic: # optional

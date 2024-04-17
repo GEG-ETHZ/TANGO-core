@@ -1,0 +1,68 @@
+#
+# testcase10: AGS (MOOSE + DWSIM)
+#
+
+graph:
+  nodes:
+    inj_1:
+      type: 'injection_well' # naming should be revised
+      unit: 'moose'
+    surface:
+      type: 'surface'
+      unit: 'native_ORC'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'surface'
+
+# simulation input
+
+runspec:
+  title: 'AGS (MOOSE + DWSIM)'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000 # kg/m3
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.035  # degC/m
+
+surface:
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78  # (-)
+  refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost' # min_cost or max_power
+
+injection_well:
+  well_length: 2500. # m
+  diameter: 0.1429 # m
+  epsilon: 1.e-4  # roughness of the well (m)
+  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml"
+  well_length_list: [100.0, 200.0, 300.0]
+  well_diameter_list: [0.2, 0.3, 0.4]
+
+
+schedule:
+  mass_flow_rate: 20.0  # kg/s (injection rate per pattern)
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 387 # number of time steps
+  dt: 5.0  # time step increment (year)
+  end_time: 630720000
+
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095

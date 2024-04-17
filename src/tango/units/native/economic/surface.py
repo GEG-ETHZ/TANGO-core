@@ -42,7 +42,6 @@ class EconUnitSurfacePowerPlant:
         self._surface_unit = unit
         self._initialize_constants()
         self._initialize_units()
-        print('execute', self.execute)
 
 
     def _get_turbine_cost_multiplier(self) -> float:
@@ -109,15 +108,6 @@ class EconUnitSurfacePowerPlant:
         elif power_plant_type == 'ORC':
             self.execute = self._execute_ORC
             self._process_surface_state = self._process_surface_state_ORC
-        elif power_plant_type == 'tespy_ORC':
-            self.execute = self._execute_ORC_tespy
-            self._process_surface_state = self._process_surface_state_ORC
-        elif power_plant_type == 'tespy_SF':
-            self.execute = self._execute_DF_tespy
-            self._process_surface_state = self._process_surface_state_DF_tespy
-        elif power_plant_type == 'tespy_DF':
-            self.execute = self._execute_DF_tespy
-            self._process_surface_state = self._process_surface_state_DF_tespy
         else:
             raise ValueError(f"Surface power plant time: {power_plant_type} is not supported.")
 
@@ -137,41 +127,7 @@ class EconUnitSurfacePowerPlant:
         self._W_cooler_total = mult * self._state.w_cooler
         self._W_condenser_total = mult * self._state.w_condenser
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_cooler_total + self._W_condenser_total
-
-    def _process_surface_state_ORC_tespy(self) -> None:
-
-        mult = self._specs.num_patterns
-
-        self._Q_condenser_total = mult * self._state.q_condenser
-        self._Q_cooler_total = mult * self._state.q_cooler
-        self._Q_preheater_total = mult * self._state.q_preheater
-        self._Q_boiler_total = mult * self._state.q_boiler
-        self._Q_desuperheater_total = mult * self._state.q_desuperheater
-
-        self._W_pump_total = mult * self._state.w_pump
-        self._W_turbine_total = mult * self._state.w_turbine
-        self._W_cooler_total = mult * self._state.w_cooler
-        self._W_condenser_total = mult * self._state.w_condenser
-        self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_cooler_total + self._W_condenser_total
-
-    def _process_surface_state_DF_tespy(self) -> None:
-
-        mult = self._specs.num_patterns
-
-        self._Q_condenser_total = mult * self._state.q_condenser
-        # self._Q_cooler_total = mult * self._state.q_cooler
-        # self._Q_preheater_total = mult * self._state.q_preheater
-        # self._Q_boiler_total = mult * self._state.q_boiler
-        # self._Q_desuperheater_total = mult * self._state.q_desuperheater
-
-        self._W_pump_total = mult * self._state.w_pump
-        self._W_turbine_total = mult * self._state.w_turbine
-        # self._W_cooler_total = mult * self._state.w_cooler
-        self._W_condenser_total = mult * self._state.w_condenser
-        self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_condenser_total
-        self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_condenser_total
-        self._W_pump_prod = 9000000
-
+        print(self._W_turbine_total, 'total')
 
 
     def _process_surface_state_ORC(self) -> None:
@@ -200,8 +156,6 @@ class EconUnitSurfacePowerPlant:
         PPI = self._PPI_TG
         S_T_fluid = self._turbine_cost_multiplier
         W_turbine = self._W_turbine_total
-        print('W_turbine', W_turbine)
-        print('t_return', 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 + 3680 * (W_turbine / 1.e3) ** 0.617))
         return 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 + 3680 * (W_turbine / 1.e3) ** 0.617)
 
 
@@ -246,22 +200,6 @@ class EconUnitSurfacePowerPlant:
         C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
         return C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
 
-    def _compute_condensing_tower_cost(self) -> float:
-
-        TDC = self._tower_design_coefficient
-        PPI = self._PPI_PE
-
-        Q_cooler = 0.0
-        Q_condenser = self._Q_condenser_total
-
-        C_cooling = 0.0
-        C_condensing = self._get_C_condensing()  # specific condensing tower cost ($/kW)
-
-        Q_Ref_BAC = 1.0e6  # nominal heat load (=1.0 MWth)
-        F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
-        C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
-        return C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
-
     def _execute_CPG(self, state) -> float:
 
         if self._surface_unit == None:
@@ -288,74 +226,6 @@ class EconUnitSurfacePowerPlant:
         C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
 
         C_plant_BEC = C_plant_TEC * (1. + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
-
-        return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
-
-    def _execute_ORC_tespy(self, state) -> float:
-
-        if self._surface_unit == None:
-            return 0.
-
-        X_SE = 1.39  # secondary equipment cost (control system, pumps, valuves, buildings, etc.)
-        X_CL = 0.58  # construction labor cost
-        X_CM = 0.11  # construction material cost
-        X_ST = 0.00  # sales tax
-        X_F = 0.04  # equipment freight
-
-        self._state = state
-
-        self._process_surface_state()
-
-        C_turbine_generator = self._compute_turbine_generator_cost()
-
-        C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
-
-        C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
-
-        C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
-
-        C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
-
-        C_plant_BEC = C_plant_TEC * (1. + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
-
-        return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
-
-    def _execute_DF_tespy(self, state) -> float:
-
-        if self._surface_unit == None:
-            return 0.
-
-        X_SE = 1.39  # secondary equipment cost (control system, pumps, valuves, buildings, etc.)
-        X_CL = 0.58  # construction labor cost
-        X_CM = 0.11  # construction material cost
-        X_ST = 0.00  # sales tax
-        X_F = 0.04  # equipment freight
-
-        self._state = state
-
-        self._process_surface_state()
-
-        C_turbine_generator = self._compute_turbine_generator_cost()
-
-        C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
-
-        C_cooling_condensing_tower = self._compute_condensing_tower_cost()
-
-        # C_pump_prod = 0.0
-        C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
-
-        C_flash_separator = self._state.flash_separator_cost
-
-        C_expansion_valve = self._state.expansion_valve_cost
-
-        C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower + C_pump_prod + C_flash_separator + C_expansion_valve  # primary equipment cost (PEC)
-        # C_plant_PEC = C_pump_inj + C_cooling_condensing_tower + C_pump_prod + C_flash_separator + C_expansion_valve  # primary equipment cost (PEC)
-
-        C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
-
-        C_plant_BEC = C_plant_TEC * (1. + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
-
-        print('components', C_turbine_generator, C_pump_inj, C_cooling_condensing_tower, C_pump_prod, C_flash_separator, C_expansion_valve)
 
         return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
 
