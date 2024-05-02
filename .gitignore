@@ -41,6 +41,9 @@ coverage.xml
 
 # Build and docs folder/files
 build/*
+_build/*
+*-build/*
+build/*
 dist/*
 sdist/*
 docs/api/*
