@@ -44,6 +44,7 @@ build/*
 _build/*
 *-build/*
 build/*
+public/*
 dist/*
 sdist/*
 docs/api/*
