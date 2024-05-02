@@ -6,6 +6,7 @@ channels:
 dependencies:
   - coolprop>=6.4.1
   - joblib
+  - jupyter-book
   - matplotlib
   - numpy>=1.23.5
   - openpyxl
@@ -14,7 +15,6 @@ dependencies:
   - pip
   - pytest
   - python>=3.9
-  - scipy
   - scipy
   - setuptools
   - setuptools-scm
