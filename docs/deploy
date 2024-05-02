@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# This bash script is used to build the documentation and deploy it to a
+# root-level public director according to the expectation of GitLab. Run this
+# script from the root directory of the repository `docs/deploy`.
+
+# Run jupyter-book build
+jupyter-book build docs
+
+# Create the public directory if it doesn't exist
+mkdir -p public
+
+# Remove the contents of the public directory
+rm -rf public/*
+
+# Copy the contents from _build/html to public
+cp -r docs/_build/html/* public/
