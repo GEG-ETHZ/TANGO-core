@@ -17,13 +17,9 @@ from tango.units.native.surface import *
 from tango.units.cmg.imex import *
 from tango.units.cmg.gem import *
 from tango.units.cmg.coflow import *
-from tango.units.external.MOOSE.well.well import *
-from tango.units.external.DWSIM.CPG import *
-from tango.units.external.MOOSE.reservoir.reservoir import *
-from tango.units.native.surface.tespy.CPG import *
 
 def parse_args(args) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
+    parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of Geo-energy Operations')
     parser.add_argument('-f',
                         '--file',
                         dest='input_file',
@@ -36,6 +32,12 @@ def parse_args(args) -> argparse.Namespace:
                         required=False,
                         default=False,
                         action=argparse.BooleanOptionalAction)
+    parser.add_argument('-opt',
+                        '--optimiser',
+                        dest='opt',
+                        help='activate optimisation option',
+                        required=False,
+                        default=None)
     return parser.parse_args(args)
 
 
@@ -55,6 +57,7 @@ def set_logger(args):
                         level=level)
     console = logging.StreamHandler()
     console.setLevel(level)
+    # console.setLevel(logging.WARNING)
     logging.getLogger('').addHandler(console)
 
 
@@ -141,7 +144,7 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
     else:
         d[name].append(current_date)
     for id in nodes:
-        state = nodes[id]['unit']
+        state = nodes[id]['unit'].state
         unit_name = nodes[id]['type']
         if unit_name in REPORT_SETTINGS.keys():
             if REPORT_SETTINGS[unit_name]:
@@ -184,5 +187,14 @@ def write_results(input_file: str, results: tuple) -> None:
     df.to_csv(fname, index=False)
 
 
-
+def read_result(input_file: str, key: str) -> float:
+    fname = os.path.splitext(input_file)[0] + ".econ.csv"
+    if not os.path.exists(fname):
+        return np.nan
+    df = pd.read_csv(fname)
+    try:
+        return df[key]
+    except Exception as e:
+        logging.warning(f"Key: {key} not found in {fname}")
+        return np.nan
 

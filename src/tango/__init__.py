@@ -1,5 +1,6 @@
 import sys
 
+from .driver import Tango
 # from .runners.base import RunnerSpecs, Runner
 # from .runners.standaloneCPG import RunnerStandaloneCPG
 # from .runners.standaloneORC import RunnerStandaloneORC

@@ -32,10 +32,6 @@ class EconUnitExploration:
 
         C_modeling = self._X_IC * self._X_PC * self._PPI * 508000
         dC_CO2_modeling = self._compute_dCO2_modeling()
-
-        if (self._well_econ_unit.production_well != None):
-            dC_CO2_characterization = self._compute_dCO2_characterization()
-        else:
-            dC_CO2_characterization = 0.0
+        dC_CO2_characterization = self._compute_dCO2_characterization()
 
         return C_modeling + dC_CO2_modeling + dC_CO2_characterization

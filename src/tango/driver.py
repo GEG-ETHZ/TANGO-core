@@ -24,27 +24,29 @@ def get_workflow_class(type_: str) -> object:
         raise ValueError(f"workflow type: {type_} is not supported.")
 
 
-class Runner:
+class Tango:
 
-    def __init__(self, input_file: str):
-        self._specs = load_from_yaml(input_file)
-        self._input_file = input_file
-        logging.debug(f"Input summary:\n{json.dumps(self._specs, indent=4)}")
+    def __init__(self,
+                 input_file: str,
+                 specs: dict = None):
+        self.specs = load_from_yaml(input_file) if specs == None else specs
+        self.input_file = input_file
+        # self._initialize_workflow()
 
 
     def _initialize_workflow(self) -> None:
-        Workflow = get_workflow_class(self._specs['runspec']['workflow'])
-        self._workflow = Workflow(self._specs, self._input_file)
+        Workflow = get_workflow_class(self.specs['runspec']['workflow'])
+        self.workflow = Workflow(self.specs, self.input_file)
 
 
-    def start(self) -> None:
+    def execute(self) -> None:
 
-        logging.info(f"Running TANGO using {self._input_file}")
-
-        self._start_time = time.time()
+        logging.info(f"Running TANGO using {self.input_file}")
 
         self._initialize_workflow()
 
-        self._workflow.execute()
+        self._start_time = time.time()
+
+        self.workflow.execute()
 
         logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))

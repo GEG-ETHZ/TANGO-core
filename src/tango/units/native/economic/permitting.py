@@ -27,7 +27,7 @@ class EconUnitPermitting:
         AMA = self._specs.active_monitoring_area
         C_surface_monitoring = X_IC * X_PC * PPI * 138000. * (1. / 1.e6) * AMA
         C_monitoring_well = self._specs.num_patterns * self._well_econ_unit.compute_individual_well_cost(d=self._specs.monitoring_well_diameter,
-                                                                                                          pos=self._specs.monitoring_well_probability_of_success)
+                                                                                                        pos=self._specs.monitoring_well_probability_of_success)
         return C_surface_monitoring + C_monitoring_well
 
     def execute(self) -> float:

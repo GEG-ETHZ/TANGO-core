@@ -1,5 +1,5 @@
 from tango.core.abstracts.workflow import Workflow
-from tango.orchestrators.cmg import *
+from tango.systems.cmg import *
 
 class CMGWorkflow(Workflow): #TODO: Implement
 
@@ -25,7 +25,7 @@ class CMGWorkflow(Workflow): #TODO: Implement
         #TODO: Implement
 
 
-    def stream_interface(self) -> None:
+    def execute(self) -> None:
 
         self.system.execute()
 

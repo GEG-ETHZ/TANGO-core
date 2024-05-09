@@ -2,105 +2,91 @@ import numpy as np
 from math import erfc
 from math import e as exp
 
+from tango.core.config import *
+from tango.core import FluidState
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import *
-from tango.units.dataclasses import ReservoirSpecsNative
+from tango.units.native.base import *
+from .common import CommonSpecs
+from dataclasses import dataclass
+
+@dataclass
+class ReservoirSpecsNative(CommonSpecs):
+    """Specifications for reservoir unit based on Adams et. al (2015)"""
+    reservoir_depth: float = None
+    thickness: float = None     # the reservoir thickness (in m)
+    porosity: float = None    # the rock porosity in the reservoir (dimensionless)
+    permeability: float = None # the rock permeability in the reservoir (in m2)
+    area: float = None
+    net_to_gross_ratio: float = 1.0
+    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    initial_pressure: float = None
+    initial_temperature: float = None
+    well_eff_diameter: float = 0.41 # effective (average) wellbore diameter (inj and prod) (m)
+    def __post_init__(self):
+        required_fields = ['reservoir_depth', 'thickness', 'porosity', 'permeability']
+        for s in required_fields:
+            if getattr(self, s, None) == None:
+                raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class ReservoirUnitNative(Unit):
-    """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
+class ReservoirStateNative(UnitStateNative):
+    """Resevoir state based on Adams et. al (2015)."""
+    def __init__(self):
+        UnitStateNative.__init__(self)
+        self._energy_extracted = 0.0
+        self._energy_extracted_old = 0.0 # reservoir energy extracted at previous time step (J)
+        self._pressure_old = 0.0 # reservoir pressure at previous time step (Pa)
 
-    def __init__(self, id: str, specs: dict) -> None:
-        super().__init__(id, specs)
-        self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
-        self._initialize_attributes()
-        self._specs_post_processor()
-        self.init_stream_interface()
-        self._thermal_depletion()
 
-    # ----------------------------------------- Public Functions ----------------------------------------- #
+    def set_pressure_old(self, val) -> None:
+        self._pressure_old = val
 
-    def init_stream_interface(self, P: float = None, T: float = None) -> None:
-        P = self.initial_pressure if P == None else P
-        T = self.initial_temperature if T == None else T
-        self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
-        self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-    def stream_interface(self) -> None:
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-        # print('\n')
-        # print(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        # print(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+    def get_energy_extracted(self) -> float:
+        return self._energy_extracted
 
-    def process_stream(self) -> None:
-        """Update reservoir state given inlet state (outlet fluid state of injection well)"""
-
-        self.m_dot = self.m_dot_mult * self.mass_rate
-
-        # ... update reservoir pressure (outlet_pressure)
-
-        average_mu = 0.5 * (self.inlet_fluid.mu + self.outlet_fluid.mu)
-        average_rho = 0.5 * (self.inlet_fluid.rho + self.outlet_fluid.rho)
-        self._update_impedance(average_mu, average_rho)
-        outlet_pressure = self.inlet_fluid.P - self.m_dot * self.impedance
-
-        # ... update reservoir temperature (outlet_temperature)
-
-        dt = self.specs.dt * YEAR_TO_SECOND
-
-        T_inj = self.inlet_fluid.T
-        dT = self.initial_temperature - T_inj
-        h_inj = self.inlet_fluid.H
-        h_prod = self.outlet_fluid.H
-
-        reservoir_energy = self.rock_volume * self.rock_C_v * dT  # J
-        self.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt)  # J
-        psi = self._get_energy_extracted() / reservoir_energy  # (-)
-        gamma = self._depletion_curve(psi)
-        outlet_temperature = gamma * dT + self.inlet_fluid.T
-
-        return outlet_pressure, outlet_temperature, self.m_dot
-
-    # -------------------------------------- data storing Functions -------------------------------------- #
-    # These PUBLIC functions are specific to native reservoir units. They will be called by the native
-    # orchestrator for iterative computations. Please don't set them for external reservoir units, as they
-    # will not be called by the native orchestrator, and the solution is not iterative.
 
     def get_del_pressure(self) -> float:
         return self._pressure_old - self.outlet_fluid.P
 
+
     def update_pressure_old(self) -> None:
         self._pressure_old = self.outlet_fluid.P
 
-    def update_energy_extracted_old(self) -> None:
-        self._energy_extracted_old = self._energy_extracted
 
     def update_energy_extracted(self, del_) -> None:
         self._energy_extracted = self._energy_extracted_old + del_
 
-    # ----------------------------------------- Private Functions ---------------------------------------- #
 
-    def _specs_post_processor(self) -> float:
+    def update_energy_extracted_old(self) -> None:
+        self._energy_extracted_old = self._energy_extracted
+
+
+class ReservoirUnitNative(UnitNative):
+    """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
+    def __init__(self, id: str, specs: dict) -> None:
+        super().__init__(id, specs)
+        self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self.fluid_name = self.specs.fluid_name
         self.well_pattern = self.specs.well_pattern.upper()
+
         self.area = self._compute_area()
         self.volume = self.specs.thickness * self.area
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
-        self.rock_C_v = self.specs.rock_density * self.specs.rock_cp  # volumetric heat capacity of rocks (J/m3)
+        self.rock_C_v = self.specs.rock_density * self.specs.rock_cp # volumetric heat capacity of rocks (J/m3)
+
         self.initial_temperature = self._compute_initial_temperature()
         self.initial_pressure = self._compute_initial_pressure()
+
         self.specs.well_diameter = self.specs.well_eff_diameter
+
+        # self._set_mdot()
         self._initialize_mdot_mult()
         self._set_impedance_func()
-        self._set_pressure_old(self.initial_pressure)
 
-    def _initialize_attributes(self) -> float:
-        self._pressure_old = 0.0  # reservoir pressure at previous time step (Pa)
-        self._energy_extracted = 0.0
-        self._energy_extracted_old = 0.0  # reservoir energy extracted at previous time step (J)
+        self.init_state()
+
 
     def _process_specs(self, specs) -> dict:
         if 'well_eff_diameter' not in specs['reservoir']:
@@ -114,28 +100,41 @@ class ReservoirUnitNative(Unit):
             specs['reservoir']['well_eff_diameter'] = val
         return specs['common'] | specs['reservoir']
 
+
     def _compute_area(self) -> float:
         return 0.5 * (self.specs.well_spacing ** 2) if self.specs.area is None else self.specs.area
+
 
     def _compute_initial_temperature(self) -> float:
         if self.specs.initial_temperature is not None:
             return self.specs.initial_temperature
         h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
-        return T0 + h * dTdz  # deg C
+        return T0 + h * dTdz # deg C
+
 
     def _compute_initial_pressure(self) -> float:
         if self.specs.initial_pressure is not None:
             return self.specs.initial_pressure
         return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
+
+    # def _set_mdot(self) -> None:
+    #     """
+    #         - mass_flow_rate = flow rate at an injector (Kg/s)
+    #         - m_dot = flow rate at each well pair (Kg/s)
+    #     """
+    #     self.m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
+
     def _initialize_mdot_mult(self) -> None:
         """multiplier to convert injection flow rate to m_dot (well-pair level flow rate)"""
         self.m_dot_mult = 0.25 if self.well_pattern == 'INVERTED_5SPOT' else 1.0
+
 
     def _set_impedance_func(self) -> None:
         self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None)
         if self.impedance_func == None:
             raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")
+
 
     @staticmethod
     def _impedance_func_5spot(mu, rho, k, b, L, D) -> float:
@@ -146,16 +145,17 @@ class ReservoirUnitNative(Unit):
         return mu * (np.log(L / (exp * D)) + D / L) / (rho * k * b * np.pi)  # ref
         # return mu * np.log(L /D) / (rho * k * b * np.pi) # genGEO
 
+
     def _compute_depletion_curve_coeffs(self) -> list:
 
-        m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate  # kg/s
-        b = self.specs.thickness  # m
-        k_rock = self.specs.rock_k  # thermal comductivity (W/m-K)
+        m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate # kg/s
+        b = self.specs.thickness # m
+        k_rock = self.specs.rock_k # thermal comductivity (W/m-K)
         rho_rock = self.specs.rock_density  # kg/m3
-        rho_fluid = 0.5 * (self.inlet_fluid.rho + self.outlet_fluid.rho)  # kg/m3
-        cp_rock = self.specs.rock_cp  # specific heat capacity (J/(kg*K))
-        cp_fluid = 0.5 * (self.inlet_fluid.cp + self.outlet_fluid.cp)  # specific heat capacity (J/(kg*K))
-        R = self.specs.well_spacing  # m
+        rho_fluid = 0.5 * (self.state.inlet_fluid.rho + self.state.outlet_fluid.rho) # kg/m3
+        cp_rock = self.specs.rock_cp # specific heat capacity (J/(kg*K))
+        cp_fluid = 0.5 * (self.state.inlet_fluid.cp + self.state.outlet_fluid.cp) # specific heat capacity (J/(kg*K))
+        R = self.specs.well_spacing # m
 
         coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock
         coeff2 = k_rock * R * rho_fluid / rho_rock / cp_fluid / m_dot
@@ -166,6 +166,7 @@ class ReservoirUnitNative(Unit):
 
         return p1, p2, p3
 
+
     def _update_impedance(self, mu, rho) -> None:
         """Update the reservoir impedance using the doublet solution of Adams et al. (2020)."""
         k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
@@ -173,19 +174,64 @@ class ReservoirUnitNative(Unit):
         b_eff = b * NTG  # = effective thickness
         self.impedance = self.impedance_func(mu, rho, k, b_eff, L, D)
 
+
     def _depletion_curve(self, psi) -> float:
         p1, p2, p3 = self.p1, self.p2, self.p3
-        if psi <= (-p1 / p2):
-            return 1 - (1 - p3) * (1 - 0.5 * erfc(p2 * psi + p1))
+        if psi <= (-p1/p2):
+            return 1 - (1 - p3) * (1 - 0.5*erfc(p2*psi + p1))
         else:
             C = 1.13
-            return 1 - (1 - p3) * (1 - 0.5 * np.exp(-C * (p2 * psi + p1)))
+            return 1 - (1 - p3) * (1 - 0.5*np.exp(-C*(p2*psi + p1)))
 
-    def _get_energy_extracted(self) -> float:
-        return self._energy_extracted
 
-    def _set_pressure_old(self, val) -> None:
-        self._pressure_old = val
-
-    def _thermal_depletion(self) -> None:
+    def init_state(self, P: float=None, T:float=None) -> None:
+        P = self.initial_pressure if P==None else P
+        T = self.initial_temperature if T == None else T
+        self.state = ReservoirStateNative()
+        self.state.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+        self.state.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
+        self.state.set_pressure_old(self.initial_pressure)
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
+
+
+    def update(self) -> None:
+        """Update reservoir state given inlet state (outlet fluid state of injection well)"""
+
+        state = self.state
+        self.m_dot = self.m_dot_mult * state.mass_rate
+
+        #
+        # ... update reservoir pressure (outlet_pressure)
+        #
+
+        average_mu = 0.5*(state.inlet_fluid.mu + state.outlet_fluid.mu)
+        average_rho = 0.5*(state.inlet_fluid.rho + state.outlet_fluid.rho)
+        self._update_impedance(average_mu, average_rho)
+
+        outlet_pressure = state.inlet_fluid.P - self.m_dot * self.impedance
+
+        #
+        # ... update reservoir temperature (outlet_temperature)
+        #
+
+        dt = self.specs.dt * YEAR_TO_SECOND
+
+        T_inj = state.inlet_fluid.T
+        dT = self.initial_temperature - T_inj
+        h_inj = state.inlet_fluid.H
+        h_prod = state.outlet_fluid.H
+
+        reservoir_energy = self.rock_volume * self.rock_C_v * dT # J
+        state.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt) # J
+        psi = state.get_energy_extracted() / reservoir_energy  # (-)
+        gamma = self._depletion_curve(psi)
+        outlet_temperature = gamma * dT + state.inlet_fluid.T
+
+        state.outlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
+        state.mass_rate = self.m_dot
+        self.update_outlet_streams()
+
+
+    def execute(self) -> None:
+        self.update_inlet_state()
+        self.update()

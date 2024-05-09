@@ -5,11 +5,11 @@ import inspect
 from tango.core.config import *
 from tango.core.constants import *
 from tango.core.stream import *
-from tango.core.abstracts.orchestrator import *
+from tango.core.abstracts.system import *
 from tango.utils import *
 
 
-class SystemCMG(UnitManager):
+class SystemCMG(System):
 
     def __init__(self, specs):
         super().__init__(specs)
@@ -40,10 +40,10 @@ class SystemCMG(UnitManager):
 
 
 
-    def stream_interface(self) -> None: #TODO: update for one-multiple connections (traverse graph)
+    def execute(self) -> None: #TODO: update for one-multiple connections (traverse graph)
         """execute a series of units accosiated with compute nodes within the system"""
-        self.nodes[0][1]['unit'].stream_interface()
+        self.nodes[0][1]['unit'].execute()
 
 
         # for id in self.graph.nodes:
-        #     self.graph.nodes[id]['unit'].stream_interface()
+        #     self.graph.nodes[id]['unit'].execute()

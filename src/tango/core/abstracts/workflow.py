@@ -3,7 +3,7 @@ from abc import ABC
 
 class Workflow(ABC):
 
-    orchestrator, economic_unit = 2*[None]
+    system, economic_unit = 2*[None]
     def __init__(self, specs: dict):
         self.specs = specs
 

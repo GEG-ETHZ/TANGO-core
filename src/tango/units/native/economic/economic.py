@@ -9,8 +9,8 @@ import numpy as np
 
 from tango.core.config import *
 from tango.core.constants import *
-from tango.core.abstracts.unit import *
-from tango.units.dataclasses import CommonSpecs
+from tango.units.native.base import *
+from tango.units.native.common import CommonSpecs
 from tango.units.native.economic import *
 from tango import utils
 
@@ -41,7 +41,8 @@ class EconomicSpecsNative(CommonSpecs):
     monitoring_well_probability_of_success: float = 1.0
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
-    well_cost_model: str = 'gengeo'
+    num_reusable_injectors: int = 0
+    num_reusable_producers: int = 0
     def __post_init__(self):
         required_fields = ['project_maturity', 'type']
         for s in required_fields:
@@ -56,16 +57,13 @@ class EconomicSpecsNative(CommonSpecs):
                 raise ValueError(f"Multiple well_pattern: {self.well_pattern} is not supported")
 
 
-class EconomicStateNative():
+class EconomicStateNative(UnitStateNative):
     """Economics state based on Adams et. al (2015)."""
     def __init__(self):
-        # UnitState.__init__(self)
-        self.mass_rate: float = 0.0
-        self.inlet_fluid: FluidState
-        self.outlet_fluid: FluidState
+        UnitStateNative.__init__(self)
 
 
-class EconomicUnitNative(Unit):
+class EconomicUnitNative(UnitNative):
 
     def __init__(self, specs: dict, nodes) -> None:
         super().__init__('econ', specs)
@@ -96,7 +94,7 @@ class EconomicUnitNative(Unit):
             self.state_dict[nodes[id]['type']] = []
         for id in nodes:
             self.unit_dict[nodes[id]['type']].append(nodes[id]['unit'])
-            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'])
+            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'].state)
 
 
     def _initialize_units(self) -> None:
@@ -224,7 +222,7 @@ class EconomicUnitNative(Unit):
             -> Get annual/averaged results for LCOE calculation
         """
         dt = self.specs.dt # dt in year
-        var_names = ['dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
+        var_names = [var for var in dir(self.surface_state) if not var.startswith("__")]
         for name in var_names:
             key = f"surface_{name}"
             if key in d:

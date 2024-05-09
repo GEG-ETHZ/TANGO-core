@@ -26,13 +26,13 @@ import pytest
 from pathlib import Path
 sys.path.append(os.path.join(str(Path(__file__).parent.parent.parent),'src'))
 
-from tango.tango_cli import Tango
+from tango.driver import Tango
 
 
 examples_dir = os.path.join(str(Path(__file__).parent.parent.parent),'examples')
 
 def run(fname) -> None:
-    tango = Tango(['-f', fname])
+    tango = Tango(fname)
     tango.execute()
 
 
@@ -53,21 +53,21 @@ def rmFiles(fname):
 def testcase1():
     fname = os.path.join(examples_dir, 'testcase1.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(1.044581)
+    assert get_val(fname) == pytest.approx(0.926911009)
     rmFiles(fname)
 
 
 def testcase2():
     fname = os.path.join(examples_dir, 'testcase2.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(1.522312)
+    assert get_val(fname) == pytest.approx(1.11153071)
     rmFiles(fname)
 
 
 def testcase3():
     fname = os.path.join(examples_dir, 'testcase3.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(0.690270)
+    assert get_val(fname) == pytest.approx(0.623665242)
     rmFiles(fname)
 
 
@@ -102,5 +102,5 @@ def testcase7():
 def testcase8():
     fname = os.path.join(examples_dir, 'testcase8.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(116.29298550936)
+    assert get_val(fname) == pytest.approx(116.2929855)
     rmFiles(fname)

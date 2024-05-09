@@ -1,31 +1,31 @@
+from tango.core.config import *
+from tango.core import FluidState
 from tango.core.constants import *
 from tango.units.native.well.base import *
 
+import copy
+import logging
+from dataclasses import dataclass
+import numpy as np
 
-class InjectionWellUnitNative(WellUnitNative):
-    """The injection well unit based on Adams et al. (2015)."""
-    def __init__(self, id: str, specs: dict):
-        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
-        self._specs_post_processor_iw()
-        self.init_stream_interface()
-        self._initialize_attributes_hw()
 
-    # ----------------------------------------- Public Functions ----------------------------------------- #
+class InjectionWellStateNative(WellStateNative):
+    """The well state unit"""
+    def __init__(self) -> None:
+        WellStateNative.__init__(self)
+        self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
 
-    def init_stream_interface(self, P: float=None, T: float=None) -> None:
-        P = self._specs.surface_pressure if P==None else P
-        T = self._specs.surface_temperature if T == None else T
-        self.mass_rate = self._well_mass_flow_rate
-        self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
-        self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
-    # -------------------------------------- data storing Functions -------------------------------------- #
-    # These PUBLIC functions are specific to native horizontal well units. They will be called by the native
-    # orchestrator for iterative computations. Please don't set them for external horizontal well units, as
-    # they will not be called by the native orchestrator, and the solution is not iterative.
+    def get_inlet_temperature_tmp(self) -> float:
+        return self._injection_temperature_tmp
+
 
     def get_del_temperature(self, T:float) -> float:
         return self._injection_temperature_tmp - T
+
+
+    def update_inlet_temperature_tmp(self) -> None:
+        self._injection_temperature_tmp = self.inlet_fluid.T
 
 
     def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
@@ -38,23 +38,14 @@ class InjectionWellUnitNative(WellUnitNative):
         self.inlet_fluid.updatePT(P, T)
 
 
-    def update_inlet_temperature_tmp(self) -> None:
-        self._injection_temperature_tmp = self.inlet_fluid.T
-
-
-    def get_inlet_temperature_tmp(self) -> float:
-        return self._injection_temperature_tmp
-
-    # ----------------------------------------- Private Functions ---------------------------------------- #
-
-    def _specs_post_processor_iw(self) -> float:
+class InjectionWellUnitNative(WellUnitNative):
+    """The injection well unit based on Adams et al. (2015)."""
+    def __init__(self, id: str, specs: dict):
+        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0 # downwards
         self._set_mult()
-
-
-    def _initialize_attributes_hw(self) -> float:
-        self._injection_temperature_tmp: float = 0. # injection temperature at previous iteration (K)
+        self.init_state()
 
 
     def _process_specs(self, specs) -> dict:
@@ -66,4 +57,47 @@ class InjectionWellUnitNative(WellUnitNative):
             - m_dot_mult is to convert m_dot (well-pair level mass flow rate) at a producer
               to a pattern level mass flow rate (=injection mass flow rate)
         """
-        self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
+        self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.0
+
+
+    def init_state(self, P: float=None, T: float=None) -> None:
+        P = self._specs.surface_pressure if P==None else P
+        T = self._specs.surface_temperature if T == None else T
+        self.state = InjectionWellStateNative()
+        self.state.mass_rate = self._well_mass_flow_rate
+        self.state.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
+        self.state.outlet_fluid = FluidState.copy(self.state.inlet_fluid)
+
+
+    def init_inlet_state(self, inlet_state) -> None:
+        self.state.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
+        self.state.update_inlet_temperature_tmp()
+
+
+    def update_inlet_state(self) -> None:
+        """
+         updated inlet state based on inlet streams
+                 (mass flow rate weighted average)
+        """
+        total_mass_rate = 0.
+        for sl in self.inlet_streams:
+            total_mass_rate += sl.mass_rate
+        T_ave, P_ave, H_ave = 0., 0., 0.
+        for sl in self.inlet_streams:
+            wt = sl.mass_rate / total_mass_rate
+            T_ave += wt * sl.fluid_state.T
+            P_ave += wt * sl.fluid_state.P
+            H_ave += wt * sl.fluid_state.H
+        self.state.mass_rate = self._m_dot_mult * total_mass_rate
+        try:
+            self.state.inlet_fluid.updateHP(H=H_ave, P=P_ave)
+        except:
+            self.state.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+
+
+    def overwrite_inlet_fluid_state_PT(self, P: float = None, T: float = None):
+        if P != None and T == None:
+            T = self.fluid_state_init.T
+        elif P == None and T != None:
+            P = self.fluid_state_init.P
+        self.fluid_state_init.updatePT(P, T)
