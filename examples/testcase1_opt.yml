@@ -11,7 +11,7 @@ optimization: # optimization settings (scipy)
   #  bounds:
   #    mass_flow_rate: [0, None]
   options: # advanced/optional tuning params
-    maxiter: 5
+    maxiter: 10
     disp: False
 
 

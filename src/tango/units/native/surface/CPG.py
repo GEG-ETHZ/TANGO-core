@@ -45,7 +45,8 @@ class SurfaceStateCPGNative(SurfaceState):
         self.w_cooler: float = 0.
         self.w_condenser: float = 0.
         self.w_net: float = 0.
-        self._dP_pump: float = 0.
+        # self._dP_pump: float = 0.
+        self._dP_pump: float = 1000000.
 
 
     def get_dP_pump(self) -> float:
@@ -116,6 +117,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         X_CO2 = self._X_CO2
 
         dP_pump = self.state.get_dP_pump()
+        if (dP_pump > 20000000):
+            dP_pump = random.randint(5000000, 10000000)
         P_pump_outlet = self.condensation_pressure + dP_pump
 
         h_pump_inlet = self.state.inlet_fluid_pump.H
@@ -130,9 +133,12 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self.state.w_pump = -1.0 * X_CO2 *  self.state.mass_rate * (h_pump_outlet - h_pump_inlet)
 
-        #P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
+        # P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
         P_inj_inlet = P_pump_outlet + max(0., dP_pump)  # if dP_pump <0, then choke.
+
         try:
+            if P_inj_inlet < 0:
+                P_inj_inlet = 10000000
             self.state.outlet_fluid.updateHP(H=h_pump_outlet, P=P_inj_inlet)
         except:
             logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
