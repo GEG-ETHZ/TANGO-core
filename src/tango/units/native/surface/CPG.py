@@ -144,19 +144,25 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         h_pump_inlet = self.inlet_fluid_pump.H
         # h_pump_outlet = self.inlet_fluid_pump.H
 
-        try:
-            self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
-        except:
-            logging.warning(f"Failed to update fluid state with PS. Updating with PT instead.")
-            self.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
+        # try:
+        #     self.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
+        #     # self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
+        # except:
+        #     logging.warning(f"Failed to update fluid state with PT. Updating with PS instead.")
+        #     self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
+        #     # self.outlet_fluid_pump.updatePT(P=P_pump_outlet, T=self.inlet_fluid_pump.T)
+
+        self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
 
         h_pump_outlet = h_pump_inlet + (self.outlet_fluid_pump.H - h_pump_inlet) / eta
+        self.outlet_fluid_pump.updateHP(h_pump_outlet, P_pump_outlet)
 
         self.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
         # P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
 
         self.P_out = P_pump_outlet
         self.T_out = self.outlet_fluid_pump.T
+        # print ('ttt', self.inlet_fluid_pump.T, self.outlet_fluid_pump.T)
 
 
     def _update_net_state(self) -> None:

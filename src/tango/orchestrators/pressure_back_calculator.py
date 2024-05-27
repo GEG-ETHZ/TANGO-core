@@ -1,9 +1,18 @@
 from tango.units.dataclasses import WellSpecsNative
+from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
+from tango.core.abstracts.unit import *
 
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 import logging
 import csv
+
+from CoolProp.CoolProp import PropsSI
+
+import tespy.networks as nw
+import tespy.components as cmp
+import tespy.connections as con
+import tespy.tools.characteristics as ch
 
 class FluidState:
     def __init__(self, fluid_name):
@@ -12,6 +21,7 @@ class FluidState:
         self.T = None
         self.rho = None
         self.H = None
+        self.S = None  # Added initialization of entropy
         self.mu = None
 
     def updatePT(self, P, T):
@@ -19,6 +29,7 @@ class FluidState:
         self.T = T
         self.rho = PropsSI('D', 'P', P, 'T', T, self.fluid_name)
         self.H = PropsSI('H', 'P', P, 'T', T, self.fluid_name)
+        self.S = PropsSI('S', 'P', P, 'T', T, self.fluid_name)  # Added update of entropy
         self.mu = PropsSI('V', 'P', P, 'T', T, self.fluid_name)
 
     def updateHP(self, H, P):
@@ -26,7 +37,24 @@ class FluidState:
         self.P = P
         self.T = PropsSI('T', 'H', H, 'P', P, self.fluid_name)
         self.rho = PropsSI('D', 'H', H, 'P', P, self.fluid_name)
+        self.S = PropsSI('S', 'H', H, 'P', P, self.fluid_name)  # Added update of entropy
         self.mu = PropsSI('V', 'H', H, 'P', P, self.fluid_name)
+
+    def updatePQ(self, P, Q):
+        self.P = P
+        self.T = PropsSI('T', 'P', P, 'Q', Q, self.fluid_name)
+        self.rho = PropsSI('D', 'P', P, 'Q', Q, self.fluid_name)
+        self.H = PropsSI('H', 'P', P, 'Q', Q, self.fluid_name)
+        self.S = PropsSI('S', 'P', P, 'Q', Q, self.fluid_name)  # Added update of entropy
+        self.mu = PropsSI('V', 'P', P, 'Q', Q, self.fluid_name)
+
+    def updatePS(self, P, S):
+        self.P = P
+        self.S = S
+        self.T = PropsSI('T', 'P', P, 'S', S, self.fluid_name)
+        self.rho = PropsSI('D', 'P', P, 'S', S, self.fluid_name)
+        self.H = PropsSI('H', 'P', P, 'S', S, self.fluid_name)
+        self.mu = PropsSI('V', 'P', P, 'S', S, self.fluid_name)
 
     @classmethod
     def copy(cls, fluid_state):
@@ -35,15 +63,22 @@ class FluidState:
         new_state.T = fluid_state.T
         new_state.rho = fluid_state.rho
         new_state.H = fluid_state.H
+        new_state.S = fluid_state.S  # Added copying of entropy
         new_state.mu = fluid_state.mu
         return new_state
 
-class wellbore:
-    def __init__(self):
+
+class wellbore(Unit):
+    def __init__(self, id: str, specs: dict):
+        super().__init__(id, specs)
+        self._specs = WellSpecsNative.from_dict(self._process_specs(specs))
         self._specs_post_processor()
         self._initialize_attributes()
-        self.mass_rate = 50.0
-        self._specs = WellSpecsNative
+        self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
+        self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
+
+    def _process_specs(self, specs) -> dict:
+        return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
 
     def _initialize_attributes(self) -> float:
         self._t_d: float = 0.  # dimensionless time at current time step
@@ -56,17 +91,17 @@ class wellbore:
         self._t_d += del_t
 
     def _specs_post_processor(self) -> float:
-        self._diameter = 0.4
-        self._relative_roughness = 0.001 / self._diameter
+        self._diameter = self._specs.diameter
+        self._relative_roughness = self._specs.epsilon / self._diameter
         self._cross_sectional_area = 0.25 * np.pi * self._diameter ** 2
-        self._well_length = 3000
+        self._well_length = self._specs.well_length
         self._initialize_discretized_vars()
         self._initialize_farfield_temperature()
         self._set_gravity_multiplier()
         self._t_scaling_factor = self._compute_time_scaling_factor()
 
     def _initialize_discretized_vars(self) -> None:
-        num_cells = 100
+        num_cells = self._specs.num_cells
         self._num_cells = num_cells
         self._dL = self._well_length / num_cells
         self._dz = self._well_length / num_cells
@@ -81,21 +116,37 @@ class wellbore:
     def _initialize_farfield_temperature(self) -> None:
         zspace = np.linspace(0, self._well_length, self._num_cells + 1)
         zspace = (zspace[1:] + zspace[:-1]) * 0.5  # depth at cell centers
-        dTdz = 0.03
-        T0 = 283
+        dTdz = self._specs.thermal_gradient
+        T0 = self._specs.surface_temperature
         self._T_r = T0 + zspace * dTdz  # rock temperature (K)
 
     def _set_gravity_multiplier(self) -> None:
-        self._g = 9.81 * 1.0
+        self._g = GRAVITY_ACCELERATION * self._specs.gravity_scale_factor
 
     def _compute_time_scaling_factor(self) -> float:
         """Carslaw and Jaeger (1959) for the scaling of time."""
-        return 4.0 * 3.0 / (2500 * 1000 * self._diameter ** 2)
+        return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter ** 2)
 
     def process_stream(self, inj_P) -> None:
         """update dynamic variables along wellbore"""
+
+        self.in_pump = FluidState('CO2')
+        self._condensation_temperature = self._specs.surface_temperature + 7.0
+        saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
+        self.in_pump.updatePQ(saturation_pressure, 0.0)
+
+        self.out_pump_ideal = FluidState('CO2')
+        self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
+
+        self.out_pump = FluidState('CO2')
+        h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
+        self.out_pump.updateHP(h_pump_outlet, inj_P)
+        print (self.out_pump.T)
+        # print('self.out_pump_ideal.H - self.in_pump.H', self.out_pump_ideal.H - self.in_pump.H)
+
+
         self.inlet_fluid = FluidState('CO2')
-        self.inlet_fluid.updatePT(inj_P, 323)
+        self.inlet_fluid.updatePT(inj_P, self.out_pump.T)
         self._initialize_state()
         g, dz, f_dir = self._g, self._dz, -1.0
         mdot, A = self.mass_rate, self._cross_sectional_area
@@ -116,7 +167,7 @@ class wellbore:
             self._u[i] = mdot / A / self._rho[i]
 
     def _initialize_state(self) -> None:
-        self.update_dimensionless_time(del_t=self._t_scaling_factor * 1 * 31536000)
+        self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
