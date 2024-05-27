@@ -9,6 +9,7 @@ from tango.core.constants import *
 from tango.core.stream import *
 from tango.core.abstracts.orchestrator import *
 from tango.utils import *
+from tango.orchestrators.pressure_back_calculator import wellbore
 
 
 class SystemNative(UnitManager):
@@ -51,7 +52,9 @@ class SystemCPGNative(SystemNative):
 
 
     def balanced(self) -> bool:
-        self.dP_reservoir = self.unit.reservoir.get_del_pressure()
+        # return True
+        # self.dP_reservoir = self.unit.reservoir.get_del_pressure()
+        self.dP_reservoir = 0
         if np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR:
             return True
         return False
@@ -59,15 +62,21 @@ class SystemCPGNative(SystemNative):
 
     def update(self) -> None:
         """update unknown to balance the system"""
-        self.x_lst.append(self.unit.surface.get_dP_pump())
-        self.y_lst.append(self.dP_reservoir)
-        if len(self.x_lst) == 1: # first call
-            root = 0.5 * self.dP_reservoir
-        else:
-            root = newton(self.x_lst, self.y_lst)
-            self.x_lst.pop(0)
-            self.y_lst.pop(0)
-        self.unit.surface.update_dP_pump(root)
+        # self.x_lst.append(self.unit.surface.get_dP_pump())
+        # self.y_lst.append(self.dP_reservoir)
+        # if len(self.x_lst) == 1: # first call
+        #     root = 0.5 * self.dP_reservoir
+        # else:
+        #     root = newton(self.x_lst, self.y_lst)
+        #     self.x_lst.pop(0)
+        #     self.y_lst.pop(0)
+        # self.unit.surface.update_dP_pump(root)
+        # wb = wellbore()
+        # target_bottom_pressure = 40534527
+        # P0_guess1 = 8e6
+        # P0_guess2 = 15e6
+        # wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
+        self.unit.surface.something = 10000000.0
         # self.unit.surface.overwrite_pump_state()
         outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
         self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
