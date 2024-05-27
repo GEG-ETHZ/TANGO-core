@@ -5,6 +5,7 @@ from math import e as exp
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
+from tango.units.input_check import calculate_injection_rate
 
 
 class ReservoirUnitNative(Unit):
@@ -28,11 +29,67 @@ class ReservoirUnitNative(Unit):
 
     def stream_interface(self) -> None:
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+
+        self.fracing_mass_rate = calculate_injection_rate(
+            self.specs.thickness,
+            self.specs.permeability,
+            self.inlet_fluid.mu,
+            25000000 * 1.2,
+            25000000,
+            0.4,
+            self.specs.well_spacing / 2.0
+        )
+
+        # print(self.specs.thickness, self.specs.permeability, self.outlet_fluid.mu, self.inlet_fluid.P * 1.2, self.outlet_fluid.P, self.specs.well_spacing / 2.0, 0.2, mass_rate, self.fracing_mass_rate)
         self.mass_rate = mass_rate
+
+        # Compare fracing_mass_rate with mass_rate
+        if self.fracing_mass_rate < mass_rate:
+            outlet_pressure = 25000000
+            outlet_temperature = 330
+            print('\n')
+            print(f"Warning: The mass rate of {mass_rate} Kg/s results in fracing!")
+            print("Choose an option:")
+            print(f"1. Work with the maximum mass rate that doesn't result in fracing ({self.fracing_mass_rate} Kg/s)")
+            print("2. Set a new mass rate smaller than fracing mass rate")
+            print("3. Accept the seismic consequences and continue with this flow rate")
+            print("4. Operate with optimized flow rate")
+
+            choice = input("Enter 1, 2, 3, or 4: ")
+
+            if choice == '1':
+                action = input("Offset to ensure no fracking (Kg/s): ")
+                self.mass_rate = self.fracing_mass_rate - max(1.0, float(action))
+                outlet_pressure = 25000000
+                outlet_temperature = 330
+            elif choice == '2':
+                action = input("Please insert a new mass rate: ")
+                self.mass_rate = float(action)
+                outlet_pressure = 25000000
+                outlet_temperature = 330
+            elif choice == '3':
+                print("Seismic consequences accepted. Continuing with the current flow rate.")
+                self.mass_rate = mass_rate
+            elif choice == '4':
+                # self.mass_rate = self.calculate_optimized_flow_rate()
+                print(f"This option is not supported for now")
+            else:
+                print("Invalid choice. Please enter 1, 2, 3, or 4.")
+                return
+
+        # Update mass rate and outlet fluid properties
+
+        # print('before', outlet_pressure, outlet_temperature)
+        # if (outlet_pressure < 1):
+        #     outlet_pressure = random.uniform(1, 5000000)
+
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+
+        # Print inlet and outlet conditions
         print('\n')
-        print(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        print(self.fracing_mass_rate)
+        print(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'Reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
