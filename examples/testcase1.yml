@@ -57,6 +57,8 @@ reservoir:
   thickness: 300.0 # m
   permeability: 5.0e-14    # m2 ~50mD
   porosity: 0.1
+  hydro_static_pressure: 25000000
+  over_pressure_percentage: 20
 
 injection_well:
   well_length: 2500. # m
@@ -67,7 +69,7 @@ production_well:
   diameter: 0.410 # m
 
 schedule:
-  mass_flow_rate: 2000.0  # kg/s (injection rate per pattern)
+  mass_flow_rate: 200.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]

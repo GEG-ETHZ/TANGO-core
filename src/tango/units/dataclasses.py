@@ -133,6 +133,8 @@ class ReservoirSpecs(CommonSpecs):
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
     initial_pressure: float = None
     initial_temperature: float = None
+    hydro_static_pressure: float = None
+    over_pressure_percentage: float = None
 
 
 @dataclass

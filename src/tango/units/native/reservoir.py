@@ -29,14 +29,15 @@ class ReservoirUnitNative(Unit):
 
     def stream_interface(self) -> None:
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+        print('here', self.specs.hydro_static_pressure, self.specs.over_pressure_percentage)
 
         self.fracing_mass_rate = calculate_injection_rate(
             self.specs.thickness,
             self.specs.permeability,
             self.inlet_fluid.mu,
-            25000000 * 1.2,
-            25000000,
-            0.4,
+            self.specs.hydro_static_pressure*(self.specs.over_pressure_percentage+100)/100,
+            self.specs.hydro_static_pressure,
+            self.specs.well_diameter,
             self.specs.well_spacing / 2.0
         )
 
