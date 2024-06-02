@@ -46,6 +46,9 @@ class ReservoirUnitNative(Unit):
 
         # Compare fracing_mass_rate with mass_rate
         if self.fracing_mass_rate < mass_rate:
+
+            #################################### First idea ###########################################################
+
             outlet_pressure = 25000000
             outlet_temperature = 330
             print('\n')
@@ -61,13 +64,13 @@ class ReservoirUnitNative(Unit):
             if choice == '1':
                 action = input("Offset to ensure no fracking (Kg/s): ")
                 self.mass_rate = self.fracing_mass_rate - max(1.0, float(action))
-                outlet_pressure = 25000000
-                outlet_temperature = 330
+                outlet_pressure = self.specs.hydro_static_pressure
+                outlet_temperature = self._compute_initial_temperature()
             elif choice == '2':
                 action = input("Please insert a new mass rate: ")
                 self.mass_rate = float(action)
-                outlet_pressure = 25000000
-                outlet_temperature = 330
+                outlet_pressure = self.specs.hydro_static_pressure
+                outlet_temperature = self._compute_initial_temperature()
             elif choice == '3':
                 print("Seismic consequences accepted. Continuing with the current flow rate.")
                 self.mass_rate = mass_rate
@@ -78,11 +81,18 @@ class ReservoirUnitNative(Unit):
                 print("Invalid choice. Please enter 1, 2, 3, or 4.")
                 return
 
-        # Update mass rate and outlet fluid properties
+            #################################### Second idea ###########################################################
 
-        # print('before', outlet_pressure, outlet_temperature)
-        # if (outlet_pressure < 1):
-        #     outlet_pressure = random.uniform(1, 5000000)
+            # raise Exception(f"Simulation terminated: {self.mass_rate} kg/s is higher than fracing mass rate of {self.fracing_mass_rate} kg/s.")
+
+            #################################### Third idea ############################################################
+
+            # if (self.fracing_mass_rate < 200):
+            #     self.mass_rate = self.fracing_mass_rate
+            # else:
+            #     self.mass_rate = 200
+
+            ############################################################################################################
 
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 

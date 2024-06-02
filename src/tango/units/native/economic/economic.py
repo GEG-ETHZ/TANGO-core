@@ -44,7 +44,7 @@ class EconomicSpecsNative(CommonSpecs):
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
     well_cost_model: str = 'gengeo'
-    wellbore_solver: str = 'external'
+    wellbore_solver: str = 'native'
     # well_length_list: List[int] = field(default_factory=lambda: [200, 3300, 1572.42, 3760.5, 200, 3300, 1572.42, 3760.5])
     # well_diameter_list: List[int] = field(default_factory=lambda: [0.5588, 0.4318, 0.3115, 0.21, 0.5588, 0.4318, 0.3115, 0.21])
     well_length_list: List[int] = field(default_factory=lambda: [2500, 2500, 2500, 2500, 2500])
