@@ -206,4 +206,4 @@ class EconUnitWells:
         C_prd = self._compute_wells_cost_by_type(well_type='production_well', num_wells=num_total_prod)
         C_hrz = self._compute_wells_cost_by_type(well_type='horizontal_well', num_wells=num_total_hrz)
         print(C_inj, C_prd, C_hrz, 'huhu')
-        return C_inj + C_prd + C_hrz
+        return C_inj

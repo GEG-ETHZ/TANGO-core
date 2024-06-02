@@ -44,11 +44,11 @@ class EconomicSpecsNative(CommonSpecs):
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
     well_cost_model: str = 'gengeo'
-    wellbore_solver: str = 'native'
+    wellbore_solver: str = 'external'
     # well_length_list: List[int] = field(default_factory=lambda: [200, 3300, 1572.42, 3760.5, 200, 3300, 1572.42, 3760.5])
     # well_diameter_list: List[int] = field(default_factory=lambda: [0.5588, 0.4318, 0.3115, 0.21, 0.5588, 0.4318, 0.3115, 0.21])
-    well_length_list: List[int] = field(default_factory=lambda: [50, 1950, 2800, 200, 50, 1950, 2800, 200])
-    well_diameter_list: List[int] = field(default_factory=lambda: [0.5588, 0.4318, 0.3115, 0.2454, 0.5588, 0.4318, 0.3115, 0.2454])
+    well_length_list: List[int] = field(default_factory=lambda: [2500, 2500, 2500, 2500, 2500])
+    well_diameter_list: List[int] = field(default_factory=lambda: [0.41, 0.41, 0.41, 0.41, 0.41])
     def __post_init__(self):
         required_fields = ['project_maturity', 'type']
         for s in required_fields:
