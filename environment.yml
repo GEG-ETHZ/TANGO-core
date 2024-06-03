@@ -5,12 +5,15 @@ channels:
 
 dependencies:
   - coolprop>=6.4.1
+  - jinja2
   - joblib
   - matplotlib
+  - networkx
   - numpy>=1.23.5
   - openpyxl
   - oyaml
   - pandas
+  - pexpect
   - pip
   - pytest
   - python>=3.9
@@ -20,4 +23,5 @@ dependencies:
   - setuptools-scm
   - tqdm
   - pip:
+    - tespy
     - typing-extensions>=4.6.3
