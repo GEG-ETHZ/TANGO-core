@@ -76,23 +76,30 @@ Below are the steps to follow when implementing a new feature in TANGO.
 
 ## Testing
 
+Tests are an essential part of the development process. Below are the guidelines for testing in TANGO.
+
 ### Using Pytest
+
 1. **Write Tests**: All new features and bug fixes should include appropriate tests using `pytest`.
 2. **Run Tests**: Ensure that all tests pass before creating a Pull Request. Run the tests with:
-   ```
-   pytest
-   ```
-3. **Continuous Integration**: Our CI pipeline will run the tests automatically on each PR. Ensure all tests pass before merging.
+
+    ```bash
+    pytest
+    ```
+
+3. **Continuous Integration**: Our CI pipeline will run the tests automatically on each PR. All tests must pass before merging.
 
 ## Documentation
 
+Documentation is crucial for maintaining a clear understanding of the codebase. Below are the guidelines for documentation in TANGO.
+
 ### Using Sphinx
-1. **Write Documentation**: All new features and significant changes should be documented using Sphinx. Update the `.rst` files accordingly.
-2. **Build Documentation**: Ensure the documentation builds correctly by running:
-   ```
-   make html
-   ```
-3. **Review Documentation**: Documentation will be reviewed as part of the PR process. Ensure it is clear and comprehensive.
+
+1. **Write Documentation**: All new features and significant changes should be documented using Sphinx.
+2. **Review Documentation**: Documentation will be reviewed as part of the PR process. Please ensure it is clear and comprehensive.
 
 ## Summary
+
 By following these guidelines for bug reporting, bug fixing, feature implementation, testing, and documentation, we can maintain a structured and efficient development process for TANGO. This helps ensure high-quality code and smooth project progression.
+
+> **AI Disclaimer:** This document has been created with the assistance of ChatGPT and GitHub Copilot.
