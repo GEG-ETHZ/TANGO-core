@@ -2,13 +2,15 @@
 
 ## Overview
 
-This document contains guidelines for managing bugs and new features in TANGO that contributes to a smooth and efficient development workflow.
+This document contains development guidelines for managing bug fixes and implementing new features in TANGO. It's purpose is to promote a smooth and efficient development workflow among all developers. Everyone is invited to contribute to these guidelines, and following them will help maintain a high-quality codebase.
 
 ## Bug Reporting and Fixing
 
+Below are the steps to follow when reporting a new bug and fixing it in TANGO.
+
 ### Reporting a New Bug
 
-1. **Create a GitHub Issue**: Whenever a new bug is found, create a new GitHub Issue.
+1. **Create a GitHub Issue**: Whenever a new bug is found, create a new GitHub Issue. This will help track the bug and its resolution.
 2. **Provide Details**: In the issue, provide detailed information about the bug. This should include:
    - A clear description of the bug.
    - Steps to reproduce the bug.
@@ -29,19 +31,18 @@ Example:
 
 **Screenshots/Logs**: `[Attach if available]`
 
-
 ### Fixing the Bug
 
-1. **Create a Branch**: Create a new branch from the main branch for the bug fix.
+1. **Create a Branch**: Create a new branch from the **main branch** for the bug fix. It is recommended to name the branch using the following naming convention: `developer-name/short-description-issue-number`, for example, `allanleal/fixing-division-by-zero-issue-123`.
 2. **Develop the Fix**: Implement the necessary code changes to fix the bug.
-3. **Write Tests**: Whenever possible, develop tests to ensure the bug does not return in the future.
+3. **Write Tests**: Whenever possible, develop sufficient tests to ensure the bug does not reappear in the future.
 4. **Create a Pull Request (PR)**: Once the fix is implemented and tested, create a PR to merge the changes into the main branch. Ensure the PR:
    - References the GitHub Issue where the bug was reported.
    - Provides a clear description of the changes made.
 
 5. **Code Review**: The code changes will be reviewed. Make any necessary adjustments based on feedback.
 6. **Merge the PR**: Once approved, the PR will be merged into the main branch.
-7. **Release**: After merging, produce a new release for TANGO.
+7. **Release**: After merging, produce a new release for TANGO with incremented version number (e.g., v1.2.3 becomes v1.2.4).
 
 ## Implementing New Features
 
