@@ -102,10 +102,11 @@ class EconUnitSurfacePowerPlant:
         if self._surface_unit == None:
             return
         power_plant_type = str(self._surface_unit.__module__).split('.')[-1]
+        print(power_plant_type, 'is this')
         if power_plant_type == 'CPG':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
-        if power_plant_type == 'DH':
+        elif power_plant_type == 'DH':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
         elif power_plant_type == 'ORC':
