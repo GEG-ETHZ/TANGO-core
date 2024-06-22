@@ -105,6 +105,9 @@ class EconUnitSurfacePowerPlant:
         if power_plant_type == 'CPG':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
+        if power_plant_type == 'DH':
+            self._process_surface_state = self._process_surface_state_CPG
+            self.execute = self._execute_CPG
         elif power_plant_type == 'ORC':
             self.execute = self._execute_ORC
             self._process_surface_state = self._process_surface_state_ORC
