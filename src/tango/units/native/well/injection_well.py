@@ -51,6 +51,8 @@ class InjectionWellUnitNative(WellUnitNative):
         self._well_mass_flow_rate = self._specs.mass_flow_rate
         self._f_dir = -1.0 # downwards
         self._set_mult()
+        self.length_list = self._specs.well_length_seq
+        self.diameter_list = self._specs.well_diameter_seq
 
 
     def _initialize_attributes_hw(self) -> float:

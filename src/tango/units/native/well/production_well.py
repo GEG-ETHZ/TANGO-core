@@ -31,6 +31,8 @@ class ProductionWellUnitNative(WellUnitNative):
     def _specs_post_processor_pw(self) -> float:
         self._f_dir = 1.0 # upwards
         self._well_mass_flow_rate = self._compute_well_mass_flow_rate()
+        self.length_list = self._specs.well_length_seq
+        self.diameter_list = self._specs.well_diameter_seq
 
 
     def _process_specs(self, specs) -> dict:

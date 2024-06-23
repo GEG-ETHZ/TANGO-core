@@ -151,6 +151,11 @@ class EconUnitWells:
                 if self.production_well_pump != None:
                     L += self.production_well_pump.get_well_length()
 
+        print('inj_list_l', self.injection_well.length_list)
+        print('inj_list_d', self.injection_well.diameter_list)
+        print('pro_list_l', self.production_well.length_list)
+        print('pro_list_d', self.production_well.diameter_list)
+
         well_cost_formulas = {
             'gengeo': lambda L, d, self: self._X_IC * self._X_PC * self._PPI * (0.105 * L ** 2 + 1776. * d * L + 275300.),
             'halliburton': lambda L, d, self: 1500 * L,
@@ -207,3 +212,4 @@ class EconUnitWells:
         C_hrz = self._compute_wells_cost_by_type(well_type='horizontal_well', num_wells=num_total_hrz)
         print(C_inj, C_prd, C_hrz, 'huhu')
         return C_inj + C_prd + C_hrz
+        # return C_inj

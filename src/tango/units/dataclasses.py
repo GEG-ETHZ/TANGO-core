@@ -42,6 +42,8 @@ class WellSpecs(CommonSpecs):
     epsilon: float = 55.e-6  # roughness of the well (m)
     probability_of_success: float = 0.95
     eta_pump: float = 0.90  # The pump efficiency (-)
+    well_length_seq: list = None
+    well_diameter_seq: list = None
 
     # well_length_list: List[float] = field(default_factory=list)
     # well_diameter_list: List[float] = field(default_factory=list)

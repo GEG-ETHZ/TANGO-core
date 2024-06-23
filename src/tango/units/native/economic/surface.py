@@ -225,6 +225,8 @@ class EconUnitSurfacePowerPlant:
 
         C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
 
+        print('surf', C_turbine_generator, C_pump_inj, C_cooling_condensing_tower)
+
         C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
 
         C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
