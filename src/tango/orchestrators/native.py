@@ -71,7 +71,8 @@ class SystemCPGNative(SystemNative):
         #     self.x_lst.pop(0)
         #     self.y_lst.pop(0)
         # self.unit.surface.update_dP_pump(root)
-        wb = wellbore('back_calculator', self.specs)
+        print('nega', self.unit.surface.__class__.__name__)
+        wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
         target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
         print(target_bottom_pressure, target_bottom_pressure)
         P0_guess1 = 8e6

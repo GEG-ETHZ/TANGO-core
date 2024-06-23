@@ -20,7 +20,7 @@ def calculate_injection_rate(h, k, u, Pw, Pe, rw, re):
     q = (2 * math.pi * h * k * (Pw - Pe)) / (u * math.log(re / rw))
     print('Hi', h, k, u, Pw, Pe, rw, re)
 
-    return q*1000.0
+    return q
 
 # # Example usage with sample values
 # h = 100.0          # Height in meters

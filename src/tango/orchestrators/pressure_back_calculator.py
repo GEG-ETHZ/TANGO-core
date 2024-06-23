@@ -69,13 +69,14 @@ class FluidState:
 
 
 class wellbore(Unit):
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, id: str, specs: dict, surface_class_name: str):
         super().__init__(id, specs)
         self._specs = WellSpecsNative.from_dict(self._process_specs(specs))
         self._specs_post_processor()
         self._initialize_attributes()
         self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
         self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
+        self.surface_class = surface_class_name
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
@@ -130,23 +131,29 @@ class wellbore(Unit):
     def process_stream(self, inj_P) -> None:
         """update dynamic variables along wellbore"""
 
-        self.in_pump = FluidState('CO2')
-        self._condensation_temperature = self._specs.surface_temperature + 7.0
-        saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
-        self.in_pump.updatePQ(saturation_pressure, 0.0)
+        if (self.surface_class != 'SurfaceUnitDHNative'):
+            self.in_pump = FluidState('CO2')
+            self._condensation_temperature = self._specs.surface_temperature + 7.0
+            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
+            self.in_pump.updatePQ(saturation_pressure, 0.0)
 
-        self.out_pump_ideal = FluidState('CO2')
-        self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
+            self.out_pump_ideal = FluidState('CO2')
+            self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
 
-        self.out_pump = FluidState('CO2')
-        h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
-        self.out_pump.updateHP(h_pump_outlet, inj_P)
-        print (self.out_pump.T)
+            self.out_pump = FluidState('CO2')
+            h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
+            self.out_pump.updateHP(h_pump_outlet, inj_P)
+            print (self.out_pump.T)
+            injection_temperature = self.out_pump.T
+        else:
+            injection_temperature = 295.15
+
+
         # print('self.out_pump_ideal.H - self.in_pump.H', self.out_pump_ideal.H - self.in_pump.H)
 
 
         self.inlet_fluid = FluidState('CO2')
-        self.inlet_fluid.updatePT(inj_P, self.out_pump.T)
+        self.inlet_fluid.updatePT(inj_P, injection_temperature)
         self._initialize_state()
         g, dz, f_dir = self._g, self._dz, -1.0
         mdot, A = self.mass_rate, self._cross_sectional_area
