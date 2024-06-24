@@ -32,9 +32,13 @@ graph:
 injection_well:
   diameter: 0.41
   well_length: 2500.0
+  well_length_seq: [ 2500 ]
+  well_diameter_seq: [ 0.41 ]
 production_well:
   diameter: 0.41
   well_length: 2500.0
+  well_length_seq: [ 2500 ]
+  well_diameter_seq: [ 0.41 ]
 props:
   brine_density: 1000
   fluid_name: CO2

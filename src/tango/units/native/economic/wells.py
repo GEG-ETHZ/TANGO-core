@@ -8,8 +8,8 @@ class EconUnitWells:
         self._X_IC, self._X_PC = specs.multipliers
         self._set_unit_objects(unit_dict)
         self._initialize_production_well_length()
-        self.well_length_list = specs.well_length_list
-        self.well_diameter_list = specs.well_diameter_list
+        # self.well_length_list = specs.well_length_list
+        # self.well_diameter_list = specs.well_diameter_list
         # print(self.well_diameter_list)
 
 
@@ -103,9 +103,14 @@ class EconUnitWells:
                                                          pos=h_well_unit.get_probability_of_success(),
                                                          fluid_name=self._specs.fluid_name)
             return num_wells * val
+        elif well_type == 'injection_well':
+            return num_wells * self.compute_individual_well_cost(L=self.injection_well.length_list,
+                                                                 d=self.injection_well.diameter_list,
+                                                                 pos=well_unit.get_probability_of_success(),
+                                                                 fluid_name=self._specs.fluid_name)
         else:
-            return num_wells * self.compute_individual_well_cost(L=well_unit.get_well_length(),
-                                                                 d=well_unit.get_diameter(),
+            return num_wells * self.compute_individual_well_cost(L=self.production_well.length_list,
+                                                                 d=self.production_well.diameter_list,
                                                                  pos=well_unit.get_probability_of_success(),
                                                                  fluid_name=self._specs.fluid_name)
 
@@ -140,14 +145,14 @@ class EconUnitWells:
     #     return (C_well + dC_CO2_well) / pos
 
 
-    def compute_individual_well_cost(self, L: float=None, d: float=0., pos: float=0., fluid_name: str = "H2O") -> float:
+    def compute_individual_well_cost(self, L: list=None, d: list=0., pos: float=0., fluid_name: str = "H2O") -> float:
         if L == None:
             if self.injection_well != None:
-                L = self.injection_well.get_well_length()
+                L = [self.injection_well.get_well_length()]
             else:
                 if self.production_well == None:
                     raise RuntimeError(f"well_length cannot be obtained.")
-                L = self.production_well.get_well_length()
+                L = [self.production_well.get_well_length()]
                 if self.production_well_pump != None:
                     L += self.production_well_pump.get_well_length()
 
@@ -157,12 +162,12 @@ class EconUnitWells:
         print('pro_list_d', self.production_well.diameter_list)
 
         well_cost_formulas = {
-            'gengeo': lambda L, d, self: self._X_IC * self._X_PC * self._PPI * (0.105 * L ** 2 + 1776. * d * L + 275300.),
-            'halliburton': lambda L, d, self: 1500 * L,
-            'st_gallen': lambda L, d, self: 1500 * L,
-            'bavaria': lambda L, d, self: 1500 * L,
-            'swiss': lambda L, d, self: 1500 * L,
-            'ppgd': lambda L, d, self: 969 * L,
+            'gengeo': lambda Ls, ds, self: self._X_IC * self._X_PC * self._PPI * (0.105 * Ls ** 2 + 1776. * ds * Ls + 275300.),
+            'halliburton': lambda Ls, ds, self: 1500 * L,
+            'st_gallen': lambda Ls, ds, self: 1500 * L,
+            'bavaria': lambda Ls, ds, self: 1500 * L,
+            'swiss': lambda Ls, ds, self: 1500 * L,
+            'ppgd': lambda Ls, ds, self: 969 * L,
         }
 
         # print(self._specs.wellbore_solver)
@@ -175,21 +180,22 @@ class EconUnitWells:
 
             dC_CO2_well = self._compute_dC_CO2_well(d, L, fluid_name) # adjustment for CO2
             return (C_well + dC_CO2_well) / pos
+
         elif self._specs.wellbore_solver == "external":
-            if len(self.well_length_list) != len(self.well_diameter_list):
+            if len(L) != len(d):
                 raise ValueError("Length of well_length_list must be the same as well_diameter_list")
 
             total_cost = 0.0
-            print((self.well_length_list, self.well_diameter_list))
-            for L, d in zip(self.well_length_list, self.well_diameter_list):
+            # print((self.well_length_list, self.well_diameter_list))
+            for Ls, ds in zip(L, d):
                 # print(L, d)
                 if self._specs.well_cost_model in well_cost_formulas:
-                    C_well_section = well_cost_formulas[self._specs.well_cost_model](L, d, self)
+                    C_well_section = well_cost_formulas[self._specs.well_cost_model](Ls, ds, self)
                     print('C_well_section', C_well_section)
                 else:
                     raise ValueError(f"The provided well_cost_model: {self._specs.well_cost_model} is not supported")
 
-                dC_CO2_well_section = self._compute_dC_CO2_well(d, L, fluid_name)
+                dC_CO2_well_section = self._compute_dC_CO2_well(ds, Ls, fluid_name)
                 print('dC_CO2_well_section', dC_CO2_well_section)
                 total_cost += (C_well_section + dC_CO2_well_section)
                 print('total_cost', total_cost)

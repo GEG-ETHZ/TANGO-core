@@ -107,13 +107,29 @@ class EconUnitSurfacePowerPlant:
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
         elif power_plant_type == 'DH':
-            self._process_surface_state = self._process_surface_state_CPG
-            self.execute = self._execute_CPG
+            self._process_surface_state = self._process_surface_state_DH
+            self.execute = self._execute_DH
         elif power_plant_type == 'ORC':
             self.execute = self._execute_ORC
             self._process_surface_state = self._process_surface_state_ORC
         else:
             raise ValueError(f"Surface power plant time: {power_plant_type} is not supported.")
+
+
+    def _process_surface_state_DH(self) -> None:
+
+        mult = self._specs.num_patterns
+        self._W_thermal = mult * self._state.w_turbine
+        self._W_net_total = self._W_thermal
+
+    def _execute_DH(self, state) -> float:
+
+        if self._surface_unit == None:
+            return 0.
+
+        self._state = state
+        self._process_surface_state()
+        return 200 * self._W_net_total/1000
 
 
     def _process_surface_state_CPG(self) -> None:

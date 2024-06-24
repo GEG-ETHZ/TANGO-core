@@ -20,7 +20,7 @@ class EconUnitExploration:
             return 0
         num_wells = self._specs.num_characterization_wells
         pos = self._well_econ_unit.production_well.get_probability_of_success()
-        C_characterization_well = self._well_econ_unit.compute_individual_well_cost(d=self._well_econ_unit.production_well.get_diameter(),
+        C_characterization_well = self._well_econ_unit.compute_individual_well_cost(d=[self._well_econ_unit.production_well.get_diameter()],
                                                                                      pos=1.0)
         return 0.2 * num_wells * C_characterization_well / pos
 
