@@ -50,24 +50,24 @@ class NativeWorkflow(Workflow):
             self.economic = Unit(specs=self.specs, nodes=self.orchestrator.graph.nodes)
 
 
-    # def _native_system_iteration(self) -> None:
-    #     """update some unknown variables to balance the system. Then advance one time step"""
-    #     count = 0
-    #     while True:
-    #         if self.orchestrator.max_itr_reached(count):
-    #             break
-    #         count += 1
-    #         self.orchestrator.execute() # run compute nodes defined within the graph
-    #         if self.orchestrator.balanced():
-    #             logging.debug(f"System balanced after {count} iterations")
-    #             break
-    #         self.orchestrator.update()
-    #     self.orchestrator.update_time_dependent_vars()
     def _native_system_iteration(self) -> None:
         """update some unknown variables to balance the system. Then advance one time step"""
-        self.orchestrator.execute()
-        self.orchestrator.update()
+        count = 0
+        while True:
+            if self.orchestrator.max_itr_reached(count):
+                break
+            count += 1
+            self.orchestrator.execute() # run compute nodes defined within the graph
+            if self.orchestrator.balanced():
+                logging.debug(f"System balanced after {count} iterations")
+                break
+            self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
+    # def _native_system_iteration(self) -> None:
+    #     """update some unknown variables to balance the system. Then advance one time step"""
+    #     self.orchestrator.execute()
+    #     self.orchestrator.update()
+    #     self.orchestrator.update_time_dependent_vars()
 
     def _save_results(self, current_date: datetime) -> None:
         """update self.results"""

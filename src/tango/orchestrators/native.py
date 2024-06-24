@@ -52,9 +52,11 @@ class SystemCPGNative(SystemNative):
 
 
     def balanced(self) -> bool:
-        # return True
-        # self.dP_reservoir = self.unit.reservoir.get_del_pressure()
-        self.dP_reservoir = 0
+        if (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
+            self.dP_reservoir = self.unit.reservoir.get_del_pressure()
+        elif (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
+            self.dP_reservoir = 0
+
         if np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR:
             return True
         return False
@@ -62,24 +64,28 @@ class SystemCPGNative(SystemNative):
 
     def update(self) -> None:
         """update unknown to balance the system"""
-        # self.x_lst.append(self.unit.surface.get_dP_pump())
-        # self.y_lst.append(self.dP_reservoir)
-        # if len(self.x_lst) == 1: # first call
-        #     root = 0.5 * self.dP_reservoir
-        # else:
-        #     root = newton(self.x_lst, self.y_lst)
-        #     self.x_lst.pop(0)
-        #     self.y_lst.pop(0)
-        # self.unit.surface.update_dP_pump(root)
-        print('nega', self.unit.surface.__class__.__name__)
-        wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
-        target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
-        print(target_bottom_pressure, target_bottom_pressure)
-        P0_guess1 = 8e6
-        P0_guess2 = 15e6
-        self.unit.surface.something = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
-        # self.unit.surface.something = 10000000.0
-        # self.unit.surface.overwrite_pump_state()
+        if (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
+            self.x_lst.append(self.unit.surface.get_dP_pump())
+            self.y_lst.append(self.dP_reservoir)
+            if len(self.x_lst) == 1: # first call
+                root = 0.5 * self.dP_reservoir
+            else:
+                root = newton(self.x_lst, self.y_lst)
+                self.x_lst.pop(0)
+                self.y_lst.pop(0)
+            self.unit.surface.update_dP_pump(root)
+
+        elif (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
+            print('nega', self.unit.surface.__class__.__name__)
+            wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
+            target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
+            print(target_bottom_pressure, target_bottom_pressure)
+            P0_guess1 = 8e6
+            P0_guess2 = 15e6
+            self.unit.surface.something = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
+            # self.unit.surface.something = 10000000.0
+            # self.unit.surface.overwrite_pump_state()
+
         outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
         self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 

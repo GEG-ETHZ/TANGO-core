@@ -57,6 +57,7 @@ runspec:
   title: CPG DOUBLET
   workflow: native
 schedule:
+  bc_iteration_checkpoint: injection_well_bottom
   dt: 1.0
   mass_flow_rate: 100
   num_tsteps: 30

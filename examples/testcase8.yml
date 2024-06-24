@@ -67,19 +67,27 @@ horizontal_well:
       well_length: 707. # m
       diameter: 0.410 # m
       vertical_deviation: 90 # deg
+      well_length_seq: [ 2500. ]
+      well_diameter_seq: [ 0.410 ]
   - h_well_2:
       wellhead_depth: 2500. # m
       well_length: 707. # m
       diameter: 0.410 # m
       vertical_deviation: 90 # deg
+      well_length_seq: [ 2500. ]
+      well_diameter_seq: [ 0.410 ]
 
 injection_well:
   well_length: 2500. # m
   diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 
 production_well:
   well_length: 2500. # m
   diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 
 schedule:
   mass_flow_rate: 5.0  # kg/s (injection rate per pattern)

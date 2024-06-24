@@ -21,6 +21,7 @@ class CommonSpecs:
     start_date: str
     num_tsteps: int
     dt: float  # time step years
+    bc_iteration_checkpoint: str = 'production_well_bottom'
     # ddd: float = 0.90  # The pump efficiency (-)
 
     def __post_init__(self):

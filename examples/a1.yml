@@ -32,13 +32,13 @@ graph:
 injection_well:
   diameter: 0.41
   well_length: 2500.0
-  well_length_seq: [2500]
-  well_diameter_seq: [0.41]
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 production_well:
   diameter: 0.41
   well_length: 2500.0
-  well_length_seq: [2500]
-  well_diameter_seq: [0.41]
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 props:
   brine_density: 1000
   fluid_name: CO2
@@ -49,7 +49,7 @@ props:
 reservoir:
   hydro_static_pressure: 25000000
   over_pressure_percentage: 20
-  permeability: 5.0e-13
+  permeability: 1.0e-12
   porosity: 0.1
   reservoir_depth: 2500
   thickness: 100.0
@@ -57,8 +57,9 @@ runspec:
   title: CPG DOUBLET
   workflow: native
 schedule:
+  bc_iteration_checkpoint: injection_well_bottom
   dt: 1.0
-  mass_flow_rate: 100
+  mass_flow_rate: 80
   num_tsteps: 30
   start_date: '2019-01-01'
   well_pattern: INVERTED_5SPOT

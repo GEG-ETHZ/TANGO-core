@@ -28,6 +28,8 @@ class HorizontalWellUnitNative(WellUnitNative):
         # overwrite static parameters for horizontal well
         self._dL = self._well_length / self._num_cells
         self._dz = self._dZ / self._num_cells
+        self.length_list = self._specs.well_length_seq
+        self.diameter_list = self._specs.well_diameter_seq
 
 
     def _process_specs(self, id, specs) -> dict:
