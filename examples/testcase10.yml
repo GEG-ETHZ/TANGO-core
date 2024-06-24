@@ -1,85 +1,76 @@
-#
-# testcase10: AGS (MOOSE + DWSIM)
-#
-
+economic:
+  discount_rate: 0.05
+  project_maturity: green_field
+  type: native
 graph:
-  nodes:
-    inj_1: # root node
-      type: 'injection_well'
-      unit: 'native'
-    reservoir:
-      type: 'reservoir' # naming should be revised
-      unit: 'moose'
-    prd_1:
-      type: 'production_well'
-      unit: 'native'
-    surface:
-      type: 'surface'
-      unit: 'tespy_sf'
   edges:
     1:
-      source: 'surface'
-      target: 'inj_1'
+      source: surface
+      target: inj_1
     2:
-      source: 'inj_1'
-      target: 'reservoir'
+      source: inj_1
+      target: reservoir
     3:
-      source: 'reservoir'
-      target: 'prd_1'
+      source: reservoir
+      target: prd_1
     4:
-      source: 'prd_1'
-      target: 'surface'
-
-# simulation input
-
-runspec:
-  title: 'AGS (MOOSE + DWSIM)'
-  workflow: 'native'
-
-props:
-  fluid_name: 'H2O'
-  brine_density: 1000 # kg/m3
-  rock_density: 2200.0 # kg/m3
-  rock_cp: 850.0  # # specific heat capacity (J/(kg*K))
-  rock_k: 2.0  # thermal conductivity (W/(m*K))
-  thermal_gradient: 0.029  # degC/m
-
-surface:
-  surface_temperature: 300.0  # K
-  surface_pressure: 100_000  # Pa
-  pipe_diameter: 0.1429 # m
-  approach_temperature: 7.0  # K
-  condensation_pressure_offset: 50_000.0  # Pa
-  eta_turbine: 0.78  # (-)
-
+      source: prd_1
+      target: surface
+  nodes:
+    inj_1:
+      type: injection_well
+      unit: native
+    prd_1:
+      type: production_well
+      unit: native
+    reservoir:
+      type: reservoir
+      unit: native
+    surface:
+      type: surface
+      unit: native_dh
 injection_well:
-  well_length: 5000. # m
-  diameter: 0.254 # m
-  epsilon: 1.e-4  # roughness of the well (m)
-  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml"
-
+  diameter: 0.41
+  well_length: 2500.0
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 production_well:
-  well_length: 4000. # m
-  diameter: 0.254 # m
-
+  diameter: 0.41
+  well_length: 2500.0
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+props:
+  brine_density: 1000
+  fluid_name: CO2
+  rock_cp: 1000.0
+  rock_density: 2650.0
+  rock_k: 2.1
+  thermal_gradient: 0.03
 reservoir:
-  reservoir_depth: 5000.0 # m
-  thickness: 5000.0 # m
-  permeability: 5.0e-14    # m2 ~50mD
+  hydro_static_pressure: 25000000
+  over_pressure_percentage: 20
+  permeability: 1.0e-12
   porosity: 0.1
-
-
+  reservoir_depth: 2500
+  thickness: 100.0
+runspec:
+  title: CPG DOUBLET
+  workflow: native
 schedule:
-  mass_flow_rate: 10.0  # kg/s (injection rate per pattern)
-  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
-  well_spacing: 707. # m (inj-prod pair)
-  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
-  start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 5 # number of time steps
-  dt: 5.0  # time step increment (year)
-  end_time: 630720000
-
-economic: # optional
-  type: 'native'
-  project_maturity: 'green_field' # brown_field or green_field
-  discount_rate: 0.095
+  bc_iteration_checkpoint: injection_well_bottom
+  dt: 1.0
+  mass_flow_rate: 80
+  num_tsteps: 30
+  start_date: '2019-01-01'
+  well_pattern: INVERTED_5SPOT
+  well_pattern_dimens:
+  - 1
+  - 1
+  well_spacing: 707.0
+surface:
+  approach_temperature: 7.0
+  condensation_pressure_offset: 50000.0
+  eta_turbine: 0.78
+  pipe_diameter: 0.41
+  surface_pressure: 100000
+  surface_temperature: 283.15

@@ -71,7 +71,7 @@ class WellSpecsNative(WellSpecs):
 @dataclass
 class WellSpecsMOOSE(WellSpecs):
     """MOOSE well specs"""
-    yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase20.yml"
+    yaml_file_path: str = "/examples/MOOSE_Tespy examples/testcase20.yml"
     template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/AGS_Mahmoud_template.i"
     output_directory: str = "/Users/morteza/Documents/projects/moskito2"
     output_file_name: str = "AGS_Mahmoud.i"
@@ -113,7 +113,7 @@ class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
 
 @dataclass
 class SurfaceSpecsCPGTESPy(SurfaceSpecsCPGNative):
-    yaml_file_path = '/Users/morteza/Documents/projects/TANGO/examples/testcase10.yml'
+    yaml_file_path = '/examples/MOOSE_Tespy examples/testcase10.yml'
 
 @dataclass
 class SurfaceSpecsORCTESPy(SurfaceSpecsCPGNative):
@@ -161,7 +161,7 @@ class ReservoirSpecsPorousflow(ReservoirSpecs):
     # moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/reservoir.i'
     # post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/res_out.csv'
     yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase17.yml"
-    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/pf.i"
+    template_file_path: str = "/examples/MOOSE input files/pf.i"
     output_directory: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow'
     output_file_name: str = "pf_copy.i"
     moose_executable_path: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow/porous_flow-opt'
