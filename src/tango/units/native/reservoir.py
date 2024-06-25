@@ -5,7 +5,7 @@ from math import e as exp
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
-from tango.units.input_check import calculate_injection_rate
+from tango.units.check_fracing import calculate_injection_rate
 
 
 class ReservoirUnitNative(Unit):
@@ -40,7 +40,6 @@ class ReservoirUnitNative(Unit):
             self.specs.well_spacing / 2.0
         ) * self.inlet_fluid.rho
 
-        # print(self.specs.thickness, self.specs.permeability, self.outlet_fluid.mu, self.inlet_fluid.P * 1.2, self.outlet_fluid.P, self.specs.well_spacing / 2.0, 0.2, mass_rate, self.fracing_mass_rate)
         self.mass_rate = mass_rate
 
         # Compare fracing_mass_rate with mass_rate
@@ -97,7 +96,6 @@ class ReservoirUnitNative(Unit):
 
         # Print inlet and outlet conditions
         print('\n')
-        print(self.fracing_mass_rate)
         print(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
         print(f'Reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 

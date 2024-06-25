@@ -102,7 +102,6 @@ class EconUnitSurfacePowerPlant:
         if self._surface_unit == None:
             return
         power_plant_type = str(self._surface_unit.__module__).split('.')[-1]
-        print(power_plant_type, 'is this')
         if power_plant_type == 'CPG':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
@@ -147,7 +146,6 @@ class EconUnitSurfacePowerPlant:
         self._W_cooler_total = mult * self._state.w_cooler
         self._W_condenser_total = mult * self._state.w_condenser
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_cooler_total + self._W_condenser_total
-        print(self._W_turbine_total, 'total')
 
 
     def _process_surface_state_ORC(self) -> None:
@@ -240,8 +238,6 @@ class EconUnitSurfacePowerPlant:
         C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
 
         C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
-
-        print('surf', C_turbine_generator, C_pump_inj, C_cooling_condensing_tower)
 
         C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
 

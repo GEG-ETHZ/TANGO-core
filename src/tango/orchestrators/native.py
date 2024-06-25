@@ -76,15 +76,11 @@ class SystemCPGNative(SystemNative):
             self.unit.surface.update_dP_pump(root)
 
         elif (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
-            print('nega', self.unit.surface.__class__.__name__)
             wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
             target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
-            print(target_bottom_pressure, target_bottom_pressure)
             P0_guess1 = 8e6
             P0_guess2 = 15e6
-            self.unit.surface.something = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
-            # self.unit.surface.something = 10000000.0
-            # self.unit.surface.overwrite_pump_state()
+            self.unit.surface.iterative_inj_pressure = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
 
         outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
         self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)

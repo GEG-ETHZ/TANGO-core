@@ -18,7 +18,6 @@ def calculate_injection_rate(h, k, u, Pw, Pe, rw, re):
     """
     # Calculate injection rate using the formula
     q = (2 * math.pi * h * k * (Pw - Pe)) / (u * math.log(re / rw))
-    print('Hi', h, k, u, Pw, Pe, rw, re)
 
     return q
 

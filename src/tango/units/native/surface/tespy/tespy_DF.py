@@ -1,6 +1,5 @@
 from tango.units.native.surface.base import *
 from tango.units.dataclasses import SurfaceSpecsDoubleFlashTESPy
-# from tango.units.native.surface.tespy.tespy_input_adapter import *
 
 from tespy.components import Sink, Source, Turbine, HeatExchanger, SimpleHeatExchanger, Compressor, CycleCloser, Valve, DropletSeparator
 from tespy.connections import Connection
@@ -31,12 +30,6 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
 
 
     def process_stream(self) -> None:
-        # yaml_file_path = self.specs.yaml_file_path
-        # self.pp = PowerPlant(yaml_file_path, self.inlet_fluid.P/100000.0, self.inlet_fluid.T-273.15, self.mass_rate, {'CO2': 1})
-        # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1})
-        # (self, fluid={'water': 1}, m=50, T=175, p=60, p2=4, p_t2=0.5) OrganicRankineCycle(refrigerant='R245fa', pressure=self.inlet_fluid.P/100000.0, temperature=self.inlet_fluid.T-273.15, mass_rate=self.mass_rate, working_fluid={'water': 1})
-        # self.pp = DoubleFlash(fluid={'water': 1}, m=5, T=150, p=40, p2=2, p_t2=0.05)
-        # print('pp inlet', self.inlet_fluid.P/100000.0, self.inlet_fluid.T-273.15)
         self.pp = DoubleFlash(fluid={'water': 1}, m=45, T=self.inlet_fluid.T-273.15, p=self.inlet_fluid.P/100000.0, p2=2, p_t2=0.05)
         self._update_turbine_power()
         self._update_condenser_state()
@@ -47,7 +40,6 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
         print(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
         return self.P_out, self.T_out, 45
-        # return 10000000, 313.15, 45
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
@@ -73,15 +65,11 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
 
 
     def _update_turbine_power(self) -> None:
-        # self.w_turbine = -self.pp.components['turbine'].P.val
         self.w_turbine = -self.pp.t.P.val-self.pp.t2.P.val
 
 
     def _update_condenser_state(self) -> None:
-        # X_CO2 = self._X_CO2
-        # self.q_cooler = X_CO2 * self.pp.q_cooler
         self.q_condenser = -self.pp.q_condenser
-        # self._condensation_temperature_range = self.pp.turbine_condenser.T.val - self.pp.connections['condenser_cooler'].T.val
         self._condensation_temperature_range = 3.0
         self.w_cooler = 0
         self.w_condenser = self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
@@ -90,27 +78,13 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
 
 
     def _update_pump_state(self) -> None:
-        # X_CO2 = self._X_CO2
         self.P_out = self.pp.P_out
         self.T_out = self.pp.T_out
         self.w_pump = (-self.pp.pump1.P.val-self.pp.pump2.P.val)
         self.w_downhole_pump = -0
-        print('pp outlet', self.P_out, self.T_out)
 
     def _update_net_state(self) -> None:
         self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class DoubleFlash:
@@ -244,11 +218,6 @@ class DoubleFlash:
        self.H_out = (self.con_pump2.m.val*h12 + self.ds2_pump1.m.val*h11)/(self.con_pump2.m.val + self.ds2_pump1.m.val)
        self.T_out = CP.PropsSI('T', 'P', self.pump2_sig.p.val*100000, 'H', self.H_out*1000, 'Water')
        self.P_out = self.pump2_sig.p.val*100000
-
-
-
-
-
 
 
 # class CycleDiagramPlotter:

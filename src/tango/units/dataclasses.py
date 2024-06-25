@@ -1,9 +1,7 @@
 from tango.core.config import *
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import inspect
-
-from typing import Optional, List
 
 @dataclass
 class CommonSpecs:
@@ -22,7 +20,6 @@ class CommonSpecs:
     num_tsteps: int
     dt: float  # time step years
     bc_iteration_checkpoint: str = 'production_well_bottom'
-    # ddd: float = 0.90  # The pump efficiency (-)
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
@@ -45,11 +42,6 @@ class WellSpecs(CommonSpecs):
     eta_pump: float = 0.90  # The pump efficiency (-)
     well_length_seq: list = None
     well_diameter_seq: list = None
-
-    # well_length_list: List[float] = field(default_factory=list)
-    # well_diameter_list: List[float] = field(default_factory=list)
-    # well_length_list: Optional[List[float]] = None
-    # well_diameter_list: Optional[List[float]] = None
 
     def __post_init__(self):
         required_fields = ['well_length', 'diameter']

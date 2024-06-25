@@ -1,3 +1,6 @@
+# This was a preliminary version to test the pressure back calculation. We don't need to redefine the FluidState class,
+# and we should benefit from the existing wellbore unit calculations!
+
 from tango.units.dataclasses import WellSpecsNative
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
@@ -8,11 +11,6 @@ import logging
 import csv
 
 from CoolProp.CoolProp import PropsSI
-
-import tespy.networks as nw
-import tespy.components as cmp
-import tespy.connections as con
-import tespy.tools.characteristics as ch
 
 class FluidState:
     def __init__(self, fluid_name):
@@ -143,13 +141,9 @@ class wellbore(Unit):
             self.out_pump = FluidState('CO2')
             h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
             self.out_pump.updateHP(h_pump_outlet, inj_P)
-            print (self.out_pump.T)
             injection_temperature = self.out_pump.T
         else:
             injection_temperature = 295.15
-
-
-        # print('self.out_pump_ideal.H - self.in_pump.H', self.out_pump_ideal.H - self.in_pump.H)
 
 
         self.inlet_fluid = FluidState('CO2')
@@ -266,7 +260,6 @@ class wellbore(Unit):
 
             P0_new = P0_2 - f2 * (P0_2 - P0_1) / (f2 - f1)
             f_new = f(P0_new)
-            print(i, P0_new, f_new)
 
             if abs(f_new) < tol:
                 return P0_new

@@ -63,11 +63,7 @@ class NativeWorkflow(Workflow):
                 break
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
-    # def _native_system_iteration(self) -> None:
-    #     """update some unknown variables to balance the system. Then advance one time step"""
-    #     self.orchestrator.execute()
-    #     self.orchestrator.update()
-    #     self.orchestrator.update_time_dependent_vars()
+
 
     def _save_results(self, current_date: datetime) -> None:
         """update self.results"""
@@ -83,7 +79,6 @@ class NativeWorkflow(Workflow):
 
     def execute(self) -> None:
         current_date = self._start_date
-        # print(type(self.orchestrator).__name__ )
         for i in tqdm(range(self._num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
             if (type(self.orchestrator).__name__ != 'SystemExternal'):
                 self._native_system_iteration()

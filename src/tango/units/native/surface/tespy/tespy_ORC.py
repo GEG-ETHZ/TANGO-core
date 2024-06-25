@@ -1,6 +1,5 @@
 from tango.units.native.surface.base import *
 from tango.units.dataclasses import SurfaceSpecsORCTESPy
-# from tango.units.native.surface.tespy.tespy_input_adapter import *
 
 from tespy.components import Sink, Source, Turbine, HeatExchanger, SimpleHeatExchanger, Compressor, CycleCloser
 from tespy.connections import Connection
@@ -31,9 +30,6 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
 
 
     def process_stream(self) -> None:
-        # yaml_file_path = self.specs.yaml_file_path
-        # self.pp = PowerPlant(yaml_file_path, self.inlet_fluid.P/100000.0, self.inlet_fluid.T-273.15, self.mass_rate, {'CO2': 1})
-        # self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=20, temperature=110, mass_rate=30, working_fluid={'water': 1})
         self.pp = OrganicRankineCycle(refrigerant='R245fa', pressure=self.inlet_fluid.P/100000.0, temperature=self.inlet_fluid.T-273.15, mass_rate=self.mass_rate, working_fluid={'water': 1})
         self._update_turbine_power()
         self._update_condenser_state()
@@ -69,15 +65,12 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
 
 
     def _update_turbine_power(self) -> None:
-        # self.w_turbine = -self.pp.components['turbine'].P.val
-        # self.dT_range_CT = 5
         self.dT_LMTD_preheater = self.pp.dT_LMTD_boiler
         self.dT_LMTD_boiler = self.pp.dT_LMTD_boiler
         self.dT_LMTD_recuperator = 0
         self.q_recuperator = 0
         self.w_downhole_pump = 0.
         self.w_turbine = -self.pp.turbine.P.val
-        print('self.w_turbine', self.w_turbine)
 
 
     def _update_condenser_state(self) -> None:
@@ -90,28 +83,12 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
 
 
     def _update_pump_state(self) -> None:
-        # self.P_out = self.pp.P_out
         self.P_out = 4000000
         self.T_out = self.pp.T_out
         self.w_pump = -self.pp.pump.P.val
-        print('self.pp.P_out', self.pp.P_out)
-        print(self.P_out, self.T_out)
 
     def _update_net_state(self) -> None:
         self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
-        print('self.w_net', self.w_net)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class OrganicRankineCycle:
@@ -126,7 +103,6 @@ class OrganicRankineCycle:
         self._setup_connections()
         self._configure_components()
         self.solve()
-        print(self.pressure, self.temperature, self.mass_rate)
 
     def _setup_components(self):
         self.cc = CycleCloser('cycle closer')
@@ -239,13 +215,10 @@ class OrganicRankineCycle:
         t5 = CP.PropsSI('T', 'P', self.cc_des.p.val*100000, 'H', h5*1000, self.refrigerant) - 273.15
 
         # Temperature differences for LMTD calculation
-        # print('ttt = ', h1, h2, h3, h4, h5, h6, h7, h8, h9)
         dta_p = t2 - t5
         dtb_p = self.des_si1.T.val - self.cc_des.T.val
         dta_b = self.so1_des.T.val - t5
         dtb_b = dta_p
-
-        # print('nnn = ', dta_p, dtb_p, dta_b, dtb_b)
 
         # Logarithmic Mean Temperature Difference (LMTD) calculations
         self.dT_LMTD_preheater = (dta_p - dtb_p) / (math.log(abs(dta_p/dtb_p)) * np.sign(dta_p/dtb_p))
@@ -254,48 +227,19 @@ class OrganicRankineCycle:
         # Output temperature and pressure
         self.T_out = self.des_si1.T.val + 273.15
         self.P_out = self.des_si1.p.val * 1e5
-        print('inside', self.T_out, self.P_out)
 
     def _get_enthalpies(self):
         # This is a utility function to extract the enthalpies after the network has been solved.
-        # Modify this function based on how you store/access the connection objects in your class.
         h1 = self.so1_des.h.val / 1000.0
-        # h2 = self.des_si1.h.val / 1000.0
-        # h3 = h2  # Just an example, adjust according to your system
         h3 = self.des_si1.h.val/1000.0
         h4 = self.cc_des.h.val / 1000.0
         h5 = CP.PropsSI('H', 'P', self.cc_des.p.val*100000, 'Q', 0, self.refrigerant) / 1000.0
         h2 = h1-h5+h4
-        # Continue for h6, h7, h8, h9 based on your system
         h6 = self.des_turbine.h.val / 1000.0
         h7 = self.turbine_condenser.h.val / 1000.0
         h8 = CP.PropsSI('H', 'P', self.turbine_condenser.p.val*100000, 'Q', 1, self.refrigerant) / 1000.0
         h9 = self.condenser_pump.h.val / 1000.0
         return h1, h2, h3, h4, h5, h6, h7, h8, h9
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # class CycleDiagramPlotter:
