@@ -2,7 +2,7 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
                     'cmg': 'CMGWorkflow'}
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
-                  'native_cpg': 'SystemCPGNative',
+                  'native_cpg': 'SystemExternal',
                   'native_dh': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
                   'tespy_cpg': 'SystemExternal',
@@ -44,7 +44,8 @@ UNIT_OPTIONS = {
                     'reservoir':
                         {
                             'native': 'ReservoirUnitNative',
-                            'moose': 'ReservoirUnitPorousflow'
+                            'moose': 'ReservoirUnitPorousflow',
+                            'filereader': 'FileReaderUnit'
                         },
                     'stream':
                         {
@@ -114,7 +115,7 @@ UNIT_OPTIONS_FOR_ECONUNIT = {
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
                                     'horizontal_well': ['native'],
-                                    'reservoir': ['native', 'moose']
+                                    'reservoir': ['native', 'moose', 'filereader']
                                 }
                             }
 

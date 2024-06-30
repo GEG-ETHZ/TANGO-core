@@ -9,7 +9,7 @@ graph:
       unit: 'native'
     reservoir:
       type: 'reservoir'
-      unit: 'native'
+      unit: 'filereader'
     prd_1:
       type: 'production_well'
       unit: 'native'
@@ -73,7 +73,7 @@ production_well:
   well_diameter_seq: [ 0.410 ]
 
 schedule:
-  bc_iteration_checkpoint: production_well_bottom
+  bc_iteration_checkpoint: injection_well_bottom
   mass_flow_rate: 200.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
