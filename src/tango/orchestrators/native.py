@@ -45,6 +45,7 @@ class SystemCPGNative(SystemNative):
         super().__init__(specs)
         self._input_check(['injection_well', 'reservoir', 'production_well', 'surface'])
         self._set_convergence_criteria()
+        self.stop = False
 
 
     def _set_convergence_criteria(self) -> None:
@@ -55,7 +56,7 @@ class SystemCPGNative(SystemNative):
         if (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
             self.dP_reservoir = self.unit.reservoir.get_del_pressure()
         elif (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
-            self.dP_reservoir = 0
+            self.dP_reservoir = 10000000
 
         if np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR:
             return True
@@ -64,6 +65,7 @@ class SystemCPGNative(SystemNative):
 
     def update(self) -> None:
         """update unknown to balance the system"""
+        print('abc')
         if (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
             self.x_lst.append(self.unit.surface.get_dP_pump())
             self.y_lst.append(self.dP_reservoir)

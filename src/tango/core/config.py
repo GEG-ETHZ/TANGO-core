@@ -2,7 +2,8 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
                     'cmg': 'CMGWorkflow'}
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
-                  'native_cpg': 'SystemExternal',
+                  'external': 'SystemExternal',
+                  'native_cpg': 'SystemCPGNative',
                   'native_dh': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
                   'tespy_cpg': 'SystemExternal',

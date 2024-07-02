@@ -85,6 +85,7 @@ production_well_pump:
   diameter: 0.410 # m
 
 schedule:
+  bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 10.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)

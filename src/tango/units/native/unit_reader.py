@@ -65,7 +65,8 @@ class FileReaderUnit(Unit):
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self):
-        file_path = '/Users/morteza/Documents/projects/TANGO/examples/representer.csv'
+        # file_path = '/Users/morteza/Documents/projects/TANGO/examples/representer.csv'
+        file_path = self.specs.inlet_state
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 

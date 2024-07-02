@@ -64,6 +64,14 @@ class NativeWorkflow(Workflow):
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
 
+    def _external_system_iteration(self) -> None:
+        """update some unknown variables to balance the system. Then advance one time step"""
+
+        self.orchestrator.execute()
+        self.orchestrator.update()
+        self.orchestrator.execute()
+        self.orchestrator.update_time_dependent_vars()
+
 
     def _save_results(self, current_date: datetime) -> None:
         """update self.results"""
@@ -80,10 +88,11 @@ class NativeWorkflow(Workflow):
     def execute(self) -> None:
         current_date = self._start_date
         for i in tqdm(range(self._num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
-            if (type(self.orchestrator).__name__ != 'SystemExternal'):
+            if ((type(self.orchestrator).__name__ != 'SystemExternal') and (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom')):
                 self._native_system_iteration()
             else:
-                self.orchestrator.execute()
+                self._external_system_iteration()
+
             self._save_results(current_date)
             current_date = current_date + relativedelta(months=self._dt_months)
 

@@ -9,6 +9,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import logging
 import csv
+from scipy import optimize
 
 from CoolProp.CoolProp import PropsSI
 
@@ -75,6 +76,7 @@ class wellbore(Unit):
         self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
         self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
         self.surface_class = surface_class_name
+        self.last_converged_P0 = 7e6
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
@@ -126,7 +128,56 @@ class wellbore(Unit):
         """Carslaw and Jaeger (1959) for the scaling of time."""
         return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter ** 2)
 
-    def process_stream(self, inj_P) -> None:
+    def process_stream(self, inj_P, injection_temperature2) -> None:
+        """update dynamic variables along wellbore"""
+
+        if (self.surface_class != 'SurfaceUnitDHNative'):
+            self.in_pump = FluidState('CO2')
+            self._condensation_temperature = self._specs.surface_temperature + 7.0
+            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
+            self.in_pump.updatePQ(saturation_pressure, 0.0)
+
+            self.out_pump_ideal = FluidState('CO2')
+            self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
+
+            self.out_pump = FluidState('CO2')
+            h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
+            self.out_pump.updateHP(h_pump_outlet, inj_P)
+            injection_temperature = self.out_pump.T
+        else:
+            injection_temperature = injection_temperature2
+
+
+        self.inlet_fluid = FluidState('CO2')
+        self.inlet_fluid.updatePT(inj_P, injection_temperature)
+        self._initialize_state()
+        self._T_f[0] = injection_temperature2
+        self._P[0] = inj_P
+        print('process1',self._T_f[0], self._P[0])
+        self.inlet_fluid.updatePT(self._P[0], self._T_f[0])
+        self._h[0] = self.inlet_fluid.H
+        g, dz, f_dir = self._g, self._dz, -1.0
+        mdot, A = self.mass_rate, self._cross_sectional_area
+        for i in range(1, self._num_cells):
+            ff = self._compute_friction_factor(self._rho[i - 1], self._mu[i - 1], self._u[i - 1])
+            dP_loss = self._compute_delta_P_loss(ff, self._rho[i - 1], self._u[i - 1])
+            Q_loss = self._compute_Q_loss(delta_T=self._T_f[i - 1] - self._T_r[i - 1], t_d=self._t_d)
+            self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
+            self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
+            try:
+                self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
+            except:
+                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+                self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
+            self._rho[i] = self.fluid_state_tmp.rho
+            self._mu[i] = self.fluid_state_tmp.mu
+            self._T_f[i] = self.fluid_state_tmp.T
+            self._u[i] = mdot / A / self._rho[i]
+
+
+
+
+    def process_stream2(self, inj_P) -> None:
         """update dynamic variables along wellbore"""
 
         if (self.surface_class != 'SurfaceUnitDHNative'):
@@ -171,6 +222,7 @@ class wellbore(Unit):
         self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
+        self._T_f[0] = self.fluid_state_init.T
         self._h[0] = self.fluid_state_init.H
         self._rho[0] = self.fluid_state_init.rho
         self._mu[0] = self.fluid_state_init.mu
@@ -234,6 +286,70 @@ class wellbore(Unit):
             for i in range(self._num_cells):
                 writer.writerow([i, self._P[i], self._T_f[i]])
 
+
+    def find_injection_conditions(self, target_bottom_pressure, target_bottom_temperature, T0_guess=303, pressure_tol=100000, temperature_tol=1, max_iter=1000000):
+        """Find the injection pressure and temperature using a manual Newton-Raphson method."""
+
+        # if not hasattr(self, 'last_converged_P0'):
+        #     self.last_converged_P0 = 8e6  # Initialize with the default starting value if not already set
+
+        print('self.last_converged_P0', self.last_converged_P0)
+
+        def equations(P0, T0):
+            try:
+                self.process_stream(P0, T0)
+                bottom_pressure = self._P[-1]
+                bottom_temperature = self._T_f[-1]
+                print(f"Iteration: P0={P0:.2f} Pa, T0_proposed={T0:.2f} K, T0_actual={self._T_f[0]:.2f} K, "
+                      f"Bottom P={bottom_pressure:.2f} Pa, Bottom T={bottom_temperature:.2f} K")
+                return (bottom_pressure - target_bottom_pressure, bottom_temperature - target_bottom_temperature)
+            except Exception as e:
+                print(f"Simulation failed for P0={P0:.2f} Pa, T0={T0:.2f} K: {str(e)}")
+                return (1e10, 1e10)
+
+        def jacobian(P0, T0, h=1e-2):
+            f1, f2 = equations(P0, T0)
+            f1_dP, f2_dP = equations(P0 + h, T0)
+            f1_dT, f2_dT = equations(P0, T0 + h)
+
+            dF1_dP = (f1_dP - f1) / h
+            dF1_dT = (f1_dT - f1) / h
+            dF2_dP = (f2_dP - f2) / h
+            dF2_dT = (f2_dT - f2) / h
+
+            return np.array([[dF1_dP, dF1_dT], [dF2_dP, dF2_dT]])
+
+        def newton_raphson(P0, T0, max_iterations=10):
+            for _ in range(max_iterations):
+                F = np.array(equations(P0, T0))
+
+                if np.abs(F[0]) <= pressure_tol and np.abs(F[1]) <= temperature_tol:
+                    return P0, T0, True
+
+                J = jacobian(P0, T0)
+
+                try:
+                    delta = np.linalg.solve(J, -F)
+                except np.linalg.LinAlgError:
+                    print("Jacobian matrix is singular. Skipping to next P0.")
+                    return P0, T0, False
+
+                P0 += delta[0]
+                T0 += delta[1]
+
+            return P0, T0, False
+
+        P0_values = list(np.arange(self.last_converged_P0, 14e6 + 0.1e6, 0.1e6))
+        P0_values += list(np.arange(7e6, self.last_converged_P0, 0.1e6))
+
+        for P0_start in P0_values:
+            P0, T0, converged = newton_raphson(P0_start, T0_guess)
+            if converged:
+                self.last_converged_P0 = P0_start
+                return (P0, self._T_f[0])  # Return P0 and actual T0 (self._T_f[0])
+
+        raise RuntimeError("Root-finding method did not converge within the specified tolerances and P0 range.")
+
     def find_injection_pressure(self, target_bottom_pressure, P0_guess1, P0_guess2, tol=100000, max_iter=100):
         """Find the injection pressure using the secant method.
 
@@ -248,7 +364,7 @@ class wellbore(Unit):
             float: The estimated injection pressure.
         """
         def f(P0):
-            self.process_stream(P0)
+            self.process_stream2(P0)
             return self._P[-1] - target_bottom_pressure
 
         P0_1, P0_2 = P0_guess1, P0_guess2
@@ -268,18 +384,3 @@ class wellbore(Unit):
             f1, f2 = f2, f_new
 
         raise RuntimeError("Secant method did not converge within the maximum number of iterations.")
-
-
-
-
-# # Example usage
-# wb = wellbore()
-# target_bottom_pressure = 40534527  # example bottom pressure in Pascals
-# P0_guess1 = 8e6  # initial guess for the injection pressure
-# P0_guess2 = 15e6  # second guess for the injection pressure
-#
-# try:
-#     estimated_injection_pressure = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
-#     print(f"Estimated Injection Pressure: {estimated_injection_pressure} Pa")
-# except Exception as e:
-#     print(str(e))

@@ -135,6 +135,8 @@ class ReservoirSpecs(CommonSpecs):
 @dataclass
 class ReservoirSpecsNative(ReservoirSpecs):
     """Specifications for reservoir unit based on Adams et. al (2015)"""
+    inlet_state: str = None
+    outlet_state: str = None
     thickness: float = None     # the reservoir thickness (in m)
     area: float = None
     net_to_gross_ratio: float = 1.0

@@ -90,6 +90,7 @@ production_well:
   well_diameter_seq: [ 0.410 ]
 
 schedule:
+  bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 5.0  # kg/s (injection rate per pattern)
   well_pattern: 'AGS' # doublet, inverted_5spot, 5spot
   well_spacing: 2500. # m (inj-prod pair distance at surface)

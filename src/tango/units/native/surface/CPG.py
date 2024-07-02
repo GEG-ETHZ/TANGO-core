@@ -33,6 +33,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._initialize_attributes()
         self.init_stream_interface()
         self.iterative_inj_pressure = 9000000
+        self.iterative_inj_temperature = 302.0
+        self.reservoir_file_reader = False
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -138,20 +140,29 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         eta = self.specs.eta_pump
         X_CO2 = self._X_CO2
+        print('self.reservoir_file_reader', self.reservoir_file_reader)
         if (self.specs.bc_iteration_checkpoint == 'injection_well_bottom'):
-            P_pump_outlet = self.iterative_inj_pressure
-            h_pump_inlet = self.inlet_fluid_pump.H
+            if (self.reservoir_file_reader == True):
+                P_pump_outlet = self.iterative_inj_pressure
+                T_pump_outlet = self.iterative_inj_temperature
+                self.outlet_fluid_pump.updatePT(P_pump_outlet, T_pump_outlet)
+                self.w_pump =  self.w_pump = -1.0 * X_CO2 * self.mass_rate * (self.outlet_fluid_pump.H - self.inlet_fluid_pump.H)
+                self.P_out = P_pump_outlet
+                self.T_out = T_pump_outlet
+            else:
+                P_pump_outlet = self.iterative_inj_pressure
+                h_pump_inlet = self.inlet_fluid_pump.H
 
-            self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
+                self.outlet_fluid_pump.updatePS(P=P_pump_outlet, S=self.inlet_fluid_pump.S)
 
-            h_pump_outlet = h_pump_inlet + (self.outlet_fluid_pump.H - h_pump_inlet) / eta
-            self.outlet_fluid_pump.updateHP(h_pump_outlet, P_pump_outlet)
+                h_pump_outlet = h_pump_inlet + (self.outlet_fluid_pump.H - h_pump_inlet) / eta
+                self.outlet_fluid_pump.updateHP(h_pump_outlet, P_pump_outlet)
 
-            self.w_pump = -1.0 * X_CO2 *  self.mass_rate * (h_pump_outlet - h_pump_inlet)
-            # P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
+                self.w_pump = -1.0 * X_CO2 * self.mass_rate * (h_pump_outlet - h_pump_inlet)
+                # P_inj_inlet = P_pump_outlet + min(0., dP_pump) # if dP_pump <0, then choke.
 
-            self.P_out = P_pump_outlet
-            self.T_out = self.outlet_fluid_pump.T
+                self.P_out = P_pump_outlet
+                self.T_out = self.outlet_fluid_pump.T
 
         elif (self.specs.bc_iteration_checkpoint == 'production_well_bottom'):
             dP_pump = self.get_dP_pump()
