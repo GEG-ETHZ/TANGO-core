@@ -12,6 +12,7 @@ from tango import utils
 from tango.orchestrators.native import *
 from tango.orchestrators.external import *
 from tango.diagram_plotter import FluidDiagramPlotter
+from tango.units.dataclasses import DiagramSpecs
 
 def get_system_class(type_: str) -> object:
     try:
@@ -33,6 +34,11 @@ class NativeWorkflow(Workflow):
         self._init_econ_unit()
         self._results = dict()
         self._fluid_states = {}
+        # print(self.specs['phase_diagram'])
+        self.diagram_specs = DiagramSpecs.from_dict(self._process_specs(specs))
+
+    def _process_specs(self, specs) -> dict:
+        return specs['phase_diagram']
 
 
     def _init_system(self) -> None:
@@ -81,24 +87,38 @@ class NativeWorkflow(Workflow):
                             nodes=self.orchestrator.graph.nodes,
                             current_date=current_date.strftime(DATETIME_FMT))
 
-        self._fluid_states = utils.states_dict_generator(self.orchestrator.graph.nodes, self._fluid_states)
+        self._fluid_states = utils.states_dict_generator(self.diagram_specs.include_Power_plant, self.orchestrator.graph.nodes, self._fluid_states)
 
 
     def _post_processing(self) -> None:
         utils.write_results(input_file=self._input_file,
                             results=(self._results,self.economic.get_results() if self.economic != None else None))
 
-        plotter1 = FluidDiagramPlotter(fluid_states=self._fluid_states)
+        # self.diagram_specs.process_isoline_settings()
+        plotter1 = FluidDiagramPlotter(fluid_states=self._fluid_states,
+                                       fluid=self.diagram_specs.fluid,
+                                       unit_system=self.diagram_specs.unit_system,
+                                       diagram_type=self.diagram_specs.diagram_type,
+                                       x_min=self.diagram_specs.x_min,
+                                       x_max=self.diagram_specs.x_max,
+                                       y_min=self.diagram_specs.y_min,
+                                       y_max=self.diagram_specs.y_max,
+                                       isoline_config=self.diagram_specs.isoline_config)
+        # print(self.specs['graph']['edges'])
         # connections = [
         #     ('injection_well', 'reservoir', 'non-isentropic'),
         #     ('reservoir', 'production_well', 'non-isentropic'),
         #     ('production_well', 'surface', 'non-isentropic'),
         #     ('surface', 'injection_well', 'non-isentropic')
         # ]
-        connections = [
-            ('injection_well', 'production_well', 'non-isentropic')
-        ]
+        # connections = [
+        #     ('injection_well', 'production_well', 'non-isentropic')
+        # ]
+        connections = utils.create_connections(self.diagram_specs.include_Power_plant, self.specs['graph']['edges'], self.orchestrator.unit.surface)
+        # print(connections)
+        # print(self._fluid_states)
         plotter1.create_plot(connections)
+        # print(self.diagram_specs.diagram_type, 'elham')
 
 
     def execute(self) -> None:

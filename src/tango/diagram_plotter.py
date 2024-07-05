@@ -8,7 +8,7 @@ from matplotlib.cm import ScalarMappable
 class FluidDiagramPlotter:
     def __init__(self, fluid_states, fluid='CO2', unit_system={'T': '°C', 'h': 'kJ/kg', 'p': 'bar'},
                  diagram_type='logph', x_min=100, x_max=500, y_min=1, y_max=1000,
-                 isoline_settings=None):
+                 isoline_config=None):
         self.fluid = fluid
         self.states = fluid_states
         self.unit_system = unit_system
@@ -17,14 +17,15 @@ class FluidDiagramPlotter:
         self.x_max = x_max
         self.y_min = y_min
         self.y_max = y_max
-        self.isoline_settings = isoline_settings or {
-            'Q': np.linspace(0, 1, 2),
-            'T': np.arange(-40, 160, 20),
-            'p': np.geomspace(0.01, 1000, 6) * 1e5,
-            'v': np.geomspace(0.001, 10, 0),
-            's': np.linspace(1000, 10000, 0),
-            'h': np.linspace(0, 3600, 19)
+        self.isoline_config = isoline_config or {
+            'Q': {'start': 0, 'end': 1, 'num': 2},
+            'T': {'start': -40, 'end': 160, 'num': 10},
+            'p': {'start': 0.01, 'end': 1000, 'num': 6},
+            'v': {'start': 0.001, 'end': 10, 'num': 0},
+            's': {'start': 1000, 'end': 10000, 'num': 0},
+            'h': {'start': 0, 'end': 3600, 'num': 19}
         }
+        self.isoline_settings = self._generate_isoline_settings()
         self.diagram = FluidPropertyDiagram(fluid=self.fluid)
         self.diagram.set_unit_system(**self.unit_system)
         self.diagram.set_isolines(**self.isoline_settings)
@@ -35,18 +36,34 @@ class FluidDiagramPlotter:
     def bar_to_Pa(p_bar):
         return p_bar * 1e5
 
+
+    def _generate_isoline_settings(self):
+        return {
+            'Q': np.linspace(self.isoline_config['Q']['start'], self.isoline_config['Q']['end'], self.isoline_config['Q']['num']),
+            'T': np.linspace(self.isoline_config['T']['start'], self.isoline_config['T']['end'], self.isoline_config['T']['num']),
+            'p': np.geomspace(self.isoline_config['p']['start'], self.isoline_config['p']['end'], self.isoline_config['p']['num']) * 1e5,
+            'v': np.geomspace(self.isoline_config['v']['start'], self.isoline_config['v']['end'], self.isoline_config['v']['num']) if self.isoline_config['v']['num'] > 0 else np.array([]),
+            's': np.linspace(self.isoline_config['s']['start'], self.isoline_config['s']['end'], self.isoline_config['s']['num']) if self.isoline_config['s']['num'] > 0 else np.array([]),
+            'h': np.linspace(self.isoline_config['h']['start'], self.isoline_config['h']['end'], self.isoline_config['h']['num'])
+        }
+
     def plot_fluid_states(self, ax, states, connections=None, markersize=6, fontsize=8, cmap='Greys'):
         labeled_points = set()
-        for i, (point_name, point_states) in enumerate(states.items()):
+        for point_name, point_states in states.items():
             norm = Normalize(vmin=0, vmax=len(point_states) - 1)
             scalar_map = ScalarMappable(norm=norm, cmap=cmap)
-            colors = [scalar_map.to_rgba(j) for j in range(len(point_states))]
+            colors = [scalar_map.to_rgba(i) for i in range(len(point_states))]
 
-            for j, (p, h) in enumerate(point_states):
-                color = colors[j]
+            for i, (p, h) in enumerate(point_states):
+                color = colors[i]
                 ax.plot(h, p, marker='o', color=color, markersize=markersize)
+
+                # Annotate the first occurrence of each point_name
                 if point_name not in labeled_points:
-                    ax.annotate(point_name, (h, p), xytext=(15, 0), textcoords='offset points', fontsize=fontsize, weight='bold')
+                    ax.annotate(
+                        point_name, (h, p), xytext=(10, 0), ha='left', va='center',
+                        textcoords='offset points', fontsize=fontsize, color='black'
+                    )
                     labeled_points.add(point_name)
 
         if connections:
@@ -80,23 +97,21 @@ class FluidDiagramPlotter:
             ax.set_xlabel('Pressure (bar)', fontsize=10)
 
     def create_plot(self, connections):
-        fig, ax = plt.subplots(1, figsize=(8, 5))
+        plt.style.use('fivethirtyeight')  # Changed style to 'ggplot'
+        fig, ax = plt.subplots(1, figsize=(10, 6))
         self.diagram.draw_isolines(diagram_type=self.diagram_type, fig=fig, ax=ax, x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max)
-
-        ax.set_xlabel('Specific Enthalpy (kJ/kg)', fontsize=10)
-        ax.set_ylabel('Pressure (bar)', fontsize=10)
 
         self.plot_fluid_states(ax, self.states, connections=connections)
 
         num_states = len(next(iter(self.states.values())))
-        cbar = fig.colorbar(ScalarMappable(norm=Normalize(vmin=0, vmax=num_states - 1), cmap='Greys'), ax=ax, pad=0.1)
+        cbar = fig.colorbar(ScalarMappable(norm=Normalize(vmin=0, vmax=num_states - 1), cmap='gray'), ax=ax, pad=0.1)
         cbar.set_label('Time Progression')
         cbar.set_ticks(range(num_states))
         cbar.set_ticklabels([str(i + 1) for i in range(num_states)])
 
         plt.tight_layout()
-        fig.savefig('logph_diagram_H2O_with_all_states_and_connections.svg')
-        fig.savefig('logph_diagram_H2O_with_all_states_and_connections.png', dpi=300)
+        fig.savefig('logph_diagram_H2O_with_all_states_and_connections.svg', bbox_inches='tight')
+        fig.savefig('logph_diagram_H2O_with_all_states_and_connections.png', dpi=300, bbox_inches='tight')
         # plt.show()
 
     def convert_states(self, fluid_states, target_diagram):

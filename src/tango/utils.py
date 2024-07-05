@@ -157,7 +157,7 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
             append_results(d, state, unit_name)
 
 
-def states_dict_generator(nodes, fluid_states: dict = None) -> dict:
+def states_dict_generator(pp_inclusion, nodes, fluid_states: dict = None) -> dict:
     if fluid_states is None:
         fluid_states = {}
 
@@ -172,7 +172,7 @@ def states_dict_generator(nodes, fluid_states: dict = None) -> dict:
 
         fluid_states[unit_name].append((pressure/100000.0, enthalpy/1000.0))
 
-        if(id == 'surface'):
+        if((id == 'surface') and (pp_inclusion == 'yes')):
             for component in state.diagram_states:
                 enthalpy = state.diagram_states[component].H
                 pressure = state.diagram_states[component].P
@@ -182,9 +182,38 @@ def states_dict_generator(nodes, fluid_states: dict = None) -> dict:
 
                 fluid_states[component].append((pressure/100000.0, enthalpy/1000.0))
 
-    print(fluid_states)
+    # print(fluid_states)
 
     return fluid_states
+
+
+def create_connections(pp_inclusion, graph_edges, state):
+    connections = []
+    node_mapping = {
+        'surface': 'surface',
+        'inj_1': 'injection_well',
+        'reservoir': 'reservoir',
+        'prd_1': 'production_well',
+        'prd_2': 'production_well_pump',
+        'h_well': 'horizontal_well',
+        'h_well_1': 'production_well',
+        'h_well_2': 'production_well'
+    }
+
+    for edge in graph_edges.values():
+        source = node_mapping[edge['source']]
+        target = node_mapping[edge['target']]
+        connections.append((source, target, 'non-isentropic'))
+
+    # print(connections)
+    # print(state.diagram_connections)
+    if (pp_inclusion == 'no'):
+        combined = connections
+    else:
+        combined = connections + state.diagram_connections
+        combined = [conn for conn in combined if conn != ('production_well', 'surface', 'non-isentropic')]
+
+    return combined
 
 
 def append_results(d: dict, state: classmethod, base_name: str) -> None:

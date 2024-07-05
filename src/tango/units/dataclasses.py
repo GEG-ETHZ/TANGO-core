@@ -1,6 +1,7 @@
 from tango.core.config import *
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import numpy as np
 import inspect
 
 @dataclass
@@ -171,3 +172,41 @@ class ReservoirSpecsPorousflow(ReservoirSpecs):
         for s in required_fields:
             if getattr(self, s, None) == None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
+
+
+@dataclass
+class DiagramSpecs:
+    diagram_type: str = 'logph'
+    include_Power_plant: str = 'no'
+    fluid: str = 'CO2'
+    x_min: float = 100
+    x_max: float = 500
+    y_min: float = 1
+    y_max: float = 1000
+    unit_system: dict = field(default_factory=lambda: {'T': '°C', 'h': 'kJ/kg', 'p': 'bar'})
+    isoline_config: dict = field(default_factory=lambda: {
+        'Q': {'start': 0, 'end': 1, 'num': 2},
+        'T': {'start': -40, 'end': 160, 'num': 10},
+        'p': {'start': 0.01, 'end': 1000, 'num': 6},
+        'v': {'start': 0.001, 'end': 10, 'num': 0},
+        's': {'start': 1000, 'end': 10000, 'num': 0},
+        'h': {'start': 0, 'end': 3600, 'num': 19}
+    })
+
+    @property
+    def isoline_settings(self):
+        return {
+            'Q': np.linspace(self.isoline_config['Q']['start'], self.isoline_config['Q']['end'], self.isoline_config['Q']['num']),
+            'T': np.linspace(self.isoline_config['T']['start'], self.isoline_config['T']['end'], self.isoline_config['T']['num']),
+            'p': np.geomspace(self.isoline_config['p']['start'], self.isoline_config['p']['end'], self.isoline_config['p']['num']) * 1e5,
+            'v': np.geomspace(self.isoline_config['v']['start'], self.isoline_config['v']['end'], self.isoline_config['v']['num']) if self.isoline_config['v']['num'] > 0 else np.array([]),
+            's': np.linspace(self.isoline_config['s']['start'], self.isoline_config['s']['end'], self.isoline_config['s']['num']) if self.isoline_config['s']['num'] > 0 else np.array([]),
+            'h': np.linspace(self.isoline_config['h']['start'], self.isoline_config['h']['end'], self.isoline_config['h']['num'])
+        }
+
+    @classmethod
+    def from_dict(cls, env): # ignore extra arguments passed to a dataclass
+        return cls(**{
+            k: v for k, v in env.items()
+            if k in inspect.signature(cls).parameters
+        })

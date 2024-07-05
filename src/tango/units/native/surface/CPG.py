@@ -69,6 +69,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_net_state()
 
         self._update_diagram_states()
+        self._update_diagram_connections()
 
         return self.P_out, self.T_out, self.mass_rate
 
@@ -201,3 +202,21 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         if (self.cooler_include):
             self.diagram_states['cooler'] = self.outlet_fluid_cooler
         self.diagram_states['condenser'] = self.outlet_fluid_condenser
+
+
+    def _update_diagram_connections(self) -> None:
+        if (self.cooler_include):
+            self.diagram_connections = [
+                ('production_well', 'turbine', 'non-isentropic'),
+                ('turbine', 'turbine', 'non-isentropic'),
+                ('cooler', 'condenser', 'non-isentropic'),
+                ('condenser', 'surface', 'non-isentropic')
+            ]
+        else:
+            self.diagram_connections = [
+                ('production_well', 'turbine', 'non-isentropic'),
+                ('turbine', 'condenser', 'non-isentropic'),
+                ('condenser', 'surface', 'non-isentropic')
+            ]
+
+
