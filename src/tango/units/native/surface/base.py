@@ -6,6 +6,7 @@ class SurfaceUnitNative(Unit):
 
     def __init__(self, id, specs):
         super().__init__(id, specs)
+        self.diagram_states = {}
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 

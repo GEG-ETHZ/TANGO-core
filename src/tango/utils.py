@@ -157,6 +157,36 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
             append_results(d, state, unit_name)
 
 
+def states_dict_generator(nodes, fluid_states: dict = None) -> dict:
+    if fluid_states is None:
+        fluid_states = {}
+
+    for id in nodes:
+        state = nodes[id]['unit']
+        unit_name = nodes[id]['type']
+        enthalpy = state.outlet_fluid.H
+        pressure = state.outlet_fluid.P
+
+        if unit_name not in fluid_states:
+            fluid_states[unit_name] = []
+
+        fluid_states[unit_name].append((pressure/100000.0, enthalpy/1000.0))
+
+        if(id == 'surface'):
+            for component in state.diagram_states:
+                enthalpy = state.diagram_states[component].H
+                pressure = state.diagram_states[component].P
+                print(component, 'it is')
+                if component not in fluid_states:
+                    fluid_states[component] = []
+
+                fluid_states[component].append((pressure/100000.0, enthalpy/1000.0))
+
+    print(fluid_states)
+
+    return fluid_states
+
+
 def append_results(d: dict, state: classmethod, base_name: str) -> None:
     var_names = [var for var in dir(state) if not var.startswith("__")]
     for name in var_names:

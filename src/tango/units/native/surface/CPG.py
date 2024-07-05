@@ -35,6 +35,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.iterative_inj_pressure = 9000000
         self.iterative_inj_temperature = 302.0
         self.reservoir_file_reader = False
+        self.cooler_include = False
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -51,6 +52,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         #------------------------------------------------------------
         self.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
         self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
+        self.outlet_fluid_cooler = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
         self.condensation_pressure = self.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
         self.condenser_saturated_vapor_h = FluidState.withPQ(self._fluid_name, Q=1.0, P=self.condensation_pressure).H
         self.condenser_saturated_liquid_h = FluidState.withPQ(self._fluid_name, Q=0.0, P=self.condensation_pressure).H
@@ -65,6 +67,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
+
+        self._update_diagram_states()
 
         return self.P_out, self.T_out, self.mass_rate
 
@@ -127,6 +131,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.q_cooler = 0. # (W)
         self.q_condenser = self.mass_rate * (h_condensed - h_turbine_outlet) # (W)
         if h_turbine_outlet > h_saturated_vapor: # desuperheating needed
+            self.cooler_include = True
             self.q_cooler = self.mass_rate * (h_saturated_vapor - h_turbine_outlet)
             self.q_condenser = self.mass_rate * (h_condensed - h_saturated_vapor)
             T_turbine_outlet = FluidState.withHP(self._fluid_name, h_turbine_outlet, self.condensation_pressure).T
@@ -134,6 +139,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self.w_cooler = X_CO2 * self.q_cooler * self._get_parasitic_power_fraction_cooling() # (W)
         self.w_condenser = X_CO2 * self.q_condenser * self._get_parasitic_power_fraction_condensing() # (W)
+
+        self.outlet_fluid_cooler.updateHP(h_saturated_vapor, self.condensation_pressure)
+        self.outlet_fluid_condenser.updateHP(h_condensed, self.condensation_pressure)
 
 
     def _update_pump_state(self) -> None:
@@ -186,3 +194,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
     def _update_net_state(self) -> None:
         self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
+
+
+    def _update_diagram_states(self) -> None:
+        self.diagram_states['turbine'] = self.outlet_fluid_turbine
+        if (self.cooler_include):
+            self.diagram_states['cooler'] = self.outlet_fluid_cooler
+        self.diagram_states['condenser'] = self.outlet_fluid_condenser

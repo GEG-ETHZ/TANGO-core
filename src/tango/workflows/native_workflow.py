@@ -11,6 +11,7 @@ from tango.core.config import *
 from tango import utils
 from tango.orchestrators.native import *
 from tango.orchestrators.external import *
+from tango.diagram_plotter import FluidDiagramPlotter
 
 def get_system_class(type_: str) -> object:
     try:
@@ -31,6 +32,7 @@ class NativeWorkflow(Workflow):
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
+        self._fluid_states = {}
 
 
     def _init_system(self) -> None:
@@ -79,10 +81,24 @@ class NativeWorkflow(Workflow):
                             nodes=self.orchestrator.graph.nodes,
                             current_date=current_date.strftime(DATETIME_FMT))
 
+        self._fluid_states = utils.states_dict_generator(self.orchestrator.graph.nodes, self._fluid_states)
+
 
     def _post_processing(self) -> None:
         utils.write_results(input_file=self._input_file,
                             results=(self._results,self.economic.get_results() if self.economic != None else None))
+
+        plotter1 = FluidDiagramPlotter(fluid_states=self._fluid_states)
+        # connections = [
+        #     ('injection_well', 'reservoir', 'non-isentropic'),
+        #     ('reservoir', 'production_well', 'non-isentropic'),
+        #     ('production_well', 'surface', 'non-isentropic'),
+        #     ('surface', 'injection_well', 'non-isentropic')
+        # ]
+        connections = [
+            ('injection_well', 'production_well', 'non-isentropic')
+        ]
+        plotter1.create_plot(connections)
 
 
     def execute(self) -> None:
