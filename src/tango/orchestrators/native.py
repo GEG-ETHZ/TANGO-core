@@ -83,6 +83,7 @@ class SystemCPGNative(SystemNative):
             P0_guess1 = 8e6
             P0_guess2 = 15e6
             self.unit.surface.iterative_inj_pressure = wb.find_injection_pressure(target_bottom_pressure, P0_guess1, P0_guess2)
+            wb.update_dimensionless_time_old()
 
         outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
         self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)

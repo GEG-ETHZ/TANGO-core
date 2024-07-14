@@ -46,7 +46,7 @@ UNIT_OPTIONS = {
                         {
                             'native': 'ReservoirUnitNative',
                             'moose': 'ReservoirUnitPorousflow',
-                            'filereader': 'FileReaderUnit'
+                            'filereader': 'ReservoirFileReaderUnit'
                         },
                     'stream':
                         {
@@ -136,7 +136,7 @@ WELL_COST_OPTIONS = ['gengeo', 'halliburton', 'st_gallen', 'bavaria', 'swiss', '
 SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
 COOLING_MODE_OPTIONS = ['WET', 'DRY']
 SKIP_REPORT_ATTRIBUTES = ['mass_rate', 'mu', 'rho']
-REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'inlet_fluid', 'production_well': 'outlet_fluid'}
+REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'outlet_fluid', 'production_well': 'outlet_fluid'}
 MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
 DATETIME_FMT = '%Y-%m-%d'
 CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0.5, 'max_num_itr': 20}

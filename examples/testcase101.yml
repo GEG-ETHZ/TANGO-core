@@ -83,8 +83,47 @@ schedule:
   start_date: '2019-01-01' # Year-mm-dd
   num_tsteps: 5 # number of time steps
   dt: 1.0  # time step increment (year)
+  injection_condition_back_calculation: 'yes'
 
 economic: # optional
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
+
+phase_diagram: # optional
+  diagram_type: 'logph'
+  include_Power_plant: 'no'
+  fluid: 'CO2'
+  x_min: 200
+  x_max: 500
+  y_min: 10
+  y_max: 1000
+  unit_system:
+    T: '°C'
+    h: 'kJ/kg'
+    p: 'bar'
+  isoline_config:
+    Q:
+      start: 0
+      end: 1
+      num: 2
+    T:
+      start: -40
+      end: 160
+      num: 11
+    p:
+      start: 0.01
+      end: 1000
+      num: 6
+    v:
+      start: 0.001
+      end: 10
+      num: 0
+    s:
+      start: 1000
+      end: 2000
+      num: 11
+    h:
+      start: 0
+      end: 3600
+      num: 19

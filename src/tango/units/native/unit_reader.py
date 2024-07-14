@@ -8,14 +8,14 @@ from tango.units.dataclasses import ReservoirSpecsNative
 from tango.units.check_fracing import calculate_injection_rate
 import csv
 import os
+import logging
 
 
-class FileReaderUnit(Unit):
+class ReservoirFileReaderUnit(Unit):
     """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
 
     def __init__(self, id: str, specs: dict) -> None:
         super().__init__(id, specs)
-        # different options for specs
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self._specs_post_processor()
         self.init_stream_interface()
@@ -38,13 +38,6 @@ class FileReaderUnit(Unit):
         print(f'File reader inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
         print(f'File reader outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
-    # def process_stream(self) -> None:
-    #     """Update reservoir state given inlet state (outlet fluid state of injection well)"""
-    #
-    #     self.m_dot = self.m_dot_mult * self.mass_rate
-    #
-    #     return self.inlet_fluid.P + 5000000, self.inlet_fluid.T, self.m_dot
-
     def process_stream(self) -> tuple:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
         if self.current_row < len(self.csv_data):
@@ -58,15 +51,15 @@ class FileReaderUnit(Unit):
 
             return pressure, temperature, self.m_dot
         else:
-            # If we've reached the end of the file, you might want to handle this case
+            # If we've reached the end of the file
             # For now, we'll just return the last known values
+            logging.warning(f"we've reached the end of the file.")
             return self.outlet_fluid.P, self.outlet_fluid.T, self.m_dot
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self):
-        # file_path = '/Users/morteza/Documents/projects/TANGO/examples/representer.csv'
-        file_path = self.specs.inlet_state
+        file_path = self.specs.outlet_state
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 

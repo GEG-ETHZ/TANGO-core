@@ -227,7 +227,7 @@ class EconomicUnitNative(Unit):
             -> Get annual/averaged results for LCOE calculation
         """
         dt = self.specs.dt # dt in year
-        var_names = ['dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
+        var_names = ['thermal_power', 'dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
@@ -249,7 +249,7 @@ class EconomicUnitNative(Unit):
         self._results['CAPEX_total'] = val
 
 
-    def _get_LCOE(self, W: float) -> float:
+    def _get_LCOE(self, W: float, w2: float) -> float:
         """
 
         Args:
@@ -266,7 +266,7 @@ class EconomicUnitNative(Unit):
         d = self.specs.discount_rate
         t = self.specs.num_tsteps * self.specs.dt
         CF = self.specs.capacity_factor
-        F_OM = self.specs.OPEX_cost_fraction
+        F_OM = self.specs.OPEX_cost_fraction - w2/1000*8760*0.02/CAPEX
         CRF = d * (1. + d) ** t / ( (1. + d) ** t - 1.) # capital recovery factor
         return CAPEX * (CRF + F_OM) / (W * W_TO_KW * CF * YEAR_TO_HOUR)
 
@@ -288,8 +288,11 @@ class EconomicUnitNative(Unit):
 
     def _compute_LCOE(self) -> None:
         W_net_total = self._surface_power_plant_unit.get_net_W_total()
+        W_net_thermal = self._surface_power_plant_unit._W_net_thermal
+        # print(self._surface_power_plant_unit._W_net_thermal, 'thermal')
         self._results['Net_Electricity_Generated_kWe'] = W_TO_KW * W_net_total
-        self._results['LCOE'] = self._get_LCOE(W_net_total)
+        self._results['Net_thermal_power_Generated_kWe'] = W_TO_KW * W_net_thermal
+        self._results['LCOE'] = self._get_LCOE(W_net_total, W_net_thermal)
         self._results['SpCC'] = self._get_specific_capital_cost(W_net_total)
 
 

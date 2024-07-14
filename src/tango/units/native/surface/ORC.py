@@ -47,6 +47,9 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._specs_post_processor()
         self._initialize_attributes()
         self.init_stream_interface()
+        self.iterative_inj_pressure = 1000000   # 1
+        self.iterative_inj_temperature = 302.0  # 2
+        self.reservoir_file_reader = False  # 3
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -61,6 +64,10 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
     def process_stream(self) -> None:
         self._update_state_pipe()
         self._update_state_fluid()
+
+        self._update_diagram_states()
+        self._update_diagram_connections()
+
         return self.P_out, self.T_out, self.mass_rate
 
     # -------------------------------------- data storing Functions -------------------------------------- #
@@ -197,21 +204,28 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         fluid_state_pump_inlet = FluidState.withQT(self._refrigerant_name,
                                                    Q=0.0,
                                                    T=self._condensation_temperature)  # saturated liquid
+        self.condenser = fluid_state_pump_inlet
 
         # State 6 (Desuperheater/Cooler -> Condenser)
         fluid_state_condenser_inlet = FluidState.withQT(self._refrigerant_name,
                                                         Q=1.0,
                                                         T=fluid_state_pump_inlet.T)  # saturated vapor
 
+        self.cooler = fluid_state_condenser_inlet
+
         # State 3 (Preheater -> Boiler)
         fluid_state_boiler_inlet = FluidState.withQT(self._refrigerant_name,
                                                      Q=0.0,
                                                      T=T_boiling)  # saturated liquid
 
+        self.pre_heater = fluid_state_boiler_inlet
+
         # State 4 (Boiler -> Turbine)
         fluid_state_turbine_inlet = FluidState.withQT(self._refrigerant_name,
                                                       Q=1.0,
                                                       T=fluid_state_boiler_inlet.T)  # saturated vapor
+
+        self.boiler = fluid_state_turbine_inlet
 
         # State 5 (Turbine -> Desuperheater/Cooler)
         fluid_state_cooler_inlet = FluidState.withPS(self._refrigerant_name,
@@ -223,6 +237,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
                                                H=h_cooler_inlet,
                                                P=fluid_state_pump_inlet.P)
 
+        self.turbine = fluid_state_cooler
+
         # State 2 (Pump -> Preheater)
         fluid_state_preheater_inlet = FluidState.withPS(self._refrigerant_name,
                                                         P=fluid_state_boiler_inlet.P,
@@ -232,6 +248,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         fluid_state_preheater = FluidState.withHP(self._refrigerant_name,
                                                   H=h_preheater,
                                                   P=fluid_state_boiler_inlet.P)
+
+        self.pump = fluid_state_preheater
 
         #
         # ... ORC fluid heat/work
@@ -285,6 +303,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.dT_range_CT = fluid_state_cooler.T - fluid_state_condenser_inlet.T
         dT_A_p = T_13 - fluid_state_preheater.T
         dT_B_p = T_12 - fluid_state_boiler_inlet.T
+        # print('aaa', T_12, T_13)
         if dT_A_p == dT_B_p:
             self.dT_LMTD_preheater = dT_A_p
         else:
@@ -299,5 +318,72 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        self.P_out = self.inlet_fluid.P
-        self.T_out = T_13
+        if (self.specs.bc_iteration_checkpoint == 'injection_well_bottom'):
+            if ((self.reservoir_file_reader == True) and (self.specs.injection_condition_back_calculation == 'yes')):
+                self.P_out = self.iterative_inj_pressure # movazeb
+                self.T_out = self.iterative_inj_temperature
+            else:
+                self.P_out = self.iterative_inj_pressure
+                self.T_out = T_13
+
+            if (self.specs.cascade_power_plant == 'yes'):
+                self.lulu = FluidState.withPT(self._fluid_name,
+                                                   P=self.inlet_fluid.P,
+                                                   T=T_13)
+
+                self.lulu_out = FluidState.withPT(self._fluid_name,
+                                                   P=self.iterative_inj_pressure,
+                                                   T=self.iterative_inj_temperature)
+
+                self.thermal_power = self.mass_rate * (self.lulu.H - self.lulu_out.H)
+
+
+
+        elif (self.specs.bc_iteration_checkpoint == 'production_well_bottom'):
+            self.P_out = self.inlet_fluid.P
+            self.T_out = T_13
+
+            if (self.specs.cascade_power_plant == 'yes'):
+                raise NotImplementedError(f"cascade power plant is not supported when the bc_iteration_checkpoint is production_well_bottom.")
+
+
+        # self.P_out = self.inlet_fluid.P
+        # self.T_out = T_13
+
+        # self.P_out = self.iterative_inj_pressure # movazeb
+        # self.T_out = self.iterative_inj_temperature
+        #
+        # self.lulu = FluidState.withPT(self._fluid_name,
+        #                                        P=self.inlet_fluid.P,
+        #                                        T=T_13)
+        #
+        # self.lulu_out = FluidState.withPT(self._fluid_name,
+        #                                        P=self.iterative_inj_pressure,
+        #                                        T=self.iterative_inj_temperature)
+        #
+        # self.thermal_power = self.mass_rate * (self.lulu.H - self.lulu_out.H)
+        # print('\n')
+        # print(self.lulu.P, self.lulu.T, self.lulu.H, 'lulu')
+        # print('\n')
+        # print(self.lulu_out.P, self.lulu_out.T, self.lulu_out.H, 'lulu')
+        # print('\n')
+        # print(self.mass_rate, self.thermal_power)
+
+    def _update_diagram_states(self) -> None:
+        self.diagram_states['Pre_Heater'] = self.pre_heater
+        self.diagram_states['Boiler'] = self.boiler
+        self.diagram_states['Cooler'] = self.cooler
+        self.diagram_states['Condenser'] = self.condenser
+        self.diagram_states['Turbine'] = self.turbine
+        self.diagram_states['Pump'] = self.pump
+
+
+    def _update_diagram_connections(self) -> None:
+        self.diagram_connections = [
+             ('Pre_Heater', 'Boiler', 'non-isentropic'),
+             ('Boiler', 'Turbine', 'non-isentropic'),
+             ('Turbine', 'Cooler', 'non-isentropic'),
+             ('Cooler', 'Condenser', 'non-isentropic'),
+             ('Condenser', 'Pump', 'non-isentropic'),
+             ('Pump', 'Pre_Heater', 'non-isentropic')
+         ]

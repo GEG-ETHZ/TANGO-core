@@ -32,10 +32,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._specs_post_processor()
         self._initialize_attributes()
         self.init_stream_interface()
-        self.iterative_inj_pressure = 9000000
-        self.iterative_inj_temperature = 302.0
-        self.reservoir_file_reader = False
-        self.cooler_include = False
+        self.iterative_inj_pressure = 9000000   # 1
+        self.iterative_inj_temperature = 302.0  # 2
+        self.reservoir_file_reader = False  # 3
+        self.cooler_include = False  # 4
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -149,15 +149,13 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         eta = self.specs.eta_pump
         X_CO2 = self._X_CO2
-        print('self.reservoir_file_reader', self.reservoir_file_reader)
+        print('self.reservoir_file_reader', self.reservoir_file_reader)  # 5
         if (self.specs.bc_iteration_checkpoint == 'injection_well_bottom'):
-            if (self.reservoir_file_reader == True):
-                P_pump_outlet = self.iterative_inj_pressure
-                T_pump_outlet = self.iterative_inj_temperature
-                self.outlet_fluid_pump.updatePT(P_pump_outlet, T_pump_outlet)
-                self.w_pump =  self.w_pump = -1.0 * X_CO2 * self.mass_rate * (self.outlet_fluid_pump.H - self.inlet_fluid_pump.H)
-                self.P_out = P_pump_outlet
-                self.T_out = T_pump_outlet
+            if ((self.reservoir_file_reader == True) and (self.specs.injection_condition_back_calculation == 'yes')):
+                self.P_out = self.iterative_inj_pressure
+                self.T_out = self.iterative_inj_temperature
+                self.outlet_fluid_pump.updatePT(self.P_out, self.T_out)
+                self.w_pump = self.w_pump = -1.0 * X_CO2 * self.mass_rate * (self.outlet_fluid_pump.H - self.inlet_fluid_pump.H)
             else:
                 P_pump_outlet = self.iterative_inj_pressure
                 h_pump_inlet = self.inlet_fluid_pump.H
@@ -174,6 +172,12 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
                 self.T_out = self.outlet_fluid_pump.T
 
         elif (self.specs.bc_iteration_checkpoint == 'production_well_bottom'):
+
+            if (self.specs.injection_condition_back_calculation == 'yes'):
+                raise NotImplementedError(f"injection_condition_back_calculation is not supported when the bc_iteration_checkpoint is production_well_bottom.")
+            if (self.reservoir_file_reader == True):
+                raise NotImplementedError(f"reservoir file reader is not supported when the bc_iteration_checkpoint is production_well_bottom.")
+
             dP_pump = self.get_dP_pump()
             P_pump_outlet = self.condensation_pressure + dP_pump
             h_pump_inlet = self.inlet_fluid_pump.H

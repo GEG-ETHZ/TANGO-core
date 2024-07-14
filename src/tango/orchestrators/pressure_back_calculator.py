@@ -76,7 +76,7 @@ class wellbore(Unit):
         self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
         self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
         self.surface_class = surface_class_name
-        self.last_converged_P0 = 7e6
+        self.last_converged_P0 = 1e6
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
@@ -145,10 +145,10 @@ class wellbore(Unit):
             self.out_pump.updateHP(h_pump_outlet, inj_P)
             injection_temperature = self.out_pump.T
         else:
-            injection_temperature = injection_temperature2
+            injection_temperature = injection_temperature2  # 1
 
 
-        self.inlet_fluid = FluidState('CO2')
+        self.inlet_fluid = FluidState('H2O')  # 2  # movazeb
         self.inlet_fluid.updatePT(inj_P, injection_temperature)
         self._initialize_state()
         self._T_f[0] = injection_temperature2
@@ -197,7 +197,7 @@ class wellbore(Unit):
             injection_temperature = 295.15
 
 
-        self.inlet_fluid = FluidState('CO2')
+        self.inlet_fluid = FluidState('H2O')
         self.inlet_fluid.updatePT(inj_P, injection_temperature)
         self._initialize_state()
         g, dz, f_dir = self._g, self._dz, -1.0
@@ -287,7 +287,10 @@ class wellbore(Unit):
                 writer.writerow([i, self._P[i], self._T_f[i]])
 
 
-    def find_injection_conditions(self, target_bottom_pressure, target_bottom_temperature, T0_guess=303, pressure_tol=100000, temperature_tol=1, max_iter=1000000):
+
+
+
+    def find_injection_conditions(self, target_bottom_pressure, target_bottom_temperature, T0_guess=300, pressure_tol=1000000, temperature_tol=0.5, max_iter=1000000):
         """Find the injection pressure and temperature using a manual Newton-Raphson method."""
 
         # if not hasattr(self, 'last_converged_P0'):
@@ -307,10 +310,12 @@ class wellbore(Unit):
                 print(f"Simulation failed for P0={P0:.2f} Pa, T0={T0:.2f} K: {str(e)}")
                 return (1e10, 1e10)
 
-        def jacobian(P0, T0, h=1e-2):
+        def jacobian(P0, T0, h=5e-2):
             f1, f2 = equations(P0, T0)
-            f1_dP, f2_dP = equations(P0 + h, T0)
-            f1_dT, f2_dT = equations(P0, T0 + h)
+            # f1_dP, f2_dP = equations(P0 + h, T0)
+            # f1_dT, f2_dT = equations(P0, T0 + h)
+            f1_dP, f2_dP = equations(P0 + 0.1e6, T0)
+            f1_dT, f2_dT = equations(P0, T0 + 1)
 
             dF1_dP = (f1_dP - f1) / h
             dF1_dT = (f1_dT - f1) / h
@@ -319,7 +324,7 @@ class wellbore(Unit):
 
             return np.array([[dF1_dP, dF1_dT], [dF2_dP, dF2_dT]])
 
-        def newton_raphson(P0, T0, max_iterations=10):
+        def newton_raphson(P0, T0, max_iterations=50):
             for _ in range(max_iterations):
                 F = np.array(equations(P0, T0))
 
@@ -339,8 +344,8 @@ class wellbore(Unit):
 
             return P0, T0, False
 
-        P0_values = list(np.arange(self.last_converged_P0, 14e6 + 0.1e6, 0.1e6))
-        P0_values += list(np.arange(7e6, self.last_converged_P0, 0.1e6))
+        P0_values = list(np.arange(self.last_converged_P0, 7e6 + 0.1e6, 0.1e6))
+        P0_values += list(np.arange(1e6, self.last_converged_P0, 0.1e6))
 
         for P0_start in P0_values:
             P0, T0, converged = newton_raphson(P0_start, T0_guess)
@@ -349,6 +354,84 @@ class wellbore(Unit):
                 return (P0, self._T_f[0])  # Return P0 and actual T0 (self._T_f[0])
 
         raise RuntimeError("Root-finding method did not converge within the specified tolerances and P0 range.")
+
+
+
+
+    import numpy as np
+
+    # def find_injection_conditions(self, target_bottom_pressure, target_bottom_temperature, T0_guess=300, pressure_tol=2000000, temperature_tol=0.5, max_iter=1000000):
+    #     """Find the injection pressure and temperature using a manual Newton-Raphson method."""
+    #
+    #     print('self.last_converged_P0', self.last_converged_P0)
+    #
+    #     def equations(P0, T0):
+    #         try:
+    #             self.process_stream(P0, T0)
+    #             bottom_pressure = self._P[-1]
+    #             bottom_temperature = self._T_f[-1]
+    #             print(f"Iteration: P0={P0:.2f} Pa, T0_proposed={T0:.2f} K, T0_actual={self._T_f[0]:.2f} K, "
+    #                   f"Bottom P={bottom_pressure:.2f} Pa, Bottom T={bottom_temperature:.2f} K")
+    #             print(bottom_pressure - target_bottom_pressure, bottom_temperature - target_bottom_temperature)
+    #             return (bottom_pressure - target_bottom_pressure, bottom_temperature - target_bottom_temperature)
+    #         except Exception as e:
+    #             print(f"Simulation failed for P0={P0:.2f} Pa, T0={T0:.2f} K: {str(e)}")
+    #             return (1e10, 1e10)
+    #
+    #     def jacobian(P0, T0, h=0.05):
+    #         f1, f2 = equations(P0, T0)
+    #         f1_dP, f2_dP = equations(P0 + h, T0)
+    #         f1_dT, f2_dT = equations(P0, T0 + h)
+    #
+    #         dF1_dP = (f1_dP - f1) / h
+    #         dF1_dT = (f1_dT - f1) / h
+    #         dF2_dP = (f2_dP - f2) / h
+    #         dF2_dT = (f2_dT - f2) / h
+    #
+    #         return np.array([[dF1_dP, dF1_dT], [dF2_dP, dF2_dT]])
+    #
+    #     def newton_raphson(P0, T0, max_iterations=100):
+    #         for _ in range(max_iterations):
+    #             F = np.array(equations(P0, T0))
+    #             if np.abs(F[0]) <= pressure_tol and np.abs(F[1]) <= temperature_tol:
+    #                 return P0, T0, True
+    #             J = jacobian(P0, T0)
+    #             try:
+    #                 delta = np.linalg.solve(J, -F)
+    #             except np.linalg.LinAlgError:
+    #                 print("Jacobian matrix is singular. Skipping to next P0.")
+    #                 return P0, T0, False
+    #
+    #             # Limit the change in T0 and ensure it stays within the range
+    #             max_delta_T = 5  # Maximum allowed change in temperature per iteration
+    #             # delta[1] = np.clip(delta[1], -max_delta_T, max_delta_T)
+    #
+    #             P0 += delta[0]
+    #             T0 += delta[1]
+    #
+    #             # Ensure T0 stays within the bounds of 288.15 K and 303.15 K
+    #             if T0 < 288.15:
+    #                 T0 = 288.15 + (288.15 - T0)
+    #             elif T0 > 303.15:
+    #                 T0 = 303.15 - (T0 - 303.15)
+    #
+    #         return P0, T0, False
+    #
+    #     P0_values = list(np.arange(self.last_converged_P0, 10e6 + 0.1e6, 0.1e6))
+    #     P0_values += list(np.arange(2e6, self.last_converged_P0, 0.1e6))
+    #
+    #     for P0_start in P0_values:
+    #         P0, T0, converged = newton_raphson(P0_start, T0_guess)
+    #         print('converged', converged)
+    #         if converged:
+    #             self.last_converged_P0 = P0_start
+    #             return (P0, self._T_f[0])  # Return P0 and actual T0 (self._T_f[0])
+    #
+    #     raise RuntimeError("Root-finding method did not converge within the specified tolerances and P0 range.")
+
+
+
+
 
     def find_injection_pressure(self, target_bottom_pressure, P0_guess1, P0_guess2, tol=100000, max_iter=100):
         """Find the injection pressure using the secant method.

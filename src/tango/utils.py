@@ -157,6 +157,36 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
             append_results(d, state, unit_name)
 
 
+# def states_dict_generator(pp_inclusion, nodes, fluid_states: dict = None) -> dict:
+#     if fluid_states is None:
+#         fluid_states = {}
+#
+#     for id in nodes:
+#         state = nodes[id]['unit']
+#         unit_name = nodes[id]['type']
+#         enthalpy = state.outlet_fluid.H
+#         pressure = state.outlet_fluid.P
+#
+#         # if unit_name not in fluid_states:
+#         #     fluid_states[unit_name] = []
+#         #
+#         # fluid_states[unit_name].append((pressure/100000.0, enthalpy/1000.0))
+#
+#         if((id == 'surface') and (pp_inclusion == 'yes')):
+#             for component in state.diagram_states:
+#                 enthalpy = state.diagram_states[component].H
+#                 pressure = state.diagram_states[component].P
+#                 # print(component, 'it is')
+#                 if component not in fluid_states:
+#                     fluid_states[component] = []
+#
+#                 fluid_states[component].append((pressure/100000.0, enthalpy/1000.0))
+#
+#     # print('fluid_stateshere', fluid_states)
+#     # print(state.diagram_states, 'kaka')
+#
+#     return fluid_states
+
 def states_dict_generator(pp_inclusion, nodes, fluid_states: dict = None) -> dict:
     if fluid_states is None:
         fluid_states = {}
@@ -182,9 +212,41 @@ def states_dict_generator(pp_inclusion, nodes, fluid_states: dict = None) -> dic
 
                 fluid_states[component].append((pressure/100000.0, enthalpy/1000.0))
 
-    # print(fluid_states)
+    # print('fluid_stateshere', fluid_states)
 
     return fluid_states
+
+
+def create_connections(pp_inclusion, graph_edges, state):
+    connections = []
+    # node_mapping = {
+    #     'surface': 'surface',
+    #     'inj_1': 'injection_well',
+    #     'reservoir': 'reservoir',
+    #     'prd_1': 'production_well',
+    #     'prd_2': 'production_well_pump',
+    #     'h_well': 'horizontal_well',
+    #     'h_well_1': 'production_well',
+    #     'h_well_2': 'production_well'
+    # }
+    #
+    # for edge in graph_edges.values():
+    #     source = node_mapping[edge['source']]
+    #     target = node_mapping[edge['target']]
+    #     connections.append((source, target, 'non-isentropic'))
+
+    # print(connections)
+    # print(state.diagram_connections)
+    if (pp_inclusion == 'no'):
+        combined = connections
+    else:
+        # combined = connections + state.diagram_connections
+        combined = state.diagram_connections
+        combined = [conn for conn in combined if conn != ('production_well', 'surface', 'non-isentropic')]
+
+    # print('combinedhere', combined)
+
+    return combined
 
 
 def create_connections(pp_inclusion, graph_edges, state):
@@ -211,7 +273,10 @@ def create_connections(pp_inclusion, graph_edges, state):
         combined = connections
     else:
         combined = connections + state.diagram_connections
+        # combined = state.diagram_connections
         combined = [conn for conn in combined if conn != ('production_well', 'surface', 'non-isentropic')]
+
+    # print('combinedhere', combined)
 
     return combined
 

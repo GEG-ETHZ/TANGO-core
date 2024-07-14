@@ -8,6 +8,7 @@ class SurfaceUnitNative(Unit):
         super().__init__(id, specs)
         self.diagram_states = {}
         self.diagram_connections = {}
+        self.thermal_power = 0.0
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 

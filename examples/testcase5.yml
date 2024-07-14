@@ -103,12 +103,12 @@ economic:
 
 phase_diagram: # optional
   diagram_type: 'logph'
-  include_Power_plant: 'no'
-  fluid: 'CO2'
-  x_min: 200
+  include_Power_plant: 'yes'
+  fluid: 'R245fa'
+  x_min: 100
   x_max: 500
-  y_min: 10
-  y_max: 1000
+  y_min: 0.1
+  y_max: 100
   unit_system:
     T: '°C'
     h: 'kJ/kg'

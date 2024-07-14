@@ -21,6 +21,9 @@ class CommonSpecs:
     num_tsteps: int
     dt: float  # time step years
     bc_iteration_checkpoint: str = 'production_well_bottom'
+    injection_condition_back_calculation: str = 'no'
+    cascade_power_plant: str = 'no'
+    entire_subsurface_external: str = 'no'
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

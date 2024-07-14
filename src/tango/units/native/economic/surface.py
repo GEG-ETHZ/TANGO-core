@@ -146,6 +146,7 @@ class EconUnitSurfacePowerPlant:
         self._W_cooler_total = mult * self._state.w_cooler
         self._W_condenser_total = mult * self._state.w_condenser
         self._W_net_total = self._W_pump_total + self._W_turbine_total + self._W_cooler_total + self._W_condenser_total
+        self._W_net_thermal = self._state.thermal_power
 
 
     def _process_surface_state_ORC(self) -> None:
@@ -163,6 +164,7 @@ class EconUnitSurfacePowerPlant:
         self._W_pump_prod = mult * self._state.w_downhole_pump
         self._W_turbine_total = mult * self._state.w_turbine
         self._W_net_total = mult * (self._state.w_net + self._state.w_downhole_pump)
+        self._W_net_thermal = self._state.thermal_power
 
         self._dT_range_CT = self._state.dT_range_CT
         self._dT_LMTD_preheater = self._state.dT_LMTD_preheater
@@ -301,7 +303,7 @@ class EconUnitSurfacePowerPlant:
         C_recuperator = self._compute_recuperator_cost()
 
         C_plant_PEC = C_turbine_generator + C_pump_inj + C_pump_prod \
-                      + C_cooling_condensing_tower + C_heat_exchanger + C_recuperator # primary equipment cost (PEC)
+                      + C_cooling_condensing_tower + C_heat_exchanger + C_recuperator + 200.0 * self._W_net_thermal / 1000.0 # primary equipment cost (PEC)
 
         C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
 
