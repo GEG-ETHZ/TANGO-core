@@ -4,6 +4,7 @@ import csv
 import os
 from tango.utils import *
 import numpy as np
+import inspect
 
 class SystemExternal(UnitManager):
 
@@ -14,7 +15,8 @@ class SystemExternal(UnitManager):
         else:
             self.wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
 
-            if (self.unit.reservoir.__class__.__name__ == 'FileReaderUnit'):
+            if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+                print('global')
                 self.csv_data = self._read_csv_file()
                 self.current_row = 0
 
@@ -27,7 +29,9 @@ class SystemExternal(UnitManager):
     def update(self) -> None:
         """update unknown to balance the system"""
 
-        if 'entire_subsurface_external' in specs['schedule'] and specs['schedule']['entire_subsurface_external'] == 'yes':
+        print('soil')
+
+        if 'entire_subsurface_external' in self.specs['schedule'] and self.specs['schedule']['entire_subsurface_external'] == 'yes':
             pass
         else:
             if (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
@@ -36,21 +40,26 @@ class SystemExternal(UnitManager):
                     target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
                     self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
                 else:
+                    print('soil2')
                     target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
-                    self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 1000000, 15000000)
-                if (self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative'):
-                    outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
-                    self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-                    self.wb.update_dimensionless_time_old()
-                elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
-                    count = 0
-                    while not self.balanced():
-                        if self.max_itr_reached(count):
-                            break
-                        self._update_production_well()
-                        count += 1
-                else:
-                    raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+                    print(target_bottom_pressure)
+                    self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 8000000, 15000000)
+
+                    if (self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative'):
+
+                        outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
+                        self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+                        self.wb.update_dimensionless_time_old()
+                    elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
+                        print('ORC')
+                        count = 0
+                        while not self.balanced():
+                            if self.max_itr_reached(count):
+                                break
+                            self._update_production_well()
+                            count += 1
+                    else:
+                        raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
             else:
                 raise NotImplementedError("Only 'injection_well_bottom' is supported as check-point when the External system is used as orchestrator")
 
@@ -112,7 +121,8 @@ class SystemExternal(UnitManager):
             self.unit.production_well.update_dimensionless_time_old()
 
         elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
-            self.unit.reservoir.update_energy_extracted_old()
+            if (self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
+                self.unit.reservoir.update_energy_extracted_old()
             self.unit.injection_well.update_dimensionless_time_old()
             self.unit.production_well.update_dimensionless_time_old()
             self.unit.production_well_pump.update_dimensionless_time_old()

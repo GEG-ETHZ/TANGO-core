@@ -104,7 +104,7 @@ def system_name(specs) -> str:
             sys_name = node['unit']
         if 'reservoir' in specs['graph']['nodes'] and specs['graph']['nodes']['reservoir'].get('unit') == 'filereader':
             sys_name = 'external'
-        if 'reservoir' in specs['graph']['nodes'] and specs['graph']['nodes']['reservoir'].get('unit') == 'filereader':
+        if specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
             sys_name = 'external'
         unit_types.append(node['type'])
     if 'horizontal_well' in unit_types and 'reservoir' not in unit_types:

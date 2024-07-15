@@ -132,15 +132,15 @@ class wellbore(Unit):
         """update dynamic variables along wellbore"""
 
         if (self.surface_class != 'SurfaceUnitDHNative'):
-            self.in_pump = FluidState('CO2')
+            self.in_pump = FluidState(self._specs.fluid_name)
             self._condensation_temperature = self._specs.surface_temperature + 7.0
-            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
+            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, self._specs.fluid_name)
             self.in_pump.updatePQ(saturation_pressure, 0.0)
 
-            self.out_pump_ideal = FluidState('CO2')
+            self.out_pump_ideal = FluidState(self._specs.fluid_name)
             self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
 
-            self.out_pump = FluidState('CO2')
+            self.out_pump = FluidState(self._specs.fluid_name)
             h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
             self.out_pump.updateHP(h_pump_outlet, inj_P)
             injection_temperature = self.out_pump.T
@@ -148,7 +148,7 @@ class wellbore(Unit):
             injection_temperature = injection_temperature2  # 1
 
 
-        self.inlet_fluid = FluidState('H2O')  # 2  # movazeb
+        self.inlet_fluid = FluidState(self._specs.fluid_name)  # 2  # movazeb
         self.inlet_fluid.updatePT(inj_P, injection_temperature)
         self._initialize_state()
         self._T_f[0] = injection_temperature2
@@ -181,15 +181,15 @@ class wellbore(Unit):
         """update dynamic variables along wellbore"""
 
         if (self.surface_class != 'SurfaceUnitDHNative'):
-            self.in_pump = FluidState('CO2')
+            self.in_pump = FluidState(self._specs.fluid_name)
             self._condensation_temperature = self._specs.surface_temperature + 7.0
-            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
+            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, self._specs.fluid_name)
             self.in_pump.updatePQ(saturation_pressure, 0.0)
 
-            self.out_pump_ideal = FluidState('CO2')
+            self.out_pump_ideal = FluidState(self._specs.fluid_name)
             self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
 
-            self.out_pump = FluidState('CO2')
+            self.out_pump = FluidState(self._specs.fluid_name)
             h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
             self.out_pump.updateHP(h_pump_outlet, inj_P)
             injection_temperature = self.out_pump.T
@@ -198,6 +198,9 @@ class wellbore(Unit):
 
 
         self.inlet_fluid = FluidState('H2O')
+        print(inj_P, injection_temperature)
+        if (injection_temperature < 273.15):
+            injection_temperature = 295
         self.inlet_fluid.updatePT(inj_P, injection_temperature)
         self._initialize_state()
         g, dz, f_dir = self._g, self._dz, -1.0
