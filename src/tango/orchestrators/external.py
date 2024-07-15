@@ -78,8 +78,10 @@ class SystemExternal(UnitManager):
 
                     if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
                         self.unit.surface.reservoir_file_reader = True
-                        target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
-                        self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
+                        if (self.unit.surface.specs.injection_condition_back_calculation == 'yes'):
+                            target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
+                            self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
+
                     else:
                         target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
                         self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 8000000, 15000000)
@@ -91,9 +93,10 @@ class SystemExternal(UnitManager):
 
                     if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
                         self.unit.surface.reservoir_file_reader = True
-                        target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
-                        self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
-                        print(self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature, 'external')
+                        if (self.unit.surface.specs.injection_condition_back_calculation == 'yes'):
+                            target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
+                            self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
+
                     else:
                         target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
                         self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 8000000, 15000000)
