@@ -21,7 +21,7 @@ class ReservoirFileReaderUnit(Unit):
         self.init_stream_interface()
 
         self.csv_data = self._read_csv_file()
-        self.current_row = 0
+        self.current_row = -1
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -42,7 +42,7 @@ class ReservoirFileReaderUnit(Unit):
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
         if self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
-            self.current_row += 1
+            # self.current_row += 1
 
             pressure = float(row[1])
             temperature = float(row[2])

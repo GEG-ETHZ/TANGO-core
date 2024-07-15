@@ -67,6 +67,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         self._update_diagram_states()
         self._update_diagram_connections()
+        print(self.P_out, self.T_out, self.mass_rate, 'process')
 
         return self.P_out, self.T_out, self.mass_rate
 

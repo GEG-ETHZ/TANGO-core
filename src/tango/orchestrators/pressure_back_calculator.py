@@ -76,7 +76,7 @@ class wellbore(Unit):
         self._m_dot_mult = 0.25 if self._specs.well_pattern in ['5SPOT'] else 1.
         self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
         self.surface_class = surface_class_name
-        self.last_converged_P0 = 1e6
+        self.last_converged_P0 = 4e6
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
