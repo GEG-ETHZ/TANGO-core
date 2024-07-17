@@ -9,6 +9,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import logging
 import csv
+import os
 from scipy import optimize
 
 from CoolProp.CoolProp import PropsSI
@@ -77,6 +78,22 @@ class wellbore(Unit):
         self.mass_rate = self._specs.mass_flow_rate * self._m_dot_mult
         self.surface_class = surface_class_name
         self.last_converged_P0 = 4e6
+        self.current_row = 1
+        if (self._specs.flow_rate_from_csv == 'yes'):
+            self.csv_data = self._read_csv_file()
+
+        self.scaling_factor = self._m_dot_mult
+
+
+    def _read_csv_file(self):
+        file_path = self._specs.flow_rate_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
+
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip the header row
+            return list(reader)
 
     def _process_specs(self, specs) -> dict:
         return specs['common'] | specs['injection_well'] | specs['props'] | specs['schedule'] | specs['surface']
@@ -131,6 +148,11 @@ class wellbore(Unit):
     def process_stream(self, inj_P, injection_temperature2) -> None:
         """update dynamic variables along wellbore"""
 
+        if (self._specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1]) * self.scaling_factor
+
         if (self.surface_class != 'SurfaceUnitDHNative'):
             self.in_pump = FluidState(self._specs.fluid_name)
             self._condensation_temperature = self._specs.surface_temperature + 7.0
@@ -179,6 +201,11 @@ class wellbore(Unit):
 
     def process_stream2(self, inj_P) -> None:
         """update dynamic variables along wellbore"""
+
+        if (self._specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1]) * self.scaling_factor
 
         if (self.surface_class != 'SurfaceUnitDHNative'):
             self.in_pump = FluidState(self._specs.fluid_name)
@@ -300,6 +327,8 @@ class wellbore(Unit):
         #     self.last_converged_P0 = 8e6  # Initialize with the default starting value if not already set
 
         print('self.last_converged_P0', self.last_converged_P0)
+
+        print('pbmass', self.mass_rate)
 
         def equations(P0, T0):
             try:

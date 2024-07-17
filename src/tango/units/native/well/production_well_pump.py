@@ -9,6 +9,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         ProductionWellUnitNative.__init__(self, id, specs)
         self._initialize_attributes_p()
         self.init_stream_interface()
+        self.scaling_factor = 1.0 / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else 1.0
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -22,17 +23,17 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
 
     def stream_interface(self) -> None:
         outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
-        self.mass_rate = mass_rate
+        # self.mass_rate = mass_rate
         self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
         print('\n')
-        print(f'well pump inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'well pump inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
         print(f'well pump outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
 
     def process_stream_pump(self) -> None:
         self._set_inlet_pressure()
         self.update_inlet_fluid_state_with_pump()
-        self.process_stream()
+        # self.process_stream()
         h_out, P_out, m_rate = self.process_stream()
         self._update_w_pump()
 

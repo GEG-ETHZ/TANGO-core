@@ -9,6 +9,7 @@ class InjectionWellUnitNative(WellUnitNative):
         self._specs_post_processor_iw()
         self.init_stream_interface()
         self._initialize_attributes_hw()
+        self.scaling_factor = self._m_dot_mult
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 

@@ -96,6 +96,10 @@ class SystemCPGNative(SystemNative):
         self.unit.reservoir.update_energy_extracted_old()
         self.unit.injection_well.update_dimensionless_time_old()
         self.unit.production_well.update_dimensionless_time_old()
+        self.unit.surface.current_row += 1
+        self.unit.reservoir.current_row += 1
+        self.unit.injection_well.current_row += 1
+        self.unit.production_well.current_row += 1
 
 
 class SystemORCNative(SystemNative):
@@ -249,3 +253,8 @@ class SystemORCNative(SystemNative):
         self.unit.injection_well.update_dimensionless_time_old()
         self.unit.production_well.update_dimensionless_time_old()
         self.unit.production_well_pump.update_dimensionless_time_old()
+        self.unit.surface.current_row += 1
+        self.unit.reservoir.current_row += 1
+        self.unit.injection_well.current_row += 1
+        self.unit.production_well.current_row += 1
+        self.unit.production_well_pump.current_row += 1

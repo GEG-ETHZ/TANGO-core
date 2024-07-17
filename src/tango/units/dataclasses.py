@@ -24,6 +24,8 @@ class CommonSpecs:
     injection_condition_back_calculation: str = 'no'
     cascade_power_plant: str = 'no'
     entire_subsurface_external: str = 'no'
+    flow_rate_from_csv: str = 'no'
+    flow_rate_file: str = None
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

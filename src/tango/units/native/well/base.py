@@ -5,6 +5,9 @@ from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import WellSpecsNative
 
+import csv
+import os
+
 
 class WellUnitNative(Unit):
     """The well unit based on Adams et al. (2015)."""
@@ -14,6 +17,9 @@ class WellUnitNative(Unit):
         self._specs_post_processor()
         self._initialize_attributes()
         # the public function (init_stream_interface) is set in the derived classes.
+        self.current_row = 0
+        if (self._specs.flow_rate_from_csv == 'yes'):
+            self.csv_data = self._read_csv_file()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -22,12 +28,18 @@ class WellUnitNative(Unit):
         self.mass_rate = mass_rate
         self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
         print('\n')
-        print(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
         print(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
 
     def process_stream(self) -> None:
         """update dynamic variables along wellbore"""
+
+        if (self._specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1]) * self.scaling_factor
+
         self._initialize_state()
         t_d = self._get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
@@ -76,6 +88,16 @@ class WellUnitNative(Unit):
         self._t_d = self._t_d_old + del_t
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _read_csv_file(self):
+        file_path = self._specs.flow_rate_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
+
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip the header row
+            return list(reader)
 
     def _specs_post_processor(self) -> float:
         self._diameter = self._specs.diameter

@@ -7,6 +7,9 @@ from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
 from tango.units.check_fracing import calculate_injection_rate
 
+import csv
+import os
+
 
 class ReservoirUnitNative(Unit):
     """The reservoir (1-D well-pair) unit based on Adams et al. (2015)."""
@@ -18,6 +21,9 @@ class ReservoirUnitNative(Unit):
         self._specs_post_processor()
         self.init_stream_interface()
         self._thermal_depletion()
+        self.current_row = 0
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            self.csv_data = self._read_csv_file()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -96,11 +102,16 @@ class ReservoirUnitNative(Unit):
 
         # Print inlet and outlet conditions
         print('\n')
-        print(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        print(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
         print(f'Reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""
+
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1])
 
         self.m_dot = self.m_dot_mult * self.mass_rate
 
@@ -146,6 +157,16 @@ class ReservoirUnitNative(Unit):
         self._energy_extracted = self._energy_extracted_old + del_
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _read_csv_file(self):
+        file_path = self.specs.flow_rate_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
+
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip the header row
+            return list(reader)
 
     def _specs_post_processor(self) -> float:
         self.fluid_name = self.specs.fluid_name

@@ -10,6 +10,9 @@ import math
 import numpy as np
 from scipy.interpolate import interp1d
 
+import csv
+import os
+
 
 @dataclass
 class SurfaceSpecsORCNative(CommonSpecs):
@@ -50,6 +53,9 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.iterative_inj_pressure = 1000000   # 1
         self.iterative_inj_temperature = 302.0  # 2
         self.reservoir_file_reader = False  # 3
+        self.current_row = 0
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            self.csv_data = self._read_csv_file()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -62,6 +68,12 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
 
     def process_stream(self) -> None:
+
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1])
+
         self._update_state_pipe()
         self._update_state_fluid()
 
@@ -80,6 +92,16 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._update_state_pipe()
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _read_csv_file(self):
+        file_path = self.specs.flow_rate_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
+
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip the header row
+            return list(reader)
 
     def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name

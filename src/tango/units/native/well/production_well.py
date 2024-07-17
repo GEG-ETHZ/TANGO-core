@@ -7,6 +7,7 @@ class ProductionWellUnitNative(WellUnitNative):
         WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
         self._specs_post_processor_pw()
         self.init_stream_interface()
+        self.scaling_factor = self._m_dot_mult
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -52,4 +53,5 @@ class ProductionWellUnitNative(WellUnitNative):
 
     def _compute_well_mass_flow_rate(self) -> float:
         """compute production well mass flow rate per well"""
+        self._m_dot_mult = 1.0 / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else 1.0
         return self._specs.mass_flow_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self._specs.mass_flow_rate

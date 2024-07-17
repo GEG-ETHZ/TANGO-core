@@ -113,6 +113,7 @@ class SystemExternal(UnitManager):
                     raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
 
                 self.wb.update_dimensionless_time_old()
+                self.wb.current_row += 1
                 self.unit.reservoir.current_row += 1
 
             else:
@@ -175,14 +176,28 @@ class SystemExternal(UnitManager):
             self.unit.injection_well.update_dimensionless_time_old()
             self.unit.production_well.update_dimensionless_time_old()
 
+            self.unit.surface.current_row += 1
+            self.unit.reservoir.current_row += 1
+            self.unit.injection_well.current_row += 1
+            self.unit.production_well.current_row += 1
+
         elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
             if (self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 self.unit.reservoir.update_energy_extracted_old()
             self.unit.injection_well.update_dimensionless_time_old()
             self.unit.production_well.update_dimensionless_time_old()
             self.unit.production_well_pump.update_dimensionless_time_old()
+
+            self.unit.surface.current_row += 1
+            self.unit.reservoir.current_row += 1
+            self.unit.injection_well.current_row += 1
+            self.unit.production_well.current_row += 1
+            self.unit.production_well_pump.current_row += 1
+
         else:
             raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+
+
 
 
     def _update_production_well(self) -> None:

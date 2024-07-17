@@ -4,6 +4,9 @@ from tango.units.dataclasses import CommonSpecs
 from tango.units.native.surface.base import *
 from dataclasses import dataclass
 
+import csv
+import os
+
 @dataclass
 class SurfaceSpecsCPGNative(CommonSpecs):
     pipe_diameter: float = None  # (m)
@@ -36,6 +39,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.iterative_inj_temperature = 302.0  # 2
         self.reservoir_file_reader = False  # 3
         self.cooler_include = False  # 4
+        self.current_row = 0
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            self.csv_data = self._read_csv_file()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -63,6 +69,12 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
 
     def process_stream(self) -> None:
+
+        if (self.specs.flow_rate_from_csv == 'yes'):
+            if self.current_row < len(self.csv_data):
+                row = self.csv_data[self.current_row]
+                self.mass_rate = float(row[1])
+
         self._update_turbine_power()
         self._update_condenser_state()
         self._update_pump_state()
@@ -86,6 +98,16 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         return self._dP_pump
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
+
+    def _read_csv_file(self):
+        file_path = self.specs.flow_rate_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
+
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            next(reader)  # Skip the header row
+            return list(reader)
 
     def _specs_post_processor(self) -> float:
         self._fluid_name = self.specs.fluid_name
