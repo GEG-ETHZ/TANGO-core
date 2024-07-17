@@ -106,9 +106,11 @@ class FluidDiagramPlotter:
 
         self.plot_fluid_states(ax, self.states, connections=connections)
 
-        # print(self.states)
+        if self.states.values():
+            num_states = len(next(iter(self.states.values())))
+        else:
+            num_states = 0
 
-        num_states = len(next(iter(self.states.values())))
         cbar = fig.colorbar(ScalarMappable(norm=Normalize(vmin=0, vmax=num_states - 1), cmap='gray'), ax=ax, pad=0.1)
         cbar.set_label('Time Progression')
         cbar.set_ticks(range(num_states))

@@ -87,7 +87,7 @@ class NativeWorkflow(Workflow):
                             nodes=self.orchestrator.graph.nodes,
                             current_date=current_date.strftime(DATETIME_FMT))
 
-        self._fluid_states = utils.states_dict_generator(self.diagram_specs.include_Power_plant, self.orchestrator.graph.nodes, self._fluid_states)
+        self._fluid_states = utils.states_dict_generator(self.diagram_specs.include_Power_plant, self.orchestrator.graph.nodes, self.orchestrator.unit.surface.__class__.__name__, self._fluid_states)
 
 
     def _post_processing(self) -> None:
@@ -95,6 +95,7 @@ class NativeWorkflow(Workflow):
                             results=(self._results,self.economic.get_results() if self.economic != None else None))
 
         # self.diagram_specs.process_isoline_settings()
+        print(self.orchestrator.unit.surface.__class__.__name__, 'inja')
         plotter1 = FluidDiagramPlotter(fluid_states=self._fluid_states,
                                        fluid=self.diagram_specs.fluid,
                                        unit_system=self.diagram_specs.unit_system,
