@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from fluprodia import FluidPropertyDiagram
 import numpy as np
 import math
+import logging
 
 
 class SurfaceUnitORCTESPy(SurfaceUnitNative):
@@ -35,9 +36,9 @@ class SurfaceUnitORCTESPy(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
-        print('\n')
-        print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info('\n')
+        logging.info(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
         return self.P_out, self.T_out, self.mass_rate
 
@@ -241,6 +242,9 @@ class OrganicRankineCycle:
         h9 = self.condenser_pump.h.val / 1000.0
         return h1, h2, h3, h4, h5, h6, h7, h8, h9
 
+
+# The below class and its usage is implemented during the development phase to visualize the result of the OrganicRankineCycle
+# class. You can activate the below lines and run the module separately to check the result on a phase diagram.
 
 # class CycleDiagramPlotter:
 #     def __init__(self, fluid, points, connections):

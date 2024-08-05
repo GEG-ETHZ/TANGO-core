@@ -1,6 +1,7 @@
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.units.dataclasses import ReservoirSpecsPorousflow
 from tango.units.external.MOOSE.base import *
+import logging
 
 
 class ReservoirUnitPorousflow(MOOSERunner):
@@ -29,10 +30,10 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self._interface.run(self._post_processor_path)
         self.mass_rate = self.m_dot
 
-        print('\n')
-        print(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
-        print(f'reservoir outlet -> P = {self._interface.pressure_from_MOOSE}, T = {self._interface.temperature_from_MOOSE}')
+        logging.info('\n')
+        logging.info(f'reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info(f'reservoir outlet -> P = {self._interface.pressure_from_MOOSE}, T = {self._interface.temperature_from_MOOSE}')
 
         return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate
 

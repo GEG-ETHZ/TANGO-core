@@ -6,6 +6,7 @@ import clr
 from System.IO import Directory, Path, File
 from System import String, Environment
 import csv
+import logging
 
 
 class DWSIMSimulationModifier:
@@ -58,7 +59,7 @@ class DWSIMSimulationModifier:
     def _save_modified_simulation(self, save_path):
         save_path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), save_path)
         self._interf.SaveFlowsheet(self._flowsheet, save_path, True)
-        print("Modified simulation saved to:", save_path)
+        logging.info("Modified simulation saved to:", save_path)
 
 
     def _write_row(self, row_data):
@@ -90,7 +91,7 @@ class DWSIMSimulationModifier:
             mass_rate = float(sys.argv[3])
             return pressure, temperature, mass_rate
         else:
-            print("Error: The required arguments (pressure, temperature and mass rate) are missing.")
+            logging.error("Error: The required arguments (pressure, temperature and mass rate) are missing.")
             sys.exit(1)
 
 

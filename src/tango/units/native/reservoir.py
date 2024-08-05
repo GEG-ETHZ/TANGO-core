@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from math import erfc
 from math import e as exp
@@ -49,13 +50,13 @@ class ReservoirUnitNative(Unit):
 
             outlet_pressure = 25000000
             outlet_temperature = 330
-            print('\n')
-            print(f"Warning: The mass rate of {mass_rate} Kg/s results in fracing!")
-            print("Choose an option:")
-            print(f"1. Work with the maximum mass rate that doesn't result in fracing ({self.fracing_mass_rate} Kg/s)")
-            print("2. Set a new mass rate smaller than fracing mass rate")
-            print("3. Accept the seismic consequences and continue with this flow rate")
-            print("4. Operate with optimized flow rate")
+            logging.info('\n')
+            logging.warning(f"Warning: The mass rate of {mass_rate} Kg/s results in fracing!")
+            logging.info("Choose an option:")
+            logging.info(f"1. Work with the maximum mass rate that doesn't result in fracing ({self.fracing_mass_rate} Kg/s)")
+            logging.info("2. Set a new mass rate smaller than fracing mass rate")
+            logging.info("3. Accept the seismic consequences and continue with this flow rate")
+            logging.info("4. Operate with optimized flow rate")
 
             choice = input("Enter 1, 2, 3, or 4: ")
 
@@ -70,13 +71,13 @@ class ReservoirUnitNative(Unit):
                 outlet_pressure = self.specs.hydro_static_pressure
                 outlet_temperature = self._compute_initial_temperature()
             elif choice == '3':
-                print("Seismic consequences accepted. Continuing with the current flow rate.")
+                logging.info("Seismic consequences accepted. Continuing with the current flow rate.")
                 self.mass_rate = mass_rate
             elif choice == '4':
                 # self.mass_rate = self.calculate_optimized_flow_rate()
-                print(f"This option is not supported for now")
+                logging.info(f"This option is not supported for now")
             else:
-                print("Invalid choice. Please enter 1, 2, 3, or 4.")
+                logging.error("Invalid choice. Please enter 1, 2, 3, or 4.")
                 return
 
             #################################### Second idea ###########################################################
@@ -95,9 +96,9 @@ class ReservoirUnitNative(Unit):
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
         # Print inlet and outlet conditions
-        print('\n')
-        print(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'Reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info('\n')
+        logging.info(f'Reservoir inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'Reservoir outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def process_stream(self) -> None:
         """Update reservoir state given inlet state (outlet fluid state of injection well)"""

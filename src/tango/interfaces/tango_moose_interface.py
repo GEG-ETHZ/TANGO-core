@@ -3,6 +3,7 @@ import re
 import csv
 import os
 import signal
+import logging
 
 
 class TangoMooseInterface:
@@ -66,7 +67,7 @@ class TangoMooseInterface:
 
 
     def print_timestep_info(self, current_timestep, time, dt):
-        print(f"Time Step {current_timestep}, time = {time}, dt = {dt:.2f}")
+        logging.info(f"Time Step {current_timestep}, time = {time}, dt = {dt:.2f}")
 
 
     def _write_csv_row(self, path, time, last_row_value):
@@ -78,13 +79,13 @@ class TangoMooseInterface:
     def read_csv_contents(self, CSV_file_path):
         try:
             with open(CSV_file_path, mode='r', newline='') as csv_file:
-                print("Current CSV contents:")
+                logging.info("Current CSV contents:")
                 for line in csv_file:
-                    print(line.strip())
+                    logging.info(line.strip())
         except FileNotFoundError as e:
-            print(f"CSV file not found at path: {CSV_file_path}")
+            logging.error(f"CSV file not found at path: {CSV_file_path}")
         except Exception as e:
-            print(f"An error occurred while printing CSV contents: {e}")
+            logging.error(f"An error occurred while printing CSV contents: {e}")
 
 
     def get_last_row_value(self, path):
@@ -106,7 +107,7 @@ class TangoMooseInterface:
     def _run_moose_simulation(self, post_processor_path):
         self._process.send_signal(signal.SIGCONT)
         for line in self._process.stdout:
-            print(line.strip())
+            logging.info(line.strip())
             timestep_match, success_match = self.parse_moose_output(line)
             if timestep_match:
                 current_timestep, time, dt = self.extract_timestep_info(timestep_match)
@@ -127,6 +128,6 @@ class TangoMooseInterface:
         try:
             self._run_moose_simulation(post_processor_path)
         except subprocess.CalledProcessError as e:
-            print(f"Error running MOOSE: {e}")
+            logging.error(f"Error running MOOSE: {e}")
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")

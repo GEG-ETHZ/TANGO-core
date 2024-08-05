@@ -60,9 +60,9 @@ class SurfaceUnitDHNative(SurfaceUnitNative):
         self._update_heat_exchanger_state()
         self._update_net_state()
 
-        print('\n')
-        print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, H = {self.inlet_fluid.H}')
-        print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}, H = {self.outlet_fluid.H}, mr = {self.mass_rate}, , Pow = {self.w_turbine}')
+        logging.info('\n')
+        logging.info(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, H = {self.inlet_fluid.H}')
+        logging.info(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}, H = {self.outlet_fluid.H}, mr = {self.mass_rate}, , Pow = {self.w_turbine}')
 
         return self.P_out, self.T_out, self.mass_rate
 

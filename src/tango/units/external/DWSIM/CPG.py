@@ -2,6 +2,7 @@ from tango.units.native.surface.base import *
 import pexpect
 import csv
 from tango.units.dataclasses import SurfaceSpecsCPGDWSIM
+import logging
 
 
 class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
@@ -30,7 +31,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
             self._windows_ssh_communication(ssh_command)
             self._read_last_row(self._PP_csv_file)
         except pexpect.ExceptionPexpect as pe:
-            print(f"An error occurred with pexpect: {pe}")
+            logging.error(f"An error occurred with pexpect: {pe}")
 
         self._update_turbine_power()
         self._update_condenser_state()

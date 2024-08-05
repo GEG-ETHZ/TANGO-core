@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from fluprodia import FluidPropertyDiagram
 import numpy as np
 import math
+import logging
 
 
 class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
@@ -35,9 +36,9 @@ class SurfaceUnitDoubleFlashTESPy(SurfaceUnitNative):
         self._update_condenser_state()
         self._update_pump_state()
         self._update_net_state()
-        print('\n')
-        print(f'PP inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info('\n')
+        logging.info(f'PP inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'PP outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
         return self.P_out, self.T_out, 45
 
@@ -219,6 +220,9 @@ class DoubleFlash:
        self.T_out = CP.PropsSI('T', 'P', self.pump2_sig.p.val*100000, 'H', self.H_out*1000, 'Water')
        self.P_out = self.pump2_sig.p.val*100000
 
+
+# The below class and its usage is implemented during the development phase to visualize the result of the DoubleFlash
+# class. You can activate the below lines and run the module separately to check the result on a phase diagram.
 
 # class CycleDiagramPlotter:
 #     def __init__(self, fluid, points, connections):

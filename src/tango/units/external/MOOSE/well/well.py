@@ -1,6 +1,7 @@
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import CommonSpecs, WellSpecsMOOSE
 from tango.units.external.MOOSE.base import *
+import logging
 
 
 class WellUnitMOOSE(MOOSERunner):
@@ -31,9 +32,9 @@ class WellUnitMOOSE(MOOSERunner):
         # self._interface.temperature_from_TANGO = 320
         # self._interface.flowrate_from_TANGO = 0.01
         self._interface.run(self._post_processor_path)
-        print('\n')
-        print(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info('\n')
+        logging.info(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
         # print(self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate)
 
         # return self._interface.pressure_from_MOOSE + 1000000, self._interface.temperature_from_MOOSE, self.mass_rate

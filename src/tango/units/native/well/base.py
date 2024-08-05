@@ -21,9 +21,9 @@ class WellUnitNative(Unit):
         outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream()
         self.mass_rate = mass_rate
         self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
-        print('\n')
-        print(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
-        print(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        logging.info('\n')
+        logging.info(f'well inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}')
+        logging.info(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
 
     def process_stream(self) -> None:

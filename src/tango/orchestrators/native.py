@@ -9,7 +9,7 @@ from tango.core.constants import *
 from tango.core.stream import *
 from tango.core.abstracts.orchestrator import *
 from tango.utils import *
-from tango.orchestrators.pressure_back_calculator import wellbore
+from tango.orchestrators.pressure_back_calculator import Wellbore
 
 
 class SystemNative(UnitManager):
@@ -76,7 +76,7 @@ class SystemCPGNative(SystemNative):
             self.unit.surface.update_dP_pump(root)
 
         elif (self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom'):
-            wb = wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
+            wb = Wellbore('back_calculator', self.specs, self.unit.surface.__class__.__name__)
             target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
             P0_guess1 = 8e6
             P0_guess2 = 15e6

@@ -1,6 +1,3 @@
-# This was a preliminary version to test the pressure back calculation. We don't need to redefine the FluidState class,
-# and we should benefit from the existing wellbore unit calculations!
-
 from tango.units.dataclasses import WellSpecsNative
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
@@ -10,63 +7,9 @@ from CoolProp.CoolProp import PropsSI
 import logging
 import csv
 
-from CoolProp.CoolProp import PropsSI
+from tango.core import FluidState
 
-class FluidState:
-    def __init__(self, fluid_name):
-        self.fluid_name = fluid_name
-        self.P = None
-        self.T = None
-        self.rho = None
-        self.H = None
-        self.S = None  # Added initialization of entropy
-        self.mu = None
-
-    def updatePT(self, P, T):
-        self.P = P
-        self.T = T
-        self.rho = PropsSI('D', 'P', P, 'T', T, self.fluid_name)
-        self.H = PropsSI('H', 'P', P, 'T', T, self.fluid_name)
-        self.S = PropsSI('S', 'P', P, 'T', T, self.fluid_name)  # Added update of entropy
-        self.mu = PropsSI('V', 'P', P, 'T', T, self.fluid_name)
-
-    def updateHP(self, H, P):
-        self.H = H
-        self.P = P
-        self.T = PropsSI('T', 'H', H, 'P', P, self.fluid_name)
-        self.rho = PropsSI('D', 'H', H, 'P', P, self.fluid_name)
-        self.S = PropsSI('S', 'H', H, 'P', P, self.fluid_name)  # Added update of entropy
-        self.mu = PropsSI('V', 'H', H, 'P', P, self.fluid_name)
-
-    def updatePQ(self, P, Q):
-        self.P = P
-        self.T = PropsSI('T', 'P', P, 'Q', Q, self.fluid_name)
-        self.rho = PropsSI('D', 'P', P, 'Q', Q, self.fluid_name)
-        self.H = PropsSI('H', 'P', P, 'Q', Q, self.fluid_name)
-        self.S = PropsSI('S', 'P', P, 'Q', Q, self.fluid_name)  # Added update of entropy
-        self.mu = PropsSI('V', 'P', P, 'Q', Q, self.fluid_name)
-
-    def updatePS(self, P, S):
-        self.P = P
-        self.S = S
-        self.T = PropsSI('T', 'P', P, 'S', S, self.fluid_name)
-        self.rho = PropsSI('D', 'P', P, 'S', S, self.fluid_name)
-        self.H = PropsSI('H', 'P', P, 'S', S, self.fluid_name)
-        self.mu = PropsSI('V', 'P', P, 'S', S, self.fluid_name)
-
-    @classmethod
-    def copy(cls, fluid_state):
-        new_state = cls(fluid_state.fluid_name)
-        new_state.P = fluid_state.P
-        new_state.T = fluid_state.T
-        new_state.rho = fluid_state.rho
-        new_state.H = fluid_state.H
-        new_state.S = fluid_state.S  # Added copying of entropy
-        new_state.mu = fluid_state.mu
-        return new_state
-
-
-class wellbore(Unit):
+class Wellbore(Unit):
     def __init__(self, id: str, specs: dict, surface_class_name: str):
         super().__init__(id, specs)
         self._specs = WellSpecsNative.from_dict(self._process_specs(specs))
@@ -130,24 +73,16 @@ class wellbore(Unit):
         """update dynamic variables along wellbore"""
 
         if (self.surface_class != 'SurfaceUnitDHNative'):
-            self.in_pump = FluidState('CO2')
-            self._condensation_temperature = self._specs.surface_temperature + 7.0
-            saturation_pressure = PropsSI('P', 'T', self._condensation_temperature, 'Q', 0, 'CO2')
-            self.in_pump.updatePQ(saturation_pressure, 0.0)
+            self.in_pump = FluidState.withPT('CO2', PropsSI('P', 'T', self._specs.surface_temperature + 7.0, 'Q', 0, 'CO2'), 0.0)
 
-            self.out_pump_ideal = FluidState('CO2')
-            self.out_pump_ideal.updatePS(inj_P, self.in_pump.S)
+            self.out_pump_ideal = FluidState.withPS('CO2', inj_P, self.in_pump.S)
 
-            self.out_pump = FluidState('CO2')
-            h_pump_outlet = self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump
-            self.out_pump.updateHP(h_pump_outlet, inj_P)
+            self.out_pump = FluidState.withHP('CO2', self.in_pump.H + (self.out_pump_ideal.H - self.in_pump.H) / self._specs.eta_pump, inj_P)
             injection_temperature = self.out_pump.T
         else:
             injection_temperature = 295.15
 
-
-        self.inlet_fluid = FluidState('CO2')
-        self.inlet_fluid.updatePT(inj_P, injection_temperature)
+        self.inlet_fluid = FluidState.withPT('CO2', inj_P, injection_temperature)
         self._initialize_state()
         g, dz, f_dir = self._g, self._dz, -1.0
         mdot, A = self.mass_rate, self._cross_sectional_area
@@ -271,9 +206,8 @@ class wellbore(Unit):
 
 
 
-
 # # Example usage
-# wb = wellbore()
+# wb = Wellbore()
 # target_bottom_pressure = 40534527  # example bottom pressure in Pascals
 # P0_guess1 = 8e6  # initial guess for the injection pressure
 # P0_guess2 = 15e6  # second guess for the injection pressure
