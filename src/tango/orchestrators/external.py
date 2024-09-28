@@ -89,6 +89,21 @@ class SystemExternal(UnitManager):
                     outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
                     self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
+                elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitDHNative'):
+
+                    if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+                        # self.unit.surface.reservoir_file_reader = True
+                        if (self.unit.surface.specs.injection_condition_back_calculation == 'yes'):
+                            target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
+                            self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
+
+                    else:
+                        target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage']+100)/100
+                        self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 8000000, 15000000)
+
+                    outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
+                    self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+
                 elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
 
                     if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
@@ -181,18 +196,18 @@ class SystemExternal(UnitManager):
             self.unit.injection_well.current_row += 1
             self.unit.production_well.current_row += 1
 
-        elif (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative'):
+        elif ((self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative') or (self.unit.surface.__class__.__name__ == 'SurfaceUnitDHNative')):
             if (self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 self.unit.reservoir.update_energy_extracted_old()
             self.unit.injection_well.update_dimensionless_time_old()
             self.unit.production_well.update_dimensionless_time_old()
             self.unit.production_well_pump.update_dimensionless_time_old()
 
-            self.unit.surface.current_row += 1
-            self.unit.reservoir.current_row += 1
-            self.unit.injection_well.current_row += 1
-            self.unit.production_well.current_row += 1
-            self.unit.production_well_pump.current_row += 1
+            # self.unit.surface.current_row += 1
+            # self.unit.reservoir.current_row += 1
+            # self.unit.injection_well.current_row += 1
+            # self.unit.production_well.current_row += 1
+            # self.unit.production_well_pump.current_row += 1
 
         else:
             raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
