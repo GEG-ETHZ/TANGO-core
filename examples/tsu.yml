@@ -1,0 +1,147 @@
+#
+# Shell international IHS data
+#
+#
+#optimization: # optimization settings (scipy)
+#  method: "L-BFGS-B"
+#  options: # advanced/optional tuning params
+#    maxiter: 5
+#    disp: False
+
+graph:
+  nodes:
+    inj_1: # root node
+      type: 'injection_well'
+      unit: 'native'
+    reservoir:
+      type: 'reservoir'
+      unit: 'native'
+    prd_1:
+      type: 'production_well'
+      unit: 'native'
+    prd_2:
+      type: 'production_well_pump'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_ORC'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'reservoir'
+    3:
+      source: 'reservoir'
+      target: 'prd_1'
+    4:
+      source: 'prd_1'
+      target: 'prd_2'
+    5:
+      source: 'prd_2'
+      target: 'surface'
+
+
+# simulation input
+
+runspec:
+  title: 'ORC test'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000 # kg/m3
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.035  # degC/m
+
+surface:
+  surface_temperature: 299.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78  # (-)
+  refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost' # min_cost or max_power
+
+
+reservoir:
+  reservoir_depth: 2400 # m
+  thickness: 100.0 # m
+  permeability: 4.93e-14    # m2
+  porosity: 0.1
+  net_to_gross_ratio: 0.5
+  initial_pressure: 23520000 #Pa # initial pressure not available.
+  initial_temperature: 405.15 #K
+  hydro_static_pressure: 25000000
+  over_pressure_percentage: 20
+
+injection_well:
+  well_length: 2400 # m
+  diameter: 0.410 # m
+
+production_well:
+  well_length: 1900 # m
+  diameter: 0.410 # m
+
+production_well_pump:
+  well_length: 500. # m
+  diameter: 0.410 # m
+
+schedule:
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 20.0  # kg/s (injection rate per pattern)
+  well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [3, 3] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 30 # number of time steps
+  dt: 1.0  # time step increment (year)
+
+economic: # optional
+  type: 'native'
+  #project_maturity: 'green_field' # brown_field or green_field
+  project_maturity: 'brown_field' # brown_field or green_field
+  discount_rate: 0.095
+  num_reusable_producers: 0
+
+phase_diagram: # optional
+  diagram_type: 'logph'
+  include_Power_plant: 'yes'
+  fluid: 'R245fa'
+  x_min: 100
+  x_max: 500
+  y_min: 0.1
+  y_max: 100
+  unit_system:
+    T: '°C'
+    h: 'kJ/kg'
+    p: 'bar'
+  isoline_config:
+    Q:
+      start: 0
+      end: 1
+      num: 2
+    T:
+      start: -40
+      end: 160
+      num: 11
+    p:
+      start: 0.01
+      end: 1000
+      num: 6
+    v:
+      start: 0.001
+      end: 10
+      num: 0
+    s:
+      start: 1000
+      end: 2000
+      num: 11
+    h:
+      start: 0
+      end: 3600
+      num: 19

@@ -91,8 +91,10 @@ schedule:
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 1 # number of time steps
-  dt: 1.0  # time step increment (year)
+  time:
+    type: ConstantDT
+    num_tsteps: 1 # number of time steps
+    dt: 1.0  # time step increment (year)
 
 economic:
   type: 'native'

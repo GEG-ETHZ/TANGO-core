@@ -69,6 +69,14 @@ def load_from_yaml(filename: str):
     except:
         raise RuntimeError(f"Failed to read {filename}")
     check_inputs(specs)
+
+    try:
+        time_config = specs["schedule"].get("time", {})
+        specs["schedule"]["num_tsteps"] = time_config["num_tsteps"]
+        specs["schedule"]["dt"] = time_config["dt"]
+    except KeyError as e:
+        raise RuntimeError(f"Missing expected time subblock key in YAML: {e}")
+
     return specs
 
 
