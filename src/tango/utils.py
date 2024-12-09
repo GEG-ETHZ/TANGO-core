@@ -25,6 +25,7 @@ from tango.units.native.surface.tespy.tespy_ORC import *
 from tango.units.native.surface.tespy.tespy_SF import *
 from tango.units.native.surface.tespy.tespy_DF import *
 from tango.units.native.unit_reader import *
+from tango.time_stepper import LinearInterpolation
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
@@ -76,6 +77,40 @@ def load_from_yaml(filename: str):
         specs["schedule"]["dt"] = time_config["dt"]
     except KeyError as e:
         raise RuntimeError(f"Missing expected time subblock key in YAML: {e}")
+
+    # time_list = specs["functions"]['dts']['time']
+    # dt_list = specs["functions"]['dts']['dt']
+    # # start_time = time_config['start_time']
+    # end_time = specs["functions"]['dts']['end_time']
+    #
+    # interpolator = LinearInterpolation(time_list, dt_list)
+    #
+    # # Generate interpolated time steps
+    # current_time = time_list[0]
+    # result = []
+    # dt_list = []  # List to store only the time steps
+    #
+    # while current_time <= end_time:
+    #     step = interpolator.sample(current_time)
+    #     next_time = current_time + step
+    #     if next_time > end_time:
+    #         step = end_time - current_time
+    #         next_time = end_time
+    #     result.append((step, current_time))
+    #     dt_list.append(float(step))  # Convert to Python float
+    #     if next_time == end_time:
+    #         time_list.append(float(end_time))  # Ensure end_time is added
+    #         break
+    #     current_time = next_time
+    #
+    # specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
+    #
+    # print(dt_list)
+    #
+    # print(specs["schedule"]['dt_list'])
+    #
+    # for time_step, time in result:
+    #     print(f"Time Step: {time_step:.4f}, Time: {time:.4f}")
 
     return specs
 
@@ -242,6 +277,10 @@ def write_results(input_file: str, results: tuple) -> None:
 
     fname = os.path.splitext(input_file)[0] + ".smry.csv"
     logging.info(f"Saving output summary of physics-based units > {fname}")
+    # print(physics_results)
+    # for key, value in physics_results.items():
+    #     print(f"{key}: {len(value)}")
+    physics_results.pop('surface__condensation_temperature_range', None)
     df = pd.DataFrame(physics_results)
     df.to_csv(fname, index=False)
 

@@ -226,13 +226,20 @@ class EconomicUnitNative(Unit):
             results: a dictionary containing time series summary of physic-based simulation results
             -> Get annual/averaged results for LCOE calculation
         """
+        print('economic', self.specs.dt_list)
         dt = self.specs.dt # dt in year
         var_names = ['thermal_power', 'dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
                 try:
-                    setattr(self.surface_state, name, np.mean(d[key]) / dt)
+                    weighted_sum = 0
+                    for i in range(self.specs.num_tsteps):
+                        weighted_sum += dt/(self.specs.num_tsteps*dt)*d[key][i]
+
+                    # setattr(self.surface_state, name, np.mean(d[key]) / dt)
+                    setattr(self.surface_state, name, weighted_sum)
+
                 except:
                     continue
 

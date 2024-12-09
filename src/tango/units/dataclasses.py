@@ -3,6 +3,7 @@ from tango.core.config import *
 from dataclasses import dataclass, field
 import numpy as np
 import inspect
+from typing import List
 
 @dataclass
 class CommonSpecs:
@@ -20,6 +21,8 @@ class CommonSpecs:
     start_date: str
     num_tsteps: int
     dt: float  # time step years
+    time_list: List[float] = field(default_factory=list)
+    dt_list: List[float] = field(default_factory=list)
     bc_iteration_checkpoint: str = 'production_well_bottom'
     injection_condition_back_calculation: str = 'no'
     cascade_power_plant: str = 'no'

@@ -82,7 +82,7 @@ schedule:
   time:
     type: ConstantDT
     num_tsteps: 5 # number of time steps
-    dt: 1.0  # time step increment (year)
+    dt: 1  # time step increment (year)
 
 economic: # optional
   type: 'native'
