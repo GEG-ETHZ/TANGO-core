@@ -96,6 +96,7 @@ class SystemCPGNative(SystemNative):
         self.unit.reservoir.update_energy_extracted_old()
         self.unit.injection_well.update_dimensionless_time_old()
         self.unit.production_well.update_dimensionless_time_old()
+        print('hala', self.unit.injection_well.time_step, self.unit.injection_well._t_d_old, self.unit.injection_well._t_d)
         self.unit.surface.current_row += 1
         self.unit.reservoir.current_row += 1
         self.unit.injection_well.current_row += 1

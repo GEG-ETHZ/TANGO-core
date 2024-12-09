@@ -226,16 +226,18 @@ class EconomicUnitNative(Unit):
             results: a dictionary containing time series summary of physic-based simulation results
             -> Get annual/averaged results for LCOE calculation
         """
-        print('economic', self.specs.dt_list)
-        dt = self.specs.dt # dt in year
+
+        # dt = self.specs.dt # dt in year
+        self.total_time = sum(self.specs.dt_list)
+        print('economic', self.specs.dt_list, self.total_time)
         var_names = ['thermal_power', 'dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator', 'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater', 'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler', 'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
                 try:
                     weighted_sum = 0
-                    for i in range(self.specs.num_tsteps):
-                        weighted_sum += dt/(self.specs.num_tsteps*dt)*d[key][i]
+                    for i in range(len(self.specs.dt_list)):
+                        weighted_sum += self.specs.dt_list[i]/(self.total_time)*d[key][i]
 
                     # setattr(self.surface_state, name, np.mean(d[key]) / dt)
                     setattr(self.surface_state, name, weighted_sum)
@@ -271,7 +273,7 @@ class EconomicUnitNative(Unit):
         if CAPEX <= 0 or W <= 0:
             return np.nan
         d = self.specs.discount_rate
-        t = self.specs.num_tsteps * self.specs.dt
+        t = self.total_time
         CF = self.specs.capacity_factor
         F_OM = self.specs.OPEX_cost_fraction - w2/1000*8760*0.02/CAPEX
         CRF = d * (1. + d) ** t / ( (1. + d) ** t - 1.) # capital recovery factor

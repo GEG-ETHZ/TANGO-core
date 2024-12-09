@@ -26,6 +26,8 @@ from tango.units.native.surface.tespy.tespy_SF import *
 from tango.units.native.surface.tespy.tespy_DF import *
 from tango.units.native.unit_reader import *
 from tango.time_stepper import LinearInterpolation
+from typing import Dict, Any
+import csv
 
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
@@ -63,56 +65,301 @@ def set_logger(args):
     logging.getLogger('').addHandler(console)
 
 
-def load_from_yaml(filename: str):
-    try:
-        with open(filename) as f:
-            specs = load(f, Loader=SafeLoader)
-    except:
-        raise RuntimeError(f"Failed to read {filename}")
-    check_inputs(specs)
+# def load_from_yaml(filename: str):
+#     try:
+#         with open(filename) as f:
+#             specs = load(f, Loader=SafeLoader)
+#     except Exception:
+#         raise RuntimeError(f"Failed to read {filename}")
+#     check_inputs(specs)
+#
+#     try:
+#         time_config = specs["schedule"].get("time", {})
+#
+#     except KeyError as e:
+#         raise RuntimeError(f"Missing expected time subblock key in YAML: {e}")
+#
+#     if (specs["schedule"]["time"]['type'] == "ConstantDT"):
+#         specs["schedule"]["num_tsteps"] = time_config["num_tsteps"]
+#         specs["schedule"]["dt"] = time_config["dt"]
+#
+#     time_type = specs["schedule"]["time"]['type']
+#
+#     if time_type == "FunctionDT":
+#         time_list = specs["functions"]['dts']['time']
+#         dt_list = specs["functions"]['dts']['dt']
+#         end_time = specs["functions"]['dts']['end_time']
+#
+#         interpolator = LinearInterpolation(time_list, dt_list)
+#
+#         # Generate interpolated time steps
+#         current_time = time_list[0]
+#         result = []
+#         dt_list = []  # List to store only the time steps
+#
+#         while current_time <= end_time:
+#             step = interpolator.sample(current_time)
+#             next_time = current_time + step
+#             if next_time > end_time:
+#                 step = end_time - current_time
+#                 next_time = end_time
+#             result.append((step, current_time))
+#             dt_list.append(float(step))  # Convert to Python float
+#             if next_time == end_time:
+#                 time_list.append(float(end_time))  # Ensure end_time is added
+#                 break
+#             current_time = next_time
+#
+#         specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
+#
+#         print(dt_list)
+#
+#         print(specs["schedule"]['dt_list'])
+#
+#         for time_step, time in result:
+#             print(f"Time Step: {time_step:.4f}, Time: {time:.4f}")
+#
+#     elif time_type == "ConstantDT":
+#         # Generate a list with `num_tsteps` members, each having the value of `dt`
+#         num_tsteps = specs["schedule"]["num_tsteps"]
+#         dt = specs["schedule"]["dt"]
+#         specs["schedule"]['dt_list'] = [dt] * num_tsteps  # Create the constant DT list
+#
+#         print(specs["schedule"]['dt_list'])
+#
+#     else:
+#         raise RuntimeError(f"Unsupported time type: {time_type}")
+#
+#     return specs
 
+
+def load_from_yaml(filename: str) -> Dict[str, Any]:
+    """
+    Load specifications from a YAML file, validate them, and process time configurations.
+
+    Args:
+        filename (str): The path to the YAML file.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the processed specifications.
+
+    Raises:
+        RuntimeError: If there is an issue reading the YAML file or processing its contents.
+    """
+    try:
+        # Load the YAML file
+        with open(filename, 'r') as file:
+            specs = yaml.load(file, Loader=SafeLoader)
+    except Exception as e:
+        raise RuntimeError(f"Failed to read {filename}: {e}")
+
+    # Validate inputs
+    check_inputs(specs)  # Ensure this function is properly implemented elsewhere
+
+    # Extract and validate time configuration
     try:
         time_config = specs["schedule"].get("time", {})
-        specs["schedule"]["num_tsteps"] = time_config["num_tsteps"]
-        specs["schedule"]["dt"] = time_config["dt"]
+        time_type = time_config.get("type")
     except KeyError as e:
-        raise RuntimeError(f"Missing expected time subblock key in YAML: {e}")
+        raise RuntimeError(f"Missing expected key in YAML: {e}")
 
-    # time_list = specs["functions"]['dts']['time']
-    # dt_list = specs["functions"]['dts']['dt']
-    # # start_time = time_config['start_time']
-    # end_time = specs["functions"]['dts']['end_time']
-    #
-    # interpolator = LinearInterpolation(time_list, dt_list)
-    #
-    # # Generate interpolated time steps
-    # current_time = time_list[0]
-    # result = []
-    # dt_list = []  # List to store only the time steps
-    #
-    # while current_time <= end_time:
-    #     step = interpolator.sample(current_time)
-    #     next_time = current_time + step
-    #     if next_time > end_time:
-    #         step = end_time - current_time
-    #         next_time = end_time
-    #     result.append((step, current_time))
-    #     dt_list.append(float(step))  # Convert to Python float
-    #     if next_time == end_time:
-    #         time_list.append(float(end_time))  # Ensure end_time is added
-    #         break
-    #     current_time = next_time
-    #
-    # specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
-    #
-    # print(dt_list)
-    #
-    # print(specs["schedule"]['dt_list'])
-    #
-    # for time_step, time in result:
-    #     print(f"Time Step: {time_step:.4f}, Time: {time:.4f}")
+    if time_type not in {"ConstantDT", "FunctionDT"}:
+        raise RuntimeError(f"Unsupported time type: {time_type}")
+
+    if time_type == "ConstantDT":
+        _process_constant_dt(specs, time_config)
+    elif time_type == "FunctionDT":
+        _process_function_dt(specs, time_config)
 
     return specs
+
+
+def _process_constant_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
+    """
+    Process constant time step configuration.
+
+    Args:
+        specs (Dict[str, Any]): The specifications dictionary.
+        time_config (Dict[str, Any]): The time configuration dictionary.
+
+    Raises:
+        KeyError: If required keys are missing.
+    """
+    try:
+        num_tsteps = time_config["num_tsteps"]
+        dt = time_config["dt"]
+    except KeyError as e:
+        raise RuntimeError(f"Missing required key for ConstantDT: {e}")
+
+    # Create a list of constant time steps
+    specs["schedule"]['dt_list'] = [dt] * num_tsteps
+
+
+# def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
+#     """
+#     Process function-based time step configuration.
+#
+#     Args:
+#         specs (Dict[str, Any]): The specifications dictionary.
+#         time_config (Dict[str, Any]): The time configuration dictionary.
+#
+#     Raises:
+#         RuntimeError: If required keys for function-based DT are missing.
+#     """
+#     try:
+#         # Get the function name from the schedule's time configuration
+#         function_name = specs["schedule"]["time"]["function"]
+#
+#         # Retrieve the function details from the specs
+#         function_data = specs["functions"][function_name]
+#         time_list = function_data["time"]
+#         dt_list = function_data["dt"]
+#         end_time = function_data["end_time"]
+#     except KeyError as e:
+#         raise RuntimeError(f"Missing required key for FunctionDT or invalid function reference: {e}")
+#
+#     # Initialize the interpolator
+#     interpolator = LinearInterpolation(time_list, dt_list)
+#     current_time = time_list[0]
+#     result = []
+#
+#     # Generate interpolated time steps
+#     while current_time <= end_time:
+#         step = interpolator.sample(current_time)
+#         next_time = current_time + step
+#
+#         # Ensure the final step does not exceed the end time
+#         if next_time > end_time:
+#             step = end_time - current_time
+#             next_time = end_time
+#
+#         result.append((step, current_time))
+#
+#         if next_time == end_time:
+#             break
+#
+#         current_time = next_time
+#
+#     # Store the interpolated time steps
+#     specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
+
+
+
+
+
+def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
+    """
+    Process function-based time step configuration.
+
+    Args:
+        specs (Dict[str, Any]): The specifications dictionary.
+        time_config (Dict[str, Any]): The time configuration dictionary.
+
+    Raises:
+        RuntimeError: If required keys for function-based DT are missing.
+    """
+    try:
+        function_name = specs["schedule"]["time"]["function"]
+        function_data = specs["functions"][function_name]
+
+        if function_data["type"] == "segmented_linear_csv":
+            csv_file = function_data["file"]
+            end_time = function_data["end_time"]
+            time_list, dt_list = _read_csv_time_dt(csv_file)
+        elif function_data["type"] == "segmented_linear":
+            time_list = function_data["time"]
+            dt_list = function_data["dt"]
+            end_time = function_data["end_time"]
+        elif function_data["type"] == "irregular_csv":
+            csv_file = function_data["file"]
+            dt_list = _read_csv_single_column(csv_file)
+            specs["schedule"]['dt_list'] = dt_list
+            return
+        else:
+            raise RuntimeError(f"Unsupported function type: {function_data['type']}")
+    except KeyError as e:
+        raise RuntimeError(f"Missing required key for FunctionDT or invalid function reference: {e}")
+
+    interpolator = LinearInterpolation(time_list, dt_list)
+    current_time = time_list[0]
+    result = []
+
+    while current_time <= end_time:
+        step = interpolator.sample(current_time)
+        next_time = current_time + step
+
+        if next_time > end_time:
+            step = end_time - current_time
+            next_time = end_time
+
+        result.append((step, current_time))
+
+        if next_time == end_time:
+            break
+
+        current_time = next_time
+
+    specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
+
+
+def _read_csv_single_column(csv_file: str) -> list:
+    """
+    Read a single-column CSV file and return the list of values.
+
+    Args:
+        csv_file (str): Path to the CSV file.
+
+    Returns:
+        list: A list of time step values (dt).
+
+    Raises:
+        RuntimeError: If the file cannot be read or is malformed.
+    """
+    dt_list = []
+
+    try:
+        with open(csv_file, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) != 1:
+                    raise RuntimeError(f"Malformed row in CSV file: {row}")
+                dt_list.append(float(row[0]))
+    except Exception as e:
+        raise RuntimeError(f"Error reading CSV file {csv_file}: {e}")
+
+    return dt_list
+
+
+def _read_csv_time_dt(csv_file: str) -> (list, list):
+    """
+    Read time and dt values from a CSV file.
+
+    Args:
+        csv_file (str): Path to the CSV file.
+
+    Returns:
+        (list, list): A tuple of two lists: time values and dt values.
+
+    Raises:
+        RuntimeError: If the file cannot be read or is malformed.
+    """
+    time_list = []
+    dt_list = []
+
+    try:
+        with open(csv_file, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) < 2:
+                    raise RuntimeError(f"Malformed row in CSV file: {row}")
+                time_list.append(float(row[0]))
+                dt_list.append(float(row[1]))
+    except Exception as e:
+        raise RuntimeError(f"Error reading CSV file {csv_file}: {e}")
+
+    return time_list, dt_list
+
+
 
 
 def get_os() -> str:

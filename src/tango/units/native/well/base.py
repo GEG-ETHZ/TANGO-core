@@ -98,6 +98,7 @@ class WellUnitNative(Unit):
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
         """
+        print('self.time_step', self.time_step)
         if self._specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
             self.mass_rate = float(row[1]) * self.scaling_factor
@@ -168,6 +169,7 @@ class WellUnitNative(Unit):
         Updates the old dimensionless time with the current time.
         """
         self._t_d_old = self._t_d
+        self.time_step += 1
 
 
     def update_dimensionless_time(self, del_t) -> None:
@@ -279,6 +281,7 @@ class WellUnitNative(Unit):
         """
         self._t_d = 0.0  # dimensionless time at the current time step
         self._t_d_old = 0.0  # dimensionless time at the previous time step
+        self.time_step = 0
 
 
     def _set_well_length(self) -> float:
@@ -400,7 +403,8 @@ class WellUnitNative(Unit):
             - `_T_f[0]`: Initial fluid temperature (in Kelvin).
             - `_u[0]`: Initial flow velocity (in meters per second).
         """
-        self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt * YEAR_TO_SECOND)
+        print('wellbore_time', self._specs.dt_list[self.time_step], self._specs.dt_list, self._t_d)
+        self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND)
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H

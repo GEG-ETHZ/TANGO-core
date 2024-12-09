@@ -104,3 +104,21 @@ def testcase8():
     run(fname)
     assert get_val(fname) == pytest.approx(116.29298550936)
     rmFiles(fname)
+
+def testcase9():
+    fname = os.path.join(examples_dir, 'timestep_irregular.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(1.044581)
+    rmFiles(fname)
+
+def testcase10():
+    fname = os.path.join(examples_dir, 'timestep_linear.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(1.522312)
+    rmFiles(fname)
+
+def testcase11():
+    fname = os.path.join(examples_dir, 'timestep_linear_csv.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(0.690270)
+    rmFiles(fname)

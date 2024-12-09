@@ -124,7 +124,7 @@ class ReservoirUnitNative(Unit):
 
         # ... update reservoir temperature (outlet_temperature)
 
-        dt = self.specs.dt * YEAR_TO_SECOND
+        dt = self.specs.dt_list[self.time_step] * YEAR_TO_SECOND
 
         T_inj = self.inlet_fluid.T
         dT = self.initial_temperature - T_inj
@@ -136,6 +136,7 @@ class ReservoirUnitNative(Unit):
         psi = self._get_energy_extracted() / reservoir_energy  # (-)
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
+        print('reservoir_time', dt, self.specs.dt_list, self._energy_extracted/1000000000)
 
         return outlet_pressure, outlet_temperature, self.m_dot
 
@@ -152,6 +153,7 @@ class ReservoirUnitNative(Unit):
 
     def update_energy_extracted_old(self) -> None:
         self._energy_extracted_old = self._energy_extracted
+        self.time_step += 1
 
     def update_energy_extracted(self, del_) -> None:
         self._energy_extracted = self._energy_extracted_old + del_
@@ -187,6 +189,7 @@ class ReservoirUnitNative(Unit):
         self._pressure_old = 0.0  # reservoir pressure at previous time step (Pa)
         self._energy_extracted = 0.0
         self._energy_extracted_old = 0.0  # reservoir energy extracted at previous time step (J)
+        self.time_step = 0
 
     def _process_specs(self, specs) -> dict:
         if 'well_eff_diameter' not in specs['reservoir']:

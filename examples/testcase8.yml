@@ -89,6 +89,14 @@ production_well:
   well_length_seq: [ 2500. ]
   well_diameter_seq: [ 0.410 ]
 
+
+functions:
+  dts:
+    type: segmented_linear
+    time: [0, 5]
+    dt: [1, 1 ]
+    end_time: 5
+
 schedule:
   bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 5.0  # kg/s (injection rate per pattern)

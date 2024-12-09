@@ -19,8 +19,8 @@ class CommonSpecs:
     well_spacing: float
     well_pattern_dimens: list
     start_date: str
-    num_tsteps: int
-    dt: float  # time step years
+    # num_tsteps: int
+    # dt: float  # time step years
     time_list: List[float] = field(default_factory=list)
     dt_list: List[float] = field(default_factory=list)
     bc_iteration_checkpoint: str = 'production_well_bottom'

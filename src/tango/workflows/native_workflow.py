@@ -27,8 +27,8 @@ class NativeWorkflow(Workflow):
     def __init__(self, specs: dict, input_file: str):
         super().__init__(specs)
         self._input_file = input_file
-        self._dt_months = np.round(self.specs['schedule']['dt'] * YEAR_TO_MONTH)
-        self._num_time_steps = self.specs['schedule']['num_tsteps']
+        # self._dt_months = np.round(self.specs['schedule']['dt'] * YEAR_TO_MONTH)
+        # self._num_time_steps = self.specs['schedule']['num_tsteps']
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
         self._init_system()
         self._init_econ_unit()
@@ -124,7 +124,10 @@ class NativeWorkflow(Workflow):
 
     def execute(self) -> None:
         current_date = self._start_date
-        for i in tqdm(range(self._num_time_steps), desc="Progress: ", ncols = 100, file=sys.stdout):
+        # print(self.specs)
+        # print(len(self.specs["schedule"]['dt_list']))
+        for i in tqdm(range(len(self.specs["schedule"]['dt_list'])), desc="Progress: ", ncols = 100, file=sys.stdout):
+            self._dt_months = np.round(self.specs['schedule']['dt_list'][i] * YEAR_TO_MONTH)
             if ((type(self.orchestrator).__name__ != 'SystemExternal') and (self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom')):
                 self._native_system_iteration()
             else:
@@ -132,6 +135,7 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date = current_date + relativedelta(months=self._dt_months)
+            print('tqdm', i, self._dt_months, current_date)
 
         if self.economic != None:
             self.economic.execute(self._results)
