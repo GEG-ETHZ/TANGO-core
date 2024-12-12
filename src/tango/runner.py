@@ -18,6 +18,21 @@ from tango.workflows.cmg_workflow import *
 
 
 def get_workflow_class(type_: str) -> object:
+    """
+    Retrieves the workflow class corresponding to the given type.
+
+    Args:
+        type_ (str): The type of workflow to retrieve.
+
+    Returns:
+        object: The workflow class corresponding to the specified type.
+
+    Raises:
+        ValueError: If the specified workflow type is not supported.
+
+    Example:
+        >>> workflow_class = get_workflow_class("example_type")
+    """
     try:
         return eval(WORKFLOW_OPTIONS[type_.lower()])
     except:
@@ -25,26 +40,56 @@ def get_workflow_class(type_: str) -> object:
 
 
 class Runner:
+    """
+    Runner class to execute workflows based on input specifications.
+
+    Attributes:
+        _specs (dict): Specifications loaded from the input YAML file.
+        _input_file (str): Path to the input file.
+
+    Methods:
+        _initialize_workflow():
+            Initializes the workflow based on the specified workflow type.
+        start():
+            Starts the workflow execution.
+    """
 
     def __init__(self, input_file: str):
+        """
+        Initializes the Runner object by loading specifications from the input file.
+
+        Args:
+            input_file (str): Path to the input YAML file containing specifications.
+        """
         self._specs = load_from_yaml(input_file)
         self._input_file = input_file
         logging.debug(f"Input summary:\n{json.dumps(self._specs, indent=4)}")
 
-
     def _initialize_workflow(self) -> None:
+        """
+        Initializes the workflow instance using the workflow class specified in the input file.
+
+        The workflow type is retrieved from `self._specs['runspec']['workflow']`.
+
+        Returns:
+            None
+        """
         Workflow = get_workflow_class(self._specs['runspec']['workflow'])
         self._workflow = Workflow(self._specs, self._input_file)
 
-
     def start(self) -> None:
+        """
+        Starts the workflow execution.
 
+        Logs the start time and executes the workflow specified in the input file.
+
+        Returns:
+            None
+        """
         logging.info(f"Running TANGO using {self._input_file}")
-
         self._start_time = time.time()
 
         self._initialize_workflow()
-
         self._workflow.execute()
 
         logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))

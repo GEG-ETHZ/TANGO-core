@@ -30,16 +30,30 @@ from typing import Dict, Any
 import csv
 
 def parse_args(args) -> argparse.Namespace:
+    """
+    Parses command-line arguments for the TANGO application.
+
+    Args:
+        args (list): List of command-line arguments.
+
+    Returns:
+        argparse.Namespace: Parsed arguments with the following attributes:
+            - `input_file` (str): Path to the input YAML file.
+            - `debug` (bool): Whether to enable debug logging.
+
+    Example:
+        >>> args = parse_args(['-f', 'input.yml', '--debug'])
+    """
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
     parser.add_argument('-f',
                         '--file',
                         dest='input_file',
-                        help='input file (.yml)',
+                        help='Input file (.yml)',
                         required=True)
     parser.add_argument('-d',
                         '--debug',
                         dest='debug',
-                        help='set loglevel to DEBUG',
+                        help='Set log level to DEBUG',
                         required=False,
                         default=False,
                         action=argparse.BooleanOptionalAction)
@@ -47,6 +61,22 @@ def parse_args(args) -> argparse.Namespace:
 
 
 def set_logger(args):
+    """
+    Sets up logging for the TANGO application.
+
+    Args:
+        args (argparse.Namespace): Parsed arguments containing:
+            - `input_file` (str): Path to the input YAML file.
+            - `debug` (bool): Whether to enable debug logging.
+
+    Raises:
+        FileNotFoundError: If the input file specified in `args` does not exist.
+
+    Behavior:
+        - Logs messages to a log file named after the input file (with `.log` extension).
+        - Logs messages to the console.
+        - Adjusts log level based on the `debug` flag.
+    """
     input_file = args.input_file
     DEBUG = args.debug
     if not os.path.isfile(input_file):
@@ -65,86 +95,27 @@ def set_logger(args):
     logging.getLogger('').addHandler(console)
 
 
-# def load_from_yaml(filename: str):
-#     try:
-#         with open(filename) as f:
-#             specs = load(f, Loader=SafeLoader)
-#     except Exception:
-#         raise RuntimeError(f"Failed to read {filename}")
-#     check_inputs(specs)
-#
-#     try:
-#         time_config = specs["schedule"].get("time", {})
-#
-#     except KeyError as e:
-#         raise RuntimeError(f"Missing expected time subblock key in YAML: {e}")
-#
-#     if (specs["schedule"]["time"]['type'] == "ConstantDT"):
-#         specs["schedule"]["num_tsteps"] = time_config["num_tsteps"]
-#         specs["schedule"]["dt"] = time_config["dt"]
-#
-#     time_type = specs["schedule"]["time"]['type']
-#
-#     if time_type == "FunctionDT":
-#         time_list = specs["functions"]['dts']['time']
-#         dt_list = specs["functions"]['dts']['dt']
-#         end_time = specs["functions"]['dts']['end_time']
-#
-#         interpolator = LinearInterpolation(time_list, dt_list)
-#
-#         # Generate interpolated time steps
-#         current_time = time_list[0]
-#         result = []
-#         dt_list = []  # List to store only the time steps
-#
-#         while current_time <= end_time:
-#             step = interpolator.sample(current_time)
-#             next_time = current_time + step
-#             if next_time > end_time:
-#                 step = end_time - current_time
-#                 next_time = end_time
-#             result.append((step, current_time))
-#             dt_list.append(float(step))  # Convert to Python float
-#             if next_time == end_time:
-#                 time_list.append(float(end_time))  # Ensure end_time is added
-#                 break
-#             current_time = next_time
-#
-#         specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
-#
-#         print(dt_list)
-#
-#         print(specs["schedule"]['dt_list'])
-#
-#         for time_step, time in result:
-#             print(f"Time Step: {time_step:.4f}, Time: {time:.4f}")
-#
-#     elif time_type == "ConstantDT":
-#         # Generate a list with `num_tsteps` members, each having the value of `dt`
-#         num_tsteps = specs["schedule"]["num_tsteps"]
-#         dt = specs["schedule"]["dt"]
-#         specs["schedule"]['dt_list'] = [dt] * num_tsteps  # Create the constant DT list
-#
-#         print(specs["schedule"]['dt_list'])
-#
-#     else:
-#         raise RuntimeError(f"Unsupported time type: {time_type}")
-#
-#     return specs
-
-
 def load_from_yaml(filename: str) -> Dict[str, Any]:
     """
-    Load specifications from a YAML file, validate them, and process time configurations.
+    Loads and validates specifications from a YAML file.
 
     Args:
-        filename (str): The path to the YAML file.
+        filename (str): Path to the YAML file.
 
     Returns:
         Dict[str, Any]: A dictionary containing the processed specifications.
 
     Raises:
         RuntimeError: If there is an issue reading the YAML file or processing its contents.
+
+    Behavior:
+        - Reads the YAML file and parses its content.
+        - Validates the parsed specifications using `check_inputs`.
+        - Processes time configurations based on the `type` field in the "schedule" section.
+        - Supports `ConstantDT` and `FunctionDT` time types.
+
+    Example:
+        >>> specs = load_from_yaml("input.yml")
     """
     try:
         # Load the YAML file
@@ -176,14 +147,26 @@ def load_from_yaml(filename: str) -> Dict[str, Any]:
 
 def _process_constant_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
     """
-    Process constant time step configuration.
+    Processes constant time step configuration.
+
+    This function generates a list of constant time steps based on the `dt` (time step size) and
+    `num_tsteps` (number of time steps) specified in the configuration.
 
     Args:
-        specs (Dict[str, Any]): The specifications dictionary.
-        time_config (Dict[str, Any]): The time configuration dictionary.
+        specs (Dict[str, Any]): The specifications dictionary to be updated.
+        time_config (Dict[str, Any]): The time configuration dictionary containing:
+            - `num_tsteps` (int): Number of time steps.
+            - `dt` (float): Size of each time step.
 
     Raises:
-        KeyError: If required keys are missing.
+        KeyError: If `num_tsteps` or `dt` is missing in `time_config`.
+
+    Example:
+        >>> specs = {"schedule": {}}
+        >>> time_config = {"num_tsteps": 10, "dt": 0.5}
+        >>> _process_constant_dt(specs, time_config)
+        >>> specs["schedule"]['dt_list']
+        [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
     """
     try:
         num_tsteps = time_config["num_tsteps"]
@@ -195,68 +178,40 @@ def _process_constant_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> 
     specs["schedule"]['dt_list'] = [dt] * num_tsteps
 
 
-# def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
-#     """
-#     Process function-based time step configuration.
-#
-#     Args:
-#         specs (Dict[str, Any]): The specifications dictionary.
-#         time_config (Dict[str, Any]): The time configuration dictionary.
-#
-#     Raises:
-#         RuntimeError: If required keys for function-based DT are missing.
-#     """
-#     try:
-#         # Get the function name from the schedule's time configuration
-#         function_name = specs["schedule"]["time"]["function"]
-#
-#         # Retrieve the function details from the specs
-#         function_data = specs["functions"][function_name]
-#         time_list = function_data["time"]
-#         dt_list = function_data["dt"]
-#         end_time = function_data["end_time"]
-#     except KeyError as e:
-#         raise RuntimeError(f"Missing required key for FunctionDT or invalid function reference: {e}")
-#
-#     # Initialize the interpolator
-#     interpolator = LinearInterpolation(time_list, dt_list)
-#     current_time = time_list[0]
-#     result = []
-#
-#     # Generate interpolated time steps
-#     while current_time <= end_time:
-#         step = interpolator.sample(current_time)
-#         next_time = current_time + step
-#
-#         # Ensure the final step does not exceed the end time
-#         if next_time > end_time:
-#             step = end_time - current_time
-#             next_time = end_time
-#
-#         result.append((step, current_time))
-#
-#         if next_time == end_time:
-#             break
-#
-#         current_time = next_time
-#
-#     # Store the interpolated time steps
-#     specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
-
-
-
-
-
 def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
     """
-    Process function-based time step configuration.
+    Processes function-based time step configuration.
+
+    This function generates a dynamic time step list based on a user-defined function.
+    It supports various function types, including segmented linear interpolation and irregular time steps.
 
     Args:
-        specs (Dict[str, Any]): The specifications dictionary.
-        time_config (Dict[str, Any]): The time configuration dictionary.
+        specs (Dict[str, Any]): The specifications dictionary to be updated.
+        time_config (Dict[str, Any]): The time configuration dictionary containing the function reference.
+
+    Supported Function Types:
+        - `segmented_linear_csv`: Time and time step data are read from a CSV file.
+        - `segmented_linear`: Time and time step data are defined directly in the specifications.
+        - `irregular_csv`: Time steps are defined in a single-column CSV file.
 
     Raises:
-        RuntimeError: If required keys for function-based DT are missing.
+        RuntimeError: If the function type is unsupported or required keys are missing.
+
+    Example:
+        >>> specs = {
+        ...     "schedule": {"time": {"function": "my_function"}},
+        ...     "functions": {
+        ...         "my_function": {
+        ...             "type": "segmented_linear",
+        ...             "time": [0, 1, 2],
+        ...             "dt": [0.1, 0.2, 0.3],
+        ...             "end_time": 2.0
+        ...         }
+        ...     }
+        ... }
+        >>> _process_function_dt(specs, specs["schedule"]["time"])
+        >>> specs["schedule"]['dt_list']
+        [0.1, 0.2, 0.3]
     """
     try:
         function_name = specs["schedule"]["time"]["function"]
@@ -302,18 +257,30 @@ def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> 
     specs["schedule"]['dt_list'] = [float(step[0]) for step in result]
 
 
+
 def _read_csv_single_column(csv_file: str) -> list:
     """
-    Read a single-column CSV file and return the list of values.
+    Reads a single-column CSV file and returns a list of values.
 
     Args:
         csv_file (str): Path to the CSV file.
 
     Returns:
-        list: A list of time step values (dt).
+        list: A list of time step values (`dt`).
 
     Raises:
-        RuntimeError: If the file cannot be read or is malformed.
+        RuntimeError: If the file cannot be read or contains malformed rows.
+
+    Example:
+        CSV file content:
+        ```
+        0.1
+        0.2
+        0.3
+        ```
+
+        >>> _read_csv_single_column("time_steps.csv")
+        [0.1, 0.2, 0.3]
     """
     dt_list = []
 
@@ -332,16 +299,29 @@ def _read_csv_single_column(csv_file: str) -> list:
 
 def _read_csv_time_dt(csv_file: str) -> (list, list):
     """
-    Read time and dt values from a CSV file.
+    Reads time and `dt` values from a two-column CSV file.
 
     Args:
         csv_file (str): Path to the CSV file.
 
     Returns:
-        (list, list): A tuple of two lists: time values and dt values.
+        (list, list): A tuple containing:
+            - `time_list` (list): List of time values.
+            - `dt_list` (list): List of corresponding `dt` values.
 
     Raises:
-        RuntimeError: If the file cannot be read or is malformed.
+        RuntimeError: If the file cannot be read or contains malformed rows.
+
+    Example:
+        CSV file content:
+        ```
+        0, 0.1
+        1, 0.2
+        2, 0.3
+        ```
+
+        >>> _read_csv_time_dt("time_steps.csv")
+        ([0.0, 1.0, 2.0], [0.1, 0.2, 0.3])
     """
     time_list = []
     dt_list = []
@@ -360,21 +340,70 @@ def _read_csv_time_dt(csv_file: str) -> (list, list):
     return time_list, dt_list
 
 
-
-
 def get_os() -> str:
+    """
+    Determines the operating system type.
+
+    Returns:
+        str: The operating system type, either:
+            - `'WIN'` for Windows,
+            - `'LINUX'` for Linux.
+
+    Raises:
+        RuntimeError: If the operating system is unsupported.
+
+    Example:
+        >>> get_os()
+        'LINUX'
+    """
     if sys.platform.lower().startswith('win'):
         return 'WIN'
     elif sys.platform.lower().startswith('linux'):
         return 'LINUX'
-    # sys.platform.lower().startswith('darwin'): # <- mac OS
     else:
         raise RuntimeError(f"OS: {sys.platform} is not supported.")
 
 
 def check_inputs(specs: dict) -> None:
-    required_sections = {'graph': ['nodes', 'edges'],
-                         'runspec': ['workflow']}
+    """
+    Validates the required sections and elements in the specifications.
+
+    Args:
+        specs (dict): The specifications dictionary.
+
+    Raises:
+        RuntimeError:
+            If required sections or elements are missing, or if `nodes` is empty.
+
+    Required Structure:
+        - `graph` section:
+            - Must contain `nodes` (non-empty).
+            - Must contain `edges`.
+        - `runspec` section:
+            - Must contain `workflow`.
+
+    Example:
+        Valid specs:
+
+        .. code-block:: python
+
+            specs = {
+                "graph": {
+                    "nodes": ["A", "B"],
+                    "edges": [["A", "B"]]
+                },
+                "runspec": {
+                    "workflow": "example_workflow"
+                }
+            }
+
+        >>> check_inputs(specs)
+        # No errors if valid.
+    """
+    required_sections = {
+        'graph': ['nodes', 'edges'],
+        'runspec': ['workflow']
+    }
     for key in required_sections.keys():
         if key not in specs:
             raise RuntimeError(f"'{key}' section (required) is not found")
@@ -384,8 +413,36 @@ def check_inputs(specs: dict) -> None:
     if len(specs['graph']['nodes']) < 1:
         raise RuntimeError(f"Empty nodes found in 'nodes' section")
 
-
 def system_name(specs) -> str:
+    """
+    Determines the system name based on the specifications.
+
+    Args:
+        specs (dict): The specifications dictionary containing the system's graph and schedule.
+
+    Returns:
+        str: The system name.
+
+    Logic:
+        - Extracts the `unit` and `type` of each node in the system graph.
+        - Adjusts the system name for specific cases:
+            - If the reservoir node uses an external file reader.
+            - If the boundary condition iteration checkpoint is at the injection well bottom.
+            - If the system includes a horizontal well but no reservoir.
+
+    Example:
+        .. code-block:: python
+
+            specs = {
+                "graph": {
+                    "nodes": {
+                        "surface": {"unit": "SurfaceUnit", "type": "surface"}
+                    }
+                },
+                "schedule": {"bc_iteration_checkpoint": "injection_well_bottom"}
+            }
+            print(system_name(specs))  # Output: 'external'
+    """
     unit_types = []
     for key in specs['graph']['nodes'].keys():
         node = specs['graph']['nodes'][key]
@@ -398,11 +455,26 @@ def system_name(specs) -> str:
             sys_name = 'external'
         unit_types.append(node['type'])
     if 'horizontal_well' in unit_types and 'reservoir' not in unit_types:
-        sys_name = sys_name.split('_')[0] # AGS
+        sys_name = sys_name.split('_')[0]
     return sys_name
 
-
 def get_unit_class(type_: str, unit_name: str) -> object:
+    """
+    Retrieves the unit class based on the type and unit name.
+
+    Args:
+        type_ (str): The type of the unit.
+        unit_name (str): The name of the unit.
+
+    Returns:
+        object: The class object corresponding to the unit.
+
+    Raises:
+        ValueError: If the type or unit name is unsupported.
+
+    Example:
+        >>> get_unit_class("surface", "turbine")
+    """
     try:
         return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
     except:
@@ -410,11 +482,46 @@ def get_unit_class(type_: str, unit_name: str) -> object:
 
 
 def newton(x_lst: list, y_lst: list) -> float:
+    """
+    Performs a single iteration of the Newton-Raphson method.
+
+    Args:
+        x_lst (list): List of two x-values.
+        y_lst (list): List of two corresponding y-values.
+
+    Returns:
+        float: The root estimate.
+
+    Example:
+        >>> newton([1, 2], [2, 0])
+        1.5
+    """
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])
     return x_lst[0] - y_lst[0] / dydx
 
 
 def get_table(fname: str, header: int = 0) -> pd.DataFrame:
+    """
+    Reads a table from a file and returns it as a Pandas DataFrame.
+
+    Args:
+        fname (str): Path to the file.
+        header (int, optional): Row to use as header (default: 0).
+
+    Returns:
+        pd.DataFrame: The table as a DataFrame.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        RuntimeError: If the file extension is unsupported or the file cannot be read.
+
+    Supported File Types:
+        - CSV
+        - XLSX
+
+    Example:
+        >>> get_table("data.csv")
+    """
     path = fname
     if not os.path.isabs(fname):
         path = os.path.join(Path(__file__).parent.parent.parent, 'data', fname)
@@ -432,7 +539,23 @@ def get_table(fname: str, header: int = 0) -> pd.DataFrame:
         raise RuntimeError(f"Failed to read {path}.")
 
 
-def parse_results(d: dict, nodes, current_date:str) -> dict:
+def parse_results(d: dict, nodes, current_date: str) -> dict:
+    """
+    Parses results from nodes and appends them to the results dictionary.
+
+    Args:
+        d (dict): The results dictionary.
+        nodes (dict): Dictionary of nodes with their states.
+        current_date (str): Current date to append to the results.
+
+    Returns:
+        dict: The updated results dictionary.
+
+    Example:
+        >>> d = {}
+        >>> nodes = {"node1": {"unit": UnitState(), "type": "turbine"}}
+        >>> parse_results(d, nodes, "2024-12-11")
+    """
     name = 'date'
     if name not in d.keys():
         d[name] = [current_date]
@@ -448,6 +571,21 @@ def parse_results(d: dict, nodes, current_date:str) -> dict:
 
 
 def states_dict_generator(pp_inclusion, nodes, plant_name, fluid_states: dict = None) -> dict:
+    """
+    Generates a dictionary of fluid states for nodes in the system.
+
+    Args:
+        pp_inclusion (str): Whether to include power plant components ('yes' or 'no').
+        nodes (dict): Dictionary of nodes with their states.
+        plant_name (str): Name of the plant.
+        fluid_states (dict, optional): Dictionary to store fluid states (default: None).
+
+    Returns:
+        dict: The updated fluid states dictionary.
+
+    Example:
+        >>> states_dict_generator("yes", nodes, "SurfaceUnitORCNative")
+    """
     if fluid_states is None:
         fluid_states = {}
 
@@ -457,27 +595,49 @@ def states_dict_generator(pp_inclusion, nodes, plant_name, fluid_states: dict = 
         enthalpy = state.outlet_fluid.H
         pressure = state.outlet_fluid.P
 
-        if (plant_name != 'SurfaceUnitORCNative'):
+        if plant_name != 'SurfaceUnitORCNative':
             if unit_name not in fluid_states:
                 fluid_states[unit_name] = []
-            fluid_states[unit_name].append((pressure/100000.0, enthalpy/1000.0))
+            fluid_states[unit_name].append((pressure / 100000.0, enthalpy / 1000.0))
 
-        if((id == 'surface') and (pp_inclusion == 'yes')):
+        if id == 'surface' and pp_inclusion == 'yes':
             for component in state.diagram_states:
                 enthalpy = state.diagram_states[component].H
                 pressure = state.diagram_states[component].P
-                print(component, 'it is')
                 if component not in fluid_states:
                     fluid_states[component] = []
 
-                fluid_states[component].append((pressure/100000.0, enthalpy/1000.0))
+                fluid_states[component].append((pressure / 100000.0, enthalpy / 1000.0))
 
     return fluid_states
 
 
+
 def create_connections(pp_inclusion, graph_edges, state):
+    """
+    Creates a list of connections for the system based on graph edges and the state.
+
+    Args:
+        pp_inclusion (str): Whether to include power plant components ('yes' or 'no').
+        graph_edges (dict): Dictionary of edges representing the system graph.
+        state (object): The current state of the system.
+
+    Returns:
+        list: A list of tuples representing connections in the format:
+              (source, target, connection_type).
+
+    Logic:
+    - Maps node identifiers in `graph_edges` to their corresponding system components.
+    - Adds connections based on `state.diagram_connections` if `pp_inclusion` is `'yes'`.
+    - Filters out specific connections such as `('production_well', 'surface', 'non-isentropic')`.
+
+    Example:
+        >>> graph_edges = {"e1": {"source": "prd_1", "target": "surface"}}
+        >>> create_connections("yes", graph_edges, state)
+        [('production_well', 'surface', 'non-isentropic')]
+    """
     connections = []
-    if (state.__class__.__name__ != 'SurfaceUnitORCNative'):
+    if state.__class__.__name__ != 'SurfaceUnitORCNative':
         node_mapping = {
             'surface': 'surface',
             'inj_1': 'injection_well',
@@ -494,7 +654,7 @@ def create_connections(pp_inclusion, graph_edges, state):
             target = node_mapping[edge['target']]
             connections.append((source, target, 'non-isentropic'))
 
-    if (pp_inclusion == 'no'):
+    if pp_inclusion == 'no':
         combined = connections
     else:
         combined = connections + state.diagram_connections
@@ -504,6 +664,23 @@ def create_connections(pp_inclusion, graph_edges, state):
 
 
 def append_results(d: dict, state: classmethod, base_name: str) -> None:
+    """
+    Appends the results from a given state to a dictionary.
+
+    Args:
+        d (dict): Dictionary to store results.
+        state (object): The state object containing variables to append.
+        base_name (str): Base name used as a prefix for the keys in the dictionary.
+
+    Logic:
+    - Iterates through all attributes of the `state` object.
+    - Filters out attributes starting with "__" or those listed in `SKIP_REPORT_ATTRIBUTES`.
+    - Appends float-type values to the dictionary under keys prefixed with `base_name`.
+
+    Example:
+        >>> d = {}
+        >>> append_results(d, state, "unit1")
+    """
     var_names = [var for var in dir(state) if not var.startswith("__")]
     for name in var_names:
         try:
@@ -519,20 +696,34 @@ def append_results(d: dict, state: classmethod, base_name: str) -> None:
 
 
 def write_results(input_file: str, results: tuple) -> None:
+    """
+    Writes the simulation results to CSV files.
 
+    Args:
+        input_file (str): Path to the input file used for the simulation.
+        results (tuple): A tuple containing:
+            - `physics_results` (dict): Results from physics-based units.
+            - `econ_results` (dict): Results from economic-based units.
+
+    Logic:
+    - Saves `physics_results` to a CSV file named `<input_file>.smry.csv`.
+    - Saves `econ_results` (if available) to a CSV file named `<input_file>.econ.csv`.
+    - Removes specific keys, such as `'surface__condensation_temperature_range'`, from the physics results.
+
+    Example:
+        >>> write_results("input.yml", (physics_results, econ_results))
+    """
     physics_results, econ_results = results
 
     fname = os.path.splitext(input_file)[0] + ".smry.csv"
     logging.info(f"Saving output summary of physics-based units > {fname}")
-    # print(physics_results)
-    # for key, value in physics_results.items():
-    #     print(f"{key}: {len(value)}")
     physics_results.pop('surface__condensation_temperature_range', None)
     df = pd.DataFrame(physics_results)
     df.to_csv(fname, index=False)
 
-    if econ_results == None:
+    if econ_results is None:
         return
+
     fname = os.path.splitext(input_file)[0] + ".econ.csv"
     logging.info(f"Saving output summary of economic units > {fname}")
     d = dict()
@@ -540,3 +731,4 @@ def write_results(input_file: str, results: tuple) -> None:
         d[key] = [econ_results[key]]
     df = pd.DataFrame(d)
     df.to_csv(fname, index=False)
+
