@@ -27,7 +27,9 @@ extensions = [
 ]
 
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = [
+    "path/to/tango/units/native/surface/AGS.py",
+]
 
 
 
