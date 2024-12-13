@@ -8,10 +8,6 @@ class LinearInterpolation:
         _x (numpy.ndarray): Independent variable values (must be strictly increasing).
         _y (numpy.ndarray): Dependent variable values.
         _extrapolate (bool): Whether to allow extrapolation beyond the range of `_x`.
-
-    Methods:
-        sample(x):
-            Interpolates or extrapolates the value of `_y` at a given `_x`.
     """
 
     def __init__(self, x, y, extrapolate=False):

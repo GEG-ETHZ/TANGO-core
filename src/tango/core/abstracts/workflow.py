@@ -8,14 +8,7 @@ class Workflow(ABC):
     and their associated economic computations..
 
     Attributes:
-        specs (dict): Specifications for the workflow, including configurations for system and economic units.
-        orchestrator (object): Placeholder for the orchestrator managing the system computations.
-        economic_unit (object): Placeholder for the economic unit managing financial computations.
-
-    Methods:
-        _init_system: Abstract method to initialize the physical system.
-        _init_econ_unit: Abstract method to initialize the economic unit.
-        execute: Abstract method to execute the workflow.
+        specs (dict): Specifications for the workflow, including configurations for system and economic units. ..
     """
 
     orchestrator, economic_unit = 2 * [None]

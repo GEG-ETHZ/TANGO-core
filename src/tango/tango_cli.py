@@ -13,10 +13,6 @@ class Tango:
 
     Attributes:
         runner (Runner): An instance of the `Runner` class initialized with input file specifications.
-
-    Methods:
-        execute():
-            Starts the workflow execution.
     """
 
     def __init__(self, args: list):

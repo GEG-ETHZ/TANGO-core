@@ -21,12 +21,6 @@ class SystemCMG(UnitManager):
         specs (dict): Specifications for the system, including graph structure and unit details.
         nodes (list): List of nodes in the system graph.
         graph (nx.Graph): NetworkX graph representing connections between units.
-
-    Methods:
-        _build_graph: Constructs a graph of nodes and edges based on specifications.
-        _init_nodes: Initializes units for each node in the graph.
-        _init_edges: Placeholder for initializing edges (e.g., data flow relationships).
-        stream_interface: Executes a series of operations across nodes in the system.
     """
 
     def __init__(self, specs):

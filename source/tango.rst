@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    tango.core
+   tango.interfaces
    tango.orchestrators
    tango.units
    tango.workflows

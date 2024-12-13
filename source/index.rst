@@ -10,8 +10,8 @@ Welcomee to the TANGO documentation. This guide provides a comprehensive overvie
    getting_started
    tutorials
    examples
+   TANGO API <modules>
    faq
-   modules
 
 Indices and Tables
 ==================

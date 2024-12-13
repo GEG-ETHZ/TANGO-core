@@ -46,12 +46,6 @@ class Runner:
     Attributes:
         _specs (dict): Specifications loaded from the input YAML file.
         _input_file (str): Path to the input file.
-
-    Methods:
-        _initialize_workflow():
-            Initializes the workflow based on the specified workflow type.
-        start():
-            Starts the workflow execution.
     """
 
     def __init__(self, input_file: str):

@@ -7,7 +7,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   tango.units.native.surface.AGS
    tango.units.native.surface.CPG
    tango.units.native.surface.DH
    tango.units.native.surface.ORC

@@ -11,12 +11,6 @@ class EconUnitSurfacePipes:
         _X_IC (float): Indirect cost multiplier.
         _X_PC (float): Project contingency multiplier.
         _surface_unit (object): Associated surface unit.
-
-    Methods:
-        _compute_surface_pipe_total_length():
-            Computes the total length of surface pipes.
-        execute():
-            Calculates the total cost of surface piping.
     """
 
     def __init__(self, specs: dict, unit: object):
@@ -89,16 +83,6 @@ class EconUnitSurfacePowerPlant:
         _X_IC (float): Indirect cost multiplier.
         _X_PC (float): Project contingency multiplier.
         _surface_unit (object): Associated surface unit.
-
-    Methods:
-        _get_turbine_cost_multiplier():
-            Retrieves the turbine cost multiplier based on fluid type.
-        _get_pump_material_cost_multiplier():
-            Retrieves the pump material cost multiplier based on fluid type.
-        _get_tower_design_coefficient():
-            Retrieves the cooling tower design coefficient.
-        _initialize_constants():
-            Initializes surface-specific constants.
     """
 
     def __init__(self, specs: dict, unit: object):
@@ -468,14 +452,13 @@ class EconUnitSurfacePowerPlant:
             float: Total surface plant cost (TPC).
 
         Formula:
+
             TPC = X_PC * X_IC * BEC
+
             Where:
                 BEC = TEC * (1 + X_CL + X_CM + X_ST + X_F)
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
-
-        Example:
-            >>> cost = self._execute_CPG(state)
         """
         if self._surface_unit is None:
             return 0.0
@@ -505,7 +488,9 @@ class EconUnitSurfacePowerPlant:
         Computes the cost of heat exchangers.
 
         Formula:
+
             Cost = PPI_HX * (239 * A_HX + 13400)
+
             Where:
                 A_HX = A_preheater + A_boiler
                 A_preheater = Q_preheater / (U * dT_LMTD_preheater)
@@ -513,9 +498,6 @@ class EconUnitSurfacePowerPlant:
 
         Returns:
             float: Total cost of heat exchangers.
-
-        Example:
-            >>> cost = self._compute_heat_exchanger_cost()
         """
         U = 500.  # W/m²-K (Heat transfer coefficient)
         if np.isnan(self._dT_LMTD_preheater) or self._dT_LMTD_preheater == 0:
@@ -532,15 +514,14 @@ class EconUnitSurfacePowerPlant:
         Computes the cost of the recuperator.
 
         Formula:
+
             Cost = PPI_HX * (239 * A_recuperator + 13400)
+
             Where:
                 A_recuperator = Q_recuperator / (U * dT_LMTD_recuperator)
 
         Returns:
             float: Recuperator cost.
-
-        Example:
-            >>> cost = self._compute_recuperator_cost()
         """
         if np.isnan(self._dT_LMTD_recuperator) or self._dT_LMTD_recuperator == 0:
             return 0.0
@@ -582,14 +563,14 @@ class EconUnitSurfacePowerPlant:
             float: Total surface plant cost (TPC).
 
         Formula:
+
             TPC = X_PC * X_IC * BEC
+
             Where:
+
                 BEC = TEC * (1 + X_CL + X_CM + X_ST + X_F)
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
-
-        Example:
-            >>> cost = self._execute_ORC(state)
         """
         if self._surface_unit is None:
             return 0.0

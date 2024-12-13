@@ -66,10 +66,6 @@ class SurfaceUnitDHNative(SurfaceUnitNative):
         cooler_include (bool): Whether a cooler is included in the system.
         current_row (int): Current row index for CSV-driven flow rates.
         csv_data (list): Data from the CSV file if applicable.
-
-    Methods:
-        init_stream_interface: Initializes stream interfaces for CO2 thermosiphon systems.
-        process_stream: Updates the state of the system based on stream conditions.
     """
 
     def __init__(self, id: str, specs: dict):

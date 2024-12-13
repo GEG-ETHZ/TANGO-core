@@ -82,14 +82,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
     Attributes:
         id (str): Unique identifier for the unit.
         specs (SurfaceSpecsORCNative): Specifications for the ORC system.
-
-    Methods:
-        init_stream_interface(P: float=None, T: float=None):
-            Initializes the fluid stream interface with given or default pressure and temperature.
-        process_stream():
-            Processes the fluid stream and updates state variables.
-        overwrite_state_pipe():
-            Updates the state of the pipe.
     """
 
     def __init__(self, id: str, specs: dict):
@@ -182,6 +174,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Processes the specifications for the ORC system and computes derived attributes.
 
         Derived attributes include:
+
         - `self._fluid_name`: Name of the fluid.
         - `self._refrigerant_name`: Name of the refrigerant.
         - `self._cross_sectional_area`: Cross-sectional area of the pipe, calculated as:
@@ -426,10 +419,12 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Updates the thermodynamic states of the working fluid and water throughout the ORC cycle.
 
         Key steps and calculations:
+
         1. **Retrieve Boiling and Pinch Temperatures**:
            - `T_boiling` and `dT_pinch` are retrieved from the lookup table based on the inlet temperature.
 
         2. **State Updates for Major Components**:
+
            - State 1: Condenser outlet -> Pump inlet (saturated liquid).
            - State 6: Cooler outlet -> Condenser inlet (saturated vapor).
            - State 3: Preheater outlet -> Boiler inlet (saturated liquid at boiling temperature).

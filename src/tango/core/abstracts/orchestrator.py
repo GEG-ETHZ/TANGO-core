@@ -36,21 +36,6 @@ class UnitManager(ABC):
         graph (nx.DiGraph): Directed graph representing the system of units.
         root_node_id (str): ID of the root node in the graph.
         root_node (dict): The root node object.
-
-    Methods:
-        _build_graph: Constructs the graph from specifications.
-        _init_nodes: Initializes nodes and their associated units.
-        _init_edges: Initializes edges and their associated streams.
-        _process_specs: Combines common specifications for units.
-        _set_node_object: Adds units to the container dynamically.
-        _input_check: Validates that required units are present.
-        _graph_check: Checks the integrity of the graph structure.
-        _reset: Resets the visited status of all nodes in the graph.
-        _update_node: Updates a node's state during execution.
-        _source_nodes: Retrieves source nodes for a given node.
-        _next_nodes: Retrieves target nodes for a given node.
-        _is_terminal: Checks if all nodes in the graph have been visited.
-        execute: Executes the workflow by traversing the graph.
     """
 
     def __init__(self, specs):

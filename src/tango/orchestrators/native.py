@@ -22,16 +22,6 @@ class SystemNative(UnitManager):
         x_lst (list): List of x-values for root-finding or iterative calculations.
         y_lst (list): List of y-values corresponding to `x_lst`.
         MAX_NUM_ITR (int): Maximum number of iterations allowed for convergence.
-
-    Methods:
-        max_itr_reached(count) -> bool:
-            Checks if the maximum number of iterations has been reached.
-        balanced() -> bool:
-            Determines if the system is balanced (default: always returns True).
-        update_time_dependent_vars() -> None:
-            Updates variables that depend on time (placeholder in this base class).
-        update() -> None:
-            Updates unknowns to balance the system (placeholder in this base class).
     """
 
     def __init__(self, specs):
@@ -95,14 +85,6 @@ class SystemCPGNative(SystemNative):
     Attributes:
         _CONVERGENCE_CRIT_DP_RESERVOIR (float): Convergence criterion for reservoir pressure difference.
         stop (bool): Indicates if the system should stop iterations.
-
-    Methods:
-        balanced() -> bool:
-            Determines if the system is balanced based on reservoir pressure.
-        update() -> None:
-            Updates unknown variables to balance the system.
-        update_time_dependent_vars() -> None:
-            Updates time-dependent variables for all units in the system.
     """
 
     def __init__(self, specs):
@@ -232,10 +214,12 @@ class SystemORCNative(SystemNative):
         Performs local iterations to update the injection well inlet pressure.
 
         Logic:
+
         - Iteratively adjusts the injection well inlet pressure to minimize the reservoir pressure difference.
         - Uses a root-finding approach with a Newton-Raphson method.
 
         Steps:
+
         - Updates the inlet state of the injection well.
         - Adjusts the pressure using `newton` root-finding until the reservoir pressure difference (`dP_reservoir`)
           is within the convergence criterion.
@@ -402,17 +386,13 @@ class SystemORCNative(SystemNative):
         Checks if the system is balanced.
 
         Logic:
-        - The system is balanced if:
-          - Reservoir pressure difference (`dP_reservoir`) is within the convergence criterion.
-          - Surface pressure difference (`dP_surface`) is within the convergence criterion.
-          - Surface temperature difference (`dT_surface`) is within the convergence criterion.
+            The system is balanced if:
+            - Reservoir pressure difference (`dP_reservoir`) is within the convergence criterion.
+            - Surface pressure difference (`dP_surface`) is within the convergence criterion.
+            - Surface temperature difference (`dT_surface`) is within the convergence criterion.
 
         Returns:
             bool: True if the system is balanced, False otherwise.
-
-        Example:
-            >>> if self.balanced():
-            ...     print("System is balanced.")
         """
         dP_reservoir = self.unit.reservoir.get_del_pressure()
         dP_surface = self._compute_dP_surface()
@@ -429,13 +409,13 @@ class SystemORCNative(SystemNative):
         Updates unknown variables to balance the system.
 
         Logic:
-        - Iteratively calls methods to update pressure, temperature, and production well states
-          until the system is balanced or the maximum iteration limit is reached.
+            Iteratively calls methods to update pressure, temperature, and production well states
+            until the system is balanced or the maximum iteration limit is reached.
 
         Steps:
-        - Updates the injection well inlet pressure.
-        - Updates the production well states.
-        - Updates the injection well inlet temperature.
+            - Updates the injection well inlet pressure.
+            - Updates the production well states.
+            - Updates the injection well inlet temperature.
 
         Raises:
             RuntimeError: If the maximum number of iterations is reached without balancing.
@@ -455,18 +435,15 @@ class SystemORCNative(SystemNative):
         Updates time-dependent variables for all system units.
 
         Logic:
-        - Clears historical lists of x and y values used in root-finding.
-        - Updates time-dependent variables, such as dimensionless time and current row indices,
-          for reservoir, injection well, production well, and surface systems.
+            Clears historical lists of x and y values used in root-finding.
+            Updates time-dependent variables, such as dimensionless time and current row indices,
+            for reservoir, injection well, production well, and surface systems.
 
         Steps:
-        - Updates:
-          - Reservoir pressure and energy extracted.
-          - Injection and production wells' dimensionless times.
-          - Current row indices for all units.
-
-        Example:
-            >>> self.update_time_dependent_vars()
+            - Updates:
+              - Reservoir pressure and energy extracted.
+              - Injection and production wells' dimensionless times.
+              - Current row indices for all units.
         """
         self.x_lst.clear()
         self.y_lst.clear()
@@ -480,4 +457,5 @@ class SystemORCNative(SystemNative):
         self.unit.injection_well.current_row += 1
         self.unit.production_well.current_row += 1
         self.unit.production_well_pump.current_row += 1
+
 

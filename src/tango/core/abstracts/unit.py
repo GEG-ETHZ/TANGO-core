@@ -26,15 +26,6 @@ class Unit(ABC):
         mass_rate (float): Total mass flow rate through the unit (kg/s).
         inlet_fluid (FluidState): Fluid state of the inlet.
         outlet_fluid (FluidState): Fluid state of the outlet.
-
-    Methods:
-        set_inlet_stream: Adds an inlet stream to the unit.
-        set_outlet_stream: Adds an outlet stream to the unit.
-        init_inlet_state: Initializes the inlet fluid state.
-        update_inlet_state: Updates the inlet fluid state based on weighted averages.
-        update_outlet_streams: Updates the outlet streams with the calculated outlet state.
-        init_state: Abstract method to initialize the unit state.
-        stream_interface: Abstract method to execute the unit operation.
     """
 
     def __init__(self, id, specs) -> None:

@@ -241,12 +241,6 @@ class SystemExternal(UnitManager):
         x_lst (list): Stores x-values for root-finding during iterations.
         y_lst (list): Stores y-values for root-finding during iterations.
         MAX_NUM_ITR (int): Maximum number of iterations allowed for convergence.
-
-    Methods:
-        update():
-            Updates unknown variables to balance the system.
-        _read_csv_file():
-            Reads a CSV file for reservoir inputs.
     """
 
     def __init__(self, specs):
@@ -380,15 +374,12 @@ class SystemExternal(UnitManager):
         Updates time-dependent variables for the system.
 
         Logic:
-        - Handles time-dependent updates for different surface units:
-          - For `SurfaceUnitCPGNative`, updates dimensionless time for wells and current row indices.
-          - For `SurfaceUnitORCNative` and `SurfaceUnitDHNative`, includes production well pump updates.
+            Handles time-dependent updates for different surface units:
+            - For `SurfaceUnitCPGNative`, updates dimensionless time for wells and current row indices.
+            - For `SurfaceUnitORCNative` and `SurfaceUnitDHNative`, includes production well pump updates.
 
         Raises:
             NotImplementedError: If the surface unit type is unsupported.
-
-        Example:
-            >>> self.update_time_dependent_vars()
         """
         if self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative':
             if self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit':

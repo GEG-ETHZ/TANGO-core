@@ -3,35 +3,110 @@ TANGO Examples
 
 Below are practical examples that demonstrate the usage of TANGO.
 
-Example 1: Simulating a Horizontal Well
----------------------------------------
+Example 1: CO\ :sub:`2`-Plume Geothermal (CPG) system
+--------------------------------------------------------
 
 .. code-block:: python
 
-   from tango.units.native.well.horizontal_well import HorizontalWell
+    graph:
+      nodes:
+        inj_1: # root node
+          type: 'injection_well'
+          unit: 'native'
+        reservoir:
+          type: 'reservoir'
+          unit: 'native'
+        prd_1:
+          type: 'production_well'
+          unit: 'native'
+        surface:
+          type: 'surface'
+          unit: 'native_CPG'
+      edges:
+        1:
+          source: 'surface'
+          target: 'inj_1'
+        2:
+          source: 'inj_1'
+          target: 'reservoir'
+        3:
+          source: 'reservoir'
+          target: 'prd_1'
+        4:
+          source: 'prd_1'
+          target: 'surface'
 
-   well = HorizontalWell(length=500, diameter=10)
-   well.simulate()
+    # simulation input
 
-Example 2: Injection Well Configuration
----------------------------------------
+    runspec:
+      title: 'CPG DOUBLET'
+      workflow: 'native'
+
+    props:
+      fluid_name: 'CO2'
+      brine_density: 1000 # kg/m3
+      rock_density: 2650.0 # kg/m3
+      rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+      rock_k: 2.1  # thermal conductivity (W/(m*K))
+      thermal_gradient: 0.035  # degC/m
+
+    surface:
+      surface_temperature: 288.15  # K
+      surface_pressure: 100_000  # Pa
+      pipe_diameter: 0.41 # m
+      approach_temperature: 7.0  # K
+      condensation_pressure_offset: 50_000.0  # Pa
+      eta_turbine: 0.78  # (-)
+
+    reservoir:
+      reservoir_depth: 2500.0 # m
+      thickness: 300.0 # m
+      permeability: 5.0e-14    # m2 ~50mD
+      porosity: 0.1
+      hydro_static_pressure: 25000000
+      over_pressure_percentage: 20
+
+    injection_well:
+      well_length: 2500. # m
+      diameter: 0.410 # m
+      well_length_seq: [ 2500. ]
+      well_diameter_seq: [ 0.410 ]
+
+    production_well:
+      well_length: 2500. # m
+      diameter: 0.410 # m
+      well_length_seq: [ 2500. ]
+      well_diameter_seq: [ 0.410 ]
+
+    schedule:
+      bc_iteration_checkpoint: production_well_bottom
+      mass_flow_rate: 200.0  # kg/s (injection rate per pattern)
+      well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+      well_spacing: 707. # m (inj-prod pair)
+      well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+      start_date: '2019-01-01' # Year-mm-dd
+      time:
+        type: ConstantDT
+        num_tsteps: 5 # number of time steps
+        dt: 1.0  # time step increment (year)
+
+    economic: # optional
+      type: 'native'
+      project_maturity: 'green_field' # brown_field or green_field
+      discount_rate: 0.095
+
+Example 2: Hydrothermal system with ORC
+----------------------------------------
 
 .. code-block:: python
 
-   from tango.units.native.well.injection_well import InjectionWell
+   Corresponding yaml file
 
-   well = InjectionWell(injection_rate=300, pressure=5000)
-   results = well.simulate()
-   print(results)
-
-Example 3: Running a CMG Workflow
----------------------------------
+Example 3: Advanced Geothermal System (AGS)
+--------------------------------------------
 
 .. code-block:: python
 
-   from tango.workflows.cmg_workflow import CMGWorkflow
+   Corresponding yaml file
 
-   workflow = CMGWorkflow(config="config.json")
-   workflow.run()
-
-Check out the :doc:`api_reference` for detailed descriptions of the modules used in these examples.
+Check out the :doc:`faq` for detailed descriptions of the modules used in these examples.

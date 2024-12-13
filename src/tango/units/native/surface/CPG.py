@@ -55,12 +55,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         reservoir_file_reader (bool): Indicates if reservoir file reading is enabled.
         cooler_include (bool): Indicates if a cooler is included in the system.
         current_row (int): Tracks the current row in the CSV file if flow rate is from a CSV.
-
-    Methods:
-        init_stream_interface: Initializes fluid state at the inlet and outlet streams.
-        process_stream: Updates the system states and computes outputs.
-        update_dP_pump: Updates the pump pressure drop.
-        get_dP_pump: Retrieves the pump pressure drop.
     """
 
     def __init__(self, id: str, specs: dict):
@@ -157,8 +151,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         Processes the specifications for the fluid system.
 
         Updates the following attributes:
+
         - `self._fluid_name`: Sets the fluid name from the specifications.
         - `self._condensation_temperature`: Calculated as:
+
           .. math::
 
               T_{\text{condensation}} = T_{\text{surface}} + T_{\text{approach}}

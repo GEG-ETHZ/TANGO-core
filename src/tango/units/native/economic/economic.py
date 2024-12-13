@@ -78,21 +78,6 @@ def merge_object_dict(obj, dict) -> object:
 class EconomicSpecsNative(CommonSpecs):
     """
     Specifications for the economic model in TANGO.
-
-    Attributes:
-        project_maturity (str): Maturity level of the project.
-        type (str): Economic model type.
-        PPI_table (str): File path for the Producer Price Index table.
-        cost_multiplier_table (str): File path for cost multiplier data.
-        OPEX_cost_fraction (float): Fraction of OPEX to geothermal plant cost.
-        discount_rate (float): Discount rate for economic calculations.
-        capacity_factor (float): Capacity factor of the system.
-        monitoring_well_diameter (float): Diameter of monitoring wells (m).
-        monitoring_well_probability_of_success (float): Probability of successful monitoring well drilling.
-        num_characterization_wells (int): Number of characterization wells.
-        horizontal_well_cost_multiplier (float): Multiplier for horizontal well costs.
-        well_cost_model (str): Model for well cost estimation.
-        wellbore_solver (str): Solver used for wellbore analysis.
     """
 
     project_maturity: str = None
@@ -157,16 +142,6 @@ class EconomicUnitNative(Unit):
         unit_dict (dict): Dictionary mapping unit types to their corresponding units.
         state_dict (dict): Dictionary mapping unit types to their states.
         _results (dict): Dictionary to store economic results.
-
-    Methods:
-        _compatibility_check():
-            Ensures unit compatibility with the economic model.
-        _process_specs(nodes):
-            Processes and validates specifications for the economic unit.
-        _set_unit_dict(nodes):
-            Initializes dictionaries for units and their states.
-        _initialize_units():
-            Initializes components such as wells, permitting, and surface power plant.
     """
 
     def __init__(self, specs: dict, nodes) -> None:

@@ -51,10 +51,6 @@ class NativeWorkflow(Workflow):
         orchestrator (object): Manages system computations and updates.
         economic (object): Handles economic computations, if applicable.
         diagram_specs (DiagramSpecs): Diagram specifications for plotting.
-
-    Methods:
-        execute():
-            Executes the workflow, including physics and economic computations.
     """
 
     def __init__(self, specs: dict, input_file: str):

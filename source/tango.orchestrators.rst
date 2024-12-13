@@ -10,7 +10,6 @@ Submodules
    tango.orchestrators.cmg
    tango.orchestrators.external
    tango.orchestrators.native
-   tango.orchestrators.pressure_back_calculator
 
 Module contents
 ---------------

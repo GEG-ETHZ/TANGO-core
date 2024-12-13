@@ -158,9 +158,6 @@ class TangoMooseInterface:
         flowrate_from_MOOSE (float): Flowrate value extracted from MOOSE.
         temperature_from_MOOSE (float): Temperature value extracted from MOOSE.
         _process (subprocess.Popen): Subprocess running the MOOSE executable.
-
-    Methods:
-        run: Executes the MOOSE simulation and updates boundary conditions dynamically.
     """
 
     def __init__(self, moose_executable_path,

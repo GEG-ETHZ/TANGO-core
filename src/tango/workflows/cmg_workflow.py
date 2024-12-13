@@ -13,10 +13,6 @@ class CMGWorkflow(Workflow):
         _results (dict): Stores results from the workflow execution.
         system (SystemCMG): The CMG-based physical system.
         economic (object): The economic analysis unit (not yet implemented).
-
-    Methods:
-        stream_interface():
-            Executes the physical system and integrates with the economic unit if available.
     """
 
     def __init__(self, specs: dict, input_file: str):
