@@ -4,6 +4,8 @@ from tqdm import tqdm
 import numpy as np
 import sys
 import logging
+import importlib
+import os
 
 from tango.core.abstracts.workflow import *
 from tango.core.constants import *
@@ -11,8 +13,6 @@ from tango.core.config import *
 from tango import utils
 from tango.orchestrators.native import *
 from tango.orchestrators.external import *
-from tango.diagram_plotter import FluidDiagramPlotter
-from tango.units.dataclasses import DiagramSpecs
 
 def get_system_class(type_: str) -> object:
     """
@@ -71,8 +71,9 @@ class NativeWorkflow(Workflow):
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
-        self._fluid_states = {}
-        self.diagram_specs = DiagramSpecs.from_dict(self._process_specs(specs))
+        # self.ThermaGraph_specs = ThermaGraphSpecs.from_dict(specs['addons']['ThermaGraph'])
+        self.addons_manager()
+
 
     def _process_specs(self, specs) -> dict:
         """
@@ -141,12 +142,6 @@ class NativeWorkflow(Workflow):
             nodes=self.orchestrator.graph.nodes,
             current_date=current_date.strftime(DATETIME_FMT)
         )
-        self._fluid_states = utils.states_dict_generator(
-            self.diagram_specs.include_Power_plant,
-            self.orchestrator.graph.nodes,
-            self.orchestrator.unit.surface.__class__.__name__,
-            self._fluid_states
-        )
 
     def _post_processing(self) -> None:
         """
@@ -156,23 +151,50 @@ class NativeWorkflow(Workflow):
             input_file=self._input_file,
             results=(self._results, self.economic.get_results() if self.economic else None)
         )
-        plotter1 = FluidDiagramPlotter(
-            fluid_states=self._fluid_states,
-            fluid=self.diagram_specs.fluid,
-            unit_system=self.diagram_specs.unit_system,
-            diagram_type=self.diagram_specs.diagram_type,
-            x_min=self.diagram_specs.x_min,
-            x_max=self.diagram_specs.x_max,
-            y_min=self.diagram_specs.y_min,
-            y_max=self.diagram_specs.y_max,
-            isoline_config=self.diagram_specs.isoline_config
-        )
-        connections = utils.create_connections(
-            self.diagram_specs.include_Power_plant,
-            self.specs['graph']['edges'],
-            self.orchestrator.unit.surface
-        )
-        plotter1.create_plot(connections)
+
+    def addons_manager(self) -> None:
+        """
+        Dynamically discovers addons from the addons directory, initializes them,
+        and sets up corresponding specifications.
+        """
+        addons_path = "/Users/morteza/Documents/projects/TANGO/src/tango/addons"
+        self.addons = {}
+
+        for addon_name in os.listdir(addons_path):
+            addon_dir = os.path.join(addons_path, addon_name)
+
+            if os.path.isdir(addon_dir) and not addon_name.startswith('__'):
+                try:
+                    addon_module = importlib.import_module(f"tango.addons.{addon_name}.{addon_name}_interface")
+                    addon_specs_class_name = f"{addon_name}Specs"
+                    if hasattr(addon_module, addon_specs_class_name):
+                        addon_specs_class = getattr(addon_module, addon_specs_class_name)
+                    else:
+                        addon_specs_class = getattr(
+                            importlib.import_module("tango.units.dataclasses"),
+                            addon_specs_class_name
+                        )
+
+                    addon_specs_dict = self.specs.get('addons', {}).get(addon_name, {})
+                    if not addon_specs_dict:
+                        raise KeyError(f"Specifications for addon '{addon_name}' not found in input specs.")
+
+                    addon_specs = addon_specs_class.from_dict(addon_specs_dict)
+                    setattr(self, f"{addon_name}_specs", addon_specs)
+
+                    addon_class_name = f"{addon_name}_addon"
+                    if hasattr(addon_module, addon_class_name):
+                        addon_class = getattr(addon_module, addon_class_name)
+                    else:
+                        raise AttributeError(f"'{addon_class_name}' not found in module '{addon_module.__name__}'.")
+
+                    self.addons[addon_name] = addon_class(self.specs['graph'], self._results)
+
+                    logging.info(f"Addon '{addon_name}' initialized successfully.")
+
+                except Exception as e:
+                    logging.error(f"Failed to load addon '{addon_name}': {e}")
+
 
     def execute(self) -> None:
         """
@@ -198,6 +220,20 @@ class NativeWorkflow(Workflow):
 
         if self.economic:
             self.economic.execute(self._results)
+
+        # self.phase_diagram = ThermaGraph_addon(self.specs['graph'], self._results)
+        # self.phase_diagram.post_process(self.ThermaGraph_specs)
+        # self.phase_diagram.execute()
+        for addon_name, addon_instance in self.addons.items():
+            addon_specs = getattr(self, f"{addon_name}_specs")
+
+            if addon_specs.active.lower() == "yes":
+                logging.info(f"Running post_process for addon: {addon_name}")
+                addon_instance.post_process(addon_specs)
+
+            if addon_specs.execute.lower() == "yes":
+                logging.info(f"Running execute for addon: {addon_name}")
+                addon_instance.execute()
 
         self._post_processing()
 

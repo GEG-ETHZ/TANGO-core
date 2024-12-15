@@ -46,6 +46,8 @@ class SurfaceUnitNative(Unit):
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
         self.mass_rate = mass_rate
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        self.P = self.outlet_fluid.P
+        self.H = self.outlet_fluid.H
         print('\n')
         print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
         print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
