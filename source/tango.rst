@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   tango.addons
    tango.core
    tango.interfaces
    tango.orchestrators
@@ -19,7 +20,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   tango.diagram_plotter
    tango.runner
    tango.tango_cli
    tango.time_stepper
