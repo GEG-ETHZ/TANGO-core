@@ -279,13 +279,14 @@ class EconUnitWells:
         r"""
         Computes the total cost of all wells (injection, production, and horizontal).
 
-        This method calculates the total cost for all types of wells in the project, considering the
-        number of wells, their dimensions, and the specified cost model.
+        This method calculates the total well costs based on the type of configuration:
+        - If `type` is `default_predefined`, it calculates the well costs.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
 
         Returns:
             float: Total cost of all wells (currency units).
 
-        Formula:
+        Formula for default_predefined:
             .. math::
                 C_{\text{total}} = C_{\text{inj}} + C_{\text{prd}} + C_{\text{hrz}}
 
@@ -293,15 +294,18 @@ class EconUnitWells:
                 - \( C_{\text{inj}} \): Total cost of injection wells.
                 - \( C_{\text{prd}} \): Total cost of production wells.
                 - \( C_{\text{hrz}} \): Total cost of horizontal wells.
-
-        Process:
-            - Compute the number of wells for each type using `_compute_num_wells`.
-            - Calculate the cost for each type using `_compute_wells_cost_by_type`.
-            - Sum the costs to get the total.
         """
-        num_total_inj, num_total_prod, num_total_hrz = self._compute_num_wells()
-        C_inj = self._compute_wells_cost_by_type(well_type='injection_well', num_wells=num_total_inj)
-        C_prd = self._compute_wells_cost_by_type(well_type='production_well', num_wells=num_total_prod)
-        C_hrz = self._compute_wells_cost_by_type(well_type='horizontal_well', num_wells=num_total_hrz)
-        return C_inj + C_prd + C_hrz
+        well_cost_type = self._specs.costs['wells']['type']
 
+        if well_cost_type == 'default_predefined':
+            num_total_inj, num_total_prod, num_total_hrz = self._compute_num_wells()
+            C_inj = self._compute_wells_cost_by_type(well_type='injection_well', num_wells=num_total_inj)
+            C_prd = self._compute_wells_cost_by_type(well_type='production_well', num_wells=num_total_prod)
+            C_hrz = self._compute_wells_cost_by_type(well_type='horizontal_well', num_wells=num_total_hrz)
+            return C_inj + C_prd + C_hrz
+
+        elif well_cost_type == 'user_defined':
+            return self._specs.costs['wells']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported well cost type: {well_cost_type}")

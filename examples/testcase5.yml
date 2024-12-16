@@ -86,13 +86,24 @@ production_well_pump:
   well_length_seq: [ 2500. ]
   well_diameter_seq: [ 0.410 ]
 
-
 functions:
   dts:
     type: segmented_linear
     time: [0, 5]
     dt: [1, 1 ]
     end_time: 5
+
+costs:
+  permitting:
+    type: default_predefined
+  exploration:
+    type: default_predefined
+  wells:
+    type: default_predefined
+  surface_pipes:
+    type: default_predefined
+  power_plant:
+    type: default_predefined
 
 schedule:
   bc_iteration_checkpoint: production_well_bottom
@@ -110,41 +121,3 @@ economic:
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
-
-phase_diagram: # optional
-  diagram_type: 'logph'
-  include_Power_plant: 'yes'
-  fluid: 'R245fa'
-  x_min: 100
-  x_max: 500
-  y_min: 0.1
-  y_max: 100
-  unit_system:
-    T: '°C'
-    h: 'kJ/kg'
-    p: 'bar'
-  isoline_config:
-    Q:
-      start: 0
-      end: 1
-      num: 2
-    T:
-      start: -40
-      end: 160
-      num: 11
-    p:
-      start: 0.01
-      end: 1000
-      num: 6
-    v:
-      start: 0.001
-      end: 10
-      num: 0
-    s:
-      start: 1000
-      end: 2000
-      num: 11
-    h:
-      start: 0
-      end: 3600
-      num: 19

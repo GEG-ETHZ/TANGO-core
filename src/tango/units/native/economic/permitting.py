@@ -105,26 +105,40 @@ class EconUnitPermitting:
         r"""
         Executes the economic calculations for permitting and monitoring costs.
 
-        This method calculates the total costs, including base permitting costs,
-        incremental CO2 permitting costs, and CO2 monitoring costs.
+        This method calculates the total costs based on the type of permitting cost configuration:
+        - If `type` is `default_predefined`, it calculates the permitting and monitoring costs.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
 
         Returns:
             float: The total cost of permitting and monitoring.
 
-        Formula:
+        Formula for default_predefined:
             .. math::
                 C_{\text{total}} = C_{\text{permitting}} + \Delta C_{\text{CO2, permitting}}
                 + \Delta C_{\text{CO2, monitoring}}
 
-        Where:
+            Where:
             .. math::
                 C_{\text{permitting}} = X_{IC} \cdot X_{PC} \cdot PPI_{\text{permitting}} \cdot 665700
+
+        For `user_defined`:
+            The cost is directly returned from the user-defined function value:
+            .. math::
+                C_{\text{total}} = \text{function\_def}[\text{"value"}]
         """
         if self._specs.project_maturity == 'BROWN_FIELD':
             return 0
 
-        C_permitting = self._X_IC * self._X_PC * self._PPI_permitting * 665700.
-        dC_CO2_permitting = self._compute_dCO2_permitting()
-        dC_CO2_monitoring = self._compute_dCO2_monitoring()
+        permitting_cost_type = self._specs.costs['permitting']['type']
 
-        return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
+        if permitting_cost_type == 'default_predefined':
+            C_permitting = self._X_IC * self._X_PC * self._PPI_permitting * 665700.
+            dC_CO2_permitting = self._compute_dCO2_permitting()
+            dC_CO2_monitoring = self._compute_dCO2_monitoring()
+            return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
+
+        elif permitting_cost_type == 'user_defined':
+            return self._specs.costs['permitting']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported permitting cost type: {permitting_cost_type}")

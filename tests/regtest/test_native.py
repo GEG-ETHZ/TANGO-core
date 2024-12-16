@@ -122,3 +122,15 @@ def testcase11():
     run(fname)
     assert get_val(fname) == pytest.approx(0.690270)
     rmFiles(fname)
+
+def testcase12():
+    fname = os.path.join(examples_dir, 'ORC_user_defined_cost.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(6.102323)
+    rmFiles(fname)
+
+def testcase13():
+    fname = os.path.join(examples_dir, 'CPG_user_defined_cost.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(1.042690)
+    rmFiles(fname)

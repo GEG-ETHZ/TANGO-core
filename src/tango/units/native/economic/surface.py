@@ -54,7 +54,11 @@ class EconUnitSurfacePipes:
         """
         Calculates the total cost of surface piping.
 
-        Formula:
+        This method calculates the total surface piping costs based on the type of configuration:
+        - If `type` is `default_predefined`, it calculates the surface piping cost using the formula.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+
+        Formula for default_predefined:
             Cost = X_PC * X_IC * PPI * (2205 * D^2 + 134) * L
 
         Returns:
@@ -63,11 +67,21 @@ class EconUnitSurfacePipes:
         Example:
             >>> cost = self.execute()
         """
-        if self._surface_unit is None:
-            return 0
-        L = self._compute_surface_pipe_total_length()
-        D = self._surface_unit.specs.pipe_diameter
-        return self._X_PC * self._X_IC * self._PPI * (2205. * D ** 2 + 134.) * L
+        surface_pipe_cost_type = self._specs.costs['surface_pipes']['type']
+
+        if surface_pipe_cost_type == 'default_predefined':
+            if self._surface_unit is None:
+                return 0
+            L = self._compute_surface_pipe_total_length()
+            D = self._surface_unit.specs.pipe_diameter
+            return self._X_PC * self._X_IC * self._PPI * (2205. * D ** 2 + 134.) * L
+
+        elif surface_pipe_cost_type == 'user_defined':
+            return self._specs.costs['surface_pipes']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported surface piping cost type: {surface_pipe_cost_type}")
+
 
 
 class EconUnitSurfacePowerPlant:
@@ -246,21 +260,36 @@ class EconUnitSurfacePowerPlant:
         """
         Executes the calculations for direct heat (DH) systems.
 
+        This method calculates the total DH costs based on the type of configuration:
+        - If `type` is `default_predefined`, it calculates the DH cost using the detailed formula.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+
         Args:
             state: The current surface state object.
 
         Returns:
-            float: The net total power in kWe.
+            float: The total DH system cost or user-defined value.
 
-        Example:
-            >>> net_power = self._execute_DH(state)
+        Formula for default_predefined:
+            .. math::
+                Cost = 200 * W_{\text{net total}} / 1000
         """
-        if self._surface_unit is None:
-            return 0.0
-
         self._state = state
         self._process_surface_state()
-        return 200 * self._W_net_total / 1000
+
+        DH_cost_type = self._specs.costs['power_plant']['type']
+
+        if DH_cost_type == 'default_predefined':
+            if self._surface_unit is None:
+                return 0.0
+
+            return 200 * self._W_net_total / 1000
+
+        elif DH_cost_type == 'user_defined':
+            return self._specs.costs['power_plant']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported power plant cost type: {DH_cost_type}")
 
 
     def _process_surface_state_CPG(self) -> None:
@@ -445,42 +474,57 @@ class EconUnitSurfacePowerPlant:
         """
         Executes cost calculations for Closed-loop Power Generation (CPG) systems.
 
+        This method calculates the total power plant costs based on the type of configuration:
+        - If `type` is `default_predefined`, it calculates the power plant cost using the detailed formula.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+
         Args:
             state: The current surface state.
 
         Returns:
             float: Total surface plant cost (TPC).
 
-        Formula:
-
-            TPC = X_PC * X_IC * BEC
+        Formula for default_predefined:
+            .. math::
+                TPC = X_PC * X_IC * BEC
 
             Where:
                 BEC = TEC * (1 + X_CL + X_CM + X_ST + X_F)
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
         """
-        if self._surface_unit is None:
-            return 0.0
-
-        X_SE = 1.39  # secondary equipment cost
-        X_CL = 0.58  # construction labor cost
-        X_CM = 0.11  # construction material cost
-        X_ST = 0.00  # sales tax
-        X_F = 0.04  # equipment freight
-
         self._state = state
         self._process_surface_state()
 
-        C_turbine_generator = self._compute_turbine_generator_cost()
-        C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
-        C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
+        power_plant_cost_type = self._specs.costs['power_plant']['type']
 
-        C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
-        C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
-        C_plant_BEC = C_plant_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
+        if power_plant_cost_type == 'default_predefined':
+            if self._surface_unit is None:
+                return 0.0
 
-        return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
+            # Constants for cost components
+            X_SE = 1.39  # secondary equipment cost
+            X_CL = 0.58  # construction labor cost
+            X_CM = 0.11  # construction material cost
+            X_ST = 0.00  # sales tax
+            X_F = 0.04  # equipment freight
+
+            C_turbine_generator = self._compute_turbine_generator_cost()
+            C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
+            C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
+
+            C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
+            C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
+            C_plant_BEC = C_plant_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
+
+            return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
+
+        elif power_plant_cost_type == 'user_defined':
+            return self._specs.costs['power_plant']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported power plant cost type: {power_plant_cost_type}")
+
 
 
     def _compute_heat_exchanger_cost(self) -> float:
@@ -556,15 +600,19 @@ class EconUnitSurfacePowerPlant:
         """
         Executes cost calculations for Organic Rankine Cycle (ORC) systems.
 
+        This method calculates the total ORC costs based on the type of configuration:
+        - If `type` is `default_predefined`, it calculates the ORC cost using the detailed formula.
+        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+
         Args:
             state: The current surface state.
 
         Returns:
             float: Total surface plant cost (TPC).
 
-        Formula:
-
-            TPC = X_PC * X_IC * BEC
+        Formula for default_predefined:
+            .. math::
+                TPC = X_PC * X_IC * BEC
 
             Where:
 
@@ -572,31 +620,50 @@ class EconUnitSurfacePowerPlant:
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
         """
-        if self._surface_unit is None:
-            return 0.0
-
-        X_SE = 1.39  # secondary equipment cost
-        X_CL = 0.58  # construction labor cost
-        X_CM = 0.11  # construction material cost
-        X_ST = 0.00  # sales tax
-        X_F = 0.04  # equipment freight
-
         self._state = state
         self._process_surface_state()
 
-        C_turbine_generator = self._compute_turbine_generator_cost()
-        C_pump_inj = self._compute_pump_inj_cost(self._W_pump_ORC)
-        C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
-        C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
-        C_heat_exchanger = self._compute_heat_exchanger_cost()
-        C_recuperator = self._compute_recuperator_cost()
+        ORC_cost_type = self._specs.costs['power_plant']['type']
 
-        C_plant_PEC = C_turbine_generator + C_pump_inj + C_pump_prod + C_cooling_condensing_tower + C_heat_exchanger + C_recuperator + 200.0 * self._W_net_thermal / 1000.0  # primary equipment cost (PEC)
+        if ORC_cost_type == 'default_predefined':
+            if self._surface_unit is None:
+                return 0.0
 
-        C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
-        C_plant_BEC = C_plant_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
+            # Constants for cost components
+            X_SE = 1.39  # secondary equipment cost
+            X_CL = 0.58  # construction labor cost
+            X_CM = 0.11  # construction material cost
+            X_ST = 0.00  # sales tax
+            X_F = 0.04  # equipment freight
 
-        return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
+            C_turbine_generator = self._compute_turbine_generator_cost()
+            C_pump_inj = self._compute_pump_inj_cost(self._W_pump_ORC)
+            C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
+            C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
+            C_heat_exchanger = self._compute_heat_exchanger_cost()
+            C_recuperator = self._compute_recuperator_cost()
+
+            # Primary equipment cost (PEC)
+            C_plant_PEC = (
+                C_turbine_generator +
+                C_pump_inj +
+                C_pump_prod +
+                C_cooling_condensing_tower +
+                C_heat_exchanger +
+                C_recuperator +
+                200.0 * self._W_net_thermal / 1000.0
+            )
+
+            C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
+            C_plant_BEC = C_plant_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
+
+            return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
+
+        elif ORC_cost_type == 'user_defined':
+            return self._specs.costs['power_plant']['function_def']['value']
+
+        else:
+            raise ValueError(f"Unsupported power plant cost type: {ORC_cost_type}")
 
 
     def get_net_W_total(self) -> float:

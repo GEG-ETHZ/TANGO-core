@@ -72,6 +72,18 @@ production_well:
   well_length_seq: [ 2500. ]
   well_diameter_seq: [ 0.410 ]
 
+costs:
+  permitting:
+    type: default_predefined
+  exploration:
+    type: default_predefined
+  wells:
+    type: default_predefined
+  surface_pipes:
+    type: default_predefined
+  power_plant:
+    type: default_predefined
+
 schedule:
   bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 200.0  # kg/s (injection rate per pattern)
