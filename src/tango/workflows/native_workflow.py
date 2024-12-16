@@ -177,7 +177,8 @@ class NativeWorkflow(Workflow):
 
                     addon_specs_dict = self.specs.get('addons', {}).get(addon_name, {})
                     if not addon_specs_dict:
-                        raise KeyError(f"Specifications for addon '{addon_name}' not found in input specs.")
+                        logging.warning(f"Addon '{addon_name}' is not set in the input file and will be skipped.")
+                        continue
 
                     addon_specs = addon_specs_class.from_dict(addon_specs_dict)
                     setattr(self, f"{addon_name}_specs", addon_specs)
