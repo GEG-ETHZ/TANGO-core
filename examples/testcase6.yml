@@ -107,3 +107,10 @@ economic: # optional
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
+    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
