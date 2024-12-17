@@ -7,6 +7,7 @@ from typing import List
 
 @dataclass
 class CommonSpecs:
+    num_pp: int
     fluid_name: str
     mass_flow_rate: float  # kg/s
     rock_density: float # kg/m3

@@ -232,7 +232,7 @@ class EconomicUnitNative(Unit):
         self.specs = EconomicSpecsNative.from_dict(combined_specs)
 
         # Debug print to verify the updated specs
-        # print('Updated specs:', self.specs)
+        print('Updated specs:', self.specs)
 
 
     def _set_unit_dict(self, nodes) -> None:

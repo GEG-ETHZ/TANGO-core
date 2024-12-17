@@ -83,6 +83,7 @@ costs:
     type: default_predefined
   power_plant:
     type: default_predefined
+    sizing_strategy: average_performance
 
 schedule:
   bc_iteration_checkpoint: production_well_bottom
@@ -91,6 +92,7 @@ schedule:
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
+  num_pp: 1
   time:
     type: ConstantDT
     num_tsteps: 5 # number of time steps

@@ -251,8 +251,7 @@ class EconUnitSurfacePowerPlant:
         Example:
             >>> self._process_surface_state_DH()
         """
-        mult = self._specs.num_patterns
-        self._W_thermal = mult * self._state.w_turbine
+        self._W_thermal = self._state.w_turbine
         self._W_net_total = self._W_thermal
 
 
@@ -283,7 +282,7 @@ class EconUnitSurfacePowerPlant:
             if self._surface_unit is None:
                 return 0.0
 
-            return 200 * self._W_net_total / 1000
+            return self._specs.num_pp * 200 * self._W_net_total / 1000
 
         elif DH_cost_type == 'user_defined':
             return self._specs.costs['power_plant']['function_def']['value']
@@ -303,18 +302,20 @@ class EconUnitSurfacePowerPlant:
         Example:
             >>> self._process_surface_state_CPG()
         """
-        mult = self._specs.num_patterns
+        # Compute heat quantities
+        self._Q_condenser_total = self._state.q_condenser
+        self._Q_cooler_total = self._state.q_cooler
+        self._Q_preheater_total = self._state.q_preheater
+        self._Q_boiler_total = self._state.q_boiler
+        self._Q_desuperheater_total = self._state.q_desuperheater
 
-        self._Q_condenser_total = mult * self._state.q_condenser
-        self._Q_cooler_total = mult * self._state.q_cooler
-        self._Q_preheater_total = mult * self._state.q_preheater
-        self._Q_boiler_total = mult * self._state.q_boiler
-        self._Q_desuperheater_total = mult * self._state.q_desuperheater
+        # Compute work quantities
+        self._W_pump_total = self._state.w_pump
+        self._W_turbine_total = self._state.w_turbine
+        self._W_cooler_total = self._state.w_cooler
+        self._W_condenser_total =self._state.w_condenser
 
-        self._W_pump_total = mult * self._state.w_pump
-        self._W_turbine_total = mult * self._state.w_turbine
-        self._W_cooler_total = mult * self._state.w_cooler
-        self._W_condenser_total = mult * self._state.w_condenser
+        # Compute net work and thermal power
         self._W_net_total = (self._W_pump_total + self._W_turbine_total +
                              self._W_cooler_total + self._W_condenser_total)
         self._W_net_thermal = self._state.thermal_power
@@ -331,19 +332,17 @@ class EconUnitSurfacePowerPlant:
         Example:
             >>> self._process_surface_state_ORC()
         """
-        mult = self._specs.num_patterns
+        self._Q_condenser_total = self._state.q_condenser
+        self._Q_cooler_total = self._state.q_cooler
+        self._Q_preheater_total = self._state.q_preheater
+        self._Q_boiler_total = self._state.q_boiler
+        self._Q_desuperheater_total = self._state.q_desuperheater
+        self._Q_recuperator_total = self._state.q_recuperator
 
-        self._Q_condenser_total = mult * self._state.q_condenser
-        self._Q_cooler_total = mult * self._state.q_cooler
-        self._Q_preheater_total = mult * self._state.q_preheater
-        self._Q_boiler_total = mult * self._state.q_boiler
-        self._Q_desuperheater_total = mult * self._state.q_desuperheater
-        self._Q_recuperator_total = mult * self._state.q_recuperator
-
-        self._W_pump_ORC = mult * self._state.w_pump
-        self._W_pump_prod = mult * self._state.w_downhole_pump
-        self._W_turbine_total = mult * self._state.w_turbine
-        self._W_net_total = mult * (self._state.w_net + self._state.w_downhole_pump)
+        self._W_pump_ORC = self._state.w_pump
+        self._W_pump_prod = self._state.w_downhole_pump
+        self._W_turbine_total = self._state.w_turbine
+        self._W_net_total = (self._state.w_net + self._state.w_downhole_pump)
         self._W_net_thermal = self._state.thermal_power
 
         self._dT_range_CT = self._state.dT_range_CT
@@ -493,6 +492,15 @@ class EconUnitSurfacePowerPlant:
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
         """
+        # # Determine the multiplier based on the condition
+        # self.num_pp = self._specs.costs['power_plant'].get('num_pp', self._specs.num_patterns)
+        # print(self._specs.num_pp)
+        # if not self.num_pp:  # If 'num_pp' is None or evaluates to False, fallback to num_patterns
+        #     self.num_pp = self._specs.num_patterns
+        #
+        # # Print the determined multiplier for debugging
+        # print(self.num_pp)
+
         self._state = state
         self._process_surface_state()
 
@@ -509,9 +517,9 @@ class EconUnitSurfacePowerPlant:
             X_ST = 0.00  # sales tax
             X_F = 0.04  # equipment freight
 
-            C_turbine_generator = self._compute_turbine_generator_cost()
-            C_pump_inj = self._compute_pump_inj_cost(self._W_pump_total)
-            C_cooling_condensing_tower = self._compute_cooling_condensing_tower_cost()
+            C_turbine_generator = self._specs.num_pp * self._compute_turbine_generator_cost()
+            C_pump_inj = self._specs.num_pp * self._compute_pump_inj_cost(self._W_pump_total)
+            C_cooling_condensing_tower = self._specs.num_pp * self._compute_cooling_condensing_tower_cost()
 
             C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
             C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
@@ -644,7 +652,7 @@ class EconUnitSurfacePowerPlant:
             C_recuperator = self._compute_recuperator_cost()
 
             # Primary equipment cost (PEC)
-            C_plant_PEC = (
+            C_plant_PEC = self._specs.num_pp * (
                 C_turbine_generator +
                 C_pump_inj +
                 C_pump_prod +
@@ -676,5 +684,5 @@ class EconUnitSurfacePowerPlant:
         Example:
             >>> net_power = self.get_net_W_total()
         """
-        return self._W_net_total
+        return self._specs.num_pp * self._W_net_total
 

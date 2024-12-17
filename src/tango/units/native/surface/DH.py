@@ -103,7 +103,8 @@ class SurfaceUnitDHNative(SurfaceUnitNative):
         if P is not None and T is not None:
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-        self.mass_rate = self.specs.mass_flow_rate
+        # self.mass_rate = self.specs.mass_flow_rate
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
 
         self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
         self.condensation_pressure = self.outlet_fluid_condenser.P + self.specs.condensation_pressure_offset
@@ -121,6 +122,7 @@ class SurfaceUnitDHNative(SurfaceUnitNative):
             - Heat exchanger states.
             - Net power and mass flow rates.
         """
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
         if self.specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
             self.mass_rate = float(row[1])
@@ -132,7 +134,7 @@ class SurfaceUnitDHNative(SurfaceUnitNative):
         print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, H = {self.inlet_fluid.H}')
         print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}, H = {self.outlet_fluid.H}, mr = {self.mass_rate}, Pow = {self.w_turbine}')
 
-        return self.P_out, self.T_out, self.mass_rate
+        return self.P_out, self.T_out, self.specs.mass_flow_rate
 
     def _read_csv_file(self):
         """

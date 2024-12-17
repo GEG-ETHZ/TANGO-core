@@ -67,7 +67,7 @@ def testcase2():
 def testcase3():
     fname = os.path.join(examples_dir, 'testcase3.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(0.690270)
+    assert get_val(fname) == pytest.approx(0.690309)
     rmFiles(fname)
 
 
@@ -120,7 +120,7 @@ def testcase10():
 def testcase11():
     fname = os.path.join(examples_dir, 'timestep_linear_csv.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(0.690270)
+    assert get_val(fname) == pytest.approx(0.690309)
     rmFiles(fname)
 
 def testcase12():
@@ -133,4 +133,22 @@ def testcase13():
     fname = os.path.join(examples_dir, 'CPG_user_defined_cost.yml')
     run(fname)
     assert get_val(fname) == pytest.approx(1.042690)
+    rmFiles(fname)
+
+def testcase14():
+    fname = os.path.join(examples_dir, 'ORC_multiple_5spot.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(32.587342)
+    rmFiles(fname)
+
+def testcase15():
+    fname = os.path.join(examples_dir, 'ORC_num_pp.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(32.915394)
+    rmFiles(fname)
+
+def testcase16():
+    fname = os.path.join(examples_dir, 'CPG_num_pp.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(0.783523)
     rmFiles(fname)

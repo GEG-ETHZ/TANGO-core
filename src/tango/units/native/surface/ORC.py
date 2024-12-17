@@ -115,7 +115,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         """
         P = self.specs.initial_outlet_pressure if P is None else P
         T = self.specs.initial_outlet_temperature if T is None else T
-        self.mass_rate = self.specs.mass_flow_rate
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        # self.mass_rate = self.specs.mass_flow_rate
         self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
@@ -129,6 +130,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Returns:
             tuple: Outlet pressure, outlet temperature, and mass rate.
         """
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        print('self.mass_rate', self.mass_rate)
         if self.specs.flow_rate_from_csv == 'yes':
             if self.current_row < len(self.csv_data):
                 row = self.csv_data[self.current_row]
@@ -141,7 +144,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._update_diagram_connections()
         print(self.P_out, self.T_out, self.mass_rate, 'process')
 
-        return self.P_out, self.T_out, self.mass_rate
+        return self.P_out, self.T_out, self.specs.mass_flow_rate
 
     def overwrite_state_pipe(self) -> None:
         """

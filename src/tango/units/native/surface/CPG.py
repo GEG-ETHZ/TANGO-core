@@ -79,7 +79,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         if P is not None and T is not None:
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-        self.mass_rate = self.specs.mass_flow_rate
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        # self.mass_rate = self.specs.mass_flow_rate
 
         self.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
         self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
@@ -97,6 +98,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         Processes the stream by updating turbine, condenser, and pump states,
         and computes the net system performance.
         """
+        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
         if self.specs.flow_rate_from_csv == 'yes':
             if self.current_row < len(self.csv_data):
                 row = self.csv_data[self.current_row]
@@ -110,7 +112,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_diagram_states()
         self._update_diagram_connections()
 
-        return self.P_out, self.T_out, self.mass_rate
+        return self.P_out, self.T_out, self.specs.mass_flow_rate
 
     def _read_csv_file(self):
         """
