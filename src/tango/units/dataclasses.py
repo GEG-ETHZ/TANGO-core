@@ -196,3 +196,16 @@ class ThermaGraphSpecs:
             k: v for k, v in env.items()
             if k in inspect.signature(cls).parameters
         })
+
+@dataclass
+class AnalyzerSpecs:
+    results_file: str
+    active: str = 'no'
+    execute: str = 'no'
+
+    @classmethod
+    def from_dict(cls, env): # ignore extra arguments passed to a dataclass
+        return cls(**{
+            k: v for k, v in env.items()
+            if k in inspect.signature(cls).parameters
+        })

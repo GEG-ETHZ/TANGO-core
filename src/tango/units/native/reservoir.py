@@ -128,8 +128,8 @@ class ReservoirUnitNative(Unit):
 
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
-        print('\nReservoir Inlet: P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
-        print(f'Reservoir Outlet: P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        # print('\nReservoir Inlet: P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
+        # print(f'Reservoir Outlet: P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
 
     def process_stream(self) -> tuple:
@@ -214,7 +214,7 @@ class ReservoirUnitNative(Unit):
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
 
-        print('Reservoir time:', dt, self.specs.dt_list, self._energy_extracted / 1e9)
+        # print('Reservoir time:', dt, self.specs.dt_list, self._energy_extracted / 1e9)
 
         return outlet_pressure, outlet_temperature, self.m_dot
 

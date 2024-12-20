@@ -206,10 +206,8 @@ class EconomicUnitNative(Unit):
         Args:
             nodes (dict): Nodes representing units in the system.
         """
-        # Merge common, economic, and costs sections into specs
         combined_specs = self.specs['common'] | self.specs['economic'] | {'costs': self.specs.get('costs', {})}
 
-        # Check for user-defined cost models and add corresponding functions
         costs = combined_specs.get('costs', {})
         for cost_name, cost_config in costs.items():
             if cost_config.get('type') == 'user_defined':
@@ -217,23 +215,15 @@ class EconomicUnitNative(Unit):
                 if not function_name:
                     raise ValueError(f"Cost model for '{cost_name}' is 'user_defined' but no function is specified.")
 
-                # Retrieve the function definition from the functions block
                 function_def = self.specs.get('functions', {}).get(function_name)
                 if not function_def:
                     raise ValueError(f"Function '{function_name}' for '{cost_name}' is not defined in the 'functions' block.")
 
-                # Add the function definition to the cost configuration
                 cost_config['function_def'] = function_def
 
-        # Update combined_specs with the modified costs block
         combined_specs['costs'] = costs
 
-        # Create the EconomicSpecsNative object
         self.specs = EconomicSpecsNative.from_dict(combined_specs)
-
-        # Debug print to verify the updated specs
-        print('Updated specs:', self.specs)
-
 
     def _set_unit_dict(self, nodes) -> None:
         """

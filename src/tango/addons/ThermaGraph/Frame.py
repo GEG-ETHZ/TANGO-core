@@ -374,7 +374,7 @@ class MainWindow(QMainWindow):
         Convert the axis limits for the diagram based on unit changes.
         """
         if not self.xmin_input.text().strip() or not self.xmax_input.text().strip() or not self.ymin_input.text().strip() or not self.ymax_input.text().strip():
-            return  # Do nothing if any of the axis limits are empty
+            return
 
         diagram_type = self.diagram_type_input.currentText()
         x_old_unit, y_old_unit = self.get_axis_units(diagram_type, old_units)
@@ -708,13 +708,11 @@ class MainWindow(QMainWindow):
             self.connections_input.setText(connections_file)
             self.connections = self.load_json_file(connections_file)
 
-        # Trigger the update to render the initial plot
         self.update_plot()
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 3:
-        # If JSON files are provided as arguments, load them
         components_file = sys.argv[1]
         connections_file = sys.argv[2]
 
@@ -728,7 +726,6 @@ if __name__ == '__main__':
         sys.exit(app.exec_())
 
     else:
-        # Run the module standalone without preloading files
         app = QApplication(sys.argv)
         window = MainWindow()
         sys.exit(app.exec_())

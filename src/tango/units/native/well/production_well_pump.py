@@ -59,9 +59,9 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         """
         outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
         self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
-        print('\n')
-        print(f'well pump inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
-        print(f'well pump outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
+        # print('\n')
+        # print(f'well pump inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
+        # print(f'well pump outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def process_stream_pump(self) -> tuple:
         """

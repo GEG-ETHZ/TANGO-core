@@ -13,6 +13,9 @@ from tango.core.config import *
 from tango import utils
 from tango.orchestrators.native import *
 from tango.orchestrators.external import *
+from tabulate import tabulate
+from termcolor import colored
+from itertools import cycle
 
 def get_system_class(type_: str) -> object:
     """
@@ -217,14 +220,12 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
-            print('tqdm', i, self._dt_months, current_date)
+            print(f"\n\n TimeStep = {i+1}")
+            self.generate_output_table()
 
         if self.economic:
             self.economic.execute(self._results)
 
-        # self.phase_diagram = ThermaGraph_addon(self.specs['graph'], self._results)
-        # self.phase_diagram.post_process(self.ThermaGraph_specs)
-        # self.phase_diagram.execute()
         for addon_name, addon_instance in self.addons.items():
             addon_specs = getattr(self, f"{addon_name}_specs")
 
@@ -239,3 +240,63 @@ class NativeWorkflow(Workflow):
         self._post_processing()
 
 
+    def generate_output_table(self):
+        """
+        Generates and prints a table showing system information:
+        Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
+        """
+        from tabulate import tabulate
+        from termcolor import colored
+        from itertools import cycle
+
+        graph_nodes = self.orchestrator.graph._node
+        graph_edges = self.orchestrator.graph.edges
+
+        table_data = []
+        headers = ["Unit", "Port", "Pressure (MPa)", "Temperature (°C)", "Enthalpy (Kj/kg)", "Mass Rate (kg/s)"]
+
+        for edge in graph_edges:
+            source, target = edge
+            source_unit = graph_nodes[source]['unit']
+            target_unit = graph_nodes[target]['unit']
+
+            try:
+                outlet_fluid = getattr(source_unit, 'outlet_fluid', None)
+                mass_rate = getattr(source_unit, 'mass_rate', 'N/A')  # Get mass_rate if available
+                if outlet_fluid:
+                    outlet_P = getattr(outlet_fluid, 'P', 'N/A') / 1000000.0
+                    outlet_T = getattr(outlet_fluid, 'T', 'N/A') - 273.15
+                    outlet_H = getattr(outlet_fluid, 'H', 'N/A') / 1000.0
+                    table_data.append([source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate])
+            except AttributeError:
+                table_data.append([source, "Outlet", "Error", "Error", "Error", "N/A"])
+
+            try:
+                inlet_fluid = getattr(target_unit, 'inlet_fluid', None)
+                mass_rate = getattr(target_unit, 'mass_rate', 'N/A')  # Get mass_rate if available
+                if inlet_fluid:
+                    inlet_P = getattr(inlet_fluid, 'P', 'N/A') / 1000000.0
+                    inlet_T = getattr(inlet_fluid, 'T', 'N/A') - 273.15
+                    inlet_H = getattr(inlet_fluid, 'H', 'N/A') / 1000.0
+                    table_data.append([target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate])
+            except AttributeError:
+                table_data.append([target, "Inlet", "Error", "Error", "Error", "N/A"])
+
+        if table_data:
+            last_row = table_data.pop()
+            table_data.insert(0, last_row)
+
+        available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
+        unit_names = list({node for node in self.orchestrator.graph._node})
+        color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
+
+        colored_table_data = []
+        for row in table_data:
+            unit_color = color_map.get(row[0], "white")
+            colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
+            colored_table_data.append(colored_row)
+
+        top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
+        print(top_border)
+        print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
+        print(top_border)
