@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import inspect
 from typing import List
+from typing import List, Dict, Union
 
 @dataclass
 class CommonSpecs:
@@ -202,6 +203,42 @@ class AnalyzerSpecs:
     results_file: str
     active: str = 'no'
     execute: str = 'no'
+
+    @classmethod
+    def from_dict(cls, env): # ignore extra arguments passed to a dataclass
+        return cls(**{
+            k: v for k, v in env.items()
+            if k in inspect.signature(cls).parameters
+        })
+
+@dataclass
+class OptimizationSpecs:
+    variables: Dict[str, Dict[str, Union[float, str]]]  # Variable names with bounds and type (e.g., continuous or integer)
+    # target: str  # Target parameter for optimization
+    targets: List[str]
+    target_type: List[str]
+    # target_type: str  # Either 'maximize' or 'minimize'
+    method: str
+    parallel_processing: str
+    n_generation: int
+    n_processes: int
+    pop_size: int
+    # weights: List[float] = [0.5]
+    constraints: Dict[str, Dict[str, Union[float, str]]] = field(default_factory=dict)  # Constraints on parameters not optimized
+    final_selection: str = 'ASF'
+    weights: List[float] = field(default_factory=lambda: [0.5])
+    crossover_probability: float = 0.9
+    distribution_index: int = 15
+    polynomial_mutation: int = 20
+
+    def __post_init__(self):
+        # Ensure all required fields are present
+        for var, specs in self.variables.items():
+            if 'lower_bound' not in specs or 'upper_bound' not in specs or 'type' not in specs:
+                raise RuntimeError(f"Variable {var} must have 'lower_bound', 'upper_bound', and 'type'.")
+
+        # if self.target_type not in ['maximize', 'minimize']:
+        #     raise ValueError(f"target_type must be 'maximize' or 'minimize', got {self.target_type}.")
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass

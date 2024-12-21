@@ -220,8 +220,8 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
-            print(f"\n\n TimeStep = {i+1}")
-            self.generate_output_table()
+            # print(f"\n\n TimeStep = {i+1}")
+            # self.generate_output_table()
 
         if self.economic:
             self.economic.execute(self._results)
