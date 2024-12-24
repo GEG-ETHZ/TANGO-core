@@ -229,6 +229,6 @@ optimization:
     INLET_TEMP:
       lower_bound: 330.0
   parallel_processing: yes
-  n_processes: 10
+  n_processes: 20
   final_selection: 'ASF'  # or 'pseudo_weights'
   weights: [0.01, 0.99]

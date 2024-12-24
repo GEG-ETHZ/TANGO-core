@@ -230,6 +230,7 @@ class OptimizationSpecs:
     crossover_probability: float = 0.9
     distribution_index: int = 15
     polynomial_mutation: int = 20
+    plot_name: str = 'opt_result_'
 
     def __post_init__(self):
         # Ensure all required fields are present

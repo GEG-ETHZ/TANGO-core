@@ -238,6 +238,9 @@ class NativeWorkflow(Workflow):
                 addon_instance.execute()
 
         self._post_processing()
+        # print(self._results)
+        # print(self.economic.get_results())
+
 
 
     def generate_output_table(self):

@@ -32,7 +32,7 @@ from tango.tango_cli import Tango
 examples_dir = os.path.join(str(Path(__file__).parent.parent.parent),'examples')
 
 def run(fname) -> None:
-    tango = Tango(['-f', fname])
+    tango = Tango(fname)
     tango.execute()
 
 
