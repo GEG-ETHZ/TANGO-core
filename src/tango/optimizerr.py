@@ -711,23 +711,6 @@ class MOOOptimizer(BaseOptimizer):
     res : object
         The optimization result object containing history and statistics.
 
-    Methods
-    -------
-    define_problem()
-        Defines the multi-objective optimization problem.
-    optimize(n_gen)
-        Executes the multi-objective optimization for the specified number of generations.
-    select_algorithm()
-        Selects the optimization algorithm based on the specified method name.
-    _normalize_objectives()
-        Normalizes the objective values on the Pareto front.
-    _select_asf_solution()
-        Selects the final solution using the Achievement Scalarizing Function (ASF).
-    _select_pseudo_weights_solution()
-        Selects the final solution using pseudo-weighting.
-    print_results()
-        Prints the optimal variables, objectives, and the selected final solution.
-
     Notes
     -----
     - Supports algorithms such as NSGA-II and NSGA-III.
@@ -751,10 +734,6 @@ class MOOOptimizer(BaseOptimizer):
         runner : callable, optional
             A parallel runner for evaluating the objective function.
 
-        Methods
-        -------
-        _evaluate(x, out, *args, **kwargs)
-            Evaluates the objective functions and constraints for a given variable vector.
         """
 
         def __init__(self, objective_func, constraints, variable_ranges, variable_types, runner=None):

@@ -11,7 +11,6 @@ Submodules
    tango.orchestrators.external
    tango.orchestrators.native
 
-Module contents
 ---------------
 
 .. automodule:: tango.orchestrators
