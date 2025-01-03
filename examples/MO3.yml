@@ -1,5 +1,5 @@
 #
-# testcase1: CPG (Doublet, green_field)
+# MO1: 1 input , 2 objective , 0 constraint , nsga3 , ASF , parallel
 #
 
 graph:
@@ -115,22 +115,22 @@ addons:
     results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
 
 optimization:
-  method: 'PSO' # DE, GA, NelderMead, CMAES, PatternSearch, BRKGA, ES, SRES, ISRES, PSO
-  n_generation: 10
+  method: 'nsga3'
+  n_generation: 7
   pop_size: 20
   variables:
     mass_flow_rate:
-      lower_bound: 50.0
-      upper_bound: 180.0
+      lower_bound: 110.0
+      upper_bound: 150.0
       type: continuous
-  targets: # This should be a list, even if there's only one target
+  targets:
     - W_NET
-#    - Q_CONDENSER
+    - LCOE
   target_type:
     - maximize
-#    - minimize
-  constraints:
-    PRODUCTION_WELL_OUTLET_T_MIN:
-      lower_bound: 323.0
+    - minimize
   parallel_processing: yes
   n_processes: 20
+  final_selection: 'ASF'  # or 'pseudo_weights'
+  weights: [0.5, 0.5]
+  plot_name: MO3

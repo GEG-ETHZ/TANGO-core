@@ -1,5 +1,5 @@
 #
-# testcase1: CPG (Doublet, green_field)
+# SO7: 1 input , 1 objective , 1 constraint , DE , parallel
 #
 
 graph:
@@ -74,7 +74,7 @@ production_well:
 
 schedule:
   bc_iteration_checkpoint: production_well_bottom
-  mass_flow_rate: 232.0  # kg/s (injection rate per pattern)
+  mass_flow_rate: 115.76  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
@@ -115,24 +115,21 @@ addons:
     results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
 
 optimization:
-  method: 'PSO' # DE, GA, NelderMead, CMAES, PatternSearch, BRKGA, ES, SRES, ISRES, PSO
-  n_generation: 20
+  method: 'DE' # DE, GA, NelderMead, CMAES, PatternSearch, BRKGA, ES, SRES, ISRES, PSO
+  n_generation: 4
   pop_size: 20
   variables:
-    MASS_FLOW_RATE:
-      lower_bound: 50.0
-      upper_bound: 180.0
-      type: continuous
-    THICKNESS:
-      lower_bound: 280.0
-      upper_bound: 300.0
+    mass_flow_rate:
+      lower_bound: 110.0
+      upper_bound: 150.0
       type: continuous
   targets: # This should be a list, even if there's only one target
     - W_NET
   target_type:
     - maximize
   constraints:
-    INLET_TEMP:
-      lower_bound: 323.0
+    PRODUCTION_WELL_OUTLET_T_MIN:
+      lower_bound: 318.0
   parallel_processing: yes
   n_processes: 20
+  plot_name: SO7

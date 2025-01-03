@@ -81,7 +81,7 @@ class EconUnitExploration:
         )
         return 0.2 * num_wells * C_characterization_well / pos
 
-    def execute(self) -> float:
+    def execute(self, evaluated_funcs) -> float:
         r"""
         Executes the economic calculations for exploration activities.
 
@@ -118,7 +118,12 @@ class EconUnitExploration:
             return C_modeling + dC_CO2_modeling + dC_CO2_characterization
 
         elif exploration_cost_type == 'user_defined':
-            return self._specs.costs['exploration']['function_def']['value']
+            if (self._specs.costs['exploration']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['exploration']['function_def']['value']
+            elif (self._specs.costs['exploration']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['exploration']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['exploration']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported exploration cost type: {exploration_cost_type}")

@@ -80,7 +80,7 @@ functions:
     end_time: 5
   abc:
     type: mathematical_expression
-    value: eta_pump * W_NET / 1000 + 100000
+    value: eta_pump * INJECTION_WELL_OUTLET_P_MIN / 1000 + 100000
 
 costs:
   permitting:

@@ -275,7 +275,7 @@ class EconUnitWells:
 
         return total_cost / pos
 
-    def execute(self) -> float:
+    def execute(self, evaluated_funcs) -> float:
         r"""
         Computes the total cost of all wells (injection, production, and horizontal).
 
@@ -305,7 +305,12 @@ class EconUnitWells:
             return C_inj + C_prd + C_hrz
 
         elif well_cost_type == 'user_defined':
-            return self._specs.costs['wells']['function_def']['value']
+            if (self._specs.costs['wells']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['wells']['function_def']['value']
+            elif (self._specs.costs['wells']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['wells']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['wells']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported well cost type: {well_cost_type}")

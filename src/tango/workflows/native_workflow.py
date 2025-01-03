@@ -16,6 +16,9 @@ from tango.orchestrators.external import *
 from tabulate import tabulate
 from termcolor import colored
 from itertools import cycle
+from tango.function_evaluator import FunctionEvaluator
+from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
+from tango.units.dataclasses import *
 
 def get_system_class(type_: str) -> object:
     """
@@ -74,8 +77,15 @@ class NativeWorkflow(Workflow):
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
-        # self.ThermaGraph_specs = ThermaGraphSpecs.from_dict(specs['addons']['ThermaGraph'])
         self.addons_manager()
+
+        self.function_evaluator = FunctionEvaluator(
+            target_mapping=TARGET_PARAMETER_MAPPING,
+            variable_mapping=VARIABLE_PARAMETER_MAPPING,
+            orchestrator=self.orchestrator,
+            economic=self.economic
+        )
+        self.function_evaluator.set_context(self)
 
 
     def _process_specs(self, specs) -> dict:
@@ -220,11 +230,12 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
-            # print(f"\n\n TimeStep = {i+1}")
-            # self.generate_output_table()
+
+        if 'functions' in self.specs and self.specs['functions']:
+            self.function_evaluator.evaluate_functions(self.specs['functions'])
 
         if self.economic:
-            self.economic.execute(self._results)
+            self.economic.execute(self._results, self.function_evaluator.evaluated_functions)
 
         for addon_name, addon_instance in self.addons.items():
             addon_specs = getattr(self, f"{addon_name}_specs")
@@ -238,10 +249,6 @@ class NativeWorkflow(Workflow):
                 addon_instance.execute()
 
         self._post_processing()
-        # print(self._results)
-        # print(self.economic.get_results())
-
-
 
     def generate_output_table(self):
         """

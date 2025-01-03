@@ -26,6 +26,7 @@ import time
 from functools import partial
 from tango.units.dataclasses import OptimizationSpecs
 from tango.parameter_mappings import get_target_translation, get_variable_translation
+import os
 
 class Optimizer:
     """
@@ -107,18 +108,25 @@ class Optimizer:
 
     def objective_func(self, x):
         """
-        Defines the objective function for optimization.
+        Evaluates the objective function for optimization.
 
         Parameters
         ----------
-        x : list or ndarray
-            A list of variable values to evaluate the objective function.
+        x : list
+            Input values for the optimization variables.
 
         Returns
         -------
-        float or list
-            The evaluated objective value(s). Returns a single value for single-objective optimization
-            or a list of values for multi-objective optimization.
+        float or list of float
+            The result of the objective function. A single float for one target,
+            or a list of floats for multiple targets.
+
+        Notes
+        -----
+        - Adjusts input variables, executes computations, and evaluates targets.
+        - Maximization targets are inverted for minimization-based optimizers.
+        - Returns `float('inf')` or a list of `float('inf')` if an error occurs.
+
         """
         try:
             for i, var_name in enumerate(self.optimization_specs.variables.keys()):
@@ -132,22 +140,15 @@ class Optimizer:
                 result = eval(target)
 
                 if self.optimization_specs.target_type[i] == 'maximize':
-                    if len(self.target_parameters) > 1:
-                        results.append(-result)
-                    else:
-                        results.append(result)
+                    results.append(-result if len(self.target_parameters) > 1 else result)
                 else:
-                    if len(self.target_parameters) > 1:
-                        results.append(result)
-                    else:
-                        results.append(-result)
+                    results.append(result if len(self.target_parameters) > 1 else -result)
 
             return results if len(results) > 1 else results[0]
 
         except Exception as e:
-            print(f"Simulation failed with error: {e}")
-            # Return invalid values for failed executions
-            return [float('-inf')] * len(self.target_parameters) if len(self.target_parameters) > 1 else float('-inf')
+            print(f"Error in objective function: {e}")
+            return float('inf') if len(self.target_parameters) == 1 else [float('inf')] * len(self.target_parameters)
 
     def set_parameter(self, var_name: str, value: float):
         """
@@ -274,8 +275,8 @@ class Optimizer:
                 self._method,
                 self._parallel_processing,
                 self.optimization_specs,
-                self.variable_names,  # Pass variable names
-                self.objective_names  # Pass objective names
+                self.variable_names,
+                self.objective_names
             )
         else:
             optimizer = SOOOptimizer(
@@ -286,8 +287,8 @@ class Optimizer:
                 self._method,
                 self._parallel_processing,
                 self.optimization_specs,
-                self.variable_names,  # Pass variable names
-                self.objective_names  # Pass objective names
+                self.variable_names,
+                self.objective_names
             )
 
         start = time.time()
@@ -373,8 +374,8 @@ class BaseOptimizer:
         self.parallel_processing = parallel_processing
         self.pop_size = self.optimization_specs.pop_size
         self.plot_name = self.optimization_specs.plot_name
-        self.variable_names = variable_names  # Add this
-        self.objective_names = objective_names  # Add this
+        self.variable_names = variable_names
+        self.objective_names = objective_names
 
         if self.parallel_processing:
             self.n_processes = self.optimization_specs.n_processes
@@ -538,7 +539,7 @@ class SOOOptimizer(BaseOptimizer):
             """
             for i, (var, vtype) in enumerate(self.variable_types.items()):
                 if vtype == 'integer':
-                    x[i] = np.round(x[i])
+                    x[i] = int(np.round(x[i]))
 
             out["F"] = -1 * self.objective_func(x)  # Convert maximization to minimization
             out["G"] = np.array([constraint(x) for constraint in self.constraints])
@@ -555,19 +556,6 @@ class SOOOptimizer(BaseOptimizer):
         return self.MySOOProblem(self.objective_func, self.constraints, self.variable_ranges, self.variable_types, runner=self.runner if self.parallel_processing else None)
 
     def optimize(self, n_gen):
-        """
-        Executes the optimization process.
-
-        Parameters
-        ----------
-        n_gen : int
-            The number of generations for the optimization.
-
-        Notes
-        -----
-        - Stores the optimal variable values and function value.
-        - Records the history of variable values and function values across generations.
-        """
         self.x_values = []
         self.f_min_values = []
 
@@ -576,13 +564,19 @@ class SOOOptimizer(BaseOptimizer):
             if feas_inds:
                 self.f_min_values.append(min(ind.get("F") for ind in feas_inds))
                 best_ind = feas_inds[np.argmin([ind.get("F") for ind in feas_inds])]
-                self.x_values.append([np.round(best_ind.X[i]) if self.variable_types[f'x{i+1}'] == 'integer' else best_ind.X[i] for i in range(len(best_ind.X))])
+                self.x_values.append([
+                    int(np.round(best_ind.X[i])) if self.variable_types[f'x{i+1}'] == 'integer' else best_ind.X[i]
+                    for i in range(len(best_ind.X))
+                ])
 
         self.algorithm = self.select_algorithm()
         res = minimize(self.problem, self.algorithm, ('n_gen', n_gen), verbose=True, callback=callback)
 
-        self.x_opt = res.X
-        self.f_opt = -res.F[0]  # Convert minimization back to maximization
+        self.x_opt = [
+            int(np.round(res.X[i])) if self.variable_types[f'x{i+1}'] == 'integer' else res.X[i]
+            for i in range(len(res.X))
+        ]
+        self.f_opt = -res.F[0]
 
         print("Performing a final simulation with the optimized variables...")
         final_simulation_result = self.objective_func(self.x_opt)
@@ -620,55 +614,75 @@ class SOOOptimizer(BaseOptimizer):
         - Optimal variables and function value.
         - Results across generations.
         """
-        log_filename = self.plot_name + 'log'
+        log_filename = os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_log')
         with open(log_filename, 'w') as log_file:
             log_file.write("Optimal Variables:\n")
-            log_file.write(f"{self.x_opt}\n")
+            formatted_vars = []
+            for i, var in enumerate(self.x_opt):
+                if self.variable_types[f'x{i+1}'] == 'integer':
+                    formatted_vars.append(f"x{i+1} = {int(var)}")
+                else:
+                    formatted_vars.append(f"x{i+1} = {var:.6f}")
+            log_file.write(', '.join(formatted_vars) + "\n")
+
             log_file.write("Maximum Value:\n")
             log_file.write(f"{self.f_opt}\n\n")
 
             for gen in range(len(self.f_min_values)):
-                x_vals_str = ', '.join([f'x{i+1} = {self.x_values[gen][i]}' for i in range(len(self.x_values[gen]))])
-                log_file.write(f"Generation {gen + 1}: {x_vals_str}, f_min = {self.f_min_values[gen]}\n")
+                x_vals_str = ', '.join([
+                    f"x{i+1} = {int(self.x_values[gen][i])}" if self.variable_types[f'x{i+1}'] == 'integer' \
+                    else f"x{i+1} = {self.x_values[gen][i]:.6f}"
+                    for i in range(len(self.x_values[gen]))
+                ])
+
+                if isinstance(self.f_min_values[gen], np.ndarray):
+                    f_min_str = ', '.join([f"{val:.6f}" for val in self.f_min_values[gen]])
+                    log_file.write(f"Generation {gen + 1}: {x_vals_str}, f_min = [{f_min_str}]\n")
+                else:
+                    log_file.write(f"Generation {gen + 1}: {x_vals_str}, f_min = {self.f_min_values[gen]:.6f}\n")
 
         print(f"Results have been saved to {log_filename}.")
 
     def plot_results(self):
         """
         Plots the optimization results across generations with real names for variables and objectives.
-        Creates stylish and professional-looking plots.
+        Each variable is plotted separately to handle different ranges effectively.
         """
         generations = range(1, len(self.f_min_values) + 1)
 
-        plt.style.use('seaborn-v0_8-deep')  # Stylish theme
-        plt.figure(figsize=(14, 8))
+        plt.style.use('seaborn-v0_8-deep')
 
-        # Plot Variable Values
-        plt.subplot(1, 2, 1)
+        num_variables = len(self.variable_names)
+        plt.figure(figsize=(6 * num_variables, 6))
+
         for i, var_name in enumerate(self.variable_names):
+            plt.subplot(1, num_variables, i + 1)
             plt.plot(generations, [x[i] for x in self.x_values], label=f'{var_name}', linewidth=2)
-        plt.xlabel('Generation', fontsize=14)
-        plt.ylabel('Variable(s) Value', fontsize=14)
-        # plt.title('Variable Values Over Generations', fontsize=16, weight='bold')
-        plt.legend(fontsize=12, loc='lower right')
-        plt.grid(alpha=0.5, linestyle='--')
+            plt.xlabel('Generation', fontsize=12)
+            plt.ylabel(f'{var_name}', fontsize=12)
+            # plt.title(f'Optimization Progress for {var_name}', fontsize=14, weight='bold')
+            # plt.legend(fontsize=10, loc='upper right')
+            plt.grid(alpha=0.5, linestyle='--')
 
-        # Plot Objective Values
-        plt.subplot(1, 2, 2)
+        plt.tight_layout()
+        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_variables.png'), dpi=300)
+
+        plt.figure(figsize=(8, 6))
         f_min_values_array = np.array(self.f_min_values)
         if self.optimization_specs.target_type[0] == 'maximize':
             plt.plot(generations, -f_min_values_array, label=f'{self.objective_names[0]}', linewidth=2, color='C1')
         else:
             plt.plot(generations, f_min_values_array, label=f'{self.objective_names[0]}', linewidth=2, color='C1')
-        plt.xlabel('Generation', fontsize=14)
-        plt.ylabel('Objective Function Value', fontsize=14)
-        # plt.title('Objective Value Over Generations', fontsize=16, weight='bold')
-        plt.legend(fontsize=12, loc='lower right')
+        plt.xlabel('Generation', fontsize=12)
+        plt.ylabel(f'{self.objective_names[0]}', fontsize=12)
+        # plt.title('Objective Value Over Generations', fontsize=14, weight='bold')
+        # plt.legend(fontsize=10, loc='upper right')
         plt.grid(alpha=0.5, linestyle='--')
 
         plt.tight_layout()
-        plt.savefig(self.plot_name + '_vars_functions.png', dpi=300)  # High-quality plot
+        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_objective.png'), dpi=300)
         # plt.show()
+
 
 class MOOOptimizer(BaseOptimizer):
     """
@@ -775,7 +789,7 @@ class MOOOptimizer(BaseOptimizer):
             """
             for i, (var, vtype) in enumerate(self.variable_types.items()):
                 if vtype == 'integer':
-                    x[i] = np.round(x[i])
+                    x[i] = int(np.round(x[i]))
 
             out["F"] = self.objective_func(x)
             out["G"] = np.array([constraint(x) for constraint in self.constraints])
@@ -792,23 +806,14 @@ class MOOOptimizer(BaseOptimizer):
         return self.MyMOOProblem(self.objective_func, self.constraints, self.variable_ranges, self.variable_types, runner=self.runner)
 
     def optimize(self, n_gen):
-        """
-        Executes the optimization process.
-
-        Parameters
-        ----------
-        n_gen : int
-            The number of generations for the optimization.
-
-        Notes
-        -----
-        - Stores the optimal variable values and objective values on the Pareto front.
-        - Normalizes objectives and selects the final solution using the specified method.
-        """
         self.algorithm = self.select_algorithm()
         self.res = minimize(self.problem, self.algorithm, ('n_gen', n_gen), verbose=True, save_history=True)
 
-        self.x_opt = self.res.X
+        self.x_opt = [
+            [int(np.round(x[i])) if self.variable_types[f'x{i+1}'] == 'integer' else x[i]
+             for i in range(len(x))]
+            for x in self.res.X
+        ]
         self.f_opt = self.res.F
 
         self._normalize_objectives()
@@ -860,7 +865,7 @@ class MOOOptimizer(BaseOptimizer):
 
         for i in range(len(self.f_max)):
             if self.f_max[i] == self.f_min[i]:
-                normalized_f_opt[:, i] = 0.0  # Handle cases where all values are the same
+                normalized_f_opt[:, i] = 0.0
             else:
                 normalized_f_opt[:, i] = (self.f_opt[:, i] - self.f_min[i]) / (self.f_max[i] - self.f_min[i])
 
@@ -900,7 +905,7 @@ class MOOOptimizer(BaseOptimizer):
         - Variable values and objective values for each solution on the Pareto front.
         - The final selected solution.
         """
-        log_filename = self.plot_name + 'log'
+        log_filename = os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_log')
         with open(log_filename, 'w') as log_file:
             if self.x_opt is None or self.f_opt is None:
                 log_file.write("No valid optimization results to display.\n")
@@ -942,7 +947,7 @@ class MOOOptimizer(BaseOptimizer):
 
         selected_solution = self.solution[1] if self.solution is not None else None
 
-        plt.style.use('seaborn-v0_8-colorblind')  # Stylish theme
+        plt.style.use('seaborn-v0_8-colorblind')
 
         if len(original_f_opt[0]) == 2:
             plt.figure(figsize=(8, 6))
@@ -959,7 +964,7 @@ class MOOOptimizer(BaseOptimizer):
             plt.legend(fontsize=12)
             plt.grid(alpha=0.5, linestyle='--')
             plt.tight_layout()
-            plt.savefig(self.plot_name + '_moo_pareto_front_2d.png', dpi=300)  # High-quality plot
+            plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_2d.png'), dpi=300)
             # plt.show()
 
         elif len(original_f_opt[0]) == 3:
@@ -978,7 +983,7 @@ class MOOOptimizer(BaseOptimizer):
             # ax.set_title('Pareto Front', fontsize=16, weight='bold')
             ax.legend(fontsize=12)
             plt.tight_layout()
-            plt.savefig(self.plot_name + '_moo_pareto_front_3d.png', dpi=300)  # High-quality plot
+            plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_3d.png'), dpi=300)
             # plt.show()
         else:
             print("Plotting is only supported for 2 or 3 objectives.")
@@ -1025,7 +1030,7 @@ class MOOOptimizer(BaseOptimizer):
         plt.legend(fontsize=12)
 
         plt.tight_layout()
-        plt.savefig(self.plot_name + '_hypervolume_igd.png', dpi=300)  # High-quality plot
+        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_hypervolume_igd.png'), dpi=300)
         # plt.show()
 
 

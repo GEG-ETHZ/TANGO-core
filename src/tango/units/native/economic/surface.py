@@ -50,7 +50,7 @@ class EconUnitSurfacePipes:
         else:
             raise ValueError(f"well_pattern: {self._specs.well_pattern} is not supported")
 
-    def execute(self) -> float:
+    def execute(self, evaluated_funcs) -> float:
         """
         Calculates the total cost of surface piping.
 
@@ -77,7 +77,12 @@ class EconUnitSurfacePipes:
             return self._X_PC * self._X_IC * self._PPI * (2205. * D ** 2 + 134.) * L
 
         elif surface_pipe_cost_type == 'user_defined':
-            return self._specs.costs['surface_pipes']['function_def']['value']
+            if (self._specs.costs['surface_pipes']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['surface_pipes']['function_def']['value']
+            elif (self._specs.costs['surface_pipes']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['surface_pipes']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['surface_pipes']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported surface piping cost type: {surface_pipe_cost_type}")
@@ -255,7 +260,7 @@ class EconUnitSurfacePowerPlant:
         self._W_net_total = self._W_thermal
 
 
-    def _execute_DH(self, state) -> float:
+    def _execute_DH(self, state, evaluated_funcs) -> float:
         """
         Executes the calculations for direct heat (DH) systems.
 
@@ -285,7 +290,12 @@ class EconUnitSurfacePowerPlant:
             return self._specs.num_pp * 200 * self._W_net_total / 1000
 
         elif DH_cost_type == 'user_defined':
-            return self._specs.costs['power_plant']['function_def']['value']
+            if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['power_plant']['function_def']['value']
+            elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['power_plant']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {DH_cost_type}")
@@ -469,7 +479,7 @@ class EconUnitSurfacePowerPlant:
         return C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
 
 
-    def _execute_CPG(self, state) -> float:
+    def _execute_CPG(self, state, evaluated_funcs) -> float:
         """
         Executes cost calculations for Closed-loop Power Generation (CPG) systems.
 
@@ -492,14 +502,6 @@ class EconUnitSurfacePowerPlant:
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
         """
-        # # Determine the multiplier based on the condition
-        # self.num_pp = self._specs.costs['power_plant'].get('num_pp', self._specs.num_patterns)
-        # print(self._specs.num_pp)
-        # if not self.num_pp:  # If 'num_pp' is None or evaluates to False, fallback to num_patterns
-        #     self.num_pp = self._specs.num_patterns
-        #
-        # # Print the determined multiplier for debugging
-        # print(self.num_pp)
 
         self._state = state
         self._process_surface_state()
@@ -528,7 +530,12 @@ class EconUnitSurfacePowerPlant:
             return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
 
         elif power_plant_cost_type == 'user_defined':
-            return self._specs.costs['power_plant']['function_def']['value']
+            if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['power_plant']['function_def']['value']
+            elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['power_plant']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {power_plant_cost_type}")
@@ -604,7 +611,7 @@ class EconUnitSurfacePowerPlant:
         return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7 + 5750. * (1.34 * -1. * (W_pump / 1e3)) ** 0.2
 
 
-    def _execute_ORC(self, state) -> float:
+    def _execute_ORC(self, state, evaluated_funcs) -> float:
         """
         Executes cost calculations for Organic Rankine Cycle (ORC) systems.
 
@@ -668,7 +675,12 @@ class EconUnitSurfacePowerPlant:
             return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
 
         elif ORC_cost_type == 'user_defined':
-            return self._specs.costs['power_plant']['function_def']['value']
+            if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['power_plant']['function_def']['value']
+            elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['power_plant']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {ORC_cost_type}")

@@ -101,7 +101,7 @@ class EconUnitPermitting:
         )
         return C_surface_monitoring + C_monitoring_well
 
-    def execute(self) -> float:
+    def execute(self, evaluated_funcs) -> float:
         r"""
         Executes the economic calculations for permitting and monitoring costs.
 
@@ -138,7 +138,13 @@ class EconUnitPermitting:
             return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
 
         elif permitting_cost_type == 'user_defined':
-            return self._specs.costs['permitting']['function_def']['value']
+            if (self._specs.costs['permitting']['function_def']['type'] == 'Constant'):
+                return self._specs.costs['permitting']['function_def']['value']
+            elif (self._specs.costs['permitting']['function_def']['type'] == 'mathematical_expression'):
+                return evaluated_funcs[self._specs.costs['permitting']['function']]
+            else:
+                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['permitting']['function_def']['type']}")
+
 
         else:
             raise ValueError(f"Unsupported permitting cost type: {permitting_cost_type}")

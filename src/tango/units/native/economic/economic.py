@@ -501,7 +501,7 @@ class EconomicUnitNative(Unit):
                     continue
 
 
-    def _compute_capex(self) -> None:
+    def _compute_capex(self, evaluated_funcs) -> None:
         """
         Computes the Capital Expenditure (CAPEX) for all units.
 
@@ -515,11 +515,11 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._compute_capex()
         """
-        self._results['CAPEX_well'] = self._well_unit.execute()
-        self._results['CAPEX_permitting'] = self._permitting_unit.execute()
-        self._results['CAPEX_exploration'] = self._exploration_unit.execute()
-        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute()
-        self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state)
+        self._results['CAPEX_well'] = self._well_unit.execute(evaluated_funcs)
+        self._results['CAPEX_permitting'] = self._permitting_unit.execute(evaluated_funcs)
+        self._results['CAPEX_exploration'] = self._exploration_unit.execute(evaluated_funcs)
+        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute(evaluated_funcs)
+        self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs)
         val = sum(self._results[key] for key in self._results.keys())
         self._results['CAPEX_total'] = val
 
@@ -619,7 +619,7 @@ class EconomicUnitNative(Unit):
         return self._results
 
 
-    def execute(self, results: dict) -> None:
+    def execute(self, results: dict, evaluated_funcs) -> None:
         """
         Executes the economic calculations.
 
@@ -635,7 +635,7 @@ class EconomicUnitNative(Unit):
             >>> self.execute(simulation_results)
         """
         self._compute_annual_results(results)
-        self._compute_capex()
+        self._compute_capex(evaluated_funcs)
         self._compute_LCOE()
 
 #TODO: current genGEO-based econ unit is too complicated. Implement a simpler method as a native econ unit.
