@@ -24,6 +24,7 @@ from tango.units.native.surface.tespy.CPG import *
 from tango.units.native.surface.tespy.tespy_ORC import *
 from tango.units.native.surface.tespy.tespy_SF import *
 from tango.units.native.surface.tespy.tespy_DF import *
+from tango.units.native.surface.flexible_pp import  *
 from tango.units.native.unit_reader import *
 from tango.time_stepper import LinearInterpolation
 from typing import Dict, Any
@@ -538,23 +539,22 @@ def get_table(fname: str, header: int = 0) -> pd.DataFrame:
     except:
         raise RuntimeError(f"Failed to read {path}.")
 
-
 def parse_results(d: dict, nodes, current_date: str) -> dict:
     """
-    Parses results from nodes and appends them to the results dictionary.
+    Parses and updates results for the given nodes.
+
+    This function adds the current date to the dictionary `d` under the key 'date'.
+    It then iterates through the provided nodes and extracts their state based on
+    predefined report settings, appending the processed results to `d`.
 
     Args:
-        d (dict): The results dictionary.
-        nodes (dict): Dictionary of nodes with their states.
-        current_date (str): Current date to append to the results.
+        d (dict): A dictionary to store parsed results.
+        nodes (dict): A dictionary containing node information, where each node has an
+                      'unit' state and a 'type' indicating the unit category.
+        current_date (str): The current date to be added to the results.
 
     Returns:
-        dict: The updated results dictionary.
-
-    Example:
-        >>> d = {}
-        >>> nodes = {"node1": {"unit": UnitState(), "type": "turbine"}}
-        >>> parse_results(d, nodes, "2024-12-11")
+        dict: The updated dictionary containing parsed results.
     """
     name = 'date'
     if name not in d.keys():
@@ -568,6 +568,201 @@ def parse_results(d: dict, nodes, current_date: str) -> dict:
             if REPORT_SETTINGS[unit_name]:
                 state = getattr(state, REPORT_SETTINGS[unit_name])
             append_results(d, state, unit_name)
+
+
+def append_results(d: dict, state: classmethod, base_name: str) -> None:
+    """
+    Appends the results from a given state to a dictionary.
+
+    Args:
+        d (dict): Dictionary to store results.
+        state (object): The state object containing variables to append.
+        base_name (str): Base name used as a prefix for the keys in the dictionary.
+
+    Logic:
+    - Iterates through all attributes of the `state` object.
+    - Filters out attributes starting with "__" or those listed in `SKIP_REPORT_ATTRIBUTES`.
+    - Appends float-type values to the dictionary under keys prefixed with `base_name`.
+
+    Example:
+        >>> d = {}
+        >>> append_results(d, state, "unit1")
+    """
+    var_names = [var for var in dir(state) if not var.startswith("__")]
+    for name in var_names:
+        try:
+            val = getattr(state, name)
+            if isinstance(val, float) and name not in SKIP_REPORT_ATTRIBUTES:
+                s = f"{base_name}_{name}"
+                if s in d.keys():
+                    d[s].append(val)
+                else:
+                    d[s] = [val]
+        except:
+            continue
+
+
+def parse_results_flexible(d: dict, nodes: dict, current_date: str) -> dict:
+    """
+    Parses results from nodes and appends them to the results dictionary.
+
+    This function processes node data, extracting relevant attributes such as
+    pressure, temperature, mass flow, enthalpy, and vapor mass fraction from
+    inlet and outlet ports. It also captures power and heat transfer attributes
+    if available. The extracted data is then stored in the results dictionary.
+
+    Args:
+        d (dict): The results dictionary where parsed data will be stored.
+        nodes (dict): Dictionary containing node data with 'unit' and 'type' attributes.
+        current_date (str): The current date to be added to the results.
+
+    Returns:
+        dict: The updated results dictionary with extracted data.
+
+    Errors:
+        Prints error messages if attributes are not found in components or nodes.
+
+    Notes:
+        - For 'surface' type units, detailed attributes are extracted.
+        - Other unit types rely on predefined `REPORT_SETTINGS` for attribute extraction.
+    """
+    name = 'date'
+    if name not in d.keys():
+        d[name] = [current_date]
+    else:
+        d[name].append(current_date)
+
+    for id in nodes:
+        state = nodes[id]['unit']
+        unit_name = nodes[id]['type']
+
+        if unit_name == 'surface':
+            for component_name, component in state.power_plant.nodes.items():
+                try:
+                    if hasattr(component, 'inl') and component.inl:
+                        for i, inlet in enumerate(component.inl, start=1):
+                            inlet_attrs = {
+                                "pressure": getattr(inlet.p, "val", None) * 1e5,
+                                "temperature": getattr(inlet.T, "val", None) + 273.15,
+                                "mass_flow": getattr(inlet.m, "val", None),
+                                "enthalpy": getattr(inlet.h, "val", None) * 1e3,
+                                "vapor_mass_fraction": getattr(inlet.x, "val", None)
+                            }
+                            for attr, value in inlet_attrs.items():
+                                if value is not None:
+                                    column_name = f"{component_name}_inlet{i}_{attr}"
+                                    if column_name not in d:
+                                        d[column_name] = []
+                                    d[column_name].append(value)
+
+                    if hasattr(component, 'outl') and component.outl:
+                        for i, outlet in enumerate(component.outl, start=1):
+                            outlet_attrs = {
+                                "pressure": getattr(outlet.p, "val", None) * 1e5,
+                                "temperature": getattr(outlet.T, "val", None) + 273.15,
+                                "mass_flow": getattr(outlet.m, "val", None),
+                                "enthalpy": getattr(outlet.h, "val", None) * 1e3,
+                                "vapor_mass_fraction": getattr(outlet.x, "val", None)
+                            }
+                            for attr, value in outlet_attrs.items():
+                                if value is not None:
+                                    column_name = f"{component_name}_outlet{i}_{attr}"
+                                    if column_name not in d:
+                                        d[column_name] = []
+                                    d[column_name].append(value)
+
+                    node_specific_attributes = {}
+                    try:
+                        if hasattr(component, "P"):
+                            node_specific_attributes["power"] = -component.P.val  # Power in kW
+                        if hasattr(component, "Q"):
+                            node_specific_attributes["heat_transfer"] = component.Q.val  # Heat transfer in kW
+                    except AttributeError as e:
+                        print(f"Error processing node-specific attributes for {component_name}: {e}")
+
+                    for key, value in node_specific_attributes.items():
+                        append_results(d, value, f"{component_name}_{key}")
+
+                except AttributeError as e:
+                    print(f"Error processing component {component_name}: {e}")
+        else:
+            if REPORT_SETTINGS.get(unit_name):
+                state_attr = getattr(state, REPORT_SETTINGS[unit_name], None)
+                append_results(d, state_attr, unit_name)
+
+    return d
+
+def calculate_and_set_average(d: dict, nodes: dict):
+    """
+    Calculates the average value for each attribute in the provided dictionary, updates
+    the corresponding TESPy power plant attributes, and prints the updated attributes.
+
+    This function processes a dictionary of TESPy power plant data, computes averages
+    for numerical lists, and assigns the computed values to the respective
+    inlet/outlet components of TESPy units within the nodes dictionary.
+
+    Args:
+        d (dict): The dictionary containing TESPy power plant attributes with numerical lists.
+        nodes (dict): Dictionary of nodes containing 'unit' and 'type' information.
+
+    Notes:
+        - The function checks if the dictionary values contain numerical lists.
+        - Updates are made to components based on attribute names.
+        - Prints verification information after processing.
+
+    Prints:
+        - Updated component values.
+        - Available nodes and their respective components.
+    """
+    s = {}
+    for key in d.keys():
+        if isinstance(d[key], list) and all(isinstance(x, (int, float)) for x in d[key]):
+            average_value = sum(d[key]) / len(d[key]) if d[key] else 0
+
+            for id in nodes:
+                state = nodes[id]['unit']
+                unit_name = nodes[id]['type']
+
+                if unit_name == 'surface':
+                    for component_name, component in state.power_plant.nodes.items():
+                        if key.startswith(component_name):
+                            attribute_parts = key.split('_')
+
+                            if len(attribute_parts) >= 3:
+                                location, attribute = attribute_parts[1], '_'.join(attribute_parts[2:])
+                                if location.startswith('inlet') and hasattr(component, 'inl'):
+                                    inlet_index = int(location[-1]) - 1
+                                    if 0 <= inlet_index < len(component.inl):
+                                        setattr(component.inl[inlet_index], attribute, average_value)
+                                        print(f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}")
+                                elif location.startswith('outlet') and hasattr(component, 'outl'):
+                                    outlet_index = int(location[-1]) - 1
+                                    if 0 <= outlet_index < len(component.outl):
+                                        setattr(component.outl[outlet_index], attribute, average_value)
+                                        print(f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}")
+
+            s[key] = [average_value]
+    print("Available nodes and connections:")
+    for id in nodes:
+        state = nodes[id]['unit']
+        print(f"Node ID: {id}, Unit Type: {nodes[id]['type']}")
+        if hasattr(state, 'power_plant'):
+            print("Components:")
+            for component_name, component in state.power_plant.nodes.items():
+                print(f"  Component: {component_name}")
+                if hasattr(component, 'inl'):
+                    print(f"    Inlets: {len(component.inl)}")
+                if hasattr(component, 'outl'):
+                    print(f"    Outlets: {len(component.outl)}")
+
+    for id in nodes:
+        state = nodes[id]['unit']
+        if hasattr(state, 'power_plant'):
+            for component_name, component in state.power_plant.nodes.items():
+                if hasattr(component, 'P') and hasattr(component.P, 'val'):
+                    print(f"{component_name}.P.val: {component.P.val}")
+                if hasattr(component, 'Q') and hasattr(component.Q, 'val'):
+                    print(f"{component_name}.Q.val: {component.Q.val}")
 
 
 def states_dict_generator(pp_inclusion, nodes, plant_name, fluid_states: dict = None) -> dict:
@@ -612,7 +807,6 @@ def states_dict_generator(pp_inclusion, nodes, plant_name, fluid_states: dict = 
     return fluid_states
 
 
-
 def create_connections(pp_inclusion, graph_edges, state):
     """
     Creates a list of connections for the system based on graph edges and the state.
@@ -649,7 +843,7 @@ def create_connections(pp_inclusion, graph_edges, state):
             'h_well_2': 'production_well'
         }
 
-        for edge in graph_edges.values():
+        for edge in graph_edges.val.realues():
             source = node_mapping[edge['source']]
             target = node_mapping[edge['target']]
             connections.append((source, target, 'non-isentropic'))
@@ -661,39 +855,6 @@ def create_connections(pp_inclusion, graph_edges, state):
         combined = [conn for conn in combined if conn != ('production_well', 'surface', 'non-isentropic')]
 
     return combined
-
-
-def append_results(d: dict, state: classmethod, base_name: str) -> None:
-    """
-    Appends the results from a given state to a dictionary.
-
-    Args:
-        d (dict): Dictionary to store results.
-        state (object): The state object containing variables to append.
-        base_name (str): Base name used as a prefix for the keys in the dictionary.
-
-    Logic:
-    - Iterates through all attributes of the `state` object.
-    - Filters out attributes starting with "__" or those listed in `SKIP_REPORT_ATTRIBUTES`.
-    - Appends float-type values to the dictionary under keys prefixed with `base_name`.
-
-    Example:
-        >>> d = {}
-        >>> append_results(d, state, "unit1")
-    """
-    var_names = [var for var in dir(state) if not var.startswith("__")]
-    for name in var_names:
-        try:
-            val = getattr(state, name)
-            if isinstance(val, float) and name not in SKIP_REPORT_ATTRIBUTES:
-                s = f"{base_name}_{name}"
-                if s in d.keys():
-                    d[s].append(val)
-                else:
-                    d[s] = [val]
-        except:
-            continue
-
 
 def write_results(input_file: str, results: tuple) -> None:
     """

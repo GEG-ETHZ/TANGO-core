@@ -11,6 +11,7 @@ Submodules
    tango.units.native.surface.DH
    tango.units.native.surface.ORC
    tango.units.native.surface.base
+   tango.units.native.surface.flexible_pp
 
 Module contents
 ---------------

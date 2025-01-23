@@ -110,7 +110,7 @@ costs:
   surface_pipes:
     type: default_predefined
   power_plant:
-    type: user_defined
+    type: user_defined_entire_pp
     function: pp_cost
 
 schedule:

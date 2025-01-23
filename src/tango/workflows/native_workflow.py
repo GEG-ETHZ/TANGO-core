@@ -150,11 +150,25 @@ class NativeWorkflow(Workflow):
         Args:
             current_date (datetime): The current date in the simulation.
         """
-        utils.parse_results(
-            d=self._results,
-            nodes=self.orchestrator.graph.nodes,
-            current_date=current_date.strftime(DATETIME_FMT)
-        )
+
+        # utils.parse_results_flexible(
+        #         d=self._results,
+        #         nodes=self.orchestrator.graph.nodes,
+        #         current_date=current_date.strftime(DATETIME_FMT)
+        #     )
+
+        if (self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
+            utils.parse_results_flexible(
+                d=self._results,
+                nodes=self.orchestrator.graph.nodes,
+                current_date=current_date.strftime(DATETIME_FMT)
+            )
+        else:
+            utils.parse_results(
+                d=self._results,
+                nodes=self.orchestrator.graph.nodes,
+                current_date=current_date.strftime(DATETIME_FMT)
+            )
 
     def _post_processing(self) -> None:
         """
@@ -230,9 +244,13 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
+            self.generate_output_table()
+            # self.orchestrator.unit.surface.power_plant.generate_output_table()
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
+
+        # utils.calculate_and_set_average(d=self._results, nodes=self.orchestrator.graph.nodes)
 
         if self.economic:
             self.economic.execute(self._results, self.function_evaluator.evaluated_functions)

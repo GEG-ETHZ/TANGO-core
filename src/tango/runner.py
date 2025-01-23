@@ -67,13 +67,6 @@ class Tango:
     workflow : object
         The initialized workflow object, created based on the `runspec['workflow']` value.
 
-    Methods
-    -------
-    _initialize_workflow()
-        Initializes the workflow object based on the type specified in `specs`.
-    execute()
-        Executes the workflow and logs the elapsed time.
-
     Example
     -------
     >>> tango = Tango("input.yaml")

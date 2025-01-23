@@ -3,6 +3,7 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
                   'external': 'SystemExternal',
+                  'native_flexible': 'SystemExternal',
                   'native_cpg': 'SystemCPGNative',
                   'native_dh': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
@@ -15,6 +16,7 @@ SYSTEM_OPTIONS = {'native': 'SystemNative',
 UNIT_OPTIONS = {
                     'surface':
                         {
+                            'native_flexible': 'SurfaceUnitFlexiblePP',
                             'native_cpg': 'SurfaceUnitCPGNative',
                             'native_dh': 'SurfaceUnitDHNative',
                             'moose_cpg': 'SurfaceUnitCPGNative',
@@ -67,6 +69,7 @@ UNIT_OPTIONS = {
 UNIT_STATE_OPTIONS = {
                         'surface':
                             {
+                                'native_flexible': 'SurfaceUnitFlexiblePP',
                                 'native_cpg': 'SurfaceStateCPGNative',
                                 'moose_cpg': 'SurfaceStateCPGNative',
                                 'dwsim_cpg': 'SurfaceStateCPGDWSIM',
@@ -111,7 +114,7 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'native_dh', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg',  'tespy_orc', 'tespy_sf', 'tespy_df', 'native_orc'],
+                                    'surface': ['native_flexible', 'native_cpg', 'native_dh', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg',  'tespy_orc', 'tespy_sf', 'tespy_df', 'native_orc'],
                                     'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],

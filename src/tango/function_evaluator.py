@@ -195,17 +195,6 @@ class FunctionEvaluator:
         Args:
             functions (dict): A dictionary of function definitions.
 
-        Example:
-            functions = {
-                "function1": {
-                    "type": "mathematical_expression",
-                    "value": "a + b * c"
-                },
-                "function2": {
-                    "type": "constant",
-                    "value": 42
-                }
-            }
         """
         for function_name, function_def in functions.items():
             if function_def['type'] == 'mathematical_expression':

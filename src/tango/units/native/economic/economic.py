@@ -129,7 +129,7 @@ class EconomicSpecsNative(CommonSpecs):
             # Default to 'default_predefined' if type is not provided
             model_type = config.get('type', 'default_predefined')
 
-            if model_type not in ['default_predefined', 'user_defined']:
+            if model_type not in ['default_predefined', 'user_defined', 'user_defined_entire_pp', 'user_defined_cost_breakdown']:
                 raise ValueError(
                     f"Invalid cost model type '{model_type}' for '{cost_name}'. "
                     f"Allowed types are 'default_predefined' or 'user_defined'."
@@ -209,17 +209,31 @@ class EconomicUnitNative(Unit):
         combined_specs = self.specs['common'] | self.specs['economic'] | {'costs': self.specs.get('costs', {})}
 
         costs = combined_specs.get('costs', {})
+        print(costs.items(), 'items')
         for cost_name, cost_config in costs.items():
-            if cost_config.get('type') == 'user_defined':
+            # if ((cost_config.get('type') == 'user_defined') or cost_config.get('type') == 'user_defined_entire_pp'):
+            if ((cost_config.get('type') == 'user_defined_entire_pp') or cost_config.get('type') == 'user_defined'):
                 function_name = cost_config.get('function')
                 if not function_name:
-                    raise ValueError(f"Cost model for '{cost_name}' is 'user_defined' but no function is specified.")
+                    raise ValueError(f"Cost model for '{cost_name}' is 'user_defined / user_defined_entire_pp' but no function is specified.")
 
                 function_def = self.specs.get('functions', {}).get(function_name)
                 if not function_def:
                     raise ValueError(f"Function '{function_name}' for '{cost_name}' is not defined in the 'functions' block.")
 
                 cost_config['function_def'] = function_def
+
+            elif (cost_config.get('type') == 'user_defined_cost_breakdown'):
+
+                if 'breakdown' in cost_config:
+                    for sub_cost, sub_function in cost_config['breakdown'].items():
+                        sub_function_def = self.specs.get('functions', {}).get(sub_function)
+                        if not sub_function_def:
+                            raise ValueError(
+                                f"Function '{sub_function}' for breakdown '{sub_cost}' in '{cost_name}' is not defined in the 'functions' block."
+                            )
+                        # Assign the function definition to the breakdown cost
+                        cost_config['breakdown'][sub_cost] = {'function': sub_function, 'function_def': sub_function_def}
 
         combined_specs['costs'] = costs
 
@@ -501,7 +515,7 @@ class EconomicUnitNative(Unit):
                     continue
 
 
-    def _compute_capex(self, evaluated_funcs) -> None:
+    def _compute_capex(self, evaluated_funcs, results) -> None:
         """
         Computes the Capital Expenditure (CAPEX) for all units.
 
@@ -519,10 +533,21 @@ class EconomicUnitNative(Unit):
         self._results['CAPEX_permitting'] = self._permitting_unit.execute(evaluated_funcs)
         self._results['CAPEX_exploration'] = self._exploration_unit.execute(evaluated_funcs)
         self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute(evaluated_funcs)
-        self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs)
+        self.calculate_and_set_average(results)
+        if (self._surface_power_plant_unit._surface_unit.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
+            self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs, self.average_fp_result)
+        else:
+            self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs)
         val = sum(self._results[key] for key in self._results.keys())
         self._results['CAPEX_total'] = val
 
+    def calculate_and_set_average(self, results):
+
+        self.average_fp_result = {}
+        for key in results.keys():
+            if isinstance(results[key], list) and all(isinstance(x, (int, float)) for x in results[key]):
+                average_value = sum(results[key]) / len(results[key]) if results[key] else 0
+                self.average_fp_result[key] = [average_value]
 
     def _get_LCOE(self, W: float, w2: float) -> float:
         """
@@ -635,7 +660,7 @@ class EconomicUnitNative(Unit):
             >>> self.execute(simulation_results)
         """
         self._compute_annual_results(results)
-        self._compute_capex(evaluated_funcs)
+        self._compute_capex(evaluated_funcs, results)
         self._compute_LCOE()
 
 #TODO: current genGEO-based econ unit is too complicated. Implement a simpler method as a native econ unit.
