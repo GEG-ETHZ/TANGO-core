@@ -3,7 +3,7 @@ x1 = 1
 Maximum Value:
 -0.8679805097938615
 
-Generation 1: x1 = 2, f_min = [0.902986]
+Generation 1: x1 = 3, f_min = [0.926684]
 Generation 2: x1 = 1, f_min = [0.867981]
 Generation 3: x1 = 1, f_min = [0.867981]
 Generation 4: x1 = 1, f_min = [0.867981]

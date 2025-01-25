@@ -244,6 +244,7 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
+            # print (self.orchestrator.unit.injection_well.inlet_fluid.P)
             self.generate_output_table()
             # self.orchestrator.unit.surface.power_plant.generate_output_table()
 

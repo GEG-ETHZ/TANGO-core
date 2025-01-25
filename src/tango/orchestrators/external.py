@@ -5,6 +5,7 @@ import os
 from tango.utils import *
 import numpy as np
 import inspect
+from tango.flow_rate import *
 
 
 class SystemExternal(UnitManager):
@@ -50,6 +51,8 @@ class SystemExternal(UnitManager):
                 self.x_lst, self.y_lst = [], []
                 self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
+            # self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well)
+
     def update(self) -> None:
         """
         Updates unknown variables to balance the system.
@@ -80,6 +83,13 @@ class SystemExternal(UnitManager):
 
                 elif self.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP':
                     pass
+                    # self.flow_rate_calculator.prr()
+
+                    # optimal_rate = self.flow_rate_calculator.find_mass_rate()
+
+                    # self.unit.injection_well.update_inlet_fluid_state_PT(P=self.flow_rate_calculator.well.inlet_fluid.P)
+                    # self.unit.injection_well.stream_interface()
+
                     # if self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit':
                     #     self.unit.surface.reservoir_file_reader = True
                     #     if self.unit.surface.specs.injection_condition_back_calculation == 'yes':
