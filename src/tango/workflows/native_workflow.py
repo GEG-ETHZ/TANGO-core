@@ -140,7 +140,7 @@ class NativeWorkflow(Workflow):
         """
         self.orchestrator.execute()
         self.orchestrator.update()
-        self.orchestrator.execute()
+        # self.orchestrator.execute()
         self.orchestrator.update_time_dependent_vars()
 
     def _save_results(self, current_date: datetime) -> None:

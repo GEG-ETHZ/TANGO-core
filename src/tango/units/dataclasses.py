@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 import numpy as np
 import inspect
 from typing import List
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
+
+@dataclass
+class BcIteration:
+    check_fracing: str  # 'yes' or 'no'
+    check_point: str  # e.g. 'injection_well_bottom'
 
 @dataclass
 class CommonSpecs:
@@ -31,6 +36,7 @@ class CommonSpecs:
     entire_subsurface_external: str = 'no'
     flow_rate_from_csv: str = 'no'
     flow_rate_file: str = None
+    bc_iteration: Optional[BcIteration] = None
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

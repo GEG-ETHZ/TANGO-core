@@ -116,5 +116,10 @@ class ProductionWellUnitNative(WellUnitNative):
         Returns:
             float: The mass flow rate (in kg/s).
         """
+
         self._m_dot_mult = 1.0 / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else 1.0
-        return self._specs.mass_flow_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self._specs.mass_flow_rate
+
+        if (self._specs.bc_iteration != None):
+            return self.mass_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
+        else:
+            return self._specs.mass_flow_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self._specs.mass_flow_rate

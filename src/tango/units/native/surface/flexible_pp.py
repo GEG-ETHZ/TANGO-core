@@ -70,7 +70,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 
         self.power_plant.set_attributes(fluid={self.specs.fluid_name: 1}, mass_rate=self.mass_rate, production_pressure=self.inlet_fluid.P/100000, production_temperature=self.inlet_fluid.T - 273.15)
         # self.power_plant.set_attributes(fluid={'H2O': 1}, mass_rate=50, production_pressure=40, production_temperature=140)
-        print({self.specs.fluid_name: 1}, self.mass_rate, self.inlet_fluid.P/100000, self.inlet_fluid.T - 273.15)
+        # print({self.specs.fluid_name: 1}, self.mass_rate, self.inlet_fluid.P/100000, self.inlet_fluid.T - 273.15)
         self.power_plant.network.solve('design')
         outlet_state = self.power_plant.get_outlet_conditions()
 

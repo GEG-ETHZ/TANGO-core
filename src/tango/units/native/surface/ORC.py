@@ -130,7 +130,13 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Returns:
             tuple: Outlet pressure, outlet temperature, and mass rate.
         """
-        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        # self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+
+        if (self.specs.bc_iteration != None):
+            self.mass_rate = self.mass_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        else:
+            self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+
         # print('self.mass_rate', self.mass_rate)
         if self.specs.flow_rate_from_csv == 'yes':
             if self.current_row < len(self.csv_data):

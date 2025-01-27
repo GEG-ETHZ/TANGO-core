@@ -51,7 +51,7 @@ class SystemExternal(UnitManager):
                 self.x_lst, self.y_lst = [], []
                 self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
-            # self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well)
+            self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
 
     def update(self) -> None:
         """
@@ -82,8 +82,10 @@ class SystemExternal(UnitManager):
                     self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
                 elif self.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP':
-                    pass
-                    # self.flow_rate_calculator.prr()
+                    # pass
+                    self.flow_rate_calculator.prr()
+                    self.flow_rate_calculator.fracing_flow()
+                    self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0))
 
                     # optimal_rate = self.flow_rate_calculator.find_mass_rate()
 

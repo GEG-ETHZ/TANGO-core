@@ -98,7 +98,12 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         Processes the stream by updating turbine, condenser, and pump states,
         and computes the net system performance.
         """
-        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+
+        if (self.specs.bc_iteration != None):
+            self.mass_rate = self.mass_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        else:
+            self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+
         if self.specs.flow_rate_from_csv == 'yes':
             if self.current_row < len(self.csv_data):
                 row = self.csv_data[self.current_row]

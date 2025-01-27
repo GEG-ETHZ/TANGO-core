@@ -42,7 +42,8 @@ class ReservoirUnitNative(Unit):
         self._initialize_attributes()
         self._specs_post_processor()
         self.init_stream_interface()
-        self._thermal_depletion()
+        if (self.specs.bc_iteration == None):
+            self._thermal_depletion()
         self.current_row = 0
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
@@ -98,33 +99,33 @@ class ReservoirUnitNative(Unit):
 
         self.mass_rate = mass_rate
 
-        if self.fracing_mass_rate < mass_rate:
-            print("\nWarning: The mass rate exceeds the fracking threshold!")
-            print("Options:")
-            print("1. Reduce to the maximum allowable rate.")
-            print("2. Set a new rate below the fracking threshold.")
-            print("3. Accept seismic consequences.")
-            print("4. Operate with an optimized rate (unsupported).")
-
-            choice = input("Enter 1, 2, 3, or 4: ")
-            if choice == '1':
-                action = input("Offset to prevent fracking (Kg/s): ")
-                self.mass_rate = self.fracing_mass_rate - max(1.0, float(action))
-                outlet_pressure = self.specs.hydro_static_pressure
-                outlet_temperature = self._compute_initial_temperature()
-            elif choice == '2':
-                action = input("Enter a new mass rate: ")
-                self.mass_rate = float(action)
-                outlet_pressure = self.specs.hydro_static_pressure
-                outlet_temperature = self._compute_initial_temperature()
-            elif choice == '3':
-                print("Continuing with the current rate despite seismic risks.")
-                self.mass_rate = mass_rate
-            elif choice == '4':
-                print("This option is currently unsupported.")
-            else:
-                print("Invalid choice. Aborting stream interface update.")
-                return
+        # if self.fracing_mass_rate < mass_rate:
+        #     print("\nWarning: The mass rate exceeds the fracking threshold!")
+        #     print("Options:")
+        #     print("1. Reduce to the maximum allowable rate.")
+        #     print("2. Set a new rate below the fracking threshold.")
+        #     print("3. Accept seismic consequences.")
+        #     print("4. Operate with an optimized rate (unsupported).")
+        #
+        #     choice = input("Enter 1, 2, 3, or 4: ")
+        #     if choice == '1':
+        #         action = input("Offset to prevent fracking (Kg/s): ")
+        #         self.mass_rate = self.fracing_mass_rate - max(1.0, float(action))
+        #         outlet_pressure = self.specs.hydro_static_pressure
+        #         outlet_temperature = self._compute_initial_temperature()
+        #     elif choice == '2':
+        #         action = input("Enter a new mass rate: ")
+        #         self.mass_rate = float(action)
+        #         outlet_pressure = self.specs.hydro_static_pressure
+        #         outlet_temperature = self._compute_initial_temperature()
+        #     elif choice == '3':
+        #         print("Continuing with the current rate despite seismic risks.")
+        #         self.mass_rate = mass_rate
+        #     elif choice == '4':
+        #         print("This option is currently unsupported.")
+        #     else:
+        #         print("Invalid choice. Aborting stream interface update.")
+        #         return
 
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
@@ -474,7 +475,12 @@ class ReservoirUnitNative(Unit):
             1. Compute coefficients based on reservoir and fluid properties.
             2. \( p1 \), \( p2 \), and \( p3 \) are used in the depletion curve function.
         """
-        m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
+        print(self.mass_rate, 'res')
+        if (self.specs.bc_iteration != None):
+            m_dot = self.mass_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
+        else:
+            m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
+
         b = self.specs.thickness
         k_rock = self.specs.rock_k
         rho_rock = self.specs.rock_density
@@ -558,6 +564,9 @@ class ReservoirUnitNative(Unit):
         Notes:
             - The depletion curve models how energy extraction affects reservoir temperature dynamics.
         """
+        if (self.specs.bc_iteration != None):
+            self._thermal_depletion()
+
         p1, p2, p3 = self.p1, self.p2, self.p3
         if psi <= (-p1 / p2):
             return 1 - (1 - p3) * (1 - 0.5 * erfc(p2 * psi + p1))

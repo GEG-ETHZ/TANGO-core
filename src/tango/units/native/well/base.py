@@ -98,12 +98,22 @@ class WellUnitNative(Unit):
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
         """
+        print(f"Running from class: {self.__class__.__name__}")
         # print('self.time_step', self.time_step)
         if self._specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
             self.mass_rate = float(row[1]) * self.scaling_factor
 
         self._initialize_state()
+
+        # print(self._specs.bc_iteration)
+
+        if (self._specs.bc_iteration != None):
+            if ((self.__class__.__name__ == 'ProductionWellUnitNative') or (self.__class__.__name__ == 'ProductionWellPumpUnitNative')):
+                # print(self.specs)
+                # print(self._specs.well_pattern)
+                self.mass_rate = self.mass_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
+
         t_d = self._get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
         mdot, A = self.mass_rate, self._cross_sectional_area
