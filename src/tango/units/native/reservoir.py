@@ -475,7 +475,7 @@ class ReservoirUnitNative(Unit):
             1. Compute coefficients based on reservoir and fluid properties.
             2. \( p1 \), \( p2 \), and \( p3 \) are used in the depletion curve function.
         """
-        print(self.mass_rate, 'res')
+        # print(self.mass_rate, 'res')
         if (self.specs.bc_iteration != None):
             m_dot = self.mass_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
         else:

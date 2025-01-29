@@ -246,7 +246,7 @@ class NativeWorkflow(Workflow):
             current_date += relativedelta(months=self._dt_months)
             # print (self.orchestrator.unit.injection_well.inlet_fluid.P)
             self.generate_output_table()
-            # self.orchestrator.unit.surface.power_plant.generate_output_table()
+            self.orchestrator.unit.surface.power_plant.generate_output_table()
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])

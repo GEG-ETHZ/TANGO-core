@@ -51,6 +51,7 @@ class SystemExternal(UnitManager):
                 self.x_lst, self.y_lst = [], []
                 self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
+            # self.unit.production_well_pump = None
             self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
 
     def update(self) -> None:

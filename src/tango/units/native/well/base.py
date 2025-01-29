@@ -98,7 +98,7 @@ class WellUnitNative(Unit):
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
         """
-        print(f"Running from class: {self.__class__.__name__}")
+        # print(f"Running from class: {self.__class__.__name__}")
         # print('self.time_step', self.time_step)
         if self._specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]

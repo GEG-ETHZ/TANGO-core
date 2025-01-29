@@ -95,17 +95,9 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 class PowerPlant:
     def __init__(self, yaml_config_path, specs):
 
-        # self.cooling_mode = 'WET'
-        self.pp_specs = specs
+        self.iterative_inj_pressure = 3100000
 
-        # if self.cooling_mode == 'WET':
-        #     self._coeffs_cooling = [1.2, 0.0, -3.79e-3, 1.95e-2]
-        #     self._coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.0]
-        # elif self.cooling_mode == 'DRY':
-        #     self._coeffs_cooling = [7.65e-1, 0.0, 0.0, 1.28e-1]
-        #     self._coeffs_condensing = [0.619, 0.0, 0.0, 0.0]
-        # else:
-        #     raise ValueError(f"surface_cooling_tower_mode: {self.cooling_mode} is not supported")
+        self.pp_specs = specs
 
         with open(yaml_config_path, 'r') as file:
             self.config = yaml.safe_load(file)
@@ -289,6 +281,14 @@ class PowerPlant:
             # Finally, set the connection attributes
             connection.set_attr(**connection_attributes)
 
+        for connection in self.connections:
+            if isinstance(connection.target, Sink) and connection.target.label == "outlet":
+                source_component = connection.source  # Get the upstream component
+
+                # Apply the iterative injection pressure to this component's outlet
+                connection.set_attr(p=self.iterative_inj_pressure/100000.0)
+                break  # Exit loop after finding the outlet
+
     def _BAC_regression_model(self, coeffs: list) -> float:
         r"""
         Computes the parasitic power fraction using a BAC regression model.
@@ -356,26 +356,6 @@ class PowerPlant:
 
         return net_power
 
-
-    # def compute_cooler_condenser_power(self):
-    #     w_cooler = w_condenser = 0.0  # Initialize values to prevent unbound errors
-    #     q_cooler = q_condenser = 0.0
-    #     for node_name, node in self.nodes.items():
-    #         if isinstance(node, SimpleHeatExchanger):
-    #             component_config = self.config.get(node_name, {})
-    #             subtype = component_config.get('Subtype', '').lower()
-    #
-    #             if subtype == 'cooler':
-    #                 q_cooler += -node.Q.val  # Assuming TESPy gives heat load as a positive value
-    #                 f_cooling = self._get_parasitic_power_fraction_cooling()
-    #                 w_cooler = q_cooler * f_cooling
-    #             elif subtype == 'condenser':
-    #                 q_condenser += -node.Q.val  # Assuming TESPy gives heat load as a positive value
-    #                 f_condensing = self._get_parasitic_power_fraction_condensing()
-    #                 w_condenser = q_condenser * f_condensing
-    #
-    #     return w_cooler, w_condenser
-
     def compute_cooler_condenser_power(self):
         # Initialize variables
         w_cooler = w_condenser = 0.0  # Power
@@ -414,67 +394,6 @@ class PowerPlant:
                         w_condenser = q_condenser * f_condensing
 
         return w_cooler, w_condenser
-
-    # def generate_output_table(self):
-    #     """
-    #     Generates and prints a table showing system information:
-    #     Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
-    #     """
-    #     graph_nodes = self.nodes
-    #     graph_edges = [(conn.source.label, conn.target.label) for conn in self.connections]
-    #
-    #     table_data = []
-    #     headers = ["Unit", "Port", "Pressure (MPa)", "Temperature (°C)", "Enthalpy (kJ/kg)", "Mass Rate (kg/s)"]
-    #
-    #     for edge in graph_edges:
-    #         source, target = edge
-    #         source_unit = graph_nodes[source]
-    #         target_unit = graph_nodes[target]
-    #
-    #         # Handle outlet data
-    #         try:
-    #             outlet_fluid = getattr(source_unit, 'outl', [])[0].fluid.val
-    #             outlet_P = getattr(source_unit, 'outl', [])[0].p.val / 10  # Convert to MPa
-    #             outlet_T = getattr(source_unit, 'outl', [])[0].T.val
-    #             outlet_H = getattr(source_unit, 'outl', [])[0].h.val   # Convert to kJ/kg
-    #             mass_rate = getattr(source_unit, 'outl', [])[0].m.val
-    #             table_data.append([source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate])
-    #         except AttributeError:
-    #             table_data.append([source, "Outlet", "Error", "Error", "Error", "N/A"])
-    #
-    #         # Handle inlet data
-    #         try:
-    #             inlet_fluid = getattr(target_unit, 'inl', [])[0].fluid.val
-    #             inlet_P = getattr(target_unit, 'inl', [])[0].p.val / 10  # Convert to MPa
-    #             inlet_T = getattr(target_unit, 'inl', [])[0].T.val  # Convert to Celsius
-    #             inlet_H = getattr(target_unit, 'inl', [])[0].h.val  # Convert to kJ/kg
-    #             mass_rate = getattr(target_unit, 'inl', [])[0].m.val
-    #             table_data.append([target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate])
-    #         except AttributeError:
-    #             table_data.append([target, "Inlet", "Error", "Error", "Error", "N/A"])
-    #
-    #     # Rearrange table for better presentation
-    #     if table_data:
-    #         last_row = table_data.pop()
-    #         table_data.insert(0, last_row)
-    #
-    #     # Assign colors to units
-    #     available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
-    #     unit_names = list(graph_nodes.keys())
-    #     color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
-    #
-    #     colored_table_data = []
-    #     for row in table_data:
-    #         unit_color = color_map.get(row[0], "white")
-    #         colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
-    #         colored_table_data.append(colored_row)
-    #
-    #     # Print the formatted table
-    #     top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
-    #     print(top_border)
-    #     print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
-    #     print(top_border)
-
 
     def generate_output_table(self):
         """
@@ -529,8 +448,6 @@ class PowerPlant:
         print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("\u2500", " "))
         print(top_border)
 
-
-
     def get_outlet_conditions(self):
         """
         Retrieves the outlet pressure and temperature from the results of the network calculation.
@@ -539,6 +456,7 @@ class PowerPlant:
             dict: Outlet conditions with keys `pressure` (in MPa) and `temperature` (in °C).
                   If the outlet node is not properly calculated, the values will be `None`.
         """
+        print('self.iterative_inj_pressure', self.iterative_inj_pressure)
         outlet_conditions = {
             "pressure": None,
             "temperature": None

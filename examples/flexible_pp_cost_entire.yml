@@ -65,7 +65,7 @@ reservoir:
   permeability: 3.0e-14    # m2 ~50mD
   porosity: 0.1
   hydro_static_pressure: 50000000
-  over_pressure_percentage: 20
+  over_pressure_percentage: 10
 
 injection_well:
   well_length: 5000. # m
@@ -310,7 +310,7 @@ condenser2:
 
 pump1:
   efficiency: 1.0
-  p_out: 30
+#  p_out: 30
 
 pump2:
   efficiency: 1.0
