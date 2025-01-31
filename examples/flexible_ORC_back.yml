@@ -224,7 +224,7 @@ pump:
 
 pump2:
   efficiency: 1.0
-  p_out: 30 #
+#  p_out: 30 #
 
 turbine:
   efficiency: 1.0

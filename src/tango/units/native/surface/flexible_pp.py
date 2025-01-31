@@ -95,7 +95,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 class PowerPlant:
     def __init__(self, yaml_config_path, specs):
 
-        self.iterative_inj_pressure = 3100000
+        self.iterative_inj_pressure = 9100000
 
         self.pp_specs = specs
 

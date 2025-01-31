@@ -52,6 +52,9 @@ class SystemExternal(UnitManager):
                 self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
             # self.unit.production_well_pump = None
+            if not hasattr(self.unit, 'production_well_pump') or self.unit.production_well_pump is None:
+                self.unit.production_well_pump = None
+
             self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
 
     def update(self) -> None:
