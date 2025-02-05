@@ -34,7 +34,9 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self._m_dot_mult = 1
+        # self._m_dot_mult = 0.25
         self.current_row = 0
+        self.prod_pump_w_list = []
         self.init_stream_interface()
 
         # yaml_config_path = '/Users/morteza/Documents/projects/TANGO/examples/testi2.yml'
@@ -68,6 +70,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 
         ################################################################################################################
 
+        self._update_state_pipe()
+
         self.power_plant.set_attributes(fluid={self.specs.fluid_name: 1}, mass_rate=self.mass_rate, production_pressure=self.inlet_fluid.P/100000, production_temperature=self.inlet_fluid.T - 273.15)
         # self.power_plant.set_attributes(fluid={'H2O': 1}, mass_rate=50, production_pressure=40, production_temperature=140)
         # print({self.specs.fluid_name: 1}, self.mass_rate, self.inlet_fluid.P/100000, self.inlet_fluid.T - 273.15)
@@ -78,6 +82,91 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         self.w_net = self.power_plant.calculate_net_power()
 
         return outlet_state['pressure'] * 1000000.0, outlet_state['temperature'] + 273.15, self.mass_rate
+
+    def _update_state_pipe(self) -> None:
+        r"""
+        Updates the state of the fluid in the surface pipe, accounting for pressure drops.
+
+        The pressure drop is computed based on the pipe's cross-sectional area, fluid density,
+        viscosity, flow velocity, and friction factor.
+
+        Steps:
+        - Calculate the flow velocity:
+
+          .. math::
+
+              u = \frac{\dot{m}}{A \cdot \rho}
+
+          where:
+          - :math:`\dot{m}` is the mass flow rate (kg/s),
+          - :math:`A` is the cross-sectional area of the pipe (m²),
+          - :math:`\rho` is the fluid density (kg/m³).
+
+        - Compute the friction factor using the Haaland equation.
+        - Calculate the pressure drop:
+
+          .. math::
+
+              \Delta P = 0.5 \cdot f \cdot L \cdot \rho \cdot u^2 / d
+
+        - Update the inlet fluid state to account for the pressure drop.
+
+        Returns:
+            None
+        """
+        rho = self.inlet_fluid.rho
+        mu = self.inlet_fluid.mu
+        mdot = 1.0 / self._m_dot_mult * self.mass_rate
+        u = mdot / (0.25 * np.pi * self.specs.pipe_diameter ** 2) / rho
+        ff = self._compute_friction_factor(rho, mu, u)
+        self.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
+        self.inlet_fluid.updatePT(P=self.inlet_fluid.P - self.dP_pipe, T=self.inlet_fluid.T)
+
+    def _compute_friction_factor(self, rho: float, mu: float, u: float) -> float:
+        r"""
+        Computes the friction factor using the Haaland equation (1983).
+
+        Equation:
+
+        .. math::
+
+            f = \left[ -1.8 \cdot \log_{10} \left( \frac{\epsilon / d}{3.7}^{1.11} + \frac{6.9}{Re} \right) \right]^{-2}
+
+        Args:
+            rho (float): Fluid density (kg/m³).
+            mu (float): Dynamic viscosity (Pa·s).
+            u (float): Flow velocity (m/s).
+
+        Returns:
+            float: Friction factor (-).
+        """
+        d = self.specs.pipe_diameter
+        epsilon = self.specs.epsilon
+        Re = rho * u * d / mu
+        r = epsilon / d
+        return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
+
+    def _get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
+        r"""
+        Computes the pressure drop across the pipe.
+
+        Equation:
+
+        .. math::
+
+            \Delta P = 0.5 \cdot f \cdot L \cdot \rho \cdot u^2 / d
+
+        Args:
+            rho (float): Fluid density (kg/m³).
+            u (float): Flow velocity (m/s).
+            ff (float): Friction factor.
+
+        Returns:
+            float: Pressure drop (Pa).
+        """
+        d = self.specs.pipe_diameter
+        L = self.specs.well_spacing
+        return 0.5 * ff * L * rho * u ** 2 / d
 
     def _process_specs(self, specs) -> dict:
         """

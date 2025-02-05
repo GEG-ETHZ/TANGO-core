@@ -264,10 +264,15 @@ class EconUnitSurfacePowerPlant:
         self._state = state
         self._process_surface_state()
 
-        self.flexible_power_plant_cost = PowerPlantCost(self._state.power_plant, self._specs, evaluated_funcs)
+        # C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
+
+        self.flexible_power_plant_cost = PowerPlantCost(self._state.power_plant, self._specs, evaluated_funcs, self._state.prod_pump_w_list)
         costs = self.flexible_power_plant_cost.compute_total_cost_with_averaged_results(average_fp_result)
 
+        # print('eco_surface_prod_pump_w_list', self._state.prod_pump_w_list)
+        # print(sum(self._state.prod_pump_w_list)/len(self._state.prod_pump_w_list))
         self._W_net_thermal = 0.0
+        # self.prod_pump_w_ave = sum(self._state.prod_pump_w_list) / len(self._state.prod_pump_w_list)
         self._W_net_total = self.flexible_power_plant_cost.net_P
 
         if self._surface_unit is None:
@@ -729,7 +734,7 @@ class EconUnitSurfacePowerPlant:
 
 
 class PowerPlantCost:
-    def __init__(self, power_plant, specs, evaluated_funcs):
+    def __init__(self, power_plant, specs, evaluated_funcs, prod_pump_w_list):
         """
         A class to compute various cost aspects of a power plant, including turbines, pumps,
         heat exchangers, and cooling systems. It calculates total costs based on
@@ -759,6 +764,7 @@ class PowerPlantCost:
             specs (object): Specifications containing cost data, price indices, and multipliers.
             evaluated_funcs (dict): A dictionary of evaluated cost functions.
         """
+        self.prod_pump_w_list = prod_pump_w_list
         self.power_plant = power_plant
         self.cost_specs = specs
         self.evaluated_funcs = evaluated_funcs
@@ -975,7 +981,15 @@ class PowerPlantCost:
         turbine_power = self._compute_total_turbine_work()
         pump_power = self._compute_total_pump_work()
 
-        net_power = turbine_power + pump_power - (cooling_power + condensing_power)
+        if (len(self.prod_pump_w_list) != 0):
+            prod_pump_w = sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)
+        else:
+            prod_pump_w = 0
+
+
+        print('prod_pump_ww', prod_pump_w)
+
+        net_power = turbine_power + pump_power - (cooling_power + condensing_power) + prod_pump_w
 
         print(f"Net Power Output: {net_power:.2f} W")
         print(f"Components - Turbine Power: {turbine_power:.2f} W, "
@@ -1341,6 +1355,27 @@ class PowerPlantCost:
         else:
             raise ValueError(f"Unsupported fluid type '{fluid}'.")
 
+    def _compute_pump_prod_lineshaft_cost(self, W_pump: float) -> float:
+        """
+        Computes the cost of the production pump with a lineshaft.
+
+        Formula:
+            Cost = PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3))^0.7
+                 + 5750 * (1.34 * -1 * (W_pump / 1e3))^0.2
+
+        Args:
+            W_pump (float): Pump power in Watts.
+
+        Returns:
+            float: Production pump cost.
+
+        Example:
+            >>> cost = self._compute_pump_prod_lineshaft_cost(1e6)
+        """
+        PPI = self._PPI_pump
+        S_pump = self._pump_material_cost_multiplier
+        return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7 + 5750. * (1.34 * -1. * (W_pump / 1e3)) ** 0.2
+
     def compute_total_cost(self):
         """
         Computes the total cost of the power plant by aggregating individual component costs.
@@ -1400,6 +1435,9 @@ class PowerPlantCost:
             total_cost += self.cost_specs.num_pp * self._compute_pump_inj_cost()
             total_cost += self.cost_specs.num_pp * self._compute_heat_exchanger_cost()
             total_cost += self.cost_specs.num_pp * self._compute_cooler_condenser_cost()
+            if (len(self.prod_pump_w_list) != 0):
+                print(self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)))
+                total_cost += self.cost_specs.num_pp * self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
 
             print('total_cost', total_cost)
 
@@ -1489,7 +1527,7 @@ class PowerPlantCost:
         """
 
         power_plant_new = self.create_power_plant_with_averaged_results(average_fp_result)
-        flexible_power_plant_cost = PowerPlantCost(power_plant_new, self.cost_specs, self.evaluated_funcs)
+        flexible_power_plant_cost = PowerPlantCost(power_plant_new, self.cost_specs, self.evaluated_funcs, self.prod_pump_w_list)
 
         self.net_P = flexible_power_plant_cost.compute_net_power()
 

@@ -93,7 +93,7 @@ costs:
 schedule:
   bc_iteration_checkpoint: injection_well_bottom
   mass_flow_rate: 50.0  # kg/s (injection rate per pattern)
-  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_pattern: 'INVERTED_5SPOT' # DOUBLET, INVERTED_5SPOT, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
@@ -106,6 +106,8 @@ schedule:
     check_fracing: yes
     check_point: injection_well_bottom
     max_mass_rate: 150
+  mass_rate:
+    type: automatic
 
 economic: # optional
   type: 'native'

@@ -12,6 +12,11 @@ class BcIteration:
     check_point: str  # e.g. 'injection_well_bottom'
 
 @dataclass
+class MassRate:
+    type: str  # 'manual' or 'automatic'
+    value: float = 50.
+
+@dataclass
 class CommonSpecs:
     num_pp: int
     fluid_name: str
@@ -37,6 +42,7 @@ class CommonSpecs:
     flow_rate_from_csv: str = 'no'
     flow_rate_file: str = None
     bc_iteration: Optional[BcIteration] = None
+    mass_rate: Optional[MassRate] = None
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

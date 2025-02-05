@@ -96,6 +96,8 @@ schedule:
     check_fracing: yes
     check_point: injection_well_bottom
     max_mass_rate: 150
+  mass_rate:
+    type: automatic
 
 economic: # optional
   type: 'native'

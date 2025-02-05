@@ -108,11 +108,11 @@ class WellUnitNative(Unit):
 
         # print(self._specs.bc_iteration)
 
-        if (self._specs.bc_iteration != None):
-            if ((self.__class__.__name__ == 'ProductionWellUnitNative') or (self.__class__.__name__ == 'ProductionWellPumpUnitNative')):
-                # print(self.specs)
-                # print(self._specs.well_pattern)
-                self.mass_rate = self.mass_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
+        # if (self._specs.bc_iteration != None):
+        #     if ((self.__class__.__name__ == 'ProductionWellUnitNative') or (self.__class__.__name__ == 'ProductionWellPumpUnitNative')):
+        #         # print(self.specs)
+        #         # print(self._specs.well_pattern)
+        #         self.mass_rate = self.mass_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
 
         t_d = self._get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
