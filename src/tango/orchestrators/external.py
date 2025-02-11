@@ -9,33 +9,9 @@ from tango.flow_rate import *
 
 
 class SystemExternal(UnitManager):
-    """
-    Manages an external system within TANGO.
-
-    This class handles systems where the subsurface computations are performed externally
-    or rely on external inputs such as reservoir file readers or back-calculation methods.
-
-    Attributes:
-        wb (wellbore): Wellbore object used for back-calculation of injection conditions.
-        csv_data (list): Data read from a CSV file for reservoir inputs.
-        current_row (int): Tracks the current row in the CSV file for iterative calculations.
-        x_lst (list): Stores x-values for root-finding during iterations.
-        y_lst (list): Stores y-values for root-finding during iterations.
-        MAX_NUM_ITR (int): Maximum number of iterations allowed for convergence.
-    """
 
     def __init__(self, specs):
-        """
-        Initializes the SystemExternal object.
 
-        Args:
-            specs (dict): Specifications for the system.
-
-        Logic:
-        - Checks if the entire subsurface system is external.
-        - Initializes wellbore object for back-calculations if subsurface is partially external.
-        - Handles special cases for reservoir file readers and ORC surface systems.
-        """
         super().__init__(specs)
         if 'entire_subsurface_external' in specs['schedule'] and specs['schedule']['entire_subsurface_external'] == 'yes':
             pass
@@ -51,7 +27,6 @@ class SystemExternal(UnitManager):
                 self.x_lst, self.y_lst = [], []
                 self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
-            # self.unit.production_well_pump = None
             if not hasattr(self.unit, 'production_well_pump') or self.unit.production_well_pump is None:
                 self.unit.production_well_pump = None
 
@@ -73,7 +48,8 @@ class SystemExternal(UnitManager):
             pass
         else:
             if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
-                if self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative':
+                # if self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative':
+                if self.unit.surface.__class__.__name__ == 'aaa':
                     if self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit':
                         self.unit.surface.reservoir_file_reader = True
                         if self.unit.surface.specs.injection_condition_back_calculation == 'yes':
@@ -86,28 +62,15 @@ class SystemExternal(UnitManager):
                     self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
 
                 elif self.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP':
-                    # pass
-                    self.flow_rate_calculator.prr()
-                    self.flow_rate_calculator.fracing_flow()
                     self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0))
 
-                    # optimal_rate = self.flow_rate_calculator.find_mass_rate()
-
-                    # self.unit.injection_well.update_inlet_fluid_state_PT(P=self.flow_rate_calculator.well.inlet_fluid.P)
-                    # self.unit.injection_well.stream_interface()
-
-                    # if self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit':
-                    #     self.unit.surface.reservoir_file_reader = True
-                    #     if self.unit.surface.specs.injection_condition_back_calculation == 'yes':
-                    #         target_bottom_pressure, target_bottom_temperature = self._get_next_target_values()
-                    #         self.unit.surface.iterative_inj_pressure, self.unit.surface.iterative_inj_temperature = self.wb.find_injection_conditions(target_bottom_pressure, target_bottom_temperature, max_iter=10000)
-                    # else:
-                    #     target_bottom_pressure = self.specs['reservoir']['hydro_static_pressure'] * (self.specs['reservoir']['over_pressure_percentage'] + 100) / 100
-                    #     self.unit.surface.iterative_inj_pressure = self.wb.find_injection_pressure(target_bottom_pressure, 8000000, 15000000)
-                    # outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
-                    # self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+                elif self.unit.surface.__class__.__name__ == 'SurfaceUnitCPGNative':
+                    self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0))
 
                 elif self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative':
+                    self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0))
+
+                elif self.unit.surface.__class__.__name__ == 'bbb':
                     if self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit':
                         self.unit.surface.reservoir_file_reader = True
                         if self.unit.surface.specs.injection_condition_back_calculation == 'yes':
@@ -201,11 +164,15 @@ class SystemExternal(UnitManager):
             self.unit.injection_well.current_row += 1
             self.unit.production_well.current_row += 1
 
-        if self.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP':
+        elif self.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP':
             if self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit':
                 self.unit.reservoir.update_energy_extracted_old()
             self.unit.injection_well.update_dimensionless_time_old()
             self.unit.production_well.update_dimensionless_time_old()
+            # if hasattr(self.unit, 'production_well_pump'):
+            #     self.unit.production_well_pump.update_dimensionless_time_old()
+            if (self.unit.production_well_pump != None):
+                self.unit.production_well_pump.update_dimensionless_time_old()
             self.unit.surface.current_row += 1
             self.unit.reservoir.current_row += 1
             self.unit.injection_well.current_row += 1

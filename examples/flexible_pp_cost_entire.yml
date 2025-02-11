@@ -56,6 +56,7 @@ surface:
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
   pp_design_file: '/Users/morteza/Documents/projects/TANGO/examples/flexible_pp_cost_entire.yml'
+  target_extraction_pressure: 5000000
 #  condensation_pressure_offset: 50_000.0  # Pa
 #  eta_turbine: 0.78  # (-)
 
@@ -132,6 +133,9 @@ schedule:
     check_fracing: yes
     check_point: injection_well_bottom
     max_mass_rate: 150
+  mass_rate:
+    type: manual
+    value: 50
 
 economic: # optional
   type: 'native'

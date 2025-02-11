@@ -94,6 +94,9 @@ class EconomicSpecsNative(CommonSpecs):
     horizontal_well_cost_multiplier: float = 1.15
     well_cost_model: str = 'gengeo'
     wellbore_solver: str = 'external'
+    main_product: str = 'electricity'
+    electricity_price: float = 0.25
+    heat_price: float = 0.05
 
     def __post_init__(self):
         """
@@ -549,7 +552,7 @@ class EconomicUnitNative(Unit):
                 average_value = sum(results[key]) / len(results[key]) if results[key] else 0
                 self.average_fp_result[key] = [average_value]
 
-    def _get_LCOE(self, W: float, w2: float) -> float:
+    def _get_LCOE(self, w: float, w2: float) -> float:
         """
         Calculates the Simple Levelized Cost of Energy (sLCOE).
 
@@ -577,15 +580,27 @@ class EconomicUnitNative(Unit):
         Example:
             >>> lcoe = self._get_LCOE(1e6, 1e3)
         """
+        print(w, w2)
+        if (self.specs.main_product == 'electricity'):
+            main_product = w
+            bi_product = w2
+            price = self.specs.heat_price
+        elif (self.specs.main_product == 'heat'):
+            main_product = w2
+            bi_product = w
+            price = self.specs.electricity_price
+        print(main_product, bi_product, price)
+
         CAPEX = self._results['CAPEX_total']
-        if CAPEX <= 0 or W <= 0:
+        if CAPEX <= 0 or w <= 0:
             return np.nan
         d = self.specs.discount_rate
         t = self.total_time
         CF = self.specs.capacity_factor
-        F_OM = self.specs.OPEX_cost_fraction - w2 / 1000 * 8760 * 0.02 / CAPEX
+        F_OM = self.specs.OPEX_cost_fraction - bi_product / 1000 * 8760 * price / CAPEX
+        # F_OM = self.specs.OPEX_cost_fraction
         CRF = d * (1. + d) ** t / ((1. + d) ** t - 1.0)  # Capital recovery factor
-        return CAPEX * (CRF + F_OM) / (W * W_TO_KW * CF * YEAR_TO_HOUR)
+        return CAPEX * (CRF + F_OM) / (main_product * W_TO_KW * CF * YEAR_TO_HOUR)
 
 
     def _get_specific_capital_cost(self, W: float) -> float:

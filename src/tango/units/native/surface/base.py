@@ -59,6 +59,7 @@ class SurfaceUnitNative(Unit):
         This method calculates average temperature (T), pressure (P), and enthalpy (H) from all
         incoming streams, then updates the state of the inlet fluid.
         """
+        print(self._m_dot_mult, 'important')
         total_mass_rate = 0.0
         for sl in self.inlet_streams:
             total_mass_rate += sl.mass_rate
@@ -88,6 +89,7 @@ class SurfaceUnitNative(Unit):
             - 1.0 for other patterns.
         """
         self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
+        # self._m_dot_mult = 1.0
 
     def _set_constants(self) -> None:
         """

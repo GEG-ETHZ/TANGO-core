@@ -43,6 +43,7 @@ class CommonSpecs:
     flow_rate_file: str = None
     bc_iteration: Optional[BcIteration] = None
     mass_rate: Optional[MassRate] = None
+    target_extraction_pressure: float = 2000000
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

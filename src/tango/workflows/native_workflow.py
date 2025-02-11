@@ -106,7 +106,11 @@ class NativeWorkflow(Workflow):
 
         The system handles the techno-physical computations for the simulation.
         """
-        UnitManager = get_system_class(utils.system_name(self.specs))
+        sys_name = utils.system_name(self.specs)
+        if 'bc_iteration' in self.specs.get('schedule', {}):
+            sys_name = 'external'
+        print(sys_name)
+        UnitManager = get_system_class(sys_name)
         self.orchestrator = UnitManager(self.specs)
 
     def _init_econ_unit(self) -> None:
@@ -138,6 +142,7 @@ class NativeWorkflow(Workflow):
         """
         Balances the system and advances by one time step for external systems.
         """
+        # self.orchestrator.unit.surface._m_dot_mult = 1.0
         self.orchestrator.execute()
         self.orchestrator.update()
         # self.orchestrator.execute()
@@ -246,7 +251,7 @@ class NativeWorkflow(Workflow):
             current_date += relativedelta(months=self._dt_months)
             # print (self.orchestrator.unit.injection_well.inlet_fluid.P)
             self.generate_output_table()
-            self.orchestrator.unit.surface.power_plant.generate_output_table()
+            # self.orchestrator.unit.surface.power_plant.generate_output_table()
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])

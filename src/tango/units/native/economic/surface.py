@@ -274,6 +274,8 @@ class EconUnitSurfacePowerPlant:
         self._W_net_thermal = 0.0
         # self.prod_pump_w_ave = sum(self._state.prod_pump_w_list) / len(self._state.prod_pump_w_list)
         self._W_net_total = self.flexible_power_plant_cost.net_P
+        self._W_net_thermal = self.flexible_power_plant_cost.thermal_power
+        print('self._W_net_thermal', self._W_net_thermal)
 
         if self._surface_unit is None:
             return 0.0
@@ -837,7 +839,7 @@ class PowerPlantCost:
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Turbine):
                 turbine_work = node.P.val
-                print(f"Turbine {node.label} Power: {turbine_work} W")
+                print(f"{node.label} Power: {turbine_work} W")
                 total_work += turbine_work
         print(f"Total Turbine Power: {total_work} W")
         return total_work
@@ -870,11 +872,13 @@ class PowerPlantCost:
         """
         w_cooler = w_condenser = 0.0
         q_cooler = q_condenser = 0.0
+        self.thermal_power = 0.0
 
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, SimpleHeatExchanger):
                 component_config = self.power_plant.config.get(node_name, {})
                 subtype = component_config.get('Subtype', '').lower()
+                # print(subtype)
 
                 if subtype in ['cooler', 'condenser']:
                     tower_mode = component_config.get('cooling_tower_mode', '').upper()
@@ -891,13 +895,23 @@ class PowerPlantCost:
                         self._coeffs_condensing_power = [0.619, 0.0, 0.0, 0.0]
 
                     if subtype == 'cooler':
-                        q_cooler += -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_cooler = -node.Q.val  # Assume TESPy gives heat load as positive
                         f_cooling = self._get_parasitic_power_fraction_cooling()
-                        w_cooler = q_cooler * f_cooling
+                        power = q_cooler * f_cooling  # Compute this cooler's power
+                        w_cooler += power  # Accumulate to total cooler power
+                        print(f"{node.label} (Cooler) - Heat Load: {q_cooler:.2f} W, Parasitic Power: {power:.2f} W")
+
                     elif subtype == 'condenser':
-                        q_condenser += -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_condenser = -node.Q.val  # Assume TESPy gives heat load as positive
                         f_condensing = self._get_parasitic_power_fraction_condensing()
-                        w_condenser = q_condenser * f_condensing
+                        power = q_condenser * f_condensing  # Compute this condenser's power
+                        w_condenser += power  # Accumulate to total condenser power
+                        print(f"{node.label} (Condenser) - Heat Load: {q_condenser:.2f} W, Parasitic Power: {power:.2f} W")
+
+                elif (subtype == 'dh_component'):
+                    self.thermal_power += -node.Q.val
+                    print(self.thermal_power, 'ave')
+
 
         return w_cooler, w_condenser
 
@@ -946,7 +960,7 @@ class PowerPlantCost:
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Compressor):
                 pump_work = node.P.val
-                print(f"Pump {node.label} Power: {pump_work} W")
+                print(f"{node.label} Power: {pump_work} W")
                 total_work += pump_work
         print(f"Total Pump Power: {total_work} W")
         return total_work
@@ -987,7 +1001,7 @@ class PowerPlantCost:
             prod_pump_w = 0
 
 
-        print('prod_pump_ww', prod_pump_w)
+        print('prod_pump_w', prod_pump_w)
 
         net_power = turbine_power + pump_power - (cooling_power + condensing_power) + prod_pump_w
 
@@ -1037,7 +1051,7 @@ class PowerPlantCost:
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'user_defined_cost_breakdown' and node_exists:
                     turbine_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"Turbine {node.label} Cost: ${turbine_cost:,.2f}")
+                    print(f"{node.label} Cost: ${turbine_cost:,.2f}")
                     total_cost += turbine_cost
                 else:
                     PPI = self._PPI_TG
@@ -1092,14 +1106,14 @@ class PowerPlantCost:
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'user_defined_cost_breakdown' and node_exists:
                     pump_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"Pump {node.label} Cost: ${pump_cost:,.2f}")
+                    print(f"{node.label} Cost: ${pump_cost:,.2f}")
                     total_cost += pump_cost
                 else:
                     PPI = self._PPI_pump
                     S_pump = self._pump_material_cost_multiplier
                     W_pump = node.P.val
                     pump_cost = PPI * S_pump * 1750 * (-1.34 * W_pump / 1.e3) ** 0.7
-                    print(f"Pump {node.label} Cost: ${pump_cost:,.2f}")
+                    print(f"{node.label} Cost: ${pump_cost:,.2f}")
                     total_cost += pump_cost
 
         print(f"Total Pump Cost: ${total_cost:,.2f}")
@@ -1232,6 +1246,7 @@ class PowerPlantCost:
         """
         cost_type = self.cost_specs.costs['power_plant']['type']
         total_cost_inp = 0.0
+        total_cost = 0.0
         PPI = self._PPI_PE
         Q_Ref_BAC = 1.0e6
 
@@ -1242,7 +1257,7 @@ class PowerPlantCost:
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'user_defined_cost_breakdown' and node_exists:
                     cc_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"Cooler-Condenser {node.label} Cost: ${cc_cost:,.2f}")
+                    print(f" {node.label} Cost: ${cc_cost:,.2f}")
                     total_cost_inp += cc_cost
                 else:
                     component_config = self.power_plant.config.get(node_name, {})
@@ -1275,7 +1290,11 @@ class PowerPlantCost:
                             elif subtype == 'condenser':
                                 sets[set_number]['condenser'] = node
 
-        total_cost = 0.0
+                    # elif (subtype == 'dh_component'):
+                    #     total_cost += -200.0 * node.Q.val / 1000
+                    #     print(total_cost, 'ufey')
+
+
         for set_number, components in sets.items():
             Q_cooler = Q_condenser = 0.0
 
@@ -1432,12 +1451,20 @@ class PowerPlantCost:
             total_cost = 0.0
 
             total_cost += self.cost_specs.num_pp * self._compute_turbine_generator_costs()
+            print(total_cost, '1')
             total_cost += self.cost_specs.num_pp * self._compute_pump_inj_cost()
+            print(total_cost, '2')
             total_cost += self.cost_specs.num_pp * self._compute_heat_exchanger_cost()
+            print(total_cost, '3')
             total_cost += self.cost_specs.num_pp * self._compute_cooler_condenser_cost()
+            print(total_cost, '4')
+            # print(self.prod_pump_w_list)
             if (len(self.prod_pump_w_list) != 0):
-                print(self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)))
-                total_cost += self.cost_specs.num_pp * self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
+                # print(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
+                # print(self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)))
+                pump_P_ave = sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)
+                if pump_P_ave < 0:
+                    total_cost += self.cost_specs.num_pp * self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
 
             print('total_cost', total_cost)
 
@@ -1530,5 +1557,6 @@ class PowerPlantCost:
         flexible_power_plant_cost = PowerPlantCost(power_plant_new, self.cost_specs, self.evaluated_funcs, self.prod_pump_w_list)
 
         self.net_P = flexible_power_plant_cost.compute_net_power()
+        self.thermal_power = flexible_power_plant_cost.thermal_power
 
         return flexible_power_plant_cost.compute_total_cost()

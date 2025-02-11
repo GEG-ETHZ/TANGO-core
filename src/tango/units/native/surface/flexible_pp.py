@@ -446,25 +446,48 @@ class PowerPlant:
         return net_power
 
     def compute_cooler_condenser_power(self):
-        # Initialize variables
-        w_cooler = w_condenser = 0.0  # Power
-        q_cooler = q_condenser = 0.0  # Heat load
+        """
+        Computes the parasitic power consumption of coolers and condensers in the power plant.
+
+        This method iterates through all cooler and condenser components within the power plant,
+        calculates their respective heat loads, and determines the parasitic power consumption
+        based on predefined coefficients for cooling tower modes ('WET' or 'DRY').
+
+        Returns:
+            tuple: A tuple containing:
+                - float: Total cooling power consumption in watts (W).
+                - float: Total condensing power consumption in watts (W).
+
+        Notes:
+            - Coolers and condensers are identified by their `Subtype` in the power plant configuration.
+            - Supported cooling tower modes: 'WET' and 'DRY'.
+            - The method raises a ValueError if an invalid `cooling_tower_mode` is encountered.
+            - Heat loads are assumed to be given as positive values in TESPy, hence negated here.
+
+        Prints:
+            - Heat loads of each cooler and condenser.
+            - Calculated cooling and condensing power consumption.
+
+        Raises:
+            ValueError: If an invalid `cooling_tower_mode` is specified in the component configuration.
+        """
+        w_cooler = w_condenser = 0.0
+        q_cooler = q_condenser = 0.0
+        # self.thermal_power = 0.0
 
         for node_name, node in self.nodes.items():
             if isinstance(node, SimpleHeatExchanger):
                 component_config = self.config.get(node_name, {})
                 subtype = component_config.get('Subtype', '').lower()
+                # print(subtype)
 
                 if subtype in ['cooler', 'condenser']:
-                    # Extract and validate cooling tower mode
                     tower_mode = component_config.get('cooling_tower_mode', '').upper()
                     if tower_mode not in ['WET', 'DRY']:
                         raise ValueError(f"Invalid cooling_tower_mode '{tower_mode}' in component_config for {node_name}")
 
-                    # Set the cooling tower mode based on the first valid cooler/condenser
                     self._surface_cooling_tower_mode = tower_mode
 
-                    # Set coefficients based on tower mode
                     if self._surface_cooling_tower_mode == 'WET':
                         self._coeffs_cooling_power = [1.2, 0.0, -3.79e-3, 1.95e-2]
                         self._coeffs_condensing_power = [1.65, -6.24e-6, -5.03e-3, 0.0]
@@ -472,15 +495,25 @@ class PowerPlant:
                         self._coeffs_cooling_power = [7.65e-1, 0.0, 0.0, 1.28e-1]
                         self._coeffs_condensing_power = [0.619, 0.0, 0.0, 0.0]
 
-                    # Calculate heat loads and parasitic power
                     if subtype == 'cooler':
-                        q_cooler += -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_cooler = -node.Q.val  # Assume TESPy gives heat load as positive
                         f_cooling = self._get_parasitic_power_fraction_cooling()
-                        w_cooler = q_cooler * f_cooling
+                        power = q_cooler * f_cooling  # Compute this cooler's power
+                        w_cooler += power  # Accumulate to total cooler power
+                        print(f"{node.label} (Cooler) - Heat Load: {q_cooler:.2f} W, Parasitic Power: {power:.2f} W")
+
                     elif subtype == 'condenser':
-                        q_condenser += -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_condenser = -node.Q.val  # Assume TESPy gives heat load as positive
                         f_condensing = self._get_parasitic_power_fraction_condensing()
-                        w_condenser = q_condenser * f_condensing
+                        power = q_condenser * f_condensing  # Compute this condenser's power
+                        w_condenser += power  # Accumulate to total condenser power
+                        print(f"{node.label} (Condenser) - Heat Load: {q_condenser:.2f} W, Parasitic Power: {power:.2f} W")
+
+                # elif (subtype == 'dh_component'):
+                #     print('ziba')
+                #     self.thermal_power += -node.Q.val
+                #     print(self.thermal_power)
+
 
         return w_cooler, w_condenser
 
@@ -545,7 +578,6 @@ class PowerPlant:
             dict: Outlet conditions with keys `pressure` (in MPa) and `temperature` (in °C).
                   If the outlet node is not properly calculated, the values will be `None`.
         """
-        print('self.iterative_inj_pressure', self.iterative_inj_pressure)
         outlet_conditions = {
             "pressure": None,
             "temperature": None

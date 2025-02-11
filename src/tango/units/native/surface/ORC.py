@@ -101,6 +101,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.iterative_inj_temperature = 302.0  # 302 K
         self.reservoir_file_reader = False
         self.current_row = 0
+        self.prod_pump_w_list = []
+        self.system_external = False
 
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
@@ -150,7 +152,14 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._update_diagram_connections()
         # print(self.P_out, self.T_out, self.mass_rate, 'process')
 
-        return self.P_out, self.T_out, self.specs.mass_flow_rate
+        if (self.system_external):
+            return self.P_out, self.T_out, self.mass_rate
+        else:
+            return self.P_out, self.T_out, self.specs.mass_flow_rate
+
+
+        # return self.P_out, self.T_out, self.specs.mass_flow_rate
+        # return self.P_out, self.T_out, self.mass_rate
 
     def overwrite_state_pipe(self) -> None:
         """
@@ -569,7 +578,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        if self.specs.bc_iteration_checkpoint == 'injection_well_bottom':
+        # if self.specs.bc_iteration_checkpoint == 'injection_well_bottom':
+        if self.specs.bc_iteration != None:
             if self.reservoir_file_reader and self.specs.injection_condition_back_calculation == 'yes':
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = self.iterative_inj_temperature
@@ -581,7 +591,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
                 self.lulu = FluidState.withPT(self._fluid_name, P=self.inlet_fluid.P, T=T_13)
                 self.lulu_out = FluidState.withPT(self._fluid_name, P=self.iterative_inj_pressure, T=self.iterative_inj_temperature)
                 self.thermal_power = self.mass_rate * (self.lulu.H - self.lulu_out.H)
-        elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
+        # elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
+        else:
             self.P_out = self.inlet_fluid.P
             self.T_out = T_13
 

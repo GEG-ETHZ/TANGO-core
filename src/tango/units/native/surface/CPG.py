@@ -68,6 +68,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.reservoir_file_reader = False
         self.cooler_include = False
         self.current_row = 0
+        self.system_external = False
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
 
@@ -117,7 +118,13 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_diagram_states()
         self._update_diagram_connections()
 
-        return self.P_out, self.T_out, self.specs.mass_flow_rate
+        if (self.system_external):
+            return self.P_out, self.T_out, self.mass_rate
+        else:
+            return self.P_out, self.T_out, self.specs.mass_flow_rate
+
+        # return self.P_out, self.T_out, self.specs.mass_flow_rate
+        # return self.P_out, self.T_out, self.mass_rate
 
     def _read_csv_file(self):
         """
@@ -323,7 +330,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         eta = self.specs.eta_pump
         X_CO2 = self._X_CO2
 
-        if self.specs.bc_iteration_checkpoint == 'injection_well_bottom':
+        if self.specs.bc_iteration != None:
             if self.reservoir_file_reader and self.specs.injection_condition_back_calculation == 'yes':
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = self.iterative_inj_temperature
@@ -341,7 +348,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
                 self.P_out = P_pump_outlet
                 self.T_out = self.outlet_fluid_pump.T
 
-        elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
+        # elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
+        else:
             if self.specs.injection_condition_back_calculation == 'yes':
                 raise NotImplementedError("Injection condition back calculation is not supported for production well bottom.")
             if self.reservoir_file_reader:
