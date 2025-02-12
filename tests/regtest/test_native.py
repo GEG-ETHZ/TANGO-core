@@ -320,3 +320,21 @@ def testcase45():
     run(fname)
     assert get_val(fname) == pytest.approx(0.0878319373790068) #
     rmFiles(fname)
+
+def testcase46():
+    fname = os.path.join(examples_dir, 'file_reader_CPG.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(0.555879511200584) #
+    rmFiles(fname)
+
+def testcase47():
+    fname = os.path.join(examples_dir, 'file_reader_ORC.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(0.32979757073231) #
+    rmFiles(fname)
+
+def testcase48():
+    fname = os.path.join(examples_dir, 'flexible_DF_reader.yml')
+    run(fname)
+    assert get_val(fname) == pytest.approx(0.227857673623325) #
+    rmFiles(fname)

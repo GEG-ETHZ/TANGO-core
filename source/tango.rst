@@ -20,6 +20,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   tango.flow_rate
    tango.function_evaluator
    tango.optimizerr
    tango.parameter_mappings
