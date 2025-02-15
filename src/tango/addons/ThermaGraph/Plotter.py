@@ -103,7 +103,7 @@ class FluidDiagramPlotter:
         """
         return p_bar * 1e5
 
-    def plot_fluid_states(self, states, connections=None, markersize=6, fontsize=10, cmap='Greys'):
+    def plot_fluid_states(self, states, connections=None, markersize=6, fontsize=8, cmap='Greys'):
         """
         Plot the fluid states on the diagram.
 

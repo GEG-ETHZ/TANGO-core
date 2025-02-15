@@ -1,10 +1,5 @@
 [
     [
-        "surface",
-        "inj_1",
-        "non-isentropic"
-    ],
-    [
         "inj_1",
         "reservoir",
         "non-isentropic"
@@ -16,7 +11,62 @@
     ],
     [
         "prd_1",
-        "surface",
+        "prd_2",
+        "non-isentropic"
+    ],
+    [
+        "merge",
+        "inj_1",
+        "non-isentropic"
+    ],
+    [
+        "prd_2",
+        "valve",
+        "non-isentropic"
+    ],
+    [
+        "valve",
+        "droplet_separator",
+        "non-isentropic"
+    ],
+    [
+        "droplet_separator_out1",
+        "pump2",
+        "non-isentropic"
+    ],
+    [
+        "droplet_separator_out2",
+        "turbine",
+        "non-isentropic"
+    ],
+    [
+        "turbine",
+        "condenser",
+        "non-isentropic"
+    ],
+    [
+        "condenser",
+        "pump",
+        "non-isentropic"
+    ],
+    [
+        "pump",
+        "merge",
+        "non-isentropic"
+    ],
+    [
+        "pump2",
+        "merge",
+        "non-isentropic"
+    ],
+    [
+        "valve",
+        "droplet_separator_out1",
+        "non-isentropic"
+    ],
+    [
+        "valve",
+        "droplet_separator_out2",
         "non-isentropic"
     ]
 ]

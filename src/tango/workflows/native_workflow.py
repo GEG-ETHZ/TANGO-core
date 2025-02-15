@@ -6,6 +6,7 @@ import sys
 import logging
 import importlib
 import os
+from copy import deepcopy
 
 from tango.core.abstracts.workflow import *
 from tango.core.constants import *
@@ -109,7 +110,6 @@ class NativeWorkflow(Workflow):
         sys_name = utils.system_name(self.specs)
         if 'bc_iteration' in self.specs.get('schedule', {}):
             sys_name = 'external'
-        print(sys_name)
         UnitManager = get_system_class(sys_name)
         self.orchestrator = UnitManager(self.specs)
 
@@ -184,10 +184,57 @@ class NativeWorkflow(Workflow):
             results=(self._results, self.economic.get_results() if self.economic else None)
         )
 
+    # def addons_manager(self) -> None:
+    #     """
+    #     Dynamically discovers addons from the addons directory, initializes them,
+    #     and sets up corresponding specifications.
+    #     """
+    #     addons_path = "/Users/morteza/Documents/projects/TANGO/src/tango/addons"
+    #     self.addons = {}
+    #
+    #     for addon_name in os.listdir(addons_path):
+    #         addon_dir = os.path.join(addons_path, addon_name)
+    #
+    #         if os.path.isdir(addon_dir) and not addon_name.startswith('__'):
+    #             try:
+    #                 addon_module = importlib.import_module(f"tango.addons.{addon_name}.{addon_name}_interface")
+    #                 addon_specs_class_name = f"{addon_name}Specs"
+    #                 if hasattr(addon_module, addon_specs_class_name):
+    #                     addon_specs_class = getattr(addon_module, addon_specs_class_name)
+    #                 else:
+    #                     addon_specs_class = getattr(
+    #                         importlib.import_module("tango.units.dataclasses"),
+    #                         addon_specs_class_name
+    #                     )
+    #
+    #                 addon_specs_dict = self.specs.get('addons', {}).get(addon_name, {})
+    #                 if not addon_specs_dict:
+    #                     logging.warning(f"Addon '{addon_name}' is not set in the input file and will be skipped.")
+    #                     continue
+    #
+    #                 addon_specs = addon_specs_class.from_dict(addon_specs_dict)
+    #                 setattr(self, f"{addon_name}_specs", addon_specs)
+    #
+    #                 addon_class_name = f"{addon_name}_addon"
+    #                 if hasattr(addon_module, addon_class_name):
+    #                     addon_class = getattr(addon_module, addon_class_name)
+    #                 else:
+    #                     raise AttributeError(f"'{addon_class_name}' not found in module '{addon_module.__name__}'.")
+    #
+    #                 self.addons[addon_name] = addon_class(self.specs['graph'], self._results)
+    #
+    #                 logging.info(f"Addon '{addon_name}' initialized successfully.")
+    #
+    #             except Exception as e:
+    #                 logging.error(f"Failed to load addon '{addon_name}': {e}")
+
+
     def addons_manager(self) -> None:
         """
         Dynamically discovers addons from the addons directory, initializes them,
         and sets up corresponding specifications.
+        Combines `self.specs['graph']` and `self.specs['power_plant_graph']` under a new higher-level key
+        before passing it to the addon instance.
         """
         addons_path = "/Users/morteza/Documents/projects/TANGO/src/tango/addons"
         self.addons = {}
@@ -221,12 +268,20 @@ class NativeWorkflow(Workflow):
                     else:
                         raise AttributeError(f"'{addon_class_name}' not found in module '{addon_module.__name__}'.")
 
-                    self.addons[addon_name] = addon_class(self.specs['graph'], self._results)
+                    # Create a merged dictionary with both `graph` and `power_plant_graph`
+                    merged_graph = {
+                        "main_graph": deepcopy(self.specs['graph']),
+                        "power_plant_graph": deepcopy(self.specs.get('power_plant_graph', {}))
+                    }
 
-                    logging.info(f"Addon '{addon_name}' initialized successfully.")
+                    # Initialize the addon with the merged graph
+                    self.addons[addon_name] = addon_class(merged_graph, self._results)
+
+                    logging.info(f"Addon '{addon_name}' initialized successfully with merged graph.")
 
                 except Exception as e:
                     logging.error(f"Failed to load addon '{addon_name}': {e}")
+
 
 
     def execute(self) -> None:
