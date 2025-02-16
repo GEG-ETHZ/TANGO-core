@@ -103,35 +103,66 @@ class FluidDiagramPlotter:
         """
         return p_bar * 1e5
 
-    def plot_fluid_states(self, states, connections=None, markersize=6, fontsize=8, cmap='Greys'):
+    def plot_fluid_states(self, states, connections=None, markersize=6, fontsize=10, cmap='Greys'):
         """
-        Plot the fluid states on the diagram.
+        Plot the fluid states on the diagram with numeric labels for the last point of each state,
+        excluding the point labeled 'inlet'. Numbers for overlapping points will be stacked vertically.
+        """
+        label_mapping = {}  # To store numeric labels and their corresponding state names
+        coordinate_labels = {}  # To store labels for each coordinate
+        counter = 1  # Numeric label counter
 
-        :param states: Dictionary of fluid states with point names and their values.
-        :param connections: List of connections between states.
-        :param markersize: Size of the markers for states.
-        :param fontsize: Font size for the state labels.
-        :param cmap: Colormap for the progression of states.
-        """
-        labeled_points = set()
         for point_name, point_states in states.items():
+            if point_name == "inlet":
+                continue  # Skip the point named 'inlet'
+
             norm = Normalize(vmin=0, vmax=len(point_states) - 1)
             scalar_map = ScalarMappable(norm=norm, cmap=cmap)
             colors = [scalar_map.to_rgba(i) for i in range(len(point_states))]
 
             for i, (p, h) in enumerate(point_states):
                 color = colors[i]
+                coord = (round(h, 2), round(p, 2))  # Use rounded coordinates to avoid floating-point issues
                 self.ax.plot(h, p, marker='o', color=color, markersize=markersize)
 
-                if point_name not in labeled_points:
-                    self.ax.annotate(
-                        point_name, (h, p), xytext=(10, 5), ha='left', va='center',
-                        textcoords='offset points', fontsize=fontsize, color='black'
-                    )
-                    labeled_points.add(point_name)
+                if coord not in coordinate_labels:
+                    coordinate_labels[coord] = []  # Initialize a list to store labels for this coordinate
+
+                # Add the current counter to the coordinate's label list if it's the last point of the state
+                if i == len(point_states) - 1:
+                    coordinate_labels[coord].append(str(counter))
+                    label_mapping[counter] = point_name
+                    counter += 1
+
+        # Add stacked numeric labels for each coordinate
+        for (h, p), labels in coordinate_labels.items():
+            label_text = "\n".join(labels)  # Stack labels vertically
+            self.ax.text(h - 30, p, label_text, fontsize=fontsize, color='red', ha='right', va='center')
 
         if connections:
             self.plot_connections(states, connections)
+
+        # Generate label list on the right side
+        self.add_label_list(label_mapping)
+
+    def add_label_list(self, label_mapping):
+        """
+        Create a label list on the right side of the plot showing numeric labels and corresponding state names,
+        excluding the point labeled 'inlet'.
+        """
+        self.ax.set_position([0.1, 0.1, 0.7, 0.8])  # Shrink the plot to make space for the label list
+
+        # Add label list as text on the right
+        x_pos = 1.25  # Position to the right of the plot
+        y_pos = 0.95   # Starting y position
+        y_step = 0.05  # Spacing between labels
+
+        for num, point_name in label_mapping.items():
+            if point_name == "inlet":
+                continue  # Skip the point labeled 'inlet'
+            self.ax.text(x_pos, y_pos, f"{num}: {point_name}", transform=self.ax.transAxes, fontsize=10, ha='left')
+            y_pos -= y_step
+
 
     def plot_connections(self, states, connections):
         """

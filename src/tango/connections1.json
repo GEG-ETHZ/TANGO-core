@@ -1,5 +1,10 @@
 [
     [
+        "surface",
+        "inj_1",
+        "non-isentropic"
+    ],
+    [
         "inj_1",
         "reservoir",
         "non-isentropic"
@@ -7,6 +12,11 @@
     [
         "reservoir",
         "prd_1",
+        "non-isentropic"
+    ],
+    [
+        "prd_1",
+        "surface",
         "non-isentropic"
     ]
 ]
