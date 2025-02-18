@@ -85,7 +85,8 @@ VARIABLE_PARAMETER_MAPPING = {
             "production_well_probability_of_success": "self.tango_instance.specs['production_well']['probability_of_success']",
             "production_well_num_cells": "self.tango_instance.specs['production_well']['num_cells']",
             "production_well_wellhead_depth": "self.tango_instance.specs['production_well']['wellhead_depth']",
-            "discount_rate": "self.tango_instance.specs['economic']['discount_rate']"
+            "discount_rate": "self.tango_instance.specs['economic']['discount_rate']",
+            "turbine_p_out": "self.tango_instance.specs['turbine']['p_out']"
         }
 
 

@@ -15,6 +15,9 @@ class Runner:
         args = parse_args(args)
         set_logger(args)
         self._tango = Tango(args.input_file)
+        # print("Hi")
+        # print(self._tango.specs["turbine"]['p_out'])
+        # self._tango.specs["turbine"]['p_out'] = 0.04999
         self._optimizer = None
         if "optimization" in self._tango.specs:
             self._optimizer = Optimizer(self._tango, self._tango.specs)

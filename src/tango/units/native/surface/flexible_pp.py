@@ -33,6 +33,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
     def __init__(self, id: str, specs: dict):
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
+        self.specs.new_config = self._filter_power_plant_graph(specs)
         self._m_dot_mult = 1
         # self._m_dot_mult = 0.25
         self.current_row = 0
@@ -44,6 +45,20 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 
         self.power_plant = PowerPlant(yaml_config_path, self.specs)
         # self.power_plant_cost = PowerPlantCost(self.power_plant)
+
+    def _filter_power_plant_graph(self, specs: dict):
+        """Filters and retains only the power_plant_graph, including nodes, edges, and their specifications."""
+        if "power_plant_graph" not in specs:
+            return {}
+
+        filtered_specs = {"power_plant_graph": specs["power_plant_graph"]}
+
+        # Add specifications for nodes if they exist in the main specs
+        for node in specs["power_plant_graph"].get("nodes", {}):
+            if node in specs:
+                filtered_specs[node] = specs[node]
+
+        return filtered_specs
 
     def init_stream_interface(self, P: float = None, T: float = None) -> None:
         """
@@ -188,8 +203,7 @@ class PowerPlant:
 
         self.pp_specs = specs
 
-        with open(yaml_config_path, 'r') as file:
-            self.config = yaml.safe_load(file)
+        self.config = self.pp_specs.new_config
 
         # Create TESPy components
         self.nodes = {}
