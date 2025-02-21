@@ -115,26 +115,26 @@ def get_target_translation(parameter_name: str) -> str:
         raise KeyError(f"Target parameter '{parameter_name}' not found in the translation mapping.")
 
 
-def get_variable_translation(var_name: str) -> str:
-    """
-    Get the translation for a variable parameter.
-
-    Parameters
-    ----------
-    var_name : str
-        The name of the variable to translate.
-
-    Returns
-    -------
-    str
-        The corresponding TANGO variable path.
-
-    Raises
-    ------
-    KeyError
-        If the variable name is not found in the mapping.
-    """
-    try:
-        return VARIABLE_PARAMETER_MAPPING[var_name]
-    except KeyError:
-        raise KeyError(f"Variable parameter '{var_name}' not found in the translation mapping.")
+# def get_variable_translation(var_name: str) -> str:
+#     """
+#     Get the translation for a variable parameter.
+#
+#     Parameters
+#     ----------
+#     var_name : str
+#         The name of the variable to translate.
+#
+#     Returns
+#     -------
+#     str
+#         The corresponding TANGO variable path.
+#
+#     Raises
+#     ------
+#     KeyError
+#         If the variable name is not found in the mapping.
+#     """
+#     try:
+#         return VARIABLE_PARAMETER_MAPPING[var_name]
+#     except KeyError:
+#         raise KeyError(f"Variable parameter '{var_name}' not found in the translation mapping.")

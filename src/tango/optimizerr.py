@@ -25,7 +25,7 @@ import multiprocessing
 import time
 from functools import partial
 from tango.units.dataclasses import OptimizationSpecs
-from tango.parameter_mappings import get_target_translation, get_variable_translation
+from tango.parameter_mappings import get_target_translation, VARIABLE_PARAMETER_MAPPING
 import os
 
 class Optimizer:
@@ -150,6 +150,85 @@ class Optimizer:
             print(f"Error in objective function: {e}")
             return float('inf') if len(self.target_parameters) == 1 else [float('inf')] * len(self.target_parameters)
 
+    def get_dynamic_power_plant_translations(self, specs):
+        """
+        Dynamically creates translation mappings for power plant components if available.
+
+        Parameters
+        ----------
+        specs : dict
+            The full specs dictionary containing the power_plant_graph.
+
+        Returns
+        -------
+        dict
+            A dictionary with dynamic mappings for power plant components.
+            Example: {"pump2_efficiency": "self.tango_instance.specs['pump2']['efficiency']"}
+            Returns an empty dict if power_plant_graph is not present.
+        """
+        dynamic_mapping = {}
+
+        # Safely get power plant nodes or return empty dict
+        power_plant_nodes = specs.get('power_plant_graph', {}).get('nodes', {})
+
+        if not power_plant_nodes:
+            # If power_plant_graph is missing, return empty mapping
+            return dynamic_mapping
+
+        # Iterate through components in power_plant_graph
+        for component_name, component_details in power_plant_nodes.items():
+            # Access component-specific specs if available
+            component_specs = specs.get(component_name, {})
+            for param, value in component_specs.items():
+                # Format key as "powerplant_component_param" for uniqueness
+                mapping_key = f"powerplant_{component_name}_{param}"
+                # Create the translation path
+                mapping_value = f"self.tango_instance.specs['{component_name}']['{param}']"
+                # Add to dynamic mapping
+                dynamic_mapping[mapping_key] = mapping_value
+
+        return dynamic_mapping
+
+    def get_variable_translation(self, var_name: str, specs=None) -> str:
+        """
+        Get the translation for a variable parameter, with dynamic handling for power plant components.
+
+        Parameters
+        ----------
+        var_name : str
+            The name of the variable to translate.
+        specs : dict, optional
+            The specs dictionary to check for dynamic mappings.
+
+        Returns
+        -------
+        str
+            The corresponding TANGO variable path.
+
+        Raises
+        ------
+        KeyError
+            If the variable name is not found in either static or dynamic mapping.
+        """
+        # First check static mapping
+        if var_name in VARIABLE_PARAMETER_MAPPING:
+            return VARIABLE_PARAMETER_MAPPING[var_name]
+
+        # Check dynamic mapping if specs are provided
+        if specs is not None:
+            dynamic_mapping = self.get_dynamic_power_plant_translations(specs)
+            if var_name in dynamic_mapping:
+                return dynamic_mapping[var_name]
+
+        # Raise error with detailed info
+        available_static = list(VARIABLE_PARAMETER_MAPPING.keys())
+        available_dynamic = list(dynamic_mapping.keys()) if specs else []
+        raise KeyError(
+            f"Variable parameter '{var_name}' not found.\n"
+            f"Available static mappings: {available_static}\n"
+            f"Available dynamic mappings: {available_dynamic}"
+        )
+
     def set_parameter(self, var_name: str, value: float):
         """
         Sets a parameter in the TANGO instance based on the provided variable name and value.
@@ -161,7 +240,7 @@ class Optimizer:
         value : float
             The value to assign to the variable.
         """
-        param_path = get_variable_translation(var_name)
+        param_path = self.get_variable_translation(var_name, self.tango_instance.specs)
         exec(f"{param_path} = {value}")
 
     def constraint_lower_bound_func(self, x, constraint_name, lower_bound):

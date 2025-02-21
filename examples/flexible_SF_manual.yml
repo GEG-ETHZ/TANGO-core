@@ -216,20 +216,3 @@ pump:
 pump2:
   efficiency: 1.0
 #  p_out: 30
-
-optimization:
-  method: 'DE' # DE, GA, NelderMead, CMAES, PatternSearch, BRKGA, ES, SRES, ISRES, PSO
-  n_generation: 4
-  pop_size: 20
-  variables:
-    turbine_p_out:
-      lower_bound: 0.03
-      upper_bound: 0.05
-      type: continuous
-  targets: # This should be a list, even if there's only one target
-    - W_NET
-  target_type:
-    - maximize
-  parallel_processing: yes
-  n_processes: 20
-  plot_name: S111
