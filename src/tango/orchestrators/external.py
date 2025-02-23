@@ -27,13 +27,14 @@ class SystemExternal(UnitManager):
         Notes:
             - If the production well pump is not specified, it is set to `None`.
         """
+        # self.kkk = None
         super().__init__(specs)
         if not hasattr(self.unit, 'production_well_pump') or self.unit.production_well_pump is None:
             self.unit.production_well_pump = None
 
         self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
 
-    def update(self) -> None:
+    def update(self, funcs) -> None:
         """
         Updates the system by adjusting subsurface and surface variables based on the current schedule.
 
@@ -51,9 +52,9 @@ class SystemExternal(UnitManager):
                 if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
 
                     if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
-                        self.flow_rate_calculator.pressure_finder(self.unit.reservoir.inlet_pressure)
+                        self.flow_rate_calculator.pressure_finder(self.unit.reservoir.inlet_pressure, funcs)
                     else:
-                        self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0))
+                        self.flow_rate_calculator.pressure_finder(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), funcs)
 
                 else:
                     raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")

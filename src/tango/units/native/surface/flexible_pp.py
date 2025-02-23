@@ -12,6 +12,10 @@ from tabulate import tabulate
 from termcolor import colored
 from itertools import cycle
 
+from tango.function_evaluator import FunctionEvaluator
+from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
+from tango.units.dataclasses import *
+
 @dataclass
 class SurfaceSpecsFlexiblePP(CommonSpecs):
 
@@ -34,6 +38,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
+        self.specs.org = specs
         self._m_dot_mult = 1
         # self._m_dot_mult = 0.25
         self.current_row = 0
@@ -199,6 +204,25 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 class PowerPlant:
     def __init__(self, yaml_config_path, specs):
 
+        self.function_evaluator = FunctionEvaluator(
+            target_mapping=TARGET_PARAMETER_MAPPING,
+            variable_mapping=VARIABLE_PARAMETER_MAPPING,
+            orchestrator=None,
+            economic=None
+        )
+        self.function_evaluator.set_context(self)
+
+        # print(specs.org)
+
+        if 'functions' in specs.org and specs.org['functions']:
+            self.function_evaluator.evaluate_functions(specs.org['functions'])
+        print('1')
+        # print(specs.org['functions'])
+
+        self.funcs = self.function_evaluator.evaluated_functions
+
+        # self.funcs[self.config[component_name]['attr_name']
+
         self.iterative_inj_pressure = 9100000
 
         self.pp_specs = specs
@@ -239,13 +263,24 @@ class PowerPlant:
         return component_mapping[component_type](name)
 
     def set_attributes(self, fluid, mass_rate, production_pressure, production_temperature):
-        # Set attributes for components
+        print('funcs')
+        # print(self.funcs)
+        # print('config')
+        # print(self.config)
+        # # Set attributes for components
+        # print('component_name, attributes')
         for component_name, attributes in self.config.items():
+            # print(component_name, attributes)
             if component_name in self.nodes:
                 component = self.nodes[component_name]
                 adjusted_attributes = {}
 
                 for attr_name, attr_value in attributes.items():
+
+                    if isinstance(attr_value, str):
+                        # Use self.funcs value if available
+                        attr_value = self.funcs.get(attr_value, attr_value)
+
                     if attr_name == 'efficiency':  # Efficiency for turbine and pump
                         adjusted_attributes['eta_s'] = attr_value
                     elif attr_name in ['ttd_u', 'ttd_l', 'pr1', 'pr2']:  # Specific to HeatExchanger
@@ -273,64 +308,143 @@ class PowerPlant:
                     component_label = source_component.label  # e.g., "source1" or "source2"
                     source_config = self.config.get(component_label, {})  # Get config for the specific source
 
+                    # Check and assign 'fluid'
                     if 'fluid' in source_config:
-                        connection_attributes['fluid'] = source_config['fluid']
+                        fluid_value = source_config['fluid']
+                        if isinstance(fluid_value, str):
+                            fluid_value = self.funcs.get(fluid_value, fluid_value)  # Fetch from funcs if string
+                        connection_attributes['fluid'] = fluid_value
+
+                    # Check and assign 'm' (mass flow rate)
                     if 'm' in source_config:
-                        connection_attributes['m'] = source_config['m']
+                        m_value = source_config['m']
+                        if isinstance(m_value, str):
+                            m_value = self.funcs.get(m_value, m_value)  # Fetch from funcs if string
+                        connection_attributes['m'] = m_value
+
+                    # Check and assign 'T' (temperature)
                     if 'T' in source_config:
-                        connection_attributes['T'] = source_config['T']
+                        T_value = source_config['T']
+                        if isinstance(T_value, str):
+                            T_value = self.funcs.get(T_value, T_value)  # Fetch from funcs if string
+                        connection_attributes['T'] = T_value
+
+                    # Check and assign 'p' (pressure)
                     if 'p' in source_config:
-                        connection_attributes['p'] = source_config['p']
+                        p_value = source_config['p']
+                        if isinstance(p_value, str):
+                            p_value = self.funcs.get(p_value, p_value)  # Fetch from funcs if string
+                        connection_attributes['p'] = p_value
+
+                    # Check and assign 'vapor_mass_fraction_out' (vapor quality)
                     if 'vapor_mass_fraction_out' in source_config:
-                        connection_attributes['x'] = source_config['vapor_mass_fraction_out']
+                        x_value = source_config['vapor_mass_fraction_out']
+                        if isinstance(x_value, str):
+                            x_value = self.funcs.get(x_value, x_value)  # Fetch from funcs if string
+                        connection_attributes['x'] = x_value
+
 
             elif component_type == 'Sink':
                 # Dynamically handle multiple sinks by their labels
                 component_label = source_component.label  # e.g., "sink1" or "sink2"
                 sink_config = self.config.get(component_label, {})  # Get config for the specific sink
+
+                # Check and assign 'T'
                 if 'T' in sink_config:
-                    connection_attributes['T'] = sink_config['T']
+                    T_value = sink_config['T']
+                    if isinstance(T_value, str):
+                        T_value = self.funcs.get(T_value, T_value)  # Fetch from funcs if string
+                    connection_attributes['T'] = T_value
+
+                # Check and assign 'p'
                 if 'p' in sink_config:
-                    connection_attributes['p'] = sink_config['p']
+                    p_value = sink_config['p']
+                    if isinstance(p_value, str):
+                        p_value = self.funcs.get(p_value, p_value)  # Fetch from funcs if string
+                    connection_attributes['p'] = p_value
+
 
             elif component_type == 'Valve':
                 # Dynamically handle valve configuration based on label
                 component_label = source_component.label  # Get the specific label of the valve
                 valve_config = self.config.get(component_label, {})  # Look up the config for the specific valve by its label
+                # Check and assign 'p_out'
                 if 'p_out' in valve_config:
-                    connection_attributes['p'] = valve_config['p_out']
+                    p_out_value = valve_config['p_out']
+                    if isinstance(p_out_value, str):
+                        p_out_value = self.funcs.get(p_out_value, p_out_value)  # Fetch from funcs if string
+                    connection_attributes['p'] = p_out_value
+
+                # Check and assign 'T_out'
                 if 'T_out' in valve_config:
-                    connection_attributes['T'] = valve_config['T_out']
+                    T_out_value = valve_config['T_out']
+                    if isinstance(T_out_value, str):
+                        T_out_value = self.funcs.get(T_out_value, T_out_value)  # Fetch from funcs if string
+                    connection_attributes['T'] = T_out_value
 
             elif component_type == 'Turbine':
                 # Dynamically handle turbine configuration based on label
                 component_label = source_component.label  # Get the specific label of the turbine
                 turbine_config = self.config.get(component_label, {})  # Look up the config for the specific turbine by its label
+                # Check and assign 'p_out'
                 if 'p_out' in turbine_config:
-                    connection_attributes['p'] = turbine_config['p_out']
+                    p_out_value = turbine_config['p_out']
+                    if isinstance(p_out_value, str):
+                        p_out_value = self.funcs.get(p_out_value, p_out_value)  # Fetch from funcs if string
+                    connection_attributes['p'] = p_out_value
+
+                # Check and assign 'T_out'
                 if 'T_out' in turbine_config:
-                    connection_attributes['T'] = turbine_config['T_out']
+                    T_out_value = turbine_config['T_out']
+                    if isinstance(T_out_value, str):
+                        T_out_value = self.funcs.get(T_out_value, T_out_value)  # Fetch from funcs if string
+                    connection_attributes['T'] = T_out_value
 
             elif component_type == 'SimpleHeatExchanger':
                 # Handle both condensers (or any other heat exchanger)
                 component_label = source_component.label
                 if component_label in self.config:  # Check if the component is in the config
                     heat_exchanger_config = self.config[component_label]
+
+                    # Check and assign 'p_out' (pressure)
                     if 'p_out' in heat_exchanger_config:
-                        connection_attributes['p'] = heat_exchanger_config['p_out']
+                        p_out_value = heat_exchanger_config['p_out']
+                        if isinstance(p_out_value, str):
+                            p_out_value = self.funcs.get(p_out_value, p_out_value)  # Fetch from funcs if string
+                        connection_attributes['p'] = p_out_value
+
+                    # Check and assign 'T_out' (temperature)
                     if 'T_out' in heat_exchanger_config:
-                        connection_attributes['T'] = heat_exchanger_config['T_out']
+                        T_out_value = heat_exchanger_config['T_out']
+                        if isinstance(T_out_value, str):
+                            T_out_value = self.funcs.get(T_out_value, T_out_value)  # Fetch from funcs if string
+                        connection_attributes['T'] = T_out_value
+
+                    # Check and assign 'vapor_mass_fraction_out' (vapor quality)
                     if 'vapor_mass_fraction_out' in heat_exchanger_config:
-                        connection_attributes['x'] = heat_exchanger_config['vapor_mass_fraction_out']
+                        x_value = heat_exchanger_config['vapor_mass_fraction_out']
+                        if isinstance(x_value, str):
+                            x_value = self.funcs.get(x_value, x_value)  # Fetch from funcs if string
+                        connection_attributes['x'] = x_value
+
 
             elif component_type == 'Compressor':
                 # Dynamically handle pump configuration based on label
                 component_label = source_component.label  # Get the specific label of the pump
                 pump_config = self.config.get(component_label, {})  # Look up the config for the specific pump by its label
+                # Check and assign 'p_out'
                 if 'p_out' in pump_config:
-                    connection_attributes['p'] = pump_config['p_out']
+                    p_out_value = pump_config['p_out']
+                    if isinstance(p_out_value, str):
+                        p_out_value = self.funcs.get(p_out_value, p_out_value)  # Fetch from funcs if string
+                    connection_attributes['p'] = p_out_value
+
+                # Check and assign 'T_out'
                 if 'T_out' in pump_config:
-                    connection_attributes['T'] = pump_config['T_out']
+                    T_out_value = pump_config['T_out']
+                    if isinstance(T_out_value, str):
+                        T_out_value = self.funcs.get(T_out_value, T_out_value)  # Fetch from funcs if string
+                    connection_attributes['T'] = T_out_value
 
             elif component_type == 'DropletSeparator':
                 # Dynamically handle droplet separator configuration based on label
@@ -353,33 +467,33 @@ class PowerPlant:
                 heat_exchanger_config = self.config.get(component_label, {})
                 source_port = connection.source_id  # Get the specific port (e.g., 'out1' or 'out2')
 
-                # Assign attributes based on the source port
-                if source_port == 'out1':
-                    if 'p_out1' in heat_exchanger_config:
-                        connection_attributes['p'] = heat_exchanger_config['p_out1']
-                    if 'p0_out1' in heat_exchanger_config:
-                        connection_attributes['p0'] = heat_exchanger_config['p0_out1']
-                    if 'h0_out1' in heat_exchanger_config:
-                        connection_attributes['h0'] = heat_exchanger_config['h0_out1']
-                    if 'T_out1' in heat_exchanger_config:
-                        connection_attributes['T'] = heat_exchanger_config['T_out1']
-                    if 'vapor_mass_fraction_out1' in heat_exchanger_config:
-                        connection_attributes['x'] = heat_exchanger_config['vapor_mass_fraction_out1']
-                    if 'fluid_out1' in heat_exchanger_config:
-                        connection_attributes['fluid'] = heat_exchanger_config['fluid_out1']
-                elif source_port == 'out2':
-                    if 'p_out2' in heat_exchanger_config:
-                        connection_attributes['p'] = heat_exchanger_config['p_out2']
-                    if 'p0_out2' in heat_exchanger_config:
-                        connection_attributes['p0'] = heat_exchanger_config['p0_out2']
-                    if 'h0_out2' in heat_exchanger_config:
-                        connection_attributes['h0'] = heat_exchanger_config['h0_out2']
-                    if 'T_out2' in heat_exchanger_config:
-                        connection_attributes['T'] = heat_exchanger_config['T_out2']
-                    if 'vapor_mass_fraction_out2' in heat_exchanger_config:
-                        connection_attributes['x'] = heat_exchanger_config['vapor_mass_fraction_out2']
-                    if 'fluid_out2' in heat_exchanger_config:
-                        connection_attributes['fluid'] = heat_exchanger_config['fluid_out2']
+                # Define mappings for out1 and out2 ports
+                port_suffix = '1' if source_port == 'out1' else '2'
+
+                # List of attribute keys to process
+                attribute_keys = [
+                    f'p_out{port_suffix}', f'p0_out{port_suffix}', f'h0_out{port_suffix}',
+                    f'T_out{port_suffix}', f'vapor_mass_fraction_out{port_suffix}', f'fluid_out{port_suffix}'
+                ]
+
+                # Corresponding keys for connection_attributes
+                mapped_keys = {
+                    f'p_out{port_suffix}': 'p',
+                    f'p0_out{port_suffix}': 'p0',
+                    f'h0_out{port_suffix}': 'h0',
+                    f'T_out{port_suffix}': 'T',
+                    f'vapor_mass_fraction_out{port_suffix}': 'x',
+                    f'fluid_out{port_suffix}': 'fluid'
+                }
+
+                # Process each attribute
+                for attr_key in attribute_keys:
+                    if attr_key in heat_exchanger_config:
+                        attr_value = heat_exchanger_config[attr_key]
+                        if isinstance(attr_value, str):
+                            attr_value = self.funcs.get(attr_value, attr_value)  # Fetch from funcs if string
+                        connection_attributes[mapped_keys[attr_key]] = attr_value
+
 
             # Finally, set the connection attributes
             connection.set_attr(**connection_attributes)

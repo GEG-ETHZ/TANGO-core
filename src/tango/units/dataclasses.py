@@ -13,6 +13,7 @@ class BcIteration:
 
 @dataclass
 class MassRate:
+    function: str
     type: str  # 'manual' or 'automatic'
     value: float = 50.
 

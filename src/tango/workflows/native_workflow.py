@@ -87,6 +87,10 @@ class NativeWorkflow(Workflow):
             economic=self.economic
         )
         self.function_evaluator.set_context(self)
+        # if 'functions' in self.specs and self.specs['functions']:
+        #     self.function_evaluator.evaluate_functions(self.specs['functions'])
+        #
+        # self.orchestrator.kkk = self.function_evaluator.evaluated_functions
 
 
     def _process_specs(self, specs) -> dict:
@@ -107,10 +111,10 @@ class NativeWorkflow(Workflow):
 
         The system handles the techno-physical computations for the simulation.
         """
-        sys_name = utils.system_name(self.specs)
+        self.sys_name = utils.system_name(self.specs)
         if 'bc_iteration' in self.specs.get('schedule', {}):
-            sys_name = 'external'
-        UnitManager = get_system_class(sys_name)
+            self.sys_name = 'external'
+        UnitManager = get_system_class(self.sys_name)
         self.orchestrator = UnitManager(self.specs)
 
     def _init_econ_unit(self) -> None:
@@ -138,13 +142,17 @@ class NativeWorkflow(Workflow):
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
 
-    def _external_system_iteration(self) -> None:
+    def _external_system_iteration(self, funcs) -> None:
         """
         Balances the system and advances by one time step for external systems.
         """
         # self.orchestrator.unit.surface._m_dot_mult = 1.0
         self.orchestrator.execute()
-        self.orchestrator.update()
+        if (self.sys_name == 'external'):
+            self.orchestrator.update(funcs)
+        else:
+            self.orchestrator.update()
+        # self.orchestrator.update()
         # self.orchestrator.execute()
         self.orchestrator.update_time_dependent_vars()
 
@@ -293,6 +301,8 @@ class NativeWorkflow(Workflow):
         - Balances and advances the system state.
         - Saves results and performs post-processing tasks.
         """
+        if 'functions' in self.specs and self.specs['functions']:
+            self.function_evaluator.evaluate_functions(self.specs['functions'])
         current_date = self._start_date
         for i in tqdm(range(len(self.specs["schedule"]['dt_list'])), desc="Progress: ", ncols=100, file=sys.stdout):
             self._dt_months = np.round(self.specs['schedule']['dt_list'][i] * YEAR_TO_MONTH)
@@ -300,7 +310,7 @@ class NativeWorkflow(Workflow):
                     self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
                 self._native_system_iteration()
             else:
-                self._external_system_iteration()
+                self._external_system_iteration(self.function_evaluator.evaluated_functions)
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
