@@ -1,5 +1,5 @@
 from tango.units.native.surface.base import *
-import pexpect
+# import pexpect
 import csv
 from tango.units.dataclasses import SurfaceSpecsCPGTESPy
 from tango.units.native.surface.tespy.tespy_input_adapter import *

@@ -1,5 +1,5 @@
 from tango.units.native.surface.base import *
-import pexpect
+# import pexpect
 import csv
 from tango.units.dataclasses import SurfaceSpecsCPGDWSIM
 

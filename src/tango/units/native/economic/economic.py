@@ -592,7 +592,7 @@ class EconomicUnitNative(Unit):
         print(main_product, bi_product, price)
 
         CAPEX = self._results['CAPEX_total']
-        if CAPEX <= 0 or w <= 0:
+        if CAPEX <= 0:
             return np.nan
         d = self.specs.discount_rate
         t = self.total_time

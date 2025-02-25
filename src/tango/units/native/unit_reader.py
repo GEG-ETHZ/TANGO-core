@@ -79,6 +79,7 @@ class ReservoirFileReaderUnit(Unit):
         if self.current_row < len(self.inlet_data):
             row = self.inlet_data[self.current_row]
             self.inlet_pressure = float(row[1])
+            self.inlet_flow = float(row[3])
         if self.current_row < len(self.outlet_data):
             row = self.outlet_data[self.current_row]
             pressure = float(row[1])

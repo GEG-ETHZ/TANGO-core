@@ -81,7 +81,7 @@ class FlowRateCalculator():
 
         return m
 
-    def pressure_finder(self, target_p, funcs):
+    def pressure_finder(self, target_p, inlet_flow, funcs):
         """
         Iteratively adjusts the pressure in the injection well to reach a target extraction pressure.
 
@@ -113,7 +113,10 @@ class FlowRateCalculator():
         for _ in range(iterations):
 
             # Update injection well
-            self.inj_well.mass_rate = self.mass_rate_test
+            if(self.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+                self.inj_well.mass_rate = inlet_flow
+            else:
+                self.inj_well.mass_rate = self.mass_rate_test
             self.inj_well.update_inlet_fluid_state_PT(P=test_p, T=self.surface.outlet_fluid.T)
             self.inj_well.stream_interface()
             test_p += (target_p - self.inj_well.outlet_fluid.P)
