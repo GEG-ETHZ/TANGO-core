@@ -105,15 +105,15 @@ functions:
 
 costs:
   permitting:
-    type: default_predefined
+    type: default
   exploration:
-    type: default_predefined
+    type: default
   wells:
-    type: default_predefined
+    type: default
   surface_pipes:
-    type: default_predefined
+    type: default
   power_plant:
-    type: user_defined_entire_pp
+    type: custom_entire_pp
     function: pp_cost
 
 

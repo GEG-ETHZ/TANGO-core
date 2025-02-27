@@ -108,15 +108,15 @@ functions:
 
 costs:
   permitting:
-    type: default_predefined
+    type: default
   exploration:
-    type: default_predefined
+    type: default
   wells:
-    type: default_predefined
+    type: default
   surface_pipes:
-    type: default_predefined
+    type: default
   power_plant:
-    type: user_defined_cost_breakdown
+    type: custom_cost_breakdown
     breakdown:
       pump1: pump1_cost
       pump2: pump2_cost

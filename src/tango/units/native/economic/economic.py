@@ -129,19 +129,19 @@ class EconomicSpecsNative(CommonSpecs):
             self.costs = {}
 
         for cost_name, config in self.costs.items():
-            # Default to 'default_predefined' if type is not provided
-            model_type = config.get('type', 'default_predefined')
+            # Default to 'default' if type is not provided
+            model_type = config.get('type', 'default')
 
-            if model_type not in ['default_predefined', 'user_defined', 'user_defined_entire_pp', 'user_defined_cost_breakdown']:
+            if model_type not in ['default', 'custom', 'custom_entire_pp', 'custom_cost_breakdown']:
                 raise ValueError(
                     f"Invalid cost model type '{model_type}' for '{cost_name}'. "
-                    f"Allowed types are 'default_predefined' or 'user_defined'."
+                    f"Allowed types are 'default' or 'custom'."
                 )
 
-            # If user_defined, ensure a function is provided
-            if model_type == 'user_defined' and 'function' not in config:
+            # If custom, ensure a function is provided
+            if model_type == 'custom' and 'function' not in config:
                 raise ValueError(
-                    f"Cost model for '{cost_name}' is set to 'user_defined', but no 'function' is specified."
+                    f"Cost model for '{cost_name}' is set to 'custom', but no 'function' is specified."
                 )
 
 class EconomicStateNative:
@@ -214,11 +214,11 @@ class EconomicUnitNative(Unit):
         costs = combined_specs.get('costs', {})
         print(costs.items(), 'items')
         for cost_name, cost_config in costs.items():
-            # if ((cost_config.get('type') == 'user_defined') or cost_config.get('type') == 'user_defined_entire_pp'):
-            if ((cost_config.get('type') == 'user_defined_entire_pp') or cost_config.get('type') == 'user_defined'):
+            # if ((cost_config.get('type') == 'custom') or cost_config.get('type') == 'custom_entire_pp'):
+            if ((cost_config.get('type') == 'custom_entire_pp') or cost_config.get('type') == 'custom'):
                 function_name = cost_config.get('function')
                 if not function_name:
-                    raise ValueError(f"Cost model for '{cost_name}' is 'user_defined / user_defined_entire_pp' but no function is specified.")
+                    raise ValueError(f"Cost model for '{cost_name}' is 'custom / custom_entire_pp' but no function is specified.")
 
                 function_def = self.specs.get('functions', {}).get(function_name)
                 if not function_def:
@@ -226,7 +226,7 @@ class EconomicUnitNative(Unit):
 
                 cost_config['function_def'] = function_def
 
-            elif (cost_config.get('type') == 'user_defined_cost_breakdown'):
+            elif (cost_config.get('type') == 'custom_cost_breakdown'):
 
                 if 'breakdown' in cost_config:
                     for sub_cost, sub_function in cost_config['breakdown'].items():

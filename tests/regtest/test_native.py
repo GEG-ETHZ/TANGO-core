@@ -124,7 +124,7 @@ def testcase12():
 def testcase13():
     fname = os.path.join(examples_dir, 'CPG_user_defined_cost.yml')
     run(fname)
-    assert get_val(fname) == pytest.approx(1.042690)
+    assert get_val(fname) == pytest.approx(0.948671)
     rmFiles(fname)
 
 def testcase14():

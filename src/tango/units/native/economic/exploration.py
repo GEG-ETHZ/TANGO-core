@@ -86,13 +86,13 @@ class EconUnitExploration:
         Executes the economic calculations for exploration activities.
 
         This method calculates the total exploration costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates exploration costs.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates exploration costs.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Returns:
             float: The total cost of exploration.
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 C_{\text{total}} = C_{\text{modeling}} + \Delta C_{\text{CO2, modeling}}
                 + \Delta C_{\text{CO2, characterization}}
@@ -106,7 +106,7 @@ class EconUnitExploration:
 
         exploration_cost_type = self._specs.costs['exploration']['type']
 
-        if exploration_cost_type == 'default_predefined':
+        if exploration_cost_type == 'default':
             C_modeling = self._X_IC * self._X_PC * self._PPI * 508000
             dC_CO2_modeling = self._compute_dCO2_modeling()
 
@@ -117,13 +117,13 @@ class EconUnitExploration:
 
             return C_modeling + dC_CO2_modeling + dC_CO2_characterization
 
-        elif exploration_cost_type == 'user_defined':
+        elif exploration_cost_type == 'custom':
             if (self._specs.costs['exploration']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['exploration']['function_def']['value']
             elif (self._specs.costs['exploration']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['exploration']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['exploration']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['exploration']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported exploration cost type: {exploration_cost_type}")

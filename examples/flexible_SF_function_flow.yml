@@ -99,16 +99,16 @@ functions:
 
 costs:
   permitting:
-    type: default_predefined
+    type: default
   exploration:
-    type: user_defined
+    type: custom
     function: exp_cost
   wells:
-    type: default_predefined
+    type: default
   surface_pipes:
-    type: default_predefined
+    type: default
   power_plant:
-    type: default_predefined
+    type: default
     sizing_strategy: average_performance
 
 schedule:

@@ -244,7 +244,11 @@ class NativeWorkflow(Workflow):
         Combines `self.specs['graph']` and `self.specs['power_plant_graph']` under a new higher-level key
         before passing it to the addon instance.
         """
-        addons_path = "/Users/morteza/Documents/projects/TANGO/src/tango/addons"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        while not current_dir.endswith("TANGO"):
+            current_dir = os.path.dirname(current_dir)  # Go up one level
+        addons_path = os.path.join(current_dir, "src", "tango", "addons")
+
         self.addons = {}
 
         for addon_name in os.listdir(addons_path):

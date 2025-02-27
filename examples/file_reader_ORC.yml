@@ -89,15 +89,15 @@ production_well_pump:
 
 costs:
   permitting:
-    type: default_predefined
+    type: default
   exploration:
-    type: default_predefined
+    type: default
   wells:
-    type: default_predefined
+    type: default
   surface_pipes:
-    type: default_predefined
+    type: default
   power_plant:
-    type: default_predefined
+    type: default
     sizing_strategy: average_performance
 
 schedule:

@@ -61,10 +61,10 @@ class EconUnitSurfacePipes:
         Calculates the total cost of surface piping.
 
         This method calculates the total surface piping costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates the surface piping cost using the formula.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the surface piping cost using the formula.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
-        Formula for default_predefined:
+        Formula for default:
             Cost = X_PC * X_IC * PPI * (2205 * D^2 + 134) * L
 
         Returns:
@@ -75,20 +75,20 @@ class EconUnitSurfacePipes:
         """
         surface_pipe_cost_type = self._specs.costs['surface_pipes']['type']
 
-        if surface_pipe_cost_type == 'default_predefined':
+        if surface_pipe_cost_type == 'default':
             if self._surface_unit is None:
                 return 0
             L = self._compute_surface_pipe_total_length()
             D = self._surface_unit.specs.pipe_diameter
             return self._X_PC * self._X_IC * self._PPI * (2205. * D ** 2 + 134.) * L
 
-        elif surface_pipe_cost_type == 'user_defined':
+        elif surface_pipe_cost_type == 'custom':
             if (self._specs.costs['surface_pipes']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['surface_pipes']['function_def']['value']
             elif (self._specs.costs['surface_pipes']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['surface_pipes']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['surface_pipes']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['surface_pipes']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported surface piping cost type: {surface_pipe_cost_type}")
@@ -301,8 +301,8 @@ class EconUnitSurfacePowerPlant:
         Executes the calculations for direct heat (DH) systems.
 
         This method calculates the total DH costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates the DH cost using the detailed formula.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the DH cost using the detailed formula.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Args:
             state: The current surface state object.
@@ -310,7 +310,7 @@ class EconUnitSurfacePowerPlant:
         Returns:
             float: The total DH system cost or user-defined value.
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 Cost = 200 * W_{\text{net total}} / 1000
         """
@@ -319,19 +319,19 @@ class EconUnitSurfacePowerPlant:
 
         DH_cost_type = self._specs.costs['power_plant']['type']
 
-        if DH_cost_type == 'default_predefined':
+        if DH_cost_type == 'default':
             if self._surface_unit is None:
                 return 0.0
 
             return self._specs.num_pp * 200 * self._W_net_total / 1000
 
-        elif DH_cost_type == 'user_defined':
+        elif DH_cost_type == 'custom':
             if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['power_plant']['function_def']['value']
             elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['power_plant']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {DH_cost_type}")
@@ -520,8 +520,8 @@ class EconUnitSurfacePowerPlant:
         Executes cost calculations for Closed-loop Power Generation (CPG) systems.
 
         This method calculates the total power plant costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates the power plant cost using the detailed formula.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the power plant cost using the detailed formula.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Args:
             state: The current surface state.
@@ -529,7 +529,7 @@ class EconUnitSurfacePowerPlant:
         Returns:
             float: Total surface plant cost (TPC).
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 TPC = X_PC * X_IC * BEC
 
@@ -544,7 +544,7 @@ class EconUnitSurfacePowerPlant:
 
         power_plant_cost_type = self._specs.costs['power_plant']['type']
 
-        if power_plant_cost_type == 'default_predefined':
+        if power_plant_cost_type == 'default':
             if self._surface_unit is None:
                 return 0.0
 
@@ -565,13 +565,13 @@ class EconUnitSurfacePowerPlant:
 
             return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
 
-        elif power_plant_cost_type == 'user_defined_entire_pp':
+        elif power_plant_cost_type == 'custom_entire_pp':
             if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['power_plant']['function_def']['value']
             elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['power_plant']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {power_plant_cost_type}")
@@ -652,8 +652,8 @@ class EconUnitSurfacePowerPlant:
         Executes cost calculations for Organic Rankine Cycle (ORC) systems.
 
         This method calculates the total ORC costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates the ORC cost using the detailed formula.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the ORC cost using the detailed formula.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Args:
             state: The current surface state.
@@ -661,7 +661,7 @@ class EconUnitSurfacePowerPlant:
         Returns:
             float: Total surface plant cost (TPC).
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 TPC = X_PC * X_IC * BEC
 
@@ -676,7 +676,7 @@ class EconUnitSurfacePowerPlant:
 
         ORC_cost_type = self._specs.costs['power_plant']['type']
 
-        if ORC_cost_type == 'default_predefined':
+        if ORC_cost_type == 'default':
             if self._surface_unit is None:
                 return 0.0
 
@@ -710,13 +710,13 @@ class EconUnitSurfacePowerPlant:
 
             return self._X_PC * self._X_IC * C_plant_BEC  # total surface plant cost (TPC)
 
-        elif ORC_cost_type == 'user_defined_entire_pp':
+        elif ORC_cost_type == 'custom_entire_pp':
             if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['power_plant']['function_def']['value']
             elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['power_plant']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['power_plant']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {ORC_cost_type}")
@@ -1049,7 +1049,7 @@ class PowerPlantCost:
             if isinstance(node, Turbine):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
-                if cost_type == 'user_defined_cost_breakdown' and node_exists:
+                if cost_type == 'custom_cost_breakdown' and node_exists:
                     turbine_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
                     print(f"{node.label} Cost: ${turbine_cost:,.2f}")
                     total_cost += turbine_cost
@@ -1104,7 +1104,7 @@ class PowerPlantCost:
             if isinstance(node, Compressor):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
-                if cost_type == 'user_defined_cost_breakdown' and node_exists:
+                if cost_type == 'custom_cost_breakdown' and node_exists:
                     pump_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
                     print(f"{node.label} Cost: ${pump_cost:,.2f}")
                     total_cost += pump_cost
@@ -1166,7 +1166,7 @@ class PowerPlantCost:
             if isinstance(node, HeatExchanger):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
-                if cost_type == 'user_defined_cost_breakdown' and node_exists:
+                if cost_type == 'custom_cost_breakdown' and node_exists:
                     hest_exchanger_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
                     print(f"Pump {node.label} Cost: ${hest_exchanger_cost:,.2f}")
                     total_cost += hest_exchanger_cost
@@ -1255,7 +1255,7 @@ class PowerPlantCost:
             if isinstance(node, SimpleHeatExchanger):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
-                if cost_type == 'user_defined_cost_breakdown' and node_exists:
+                if cost_type == 'custom_cost_breakdown' and node_exists:
                     cc_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
                     print(f" {node.label} Cost: ${cc_cost:,.2f}")
                     total_cost_inp += cc_cost
@@ -1440,7 +1440,7 @@ class PowerPlantCost:
 
         cost_type = self.cost_specs.costs['power_plant']['type']
 
-        if ((cost_type == 'default_predefined') or (cost_type == 'user_defined_cost_breakdown')):
+        if ((cost_type == 'default') or (cost_type == 'custom_cost_breakdown')):
 
             X_SE = 1.39  # secondary equipment cost
             X_CL = 0.58  # construction labor cost
@@ -1473,13 +1473,13 @@ class PowerPlantCost:
 
             return self._X_PC * self._X_IC * total_cost_BEC
 
-        elif cost_type == 'user_defined_entire_pp':
+        elif cost_type == 'custom_entire_pp':
             if (self.cost_specs.costs['power_plant']['function_def']['type'] == 'Constant'):
                 return self.cost_specs.costs['power_plant']['function_def']['value']
             elif (self.cost_specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
                 return self.evaluated_funcs[self.cost_specs.costs['power_plant']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self.cost_specs.costs['power_plant']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self.cost_specs.costs['power_plant']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported power plant cost type: {cost_type}")

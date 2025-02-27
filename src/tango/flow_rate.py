@@ -120,6 +120,9 @@ class FlowRateCalculator():
             self.inj_well.update_inlet_fluid_state_PT(P=test_p, T=self.surface.outlet_fluid.T)
             self.inj_well.stream_interface()
             test_p += (target_p - self.inj_well.outlet_fluid.P)
+            if hasattr(self.surface, 'condensation_pressure'):
+                test_p = max(test_p, self.surface.condensation_pressure)
+
 
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir

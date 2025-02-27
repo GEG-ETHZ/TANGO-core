@@ -280,13 +280,13 @@ class EconUnitWells:
         Computes the total cost of all wells (injection, production, and horizontal).
 
         This method calculates the total well costs based on the type of configuration:
-        - If `type` is `default_predefined`, it calculates the well costs.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the well costs.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Returns:
             float: Total cost of all wells (currency units).
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 C_{\text{total}} = C_{\text{inj}} + C_{\text{prd}} + C_{\text{hrz}}
 
@@ -297,20 +297,20 @@ class EconUnitWells:
         """
         well_cost_type = self._specs.costs['wells']['type']
 
-        if well_cost_type == 'default_predefined':
+        if well_cost_type == 'default':
             num_total_inj, num_total_prod, num_total_hrz = self._compute_num_wells()
             C_inj = self._compute_wells_cost_by_type(well_type='injection_well', num_wells=num_total_inj)
             C_prd = self._compute_wells_cost_by_type(well_type='production_well', num_wells=num_total_prod)
             C_hrz = self._compute_wells_cost_by_type(well_type='horizontal_well', num_wells=num_total_hrz)
             return C_inj + C_prd + C_hrz
 
-        elif well_cost_type == 'user_defined':
+        elif well_cost_type == 'custom':
             if (self._specs.costs['wells']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['wells']['function_def']['value']
             elif (self._specs.costs['wells']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['wells']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['wells']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['wells']['function_def']['type']}")
 
         else:
             raise ValueError(f"Unsupported well cost type: {well_cost_type}")

@@ -106,13 +106,13 @@ class EconUnitPermitting:
         Executes the economic calculations for permitting and monitoring costs.
 
         This method calculates the total costs based on the type of permitting cost configuration:
-        - If `type` is `default_predefined`, it calculates the permitting and monitoring costs.
-        - If `type` is `user_defined`, it directly returns the value from `function_def`.
+        - If `type` is `default`, it calculates the permitting and monitoring costs.
+        - If `type` is `custom`, it directly returns the value from `function_def`.
 
         Returns:
             float: The total cost of permitting and monitoring.
 
-        Formula for default_predefined:
+        Formula for default:
             .. math::
                 C_{\text{total}} = C_{\text{permitting}} + \Delta C_{\text{CO2, permitting}}
                 + \Delta C_{\text{CO2, monitoring}}
@@ -121,7 +121,7 @@ class EconUnitPermitting:
             .. math::
                 C_{\text{permitting}} = X_{IC} \cdot X_{PC} \cdot PPI_{\text{permitting}} \cdot 665700
 
-        For `user_defined`:
+        For `custom`:
             The cost is directly returned from the user-defined function value:
             .. math::
                 C_{\text{total}} = \text{function\_def}[\text{"value"}]
@@ -131,19 +131,19 @@ class EconUnitPermitting:
 
         permitting_cost_type = self._specs.costs['permitting']['type']
 
-        if permitting_cost_type == 'default_predefined':
+        if permitting_cost_type == 'default':
             C_permitting = self._X_IC * self._X_PC * self._PPI_permitting * 665700.
             dC_CO2_permitting = self._compute_dCO2_permitting()
             dC_CO2_monitoring = self._compute_dCO2_monitoring()
             return C_permitting + dC_CO2_permitting + dC_CO2_monitoring
 
-        elif permitting_cost_type == 'user_defined':
+        elif permitting_cost_type == 'custom':
             if (self._specs.costs['permitting']['function_def']['type'] == 'Constant'):
                 return self._specs.costs['permitting']['function_def']['value']
             elif (self._specs.costs['permitting']['function_def']['type'] == 'mathematical_expression'):
                 return evaluated_funcs[self._specs.costs['permitting']['function']]
             else:
-                raise ValueError(f"Unsupported user_defined function type: {self._specs.costs['permitting']['function_def']['type']}")
+                raise ValueError(f"Unsupported custom function type: {self._specs.costs['permitting']['function_def']['type']}")
 
 
         else:

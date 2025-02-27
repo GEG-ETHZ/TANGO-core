@@ -84,16 +84,16 @@ functions:
 
 costs:
   permitting:
-    type: default_predefined
+    type: default
   exploration:
-    type: user_defined
+    type: custom
     function: abc
   wells:
-    type: default_predefined
+    type: default
   surface_pipes:
-    type: default_predefined
+    type: default
   power_plant:
-    type: default_predefined
+    type: default
 
 schedule:
   bc_iteration_checkpoint: production_well_bottom
