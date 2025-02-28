@@ -1,6 +1,3 @@
-#
-# testcase2: CPG (x1 Inverted 5spot, green_field)
-#
 
 graph:
   nodes:
@@ -33,7 +30,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'CPG 1xINV5SPOT'
+  title: 'CPG with linear time steps'
   workflow: 'native'
 
 props:
@@ -78,26 +75,6 @@ functions:
     time: [0, 5]
     dt: [1, 1]
     end_time: 5
-  exploration_cost:
-    type: Constant
-    value: 100000
-
-#costs:
-#  permitting:
-#    type: custom
-#    function: exploration_cost
-#  exploration:
-#    type: custom
-#    function: exploration_cost
-#  wells:
-#    type: custom
-#    function: exploration_cost
-#  surface_pipes:
-#    type: custom
-#    function: exploration_cost
-#  power_plant:
-#    type: custom
-#    function: exploration_cost
 
 costs:
   permitting:
@@ -122,8 +99,6 @@ schedule:
   time:
     type: FunctionDT
     function: dts
-#    num_tsteps: 5 # number of time steps
-#    dt: 1.0  # time step increment (year)
 
 economic: # optional
   type: 'native'

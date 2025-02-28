@@ -1,6 +1,3 @@
-#
-# testcase5: ORC (x1 Inverted 5spot, green_field)
-#
 
 graph:
   nodes:
@@ -40,7 +37,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'ORC 1xINV5SPOT'
+  title: 'ORC with 4 surface plants'
   workflow: 'native'
 
 props:
@@ -50,6 +47,7 @@ props:
   rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
   rock_k: 2.1  # thermal conductivity (W/(m*K))
   thermal_gradient: 0.035  # degC/m
+
 surface:
   surface_temperature: 288.15  # K
   surface_pressure: 100_000  # Pa
@@ -85,13 +83,6 @@ production_well_pump:
   diameter: 0.410 # m
   well_length_seq: [ 2500. ]
   well_diameter_seq: [ 0.410 ]
-
-functions:
-  dts:
-    type: segmented_linear
-    time: [0, 5]
-    dt: [1, 1 ]
-    end_time: 5
 
 costs:
   permitting:

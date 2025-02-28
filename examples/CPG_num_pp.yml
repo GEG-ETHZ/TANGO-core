@@ -1,6 +1,3 @@
-#
-# testcase3: CPG (x6 Inverted 5spot, brown_field)
-#
 
 graph:
   nodes:
@@ -33,7 +30,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'CPG 6xINV5SPOT'
+  title: 'CPG with 6 surface plants'
   workflow: 'native'
 
 props:

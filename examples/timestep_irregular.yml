@@ -1,6 +1,3 @@
-#
-# testcase1: CPG (Doublet, green_field)
-#
 
 graph:
   nodes:
@@ -33,7 +30,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'CPG DOUBLET'
+  title: 'CPG with irregular time steps from csv file'
   workflow: 'native'
 
 props:

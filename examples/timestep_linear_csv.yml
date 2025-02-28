@@ -1,6 +1,3 @@
-#
-# testcase3: CPG (x6 Inverted 5spot, brown_field)
-#
 
 graph:
   nodes:
@@ -33,7 +30,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'CPG 6xINV5SPOT'
+  title: 'CPG with linear time steps from csv file'
   workflow: 'native'
 
 props:
@@ -101,8 +98,6 @@ schedule:
   time:
     type: FunctionDT
     function: dts
-#    num_tsteps: 5 # number of time steps
-#    dt: 1.0  # time step increment (year)
 
 economic: # optional
   type: 'native'
