@@ -35,7 +35,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'SF DOUBLET'
+  title: 'Single-Flash power plant with optimised expansion valve'
   workflow: 'native'
 
 props:
@@ -51,7 +51,6 @@ surface:
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
-  pp_design_file: '/Users/morteza/Documents/projects/TANGO/examples/flexible_SF_manual.yml'
   target_extraction_pressure: 7000000
 
 reservoir:

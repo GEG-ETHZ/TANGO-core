@@ -35,7 +35,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'DF DOUBLET'
+  title: 'Hydrothermal system with custom power plant cost (unit by unit)'
   workflow: 'native'
 
 props:
@@ -51,7 +51,6 @@ surface:
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
-  pp_design_file: '/Users/morteza/Documents/projects/TANGO/examples/flexible_pp_cost_breakdown.yml'
   target_extraction_pressure: 5000000
 
 reservoir:
@@ -79,14 +78,6 @@ production_well_pump:
   diameter: 0.410 # m
 
 functions:
-  dts:
-    type: segmented_linear
-    time: [0, 5]
-    dt: [1, 1]
-    end_time: 5
-  wells_cost:
-    type: Constant
-    value: 20000000
   pump1_cost:
     type: Constant
     value: 500001
@@ -145,7 +136,7 @@ schedule:
     type: manual
     value: 50
 
-economic: # optional
+economic:
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095

@@ -35,7 +35,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'SF DOUBLET'
+  title: 'Flexible Single-Flash power plant -> main product: heat'
   workflow: 'native'
 
 props:
@@ -51,7 +51,6 @@ surface:
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
-  pp_design_file: '/Users/morteza/Documents/projects/TANGO/examples/flexible_SF_cogeneration_h.yml'
   target_extraction_pressure: 7000000
 
 reservoir:
@@ -113,7 +112,7 @@ schedule:
     type: manual
     value: 50
 
-economic: # optional
+economic:
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
