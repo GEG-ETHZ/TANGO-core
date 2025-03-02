@@ -319,8 +319,11 @@ class NativeWorkflow(Workflow):
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
             # print (self.orchestrator.unit.injection_well.inlet_fluid.P)
-            self.generate_output_table()
-            # self.orchestrator.unit.surface.power_plant.generate_output_table()
+            if (self.orchestrator.unit.surface.specs.output_table == 'yes'):
+                self.generate_output_table()
+
+            if (self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
+                self.orchestrator.unit.surface.power_plant.generate_output_table()
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])

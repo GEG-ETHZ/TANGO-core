@@ -109,6 +109,8 @@ schedule:
   mass_rate:
     type: manual
     value: 50
+  output_table: 'yes'
+  power_plant_table: 'yes'
 
 economic: # optional
   type: 'native'
