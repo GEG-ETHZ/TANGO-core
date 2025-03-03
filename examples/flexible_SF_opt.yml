@@ -226,9 +226,9 @@ optimization:
       upper_bound: 0.05
       type: continuous
   targets: # This should be a list, even if there's only one target
-    - W_NET
+    - LCOE
   target_type:
-    - maximize
+    - minimize
   parallel_processing: yes
-  n_processes: 20
-  plot_name: S111
+  n_processes: 6
+  plot_name: SF_opt

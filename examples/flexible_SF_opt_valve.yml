@@ -218,8 +218,8 @@ pump2:
 
 optimization:
   method: 'DE' # DE, GA, NelderMead, CMAES, PatternSearch, BRKGA, ES, SRES, ISRES, PSO
-  n_generation: 10
-  pop_size: 10
+  n_generation: 4
+  pop_size: 20
   variables:
     powerplant_valve_p_out:
       lower_bound: 0.1
@@ -230,5 +230,5 @@ optimization:
   target_type:
     - minimize
   parallel_processing: yes
-  n_processes: 20
-  plot_name: S113
+  n_processes: 6
+  plot_name: SF_opt_valve

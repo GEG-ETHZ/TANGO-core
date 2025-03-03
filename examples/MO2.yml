@@ -1,6 +1,3 @@
-#
-# MO1: 1 input , 2 objective , 0 constraint , nsga2 , pseudo weights , parallel
-#
 
 graph:
   nodes:
@@ -33,7 +30,7 @@ graph:
 # simulation input
 
 runspec:
-  title: 'CPG DOUBLET'
+  title: 'Multi-objective optimization of CPG - W_NET & PRODUCTION_WELL_OUTLET_T_MIN - nsga2 - pseudo_weights'
   workflow: 'native'
 
 props:
@@ -85,7 +82,7 @@ schedule:
     num_tsteps: 20 # number of time steps
     dt: 1.0  # time step increment (year)
 
-economic: # optional
+economic:
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
