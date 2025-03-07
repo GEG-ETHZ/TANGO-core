@@ -35,6 +35,7 @@ class SimulationAnalyzerSeaborn:
         df = pd.DataFrame(results)
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
+
         return df
 
     def launch_interactive_ui(self):
@@ -57,10 +58,10 @@ class SimulationAnalyzerSeaborn:
             pd.DataFrame: Summary statistics for numeric data.
         """
         stats = self.df.describe()
-        print(stats)
         if output_file:
             stats.to_csv(output_file)
             print(f"Statistics saved to {output_file}")
+
         return stats
 
     def correlation_heatmap(self, variables=None):
@@ -113,6 +114,7 @@ class SimulationAnalyzerSeaborn:
             keys = [keys]
 
         plt.figure(figsize=(10, 6))
+
         for key in keys:
             if key in self.df.columns:
                 data = self.df[key].dropna()
@@ -147,10 +149,8 @@ class SimulationAnalyzerSeaborn:
             return
 
         data_to_plot = self.df[keys]
-
         plt.figure(figsize=(12, 8))
         sns.set_theme(style="whitegrid")
-
         sns.boxplot(
             data=data_to_plot,
             linewidth=1.5,
@@ -160,14 +160,12 @@ class SimulationAnalyzerSeaborn:
             capprops=dict(color="black"),
             medianprops=dict(color="red", linewidth=2)
         )
-
         plt.title("Boxplot of Selected Parameters", fontsize=16, weight="bold")
         plt.xlabel("Parameters", fontsize=14)
         plt.ylabel("Values", fontsize=14)
         plt.grid(True, linestyle="--", alpha=0.7)
         plt.xticks(rotation=45, fontsize=12)
         plt.yticks(fontsize=12)
-
         plt.show()
 
     def plot_over_time(self, keys, title="Parameter(s) Over Time", save_path=None):
@@ -180,6 +178,7 @@ class SimulationAnalyzerSeaborn:
             save_path (str): Path to save the plot as an image. If None, does not save.
         """
         missing_keys = [key for key in keys if key not in self.df.columns]
+
         if missing_keys:
             print(f"Warning: The following keys are not in the DataFrame: {missing_keys}")
             keys = [key for key in keys if key in self.df.columns]
@@ -190,6 +189,7 @@ class SimulationAnalyzerSeaborn:
 
         sns.set_theme(style="whitegrid", palette="deep")
         plt.figure(figsize=(12, 6))
+
         for key in keys:
             plt.plot(self.df['date'], self.df[key], marker='o', label=key)
 
@@ -219,8 +219,8 @@ class SimulationAnalyzerSeaborn:
 
         plt.figure(figsize=(10, 6))
         colors = sns.color_palette("husl", len(keys))
-
         sns.set_theme(style="whitegrid", palette="deep")
+
         for i, key in enumerate(keys):
             if key in self.df.columns:
                 data = self.df[key].dropna()
@@ -245,6 +245,7 @@ class SimulationAnalyzerSeaborn:
             hue (str): Variable for color grouping.
         """
         sns.set_theme(style="whitegrid", palette="deep")
+
         if x in self.df.columns and y in self.df.columns:
             sns.lmplot(data=self.df, x=x, y=y, hue=hue, height=6, aspect=1.5)
             plt.title(f"Regression Plot of {y} vs {x}")
@@ -268,10 +269,8 @@ class SimulationAnalyzerSeaborn:
             Q1 = np.percentile(data, 25)
             Q3 = np.percentile(data, 75)
             IQR = Q3 - Q1
-
             lower_bound = Q1 - 1.5 * IQR
             upper_bound = Q3 + 1.5 * IQR
-
             outliers = data[(data < lower_bound) | (data > upper_bound)]
             print(f"Outliers detected in '{key}':\n{outliers.tolist()}")
             return outliers.tolist()
@@ -310,6 +309,7 @@ class SimulationAnalyzerSeaborn:
             window (int): The size of the moving average window.
         """
         sns.set_theme(style="whitegrid", palette="deep")
+
         if 'date' in self.df.columns and key in self.df.columns:
             data = self.df[['date', key]].dropna()
             data['rolling_mean'] = data[key].rolling(window=window).mean()
@@ -363,13 +363,10 @@ class SimulationAnalyzerSeaborn:
             output_file (str): File path to save the report. If None, prints the report.
         """
         report = []
-
         report.append("### Basic Statistics ###")
         report.append(str(self.df.describe()))
-
         report.append("\n### Correlation Matrix ###")
         report.append(str(self.df.corr()))
-
         report.append("\n### Missing Values ###")
         report.append(str(self.df.isnull().sum()))
 
@@ -415,13 +412,10 @@ class InteractiveAnalyzerUI(QMainWindow):
         self.analyzer = analyzer if analyzer else SimulationAnalyzerSeaborn({})
         self.file_path = preselected_file
         self.setWindowTitle("Interactive Analyzer")
-
         self.main_widget = QWidget()
         self.setCentralWidget(self.main_widget)
-
         self.layout = QVBoxLayout()
         self.main_widget.setLayout(self.layout)
-
         self.create_controls()
 
         if self.file_path:
@@ -434,7 +428,6 @@ class InteractiveAnalyzerUI(QMainWindow):
         and dynamic input fields.
         """
         controls_layout = QVBoxLayout()
-
         file_selector_layout = QHBoxLayout()
         self.file_path_label = QLabel("No file selected")
         self.file_select_button = QPushButton("Select File")
@@ -442,7 +435,6 @@ class InteractiveAnalyzerUI(QMainWindow):
         file_selector_layout.addWidget(self.file_path_label)
         file_selector_layout.addWidget(self.file_select_button)
         controls_layout.addLayout(file_selector_layout)
-
         self.plot_type_combo = QComboBox()
         self.plot_type_combo.addItems([
             "Correlation Heatmap",
@@ -457,19 +449,14 @@ class InteractiveAnalyzerUI(QMainWindow):
             "Rolling Mean Plot",
             "Violin Plot"
         ])
-
         controls_layout.addWidget(QLabel("Select Plot Type:"))
         controls_layout.addWidget(self.plot_type_combo)
-
         self.dynamic_controls = QVBoxLayout()
         controls_layout.addLayout(self.dynamic_controls)
-
         self.plot_button = QPushButton("Generate Plot")
         self.plot_button.clicked.connect(self.generate_plot)
         controls_layout.addWidget(self.plot_button)
-
         self.layout.addLayout(controls_layout)
-
         self.plot_type_combo.currentTextChanged.connect(self.update_dynamic_controls)
         self.update_dynamic_controls()
 
@@ -527,7 +514,6 @@ class InteractiveAnalyzerUI(QMainWindow):
             self.inputs['variables'] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Variables (independent, dependent):"))
             self.dynamic_controls.addWidget(self.inputs['variables'])
-
             self.inputs['additional'] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Hue (optional):"))
             self.dynamic_controls.addWidget(self.inputs['additional'])
@@ -536,7 +522,6 @@ class InteractiveAnalyzerUI(QMainWindow):
             self.inputs['key'] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Key (required):"))
             self.dynamic_controls.addWidget(self.inputs['key'])
-
             self.inputs['window'] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Window size (integer):"))
             self.dynamic_controls.addWidget(self.inputs['window'])
@@ -643,7 +628,6 @@ if __name__ == "__main__":
 
         data = pd.read_csv(results_file)
         analyzer = SimulationAnalyzerSeaborn(data.to_dict(orient="list"))
-
         app = QApplication(sys.argv)
         window = InteractiveAnalyzerUI(analyzer, preselected_file=results_file)
         window.show()

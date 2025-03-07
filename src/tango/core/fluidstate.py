@@ -1,5 +1,6 @@
 import CoolProp
 
+
 class FluidState:
     """
     Represents the thermodynamic state of a fluid.
@@ -11,7 +12,6 @@ class FluidState:
     Attributes:
         cstate (CoolProp.AbstractState): The internal state object used for property calculations.
     """
-
     def __init__(self, state: CoolProp.AbstractState):
         """
         Initializes a new instance of the FluidState class with a given state.
@@ -43,6 +43,7 @@ class FluidState:
         """
         state_copy = CoolProp.AbstractState('HEOS', state.fluidname)
         state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
+
         return FluidState(state_copy)
 
     @staticmethod
@@ -60,6 +61,7 @@ class FluidState:
         """
         state = CoolProp.AbstractState('HEOS', fluidname)
         state.update(CoolProp.PT_INPUTS, P, T)
+
         return FluidState(state)
 
     @staticmethod
@@ -77,6 +79,7 @@ class FluidState:
         """
         state = CoolProp.AbstractState('HEOS', fluidname)
         state.update(CoolProp.HmassP_INPUTS, H, P)
+
         return FluidState(state)
 
     @staticmethod
@@ -94,6 +97,7 @@ class FluidState:
         """
         state = CoolProp.AbstractState('HEOS', fluidname)
         state.update(CoolProp.PSmass_INPUTS, P, S)
+
         return FluidState(state)
 
     @staticmethod
@@ -111,6 +115,7 @@ class FluidState:
         """
         state = CoolProp.AbstractState('HEOS', fluidname)
         state.update(CoolProp.PQ_INPUTS, P, Q)
+
         return FluidState(state)
 
     @staticmethod
@@ -128,6 +133,7 @@ class FluidState:
         """
         state = CoolProp.AbstractState('HEOS', fluidname)
         state.update(CoolProp.QT_INPUTS, Q, T)
+
         return FluidState(state)
 
     def updatePT(self, P: float, T: float):
@@ -246,5 +252,3 @@ class FluidState:
     def P(self, P: float):
         """Updates the state of the fluid with a new pressure while maintaining the same temperature."""
         self.updatePT(P, self.T)
-
-

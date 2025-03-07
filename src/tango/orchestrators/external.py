@@ -1,6 +1,7 @@
 from tango.core.abstracts.orchestrator import *
 from tango.orchestrators.BC_calculator import *
 
+
 class SystemExternal(UnitManager):
     """
     Manages the interaction between subsurface and surface units in a geothermal system, allowing for dynamic
@@ -21,8 +22,8 @@ class SystemExternal(UnitManager):
         Notes:
             - If the production well pump is not specified, it is set to `None`.
         """
-        # self.kkk = None
         super().__init__(specs)
+
         if not hasattr(self.unit, 'production_well_pump') or self.unit.production_well_pump is None:
             self.unit.production_well_pump = None
 
@@ -74,6 +75,5 @@ class SystemExternal(UnitManager):
             self.unit.reservoir.current_row += 1
             self.unit.injection_well.current_row += 1
             self.unit.production_well.current_row += 1
-
         else:
             raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")

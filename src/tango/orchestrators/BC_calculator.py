@@ -1,5 +1,6 @@
 import math
 
+
 class FlowRateCalculator():
     """
     A class that calculates flow rate and pressure for a geothermal system involving injection wells,
@@ -75,7 +76,6 @@ class FlowRateCalculator():
         rw = self.inj_well._specs.diameter
         mu = self.inj_well.outlet_fluid.mu
         rho = self.inj_well.outlet_fluid.rho
-
         q = (2 * math.pi * h * k * op / 100.0 * p) / (mu * math.log(re / rw))
         m = rho * q
 
@@ -104,7 +104,6 @@ class FlowRateCalculator():
 
         test_p = 10000000
         iterations = 7
-        print(self.reservoir.__class__.__name__, 'class name')
 
         for _ in range(iterations):
 

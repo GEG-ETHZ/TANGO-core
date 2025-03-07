@@ -3,6 +3,7 @@ import subprocess
 import os
 import json
 
+
 class ThermaGraph_addon(TangoAddon):
     def __init__(self, graph, results):
         super().__init__(graph, results)
@@ -25,17 +26,13 @@ class ThermaGraph_addon(TangoAddon):
         self.states_file = specs.states_file
         self.connections_file = specs.connections_file
 
-        print(self.graph)
-
         # Extract nodes and edges
         nodes = self.graph['main_graph'].get('nodes', {})
         edges = self.graph['main_graph'].get('edges', {})
 
-        # Determine the number of data points from the results
         num_points = len(self.results['date'])
-
-        # Create data structure for the first JSON file (pressures and enthalpies)
         components = {}
+
         for node_name, node_data in nodes.items():
             node_type = node_data['type']
             pressure_key = f"{node_type}_P"
@@ -49,18 +46,15 @@ class ThermaGraph_addon(TangoAddon):
                     [pressures[i], enthalpies[i]] for i in range(num_points)
                 ]
 
-        # Create data structure for the second JSON file (connections)
         connections = []
         for edge_id, edge_data in edges.items():
             source = edge_data['source']
             target = edge_data['target']
             connections.append([source, target, "non-isentropic"])
 
-        # Write the first JSON file
         with open(self.states_file, 'w') as file1:
             json.dump(components, file1, indent=4)
 
-        # Write the second JSON file
         with open(self.connections_file, 'w') as file2:
             json.dump(connections, file2, indent=4)
 
@@ -82,17 +76,15 @@ class ThermaGraph_addon(TangoAddon):
         edges = self.graph['main_graph'].get('edges', {})
         power_plant_nodes = self.graph['power_plant_graph'].get('nodes', {})
         power_plant_edges = self.graph['power_plant_graph'].get('edges', {})
-
-        # Find the target of `surface` in main_graph
         surface_target = None
         surface_source = None
+
         for edge_id, edge_data in edges.items():
             if edge_data['target'] == 'surface':
                 surface_source = edge_data['source']
             elif edge_data['source'] == 'surface':
                 surface_target = edge_data['target']
 
-        # Find the source of `outlet` and the target of `inlet` in power_plant_graph
         outlet_source = None
         inlet_target = None
         for edge_id, edge_data in power_plant_edges.items():
@@ -101,7 +93,6 @@ class ThermaGraph_addon(TangoAddon):
             elif edge_data['source'] == 'inlet':
                 inlet_target = edge_data['target']
 
-        # Ensure we have identified all necessary nodes
         if outlet_source and surface_target:
             new_edge_id = max(edges.keys()) + 1 if edges else 1
             edges[new_edge_id] = {'source': outlet_source, 'target': surface_target}
@@ -110,29 +101,23 @@ class ThermaGraph_addon(TangoAddon):
             new_edge_id = max(edges.keys()) + 1
             edges[new_edge_id] = {'source': surface_source, 'target': inlet_target}
 
-        # Remove `surface` node and its connections
         surface_connections = [edge_id for edge_id, edge_data in edges.items() if 'surface' in (edge_data['source'], edge_data['target'])]
         for edge_id in surface_connections:
             del edges[edge_id]
         if 'surface' in nodes:
             del nodes['surface']
 
-        # Add the remaining connections from `power_plant_graph`
         for edge_id, edge_data in power_plant_edges.items():
             if edge_data['source'] != 'inlet' and edge_data['target'] != 'outlet':
                 new_edge_id = max(edges.keys()) + 1
                 edges[new_edge_id] = edge_data
 
-        # Combine nodes and connections for JSON export
         combined_nodes = {**nodes, **power_plant_nodes}
         combined_edges = edges
-
-        # Create data structure for the first JSON file (pressures and enthalpies)
         num_points = len(self.results['date'])
         components = {}
-
-        # Identify nodes with exactly two outlets (out1 and out2)
         multi_outlet_nodes = {}
+
         for edge_id, edge_data in power_plant_edges.items():
             source = edge_data['source']
             source_port = edge_data.get('source_port', 'out')
@@ -141,7 +126,6 @@ class ThermaGraph_addon(TangoAddon):
                 multi_outlet_nodes[source] = set()
             multi_outlet_nodes[source].add(source_port)
 
-        # Process each node for components
         for node_name, node_data in combined_nodes.items():
             if node_name in multi_outlet_nodes and len(multi_outlet_nodes[node_name]) > 1:
                 for outlet_suffix in ['out1', 'out2']:
@@ -170,10 +154,10 @@ class ThermaGraph_addon(TangoAddon):
 
                 pressures = [round(p / 1e5, 2) for p in self.results[pressure_key]]  # Convert to bar
                 enthalpies = [round(h / 1e3, 2) for h in self.results[enthalpy_key]]  # Convert to kJ/kg
-
                 components[node_name] = [[pressures[i], enthalpies[i]] for i in range(num_points)]
 
         modified_edges = {}
+
         for edge_id, edge_data in combined_edges.items():
             source = edge_data['source']
             target = edge_data['target']
@@ -199,9 +183,6 @@ class ThermaGraph_addon(TangoAddon):
                 # If it's not a multi-outlet node, keep the edge unchanged
                 modified_edges[edge_id] = edge_data
 
-
-        # combined_edges = modified_edges
-
         # Add new edges for multi-outlet targets without duplication
         for edge_id, edge_data in power_plant_edges.items():
             target = edge_data['target']
@@ -225,16 +206,11 @@ class ThermaGraph_addon(TangoAddon):
                         new_edge_id = max(modified_edges.keys(), default=0) + 1
                         modified_edges[new_edge_id] = new_edge
 
-        # Print the final modified edges to confirm
         print("Final modified_edges with multi-outlet handling:")
         for edge_id, edge_data in modified_edges.items():
             print(f"{edge_id}: {edge_data}")
 
-        # Update combined_edges with modified_edges
         combined_edges = modified_edges
-
-        # print('220')
-        # print(combined_edges)
 
         connections = []
         for edge_id, edge_data in combined_edges.items():
@@ -242,11 +218,9 @@ class ThermaGraph_addon(TangoAddon):
             target = edge_data['target']
             connections.append([source, target, "non-isentropic"])
 
-        # Write the first JSON file
         with open(self.states_file, 'w') as file1:
             json.dump(components, file1, indent=4)
 
-        # Write the second JSON file
         with open(self.connections_file, 'w') as file2:
             json.dump(connections, file2, indent=4)
 
@@ -256,7 +230,6 @@ class ThermaGraph_addon(TangoAddon):
         """
         Execute the add-on by launching the PyQt module with the generated files.
         """
-
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
 
@@ -268,7 +241,3 @@ class ThermaGraph_addon(TangoAddon):
         except subprocess.CalledProcessError as e:
             print(f"Error launching PyQt module: {e}")
             raise
-
-
-
-

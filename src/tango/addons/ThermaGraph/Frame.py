@@ -9,21 +9,19 @@ import numpy as np
 from Plotter import FluidDiagramPlotter, MplCanvas
 from PyQt5.QtCore import Qt, QTimer
 
+
 class MainWindow(QMainWindow):
     """
     Main application window for the Interactive Fluid Diagram Plotter.
     """
-
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setWindowTitle('Interactive Fluid Diagram Plot')
         self.setGeometry(200, 200, 1200, 1000)
-
         self.initUI()
         self.connect_signals()
         self.show()
         self.update_default_isoline_values()
-
         self.previous_units = self.get_unit_system()
 
     def initUI(self):
@@ -51,7 +49,6 @@ class MainWindow(QMainWindow):
         """
         Create and set up the input fields for fluid, diagram settings, and isoline settings.
         """
-
         self.fluid_input = self.create_line_edit('CO2', 'Enter the fluid name (e.g., CO2 for carbon dioxide)')
         self.unit_system_p = self.create_combo_box(['bar', 'hPa', 'mbar', 'psi', 'kPa', 'Pa', 'MPa'], 'Select the pressure unit')
         self.unit_system_T = self.create_combo_box(['°C', 'K', '°F'], 'Select the temperature unit')
@@ -121,7 +118,6 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(settings_layout)
         self.main_layout = main_layout
-
         auto_update_layout = QHBoxLayout()
         auto_update_layout.addWidget(self.auto_update_checkbox)
         main_layout.addLayout(auto_update_layout)
@@ -132,10 +128,8 @@ class MainWindow(QMainWindow):
         """
         self.fluid_states_input = self.create_line_edit('', 'Select fluid states file', placeholder=True)
         self.fluid_states_button = self.create_button('Browse', self.select_fluid_states_file)
-
         self.connections_input = self.create_line_edit('', 'Select connections file', placeholder=True)
         self.connections_button = self.create_button('Browse', self.select_connections_file)
-
         self.update_button = self.create_button('Update Plot', self.update_plot)
 
         file_layout = QHBoxLayout()
@@ -176,6 +170,7 @@ class MainWindow(QMainWindow):
         """
         group_box = QGroupBox(title)
         group_box.setLayout(layout)
+
         return group_box
 
     def create_fluid_layout(self):
@@ -190,6 +185,7 @@ class MainWindow(QMainWindow):
         layout.addRow('Enthalpy Unit:', self.unit_system_h)
         layout.addRow('Volume Unit:', self.unit_system_v)
         layout.addRow('Vapor Fraction Unit:', self.unit_system_Q)
+
         return layout
 
     def create_diagram_layout(self):
@@ -202,6 +198,7 @@ class MainWindow(QMainWindow):
         layout.addRow('X Max:', self.xmax_input)
         layout.addRow('Y Min:', self.ymin_input)
         layout.addRow('Y Max:', self.ymax_input)
+
         return layout
 
     def create_isoline_layout(self):
@@ -261,11 +258,13 @@ class MainWindow(QMainWindow):
         Create a QLineEdit with the given default text and tooltip.
         """
         line_edit = QLineEdit(self)
+
         if placeholder:
             line_edit.setPlaceholderText(default_text)
         else:
             line_edit.setText(default_text)
         line_edit.setToolTip(tooltip)
+
         return line_edit
 
     def create_combo_box(self, items, tooltip=''):
@@ -275,6 +274,7 @@ class MainWindow(QMainWindow):
         combo_box = QComboBox(self)
         combo_box.addItems(items)
         combo_box.setToolTip(tooltip)
+
         return combo_box
 
     def create_button(self, text, callback):
@@ -283,6 +283,7 @@ class MainWindow(QMainWindow):
         """
         button = QPushButton(text, self)
         button.clicked.connect(callback)
+
         return button
 
     def connect_signals(self):
@@ -404,6 +405,7 @@ class MainWindow(QMainWindow):
             return units['h'], units['T']
         elif diagram_type == 'plogv':
             return units['v'], units['p']
+
         return None, None
 
     def convert_value(self, value, old_unit, new_unit, diagram_type, axis):
@@ -427,6 +429,7 @@ class MainWindow(QMainWindow):
                 return self.convert_volume(value, old_unit, new_unit)
             elif axis == 'y':
                 return self.convert_pressure(value, old_unit, new_unit)
+
         return value
 
     def convert_temperature(self, value, old_unit, new_unit):
@@ -450,6 +453,7 @@ class MainWindow(QMainWindow):
                 return (value - 32) * 5/9 + 273.15
             elif new_unit == '°C':
                 return (value - 32) * 5/9
+
         return value
 
     def convert_pressure(self, value, old_unit, new_unit):
@@ -459,6 +463,7 @@ class MainWindow(QMainWindow):
         conversion_factors = {
             'Pa': 1, 'hPa': 100, 'kPa': 1000, 'mbar': 100, 'bar': 100000, 'psi': 6894.76, 'MPa': 1e6
         }
+
         return value * conversion_factors[old_unit] / conversion_factors[new_unit]
 
     def convert_entropy(self, value, old_unit, new_unit):
@@ -468,6 +473,7 @@ class MainWindow(QMainWindow):
         conversion_factors = {
             'J/kgK': 1, 'kJ/kgK': 1000, 'MJ/kgK': 1e6
         }
+
         return value * conversion_factors[old_unit] / conversion_factors[new_unit]
 
     def convert_enthalpy(self, value, old_unit, new_unit):
@@ -477,6 +483,7 @@ class MainWindow(QMainWindow):
         conversion_factors = {
             'J/kg': 1, 'kJ/kg': 1000, 'MJ/kg': 1e6
         }
+
         return value * conversion_factors[old_unit] / conversion_factors[new_unit]
 
     def convert_volume(self, value, old_unit, new_unit):
@@ -486,6 +493,7 @@ class MainWindow(QMainWindow):
         conversion_factors = {
             'm^3/kg': 1, 'l/kg': 0.001
         }
+
         return value * conversion_factors[old_unit] / conversion_factors[new_unit]
 
     def update_default_isoline_values(self):
@@ -493,6 +501,7 @@ class MainWindow(QMainWindow):
         Set default isoline values based on the selected fluid and diagram type.
         """
         fluid = self.fluid_input.text()
+
         if fluid == 'H2O':
             self.set_isoline_defaults(h_start='0', h_end='3500', p_start='0.01', p_end='10000', s_start='100', s_end='9000', t_start='40', t_end='400', v_start='0.01', v_end='100', q_start='0', q_end='1')
         elif fluid == 'CO2':
@@ -554,6 +563,7 @@ class MainWindow(QMainWindow):
         Mark the update button as needing to be pressed by changing its color.
         """
         self.update_button.setStyleSheet("background-color: red; color: white;")
+
         if self.auto_update_checkbox.isChecked():
             QTimer.singleShot(2000, self.auto_update_plot)
 
@@ -575,10 +585,8 @@ class MainWindow(QMainWindow):
             xmin, xmax, ymin, ymax = self.get_axis_limits()
             isoline_settings = self.get_isoline_settings()
             isoline_styles = self.get_isoline_styles()
-
             self.canvas.figure.clear()
             self.canvas.axes = self.canvas.figure.add_subplot(111)
-
             self.plotter = FluidDiagramPlotter(
                 self.canvas.figure, self.canvas.axes, fluid_states=self.fluid_states,
                 fluid=fluid, unit_system=unit_system, diagram_type=diagram_type,

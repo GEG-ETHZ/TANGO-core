@@ -1,5 +1,6 @@
 from tango.core import FluidState
 
+
 class StreamState:
     """
     Represents the state of a stream, including its mass flow rate and fluid properties.
@@ -8,7 +9,6 @@ class StreamState:
         mass_rate (float): The mass flow rate of the stream in kg/s.
         fluid_state (FluidState): The fluid state of the stream.
     """
-
     def __init__(self) -> None:
         """
         Initializes a new instance of the StreamState class with default values.
@@ -28,7 +28,6 @@ class Stream:
         id (str): A unique identifier for the stream.
         state (StreamState): The state of the stream, including mass rate and fluid properties.
     """
-
     def __init__(self, id: str, state) -> None:
         """
         Initializes a new instance of the Stream class.

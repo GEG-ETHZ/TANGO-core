@@ -7,6 +7,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
+
 plt.style.use('seaborn-v0_8-whitegrid')
 
 class FluidDiagramPlotter:
@@ -28,7 +29,6 @@ class FluidDiagramPlotter:
         diagram (FluidPropertyDiagram): An instance of FluidPropertyDiagram for plotting the diagram.
         label_fontsize (int): Font size for the labels on the isolines.
     """
-
     def __init__(self, fig, ax, fluid_states, fluid='H2O', unit_system=None,
                  diagram_type='Ts', x_min=0.01, x_max=10000, y_min=0.01, y_max=1000,
                  isoline_settings=None, isoline_styles=None, label_fontsize=8):
@@ -114,7 +114,7 @@ class FluidDiagramPlotter:
 
         for point_name, point_states in states.items():
             if point_name == "inlet":
-                continue  # Skip the point named 'inlet'
+                continue
 
             norm = Normalize(vmin=0, vmax=len(point_states) - 1)
             scalar_map = ScalarMappable(norm=norm, cmap=cmap)
@@ -122,19 +122,17 @@ class FluidDiagramPlotter:
 
             for i, (p, h) in enumerate(point_states):
                 color = colors[i]
-                coord = (round(h, 2), round(p, 2))  # Use rounded coordinates to avoid floating-point issues
+                coord = (round(h, 2), round(p, 2))
                 self.ax.plot(h, p, marker='o', color=color, markersize=markersize)
 
                 if coord not in coordinate_labels:
-                    coordinate_labels[coord] = []  # Initialize a list to store labels for this coordinate
+                    coordinate_labels[coord] = []
 
-                # Add the current counter to the coordinate's label list if it's the last point of the state
                 if i == len(point_states) - 1:
                     coordinate_labels[coord].append(str(counter))
                     label_mapping[counter] = point_name
                     counter += 1
 
-        # Add stacked numeric labels for each coordinate
         for (h, p), labels in coordinate_labels.items():
             label_text = "\n".join(labels)  # Stack labels vertically
             self.ax.text(h - 30, p, label_text, fontsize=fontsize, color='red', ha='right', va='center')
@@ -150,16 +148,14 @@ class FluidDiagramPlotter:
         Create a label list on the right side of the plot showing numeric labels and corresponding state names,
         excluding the point labeled 'inlet'.
         """
-        self.ax.set_position([0.1, 0.1, 0.7, 0.8])  # Shrink the plot to make space for the label list
-
-        # Add label list as text on the right
-        x_pos = 1.25  # Position to the right of the plot
-        y_pos = 0.95   # Starting y position
-        y_step = 0.05  # Spacing between labels
+        self.ax.set_position([0.1, 0.1, 0.7, 0.8])
+        x_pos = 1.25
+        y_pos = 0.95
+        y_step = 0.05
 
         for num, point_name in label_mapping.items():
             if point_name == "inlet":
-                continue  # Skip the point labeled 'inlet'
+                continue
             self.ax.text(x_pos, y_pos, f"{num}: {point_name}", transform=self.ax.transAxes, fontsize=10, ha='left')
             y_pos -= y_step
 
@@ -172,6 +168,7 @@ class FluidDiagramPlotter:
         :param connections: List of connections between states.
         """
         line_styles = self.connection_line_styles()
+
         for start, end, line_type in connections:
             start_state = next(state for point, states in states.items() for state in states if start in point)
             end_state = next(state for point, states in states.items() for state in states if end in point)
@@ -228,9 +225,11 @@ class FluidDiagramPlotter:
         Add a color bar to the plot to indicate time progression of states.
         """
         num_states = len(next(iter(self.states.values())))
+
         if self.cbar:
             self.cbar.remove()
         self.cbar = self.fig.colorbar(ScalarMappable(norm=Normalize(vmin=0, vmax=num_states - 1), cmap='Greys'), ax=self.ax, pad=0.1)
+
         self.cbar.set_label('Time Progression')
         self.cbar.set_ticks(range(num_states))
         self.cbar.set_ticklabels([str(i + 1) for i in range(num_states)])
@@ -244,6 +243,7 @@ class FluidDiagramPlotter:
         :return: Converted fluid states.
         """
         converted_states = {}
+
         for point_name, point_states in fluid_states.items():
             converted_states[point_name] = []
             for p_bar, h_kjkg in point_states:
@@ -252,6 +252,7 @@ class FluidDiagramPlotter:
                 T, S, v = self.calculate_properties(p_pa, h_jkg)
                 Ta, Sa, va, pa, ha = self.convert_units(T, S, v, p_pa, h_jkg)
                 converted_states[point_name].append(self.format_converted_state(target_diagram, Ta, Sa, va, pa, ha))
+
         return converted_states
 
     def calculate_properties(self, p_pa, h_jkg):
@@ -265,6 +266,7 @@ class FluidDiagramPlotter:
         T = PropsSI('T', 'P', p_pa, 'H', h_jkg, self.fluid)
         S = PropsSI('S', 'P', p_pa, 'H', h_jkg, self.fluid)
         v = 1 / PropsSI('D', 'P', p_pa, 'H', h_jkg, self.fluid)
+
         return T, S, v
 
     def convert_units(self, T, S, v, p_pa, h_jkg):
@@ -283,6 +285,7 @@ class FluidDiagramPlotter:
         va = self.convert_volume(v)
         pa = self.convert_pressure(p_pa)
         ha = self.convert_enthalpy(h_jkg)
+
         return Ta, Sa, va, pa, ha
 
     def convert_temperature(self, T):
@@ -296,6 +299,7 @@ class FluidDiagramPlotter:
             return T - 273.15
         elif self.unit_system['T'] == '°F':
             return (T - 273.15) * 9/5 + 32
+
         return T
 
     def convert_entropy(self, S):
@@ -309,6 +313,7 @@ class FluidDiagramPlotter:
             return S / 1e3
         elif self.unit_system['s'] == 'MJ/kgK':
             return S / 1e6
+
         return S
 
     def convert_volume(self, v):
@@ -320,6 +325,7 @@ class FluidDiagramPlotter:
         """
         if self.unit_system['v'] == 'l/kg':
             return v * 1e3
+
         return v
 
     def convert_pressure(self, p_pa):
@@ -341,6 +347,7 @@ class FluidDiagramPlotter:
             return p_pa / 1e5
         elif self.unit_system['p'] == 'MPa':
             return p_pa / 1e6
+
         return p_pa
 
     def convert_enthalpy(self, h_jkg):
@@ -354,6 +361,7 @@ class FluidDiagramPlotter:
             return h_jkg / 1e3
         elif self.unit_system['h'] == 'MJ/kg':
             return h_jkg / 1e6
+
         return h_jkg
 
     @staticmethod

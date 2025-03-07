@@ -3,6 +3,7 @@ import subprocess
 import os
 import csv
 
+
 class Analyzer_addon(TangoAddon):
     def __init__(self, graph, results):
         super().__init__(graph, results)
@@ -17,7 +18,6 @@ class Analyzer_addon(TangoAddon):
         """
         updated_data = {}
         for key, value in data.items():
-            # Replace the key using the replacements dictionary
             new_key = replacements.get(key, key)
             updated_data[new_key] = value
         return updated_data
@@ -28,7 +28,7 @@ class Analyzer_addon(TangoAddon):
         """
         self.results_file = specs.results_file
 
-        # Define your replacements dictionary
+        # Define replacements dictionary here
         replacements = {
             "original_key1": "new_key1",
             "original_key2": "new_key2",
@@ -37,7 +37,6 @@ class Analyzer_addon(TangoAddon):
 
         try:
             updated_results = self.replace_keywords(self.results, replacements)
-
             keys = list(updated_results.keys())
             rows = zip(*updated_results.values())
 
