@@ -38,23 +38,20 @@ class SystemExternal(UnitManager):
         Raises:
             NotImplementedError: If the surface unit or checkpoint type is unsupported.
         """
-        if 'entire_subsurface_external' in self.specs['schedule'] and self.specs['schedule']['entire_subsurface_external'] == 'yes':
-            pass
-        else:
-            if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
+        if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
 
-                if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
+            if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
 
-                    if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
-                        self.flow_rate_calculator.iterator(self.unit.reservoir.inlet_pressure, self.unit.reservoir.inlet_flow, funcs)
-                    else:
-                        self.flow_rate_calculator.iterator(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), None, funcs)
-
+                if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+                    self.flow_rate_calculator.iterator(self.unit.reservoir.inlet_pressure, self.unit.reservoir.inlet_flow, funcs)
                 else:
-                    raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+                    self.flow_rate_calculator.iterator(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), None, funcs)
 
             else:
-                raise NotImplementedError("Only 'injection_well_bottom' is supported as a checkpoint when the external system is used as orchestrator")
+                raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+
+        else:
+            raise NotImplementedError("Only 'injection_well_bottom' is supported as a checkpoint when the external system is used as orchestrator")
 
     def update_time_dependent_vars(self) -> None:
         """

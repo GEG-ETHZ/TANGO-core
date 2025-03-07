@@ -20,10 +20,6 @@ from tango.units.cmg.coflow import *
 from tango.units.external.MOOSE.well.well import *
 from tango.units.external.DWSIM.CPG import *
 from tango.units.external.MOOSE.reservoir.reservoir import *
-from tango.units.native.surface.tespy.CPG import *
-from tango.units.native.surface.tespy.tespy_ORC import *
-from tango.units.native.surface.tespy.tespy_SF import *
-from tango.units.native.surface.tespy.tespy_DF import *
 from tango.units.native.surface.flexible_pp import  *
 from tango.units.native.unit_reader import *
 from tango.time_stepper import LinearInterpolation

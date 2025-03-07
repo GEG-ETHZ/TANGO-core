@@ -586,18 +586,9 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             else:
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = T_13
-
-            if self.specs.cascade_power_plant == 'yes':
-                self.lulu = FluidState.withPT(self._fluid_name, P=self.inlet_fluid.P, T=T_13)
-                self.lulu_out = FluidState.withPT(self._fluid_name, P=self.iterative_inj_pressure, T=self.iterative_inj_temperature)
-                self.thermal_power = self.mass_rate * (self.lulu.H - self.lulu_out.H)
-        # elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
         else:
             self.P_out = self.inlet_fluid.P
             self.T_out = T_13
-
-            if self.specs.cascade_power_plant == 'yes':
-                raise NotImplementedError("Cascade power plant is not supported for production_well_bottom.")
 
     def _update_diagram_states(self) -> None:
         """

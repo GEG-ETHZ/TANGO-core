@@ -87,11 +87,6 @@ class NativeWorkflow(Workflow):
             economic=self.economic
         )
         self.function_evaluator.set_context(self)
-        # if 'functions' in self.specs and self.specs['functions']:
-        #     self.function_evaluator.evaluate_functions(self.specs['functions'])
-        #
-        # self.orchestrator.kkk = self.function_evaluator.evaluated_functions
-
 
     def _process_specs(self, specs) -> dict:
         """
@@ -146,14 +141,11 @@ class NativeWorkflow(Workflow):
         """
         Balances the system and advances by one time step for external systems.
         """
-        # self.orchestrator.unit.surface._m_dot_mult = 1.0
         self.orchestrator.execute()
         if (self.sys_name == 'external'):
             self.orchestrator.update(funcs)
         else:
             self.orchestrator.update()
-        # self.orchestrator.update()
-        # self.orchestrator.execute()
         self.orchestrator.update_time_dependent_vars()
 
     def _save_results(self, current_date: datetime) -> None:
@@ -163,13 +155,6 @@ class NativeWorkflow(Workflow):
         Args:
             current_date (datetime): The current date in the simulation.
         """
-
-        # utils.parse_results_flexible(
-        #         d=self._results,
-        #         nodes=self.orchestrator.graph.nodes,
-        #         current_date=current_date.strftime(DATETIME_FMT)
-        #     )
-
         if (self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             utils.parse_results_flexible(
                 d=self._results,
@@ -192,51 +177,6 @@ class NativeWorkflow(Workflow):
             results=(self._results, self.economic.get_results() if self.economic else None)
         )
 
-    # def addons_manager(self) -> None:
-    #     """
-    #     Dynamically discovers addons from the addons directory, initializes them,
-    #     and sets up corresponding specifications.
-    #     """
-    #     addons_path = "/Users/morteza/Documents/projects/TANGO/src/tango/addons"
-    #     self.addons = {}
-    #
-    #     for addon_name in os.listdir(addons_path):
-    #         addon_dir = os.path.join(addons_path, addon_name)
-    #
-    #         if os.path.isdir(addon_dir) and not addon_name.startswith('__'):
-    #             try:
-    #                 addon_module = importlib.import_module(f"tango.addons.{addon_name}.{addon_name}_interface")
-    #                 addon_specs_class_name = f"{addon_name}Specs"
-    #                 if hasattr(addon_module, addon_specs_class_name):
-    #                     addon_specs_class = getattr(addon_module, addon_specs_class_name)
-    #                 else:
-    #                     addon_specs_class = getattr(
-    #                         importlib.import_module("tango.units.dataclasses"),
-    #                         addon_specs_class_name
-    #                     )
-    #
-    #                 addon_specs_dict = self.specs.get('addons', {}).get(addon_name, {})
-    #                 if not addon_specs_dict:
-    #                     logging.warning(f"Addon '{addon_name}' is not set in the input file and will be skipped.")
-    #                     continue
-    #
-    #                 addon_specs = addon_specs_class.from_dict(addon_specs_dict)
-    #                 setattr(self, f"{addon_name}_specs", addon_specs)
-    #
-    #                 addon_class_name = f"{addon_name}_addon"
-    #                 if hasattr(addon_module, addon_class_name):
-    #                     addon_class = getattr(addon_module, addon_class_name)
-    #                 else:
-    #                     raise AttributeError(f"'{addon_class_name}' not found in module '{addon_module.__name__}'.")
-    #
-    #                 self.addons[addon_name] = addon_class(self.specs['graph'], self._results)
-    #
-    #                 logging.info(f"Addon '{addon_name}' initialized successfully.")
-    #
-    #             except Exception as e:
-    #                 logging.error(f"Failed to load addon '{addon_name}': {e}")
-
-
     def addons_manager(self) -> None:
         """
         Dynamically discovers addons from the addons directory, initializes them,
@@ -246,7 +186,7 @@ class NativeWorkflow(Workflow):
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         while not current_dir.endswith("TANGO"):
-            current_dir = os.path.dirname(current_dir)  # Go up one level
+            current_dir = os.path.dirname(current_dir)
         addons_path = os.path.join(current_dir, "src", "tango", "addons")
 
         self.addons = {}
@@ -280,13 +220,11 @@ class NativeWorkflow(Workflow):
                     else:
                         raise AttributeError(f"'{addon_class_name}' not found in module '{addon_module.__name__}'.")
 
-                    # Create a merged dictionary with both `graph` and `power_plant_graph`
                     merged_graph = {
                         "main_graph": deepcopy(self.specs['graph']),
                         "power_plant_graph": deepcopy(self.specs.get('power_plant_graph', {}))
                     }
 
-                    # Initialize the addon with the merged graph
                     self.addons[addon_name] = addon_class(merged_graph, self._results)
 
                     logging.info(f"Addon '{addon_name}' initialized successfully with merged graph.")
@@ -318,7 +256,6 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
-            # print (self.orchestrator.unit.injection_well.inlet_fluid.P)
             if (self.orchestrator.unit.surface.specs.output_table == 'yes'):
                 self.generate_output_table()
 
@@ -327,8 +264,6 @@ class NativeWorkflow(Workflow):
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
-
-        # utils.calculate_and_set_average(d=self._results, nodes=self.orchestrator.graph.nodes)
 
         if self.economic:
             self.economic.execute(self._results, self.function_evaluator.evaluated_functions)
@@ -368,7 +303,7 @@ class NativeWorkflow(Workflow):
 
             try:
                 outlet_fluid = getattr(source_unit, 'outlet_fluid', None)
-                mass_rate = getattr(source_unit, 'mass_rate', 'N/A')  # Get mass_rate if available
+                mass_rate = getattr(source_unit, 'mass_rate', 'N/A')
                 if outlet_fluid:
                     outlet_P = getattr(outlet_fluid, 'P', 'N/A') / 1000000.0
                     outlet_T = getattr(outlet_fluid, 'T', 'N/A') - 273.15
@@ -379,7 +314,7 @@ class NativeWorkflow(Workflow):
 
             try:
                 inlet_fluid = getattr(target_unit, 'inlet_fluid', None)
-                mass_rate = getattr(target_unit, 'mass_rate', 'N/A')  # Get mass_rate if available
+                mass_rate = getattr(target_unit, 'mass_rate', 'N/A')
                 if inlet_fluid:
                     inlet_P = getattr(inlet_fluid, 'P', 'N/A') / 1000000.0
                     inlet_T = getattr(inlet_fluid, 'T', 'N/A') - 273.15

@@ -64,16 +64,6 @@ class Optimizer:
         self.variable_names = list(self.optimization_specs.variables.keys())
         self.objective_names = self.optimization_specs.targets
 
-    # def __getstate__(self):
-    #     state = self.__dict__.copy()
-    #     # Remove attributes that cannot be serialized
-    #     if 'tango_instance' in state:
-    #         state['tango_instance'] = None  # Or exclude specific non-serializable parts
-    #     return state
-    #
-    # def __setstate__(self, state):
-    #     self.__dict__.update(state)
-
     def _process_specs(self, specs) -> dict:
         """
         Processes the optimization specifications from the input dictionary.
@@ -168,23 +158,16 @@ class Optimizer:
         """
         dynamic_mapping = {}
 
-        # Safely get power plant nodes or return empty dict
         power_plant_nodes = specs.get('power_plant_graph', {}).get('nodes', {})
 
         if not power_plant_nodes:
-            # If power_plant_graph is missing, return empty mapping
             return dynamic_mapping
 
-        # Iterate through components in power_plant_graph
         for component_name, component_details in power_plant_nodes.items():
-            # Access component-specific specs if available
             component_specs = specs.get(component_name, {})
             for param, value in component_specs.items():
-                # Format key as "powerplant_component_param" for uniqueness
                 mapping_key = f"powerplant_{component_name}_{param}"
-                # Create the translation path
                 mapping_value = f"self.tango_instance.specs['{component_name}']['{param}']"
-                # Add to dynamic mapping
                 dynamic_mapping[mapping_key] = mapping_value
 
         return dynamic_mapping
@@ -210,17 +193,14 @@ class Optimizer:
         KeyError
             If the variable name is not found in either static or dynamic mapping.
         """
-        # First check static mapping
         if var_name in VARIABLE_PARAMETER_MAPPING:
             return VARIABLE_PARAMETER_MAPPING[var_name]
 
-        # Check dynamic mapping if specs are provided
         if specs is not None:
             dynamic_mapping = self.get_dynamic_power_plant_translations(specs)
             if var_name in dynamic_mapping:
                 return dynamic_mapping[var_name]
 
-        # Raise error with detailed info
         available_static = list(VARIABLE_PARAMETER_MAPPING.keys())
         available_dynamic = list(dynamic_mapping.keys()) if specs else []
         raise KeyError(
@@ -620,7 +600,7 @@ class SOOOptimizer(BaseOptimizer):
                 if vtype == 'integer':
                     x[i] = int(np.round(x[i]))
 
-            out["F"] = -1 * self.objective_func(x)  # Convert maximization to minimization
+            out["F"] = -1 * self.objective_func(x)
             out["G"] = np.array([constraint(x) for constraint in self.constraints])
 
     def define_problem(self):
@@ -739,8 +719,6 @@ class SOOOptimizer(BaseOptimizer):
             plt.plot(generations, [x[i] for x in self.x_values], label=f'{var_name}', linewidth=2)
             plt.xlabel('Generation', fontsize=12)
             plt.ylabel(f'{var_name}', fontsize=12)
-            # plt.title(f'Optimization Progress for {var_name}', fontsize=14, weight='bold')
-            # plt.legend(fontsize=10, loc='upper right')
             plt.grid(alpha=0.5, linestyle='--')
 
         plt.tight_layout()
@@ -754,13 +732,10 @@ class SOOOptimizer(BaseOptimizer):
             plt.plot(generations, f_min_values_array, label=f'{self.objective_names[0]}', linewidth=2, color='C1')
         plt.xlabel('Generation', fontsize=12)
         plt.ylabel(f'{self.objective_names[0]}', fontsize=12)
-        # plt.title('Objective Value Over Generations', fontsize=14, weight='bold')
-        # plt.legend(fontsize=10, loc='upper right')
         plt.grid(alpha=0.5, linestyle='--')
 
         plt.tight_layout()
         plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_objective.png'), dpi=300)
-        # plt.show()
 
 
 class MOOOptimizer(BaseOptimizer):
@@ -824,7 +799,7 @@ class MOOOptimizer(BaseOptimizer):
             xu = np.array([variable_ranges[var][1] for var in variable_ranges])
 
             super().__init__(n_var=n_var,
-                             n_obj=len(objective_func([])),  # Number of objectives
+                             n_obj=len(objective_func([])),
                              n_ieq_constr=len(constraints),
                              xl=xl,
                              xu=xu,
@@ -1018,12 +993,10 @@ class MOOOptimizer(BaseOptimizer):
                 plt.scatter(original_selected_solution[0], original_selected_solution[1], color='red', marker='x', s=200, label='Selected Solution')
             plt.xlabel(self.objective_names[0], fontsize=14)
             plt.ylabel(self.objective_names[1], fontsize=14)
-            # plt.title('Pareto Front', fontsize=16, weight='bold')
             plt.legend(fontsize=12)
             plt.grid(alpha=0.5, linestyle='--')
             plt.tight_layout()
             plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_2d.png'), dpi=300)
-            # plt.show()
 
         elif len(original_f_opt[0]) == 3:
             fig = plt.figure(figsize=(10, 8))
@@ -1038,11 +1011,9 @@ class MOOOptimizer(BaseOptimizer):
             ax.set_xlabel(self.objective_names[0], fontsize=14)
             ax.set_ylabel(self.objective_names[1], fontsize=14)
             ax.set_zlabel(self.objective_names[2], fontsize=14)
-            # ax.set_title('Pareto Front', fontsize=16, weight='bold')
             ax.legend(fontsize=12)
             plt.tight_layout()
             plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_3d.png'), dpi=300)
-            # plt.show()
         else:
             print("Plotting is only supported for 2 or 3 objectives.")
 
@@ -1066,13 +1037,12 @@ class MOOOptimizer(BaseOptimizer):
 
         generations = np.arange(len(self.res.history))
 
-        plt.style.use('seaborn-v0_8-whitegrid')  # Stylish theme
+        plt.style.use('seaborn-v0_8-whitegrid')
 
         # Hypervolume Plot
         plt.figure(figsize=(14, 6))
         plt.subplot(1, 2, 1)
         plt.plot(generations, hv_values, '-o', linewidth=2, markersize=6)
-        # plt.title('Hypervolume Over Generations', fontsize=16, weight='bold')
         plt.xlabel('Generation', fontsize=14)
         plt.ylabel('Hypervolume', fontsize=14)
         plt.grid(alpha=0.5, linestyle='--')
@@ -1081,7 +1051,6 @@ class MOOOptimizer(BaseOptimizer):
         # IGD Plot
         plt.subplot(1, 2, 2)
         plt.plot(generations, igd_values, '-o', color='orange', linewidth=2, markersize=6)
-        # plt.title('Inverted Generational Distance (IGD) Over Generations', fontsize=16, weight='bold')
         plt.xlabel('Generation', fontsize=14)
         plt.ylabel('Inverted Generational Distance (IGD)', fontsize=14)
         plt.grid(alpha=0.5, linestyle='--')
@@ -1089,7 +1058,6 @@ class MOOOptimizer(BaseOptimizer):
 
         plt.tight_layout()
         plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_hypervolume_igd.png'), dpi=300)
-        # plt.show()
 
 
 def calculate_asf(normalized_objectives):

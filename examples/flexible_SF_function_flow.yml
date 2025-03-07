@@ -125,7 +125,6 @@ schedule:
     dt: 1.0  # time step increment (year)
   bc_iteration:
     check_fracing: yes
-    check_point: injection_well_bottom
     max_mass_rate: 150
   mass_rate:
     type: manual_func

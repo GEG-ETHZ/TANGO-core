@@ -9,7 +9,6 @@ from typing import List, Dict, Union, Optional
 @dataclass
 class BcIteration:
     check_fracing: str  # 'yes' or 'no'
-    check_point: str  # e.g. 'injection_well_bottom'
 
 @dataclass
 class MassRate:
@@ -19,27 +18,23 @@ class MassRate:
 
 @dataclass
 class CommonSpecs:
-    num_pp: int
+    num_pp: int # number of power plants
     fluid_name: str
     mass_flow_rate: float  # kg/s
     rock_density: float # kg/m3
     rock_cp: float # specific heat capacity (J/(kg*K))
-    rock_k: float
+    rock_k: float # thermal conductivity (W/m/K)
     surface_temperature: float  # K
     surface_pressure: float  # Pa
     thermal_gradient: float  # degC/m
     well_pattern: str
-    well_spacing: float
+    well_spacing: float # (m)
     well_pattern_dimens: list
     start_date: str
-    # num_tsteps: int
-    # dt: float  # time step years
     time_list: List[float] = field(default_factory=list)
     dt_list: List[float] = field(default_factory=list)
     bc_iteration_checkpoint: str = 'production_well_bottom'
     injection_condition_back_calculation: str = 'no'
-    cascade_power_plant: str = 'no'
-    entire_subsurface_external: str = 'no'
     flow_rate_from_csv: str = 'no'
     flow_rate_file: str = None
     bc_iteration: Optional[BcIteration] = None
@@ -62,7 +57,7 @@ class CommonSpecs:
 @dataclass
 class WellSpecs(CommonSpecs):
     """General well specs"""
-    well_length: float = None  # well length (m)
+    well_length: float = None  # (m)
     diameter: float = None # (m)
     epsilon: float = 55.e-6  # roughness of the well (m)
     probability_of_success: float = 0.95
@@ -120,7 +115,7 @@ class SurfaceSpecsCPGNative(CommonSpecs):
             if getattr(self, s, None) == None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
-
+# should be removed - we don't use DWSIM anymore!
 @dataclass
 class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
     local_script_path = "/Users/morteza/Documents/projects/TANGO/src/tango/interfaces/tango_dwsim_interface.py"
@@ -129,33 +124,16 @@ class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
     remote_script_path = "/Users/morteza/Desktop/new.py"
     PP_csv_file = "/Users/morteza/Desktop/data.csv"
 
-
-@dataclass
-class SurfaceSpecsCPGTESPy(SurfaceSpecsCPGNative):
-    yaml_file_path = '/examples/MOOSE_Tespy examples/testcase10.yml'
-
-@dataclass
-class SurfaceSpecsORCTESPy(SurfaceSpecsCPGNative):
-    pass
-
-@dataclass
-class SurfaceSpecsSingleFlashTESPy(SurfaceSpecsCPGNative):
-    pass
-
-@dataclass
-class SurfaceSpecsDoubleFlashTESPy(SurfaceSpecsCPGNative):
-    pass
-
 @dataclass
 class ReservoirSpecs(CommonSpecs):
     """General well specs"""
-    reservoir_depth: float = None
+    reservoir_depth: float = None # (m)
     porosity: float = None    # the rock porosity in the reservoir (dimensionless)
     permeability: float = None # the rock permeability in the reservoir (in m2)
     brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
-    initial_pressure: float = None
-    initial_temperature: float = None
-    hydro_static_pressure: float = None
+    initial_pressure: float = None # (Pa)
+    initial_temperature: float = None # (K)
+    hydro_static_pressure: float = None # (Pa)
     over_pressure_percentage: float = None
 
 
@@ -178,9 +156,6 @@ class ReservoirSpecsNative(ReservoirSpecs):
 @dataclass
 class ReservoirSpecsPorousflow(ReservoirSpecs):
     """MOOSE well specs"""
-    # moose_executable_path: str = '/Users/morteza/Documents/projects/moskito2/moskito-opt'
-    # moose_input_path: str = '/Users/morteza/Documents/projects/moskito2/reservoir.i'
-    # post_processor_path: str = '/Users/morteza/Documents/projects/TANGO/src/tango/res_out.csv'
     yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase17.yml"
     template_file_path: str = "/examples/MOOSE input files/pf.i"
     output_directory: str = '/Users/morteza/Documents/projects/moose/modules/porous_flow'
@@ -194,7 +169,6 @@ class ReservoirSpecsPorousflow(ReservoirSpecs):
 
     def __post_init__(self):
         required_fields = ['reservoir_depth', 'porosity', 'permeability']
-        # required_fields = ['porosity', 'permeability']
         for s in required_fields:
             if getattr(self, s, None) == None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
@@ -230,10 +204,8 @@ class AnalyzerSpecs:
 @dataclass
 class OptimizationSpecs:
     variables: Dict[str, Dict[str, Union[float, str]]]  # Variable names with bounds and type (e.g., continuous or integer)
-    # target: str  # Target parameter for optimization
     targets: List[str]
-    target_type: List[str]
-    # target_type: str  # Either 'maximize' or 'minimize'
+    target_type: List[str] # 'maximize' or 'minimize'
     method: str
     parallel_processing: str
     n_generation: int
