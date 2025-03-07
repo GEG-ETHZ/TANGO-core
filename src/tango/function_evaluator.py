@@ -196,25 +196,15 @@ class FunctionEvaluator:
             functions (dict): A dictionary of function definitions.
 
         """
-        print('fff1')
         for function_name, function_def in functions.items():
-            print('fff2')
-            print(function_name, function_def)
             if function_def['type'] == 'mathematical_expression':
                 expr = function_def['value']
-                # print(expr)
                 param_names = self.extract_variables(expr)
-                # print(param_names)
                 parameters = self.resolve_parameters(param_names)
-                # print(parameters)
                 result = self.eval_math_expr(expr, parameters)
-                # print(result)
                 self.evaluated_functions[function_name] = result
-                # print(self.evaluated_functions)
             elif function_def['type'] == 'Constant':
-                # print('fff3')
                 self.evaluated_functions[function_name] = function_def['value']
-                # print(function_def['value'])
             elif function_def['type'] == 'segmented_linear':
                 continue
             else:

@@ -102,10 +102,6 @@ class FlowRateCalculator():
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             self.surface.power_plant.funcs = funcs
 
-
-        # print('mmm')
-        # print(funcs)
-        # print(self.reservoir.specs.mass_rate['function'])
         test_p = 10000000
         iterations = 7
         print(self.reservoir.__class__.__name__, 'class name')
@@ -123,7 +119,6 @@ class FlowRateCalculator():
             if hasattr(self.surface, 'condensation_pressure'):
                 test_p = max(test_p, self.surface.condensation_pressure)
 
-
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
@@ -134,8 +129,6 @@ class FlowRateCalculator():
                         if (mass_rate > self.fracing_flow()):
                             mass_rate = self.fracing_flow()
                 elif (self.reservoir.specs.mass_rate['type'] == 'manual_func'):
-                    print('fus')
-                    print(self.reservoir.specs.mass_rate['function'])
                     mass_rate = funcs[self.reservoir.specs.mass_rate['function']] # funcs[self.reservoir.specs.mass_rate['function']]
                     if (self.reservoir.specs.bc_iteration['check_fracing']):
                         if (mass_rate > self.fracing_flow()):
@@ -151,7 +144,6 @@ class FlowRateCalculator():
 
             self.reservoir.inlet_fluid.updatePT(P=self.inj_well.outlet_fluid.P, T=self.inj_well.outlet_fluid.T)
             self.reservoir.stream_interface()
-            print(self.reservoir.mass_rate, 'flow1')
 
             # Update production well
             self.pro_well.mass_rate = self.reservoir.mass_rate
@@ -187,8 +179,6 @@ class FlowRateCalculator():
             self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
             self.surface.stream_interface()
             self.mass_rate_test = self.surface.mass_rate
-
-            print(self.inj_well.mass_rate, self.reservoir.mass_rate, self.pro_well.mass_rate, self.surface.mass_rate)
 
         if self.pro_well_pump:
             self.surface.prod_pump_aux = -(self.pro_well_pump.inlet_fluid.H - self.pro_well.outlet_fluid.H) * self.pro_well_pump.mass_rate
