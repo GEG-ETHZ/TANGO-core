@@ -54,6 +54,7 @@ class EconUnitPermitting:
         X_IC, X_PC = self._X_IC, self._X_PC
         PPI = self._PPI_permitting
         AMA = self._specs.active_monitoring_area
+
         return X_IC * X_PC * PPI * 45000. * (1. / 1.e6) * AMA
 
     def _compute_dCO2_monitoring(self) -> float:
@@ -99,6 +100,7 @@ class EconUnitPermitting:
             d=[self._specs.monitoring_well_diameter],
             pos=self._specs.monitoring_well_probability_of_success
         )
+
         return C_surface_monitoring + C_monitoring_well
 
     def execute(self, evaluated_funcs) -> float:
@@ -144,7 +146,6 @@ class EconUnitPermitting:
                 return evaluated_funcs[self._specs.costs['permitting']['function']]
             else:
                 raise ValueError(f"Unsupported custom function type: {self._specs.costs['permitting']['function_def']['type']}")
-
 
         else:
             raise ValueError(f"Unsupported permitting cost type: {permitting_cost_type}")

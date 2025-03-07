@@ -49,6 +49,7 @@ class EconUnitExploration:
         """
         if self._specs.fluid_name != 'CO2':
             return 0
+
         return self._X_IC * self._X_PC * self._PPI * 44800 * (1/1e6) * self._specs.active_monitoring_area
 
     def _compute_dCO2_characterization(self) -> float:
@@ -79,6 +80,7 @@ class EconUnitExploration:
             d=[self._well_econ_unit.production_well.get_diameter()],
             pos=1.0
         )
+
         return 0.2 * num_wells * C_characterization_well / pos
 
     def execute(self, evaluated_funcs) -> float:
@@ -127,4 +129,3 @@ class EconUnitExploration:
 
         else:
             raise ValueError(f"Unsupported exploration cost type: {exploration_cost_type}")
-

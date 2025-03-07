@@ -32,7 +32,6 @@ class InjectionWellUnitNative(WellUnitNative):
         self._specs_post_processor_iw()
         self.init_stream_interface()
         self._initialize_attributes_hw()
-        # self.scaling_factor = self._m_dot_mult
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
@@ -115,7 +114,6 @@ class InjectionWellUnitNative(WellUnitNative):
             self._well_mass_flow_rate = self._specs.mass_flow_rate
 
         self._f_dir = -1.0  # Downwards flow direction for injection wells
-        # self._set_mult()
         self.length_list = self._specs.well_length_seq
         self.diameter_list = self._specs.well_diameter_seq
 

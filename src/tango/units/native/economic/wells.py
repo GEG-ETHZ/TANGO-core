@@ -43,6 +43,7 @@ class EconUnitWells:
             - If no object is found for a well type, sets it to `None`.
         """
         well_unit_names = ['injection_well', 'production_well', 'production_well_pump', 'horizontal_well']
+
         for name in well_unit_names:
             if name in unit_dict.keys():
                 if name == 'horizontal_well':
@@ -91,6 +92,7 @@ class EconUnitWells:
             ValueError: If the well pattern is not supported.
         """
         NX, NY = self._specs.well_pattern_dimens
+
         if self._specs.well_pattern in ['DOUBLET', 'AGS']:
             num_total_inj = 1
             num_total_prd = 1
@@ -104,6 +106,7 @@ class EconUnitWells:
             raise ValueError(f"well_pattern: {self._specs.well_pattern} is not supported")
 
         num_total_hrz = 0
+
         if self.horizontal_well is not None:
             num_total_hrz = len(self.horizontal_well)
 
@@ -127,6 +130,7 @@ class EconUnitWells:
         """
         if fluid_name != "CO2":
             return 0
+
         return self._X_IC * self._X_PC * self._PPI * (265. * d * L + 133. * L)
 
     def _compute_wells_cost_by_type(self, well_type: str, num_wells: int) -> float:
@@ -153,8 +157,8 @@ class EconUnitWells:
         """
         if well_type == 'injection_well' and self._specs.project_maturity == 'BROWN_FIELD':
             return 0
-        well_unit = getattr(self, well_type, None)
 
+        well_unit = getattr(self, well_type, None)
         well_cost_mapping = {
             'gengeo': 1.0,
             'ppgd': 1.0,
@@ -264,6 +268,7 @@ class EconUnitWells:
             raise ValueError("Length of well_length_list must be the same as well_diameter_list")
 
         total_cost = 0.0
+
         for Ls, ds in zip(L, d):
             if self._specs.well_cost_model in well_cost_formulas:
                 C_well_section = well_cost_formulas[self._specs.well_cost_model](Ls, ds, self)

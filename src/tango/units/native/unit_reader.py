@@ -5,7 +5,6 @@ from math import e as exp
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
-from tango.units.check_fracing import calculate_injection_rate
 import csv
 import os
 import logging
@@ -85,9 +84,6 @@ class ReservoirFileReaderUnit(Unit):
             pressure = float(row[1])
             temperature = float(row[2])
             self.mass_rate = float(row[3])
-            print('mass_rate', self.mass_rate)
-
-            # self.m_dot = self.m_dot_mult * self.mass_rate
 
             return pressure, temperature, self.mass_rate
         else:

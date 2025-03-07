@@ -1,9 +1,9 @@
 Optimal Variables:
-x1 = 136.969724
+x1 = 137.004345
 Maximum Value:
-976908.6537619596
+976908.7058978783
 
-Generation 1: x1 = 136.947939, f_min = [-976908.557309]
-Generation 2: x1 = 136.947939, f_min = [-976908.557309]
-Generation 3: x1 = 136.947939, f_min = [-976908.557309]
-Generation 4: x1 = 136.969724, f_min = [-976908.653762]
+Generation 1: x1 = 135.935407, f_min = [-976849.670609]
+Generation 2: x1 = 137.004345, f_min = [-976908.705898]
+Generation 3: x1 = 137.004345, f_min = [-976908.705898]
+Generation 4: x1 = 137.004345, f_min = [-976908.705898]

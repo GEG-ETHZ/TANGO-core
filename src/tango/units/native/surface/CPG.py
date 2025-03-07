@@ -81,8 +81,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
         self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
-        # self.mass_rate = self.specs.mass_flow_rate
-
         self.outlet_fluid_turbine = FluidState.withQT(self._fluid_name, Q=1.0, T=self._condensation_temperature)
         self.outlet_fluid_condenser = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
         self.outlet_fluid_cooler = FluidState.withQT(self._fluid_name, Q=0.0, T=self._condensation_temperature)
@@ -91,7 +89,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.condenser_saturated_liquid_h = FluidState.withPQ(self._fluid_name, Q=0.0, P=self.condensation_pressure).H
         self.inlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
         self.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
-
         self.outlet_fluid = FluidState.copy(self.outlet_fluid_pump)
 
     def process_stream(self) -> None:
@@ -115,16 +112,10 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self._update_pump_state()
         self._update_net_state()
 
-        self._update_diagram_states()
-        self._update_diagram_connections()
-
         if (self.system_external):
             return self.P_out, self.T_out, self.mass_rate
         else:
             return self.P_out, self.T_out, self.specs.mass_flow_rate
-
-        # return self.P_out, self.T_out, self.specs.mass_flow_rate
-        # return self.P_out, self.T_out, self.mass_rate
 
     def _read_csv_file(self):
         """
@@ -247,10 +238,9 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         """
         self.outlet_fluid_turbine.updatePS(P=self.condensation_pressure, S=self.inlet_fluid.S)
         hs_outlet = self.outlet_fluid_turbine.H  # Ideal enthalpy (J/kg)
-        h_inlet = self.inlet_fluid.H  # (J/kg)
+        h_inlet = self.inlet_fluid.H
         eta = self.specs.eta_turbine  # Turbine efficiency (-)
         X_CO2 = self._X_CO2
-
         self.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet)
 
     def _update_condenser_state(self) -> None:
@@ -282,13 +272,12 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             None
         """
         hs_outlet = self.outlet_fluid_turbine.H  # Ideal enthalpy (J/kg)
-        h_inlet = self.inlet_fluid.H  # (J/kg)
+        h_inlet = self.inlet_fluid.H
         eta = self.specs.eta_turbine
         X_CO2 = self._X_CO2
-        h_saturated_vapor = self.condenser_saturated_vapor_h  # (J/kg)
-        h_condensed = self.condenser_saturated_liquid_h  # (J/kg)
-        h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet)  # (J/kg)
-
+        h_saturated_vapor = self.condenser_saturated_vapor_h
+        h_condensed = self.condenser_saturated_liquid_h
+        h_turbine_outlet = h_inlet - eta * (h_inlet - hs_outlet)
         self.q_cooler = 0.0
         self.q_condenser = self.mass_rate * (h_condensed - h_turbine_outlet)
         if h_turbine_outlet > h_saturated_vapor:
@@ -348,7 +337,6 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
                 self.P_out = P_pump_outlet
                 self.T_out = self.outlet_fluid_pump.T
 
-        # elif self.specs.bc_iteration_checkpoint == 'production_well_bottom':
         else:
             if self.specs.injection_condition_back_calculation == 'yes':
                 raise NotImplementedError("Injection condition back calculation is not supported for production well bottom.")
@@ -388,46 +376,3 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             None
         """
         self.w_net = self.w_turbine + self.w_cooler + self.w_condenser + self.w_pump
-
-    def _update_diagram_states(self) -> None:
-        """
-        Updates the states for the system diagram.
-
-        Attributes:
-        - Adds turbine, cooler, and condenser states to the `diagram_states` dictionary.
-        - Includes cooler state only if `self.cooler_include` is True.
-
-        Returns:
-            None
-        """
-        self.diagram_states['turbine'] = self.outlet_fluid_turbine
-        if self.cooler_include:
-            self.diagram_states['cooler'] = self.outlet_fluid_cooler
-        self.diagram_states['condenser'] = self.outlet_fluid_condenser
-
-    def _update_diagram_connections(self) -> None:
-        """
-        Updates the connections for the system diagram.
-
-        Attributes:
-        - Defines non-isentropic connections for various components.
-        - Includes cooler connections only if `self.cooler_include` is True.
-
-        Returns:
-            None
-        """
-        if self.cooler_include:
-            self.diagram_connections = [
-                ('production_well', 'turbine', 'non-isentropic'),
-                ('turbine', 'turbine', 'non-isentropic'),
-                ('cooler', 'condenser', 'non-isentropic'),
-                ('condenser', 'surface', 'non-isentropic')
-            ]
-        else:
-            self.diagram_connections = [
-                ('production_well', 'turbine', 'non-isentropic'),
-                ('turbine', 'condenser', 'non-isentropic'),
-                ('condenser', 'surface', 'non-isentropic')
-            ]
-
-

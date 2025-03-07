@@ -94,7 +94,6 @@ class EconUnitSurfacePipes:
             raise ValueError(f"Unsupported surface piping cost type: {surface_pipe_cost_type}")
 
 
-
 class EconUnitSurfacePowerPlant:
     """
     Represents the economic unit for surface power plant in geothermal systems.
@@ -217,7 +216,6 @@ class EconUnitSurfacePowerPlant:
         self._pump_material_cost_multiplier = self._get_pump_material_cost_multiplier()
         self._tower_design_coefficient = self._get_tower_design_coefficient()
 
-
     def _initialize_units(self) -> None:
         """
         Initializes the units based on the type of surface power plant.
@@ -246,15 +244,11 @@ class EconUnitSurfacePowerPlant:
         elif power_plant_type == 'CPG':
             self._process_surface_state = self._process_surface_state_CPG
             self.execute = self._execute_CPG
-        elif power_plant_type == 'DH':
-            self._process_surface_state = self._process_surface_state_DH
-            self.execute = self._execute_DH
         elif power_plant_type == 'ORC':
             self.execute = self._execute_ORC
             self._process_surface_state = self._process_surface_state_ORC
         else:
             raise ValueError(f"Surface power plant type: {power_plant_type} is not supported.")
-
 
     def _process_surface_state_flexible_pp(self) -> None:
         pass
@@ -263,79 +257,16 @@ class EconUnitSurfacePowerPlant:
 
         self._state = state
         self._process_surface_state()
-
-        # C_pump_prod = self._compute_pump_prod_lineshaft_cost(self._W_pump_prod)
-
         self.flexible_power_plant_cost = PowerPlantCost(self._state.power_plant, self._specs, evaluated_funcs, self._state.prod_pump_w_list)
         costs = self.flexible_power_plant_cost.compute_total_cost_with_averaged_results(average_fp_result)
-
-        # print('eco_surface_prod_pump_w_list', self._state.prod_pump_w_list)
-        # print(sum(self._state.prod_pump_w_list)/len(self._state.prod_pump_w_list))
         self._W_net_thermal = 0.0
-        # self.prod_pump_w_ave = sum(self._state.prod_pump_w_list) / len(self._state.prod_pump_w_list)
         self._W_net_total = self.flexible_power_plant_cost.net_P
         self._W_net_thermal = self.flexible_power_plant_cost.thermal_power
-        print('self._W_net_thermal', self._W_net_thermal)
 
         if self._surface_unit is None:
             return 0.0
 
         return costs
-
-    def _process_surface_state_DH(self) -> None:
-        """
-        Processes the surface state for direct heat (DH) systems.
-
-        Logic:
-        - Computes the thermal power output and assigns it as the total net power.
-
-        Example:
-            >>> self._process_surface_state_DH()
-        """
-        self._W_thermal = self._state.w_turbine
-        self._W_net_total = self._W_thermal
-
-
-    def _execute_DH(self, state, evaluated_funcs) -> float:
-        """
-        Executes the calculations for direct heat (DH) systems.
-
-        This method calculates the total DH costs based on the type of configuration:
-        - If `type` is `default`, it calculates the DH cost using the detailed formula.
-        - If `type` is `custom`, it directly returns the value from `function_def`.
-
-        Args:
-            state: The current surface state object.
-
-        Returns:
-            float: The total DH system cost or user-defined value.
-
-        Formula for default:
-            .. math::
-                Cost = 200 * W_{\text{net total}} / 1000
-        """
-        self._state = state
-        self._process_surface_state()
-
-        DH_cost_type = self._specs.costs['power_plant']['type']
-
-        if DH_cost_type == 'default':
-            if self._surface_unit is None:
-                return 0.0
-
-            return self._specs.num_pp * 200 * self._W_net_total / 1000
-
-        elif DH_cost_type == 'custom':
-            if (self._specs.costs['power_plant']['function_def']['type'] == 'Constant'):
-                return self._specs.costs['power_plant']['function_def']['value']
-            elif (self._specs.costs['power_plant']['function_def']['type'] == 'mathematical_expression'):
-                return evaluated_funcs[self._specs.costs['power_plant']['function']]
-            else:
-                raise ValueError(f"Unsupported custom function type: {self._specs.costs['power_plant']['function_def']['type']}")
-
-        else:
-            raise ValueError(f"Unsupported power plant cost type: {DH_cost_type}")
-
 
     def _process_surface_state_CPG(self) -> None:
         """
@@ -366,7 +297,6 @@ class EconUnitSurfacePowerPlant:
                              self._W_cooler_total + self._W_condenser_total)
         self._W_net_thermal = self._state.thermal_power
 
-
     def _process_surface_state_ORC(self) -> None:
         """
         Processes the surface state for Organic Rankine Cycle (ORC) systems.
@@ -396,7 +326,6 @@ class EconUnitSurfacePowerPlant:
         self._dT_LMTD_boiler = self._state.dT_LMTD_boiler
         self._dT_LMTD_recuperator = self._state.dT_LMTD_recuperator
 
-
     def _compute_turbine_generator_cost(self) -> float:
         """
         Computes the cost of the turbine generator.
@@ -413,8 +342,8 @@ class EconUnitSurfacePowerPlant:
         PPI = self._PPI_TG
         S_T_fluid = self._turbine_cost_multiplier
         W_turbine = self._W_turbine_total
-        return 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 + 3680 * (W_turbine / 1.e3) ** 0.617)
 
+        return 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 + 3680 * (W_turbine / 1.e3) ** 0.617)
 
     def _compute_pump_inj_cost(self, W_pump: float) -> float:
         """
@@ -434,8 +363,8 @@ class EconUnitSurfacePowerPlant:
         """
         PPI = self._PPI_pump
         S_pump = self._pump_material_cost_multiplier
-        return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7
 
+        return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7
 
     def _BAC_regression_model(self, coeffs: list) -> float:
         """
@@ -457,8 +386,8 @@ class EconUnitSurfacePowerPlant:
         T_ambient = self._surface_ambient_temperature
         dT_approach = self._surface_approach_temperature
         dT_range = self._surface_temperature_range
-        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
 
+        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
 
     def _get_C_cooling(self):
         """
@@ -472,7 +401,6 @@ class EconUnitSurfacePowerPlant:
         """
         return self._BAC_regression_model(coeffs=self._coeffs_cooling)
 
-
     def _get_C_condensing(self):
         """
         Retrieves the condensing cost based on the BAC regression model.
@@ -484,7 +412,6 @@ class EconUnitSurfacePowerPlant:
             >>> condensing_cost = self._get_C_condensing()
         """
         return self._BAC_regression_model(coeffs=self._coeffs_condensing)
-
 
     def _compute_cooling_condensing_tower_cost(self) -> float:
         """
@@ -512,8 +439,8 @@ class EconUnitSurfacePowerPlant:
         Q_Ref_BAC = 1.0e6  # nominal heat load (=1.0 MWth)
         F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
         C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
-        return C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
 
+        return C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
 
     def _execute_CPG(self, state, evaluated_funcs) -> float:
         """
@@ -538,10 +465,8 @@ class EconUnitSurfacePowerPlant:
                 TEC = X_SE * PEC
                 PEC = Sum of equipment costs.
         """
-
         self._state = state
         self._process_surface_state()
-
         power_plant_cost_type = self._specs.costs['power_plant']['type']
 
         if power_plant_cost_type == 'default':
@@ -558,7 +483,6 @@ class EconUnitSurfacePowerPlant:
             C_turbine_generator = self._specs.num_pp * self._compute_turbine_generator_cost()
             C_pump_inj = self._specs.num_pp * self._compute_pump_inj_cost(self._W_pump_total)
             C_cooling_condensing_tower = self._specs.num_pp * self._compute_cooling_condensing_tower_cost()
-
             C_plant_PEC = C_turbine_generator + C_pump_inj + C_cooling_condensing_tower  # primary equipment cost (PEC)
             C_plant_TEC = X_SE * C_plant_PEC  # total equipment cost (TEC)
             C_plant_BEC = C_plant_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)  # bare erected cost (BEC)
@@ -572,11 +496,8 @@ class EconUnitSurfacePowerPlant:
                 return evaluated_funcs[self._specs.costs['power_plant']['function']]
             else:
                 raise ValueError(f"Unsupported custom function type: {self._specs.costs['power_plant']['function_def']['type']}")
-
         else:
             raise ValueError(f"Unsupported power plant cost type: {power_plant_cost_type}")
-
-
 
     def _compute_heat_exchanger_cost(self) -> float:
         """
@@ -601,8 +522,8 @@ class EconUnitSurfacePowerPlant:
             A_preheater = self._Q_preheater_total / U / self._dT_LMTD_preheater
         A_boiler = self._Q_boiler_total / U / self._dT_LMTD_boiler
         A_HX = A_preheater + A_boiler
-        return self._PPI_HX * (239. * A_HX + 13400.)
 
+        return self._PPI_HX * (239. * A_HX + 13400.)
 
     def _compute_recuperator_cost(self) -> float:
         """
@@ -624,7 +545,6 @@ class EconUnitSurfacePowerPlant:
             U = 500.  # W/m²-K
             return self._PPI_HX * (239. * self._Q_recuperator_total / U / self._dT_LMTD_recuperator + 13400.)
 
-
     def _compute_pump_prod_lineshaft_cost(self, W_pump: float) -> float:
         """
         Computes the cost of the production pump with a lineshaft.
@@ -644,8 +564,8 @@ class EconUnitSurfacePowerPlant:
         """
         PPI = self._PPI_pump
         S_pump = self._pump_material_cost_multiplier
-        return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7 + 5750. * (1.34 * -1. * (W_pump / 1e3)) ** 0.2
 
+        return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7 + 5750. * (1.34 * -1. * (W_pump / 1e3)) ** 0.2
 
     def _execute_ORC(self, state, evaluated_funcs) -> float:
         """
@@ -673,7 +593,6 @@ class EconUnitSurfacePowerPlant:
         """
         self._state = state
         self._process_surface_state()
-
         ORC_cost_type = self._specs.costs['power_plant']['type']
 
         if ORC_cost_type == 'default':
@@ -721,7 +640,6 @@ class EconUnitSurfacePowerPlant:
         else:
             raise ValueError(f"Unsupported power plant cost type: {ORC_cost_type}")
 
-
     def get_net_W_total(self) -> float:
         """
         Retrieves the total net power output.
@@ -733,7 +651,6 @@ class EconUnitSurfacePowerPlant:
             >>> net_power = self.get_net_W_total()
         """
         return self._specs.num_pp * self._W_net_total
-
 
 class PowerPlantCost:
     def __init__(self, power_plant, specs, evaluated_funcs, prod_pump_w_list):
@@ -776,6 +693,7 @@ class PowerPlantCost:
         self._Q_preheater_total = 0
         self._Q_boiler_total = 0
         self._Q_recuperator_total = 0
+
         self._dT_LMTD_preheater = 1
         self._dT_LMTD_boiler = 1
         self._dT_LMTD_recuperator = 1
@@ -834,14 +752,14 @@ class PowerPlantCost:
         Raises:
             AttributeError: If the turbine object does not have the required `P.val` attribute.
         """
-
         total_work = 0.0
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Turbine):
                 turbine_work = node.P.val
-                print(f"{node.label} Power: {turbine_work} W")
+                # print(f"{node.label} Power: {turbine_work} W")
                 total_work += turbine_work
-        print(f"Total Turbine Power: {total_work} W")
+        # print(f"Total Turbine Power: {total_work} W")
+
         return total_work
 
     def compute_cooler_condenser_power(self):
@@ -878,7 +796,6 @@ class PowerPlantCost:
             if isinstance(node, SimpleHeatExchanger):
                 component_config = self.power_plant.config.get(node_name, {})
                 subtype = component_config.get('Subtype', '').lower()
-                # print(subtype)
 
                 if subtype in ['cooler', 'condenser']:
                     tower_mode = component_config.get('cooling_tower_mode', '').upper()
@@ -895,23 +812,21 @@ class PowerPlantCost:
                         self._coeffs_condensing_power = [0.619, 0.0, 0.0, 0.0]
 
                     if subtype == 'cooler':
-                        q_cooler = -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_cooler = -node.Q.val
                         f_cooling = self._get_parasitic_power_fraction_cooling()
-                        power = q_cooler * f_cooling  # Compute this cooler's power
-                        w_cooler += power  # Accumulate to total cooler power
-                        print(f"{node.label} (Cooler) - Heat Load: {q_cooler:.2f} W, Parasitic Power: {power:.2f} W")
+                        power = q_cooler * f_cooling
+                        w_cooler += power
+                        # print(f"{node.label} (Cooler) - Heat Load: {q_cooler:.2f} W, Parasitic Power: {power:.2f} W")
 
                     elif subtype == 'condenser':
-                        q_condenser = -node.Q.val  # Assume TESPy gives heat load as positive
+                        q_condenser = -node.Q.val
                         f_condensing = self._get_parasitic_power_fraction_condensing()
-                        power = q_condenser * f_condensing  # Compute this condenser's power
-                        w_condenser += power  # Accumulate to total condenser power
-                        print(f"{node.label} (Condenser) - Heat Load: {q_condenser:.2f} W, Parasitic Power: {power:.2f} W")
+                        power = q_condenser * f_condensing
+                        w_condenser += power
+                        # print(f"{node.label} (Condenser) - Heat Load: {q_condenser:.2f} W, Parasitic Power: {power:.2f} W")
 
                 elif (subtype == 'dh_component'):
                     self.thermal_power += -node.Q.val
-                    print(self.thermal_power, 'ave')
-
 
         return w_cooler, w_condenser
 
@@ -960,9 +875,10 @@ class PowerPlantCost:
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Compressor):
                 pump_work = node.P.val
-                print(f"{node.label} Power: {pump_work} W")
+                # print(f"{node.label} Power: {pump_work} W")
                 total_work += pump_work
-        print(f"Total Pump Power: {total_work} W")
+        # print(f"Total Pump Power: {total_work} W")
+
         return total_work
 
     def compute_net_power(self):
@@ -1000,16 +916,12 @@ class PowerPlantCost:
         else:
             prod_pump_w = 0
 
-
-        print('prod_pump_w', prod_pump_w)
-
         net_power = turbine_power + pump_power - (cooling_power + condensing_power) + prod_pump_w
-
-        print(f"Net Power Output: {net_power:.2f} W")
-        print(f"Components - Turbine Power: {turbine_power:.2f} W, "
-              f"Pump Power: {pump_power:.2f} W, "
-              f"Cooling Power: {cooling_power:.2f} W, "
-              f"Condensing Power: {condensing_power:.2f} W")
+        # print(f"Net Power Output: {net_power:.2f} W")
+        # print(f"Components - Turbine Power: {turbine_power:.2f} W, "
+        #       f"Pump Power: {pump_power:.2f} W, "
+        #       f"Cooling Power: {cooling_power:.2f} W, "
+        #       f"Condensing Power: {condensing_power:.2f} W")
 
         return net_power
 
@@ -1045,13 +957,14 @@ class PowerPlantCost:
         """
         cost_type = self.cost_specs.costs['power_plant']['type']
         total_cost = 0.0
+
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Turbine):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'custom_cost_breakdown' and node_exists:
                     turbine_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"{node.label} Cost: ${turbine_cost:,.2f}")
+                    # print(f"{node.label} Cost: ${turbine_cost:,.2f}")
                     total_cost += turbine_cost
                 else:
                     PPI = self._PPI_TG
@@ -1059,10 +972,11 @@ class PowerPlantCost:
                     W_turbine = node.P.val  # Work of the specific turbine
                     turbine_cost = 0.67 * PPI * (S_T_fluid * 2830 * (W_turbine / 1.e3) ** 0.745 +
                                                  3680 * (W_turbine / 1.e3) ** 0.617)
-                    print(f"Turbine {node.label} Cost: ${turbine_cost:,.2f}")
+                    # print(f"Turbine {node.label} Cost: ${turbine_cost:,.2f}")
                     total_cost += turbine_cost
 
-        print(f"Total Turbine Generator Cost: ${total_cost:,.2f}")
+        # print(f"Total Turbine Generator Cost: ${total_cost:,.2f}")
+
         return total_cost
 
     def _compute_pump_inj_cost(self) -> float:
@@ -1096,27 +1010,26 @@ class PowerPlantCost:
         Raises:
             KeyError: If required cost specifications are missing in the configuration.
         """
-
         cost_type = self.cost_specs.costs['power_plant']['type']
-
         total_cost = 0.0
+
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, Compressor):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'custom_cost_breakdown' and node_exists:
                     pump_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"{node.label} Cost: ${pump_cost:,.2f}")
+                    # print(f"{node.label} Cost: ${pump_cost:,.2f}")
                     total_cost += pump_cost
                 else:
                     PPI = self._PPI_pump
                     S_pump = self._pump_material_cost_multiplier
                     W_pump = node.P.val
                     pump_cost = PPI * S_pump * 1750 * (-1.34 * W_pump / 1.e3) ** 0.7
-                    print(f"{node.label} Cost: ${pump_cost:,.2f}")
+                    # print(f"{node.label} Cost: ${pump_cost:,.2f}")
                     total_cost += pump_cost
 
-        print(f"Total Pump Cost: ${total_cost:,.2f}")
+        # print(f"Total Pump Cost: ${total_cost:,.2f}")
 
         return total_cost
 
@@ -1154,12 +1067,10 @@ class PowerPlantCost:
             ValueError: If temperature differences for LMTD calculations are invalid.
         """
         cost_type = self.cost_specs.costs['power_plant']['type']
-
         U = 500.
         A_preheater = 0
         A_boiler = 0
         A_recuperator = 0
-
         total_cost = 0.0
 
         for node_name, node in self.power_plant.nodes.items():
@@ -1168,7 +1079,7 @@ class PowerPlantCost:
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'custom_cost_breakdown' and node_exists:
                     hest_exchanger_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f"Pump {node.label} Cost: ${hest_exchanger_cost:,.2f}")
+                    # print(f"Pump {node.label} Cost: ${hest_exchanger_cost:,.2f}")
                     total_cost += hest_exchanger_cost
                 else:
                     component_config = self.power_plant.config.get(node_name, {})
@@ -1198,8 +1109,8 @@ class PowerPlantCost:
                         self._Q_recuperator_total = node.Q.val
                         A_recuperator += self._Q_recuperator_total / (U * self._dT_LMTD_recuperator)
 
-
         A_HX = A_preheater + A_boiler + A_recuperator
+
         if (A_HX == 0):
             A_HX = -13400.0/239.0
 
@@ -1249,15 +1160,15 @@ class PowerPlantCost:
         total_cost = 0.0
         PPI = self._PPI_PE
         Q_Ref_BAC = 1.0e6
-
         sets = {}
+
         for node_name, node in self.power_plant.nodes.items():
             if isinstance(node, SimpleHeatExchanger):
                 breakdown_exists = 'breakdown' in self.cost_specs.costs['power_plant']
                 node_exists = breakdown_exists and node.label in self.cost_specs.costs['power_plant']['breakdown']
                 if cost_type == 'custom_cost_breakdown' and node_exists:
                     cc_cost = self.cost_specs.costs['power_plant']['breakdown'][node.label]['function_def']['value']
-                    print(f" {node.label} Cost: ${cc_cost:,.2f}")
+                    # print(f" {node.label} Cost: ${cc_cost:,.2f}")
                     total_cost_inp += cc_cost
                 else:
                     component_config = self.power_plant.config.get(node_name, {})
@@ -1290,35 +1201,27 @@ class PowerPlantCost:
                             elif subtype == 'condenser':
                                 sets[set_number]['condenser'] = node
 
-                    # elif (subtype == 'dh_component'):
-                    #     total_cost += -200.0 * node.Q.val / 1000
-                    #     print(total_cost, 'ufey')
-
-
         for set_number, components in sets.items():
             Q_cooler = Q_condenser = 0.0
 
             if components['cooler'] is not None:
                 Q_cooler = components['cooler'].Q.val
-                print(f"Set {set_number}: Cooler Q = {Q_cooler}")
+                # print(f"Set {set_number}: Cooler Q = {Q_cooler}")
 
             if components['condenser'] is not None:
                 Q_condenser = components['condenser'].Q.val
-                print(f"Set {set_number}: Condenser Q = {Q_condenser}")
+                # print(f"Set {set_number}: Condenser Q = {Q_condenser}")
 
             TDC = components['TDC']
-
             C_cooling = self._BAC_regression_model(coeffs=self._coeffs_cooling)  # $/kW
             C_condensing = self._BAC_regression_model(coeffs=self._coeffs_condensing)
-
             F_cooling = abs(Q_cooler) / (abs(Q_cooler) + abs(Q_condenser) + 1e-10)
             C_Ref_BAC = PPI * Q_Ref_BAC * TDC * (F_cooling * (C_cooling / 1e3) + (1 - F_cooling) * (C_condensing / 1e3))
-
             set_cost = C_Ref_BAC * (abs(Q_cooler + Q_condenser) / Q_Ref_BAC) ** 0.8
-            print(f"Set {set_number}: Cost = {set_cost}")
+            # print(f"Set {set_number}: Cost = {set_cost}")
             total_cost += set_cost
 
-        print(f"Total Cooler-Condenser Cost: {total_cost + total_cost_inp}")
+        # print(f"Total Cooler-Condenser Cost: {total_cost + total_cost_inp}")
 
         return total_cost + total_cost_inp
 
@@ -1339,6 +1242,7 @@ class PowerPlantCost:
         T_ambient = self.power_plant.pp_specs.surface_temperature
         dT_approach = self.power_plant.pp_specs.approach_temperature
         dT_range = self.power_plant.pp_specs.temperature_range
+
         return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
 
     def _get_tower_design_coefficient(self, fluid: str, design: str) -> float:
@@ -1393,6 +1297,7 @@ class PowerPlantCost:
         """
         PPI = self._PPI_pump
         S_pump = self._pump_material_cost_multiplier
+
         return PPI * S_pump * 1750 * (1.34 * -1 * (W_pump / 1e3)) ** 0.7 + 5750. * (1.34 * -1. * (W_pump / 1e3)) ** 0.2
 
     def compute_total_cost(self):
@@ -1437,7 +1342,6 @@ class PowerPlantCost:
         Raises:
             ValueError: If an unsupported cost type is specified.
         """
-
         cost_type = self.cost_specs.costs['power_plant']['type']
 
         if ((cost_type == 'default') or (cost_type == 'custom_cost_breakdown')):
@@ -1449,24 +1353,15 @@ class PowerPlantCost:
             X_F = 0.04  # equipment freight
 
             total_cost = 0.0
-
             total_cost += self.cost_specs.num_pp * self._compute_turbine_generator_costs()
-            print(total_cost, '1')
             total_cost += self.cost_specs.num_pp * self._compute_pump_inj_cost()
-            print(total_cost, '2')
             total_cost += self.cost_specs.num_pp * self._compute_heat_exchanger_cost()
-            print(total_cost, '3')
             total_cost += self.cost_specs.num_pp * self._compute_cooler_condenser_cost()
-            print(total_cost, '4')
-            # print(self.prod_pump_w_list)
+
             if (len(self.prod_pump_w_list) != 0):
-                # print(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
-                # print(self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)))
                 pump_P_ave = sum(self.prod_pump_w_list) / len(self.prod_pump_w_list)
                 if pump_P_ave < 0:
                     total_cost += self.cost_specs.num_pp * self._compute_pump_prod_lineshaft_cost(sum(self.prod_pump_w_list) / len(self.prod_pump_w_list))
-
-            print('total_cost', total_cost)
 
             total_cost_TEC = X_SE * total_cost
             total_cost_BEC = total_cost_TEC * (1.0 + X_CL + X_CM + X_ST + X_F)
@@ -1506,7 +1401,6 @@ class PowerPlantCost:
             KeyError: If a required key is missing in `average_fp_result`.
         """
         from copy import deepcopy
-
         power_plant_new = deepcopy(self.power_plant)
 
         for node_name, node in power_plant_new.nodes.items():
@@ -1555,7 +1449,6 @@ class PowerPlantCost:
 
         power_plant_new = self.create_power_plant_with_averaged_results(average_fp_result)
         flexible_power_plant_cost = PowerPlantCost(power_plant_new, self.cost_specs, self.evaluated_funcs, self.prod_pump_w_list)
-
         self.net_P = flexible_power_plant_cost.compute_net_power()
         self.thermal_power = flexible_power_plant_cost.thermal_power
 

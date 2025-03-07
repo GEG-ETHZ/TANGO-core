@@ -72,7 +72,6 @@ class SurfaceSpecsORCNative(CommonSpecs):
         if self.refrigerant not in refrigerant_options:
             raise ValueError(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
 
-
 class SurfaceUnitORCNative(SurfaceUnitNative):
     """
     Represents a power plant unit based on Organic Rankine Cycle (ORC) principles.
@@ -97,8 +96,8 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._specs_post_processor()
         self._initialize_attributes()
         self.init_stream_interface()
-        self.iterative_inj_pressure = 1_000_000  # 1 MPa
-        self.iterative_inj_temperature = 302.0  # 302 K
+        self.iterative_inj_pressure = 1_000_000
+        self.iterative_inj_temperature = 302.0
         self.reservoir_file_reader = False
         self.current_row = 0
         self.prod_pump_w_list = []
@@ -118,7 +117,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         P = self.specs.initial_outlet_pressure if P is None else P
         T = self.specs.initial_outlet_temperature if T is None else T
         self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
-        # self.mass_rate = self.specs.mass_flow_rate
         self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
@@ -132,14 +130,11 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Returns:
             tuple: Outlet pressure, outlet temperature, and mass rate.
         """
-        # self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
-
         if (self.specs.bc_iteration != None):
             self.mass_rate = self.mass_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
         else:
             self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
 
-        # print('self.mass_rate', self.mass_rate)
         if self.specs.flow_rate_from_csv == 'yes':
             if self.current_row < len(self.csv_data):
                 row = self.csv_data[self.current_row]
@@ -148,18 +143,10 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._update_state_pipe()
         self._update_state_fluid()
 
-        self._update_diagram_states()
-        self._update_diagram_connections()
-        # print(self.P_out, self.T_out, self.mass_rate, 'process')
-
         if (self.system_external):
             return self.P_out, self.T_out, self.mass_rate
         else:
             return self.P_out, self.T_out, self.specs.mass_flow_rate
-
-
-        # return self.P_out, self.T_out, self.specs.mass_flow_rate
-        # return self.P_out, self.T_out, self.mass_rate
 
     def overwrite_state_pipe(self) -> None:
         """
@@ -185,7 +172,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
-
 
     def _specs_post_processor(self) -> float:
         r"""
@@ -362,7 +348,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         L = self.specs.well_spacing
         return 0.5 * ff * L * rho * u ** 2 / d
 
-
     def _update_state_pipe(self) -> None:
         r"""
         Updates the state of the fluid in the surface pipe, accounting for pressure drops.
@@ -429,8 +414,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         if dT_pinch < 0:
             raise ValueError("Negative ORC dT_pinch found.")
         return T_boiling, dT_pinch
-
-
 
     def _update_state_fluid(self) -> None:
         r"""
@@ -578,7 +561,6 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        # if self.specs.bc_iteration_checkpoint == 'injection_well_bottom':
         if self.specs.bc_iteration != None:
             if self.reservoir_file_reader and self.specs.injection_condition_back_calculation == 'yes':
                 self.P_out = self.iterative_inj_pressure
@@ -589,50 +571,3 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         else:
             self.P_out = self.inlet_fluid.P
             self.T_out = T_13
-
-    def _update_diagram_states(self) -> None:
-        """
-        Updates the system's diagram states to include major components.
-
-        The following components are added to `self.diagram_states`:
-        - Pre-Heater
-        - Boiler
-        - Cooler
-        - Condenser
-        - Turbine
-        - Pump
-
-        Returns:
-            None
-        """
-        self.diagram_states['Pre_Heater'] = self.pre_heater
-        self.diagram_states['Boiler'] = self.boiler
-        self.diagram_states['Cooler'] = self.cooler
-        self.diagram_states['Condenser'] = self.condenser
-        self.diagram_states['Turbine'] = self.turbine
-        self.diagram_states['Pump'] = self.pump
-
-    def _update_diagram_connections(self) -> None:
-        """
-        Updates the system's diagram connections to represent the thermodynamic cycle.
-
-        Connections are specified as tuples of:
-        - Starting component
-        - Ending component
-        - Connection type ('non-isentropic').
-
-        Example connections:
-        - ('Pre_Heater', 'Boiler', 'non-isentropic')
-        - ('Pump', 'Pre_Heater', 'non-isentropic')
-
-        Returns:
-            None
-        """
-        self.diagram_connections = [
-            ('Pre_Heater', 'Boiler', 'non-isentropic'),
-            ('Boiler', 'Turbine', 'non-isentropic'),
-            ('Turbine', 'Cooler', 'non-isentropic'),
-            ('Cooler', 'Condenser', 'non-isentropic'),
-            ('Condenser', 'Pump', 'non-isentropic'),
-            ('Pump', 'Pre_Heater', 'non-isentropic')
-        ]

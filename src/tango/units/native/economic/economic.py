@@ -79,7 +79,6 @@ class EconomicSpecsNative(CommonSpecs):
     """
     Specifications for the economic model in TANGO.
     """
-
     costs: dict = field(default_factory=dict)
     project_maturity: str = None
     type: str = ''
@@ -129,7 +128,6 @@ class EconomicSpecsNative(CommonSpecs):
             self.costs = {}
 
         for cost_name, config in self.costs.items():
-            # Default to 'default' if type is not provided
             model_type = config.get('type', 'default')
 
             if model_type not in ['default', 'custom', 'custom_entire_pp', 'custom_cost_breakdown']:
@@ -138,11 +136,11 @@ class EconomicSpecsNative(CommonSpecs):
                     f"Allowed types are 'default' or 'custom'."
                 )
 
-            # If custom, ensure a function is provided
             if model_type == 'custom' and 'function' not in config:
                 raise ValueError(
                     f"Cost model for '{cost_name}' is set to 'custom', but no 'function' is specified."
                 )
+
 
 class EconomicStateNative:
     """
@@ -212,9 +210,7 @@ class EconomicUnitNative(Unit):
         combined_specs = self.specs['common'] | self.specs['economic'] | {'costs': self.specs.get('costs', {})}
 
         costs = combined_specs.get('costs', {})
-        print(costs.items(), 'items')
         for cost_name, cost_config in costs.items():
-            # if ((cost_config.get('type') == 'custom') or cost_config.get('type') == 'custom_entire_pp'):
             if ((cost_config.get('type') == 'custom_entire_pp') or cost_config.get('type') == 'custom'):
                 function_name = cost_config.get('function')
                 if not function_name:
@@ -235,11 +231,9 @@ class EconomicUnitNative(Unit):
                             raise ValueError(
                                 f"Function '{sub_function}' for breakdown '{sub_cost}' in '{cost_name}' is not defined in the 'functions' block."
                             )
-                        # Assign the function definition to the breakdown cost
                         cost_config['breakdown'][sub_cost] = {'function': sub_function, 'function_def': sub_function_def}
 
         combined_specs['costs'] = costs
-
         self.specs = EconomicSpecsNative.from_dict(combined_specs)
 
     def _set_unit_dict(self, nodes) -> None:
@@ -280,7 +274,6 @@ class EconomicUnitNative(Unit):
         )
         self._well_unit = EconUnitWells(specs=specs, unit_dict=self.unit_dict)
 
-
     def _instantiate_permitting_unit(self) -> None:
         """
         Instantiates the permitting unit for the economic model.
@@ -299,7 +292,6 @@ class EconomicUnitNative(Unit):
         })
         self._permitting_unit = EconUnitPermitting(specs=specs, well_econ_unit=self._well_unit)
 
-
     def _instantiate_exploration_unit(self) -> None:
         """
         Instantiates the exploration unit for the economic model.
@@ -316,7 +308,6 @@ class EconomicUnitNative(Unit):
             'multipliers': self._cost_mult['exploration']
         })
         self._exploration_unit = EconUnitExploration(specs=specs, well_econ_unit=self._well_unit)
-
 
     def _instantiate_surface_pipe_unit(self) -> None:
         """
@@ -340,7 +331,6 @@ class EconomicUnitNative(Unit):
         })
         self._surface_pipe_unit = EconUnitSurfacePipes(specs=specs, unit=self.surface_unit)
 
-
     def _instantiate_surface_power_plant_unit(self) -> None:
         """
         Instantiates the surface power plant unit for the economic model.
@@ -360,7 +350,6 @@ class EconomicUnitNative(Unit):
             'multipliers': self._cost_mult['plant']
         })
         self._surface_power_plant_unit = EconUnitSurfacePowerPlant(specs=specs, unit=self.surface_unit)
-
 
     def _initialize_constants(self) -> None:
         """
@@ -398,7 +387,6 @@ class EconomicUnitNative(Unit):
         self.specs.active_monitoring_area = self.get_active_monitoring_area()
         self.specs.num_patterns = self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1]
 
-
     def get_project_maturity(self) -> str:
         """
         Retrieves the project maturity from specifications.
@@ -415,7 +403,6 @@ class EconomicUnitNative(Unit):
         if self.specs.project_maturity is None:
             raise RuntimeError("Required parameter: 'project_maturity' is not found in specs")
         return self.specs.project_maturity.upper()
-
 
     def get_active_monitoring_area(self) -> float:
         """
@@ -441,7 +428,6 @@ class EconomicUnitNative(Unit):
             L_pattern = self.specs.well_spacing * np.sqrt(2.0)
         return (1600.0 + NX * L_pattern) * (1600.0 + NY * L_pattern)
 
-
     def get_PPI_value(self, col_name: str) -> float:
         """
         Retrieves a Producer Price Index (PPI) value for a specific column and year.
@@ -465,7 +451,6 @@ class EconomicUnitNative(Unit):
             logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
             return float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
         return val
-
 
     def _get_multiplier_values(self, component: str) -> list:
         """
@@ -516,7 +501,6 @@ class EconomicUnitNative(Unit):
                     setattr(self.surface_state, name, weighted_sum)
                 except:
                     continue
-
 
     def _compute_capex(self, evaluated_funcs, results) -> None:
         """
@@ -580,7 +564,6 @@ class EconomicUnitNative(Unit):
         Example:
             >>> lcoe = self._get_LCOE(1e6, 1e3)
         """
-        print(w, w2)
         if (self.specs.main_product == 'electricity'):
             main_product = w
             bi_product = w2
@@ -589,7 +572,6 @@ class EconomicUnitNative(Unit):
             main_product = w2
             bi_product = w
             price = self.specs.electricity_price
-        print(main_product, bi_product, price)
 
         CAPEX = self._results['CAPEX_total']
         if CAPEX <= 0:
@@ -598,7 +580,6 @@ class EconomicUnitNative(Unit):
         t = self.total_time
         CF = self.specs.capacity_factor
         F_OM = self.specs.OPEX_cost_fraction - bi_product / 1000 * 8760 * price / CAPEX
-        # F_OM = self.specs.OPEX_cost_fraction
         CRF = d * (1. + d) ** t / ((1. + d) ** t - 1.0)  # Capital recovery factor
         return CAPEX * (CRF + F_OM) / (main_product * W_TO_KW * CF * YEAR_TO_HOUR)
 
@@ -624,7 +605,6 @@ class EconomicUnitNative(Unit):
             return np.nan
         return CAPEX / (W * W_TO_KW)
 
-
     def _compute_LCOE(self) -> None:
         """
         Computes the Levelized Cost of Energy (LCOE) and related metrics.
@@ -645,7 +625,6 @@ class EconomicUnitNative(Unit):
         self._results['LCOE'] = self._get_LCOE(W_net_total, W_net_thermal)
         self._results['SpCC'] = self._get_specific_capital_cost(W_net_total)
 
-
     def get_results(self) -> dict:
         """
         Retrieves the computed results.
@@ -657,7 +636,6 @@ class EconomicUnitNative(Unit):
             >>> results = self.get_results()
         """
         return self._results
-
 
     def execute(self, results: dict, evaluated_funcs) -> None:
         """
@@ -677,6 +655,3 @@ class EconomicUnitNative(Unit):
         self._compute_annual_results(results)
         self._compute_capex(evaluated_funcs, results)
         self._compute_LCOE()
-
-#TODO: current genGEO-based econ unit is too complicated. Implement a simpler method as a native econ unit.
-#      Then move this whole package to tango.units.genGEO.economic

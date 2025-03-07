@@ -59,9 +59,6 @@ class WellUnitNative(Unit):
         outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream()
         self.mass_rate = mass_rate
         self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
-        # print(f'\nwell inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
-        # print(f'well outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
-
 
     def process_stream(self) -> tuple:
         r"""
@@ -98,22 +95,11 @@ class WellUnitNative(Unit):
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
         """
-        # print(f"Running from class: {self.__class__.__name__}")
-        # print('self.time_step', self.time_step)
         if self._specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
             self.mass_rate = float(row[1]) * self.scaling_factor
 
         self._initialize_state()
-
-        # print(self._specs.bc_iteration)
-
-        # if (self._specs.bc_iteration != None):
-        #     if ((self.__class__.__name__ == 'ProductionWellUnitNative') or (self.__class__.__name__ == 'ProductionWellPumpUnitNative')):
-        #         # print(self.specs)
-        #         # print(self._specs.well_pattern)
-        #         self.mass_rate = self.mass_rate / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
-
         t_d = self._get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
         mdot, A = self.mass_rate, self._cross_sectional_area
@@ -153,7 +139,6 @@ class WellUnitNative(Unit):
         """
         return self._well_length
 
-
     def get_diameter(self) -> float:
         """
         Returns the diameter of the wellbore.
@@ -162,7 +147,6 @@ class WellUnitNative(Unit):
             float: The diameter of the wellbore (in meters).
         """
         return self._diameter
-
 
     def get_probability_of_success(self) -> float:
         """
@@ -173,14 +157,12 @@ class WellUnitNative(Unit):
         """
         return self._specs.probability_of_success
 
-
     def update_dimensionless_time_old(self) -> None:
         """
         Updates the old dimensionless time with the current time.
         """
         self._t_d_old = self._t_d
         self.time_step += 1
-
 
     def update_dimensionless_time(self, del_t) -> None:
         """
@@ -276,7 +258,6 @@ class WellUnitNative(Unit):
         self._set_gravity_multiplier()
         self._t_scaling_factor = self._compute_time_scaling_factor()
 
-
     def _initialize_attributes(self) -> float:
         """
         Initializes time-related attributes for the well unit.
@@ -313,7 +294,6 @@ class WellUnitNative(Unit):
         else:
             return self._specs.well_length
 
-
     def _initialize_farfield_temperature(self) -> None:
         """
         Initializes the far-field temperature profile along the wellbore.
@@ -334,7 +314,6 @@ class WellUnitNative(Unit):
         dTdz = self._specs.thermal_gradient
         T0 = self._specs.surface_temperature
         self._T_r = T0 + zspace * dTdz  # rock temperature (K)
-
 
     def _initialize_discretized_vars(self) -> None:
         """
@@ -358,7 +337,6 @@ class WellUnitNative(Unit):
         self._T_r = np.zeros(num_cells)  # far-field temperature (K)
         self._u = np.zeros(num_cells)  # flow velocity (m/s)
 
-
     def _set_gravity_multiplier(self) -> None:
         """
         Configures the gravity multiplier for use in calculations.
@@ -370,7 +348,6 @@ class WellUnitNative(Unit):
             _g (float): The adjusted gravity acceleration (in meters per second squared).
         """
         self._g = GRAVITY_ACCELERATION * self._specs.gravity_scale_factor
-
 
     def _compute_time_scaling_factor(self) -> float:
         r"""
@@ -396,7 +373,6 @@ class WellUnitNative(Unit):
         """
         return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter ** 2)
 
-
     def _initialize_state(self) -> None:
         """
         Initializes the fluid state and related properties at the start of the simulation.
@@ -413,7 +389,6 @@ class WellUnitNative(Unit):
             - `_T_f[0]`: Initial fluid temperature (in Kelvin).
             - `_u[0]`: Initial flow velocity (in meters per second).
         """
-        # print('wellbore_time', self._specs.dt_list[self.time_step], self._specs.dt_list, self._t_d)
         self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND)
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
@@ -423,7 +398,6 @@ class WellUnitNative(Unit):
         self._T_f[0] = self.fluid_state_init.T
         self._u[0] = self.mass_rate / self._cross_sectional_area / self._rho[0]
         self.fluid_state_tmp = FluidState.copy(self.inlet_fluid)
-
 
     def _compute_Q_loss(self, delta_T: float, t_d: float) -> float:
         r"""
@@ -452,7 +426,6 @@ class WellUnitNative(Unit):
 
         return 2.0 * self._dL * np.pi * self._specs.rock_k * beta * delta_T
 
-
     def _compute_delta_P_loss(self, ff: float, rho: float, u: float) -> float:
         r"""
         Computes pressure loss using the Darcy-Weisbach equation.
@@ -479,7 +452,6 @@ class WellUnitNative(Unit):
                 - :math:`D` is the diameter of the wellbore (meters).
         """
         return 0.5 * ff * self._dL * rho * u ** 2 / self._diameter
-
 
     def _compute_friction_factor(self, rho, mu, u) -> float:
         r"""
@@ -508,7 +480,6 @@ class WellUnitNative(Unit):
         Re = rho * u * self._diameter / mu  # Reynolds number
         r = self._relative_roughness  # relative roughness
         return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
-
 
     def _get_dimensionless_time(self) -> float:
         return self._t_d

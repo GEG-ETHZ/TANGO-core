@@ -5,7 +5,6 @@ from math import e as exp
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
-from tango.units.check_fracing import calculate_injection_rate
 
 import csv
 import os
@@ -86,52 +85,8 @@ class ReservoirUnitNative(Unit):
             If the mass rate exceeds the fracking mass rate, the user is prompted to select an action.
         """
         outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-
-        self.fracing_mass_rate = calculate_injection_rate(
-            self.specs.thickness,
-            self.specs.permeability,
-            self.inlet_fluid.mu,
-            self.specs.hydro_static_pressure * (self.specs.over_pressure_percentage + 100.0) / 100.0,
-            self.specs.hydro_static_pressure,
-            self.specs.well_diameter,
-            self.specs.well_spacing / 2.0
-        ) * self.inlet_fluid.rho
-
         self.mass_rate = mass_rate
-
-        # if self.fracing_mass_rate < mass_rate:
-        #     print("\nWarning: The mass rate exceeds the fracking threshold!")
-        #     print("Options:")
-        #     print("1. Reduce to the maximum allowable rate.")
-        #     print("2. Set a new rate below the fracking threshold.")
-        #     print("3. Accept seismic consequences.")
-        #     print("4. Operate with an optimized rate (unsupported).")
-        #
-        #     choice = input("Enter 1, 2, 3, or 4: ")
-        #     if choice == '1':
-        #         action = input("Offset to prevent fracking (Kg/s): ")
-        #         self.mass_rate = self.fracing_mass_rate - max(1.0, float(action))
-        #         outlet_pressure = self.specs.hydro_static_pressure
-        #         outlet_temperature = self._compute_initial_temperature()
-        #     elif choice == '2':
-        #         action = input("Enter a new mass rate: ")
-        #         self.mass_rate = float(action)
-        #         outlet_pressure = self.specs.hydro_static_pressure
-        #         outlet_temperature = self._compute_initial_temperature()
-        #     elif choice == '3':
-        #         print("Continuing with the current rate despite seismic risks.")
-        #         self.mass_rate = mass_rate
-        #     elif choice == '4':
-        #         print("This option is currently unsupported.")
-        #     else:
-        #         print("Invalid choice. Aborting stream interface update.")
-        #         return
-
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-
-        # print('\nReservoir Inlet: P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
-        # print(f'Reservoir Outlet: P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
-
 
     def process_stream(self) -> tuple:
         r"""
@@ -214,8 +169,6 @@ class ReservoirUnitNative(Unit):
         psi = self._get_energy_extracted() / reservoir_energy
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T
-
-        # print('Reservoir time:', dt, self.specs.dt_list, self._energy_extracted / 1e9)
 
         return outlet_pressure, outlet_temperature, self.m_dot
 
@@ -475,7 +428,6 @@ class ReservoirUnitNative(Unit):
             1. Compute coefficients based on reservoir and fluid properties.
             2. \( p1 \), \( p2 \), and \( p3 \) are used in the depletion curve function.
         """
-        # print(self.mass_rate, 'res')
         if (self.specs.bc_iteration != None):
             m_dot = self.mass_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
         else:
@@ -601,4 +553,3 @@ class ReservoirUnitNative(Unit):
             - Stores these coefficients for use in depletion curve calculations.
         """
         self.p1, self.p2, self.p3 = self._compute_depletion_curve_coeffs()
-

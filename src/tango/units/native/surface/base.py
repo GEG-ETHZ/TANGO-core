@@ -48,9 +48,6 @@ class SurfaceUnitNative(Unit):
         self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         self.P = self.outlet_fluid.P
         self.H = self.outlet_fluid.H
-        # print('\n')
-        # print(f'pp inlet -> P = {self.inlet_fluid.P}, T = {self.inlet_fluid.T}, q = {self.mass_rate}')
-        # print(f'pp outlet -> P = {self.outlet_fluid.P}, T = {self.outlet_fluid.T}')
 
     def update_inlet_state(self) -> None:
         r"""
@@ -59,7 +56,6 @@ class SurfaceUnitNative(Unit):
         This method calculates average temperature (T), pressure (P), and enthalpy (H) from all
         incoming streams, then updates the state of the inlet fluid.
         """
-        print(self._m_dot_mult, 'important')
         total_mass_rate = 0.0
         for sl in self.inlet_streams:
             total_mass_rate += sl.mass_rate
@@ -89,7 +85,6 @@ class SurfaceUnitNative(Unit):
             - 1.0 for other patterns.
         """
         self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
-        # self._m_dot_mult = 1.0
 
     def _set_constants(self) -> None:
         """
@@ -152,4 +147,3 @@ class SurfaceUnitNative(Unit):
             float: Condensing parasitic power fraction.
         """
         return self._BAC_regression_model(coeffs=self._coeffs_condensing)
-
