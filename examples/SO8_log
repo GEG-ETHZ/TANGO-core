@@ -1,15 +1,15 @@
 Optimal Variables:
-x1 = 121.318982, x2 = 0.023954
+x1 = 149.998194, x2 = 0.040000
 Maximum Value:
-inf
+2039446.0564311352
 
-Generation 1: x1 = 122.901281, x2 = 0.020070, f_min = [-inf]
-Generation 2: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 3: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 4: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 5: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 6: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 7: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 8: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 9: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
-Generation 10: x1 = 121.318982, x2 = 0.023954, f_min = [-inf]
+Generation 1: x1 = 124.964730, x2 = 0.039952, f_min = [-1850894.420695]
+Generation 2: x1 = 124.964730, x2 = 0.039952, f_min = [-1850894.420695]
+Generation 3: x1 = 126.352109, x2 = 0.039946, f_min = [-1861520.073002]
+Generation 4: x1 = 130.458004, x2 = 0.039944, f_min = [-1891250.052258]
+Generation 5: x1 = 133.369545, x2 = 0.039949, f_min = [-1913509.860622]
+Generation 6: x1 = 136.577193, x2 = 0.039995, f_min = [-1941885.569629]
+Generation 7: x1 = 146.450458, x2 = 0.039995, f_min = [-2014112.808370]
+Generation 8: x1 = 149.491368, x2 = 0.039999, f_min = [-2035952.449177]
+Generation 9: x1 = 149.999125, x2 = 0.039999, f_min = [-2039390.995408]
+Generation 10: x1 = 149.998194, x2 = 0.040000, f_min = [-2039446.056431]
