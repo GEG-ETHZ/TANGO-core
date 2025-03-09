@@ -22,7 +22,12 @@ ECONOMIC_KEYS = {
     "Net_thermal_power_Generated_kWe": "THERMAL_POWER_AVE",
     "CAPEX_total": "TOTAL_CAPEX",
     "LCOE": "LCOE",
-    "SpCC": "SPCC"
+    "SpCC": "SPCC",
+    "CAPEX_well": "CAPEX_WELL",
+    "CAPEX_permitting": "CAPEX_PERMITTING",
+    "CAPEX_exploration": "CAPEX_EXPLORATION",
+    "CAPEX_surface_gathering_system": "CAPEX_SURFACE_GATHERING_SYSTEM",
+    "CAPEX_surface_plant": "CAPEX_SURFACE_PLANT"
 }
 
 RESULT_KEYS = {
@@ -49,19 +54,39 @@ TARGET_PARAMETER_MAPPING.update({
 VARIABLE_CATEGORIES = {
     "schedule": ["mass_flow_rate", "well_spacing"],
     "props": ["rock_density", "rock_cp", "rock_k", "thermal_gradient", "brine_density", "num_pp"],
-    "surface": ["surface_temperature", "surface_pressure", "eta_pump", "pipe_diameter", "temperature_range", "total_pipe_length", "eta_turbine"],
-    "reservoir": ["porosity", "permeability", "initial_pressure", "initial_temperature", "reservoir_depth", "over_pressure_percentage", "thickness", "area", "net_to_gross_ratio", "well_eff_diameter"],
-    "injection_well": ["diameter", "well_length"],
-    "production_well": ["diameter", "well_length"],
-    "economic": ["discount_rate"],
-    "turbine": ["p_out"]
+    "surface": [
+        "surface_temperature", "surface_pressure", "eta_pump", "pipe_diameter",
+        "temperature_range", "total_pipe_length", "eta_turbine", "approach_temperature",
+        "condensation_pressure_offset"],
+    "reservoir": ["porosity", "permeability", "initial_pressure", "initial_temperature", "reservoir_depth", "over_pressure_percentage", "thickness", "area", "net_to_gross_ratio", "well_eff_diameter", "hydro_static_pressure"],
+    "injection_well": {
+        "diameter": "injection_well_diameter",
+        "well_length": "injection_well_length",
+        "epsilon": "injection_well_epsilon",
+        "vertical_deviation": "injection_well_vertical_deviation",
+        "wellhead_depth": "injection_well_wellhead_depth",
+        "num_cells": "injection_well_num_cells",
+    },
+    "production_well": {
+        "diameter": "production_well_diameter",
+        "well_length": "production_well_length",
+        "epsilon": "production_well_epsilon",
+        "vertical_deviation": "production_well_vertical_deviation",
+        "wellhead_depth": "production_well_wellhead_depth",
+        "num_cells": "production_well_num_cells",
+    },
+    "economic": ["discount_rate"]
 }
 
-VARIABLE_PARAMETER_MAPPING = {
-    param: f"{BASE_PATHS['specs']}['{category}']['{param}']"
-    for category, parameters in VARIABLE_CATEGORIES.items()
-    for param in parameters
-}
+VARIABLE_PARAMETER_MAPPING = {}
+
+for category, parameters in VARIABLE_CATEGORIES.items():
+    if isinstance(parameters, dict):
+        for param_key, param_value in parameters.items():
+            VARIABLE_PARAMETER_MAPPING[param_value] = f"{BASE_PATHS['specs']}['{category}']['{param_key}']"
+    else:
+        for param in parameters:
+            VARIABLE_PARAMETER_MAPPING[param] = f"{BASE_PATHS['specs']}['{category}']['{param}']"
 
 def get_target_translation(parameter_name: str) -> str:
     """

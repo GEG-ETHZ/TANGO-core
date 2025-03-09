@@ -70,9 +70,9 @@ class FunctionEvaluator:
             if hasattr(orchestrator.unit, 'surface'):
                 specs["surface"] = orchestrator.unit.surface.specs
             if hasattr(orchestrator.unit, 'injection_well'):
-                specs["injection_well"] = orchestrator.unit.injection_well.specs
+                specs["injection_well"] = orchestrator.unit.injection_well._specs
             if hasattr(orchestrator.unit, 'production_well'):
-                specs["production_well"] = orchestrator.unit.production_well.specs
+                specs["production_well"] = orchestrator.unit.production_well._specs
             if hasattr(orchestrator.unit, 'reservoir'):
                 specs["reservoir"] = orchestrator.unit.reservoir.specs
 
@@ -104,14 +104,24 @@ class FunctionEvaluator:
         specs_dicts = {key: to_dict(value) for key, value in specs.items() if value}
 
         processed_mapping = {}
+
         for key, value in mapping.items():
             for spec_name, spec_dict in specs_dicts.items():
-                if key in spec_dict:
-                    if spec_name == "economic":
-                        processed_mapping[key] = f"self.economic.specs.{key}"
-                    else:
-                        processed_mapping[key] = f"self.orchestrator.unit.{spec_name}.specs.{key}"
-                    break
+                if spec_name in ["injection_well", "production_well"]:
+                    for original_key in ["diameter", "well_length", "epsilon", "vertical_deviation", "wellhead_depth", "num_cells"]:
+                        renamed_key = f"{spec_name}_{original_key}"
+                        if renamed_key == key:
+                            processed_mapping[key] = f"self.orchestrator.unit.{spec_name}._specs.{original_key}"
+                            break
+                else:
+                    # Normal mapping for other categories
+                    if key in spec_dict:
+                        if spec_name == "economic":
+                            processed_mapping[key] = f"self.economic.specs.{key}"
+                        else:
+                            processed_mapping[key] = f"self.orchestrator.unit.{spec_name}.specs.{key}"
+                        break
+
         self.variable_mapping = processed_mapping
 
     def set_context(self, context):
