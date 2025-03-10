@@ -110,7 +110,13 @@ class FlowRateCalculator():
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             self.surface.power_plant.funcs = funcs
 
-        iterations = 7
+        iterations = 20
+
+        tolerance = 0.0001
+        prev_test_p = None
+        prev_mass_rate = None
+        prev_inlet_p = None
+        converged = False  # Flag to track convergence
 
         for _ in range(iterations):
 
@@ -199,6 +205,29 @@ class FlowRateCalculator():
             self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
             self.surface.stream_interface()
             self.mass_rate_test = self.surface.mass_rate
+
+            # Check for convergence using relative tolerance
+            if prev_test_p is not None and prev_mass_rate is not None and prev_inlet_p is not None:
+                rel_tol_test_p = abs(self.test_p - prev_test_p) / max(abs(prev_test_p), 1e-8)
+                rel_tol_mass_rate = abs(self.inj_well.mass_rate - prev_mass_rate) / max(abs(prev_mass_rate), 1e-8)
+                rel_tol_inlet_p = abs(self.inj_well.inlet_fluid.P - prev_inlet_p) / max(abs(prev_inlet_p), 1e-8)
+
+                if rel_tol_test_p < tolerance and rel_tol_mass_rate < tolerance and rel_tol_inlet_p < tolerance:
+                    print("Converged: Breaking loop.")
+                    converged = True
+                    break  # Stop the loop early if the convergence condition is met
+
+            # Update previous values for next iteration
+            prev_test_p = self.test_p
+            prev_mass_rate = self.inj_well.mass_rate
+            prev_inlet_p = self.inj_well.inlet_fluid.P
+
+        if not converged:
+            raise RuntimeError(
+                f"Convergence not reached after {iterations} iterations. "
+                f"Final relative differences: test_p={rel_tol_test_p:.6f}, "
+                f"mass_rate={rel_tol_mass_rate:.6f}, inlet_p={rel_tol_inlet_p:.6f}"
+            )
 
         if self.pro_well_pump:
             self.surface.prod_pump_aux = -(self.pro_well_pump.inlet_fluid.H - self.pro_well.outlet_fluid.H) * self.pro_well_pump.mass_rate
