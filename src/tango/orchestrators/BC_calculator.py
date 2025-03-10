@@ -116,7 +116,7 @@ class FlowRateCalculator():
         prev_test_p = None
         prev_mass_rate = None
         prev_inlet_p = None
-        converged = False  # Flag to track convergence
+        converged = False
 
         for _ in range(iterations):
 
@@ -166,7 +166,6 @@ class FlowRateCalculator():
             self.reservoir.stream_interface()
 
             # Update production well
-            print(self.reservoir.outlet_fluid.P, self.reservoir.outlet_fluid.T)
             pro_P_test = max(self.reservoir.outlet_fluid.P, self.pro_well._specs.well_length * 900 * 9.8)
 
             if pro_P_test == self.pro_well._specs.well_length * self.reservoir.outlet_fluid.rho * 9.8:
@@ -206,18 +205,15 @@ class FlowRateCalculator():
             self.surface.stream_interface()
             self.mass_rate_test = self.surface.mass_rate
 
-            # Check for convergence using relative tolerance
             if prev_test_p is not None and prev_mass_rate is not None and prev_inlet_p is not None:
                 rel_tol_test_p = abs(self.test_p - prev_test_p) / max(abs(prev_test_p), 1e-8)
                 rel_tol_mass_rate = abs(self.inj_well.mass_rate - prev_mass_rate) / max(abs(prev_mass_rate), 1e-8)
                 rel_tol_inlet_p = abs(self.inj_well.inlet_fluid.P - prev_inlet_p) / max(abs(prev_inlet_p), 1e-8)
 
                 if rel_tol_test_p < tolerance and rel_tol_mass_rate < tolerance and rel_tol_inlet_p < tolerance:
-                    print("Converged: Breaking loop.")
                     converged = True
-                    break  # Stop the loop early if the convergence condition is met
+                    break
 
-            # Update previous values for next iteration
             prev_test_p = self.test_p
             prev_mass_rate = self.inj_well.mass_rate
             prev_inlet_p = self.inj_well.inlet_fluid.P
