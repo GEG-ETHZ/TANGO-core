@@ -116,7 +116,7 @@ schedule:
     check_fracing: yes
     max_mass_rate: 150
   mass_rate:
-    type: manual
+    type: automatic
     value: 1030
 
 economic: # optional

@@ -41,6 +41,14 @@ class FlowRateCalculator():
         self.surface.system_external = True
         self.tp = []
 
+        if (self.reservoir.specs.mass_rate['type'] == 'manual'):
+            self.test_p = self.surface.specs.injection_pressure
+        else:
+            if (self.surface._fluid_name == 'CO2'):
+                self.test_p = 9100000
+            else:
+                self.test_p = 7000000.0
+
         if (self.reservoir.specs.well_pattern == 'DOUBLET'):
             self.scaling_factor = 1.0
         elif (self.reservoir.specs.well_pattern == 'INVERTED_5SPOT'):
@@ -102,7 +110,6 @@ class FlowRateCalculator():
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             self.surface.power_plant.funcs = funcs
 
-        test_p = 10000000
         iterations = 7
 
         for _ in range(iterations):
@@ -112,11 +119,19 @@ class FlowRateCalculator():
                 self.inj_well.mass_rate = inlet_flow
             else:
                 self.inj_well.mass_rate = self.mass_rate_test
-            self.inj_well.update_inlet_fluid_state_PT(P=test_p, T=self.surface.outlet_fluid.T)
+            self.inj_well.update_inlet_fluid_state_PT(P=self.test_p, T=self.surface.outlet_fluid.T)
             self.inj_well.stream_interface()
-            test_p += (target_p - self.inj_well.outlet_fluid.P)
+
+            if (self.reservoir.specs.mass_rate['type'] != 'manual'):
+                self.test_p += (target_p - self.inj_well.outlet_fluid.P)
+            else:
+                if (self.inj_well.outlet_fluid.P < target_p):
+                    pass
+                else:
+                    self.test_p += (target_p - self.inj_well.outlet_fluid.P)
+
             if hasattr(self.surface, 'condensation_pressure'):
-                test_p = max(test_p, self.surface.condensation_pressure)
+                self.test_p = max(self.test_p, self.surface.condensation_pressure)
 
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
@@ -145,8 +160,14 @@ class FlowRateCalculator():
             self.reservoir.stream_interface()
 
             # Update production well
+            print(self.reservoir.outlet_fluid.P, self.reservoir.outlet_fluid.T)
+            pro_P_test = max(self.reservoir.outlet_fluid.P, self.pro_well._specs.well_length * 900 * 9.8)
+
+            if pro_P_test == self.pro_well._specs.well_length * self.reservoir.outlet_fluid.rho * 9.8:
+                self.test_p += -(self.reservoir.outlet_fluid.P - self.pro_well._specs.well_length * 900 * 9.8)
+
             self.pro_well.mass_rate = self.reservoir.mass_rate
-            self.pro_well.inlet_fluid.updatePT(P=self.reservoir.outlet_fluid.P, T=self.reservoir.outlet_fluid.T)
+            self.pro_well.inlet_fluid.updatePT(P=pro_P_test, T=self.reservoir.outlet_fluid.T)
             self.pro_well.stream_interface()
 
             # If pump exists, apply pump logic
@@ -172,9 +193,9 @@ class FlowRateCalculator():
             # Update surface
             self.surface.mass_rate = self.reservoir.mass_rate * self.scaling_factor
             if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
-                self.surface.power_plant.iterative_inj_pressure = test_p
+                self.surface.power_plant.iterative_inj_pressure = self.test_p
             else:
-                self.surface.iterative_inj_pressure = test_p
+                self.surface.iterative_inj_pressure = self.test_p
             self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
             self.surface.stream_interface()
             self.mass_rate_test = self.surface.mass_rate

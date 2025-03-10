@@ -361,6 +361,8 @@ class EconUnitSurfacePowerPlant:
         Example:
             >>> cost = self._compute_pump_inj_cost(1e6)
         """
+        if (W_pump > 0):
+            W_pump = 0
         PPI = self._PPI_pump
         S_pump = self._pump_material_cost_multiplier
 

@@ -40,6 +40,7 @@ class CommonSpecs:
     bc_iteration: Optional[BcIteration] = None
     mass_rate: Optional[MassRate] = None
     target_extraction_pressure: float = 2000000
+    injection_pressure: float = 2000000
     output_table: str = 'yes'
     power_plant_table: str = 'yes'
 

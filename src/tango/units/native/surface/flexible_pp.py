@@ -36,6 +36,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
         self.specs.org = specs
+        self._fluid_name = self.specs.fluid_name
         self._m_dot_mult = 1
         self.current_row = 0
         self.prod_pump_w_list = []

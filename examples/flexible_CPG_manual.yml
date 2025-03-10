@@ -82,6 +82,7 @@ costs:
 
 schedule:
   bc_iteration_checkpoint: injection_well_bottom
+  injection_pressure: 7100000
   mass_flow_rate: 50.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)

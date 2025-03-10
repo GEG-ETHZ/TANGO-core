@@ -89,6 +89,7 @@ costs:
 
 schedule:
   bc_iteration_checkpoint: injection_well_bottom
+  injection_pressure: 1000000
   mass_flow_rate: 200.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
@@ -103,7 +104,7 @@ schedule:
     check_fracing: yes
     max_mass_rate: 150
   mass_rate:
-    type: manual
+    type: automatic
     value: 1030
 
 economic: # optional
