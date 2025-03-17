@@ -61,7 +61,7 @@ VARIABLE_CATEGORIES = {
     "reservoir": ["porosity", "permeability", "initial_pressure", "initial_temperature", "reservoir_depth", "over_pressure_percentage", "thickness", "area", "net_to_gross_ratio", "well_eff_diameter", "hydro_static_pressure"],
     "injection_well": {
         "diameter": "injection_well_diameter",
-        "well_length": "injection_well_length",
+        "well_length": "injection_well_well_length",
         "epsilon": "injection_well_epsilon",
         "vertical_deviation": "injection_well_vertical_deviation",
         "wellhead_depth": "injection_well_wellhead_depth",

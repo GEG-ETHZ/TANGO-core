@@ -71,8 +71,8 @@ production_well:
 
 functions:
   wells_cost:
-    type: Constant
-    value: 20000000
+    type: mathematical_expression
+    value: (injection_well_diameter + production_well_diameter)**2 * 5 * 3000000
   pp_cost:
     type: mathematical_expression
     value: (mass_flow_rate * 10000.0)**(surface_temperature/300.0) + 5000000.0
