@@ -72,7 +72,7 @@ class EconUnitExploration:
             - \( C_{\text{well, unit}} \): Cost of an individual characterization well.
             - \( P_{\text{success}} \): Probability of success for production wells.
         """
-        if self._specs.fluid_name != 'CO2':
+        if (self._specs.fluid_name != 'CO2' or self._specs.well_pattern == 'AGS'):
             return 0
         num_wells = self._specs.num_characterization_wells
         pos = self._well_econ_unit.production_well.get_probability_of_success()

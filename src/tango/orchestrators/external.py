@@ -24,10 +24,12 @@ class SystemExternal(UnitManager):
         """
         super().__init__(specs)
 
-        if not hasattr(self.unit, 'production_well_pump') or self.unit.production_well_pump is None:
-            self.unit.production_well_pump = None
+        for component in ['injection_well', 'production_well', 'reservoir', 'surface', 'production_well_pump']:
+            if not hasattr(self.unit, component) or getattr(self.unit, component) is None:
+                setattr(self.unit, component, None)
 
-        self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
+        if (self.unit.injection_well.__class__.__name__ != 'WellUnitMOOSE'):
+            self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
 
     def update(self, funcs) -> None:
         """
@@ -39,20 +41,23 @@ class SystemExternal(UnitManager):
         Raises:
             NotImplementedError: If the surface unit or checkpoint type is unsupported.
         """
-        if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
+        if (self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
+            pass # check bc_point here
+        else:
+            if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
 
-            if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
+                if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
 
-                if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
-                    self.flow_rate_calculator.iterator(self.unit.reservoir.inlet_pressure, self.unit.reservoir.inlet_flow, funcs)
+                    if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+                        self.flow_rate_calculator.iterator(self.unit.reservoir.inlet_pressure, self.unit.reservoir.inlet_flow, funcs)
+                    else:
+                        self.flow_rate_calculator.iterator(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), None, funcs)
+
                 else:
-                    self.flow_rate_calculator.iterator(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), None, funcs)
+                    raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
 
             else:
-                raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
-
-        else:
-            raise NotImplementedError("Only 'injection_well_bottom' is supported as a checkpoint when the external system is used as orchestrator")
+                raise NotImplementedError("Only 'injection_well_bottom' is supported as a checkpoint when the external system is used as orchestrator")
 
     def update_time_dependent_vars(self) -> None:
         """
@@ -64,16 +69,19 @@ class SystemExternal(UnitManager):
         Raises:
             NotImplementedError: If the surface unit type is unsupported.
         """
-        if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
-            if self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit':
-                self.unit.reservoir.update_energy_extracted_old()
-            self.unit.injection_well.update_dimensionless_time_old()
-            self.unit.production_well.update_dimensionless_time_old()
-            if (self.unit.production_well_pump != None):
-                self.unit.production_well_pump.update_dimensionless_time_old()
-            self.unit.surface.current_row += 1
-            self.unit.reservoir.current_row += 1
-            self.unit.injection_well.current_row += 1
-            self.unit.production_well.current_row += 1
+        if (self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
+            pass # check bc_point here
         else:
-            raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+            if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
+                if self.unit.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit':
+                    self.unit.reservoir.update_energy_extracted_old()
+                self.unit.injection_well.update_dimensionless_time_old()
+                self.unit.production_well.update_dimensionless_time_old()
+                if (self.unit.production_well_pump != None):
+                    self.unit.production_well_pump.update_dimensionless_time_old()
+                self.unit.surface.current_row += 1
+                self.unit.reservoir.current_row += 1
+                self.unit.injection_well.current_row += 1
+                self.unit.production_well.current_row += 1
+            else:
+                raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")

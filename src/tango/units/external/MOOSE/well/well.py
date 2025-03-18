@@ -70,11 +70,12 @@ class WellUnitMOOSE(MOOSERunner):
         self._interface.temperature_from_TANGO = self.inlet_fluid.T
         self._interface.flowrate_from_TANGO = self.mass_rate / self.inlet_fluid.rho
         self._interface.run(self._post_processor_path)
+        self.MOOSE_dt_list = self._interface.MOOSE_dt_list
 
-        if self._interface.temperature_from_MOOSE > 350:
-            return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, 45
+        if self._interface.temperature_from_MOOSE > 320:
+            return self._interface.pressure_from_MOOSE, self._interface.temperature_from_MOOSE, self.mass_rate
         else:
-            return 2000000, 383, 45
+            return 2000000, 383, 20
 
     def get_probability_of_success(self) -> float:
         """

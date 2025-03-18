@@ -67,13 +67,13 @@ class FunctionEvaluator:
         specs = {}
 
         if orchestrator:
-            if hasattr(orchestrator.unit, 'surface'):
+            if hasattr(orchestrator.unit, 'surface') and getattr(orchestrator.unit, 'surface') is not None:
                 specs["surface"] = orchestrator.unit.surface.specs
-            if hasattr(orchestrator.unit, 'injection_well'):
+            if hasattr(orchestrator.unit, 'injection_well') and getattr(orchestrator.unit, 'injection_well') is not None:
                 specs["injection_well"] = orchestrator.unit.injection_well._specs
-            if hasattr(orchestrator.unit, 'production_well'):
+            if hasattr(orchestrator.unit, 'production_well') and getattr(orchestrator.unit, 'production_well') is not None:
                 specs["production_well"] = orchestrator.unit.production_well._specs
-            if hasattr(orchestrator.unit, 'reservoir'):
+            if hasattr(orchestrator.unit, 'reservoir') and getattr(orchestrator.unit, 'reservoir') is not None:
                 specs["reservoir"] = orchestrator.unit.reservoir.specs
 
         if economic and economic.specs:

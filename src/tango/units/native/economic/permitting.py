@@ -90,7 +90,7 @@ class EconUnitPermitting:
             - \( N_{\text{patterns}} \): Number of well patterns.
             - \( C_{\text{well, unit}}(d, pos) \): Cost of an individual monitoring well based on diameter (\( d \)) and probability of success (\( pos \)).
         """
-        if self._specs.fluid_name != 'CO2':
+        if (self._specs.fluid_name != 'CO2' or self._specs.well_pattern == 'AGS'):
             return 0
         X_IC, X_PC = self._X_IC, self._X_PC
         PPI = self._PPI_OnGs

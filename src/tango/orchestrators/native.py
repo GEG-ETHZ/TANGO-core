@@ -93,7 +93,6 @@ class SystemCPGNative(SystemNative):
             specs (dict): The specifications for the system.
         """
         super().__init__(specs)
-        self._input_check(['injection_well', 'reservoir', 'production_well', 'surface'])
         self._set_convergence_criteria()
         self.stop = False
 

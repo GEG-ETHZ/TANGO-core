@@ -469,7 +469,7 @@ class EconomicUnitNative(Unit):
         idx = df.index[df['Component'] == component]
         return df['X_IC'].iloc[idx].iloc[0], df['X_PC'].iloc[idx].iloc[0]
 
-    def _compute_annual_results(self, d) -> None:
+    def _compute_annual_results(self, d, time_step_list) -> None:
         """
         Computes annual and averaged results for Levelized Cost of Energy (LCOE) calculation.
 
@@ -486,6 +486,8 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._compute_annual_results(results_dict)
         """
+        if (time_step_list != None):
+            self.specs.dt_list = np.array(time_step_list) / 31536000.0
         self.total_time = sum(self.specs.dt_list)
         var_names = ['thermal_power', 'dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator',
                      'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater',
@@ -637,7 +639,7 @@ class EconomicUnitNative(Unit):
         """
         return self._results
 
-    def execute(self, results: dict, evaluated_funcs) -> None:
+    def execute(self, results: dict, evaluated_funcs, time_step_list) -> None:
         """
         Executes the economic calculations.
 
@@ -652,6 +654,6 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self.execute(simulation_results)
         """
-        self._compute_annual_results(results)
+        self._compute_annual_results(results, time_step_list)
         self._compute_capex(evaluated_funcs, results)
         self._compute_LCOE()

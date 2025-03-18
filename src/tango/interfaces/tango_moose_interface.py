@@ -44,6 +44,7 @@ class TangoMooseInterface:
         self._setup_csv_file(self._pressure_bc_path, self.pressure_from_TANGO)
         self._setup_csv_file(self._flowrate_bc_path, self.flowrate_from_TANGO)
         self._setup_csv_file(self._temperature_bc_path, self.temperature_from_TANGO)
+        self.MOOSE_dt_list = []
 
     def _set_bc_path(self, moose_input_path, bc_file):
         """
@@ -114,18 +115,15 @@ class TangoMooseInterface:
         return timestep_match, success_match
 
     def extract_timestep_info(self, timestep_match):
-        """
-        Extracts timestep information from a matched pattern.
-
-        Args:
-            timestep_match (re.Match): Match object for the timestep pattern.
-
-        Returns:
-            tuple: Current timestep, time, and dt.
-        """
         current_timestep = int(timestep_match.group(1))
         time = float(timestep_match.group(2))
-        dt = float(timestep_match.group(3))
+        dt_raw = timestep_match.group(3)
+
+        if "." in dt_raw:
+            dt = float(dt_raw)
+        else:
+            dt = float(dt_raw)
+            dt *= 10
 
         return current_timestep, time, dt
 
@@ -162,7 +160,7 @@ class TangoMooseInterface:
                 rows = list(csv_reader)
                 if len(rows) > 1:
                     last_row = rows[-1]
-                    return float(last_row[1]), float(last_row[2]), float(last_row[3])
+                    return float(last_row[2]), float(last_row[4]), float(last_row[6])
                 else:
                     raise ValueError("CSV file does not contain data rows.")
         except FileNotFoundError as e:
@@ -184,6 +182,7 @@ class TangoMooseInterface:
             timestep_match, success_match = self.parse_moose_output(line)
             if timestep_match:
                 current_timestep, time, dt = self.extract_timestep_info(timestep_match)
+                self.MOOSE_dt_list.append(dt)
                 self._write_csv_row(self._pressure_bc_path, time, self.pressure_from_TANGO)
                 self._write_csv_row(self._temperature_bc_path, time, self.temperature_from_TANGO)
                 self._write_csv_row(self._flowrate_bc_path, time, self.flowrate_from_TANGO)

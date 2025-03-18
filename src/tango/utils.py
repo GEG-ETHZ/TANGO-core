@@ -115,29 +115,28 @@ def load_from_yaml(filename: str) -> Dict[str, Any]:
         >>> specs = load_from_yaml("input.yml")
     """
     try:
-        # Load the YAML file
         with open(filename, 'r') as file:
             specs = yaml.load(file, Loader=SafeLoader)
     except Exception as e:
         raise RuntimeError(f"Failed to read {filename}: {e}")
 
-    # Validate inputs
-    check_inputs(specs)  # Ensure this function is properly implemented elsewhere
+    check_inputs(specs)
 
-    # Extract and validate time configuration
     try:
         time_config = specs["schedule"].get("time", {})
         time_type = time_config.get("type")
     except KeyError as e:
         raise RuntimeError(f"Missing expected key in YAML: {e}")
 
-    if time_type not in {"ConstantDT", "FunctionDT"}:
+    if time_type not in {"ConstantDT", "FunctionDT", "MOOSEDT"}:
         raise RuntimeError(f"Unsupported time type: {time_type}")
 
     if time_type == "ConstantDT":
         _process_constant_dt(specs, time_config)
     elif time_type == "FunctionDT":
         _process_function_dt(specs, time_config)
+    elif time_type == "MOOSEDT":
+        _process_MOOSE_dt(specs, time_config)
 
     return specs
 
@@ -171,9 +170,15 @@ def _process_constant_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> 
     except KeyError as e:
         raise RuntimeError(f"Missing required key for ConstantDT: {e}")
 
-    # Create a list of constant time steps
     specs["schedule"]['dt_list'] = [dt] * num_tsteps
 
+def _process_MOOSE_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
+    try:
+        num_tsteps = time_config["num_tsteps"]
+    except KeyError as e:
+        raise RuntimeError(f"Missing required key for ConstantDT: {e}")
+
+    specs["schedule"]['dt_list'] = [1] * num_tsteps
 
 def _process_function_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
     """

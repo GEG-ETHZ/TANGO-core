@@ -1,10 +1,5 @@
 [
     [
-        "surface",
-        "inj_1",
-        "non-isentropic"
-    ],
-    [
         "inj_1",
         "reservoir",
         "non-isentropic"
@@ -15,8 +10,28 @@
         "non-isentropic"
     ],
     [
+        "pump",
+        "inj_1",
+        "non-isentropic"
+    ],
+    [
         "prd_1",
-        "surface",
+        "turbine",
+        "non-isentropic"
+    ],
+    [
+        "turbine",
+        "cooler",
+        "non-isentropic"
+    ],
+    [
+        "cooler",
+        "condenser",
+        "non-isentropic"
+    ],
+    [
+        "condenser",
+        "pump",
         "non-isentropic"
     ]
 ]

@@ -75,6 +75,7 @@ class NativeWorkflow(Workflow):
         super().__init__(specs)
         self._input_file = input_file
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
+        self.dt_list = None
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
@@ -265,8 +266,11 @@ class NativeWorkflow(Workflow):
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
 
+        if (self.orchestrator.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
+            self.dt_list = self.orchestrator.unit.injection_well.MOOSE_dt_list
+
         if self.economic:
-            self.economic.execute(self._results, self.function_evaluator.evaluated_functions)
+            self.economic.execute(self._results, self.function_evaluator.evaluated_functions, self.dt_list)
 
         for addon_name, addon_instance in self.addons.items():
             addon_specs = getattr(self, f"{addon_name}_specs")
