@@ -46,6 +46,10 @@ injection_well:
   output_file_name: "cever1.i"
   moose_input_path: '/Users/morteza/Documents/projects/moskito2/cever1.i' #
   post_processor_path: '/Users/morteza/Documents/projects/TANGO/src/tango/1_out.csv' #
+  bc_columns:
+    pressure_column_index: 2
+    temperature_column_index: 6
+    flowrate_column_index: 4
 
 production_well:
   well_length: 4000. # m

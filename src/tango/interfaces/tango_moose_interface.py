@@ -25,7 +25,8 @@ class TangoMooseInterface:
                  moose_input_path,
                  pressure_bc_file,
                  flowrate_bc_file,
-                 temperature_bc_file):
+                 temperature_bc_file,
+                 specs):
         """
         Initializes the TangoMooseInterface.
 
@@ -36,6 +37,9 @@ class TangoMooseInterface:
             flowrate_bc_file (str): Filename for the flowrate boundary condition CSV.
             temperature_bc_file (str): Filename for the temperature boundary condition CSV.
         """
+        self.MOOSE_specs = specs
+        print('interface', self.MOOSE_specs['bc_columns']['pressure_column_index'])
+        # print('interface', specs.bc_columns['pressure_column_index'], specs.bc_columns['flowrate_column_index'], specs.bc_columns['temperature_column_index'])
         self._pressure_bc_path = self._set_bc_path(moose_input_path, pressure_bc_file)
         self._flowrate_bc_path = self._set_bc_path(moose_input_path, flowrate_bc_file)
         self._temperature_bc_path = self._set_bc_path(moose_input_path, temperature_bc_file)
@@ -160,7 +164,9 @@ class TangoMooseInterface:
                 rows = list(csv_reader)
                 if len(rows) > 1:
                     last_row = rows[-1]
-                    return float(last_row[2]), float(last_row[4]), float(last_row[6])
+                    return float(last_row[self.MOOSE_specs['bc_columns']['pressure_column_index']]),\
+                           float(last_row[self.MOOSE_specs['bc_columns']['flowrate_column_index']]),\
+                           float(last_row[self.MOOSE_specs['bc_columns']['temperature_column_index']])
                 else:
                     raise ValueError("CSV file does not contain data rows.")
         except FileNotFoundError as e:

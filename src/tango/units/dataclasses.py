@@ -17,6 +17,12 @@ class MassRate:
     value: float = 50.
 
 @dataclass
+class BcColumns:
+    pressure_column_index: int
+    temperature_column_index: int
+    flowrate_column_index: int
+
+@dataclass
 class CommonSpecs:
     num_pp: int # number of power plants
     fluid_name: str
@@ -96,6 +102,7 @@ class WellSpecsMOOSE(WellSpecs):
     pressure_bc_file: str = 'pc.csv'
     flowrate_bc_file: str = 'qc.csv'
     temperature_bc_file: str = 'tc.csv'
+    bc_columns: Optional[BcColumns] = None
 
 
 @dataclass

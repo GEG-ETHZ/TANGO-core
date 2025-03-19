@@ -32,6 +32,7 @@ class MOOSERunner(Unit):
             specs (dict): Specifications for the unit.
         """
         super().__init__(id, specs)
+        self.specs = specs
 
     def _interface_instance(self,
                             moose_executable_path: str,
@@ -53,7 +54,8 @@ class MOOSERunner(Unit):
                                               moose_input_path,
                                               pressure_bc_file,
                                               flowrate_bc_file,
-                                              temperature_bc_file)
+                                              temperature_bc_file,
+                                              self.specs)
 
     def stream_interface(self) -> None:
         """

@@ -50,6 +50,7 @@ class WellUnitMOOSE(MOOSERunner):
             P (float, optional): Surface pressure for the well (Pa).
             T (float, optional): Surface temperature for the well (°C).
         """
+        # print(self._specs.bc_columns['pressure_column_index'], self._specs.bc_columns['flowrate_column_index'], self._specs.bc_columns['temperature_column_index'])
         P = self._specs.surface_pressure if P is None else P
         T = self._specs.surface_temperature if T is None else T
         self.mass_rate = self._well_mass_flow_rate
