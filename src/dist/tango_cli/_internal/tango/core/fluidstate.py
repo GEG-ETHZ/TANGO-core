@@ -1,0 +1,254 @@
+import CoolProp
+
+
+class FluidState:
+    """
+    Represents the thermodynamic state of a fluid.
+
+    This class provides various methods to create and manipulate fluid states using
+    pressure, temperature, enthalpy, entropy, and quality (Q) values. The underlying
+    calculations are handled by the CoolProp library.
+
+    Attributes:
+        cstate (CoolProp.AbstractState): The internal state object used for property calculations.
+    """
+    def __init__(self, state: CoolProp.AbstractState):
+        """
+        Initializes a new instance of the FluidState class with a given state.
+
+        This constructor should not be used directly. Instead, use the following
+        static methods to create a FluidState object:
+
+            - FluidState.withPT
+            - FluidState.withHP
+            - FluidState.withPS
+            - FluidState.withPQ
+            - FluidState.withQT
+
+        Args:
+            state (CoolProp.AbstractState): The CoolProp state object representing the fluid.
+        """
+        self.cstate: CoolProp.AbstractState = state
+
+    @staticmethod
+    def copy(state):
+        """
+        Creates a copy of a FluidState object.
+
+        Args:
+            state (FluidState): The FluidState object to be copied.
+
+        Returns:
+            FluidState: A new FluidState object with the same properties.
+        """
+        state_copy = CoolProp.AbstractState('HEOS', state.fluidname)
+        state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
+
+        return FluidState(state_copy)
+
+    @staticmethod
+    def withPT(fluidname: str, P: float, T: float):
+        """
+        Creates a FluidState object with a given pressure and temperature.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2).
+            P (float): The fluid pressure (in Pa).
+            T (float): The fluid temperature (in K).
+
+        Returns:
+            FluidState: A new FluidState object.
+        """
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PT_INPUTS, P, T)
+
+        return FluidState(state)
+
+    @staticmethod
+    def withHP(fluidname: str, H: float, P: float):
+        """
+        Creates a FluidState object with a given pressure and specific enthalpy.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2).
+            H (float): The fluid specific enthalpy (in J/kg).
+            P (float): The fluid pressure (in Pa).
+
+        Returns:
+            FluidState: A new FluidState object.
+        """
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.HmassP_INPUTS, H, P)
+
+        return FluidState(state)
+
+    @staticmethod
+    def withPS(fluidname: str, P: float, S: float):
+        """
+        Creates a FluidState object with a given pressure and specific entropy.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2).
+            P (float): The fluid pressure (in Pa).
+            S (float): The fluid specific entropy (in J/(kg*K)).
+
+        Returns:
+            FluidState: A new FluidState object.
+        """
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PSmass_INPUTS, P, S)
+
+        return FluidState(state)
+
+    @staticmethod
+    def withPQ(fluidname: str, P: float, Q: float):
+        """
+        Creates a FluidState object with a given pressure and Q (quality) value.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2).
+            P (float): The fluid pressure (in Pa).
+            Q (float): The fluid quality value, where Q = 0 is saturated liquid and Q = 1 is saturated vapor.
+
+        Returns:
+            FluidState: A new FluidState object.
+        """
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.PQ_INPUTS, P, Q)
+
+        return FluidState(state)
+
+    @staticmethod
+    def withQT(fluidname: str, Q: float, T: float):
+        """
+        Creates a FluidState object with a given temperature and Q (quality) value.
+
+        Args:
+            fluidname (str): The name of the fluid (e.g., Water, CO2).
+            T (float): The fluid temperature (in K).
+            Q (float): The fluid quality value, where Q = 0 is saturated liquid and Q = 1 is saturated vapor.
+
+        Returns:
+            FluidState: A new FluidState object.
+        """
+        state = CoolProp.AbstractState('HEOS', fluidname)
+        state.update(CoolProp.QT_INPUTS, Q, T)
+
+        return FluidState(state)
+
+    def updatePT(self, P: float, T: float):
+        """
+        Updates the fluid state with a new pressure and temperature.
+
+        Args:
+            P (float): The fluid pressure (in Pa).
+            T (float): The fluid temperature (in K).
+        """
+        self.cstate.update(CoolProp.PT_INPUTS, P, T)
+
+    def updateHP(self, H: float, P: float):
+        """
+        Updates the fluid state with a new specific enthalpy and pressure.
+
+        Args:
+            H (float): The fluid specific enthalpy (in J/kg).
+            P (float): The fluid pressure (in Pa).
+        """
+        self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
+
+    def updatePS(self, P: float, S: float):
+        """
+        Updates the fluid state with a new pressure and specific entropy.
+
+        Args:
+            P (float): The fluid pressure (in Pa).
+            S (float): The fluid specific entropy (in J/(kg*K)).
+        """
+        self.cstate.update(CoolProp.PSmass_INPUTS, P, S)
+
+    def updatePQ(self, P: float, Q: float):
+        """
+        Updates the fluid state with a new pressure and Q (quality) value.
+
+        Args:
+            P (float): The fluid pressure (in Pa).
+            Q (float): The fluid quality value.
+        """
+        self.cstate.update(CoolProp.PQ_INPUTS, P, Q)
+
+    def updateQT(self, Q: float, T: float):
+        """
+        Updates the fluid state with a new temperature and Q (quality) value.
+
+        Args:
+            Q (float): The fluid quality value.
+            T (float): The fluid temperature (in K).
+        """
+        self.cstate.update(CoolProp.QT_INPUTS, Q, T)
+
+    # Properties
+    @property
+    def fluidname(self) -> str:
+        """Returns the name of the fluid."""
+        return self.cstate.name()
+
+    @property
+    def P(self) -> float:
+        """The fluid pressure (in Pa)."""
+        return self.cstate.p()
+
+    @property
+    def T(self) -> float:
+        """The fluid temperature (in K)."""
+        return self.cstate.T()
+
+    @property
+    def H(self) -> float:
+        """The fluid specific enthalpy (in J/kg)."""
+        return self.cstate.hmass()
+
+    @property
+    def S(self) -> float:
+        """The fluid specific entropy (in J/(kg*K))."""
+        return self.cstate.smass()
+
+    @property
+    def Q(self) -> float:
+        """The fluid Q quality value (dimensionless)."""
+        return self.cstate.Q()
+
+    @property
+    def rho(self) -> float:
+        """The fluid density (in kg/m³)."""
+        return self.cstate.rhomass()
+
+    @property
+    def cp(self) -> float:
+        """The fluid specific heat capacity at constant pressure (in J/(kg*K))."""
+        return self.cstate.cpmass()
+
+    @property
+    def mu(self) -> float:
+        """The fluid viscosity (in Pa*s)."""
+        return self.cstate.viscosity()
+
+    @property
+    def Tcrit(self) -> float:
+        """The fluid critical temperature (in K)."""
+        return CoolProp.CoolProp.PropsSI('TCRIT', "", 0, "", 0, self.cstate.name())
+
+    @property
+    def Pcrit(self) -> float:
+        """The fluid critical pressure (in Pa)."""
+        return CoolProp.CoolProp.PropsSI('PCRIT', "", 0, "", 0, self.cstate.name())
+
+    # Setters
+    @T.setter
+    def T(self, T: float):
+        """Updates the state of the fluid with a new temperature while maintaining the same pressure."""
+        self.updatePT(self.P, T)
+
+    @P.setter
+    def P(self, P: float):
+        """Updates the state of the fluid with a new pressure while maintaining the same temperature."""
+        self.updatePT(P, self.T)
