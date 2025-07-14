@@ -128,7 +128,7 @@ def load_from_yaml(filename: str) -> Dict[str, Any]:
     except KeyError as e:
         raise RuntimeError(f"Missing expected key in YAML: {e}")
 
-    if time_type not in {"ConstantDT", "FunctionDT", "MOOSEDT"}:
+    if time_type not in {"ConstantDT", "FunctionDT", "MOOSEDT", "HotmapsDispatchDT"}:
         raise RuntimeError(f"Unsupported time type: {time_type}")
 
     if time_type == "ConstantDT":
@@ -137,9 +137,48 @@ def load_from_yaml(filename: str) -> Dict[str, Any]:
         _process_function_dt(specs, time_config)
     elif time_type == "MOOSEDT":
         _process_MOOSE_dt(specs, time_config)
+    elif time_type == "HotmapsDispatchDT":
+        _process_HotmapsDispatch_dt(specs, time_config)
 
     return specs
 
+def _process_HotmapsDispatch_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
+    """
+    Processes HotmapsDispatch time step configuration.
+
+    This function generates a list of time steps with a specific logic:
+    1. Starts with ones [1, 1, 1, ...] where the number of ones is (operation_year - 1)
+    2. Continues with averaging_window/8760 values, where the number of these values is 8760/averaging_window
+
+    Args:
+        specs (Dict[str, Any]): The specifications dictionary to be updated.
+        time_config (Dict[str, Any]): The time configuration dictionary (not used in this implementation).
+
+    Raises:
+        RuntimeError: If required keys are missing in the specifications.
+
+    Example:
+        >>> specs = {
+        ...     "district_heating": {"operation_year": 4},
+        ...     "schedule": {"averaging_window": 2190}
+        ... }
+        >>> _process_HotmapsDispatch_dt(specs, {})
+        >>> specs["schedule"]['dt_list']
+        [1, 1, 1, 0.25, 0.25, 0.25, 0.25]
+    """
+    try:
+        operation_year = specs["district_heating"]["operation_year"]
+        averaging_window = specs["schedule"]["averaging_window"]
+    except KeyError as e:
+        raise RuntimeError(f"Missing required key for HotmapsDispatchDT: {e}")
+
+    num_ones = operation_year - 1
+    dt_value = averaging_window / 8760
+    num_dt_values = int(8760 / averaging_window)
+
+    dt_list = [1] * num_ones + [dt_value] * num_dt_values
+
+    specs["schedule"]['dt_list'] = dt_list
 
 def _process_constant_dt(specs: Dict[str, Any], time_config: Dict[str, Any]) -> None:
     """

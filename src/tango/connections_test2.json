@@ -26,11 +26,6 @@
     ],
     [
         "cooler",
-        "condenser",
-        "non-isentropic"
-    ],
-    [
-        "condenser",
         "pump",
         "non-isentropic"
     ]

@@ -144,10 +144,11 @@ class NativeWorkflow(Workflow):
         """
         self.orchestrator.execute()
         if (self.sys_name == 'external'):
-            self.orchestrator.update(funcs)
+            self.orchestrator.update(funcs, self.economic._results)
         else:
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
+        self.economic.execute(self._results, self.function_evaluator.evaluated_functions, self.dt_list)
 
     def _save_results(self, current_date: datetime) -> None:
         """
@@ -284,6 +285,8 @@ class NativeWorkflow(Workflow):
                 addon_instance.execute()
 
         self._post_processing()
+        if 'district_heating' in self.specs:
+            self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
 
     def generate_output_table(self):
         """

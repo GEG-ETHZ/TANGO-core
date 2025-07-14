@@ -58,6 +58,7 @@ class SurfaceSpecsORCNative(CommonSpecs):
     initial_outlet_pressure: float = 1.2e6
     initial_outlet_temperature: float = 333.15
     ORC_opt_mode: str = 'min_cost'
+    pressure_constraint: float = 2000000.0
 
     def __post_init__(self):
         """
@@ -102,6 +103,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.current_row = 0
         self.prod_pump_w_list = []
         self.system_external = False
+        self.P_out_constraint = False
 
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
@@ -569,5 +571,12 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = T_13
         else:
-            self.P_out = self.inlet_fluid.P
-            self.T_out = T_13
+            if (self.P_out_constraint):
+                self.T_out = T_13
+                if (self.inlet_fluid.P > self.specs.pressure_constraint):
+                    self.P_out = self.specs.pressure_constraint
+                else:
+                    self.P_out = self.inlet_fluid.P
+            else:
+                self.P_out = self.inlet_fluid.P
+                self.T_out = T_13

@@ -9,6 +9,7 @@ from typing import List, Dict, Union, Optional
 @dataclass
 class BcIteration:
     check_fracing: str  # 'yes' or 'no'
+    controlled_power_generation: str = 'No'
 
 @dataclass
 class MassRate:
@@ -232,6 +233,42 @@ class OptimizationSpecs:
         for var, specs in self.variables.items():
             if 'lower_bound' not in specs or 'upper_bound' not in specs or 'type' not in specs:
                 raise RuntimeError(f"Variable {var} must have 'lower_bound', 'upper_bound', and 'type'.")
+
+    @classmethod
+    def from_dict(cls, env): # ignore extra arguments passed to a dataclass
+        return cls(**{
+            k: v for k, v in env.items()
+            if k in inspect.signature(cls).parameters
+        })
+
+@dataclass
+class DistrictHeatingSpecs:
+    operation_year: int
+    feeding_time: float = 20.0
+    efficiency_thermal: float = 0.95
+    efficiency_electric: float = 0.0
+    coldstart_cost: float = 1000.0
+    renewable_factor: float = 1.0
+    must_run: float = 0.0
+    max_available_potential: float = 0.0
+    max_power_output: float = 0
+    excess_heat_source_price: float = 0
+    ramping_cost: float = 0
+    type: str = "boiler" # "CHP-BP"
+    COP_source_temperature_sensitivity: float = 0
+    COP_flow_temperature_sensitivity: float = 0
+    COP_return_temperature_sensitivity: float = 0
+    min_shutoff_source_temperature: float = 0
+    fade_out_temperature: float = 0
+    source_temperature: float = 0
+    nominal_inlet_temperature: float = 0
+    nominal_return_temperature: float = 0
+    refrigerants: str = " "
+    max_power_heatpump_compressor: float = 0
+    min_output_power_factor: float = 0
+    electricity_price: str = " "
+    sale_electricity_price: str = " "
+    output_file: str = "fff.xlsx"
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass

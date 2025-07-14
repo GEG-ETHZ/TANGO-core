@@ -1,5 +1,7 @@
 from tango.core.abstracts.orchestrator import *
 from tango.orchestrators.BC_calculator import *
+from tango.orchestrators.HotmapsDispatch_runner import process_yaml_and_setup_hotmaps
+from tango.units.dataclasses import DistrictHeatingSpecs
 
 
 class SystemExternal(UnitManager):
@@ -24,14 +26,49 @@ class SystemExternal(UnitManager):
         """
         super().__init__(specs)
 
+        if 'district_heating' in specs:
+            self.specs2 = DistrictHeatingSpecs.from_dict(self._process_specs2(specs))
+
+        self._results = dict()
+
         for component in ['injection_well', 'production_well', 'reservoir', 'surface', 'production_well_pump']:
             if not hasattr(self.unit, component) or getattr(self.unit, component) is None:
                 setattr(self.unit, component, None)
 
-        if (self.unit.injection_well.__class__.__name__ != 'WellUnitMOOSE'):
-            self.flow_rate_calculator = FlowRateCalculator(self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
+        if ((self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE') and (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative')):
+            self.unit.surface.P_out_constraint = True
 
-    def update(self, funcs) -> None:
+        self.specs3 = (self._process_specs3(specs))
+
+        if (self.unit.injection_well.__class__.__name__ != 'WellUnitMOOSE'):
+            self.flow_rate_calculator = FlowRateCalculator(self.specs3, self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
+
+    def _process_specs2(self, specs) -> dict:
+        """
+        Processes the reservoir specifications and computes derived parameters.
+
+        This method ensures the effective well diameter is computed if not already specified,
+        and merges common and reservoir-specific specifications.
+
+        Args:
+            specs (dict): Input specifications for the reservoir.
+
+        Returns:
+            dict: Processed specifications with all required parameters.
+
+        Process:
+            - If `well_eff_diameter` is not specified:
+                - Use the diameter of the injection and production wells to compute an effective diameter.
+                - Defaults to 0.41 m if no values are provided.
+            - Merge common and reservoir-specific specs.
+        """
+        return specs['district_heating'] # | specs['schedule']
+
+    def _process_specs3(self, specs) -> dict:
+
+        return specs['schedule'] | specs['common']
+
+    def update(self, funcs, results) -> None:
         """
         Updates the system by adjusting subsurface and surface variables based on the current schedule.
 
@@ -85,3 +122,13 @@ class SystemExternal(UnitManager):
                 self.unit.production_well.current_row += 1
             else:
                 raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
+
+    def hotmapsdispatch_runner(self, eco_results, t_results, dt_list) -> None:
+        result = process_yaml_and_setup_hotmaps('/Users/morteza/Documents/projects/TANGO/examples/complete_config.yaml', eco_results, self.specs2, t_results, dt_list)
+
+        if result["status"] == "success":
+            print(f"Excel file created at: {result['excel_file']}")
+            print(f"Batch file created at: {result['batch_file']}")
+            print(f"Trigger file created at: {result['trigger_file']}")
+        else:
+            print(f"Error: {result['message']}")

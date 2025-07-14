@@ -1,5 +1,5 @@
 import math
-
+import pandas as pd
 
 class FlowRateCalculator():
     """
@@ -17,7 +17,7 @@ class FlowRateCalculator():
         scaling_factor (float): Scaling factor for mass flow rate based on well pattern.
         tp (list): List to store thermal power values for later analysis.
     """
-    def __init__(self, injection_well_class, production_well_class, production_well_pump_class, reservoir_class, surface_class):
+    def __init__(self, specs, injection_well_class, production_well_class, production_well_pump_class, reservoir_class, surface_class):
         """
         Initializes the FlowRateCalculator class with instances of different system components.
 
@@ -31,6 +31,7 @@ class FlowRateCalculator():
         Raises:
             ValueError: If the reservoir's well pattern is unsupported.
         """
+        self.specs = specs
         self.inj_well = injection_well_class
         self.pro_well = production_well_class
         self.pro_well_pump = production_well_pump_class
@@ -40,6 +41,7 @@ class FlowRateCalculator():
         self.surface._m_dot_mult = 1
         self.surface.system_external = True
         self.tp = []
+        self.time_step = 0
 
         if (self.reservoir.specs.mass_rate['type'] == 'manual'):
             self.test_p = self.surface.specs.injection_pressure
@@ -55,6 +57,14 @@ class FlowRateCalculator():
             self.scaling_factor = 4.0
         else:
             raise ValueError(f"well_pattern: {self.reservoir.specs.well_pattern} is not supported.")
+
+        if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+            self.processor = PowerReader()
+            self.processor.process_geothermal_data(
+                specs['power_raw_data'],
+                specs['power_avg'],
+                specs['averaging_window']
+            )
 
     def fracing_flow(self):
         """
@@ -107,10 +117,11 @@ class FlowRateCalculator():
             - Prevents mass rates from exceeding fracking thresholds.
             - Handles pump logic for production wells.
         """
+        self.time_step += 1
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             self.surface.power_plant.funcs = funcs
 
-        iterations = 20
+        iterations = 200
 
         tolerance = 0.0001
         prev_test_p = None
@@ -142,7 +153,14 @@ class FlowRateCalculator():
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
-                    mass_rate = self.fracing_flow()
+                    if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+                        for node_name, node in self.surface.power_plant.nodes.items():
+                            if self.surface.power_plant.config.get(node_name, {}).get('Subtype') == 'DH_component':
+                                print(f'{node_name} (DH_component) Q: {node.Q.val} W')
+                                prev_thermal_power = -node.Q.val/1000000.0
+                        mass_rate = self.mass_rate_test * self.processor.averaged_df.loc[self.time_step - 1, 'value'] / prev_thermal_power * 30
+                    else:
+                        mass_rate = self.fracing_flow()
                 elif (self.reservoir.specs.mass_rate['type'] == 'manual'):
                     mass_rate = self.reservoir.specs.mass_rate['value']
                     if (self.reservoir.specs.bc_iteration['check_fracing']):
@@ -228,3 +246,55 @@ class FlowRateCalculator():
         if self.pro_well_pump:
             self.surface.prod_pump_aux = -(self.pro_well_pump.inlet_fluid.H - self.pro_well.outlet_fluid.H) * self.pro_well_pump.mass_rate
             self.surface.prod_pump_w_list.append(self.surface.prod_pump_aux)
+
+
+class PowerReader:
+    def __init__(self):
+        self.averaged_df = None
+
+    def process_geothermal_data(self, input_file, output_file, window_size):
+        """
+        Extract geothermal data, handle duplicates, and create averaged output.
+        """
+        print("Reading Excel file...")
+        df = pd.read_excel(input_file)
+
+        geothermal_filter = (df['heat generator'].str.contains('geothermal', case=False, na=False)) & \
+                           (df['topic'].str.contains('Thermal Power Energymix', case=False, na=False))
+        geothermal_data = df[geothermal_filter]
+
+        print(f"Found {len(geothermal_data)} rows with geothermal data")
+        print(f"Unique time values: {geothermal_data['time'].nunique()}")
+        print(f"Time range: {geothermal_data['time'].min()} to {geothermal_data['time'].max()}")
+
+        duplicate_times = geothermal_data[geothermal_data.duplicated(subset=['time'], keep=False)]
+        if len(duplicate_times) > 0:
+            print(f"Found {len(duplicate_times)} rows with duplicate time values")
+            print("\nSample duplicate entries:")
+            print(duplicate_times[['time', 'topic', 'heat generator', 'value']].head(10))
+            print("\nRemoving duplicates (keeping first occurrence)...")
+            geothermal_data = geothermal_data.drop_duplicates(subset=['time'], keep='first')
+            print(f"After removing duplicates: {len(geothermal_data)} rows")
+
+        geothermal_data = geothermal_data.sort_values('time').reset_index(drop=True)
+        print(f"Calculating {window_size}-point average...")
+
+        averaged_rows = []
+        for i in range(0, len(geothermal_data), window_size):
+            chunk = geothermal_data.iloc[i:i+window_size]
+            if len(chunk) > 0:
+                avg_row = {}
+                for col in geothermal_data.columns:
+                    if col == 'value':
+                        avg_row[col] = chunk[col].mean()
+                    elif col == 'time':
+                        avg_row[col] = chunk[col].iloc[len(chunk)//2]
+                    else:
+                        avg_row[col] = chunk[col].iloc[0]
+                averaged_rows.append(avg_row)
+
+        self.averaged_df = pd.DataFrame(averaged_rows)
+        self.averaged_df.to_excel(output_file, index=False)
+        print(f"Averaged data saved to: {output_file} ({len(self.averaged_df)} rows)")
+
+        return self.averaged_df

@@ -527,8 +527,8 @@ class EconomicUnitNative(Unit):
             self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs, self.average_fp_result)
         else:
             self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs)
-        val = sum(self._results[key] for key in self._results.keys())
-        self._results['CAPEX_total'] = val
+
+        self._results['CAPEX_total'] =  self._results['CAPEX_well'] + self._results['CAPEX_permitting'] + self._results['CAPEX_exploration'] + self._results['CAPEX_surface_gathering_system'] + self._results['CAPEX_surface_plant']
 
     def calculate_and_set_average(self, results):
 
@@ -621,7 +621,7 @@ class EconomicUnitNative(Unit):
             >>> self._compute_LCOE()
         """
         W_net_total = self._surface_power_plant_unit.get_net_W_total()
-        W_net_thermal = self._surface_power_plant_unit._W_net_thermal
+        W_net_thermal = self._surface_power_plant_unit.get_net_W_thermal()
         self._results['Net_Electricity_Generated_kWe'] = W_TO_KW * W_net_total
         self._results['Net_thermal_power_Generated_kWe'] = W_TO_KW * W_net_thermal
         self._results['LCOE'] = self._get_LCOE(W_net_total, W_net_thermal)

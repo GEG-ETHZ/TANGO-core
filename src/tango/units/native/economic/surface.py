@@ -654,6 +654,18 @@ class EconUnitSurfacePowerPlant:
         """
         return self._specs.num_pp * self._W_net_total
 
+    def get_net_W_thermal(self) -> float:
+        """
+        Retrieves the total thermal power output.
+
+        Returns:
+            float: Net thermal power output in Watts.
+
+        Example:
+            >>> net_power = self.get_net_W_thermal()
+        """
+        return self._specs.num_pp * self._W_net_thermal
+
 class PowerPlantCost:
     def __init__(self, power_plant, specs, evaluated_funcs, prod_pump_w_list):
         """
