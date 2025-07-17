@@ -329,7 +329,7 @@ def create_hotmaps_batch():
         f.write("@echo off\n")
         f.write("echo Starting Hotmaps Dispatch runner...\n")
         f.write(f"cd /d {WINDOWS_APP_DIRECTORY}\n")
-        f.write("call conda activate hotmapsdispatch\n")
+        f.write("call \"C:\\Users\\morteza\\miniconda3\\Scripts\\activate.bat\" hotmapsdispatch\n")
 
     # Create the price setting script
     script_path = os.path.join(SHARED_FOLDER, "set_prices.py")

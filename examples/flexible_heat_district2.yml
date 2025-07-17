@@ -166,6 +166,7 @@ district_heating:
   renewable_factor: 0.0
   must_run: 0.0
   ramping_cost: 0
+  operation_year: 1
 
 #functions:
 #  dts2:
