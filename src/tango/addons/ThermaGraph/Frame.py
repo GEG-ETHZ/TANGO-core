@@ -14,8 +14,9 @@ class MainWindow(QMainWindow):
     """
     Main application window for the Interactive Fluid Diagram Plotter.
     """
-    def __init__(self):
+    def __init__(self, default_fluid='CO2'):
         super(MainWindow, self).__init__()
+        self.default_fluid = default_fluid
         self.setWindowTitle('Interactive Fluid Diagram Plot')
         self.setGeometry(200, 200, 1200, 1000)
         self.initUI()
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
         """
         Create and set up the input fields for fluid, diagram settings, and isoline settings.
         """
-        self.fluid_input = self.create_line_edit('CO2', 'Enter the fluid name (e.g., CO2 for carbon dioxide)')
+        self.fluid_input = self.create_line_edit(self.default_fluid, 'Enter the fluid name (e.g., CO2 for carbon dioxide)')
         self.unit_system_p = self.create_combo_box(['bar', 'hPa', 'mbar', 'psi', 'kPa', 'Pa', 'MPa'], 'Select the pressure unit')
         self.unit_system_T = self.create_combo_box(['°C', 'K', '°F'], 'Select the temperature unit')
         self.unit_system_s = self.create_combo_box(['J/kgK', 'kJ/kgK', 'MJ/kgK'], 'Select the entropy unit')
@@ -57,7 +58,7 @@ class MainWindow(QMainWindow):
         self.unit_system_v = self.create_combo_box(['m^3/kg', 'l/kg'], 'Select the specific volume unit')
         self.unit_system_Q = self.create_combo_box(['-', '%'], 'Select the vapor fraction unit')
 
-        self.diagram_type_input = self.create_combo_box(['Ts', 'hs', 'logph', 'Th', 'plogv'], 'Select the type of diagram to plot')
+        self.diagram_type_input = self.create_combo_box(['logph', 'hs', 'Ts', 'Th', 'plogv'], 'Select the type of diagram to plot')
         self.xmin_input = self.create_line_edit('0.01', 'Enter the minimum value for the x-axis')
         self.xmax_input = self.create_line_edit('700', 'Enter the maximum value for the x-axis')
         self.ymin_input = self.create_line_edit('10', 'Enter the minimum value for the y-axis')
@@ -720,19 +721,25 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 3:
+    import sys
+    if len(sys.argv) == 4:
         components_file = sys.argv[1]
         connections_file = sys.argv[2]
-
+        default_fluid = sys.argv[3]
         if not os.path.exists(components_file) or not os.path.exists(connections_file):
             print("Error: One or both input files do not exist.")
             sys.exit(1)
-
+        app = QApplication(sys.argv)
+        window = MainWindow(default_fluid=default_fluid)
+        window.load_files(components_file, connections_file)
+        sys.exit(app.exec_())
+    elif len(sys.argv) == 3:
+        components_file = sys.argv[1]
+        connections_file = sys.argv[2]
         app = QApplication(sys.argv)
         window = MainWindow()
         window.load_files(components_file, connections_file)
         sys.exit(app.exec_())
-
     else:
         app = QApplication(sys.argv)
         window = MainWindow()

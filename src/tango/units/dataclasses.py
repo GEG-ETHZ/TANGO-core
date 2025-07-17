@@ -190,6 +190,8 @@ class ThermaGraphSpecs:
     connections_file: str
     active: str = 'no'
     execute: str = 'no'
+    per_timestep: str = 'no'
+    fluid_name: str = 'H2O'
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass

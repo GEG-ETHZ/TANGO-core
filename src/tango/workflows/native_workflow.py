@@ -267,6 +267,22 @@ class NativeWorkflow(Workflow):
                 if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
                     self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=write_csv)
 
+            if 'ThermaGraph' in self.addons:
+                print(f"Running ThermaGraph for step {i}")
+                thermagraph_specs = getattr(self, 'ThermaGraph_specs', None)
+                if thermagraph_specs and getattr(thermagraph_specs, 'per_timestep', 'no') == 'yes':
+                    thermagraph_specs.states_file = f"thermagraph_states_{i}.json"
+                    thermagraph_specs.connections_file = f"thermagraph_connections_{i}.json"
+                    fluid_name = (
+                        self.specs.get('fluid_name') or
+                        self.specs.get('props', {}).get('fluid_name') or
+                        self.specs.get('common', {}).get('fluid_name') or
+                        'CO2'
+                    )
+                    thermagraph_specs.fluid_name = fluid_name
+                    self.addons['ThermaGraph'].post_process(thermagraph_specs)
+                    self.addons['ThermaGraph'].execute()
+
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
 

@@ -9,10 +9,7 @@ class ThermaGraph_addon(TangoAddon):
         super().__init__(graph, results)
 
     def post_process(self, specs):
-        """
-        Wrapper function to decide which post-process method to run.
-        Switches between `post_process_simple` and `post_process_complex` based on the presence of `power_plant_graph`.
-        """
+        self.fluid_name = getattr(specs, 'fluid_name', 'CO2')
         if self.graph.get('power_plant_graph', {}):  # Check if `power_plant_graph` exists and is not empty
             self.post_process2(specs)
         else:
@@ -206,9 +203,9 @@ class ThermaGraph_addon(TangoAddon):
                         new_edge_id = max(modified_edges.keys(), default=0) + 1
                         modified_edges[new_edge_id] = new_edge
 
-        print("Final modified_edges with multi-outlet handling:")
-        for edge_id, edge_data in modified_edges.items():
-            print(f"{edge_id}: {edge_data}")
+        # print("Final modified_edges with multi-outlet handling:")
+        # for edge_id, edge_data in modified_edges.items():
+        #     print(f"{edge_id}: {edge_data}")
 
         combined_edges = modified_edges
 
@@ -232,10 +229,11 @@ class ThermaGraph_addon(TangoAddon):
         """
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
+        fluid_name = getattr(self, 'fluid_name', 'CO2')
 
         try:
             subprocess.run(
-                ['python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/ThermaGraph/Frame.py', components_file, connections_file],
+                ['python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/ThermaGraph/Frame.py', components_file, connections_file, fluid_name],
                 check=True
             )
         except subprocess.CalledProcessError as e:
