@@ -50,6 +50,7 @@ class CommonSpecs:
     injection_pressure: float = 2000000
     output_table: str = 'yes'
     power_plant_table: str = 'yes'
+    table_to_csv: str = 'no'
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:

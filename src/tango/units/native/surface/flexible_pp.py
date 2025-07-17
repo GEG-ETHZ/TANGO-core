@@ -616,11 +616,21 @@ class PowerPlant:
 
         return w_cooler, w_condenser
 
-    def generate_output_table(self):
+    def generate_output_table(self, step_index: int = -1, table_type: str = "power_plant", write_csv: bool = False):
         """
         Generates and prints a table showing system information:
         Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
+        Also writes the table data to a CSV file for each time step if write_csv is True.
+        Args:
+            step_index (int, optional): The time step index for CSV file naming.
+            table_type (str, optional): File prefix for CSV output (default: 'power_plant').
+            write_csv (bool, optional): Whether to write the table to a CSV file.
         """
+        import csv
+        from tabulate import tabulate
+        from termcolor import colored
+        from itertools import cycle
+
         graph_nodes = self.nodes
         graph_edges = [(conn.source.label, conn.target.label) for conn in self.connections]
         table_data = []
@@ -648,6 +658,18 @@ class PowerPlant:
         if table_data:
             last_row = table_data.pop()
             table_data.insert(0, last_row)
+
+        # Write to CSV file if requested
+        if write_csv and step_index >= 0:
+            csv_filename = f"{table_type}_{step_index}.csv"
+            try:
+                with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(headers)
+                    writer.writerows(table_data)
+                print(f"Output table written to: {csv_filename}")
+            except Exception as e:
+                print(f"Error writing CSV file: {e}")
 
         available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
         unit_names = list(graph_nodes.keys())

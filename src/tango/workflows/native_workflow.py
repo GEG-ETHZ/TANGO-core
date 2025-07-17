@@ -6,6 +6,7 @@ import sys
 import logging
 import importlib
 import os
+import csv
 from copy import deepcopy
 
 from tango.core.abstracts.workflow import *
@@ -258,11 +259,13 @@ class NativeWorkflow(Workflow):
 
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
+            write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
             if (self.orchestrator.unit.surface.specs.output_table == 'yes'):
-                self.generate_output_table()
+                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=write_csv)
 
             if (self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
-                self.orchestrator.unit.surface.power_plant.generate_output_table()
+                if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
+                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=write_csv)
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
@@ -288,14 +291,21 @@ class NativeWorkflow(Workflow):
         if 'district_heating' in self.specs:
             self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
 
-    def generate_output_table(self):
+    def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False):
         """
         Generates and prints a table showing system information:
         Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
+        Also writes the table data to a CSV file for each time step if write_csv is True.
+        
+        Args:
+            step_index (int, optional): The time step index for CSV file naming.
+            table_type (str, optional): Either "main_graph" or "power_plant" for file naming.
+            write_csv (bool, optional): Whether to write the table to a CSV file.
         """
         from tabulate import tabulate
         from termcolor import colored
         from itertools import cycle
+        import csv
 
         graph_nodes = self.orchestrator.graph._node
         graph_edges = self.orchestrator.graph.edges
@@ -312,9 +322,12 @@ class NativeWorkflow(Workflow):
                 outlet_fluid = getattr(source_unit, 'outlet_fluid', None)
                 mass_rate = getattr(source_unit, 'mass_rate', 'N/A')
                 if outlet_fluid:
-                    outlet_P = getattr(outlet_fluid, 'P', 'N/A') / 1000000.0
-                    outlet_T = getattr(outlet_fluid, 'T', 'N/A') - 273.15
-                    outlet_H = getattr(outlet_fluid, 'H', 'N/A') / 1000.0
+                    outlet_P = getattr(outlet_fluid, 'P', 'N/A')
+                    outlet_T = getattr(outlet_fluid, 'T', 'N/A')
+                    outlet_H = getattr(outlet_fluid, 'H', 'N/A')
+                    outlet_P = outlet_P / 1000000.0 if isinstance(outlet_P, (int, float)) else outlet_P
+                    outlet_T = outlet_T - 273.15 if isinstance(outlet_T, (int, float)) else outlet_T
+                    outlet_H = outlet_H / 1000.0 if isinstance(outlet_H, (int, float)) else outlet_H
                     table_data.append([source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate])
             except AttributeError:
                 table_data.append([source, "Outlet", "Error", "Error", "Error", "N/A"])
@@ -323,9 +336,12 @@ class NativeWorkflow(Workflow):
                 inlet_fluid = getattr(target_unit, 'inlet_fluid', None)
                 mass_rate = getattr(target_unit, 'mass_rate', 'N/A')
                 if inlet_fluid:
-                    inlet_P = getattr(inlet_fluid, 'P', 'N/A') / 1000000.0
-                    inlet_T = getattr(inlet_fluid, 'T', 'N/A') - 273.15
-                    inlet_H = getattr(inlet_fluid, 'H', 'N/A') / 1000.0
+                    inlet_P = getattr(inlet_fluid, 'P', 'N/A')
+                    inlet_T = getattr(inlet_fluid, 'T', 'N/A')
+                    inlet_H = getattr(inlet_fluid, 'H', 'N/A')
+                    inlet_P = inlet_P / 1000000.0 if isinstance(inlet_P, (int, float)) else inlet_P
+                    inlet_T = inlet_T - 273.15 if isinstance(inlet_T, (int, float)) else inlet_T
+                    inlet_H = inlet_H / 1000.0 if isinstance(inlet_H, (int, float)) else inlet_H
                     table_data.append([target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate])
             except AttributeError:
                 table_data.append([target, "Inlet", "Error", "Error", "Error", "N/A"])
@@ -333,6 +349,18 @@ class NativeWorkflow(Workflow):
         if table_data:
             last_row = table_data.pop()
             table_data.insert(0, last_row)
+
+        # Write to CSV file if requested
+        if write_csv and step_index >= 0:
+            csv_filename = f"{table_type}_{step_index}.csv"
+            try:
+                with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(headers)
+                    writer.writerows(table_data)
+                print(f"Output table written to: {csv_filename}")
+            except Exception as e:
+                print(f"Error writing CSV file: {e}")
 
         available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
         unit_names = list({node for node in self.orchestrator.graph._node})
