@@ -268,20 +268,25 @@ class NativeWorkflow(Workflow):
                     self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=write_csv)
 
             if 'ThermaGraph' in self.addons:
-                print(f"Running ThermaGraph for step {i}")
                 thermagraph_specs = getattr(self, 'ThermaGraph_specs', None)
                 if thermagraph_specs and getattr(thermagraph_specs, 'per_timestep', 'no') == 'yes':
-                    thermagraph_specs.states_file = f"thermagraph_states_{i}.json"
-                    thermagraph_specs.connections_file = f"thermagraph_connections_{i}.json"
-                    fluid_name = (
-                        self.specs.get('fluid_name') or
-                        self.specs.get('props', {}).get('fluid_name') or
-                        self.specs.get('common', {}).get('fluid_name') or
-                        'CO2'
-                    )
-                    thermagraph_specs.fluid_name = fluid_name
-                    self.addons['ThermaGraph'].post_process(thermagraph_specs)
-                    self.addons['ThermaGraph'].execute()
+                    auto_save_svg_val = self.specs.get('addons', {}).get('ThermaGraph', {}).get('auto_save_svg', getattr(thermagraph_specs, 'auto_save_svg', 'yes'))
+                    if auto_save_svg_val == 'yes':
+                        thermagraph_specs.states_file = f"thermagraph_states_{i}.json"
+                        thermagraph_specs.connections_file = f"thermagraph_connections_{i}.json"
+                        fluid_name = (
+                            self.specs.get('fluid_name') or
+                            self.specs.get('props', {}).get('fluid_name') or
+                            self.specs.get('common', {}).get('fluid_name') or
+                            'CO2'
+                        )
+                        thermagraph_specs.fluid_name = fluid_name
+                        thermagraph_specs.auto_save_svg = auto_save_svg_val
+                        thermagraph_specs.svg_filename = f"thermagraph_output_{i}.svg"
+                        self.addons['ThermaGraph'].auto_save_svg = thermagraph_specs.auto_save_svg
+                        self.addons['ThermaGraph'].svg_filename = thermagraph_specs.svg_filename
+                        self.addons['ThermaGraph'].post_process(thermagraph_specs)
+                        self.addons['ThermaGraph'].execute(step_index=i)
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])

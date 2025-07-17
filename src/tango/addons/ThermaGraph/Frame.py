@@ -722,13 +722,28 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 6:
         components_file = sys.argv[1]
         connections_file = sys.argv[2]
         default_fluid = sys.argv[3]
-        if not os.path.exists(components_file) or not os.path.exists(connections_file):
-            print("Error: One or both input files do not exist.")
-            sys.exit(1)
+        auto_save_svg = sys.argv[4]
+        svg_filename = sys.argv[5]
+        app = QApplication(sys.argv)
+        window = MainWindow(default_fluid=default_fluid)
+        window.load_files(components_file, connections_file)
+        if auto_save_svg == 'yes' and svg_filename:
+            try:
+                window.canvas.figure.savefig(svg_filename, format='svg')
+                print(f"SVG successfully saved to: {svg_filename}")
+            except Exception as e:
+                print(f"Error saving SVG: {e}")
+            sys.exit(0)
+        else:
+            sys.exit(app.exec_())
+    elif len(sys.argv) == 4:
+        components_file = sys.argv[1]
+        connections_file = sys.argv[2]
+        default_fluid = sys.argv[3]
         app = QApplication(sys.argv)
         window = MainWindow(default_fluid=default_fluid)
         window.load_files(components_file, connections_file)

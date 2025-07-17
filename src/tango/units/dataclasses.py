@@ -192,6 +192,8 @@ class ThermaGraphSpecs:
     execute: str = 'no'
     per_timestep: str = 'no'
     fluid_name: str = 'H2O'
+    auto_save_svg: str = 'no'  # 'yes' to auto-save SVG, 'no' to show UI
+    svg_filename: str = 'output'     # SVG filename to use if auto_save_svg is yes
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass

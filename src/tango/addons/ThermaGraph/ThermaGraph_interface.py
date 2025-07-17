@@ -223,19 +223,21 @@ class ThermaGraph_addon(TangoAddon):
 
         print("JSON files generated.")
 
-    def execute(self):
+    def execute(self, step_index=None):
         """
         Execute the add-on by launching the PyQt module with the generated files.
         """
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
         fluid_name = getattr(self, 'fluid_name', 'CO2')
-
+        auto_save_svg = getattr(self, 'auto_save_svg', 'no')
+        svg_filename = getattr(self, 'svg_filename', '')
+        args = [
+            'python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/ThermaGraph/Frame.py',
+            components_file, connections_file, fluid_name, auto_save_svg, svg_filename
+        ]
         try:
-            subprocess.run(
-                ['python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/ThermaGraph/Frame.py', components_file, connections_file, fluid_name],
-                check=True
-            )
+            subprocess.run(args, check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error launching PyQt module: {e}")
             raise
