@@ -616,7 +616,7 @@ class PowerPlant:
 
         return w_cooler, w_condenser
 
-    def generate_output_table(self, step_index: int = -1, table_type: str = "power_plant", write_csv: bool = False):
+    def generate_output_table(self, step_index: int = -1, table_type: str = "power_plant", write_csv: bool = False, print_table: bool = True):
         """
         Generates and prints a table showing system information:
         Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
@@ -625,6 +625,7 @@ class PowerPlant:
             step_index (int, optional): The time step index for CSV file naming.
             table_type (str, optional): File prefix for CSV output (default: 'power_plant').
             write_csv (bool, optional): Whether to write the table to a CSV file.
+            print_table (bool, optional): Whether to print the table to the console.
         """
         import csv
         from tabulate import tabulate
@@ -671,20 +672,21 @@ class PowerPlant:
             except Exception as e:
                 print(f"Error writing CSV file: {e}")
 
-        available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
-        unit_names = list(graph_nodes.keys())
-        color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
-        colored_table_data = []
+        if print_table:
+            available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
+            unit_names = list(graph_nodes.keys())
+            color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
+            colored_table_data = []
 
-        for row in table_data:
-            unit_color = color_map.get(row[0], "white")
-            colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
-            colored_table_data.append(colored_row)
+            for row in table_data:
+                unit_color = color_map.get(row[0], "white")
+                colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
+                colored_table_data.append(colored_row)
 
-        top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
-        print(top_border)
-        print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("\u2500", " "))
-        print(top_border)
+            top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
+            print(top_border)
+            print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("\u2500", " "))
+            print(top_border)
 
     def get_outlet_conditions(self):
         """

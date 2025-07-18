@@ -235,7 +235,314 @@ class NativeWorkflow(Workflow):
                 except Exception as e:
                     logging.error(f"Failed to load addon '{addon_name}': {e}")
 
-
+    def _write_timestep_files(self, step_index: int) -> None:
+        """
+        Writes all files for a specific timestep atomically.
+        Ensures that if main_graph CSV is written, all other related files are also written and closed.
+        
+        Args:
+            step_index (int): The time step index for file naming.
+        """
+        write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == 'yes'
+        power_plant_table_enabled = (
+            self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and 
+            self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'
+        )
+        
+        thermagraph_svg_enabled = False
+        if 'ThermaGraph' in self.addons:
+            thermagraph_specs = getattr(self, 'ThermaGraph_specs', None)
+            if thermagraph_specs and getattr(thermagraph_specs, 'per_timestep', 'no') == 'yes':
+                auto_save_svg_val = self.specs.get('addons', {}).get('ThermaGraph', {}).get('auto_save_svg', getattr(thermagraph_specs, 'auto_save_svg', 'yes'))
+                thermagraph_svg_enabled = auto_save_svg_val == 'yes'
+        
+        files_to_write = []
+        if output_table_enabled and write_csv:
+            files_to_write.append('main_graph_csv')
+        if power_plant_table_enabled and write_csv:
+            files_to_write.append('power_plant_csv')
+        if thermagraph_svg_enabled:
+            files_to_write.append('thermagraph_svg')
+        
+        if not files_to_write:
+            logging.debug(f"No files to write for timestep {step_index} (table_to_csv={write_csv}, output_table={output_table_enabled}, power_plant_table={power_plant_table_enabled}, thermagraph_svg={thermagraph_svg_enabled})")
+            return
+            
+        try:
+            if output_table_enabled and write_csv:
+                self.generate_output_table(step_index=step_index, table_type="main_graph", write_csv=True, print_table=False)
+            
+            if power_plant_table_enabled and write_csv:
+                if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
+                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=step_index, table_type="power_plant", write_csv=True, print_table=False)
+            
+            if thermagraph_svg_enabled:
+                thermagraph_specs = getattr(self, 'ThermaGraph_specs')
+                thermagraph_specs.states_file = f"thermagraph_states_{step_index}.json"
+                thermagraph_specs.connections_file = f"thermagraph_connections_{step_index}.json"
+                fluid_name = (
+                    self.specs.get('fluid_name') or
+                    self.specs.get('props', {}).get('fluid_name') or
+                    self.specs.get('common', {}).get('fluid_name') or
+                    'CO2'
+                )
+                thermagraph_specs.fluid_name = fluid_name
+                thermagraph_specs.auto_save_svg = 'yes'
+                thermagraph_specs.svg_filename = f"thermagraph_output_{step_index}.svg"
+                self.addons['ThermaGraph'].auto_save_svg = thermagraph_specs.auto_save_svg
+                self.addons['ThermaGraph'].svg_filename = thermagraph_specs.svg_filename
+                self.addons['ThermaGraph'].post_process(thermagraph_specs)
+                self.addons['ThermaGraph'].execute(step_index=step_index)
+            
+            if not self._check_timestep_files_integrity(step_index):
+                raise RuntimeError(f"File integrity check failed for timestep {step_index}")
+            
+            logging.info(f"All files for timestep {step_index} written successfully and verified: {files_to_write}")
+            
+        except Exception as e:
+            logging.error(f"Error writing files for timestep {step_index}: {e}")
+            self._cleanup_timestep_files(step_index, output_table_enabled, power_plant_table_enabled, thermagraph_svg_enabled, write_csv)
+            raise
+    
+    def _verify_timestep_files(self, step_index: int, output_table_enabled: bool, power_plant_table_enabled: bool, 
+                              thermagraph_svg_enabled: bool, write_csv: bool) -> None:
+        """
+        Verifies that all expected files for a timestep exist and are properly closed.
+        
+        Args:
+            step_index (int): The time step index.
+            output_table_enabled (bool): Whether main graph output table is enabled.
+            power_plant_table_enabled (bool): Whether power plant table is enabled.
+            thermagraph_svg_enabled (bool): Whether ThermaGraph SVG generation is enabled.
+            write_csv (bool): Whether CSV files should be written.
+        """
+        expected_files = []
+        
+        if output_table_enabled and write_csv:
+            expected_files.append(f"main_graph_{step_index}.csv")
+        
+        if power_plant_table_enabled and write_csv:
+            expected_files.append(f"power_plant_{step_index}.csv")
+        
+        if thermagraph_svg_enabled:
+            expected_files.append(f"thermagraph_output_{step_index}.svg")
+        
+        missing_files = []
+        for filename in expected_files:
+            if not os.path.exists(filename):
+                missing_files.append(filename)
+        
+        if missing_files:
+            logging.warning(f"Missing files for timestep {step_index}: {missing_files}")
+        else:
+            logging.debug(f"All expected files for timestep {step_index} are present: {expected_files}")
+    
+    def _cleanup_timestep_files(self, step_index: int, output_table_enabled: bool, power_plant_table_enabled: bool, 
+                               thermagraph_svg_enabled: bool, write_csv: bool) -> None:
+        """
+        Cleans up any partially written files for a timestep in case of errors.
+        
+        Args:
+            step_index (int): The time step index.
+            output_table_enabled (bool): Whether main graph output table is enabled.
+            power_plant_table_enabled (bool): Whether power plant table is enabled.
+            thermagraph_svg_enabled (bool): Whether ThermaGraph SVG generation is enabled.
+            write_csv (bool): Whether CSV files should be written.
+        """
+        files_to_cleanup = []
+        
+        if output_table_enabled and write_csv:
+            files_to_cleanup.append(f"main_graph_{step_index}.csv")
+        
+        if power_plant_table_enabled and write_csv:
+            files_to_cleanup.append(f"power_plant_{step_index}.csv")
+        
+        if thermagraph_svg_enabled:
+            files_to_cleanup.append(f"thermagraph_output_{step_index}.svg")
+        
+        for filename in files_to_cleanup:
+            try:
+                if os.path.exists(filename):
+                    os.remove(filename)
+                    logging.debug(f"Cleaned up file: {filename}")
+            except Exception as e:
+                logging.error(f"Failed to cleanup file {filename}: {e}")
+    
+    def _get_expected_files_for_timestep(self, step_index: int) -> list:
+        """
+        Returns a list of expected files for a given timestep.
+        
+        Args:
+            step_index (int): The time step index.
+            
+        Returns:
+            list: List of expected filenames for this timestep.
+        """
+        expected_files = []
+        write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == 'yes'
+        power_plant_table_enabled = (
+            self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and 
+            self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'
+        )
+        
+        thermagraph_svg_enabled = False
+        if 'ThermaGraph' in self.addons:
+            thermagraph_specs = getattr(self, 'ThermaGraph_specs', None)
+            if thermagraph_specs and getattr(thermagraph_specs, 'per_timestep', 'no') == 'yes':
+                auto_save_svg_val = self.specs.get('addons', {}).get('ThermaGraph', {}).get('auto_save_svg', getattr(thermagraph_specs, 'auto_save_svg', 'yes'))
+                thermagraph_svg_enabled = auto_save_svg_val == 'yes'
+        
+        if output_table_enabled and write_csv:
+            expected_files.append(f"main_graph_{step_index}.csv")
+        
+        if power_plant_table_enabled and write_csv:
+            expected_files.append(f"power_plant_{step_index}.csv")
+        
+        if thermagraph_svg_enabled:
+            expected_files.append(f"thermagraph_output_{step_index}.svg")
+        
+        return expected_files
+    
+    def _check_timestep_files_integrity(self, step_index: int) -> bool:
+        """
+        Checks if all expected files for a timestep exist and are properly closed.
+        
+        Args:
+            step_index (int): The time step index.
+            
+        Returns:
+            bool: True if all files exist and are properly closed, False otherwise.
+        """
+        expected_files = self._get_expected_files_for_timestep(step_index)
+        
+        if not expected_files:
+            logging.debug(f"No files expected for timestep {step_index} - integrity check passed")
+            return True  
+        
+        main_csv_exists = os.path.exists(f"main_graph_{step_index}.csv")
+        if not main_csv_exists:
+            logging.warning(f"Main CSV file missing for timestep {step_index}: main_graph_{step_index}.csv")
+            return False
+        
+        missing_files = []
+        for filename in expected_files:
+            if not os.path.exists(filename):
+                missing_files.append(filename)
+            else:
+                try:
+                    with open(filename, 'r') as f:
+                        pass
+                except Exception as e:
+                    logging.warning(f"File {filename} exists but may not be properly closed: {e}")
+                    missing_files.append(filename)
+        
+        if missing_files:
+            logging.warning(f"Missing or improperly closed files for timestep {step_index}: {missing_files}")
+            return False
+        
+        logging.debug(f"All files for timestep {step_index} are present and properly closed: {expected_files}")
+        return True
+    
+    def get_timestep_files_status(self, step_index: int) -> dict:
+        """
+        Returns the status of all files for a given timestep.
+        
+        Args:
+            step_index (int): The time step index.
+            
+        Returns:
+            dict: Dictionary with file status information.
+        """
+        expected_files = self._get_expected_files_for_timestep(step_index)
+        status = {
+            'timestep': step_index,
+            'expected_files': expected_files,
+            'files_status': {},
+            'all_complete': True
+        }
+        
+        for filename in expected_files:
+            file_exists = os.path.exists(filename)
+            file_closed = False
+            
+            if file_exists:
+                try:
+                    with open(filename, 'r') as f:
+                        file_closed = True
+                except Exception:
+                    file_closed = False
+            
+            status['files_status'][filename] = {
+                'exists': file_exists,
+                'closed': file_closed,
+                'complete': file_exists and file_closed
+            }
+            
+            if not (file_exists and file_closed):
+                status['all_complete'] = False
+        
+        return status
+    
+    def get_all_timestep_files_status(self) -> dict:
+        """
+        Returns the status of all files across all timesteps.
+        
+        Returns:
+            dict: Dictionary with overall file status information.
+        """
+        total_timesteps = len(self.specs["schedule"]['dt_list'])
+        overall_status = {
+            'total_timesteps': total_timesteps,
+            'timesteps_status': {},
+            'overall_complete': True,
+            'missing_files': [],
+            'incomplete_timesteps': []
+        }
+        
+        for step_index in range(total_timesteps):
+            timestep_status = self.get_timestep_files_status(step_index)
+            overall_status['timesteps_status'][step_index] = timestep_status
+            
+            if not timestep_status['all_complete']:
+                overall_status['overall_complete'] = False
+                overall_status['incomplete_timesteps'].append(step_index)
+                
+                # Collect missing files
+                for filename, file_status in timestep_status['files_status'].items():
+                    if not file_status['complete']:
+                        overall_status['missing_files'].append({
+                            'timestep': step_index,
+                            'filename': filename,
+                            'exists': file_status['exists'],
+                            'closed': file_status['closed']
+                        })
+        
+        return overall_status
+    
+    def wait_for_timestep_files_completion(self, step_index: int, timeout_seconds: int = 30, check_interval: float = 0.1) -> bool:
+        """
+        Waits for all files for a specific timestep to be written and properly closed.
+        
+        Args:
+            step_index (int): The time step index.
+            timeout_seconds (int): Maximum time to wait in seconds.
+            check_interval (float): Interval between checks in seconds.
+            
+        Returns:
+            bool: True if all files are complete within timeout, False otherwise.
+        """
+        import time
+        
+        start_time = time.time()
+        while time.time() - start_time < timeout_seconds:
+            if self._check_timestep_files_integrity(step_index):
+                return True
+            time.sleep(check_interval)
+        
+        logging.warning(f"Timeout waiting for timestep {step_index} files to complete")
+        return False
 
     def execute(self) -> None:
         """
@@ -260,33 +567,16 @@ class NativeWorkflow(Workflow):
             self._save_results(current_date)
             current_date += relativedelta(months=self._dt_months)
             write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
-            if (self.orchestrator.unit.surface.specs.output_table == 'yes'):
-                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=write_csv)
+            if getattr(self.orchestrator.unit.surface.specs, 'output_table', 'no') == 'yes':
+                logging.info(f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})")
+                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=False, print_table=True)
 
-            if (self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
+            if (getattr(self.orchestrator.unit.surface.specs, 'power_plant_table', 'no') == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
                 if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
-                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=write_csv)
+                    logging.info(f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})")
+                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=False, print_table=True)
 
-            if 'ThermaGraph' in self.addons:
-                thermagraph_specs = getattr(self, 'ThermaGraph_specs', None)
-                if thermagraph_specs and getattr(thermagraph_specs, 'per_timestep', 'no') == 'yes':
-                    auto_save_svg_val = self.specs.get('addons', {}).get('ThermaGraph', {}).get('auto_save_svg', getattr(thermagraph_specs, 'auto_save_svg', 'yes'))
-                    if auto_save_svg_val == 'yes':
-                        thermagraph_specs.states_file = f"thermagraph_states_{i}.json"
-                        thermagraph_specs.connections_file = f"thermagraph_connections_{i}.json"
-                        fluid_name = (
-                            self.specs.get('fluid_name') or
-                            self.specs.get('props', {}).get('fluid_name') or
-                            self.specs.get('common', {}).get('fluid_name') or
-                            'CO2'
-                        )
-                        thermagraph_specs.fluid_name = fluid_name
-                        thermagraph_specs.auto_save_svg = auto_save_svg_val
-                        thermagraph_specs.svg_filename = f"thermagraph_output_{i}.svg"
-                        self.addons['ThermaGraph'].auto_save_svg = thermagraph_specs.auto_save_svg
-                        self.addons['ThermaGraph'].svg_filename = thermagraph_specs.svg_filename
-                        self.addons['ThermaGraph'].post_process(thermagraph_specs)
-                        self.addons['ThermaGraph'].execute(step_index=i)
+            self._write_timestep_files(i)
 
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
@@ -312,7 +602,7 @@ class NativeWorkflow(Workflow):
         if 'district_heating' in self.specs:
             self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
 
-    def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False):
+    def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False, print_table: bool = True):
         """
         Generates and prints a table showing system information:
         Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
@@ -322,6 +612,7 @@ class NativeWorkflow(Workflow):
             step_index (int, optional): The time step index for CSV file naming.
             table_type (str, optional): Either "main_graph" or "power_plant" for file naming.
             write_csv (bool, optional): Whether to write the table to a CSV file.
+            print_table (bool, optional): Whether to print the table to the console.
         """
         from tabulate import tabulate
         from termcolor import colored
@@ -383,17 +674,18 @@ class NativeWorkflow(Workflow):
             except Exception as e:
                 print(f"Error writing CSV file: {e}")
 
-        available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
-        unit_names = list({node for node in self.orchestrator.graph._node})
-        color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
+        if print_table:
+            available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
+            unit_names = list({node for node in self.orchestrator.graph._node})
+            color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
 
-        colored_table_data = []
-        for row in table_data:
-            unit_color = color_map.get(row[0], "white")
-            colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
-            colored_table_data.append(colored_row)
+            colored_table_data = []
+            for row in table_data:
+                unit_color = color_map.get(row[0], "white")
+                colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
+                colored_table_data.append(colored_row)
 
-        top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
-        print(top_border)
-        print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
-        print(top_border)
+            top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
+            print(top_border)
+            print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
+            print(top_border)
