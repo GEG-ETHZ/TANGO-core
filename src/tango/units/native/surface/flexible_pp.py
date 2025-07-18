@@ -619,7 +619,7 @@ class PowerPlant:
     def generate_output_table(self, step_index: int = -1, table_type: str = "power_plant", write_csv: bool = False, print_table: bool = True):
         """
         Generates and prints a table showing system information:
-        Units, Ports, Pressure, Temperature, Enthalpy, and Mass Rate.
+        Units, Ports, Pressure, Temperature, Enthalpy, Mass Rate, and Fluid Quality (x).
         Also writes the table data to a CSV file for each time step if write_csv is True.
         Args:
             step_index (int, optional): The time step index for CSV file naming.
@@ -635,7 +635,7 @@ class PowerPlant:
         graph_nodes = self.nodes
         graph_edges = [(conn.source.label, conn.target.label) for conn in self.connections]
         table_data = []
-        headers = ["Unit", "Port", "Pressure (MPa)", "Temperature (°C)", "Enthalpy (kJ/kg)", "Mass Rate (kg/s)"]
+        headers = ["Unit", "Port", "Pressure (MPa)", "Temperature (°C)", "Enthalpy (kJ/kg)", "Mass Rate (kg/s)", "Vapor Mass Fraction"]
         processed_ports = set()
 
         for edge in graph_edges:
@@ -647,13 +647,33 @@ class PowerPlant:
                 port_key = (source, f"Outlet-{idx + 1}")
                 if port_key not in processed_ports:
                     processed_ports.add(port_key)
-                    table_data.append([source, f"Outlet-{idx + 1}", outlet.p.val / 10, outlet.T.val, outlet.h.val, outlet.m.val])
+                    x_attr = getattr(outlet, 'x', None)
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, 'val') else 'N/A'
+                    table_data.append([
+                        source,
+                        f"Outlet-{idx + 1}",
+                        outlet.p.val / 10,
+                        outlet.T.val,
+                        outlet.h.val,
+                        outlet.m.val,
+                        x_val
+                    ])
 
             for idx, inlet in enumerate(getattr(target_unit, 'inl', [])):
                 port_key = (target, f"Inlet-{idx + 1}")
                 if port_key not in processed_ports:
                     processed_ports.add(port_key)
-                    table_data.append([target, f"Inlet-{idx + 1}", inlet.p.val / 10, inlet.T.val, inlet.h.val, inlet.m.val])
+                    x_attr = getattr(inlet, 'x', None)
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, 'val') else 'N/A'
+                    table_data.append([
+                        target,
+                        f"Inlet-{idx + 1}",
+                        inlet.p.val / 10,
+                        inlet.T.val,
+                        inlet.h.val,
+                        inlet.m.val,
+                        x_val
+                    ])
 
         # Rearrange table for better presentation
         if table_data:
@@ -683,9 +703,9 @@ class PowerPlant:
                 colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
                 colored_table_data.append(colored_row)
 
-            top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
+            top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
             print(top_border)
-            print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("\u2500", " "))
+            print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center", "center")).replace("\u2500", " "))
             print(top_border)
 
     def get_outlet_conditions(self):
