@@ -37,7 +37,7 @@ class FlowRateCalculator():
         self.pro_well_pump = production_well_pump_class
         self.reservoir = reservoir_class
         self.surface = surface_class
-        self.mass_rate_test = 50.0
+        self.mass_rate_test = 0.1
         self.surface._m_dot_mult = 1
         self.surface.system_external = True
         self.tp = []
@@ -184,13 +184,8 @@ class FlowRateCalculator():
             self.reservoir.stream_interface()
 
             # Update production well
-            pro_P_test = max(self.reservoir.outlet_fluid.P, self.pro_well._specs.well_length * 900 * 9.8)
-
-            if pro_P_test == self.pro_well._specs.well_length * self.reservoir.outlet_fluid.rho * 9.8:
-                self.test_p += -(self.reservoir.outlet_fluid.P - self.pro_well._specs.well_length * 900 * 9.8)
-
             self.pro_well.mass_rate = self.reservoir.mass_rate
-            self.pro_well.inlet_fluid.updatePT(P=pro_P_test, T=self.reservoir.outlet_fluid.T)
+            self.pro_well.inlet_fluid.updatePT(P=self.reservoir.outlet_fluid.P, T=self.reservoir.outlet_fluid.T)
             self.pro_well.stream_interface()
 
             # If pump exists, apply pump logic
