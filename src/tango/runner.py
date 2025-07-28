@@ -13,8 +13,15 @@ from dataclasses import dataclass
 from tango.core.config import *
 from tango.core.constants import *
 from tango.utils import load_from_yaml
-from tango.workflows.native_workflow import *
-from tango.workflows.cmg_workflow import *
+from tango.utils import load_from_yaml_with_overrides
+from tango.workflows.native_workflow import NativeWorkflow
+from tango.workflows.cmg_workflow import CMGWorkflow
+
+
+WORKFLOW_OPTIONS = {
+    "native": "NativeWorkflow",
+    "cmg": "CMGWorkflow"
+}
 
 
 def get_workflow_class(type_: str) -> object:
@@ -73,7 +80,7 @@ class Tango:
     >>> tango.execute()
     """
 
-    def __init__(self, input_file: str, specs: dict = None):
+    def __init__(self, input_file: str, specs: dict = None, parameter_overrides: list = None, params_json: str = None):
         """
         Initializes the Tango object.
 
@@ -83,8 +90,17 @@ class Tango:
             The path to the input YAML file.
         specs : dict, optional
             A dictionary containing workflow specifications. If not provided, it is loaded from `input_file`.
+        parameter_overrides : list, optional
+            List of parameter override strings in format "section.parameter=value".
+        params_json : str, optional
+            JSON string with multiple parameter overrides.
         """
-        self.specs = load_from_yaml(input_file) if specs == None else specs
+        if specs is None:
+            self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides, params_json)
+        else:
+            from tango.utils import apply_parameter_overrides
+            self.specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
+        
         self.input_file = input_file
 
     def _initialize_workflow(self) -> None:
@@ -102,6 +118,7 @@ class Tango:
             If the workflow type is not supported.
         """
         Workflow = get_workflow_class(self.specs['runspec']['workflow'])
+        # print('self.specs',self.specs)
         self.workflow = Workflow(self.specs, self.input_file)
 
     def execute(self) -> None:

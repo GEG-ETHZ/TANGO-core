@@ -14,7 +14,18 @@ class Runner:
         """
         args = parse_args(args)
         set_logger(args)
-        self._tango = Tango(args.input_file)
+        
+        if args.parameter_overrides:
+            print(f"Applying {len(args.parameter_overrides)} parameter overrides:")
+            for override in args.parameter_overrides:
+                print(f"  {override}")
+        
+        if args.params_json:
+            print(f"Applying JSON parameter overrides: {args.params_json}")
+        
+        self._tango = Tango(args.input_file, 
+                           parameter_overrides=args.parameter_overrides,
+                           params_json=args.params_json)
         self._optimizer = None
         if "optimization" in self._tango.specs:
             self._optimizer = Optimizer(self._tango, self._tango.specs)

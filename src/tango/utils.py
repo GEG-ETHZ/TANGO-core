@@ -4,10 +4,12 @@ import logging
 import sys
 import numpy as np
 import pandas as pd
-from oyaml import load, SafeLoader
+import yaml
 from datetime import datetime
 from pathlib import Path
 from enum import Enum
+import json
+import re
 
 from tango.core.config import *
 from tango.core.constants import *
@@ -23,7 +25,7 @@ from tango.units.external.MOOSE.reservoir.reservoir import *
 from tango.units.native.surface.flexible_pp import  *
 from tango.units.native.unit_reader import *
 from tango.time_stepper import LinearInterpolation
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple, Union
 import csv
 
 def parse_args(args) -> argparse.Namespace:
@@ -37,9 +39,11 @@ def parse_args(args) -> argparse.Namespace:
         argparse.Namespace: Parsed arguments with the following attributes:
             - `input_file` (str): Path to the input YAML file.
             - `debug` (bool): Whether to enable debug logging.
+            - `parameter_overrides` (list): List of parameter override strings.
+            - `params_json` (str): JSON string with multiple parameter overrides.
 
     Example:
-        >>> args = parse_args(['-f', 'input.yml', '--debug'])
+        >>> args = parse_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
     """
     parser = argparse.ArgumentParser(description='TANGO - Techno-economic ANalysis of GeOthermal power simulator')
     parser.add_argument('-f',
@@ -54,7 +58,302 @@ def parse_args(args) -> argparse.Namespace:
                         required=False,
                         default=False,
                         action=argparse.BooleanOptionalAction)
+    
+    parser.add_argument('--param', 
+                       action='append', 
+                       dest='parameter_overrides',
+                       help='Override YAML parameters (format: section.parameter=value)')
+    parser.add_argument('--params-json', 
+                       dest='params_json',
+                       help='JSON string with multiple parameter overrides')
+    
     return parser.parse_args(args)
+
+
+def parse_parameter_override(param_string: str) -> Tuple[List[str], Any]:
+    """
+    Parse parameter override string like "schedule.mass_flow_rate=0.2"
+    
+    Args:
+        param_string (str): Parameter override string in format "path.to.parameter=value"
+        
+    Returns:
+        Tuple[List[str], Any]: (path_list, value) where path_list is the nested path and value is the parsed value
+        
+    Raises:
+        ValueError: If the parameter string format is invalid
+        
+    Example:
+        >>> path, value = parse_parameter_override("schedule.mass_flow_rate=0.2")
+        >>> print(path)  # ['schedule', 'mass_flow_rate']
+        >>> print(value)  # 0.2
+    """
+    if '=' not in param_string:
+        raise ValueError(f"Invalid parameter format: {param_string}. Expected format: section.parameter=value")
+    
+    path_str, value_str = param_string.split('=', 1)
+    path_list = path_str.split('.')
+    
+    value = parse_value(value_str)
+    
+    return path_list, value
+
+
+def parse_value(value_str: str) -> Any:
+    """
+    Convert string value to appropriate Python type
+    
+    Args:
+        value_str (str): String representation of the value
+        
+    Returns:
+        Any: Parsed value with appropriate type (int, float, bool, str, list, dict)
+        
+    Example:
+        >>> parse_value("0.2")  # 0.2 (float)
+        >>> parse_value("true")  # True (bool)
+        >>> parse_value("[1,2,3]")  # [1, 2, 3] (list)
+        >>> parse_value('"CO2"')  # "CO2" (str)
+    """
+    value_str = value_str.strip()
+    
+    try:
+        return json.loads(value_str)
+    except json.JSONDecodeError:
+        pass
+    
+    if value_str.lower() in ('true', 'false'):
+        return value_str.lower() == 'true'
+    elif value_str.isdigit():
+        return int(value_str)
+    elif re.match(r'^-?\d*\.?\d+([eE][-+]?\d+)?$', value_str):
+        return float(value_str)
+    else:
+        return value_str.strip('"\'')
+
+
+def set_nested_value(dictionary: dict, path_list: List[str], value: Any) -> None:
+    """
+    Set nested dictionary value using path list
+    
+    Args:
+        dictionary (dict): The dictionary to modify
+        path_list (List[str]): List of keys representing the nested path
+        value (Any): Value to set at the specified path
+        
+    Example:
+        >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
+        >>> set_nested_value(specs, ['schedule', 'mass_flow_rate'], 0.2)
+        >>> print(specs['schedule']['mass_flow_rate'])  # 0.2
+    """
+    current = dictionary
+    for key in path_list[:-1]:
+        if key not in current:
+            current[key] = {}
+        current = current[key]
+    current[path_list[-1]] = value
+
+
+def apply_parameter_overrides(specs: Dict[str, Any], parameter_overrides: List[str] = None, params_json: str = None) -> Dict[str, Any]:
+    """
+    Apply parameter overrides to the specifications dictionary
+    
+    Args:
+        specs (Dict[str, Any]): Original specifications dictionary
+        parameter_overrides (List[str], optional): List of parameter override strings
+        params_json (str, optional): JSON string with multiple parameter overrides
+        
+    Returns:
+        Dict[str, Any]: Modified specifications dictionary
+        
+    Example:
+        >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
+        >>> overrides = ['schedule.mass_flow_rate=0.2', 'reservoir.permeability=1e-14']
+        >>> modified_specs = apply_parameter_overrides(specs, parameter_overrides=overrides)
+    """
+    if params_json:
+        try:
+            json_overrides = json.loads(params_json)
+            for param_path, value in json_overrides.items():
+                path_list = param_path.split('.')
+                set_nested_value(specs, path_list, value)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format in --params-json: {e}")
+    
+    if parameter_overrides:
+        for param_override in parameter_overrides:
+            try:
+                path_list, value = parse_parameter_override(param_override)
+                set_nested_value(specs, path_list, value)
+            except ValueError as e:
+                raise ValueError(f"Invalid parameter override '{param_override}': {e}")
+    
+    return specs
+
+
+def load_from_yaml_with_overrides(filename: str, parameter_overrides: List[str] = None, params_json: str = None) -> Dict[str, Any]:
+    """
+    Load YAML file and apply parameter overrides
+    
+    Args:
+        filename (str): Path to the YAML file
+        parameter_overrides (List[str], optional): List of parameter override strings
+        params_json (str, optional): JSON string with multiple parameter overrides
+        
+    Returns:
+        Dict[str, Any]: Specifications dictionary with applied overrides
+        
+    Example:
+        >>> specs = load_from_yaml_with_overrides("input.yml", 
+        ...                                      parameter_overrides=["schedule.mass_flow_rate=0.2"])
+    """
+    specs = load_from_yaml(filename)
+    
+    specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
+    
+    return specs
+
+
+def stringify_parameters(specs: Dict[str, Any], prefix: str = "") -> List[str]:
+    """
+    Convert specifications dictionary to list of parameter strings
+    
+    Args:
+        specs (Dict[str, Any]): Specifications dictionary
+        prefix (str): Current path prefix for nested parameters
+        
+    Returns:
+        List[str]: List of parameter strings in format "path.to.parameter=value"
+        
+    Example:
+        >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
+        >>> params = stringify_parameters(specs)
+        >>> print(params)  # ['schedule.mass_flow_rate=0.1']
+    """
+    param_strings = []
+    
+    for key, value in specs.items():
+        current_path = f"{prefix}.{key}" if prefix else key
+        
+        if isinstance(value, dict):
+            param_strings.extend(stringify_parameters(value, current_path))
+        else:
+            if isinstance(value, str):
+                value_str = f'"{value}"'
+            elif isinstance(value, (list, dict)):
+                value_str = json.dumps(value)
+            else:
+                value_str = str(value)
+            
+            param_strings.append(f"{current_path}={value_str}")
+    
+    return param_strings
+
+
+def validate_parameter_path(specs: Dict[str, Any], path_list: List[str]) -> bool:
+    """
+    Validate if a parameter path exists in the specifications
+    
+    Args:
+        specs (Dict[str, Any]): Specifications dictionary
+        path_list (List[str]): List of keys representing the nested path
+        
+    Returns:
+        bool: True if path exists, False otherwise
+        
+    Example:
+        >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
+        >>> validate_parameter_path(specs, ['schedule', 'mass_flow_rate'])  # True
+        >>> validate_parameter_path(specs, ['schedule', 'nonexistent'])  # False
+    """
+    current = specs
+    for key in path_list:
+        if not isinstance(current, dict) or key not in current:
+            return False
+        current = current[key]
+    return True
+
+
+def get_parameter_value(specs: Dict[str, Any], path_list: List[str]) -> Any:
+    """
+    Get parameter value from specifications using path list
+    
+    Args:
+        specs (Dict[str, Any]): Specifications dictionary
+        path_list (List[str]): List of keys representing the nested path
+        
+    Returns:
+        Any: Value at the specified path
+        
+    Raises:
+        KeyError: If the path doesn't exist
+        
+    Example:
+        >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
+        >>> value = get_parameter_value(specs, ['schedule', 'mass_flow_rate'])  # 0.1
+    """
+    current = specs
+    for key in path_list:
+        if not isinstance(current, dict) or key not in current:
+            raise KeyError(f"Parameter path {' -> '.join(path_list)} not found")
+        current = current[key]
+    return current
+
+
+def generate_parameter_strings(form_data: Dict[str, str]) -> List[str]:
+    """
+    Convert web form data to parameter strings for TANGO CLI
+    
+    Args:
+        form_data (Dict[str, str]): Dictionary of form field names and values
+        
+    Returns:
+        List[str]: List of parameter strings in format "section.parameter=value"
+        
+    Example:
+        >>> form_data = {
+        ...     'schedule_mass_flow_rate': '0.2',
+        ...     'reservoir_permeability': '1e-14'
+        ... }
+        >>> params = generate_parameter_strings(form_data)
+        >>> print(params)  # ['schedule.mass_flow_rate=0.2', 'reservoir.permeability=1e-14']
+    """
+    param_strings = []
+    
+    for field, value in form_data.items():
+        if value is not None and value != '':
+            param_path = field.replace('_', '.')
+            param_strings.append(f"{param_path}={value}")
+    
+    return param_strings
+
+
+def generate_json_overrides(form_data: Dict[str, str]) -> str:
+    """
+    Convert web form data to JSON parameter overrides
+    
+    Args:
+        form_data (Dict[str, str]): Dictionary of form field names and values
+        
+    Returns:
+        str: JSON string with parameter overrides
+        
+    Example:
+        >>> form_data = {
+        ...     'schedule_mass_flow_rate': '0.2',
+        ...     'reservoir_permeability': '1e-14'
+        ... }
+        >>> json_str = generate_json_overrides(form_data)
+        >>> print(json_str)  # '{"schedule.mass_flow_rate": "0.2", "reservoir.permeability": "1e-14"}'
+    """
+    overrides = {}
+    
+    for field, value in form_data.items():
+        if value is not None and value != '':
+            param_path = field.replace('_', '.')
+            overrides[param_path] = value
+    
+    return json.dumps(overrides)
 
 
 def set_logger(args):
@@ -116,7 +415,7 @@ def load_from_yaml(filename: str) -> Dict[str, Any]:
     """
     try:
         with open(filename, 'r') as file:
-            specs = yaml.load(file, Loader=SafeLoader)
+            specs = yaml.load(file, Loader=yaml.SafeLoader)
     except Exception as e:
         raise RuntimeError(f"Failed to read {filename}: {e}")
 
