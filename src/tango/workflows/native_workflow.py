@@ -599,7 +599,7 @@ class NativeWorkflow(Workflow):
                 addon_instance.execute()
 
         self._post_processing()
-        if 'district_heating' in self.specs:
+        if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
             self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
 
     def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False, print_table: bool = True):

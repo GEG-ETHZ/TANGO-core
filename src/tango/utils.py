@@ -1218,6 +1218,7 @@ def write_results(input_file: str, results: tuple) -> None:
     fname = os.path.splitext(input_file)[0] + ".smry.csv"
     logging.info(f"Saving output summary of physics-based units > {fname}")
     physics_results.pop('surface__condensation_temperature_range', None)
+    physics_results.pop('DH_heat_transfer_T', None)
     df = pd.DataFrame(physics_results)
     df.to_csv(fname, index=False)
 

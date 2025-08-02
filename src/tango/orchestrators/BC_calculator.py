@@ -43,6 +43,14 @@ class FlowRateCalculator():
         self.tp = []
         self.time_step = 0
 
+        self.ones_count = 0
+        if self.specs.get('time', {}).get('type') == 'HotmapsDispatchDT':
+            for component in self.specs['dt_list']:
+                if component == 1:
+                    self.ones_count += 1
+                else:
+                    break
+
         if (self.reservoir.specs.mass_rate['type'] == 'manual'):
             self.test_p = self.surface.specs.injection_pressure
         else:
@@ -63,7 +71,8 @@ class FlowRateCalculator():
             self.processor.process_geothermal_data(
                 specs['power_raw_data'],
                 specs['power_avg'],
-                specs['averaging_window']
+                specs['averaging_window'],
+                specs['bypass_file_generation']
             )
 
     def fracing_flow(self):
@@ -116,6 +125,7 @@ class FlowRateCalculator():
             - Supports both automatic and manual mass rate control.
             - Prevents mass rates from exceeding fracking thresholds.
             - Handles pump logic for production wells.
+            - Supports HotmapsDispatchDT time type with list-based mass rate control.
         """
         self.time_step += 1
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
@@ -153,21 +163,97 @@ class FlowRateCalculator():
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
-                    if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
-                        for node_name, node in self.surface.power_plant.nodes.items():
-                            if self.surface.power_plant.config.get(node_name, {}).get('Subtype') == 'DH_component':
-                                print(f'{node_name} (DH_component) Q: {node.Q.val} W')
-                                prev_thermal_power = -node.Q.val/1000000.0
-                        mass_rate = self.mass_rate_test * self.processor.averaged_df.loc[self.time_step - 1, 'value'] / prev_thermal_power * 30
+                    if self.specs.get('time', {}).get('type') == 'HotmapsDispatchDT':
+                        if self.time_step <= len(self.specs['dt_list']):
+                            
+                            if self.time_step <= self.ones_count:
+                                mass_rate = self.reservoir.specs.mass_rate['value']
+                                if (self.reservoir.specs.bc_iteration['check_fracing']):
+                                    if (mass_rate > self.fracing_flow()):
+                                        mass_rate = self.fracing_flow()
+                            else:
+                                if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+                                    max_iterations = 200
+                                    tolerance = 0.0001
+                                    
+                                    mass_rate_guess = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1 - self.ones_count, 'value'], self.specs["min_thermal_power"]) / 1.0
+                                    
+                                    for iter_count in range(max_iterations):
+                                        self.surface.mass_rate = mass_rate_guess * self.scaling_factor
+                                        self.surface.inlet_fluid.updatePT(P=self.pro_well.outlet_fluid.P, T=self.pro_well.outlet_fluid.T)
+                                        self.surface.stream_interface()
+                                        
+                                        prev_thermal_power = 0.0
+                                        for node_name, node in self.surface.power_plant.nodes.items():
+                                            if self.surface.power_plant.config.get(node_name, {}).get('Subtype') == 'DH_component':
+                                                prev_thermal_power += -node.Q.val/1000000.0
+                                                # break
+                                        
+                                        if prev_thermal_power > 0.0001:  # Small positive threshold
+                                            target_mass_rate = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1 - self.ones_count, 'value'], self.specs["min_thermal_power"]) / prev_thermal_power
+                                            
+                                            if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.000001) < tolerance:
+                                                mass_rate = target_mass_rate
+                                                break
+                                            
+                                            # Update guess with relaxation
+                                            mass_rate_guess = 0.5 * mass_rate_guess + 0.5 * target_mass_rate
+                                        else:
+                                            # Thermal power is negative or too small, increase mass_rate
+                                            mass_rate_guess *= 1.5
+                                    
+                                    # If loop didn't converge, use the last guess
+                                    if iter_count == max_iterations - 1:
+                                        mass_rate = mass_rate_guess
+                                    
+                                else:
+                                    mass_rate = self.fracing_flow()
+                        else:
+                            raise ValueError(f"Time step {self.time_step} exceeds dt_list length {len(self.specs['dt_list'])}. Cannot access dt_list[{self.time_step - 1}]")
                     else:
-                        mass_rate = self.fracing_flow()
+                        if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+                            max_iterations = 10
+                            tolerance = 0.001
+                            
+                            mass_rate_guess = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1, 'value'], self.specs["min_thermal_power"]) / 1.0
+                            
+                            for iter_count in range(max_iterations):
+                                self.surface.mass_rate = mass_rate_guess * self.scaling_factor
+                                self.surface.inlet_fluid.updatePT(P=self.pro_well.outlet_fluid.P, T=self.pro_well.outlet_fluid.T)
+                                self.surface.stream_interface()
+                                
+                                prev_thermal_power = 0.0
+                                for node_name, node in self.surface.power_plant.nodes.items():
+                                    if self.surface.power_plant.config.get(node_name, {}).get('Subtype') == 'DH_component':
+                                        prev_thermal_power = -node.Q.val/1000000.0
+                                        break
+                                
+                                # Check if thermal power is positive
+                                if prev_thermal_power > 0.001:
+                                    target_mass_rate = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1, 'value'], self.specs["min_thermal_power"]) / prev_thermal_power
+                                    
+                                    if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.001) < tolerance:
+                                        mass_rate = target_mass_rate
+                                        break
+                                    
+                                    # Update guess with relaxation
+                                    mass_rate_guess = 0.7 * mass_rate_guess + 0.3 * target_mass_rate
+                                else:
+                                    # Thermal power is negative or too small, increase mass_rate
+                                    mass_rate_guess *= 1.5
+                            
+                            # If loop didn't converge, use the last guess
+                            if iter_count == max_iterations - 1:
+                                mass_rate = mass_rate_guess
+                        else:
+                            mass_rate = self.fracing_flow()
                 elif (self.reservoir.specs.mass_rate['type'] == 'manual'):
                     mass_rate = self.reservoir.specs.mass_rate['value']
                     if (self.reservoir.specs.bc_iteration['check_fracing']):
                         if (mass_rate > self.fracing_flow()):
                             mass_rate = self.fracing_flow()
                 elif (self.reservoir.specs.mass_rate['type'] == 'manual_func'):
-                    mass_rate = funcs[self.reservoir.specs.mass_rate['function']] # funcs[self.reservoir.specs.mass_rate['function']]
+                    mass_rate = funcs[self.reservoir.specs.mass_rate['function']] 
                     if (self.reservoir.specs.bc_iteration['check_fracing']):
                         if (mass_rate > self.fracing_flow()):
                             mass_rate = self.fracing_flow()
@@ -184,6 +270,7 @@ class FlowRateCalculator():
             self.reservoir.stream_interface()
 
             # Update production well
+            print(f'self.reservoir.mass_rate: {self.reservoir.mass_rate}, self.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P}, self.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T}, self.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}')
             self.pro_well.mass_rate = self.reservoir.mass_rate
             self.pro_well.inlet_fluid.updatePT(P=self.reservoir.outlet_fluid.P, T=self.reservoir.outlet_fluid.T)
             self.pro_well.stream_interface()
@@ -247,10 +334,22 @@ class PowerReader:
     def __init__(self):
         self.averaged_df = None
 
-    def process_geothermal_data(self, input_file, output_file, window_size):
+    def process_geothermal_data(self, input_file, output_file, window_size, bypass_processing):
         """
         Extract geothermal data, handle duplicates, and create averaged output.
+        
+        Args:
+            input_file: Input Excel file path
+            output_file: Output Excel file path
+            window_size: Window size for averaging
+            bypass_processing: If True, skip all processing and just load existing output_file
         """
+        if bypass_processing == 'yes':
+            print(f"Bypassing processing - loading existing file: {output_file}")
+            self.averaged_df = pd.read_excel(output_file)
+            print(f"Loaded {len(self.averaged_df)} rows from existing file")
+            return self.averaged_df
+        
         print("Reading Excel file...")
         df = pd.read_excel(input_file)
 

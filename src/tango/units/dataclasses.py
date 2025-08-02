@@ -51,6 +51,8 @@ class CommonSpecs:
     output_table: str = 'yes'
     power_plant_table: str = 'yes'
     table_to_csv: str = 'no'
+    bypass_file_generation: str = 'no'
+    min_thermal_power: float = 0.005 # (MW)
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
@@ -250,7 +252,7 @@ class OptimizationSpecs:
 class DistrictHeatingSpecs:
     operation_year: int
     feeding_time: float = 20.0
-    efficiency_thermal: float = 0.95
+    efficiency_thermal: float = 1.0
     efficiency_electric: float = 0.0
     coldstart_cost: float = 1000.0
     renewable_factor: float = 1.0
@@ -274,6 +276,7 @@ class DistrictHeatingSpecs:
     electricity_price: str = " "
     sale_electricity_price: str = " "
     output_file: str = "fff.xlsx"
+    run_district_heating_simulator: str = 'no'
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass

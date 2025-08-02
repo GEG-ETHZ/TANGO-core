@@ -166,6 +166,7 @@ class ReservoirUnitNative(Unit):
         h_prod = self.outlet_fluid.H
         reservoir_energy = self.rock_volume * self.rock_C_v * dT
         self.update_energy_extracted(del_=self.m_dot * (h_prod - h_inj) * dt)
+        # print('psi',(self._energy_extracted - self._energy_extracted_old) / (self.m_dot*(h_prod - h_inj))/ YEAR_TO_SECOND)
         psi = self._get_energy_extracted() / reservoir_energy
         gamma = self._depletion_curve(psi)
         outlet_temperature = gamma * dT + self.inlet_fluid.T

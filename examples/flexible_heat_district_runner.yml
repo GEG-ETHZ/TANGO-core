@@ -94,30 +94,27 @@ schedule:
   main_product: 'heat'
   electricity_price: 0.24999
   bc_iteration_checkpoint: injection_well_bottom
-  mass_flow_rate: 50.0  # kg/s (injection rate per pattern)
+  mass_flow_rate: 0.1  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # DOUBLET, INVERTED_5SPOT, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
   num_pp: 1
   time:
-    type: HotmapsDispatchDT
-#    num_tsteps: 20 # number of time steps
-#    dt: 0.1  # time step increment (year)
-#  time:
-#    type: FunctionDT
-#    function: dts2
+    type: ConstantDT
+    num_tsteps: 25 # number of time steps
+    dt: 1.0  # time step increment (year)
   bc_iteration:
     check_fracing: yes
     max_mass_rate: 150
-    controlled_power_generation: 'yes'
+#    controlled_power_generation: 'yes'
   mass_rate:
-#    type: manual
-    type: automatic
+    type: manual
+#    type: automatic
     value: 50
-  power_raw_data: "/Users/morteza/Documents/projects/TANGO/examples/out.xlsx"
-  power_avg: "/Users/morteza/Documents/projects/TANGO/examples/out_avg.xlsx"
-  averaging_window: 100
+#  power_raw_data: "/Users/morteza/Documents/projects/TANGO/examples/out.xlsx"
+#  power_avg: "/Users/morteza/Documents/projects/TANGO/examples/out_avg.xlsx"
+#  averaging_window: 100
 
 economic:
   type: 'native'
@@ -161,14 +158,10 @@ DH:
 #  p_out: 0.5
 
 district_heating:
-  operation_year: 3
   feeding_time: 25.0
   coldstart_cost: 1000.0
   renewable_factor: 0.0
   must_run: 0.0
   ramping_cost: 0
-
-#functions:
-#  dts2:
-#    type: irregular_csv
-#    file: "/Users/morteza/Documents/projects/TANGO/examples/irregular_timesteps.csv"
+  operation_year: 10
+  run_district_heating_simulator: 'yes'

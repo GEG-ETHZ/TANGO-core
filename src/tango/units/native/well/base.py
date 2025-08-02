@@ -100,6 +100,7 @@ class WellUnitNative(Unit):
             self.mass_rate = float(row[1]) * self.scaling_factor
 
         self._initialize_state()
+        # print('t_d',(self._t_d - self._t_d_old) / self._t_scaling_factor / YEAR_TO_SECOND)
         t_d = self._get_dimensionless_time()
         g, dz, f_dir = self._g, self._dz, self._f_dir
         mdot, A = self.mass_rate, self._cross_sectional_area
