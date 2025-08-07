@@ -597,8 +597,12 @@ class NativeWorkflow(Workflow):
             if addon_specs.execute.lower() == "yes":
                 logging.info(f"Running execute for addon: {addon_name}")
                 addon_instance.execute()
+        
+        if 'batch_runner' in self.specs:
+            self.process_batch_runner_outputs()
+        else:
+            self._post_processing()
 
-        self._post_processing()
         if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
             self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
 
@@ -689,3 +693,143 @@ class NativeWorkflow(Workflow):
             print(top_border)
             print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
             print(top_border)
+
+    def process_batch_runner_outputs(self):
+        """
+        Processes batch runner outputs and writes results to a CSV file.
+        Input parameters are written in the first columns, followed by output parameters.
+        For simulation results with time series data, creates separate columns for each timestep.
+        """
+        if 'batch_runner' not in self.specs:
+            return
+            
+        batch_config = self.specs['batch_runner']
+        outputs_list = batch_config.get('outputs_list', [])
+        inputs_list = batch_config.get('inputs_list', [])
+        time_steps = batch_config.get('time_steps', [])
+        output_file_name = batch_config.get('output_file_name', 'batch_runner_output.csv')
+        
+        economic_outputs = ['LCOE', 'CAPEX_well', 'CAPEX_surface_pipe', 'CAPEX_power_plant', 
+                           'CAPEX_permitting', 'CAPEX_exploration', 'CAPEX_wells', 'CAPEX_total']
+        
+        input_values = {}
+        for input_param in inputs_list:
+            if '.' in input_param:
+                param_parts = input_param.split('.')
+                current_dict = self.specs
+                
+                try:
+                    for part in param_parts:
+                        if isinstance(current_dict, dict) and part in current_dict:
+                            current_dict = current_dict[part]
+                        else:
+                            print(f"  Warning: Could not access {input_param} - {part} not found")
+                            input_values[input_param] = None
+                            break
+                    else:
+                        input_values[input_param] = current_dict
+                except Exception as e:
+                    print(f"  Error accessing {input_param}: {e}")
+                    input_values[input_param] = None
+            else:
+                if input_param in self.specs:
+                    input_values[input_param] = self.specs[input_param]
+                else:
+                    print(f"  Warning: {input_param} not found in specs")
+                    input_values[input_param] = None
+        
+        output_values = {}
+        for output_component in outputs_list:
+            if output_component in economic_outputs:
+                if hasattr(self, 'economic') and self.economic and hasattr(self.economic, '_results'):
+                    if output_component in self.economic._results:
+                        output_values[output_component] = self.economic._results[output_component]
+                    else:
+                        output_values[output_component] = None
+                else:
+                    print(f"  Warning: Economic results not available")
+                    output_values[output_component] = None
+            else:
+                if output_component in self._results:
+                    values = self._results[output_component]
+                    for i, time_step in enumerate(time_steps):
+                        if i < len(values):
+                            output_values[f"{output_component}_{time_step}"] = values[i]
+                        else:
+                            output_values[f"{output_component}_{time_step}"] = None
+                else:
+                    print(f"  Warning: {output_component} not found in simulation results")
+                    for time_step in time_steps:
+                        output_values[f"{output_component}_{time_step}"] = None
+        
+        self.write_batch_runner_csv(output_file_name, input_values, output_values)
+        
+        print(f"\nBatch runner results written to: {output_file_name}")
+
+    def write_batch_runner_csv(self, output_file_name, input_values, output_values):
+        """
+        Writes batch runner results to a CSV file.
+        
+        Args:
+            output_file_name (str): Name of the output CSV file
+            input_values (dict): Dictionary of input parameter names and values
+            output_values (dict): Dictionary of output parameter names and values
+        """
+        import csv
+        import os
+        
+        headers = list(input_values.keys()) + list(output_values.keys())
+        data = list(input_values.values()) + list(output_values.values())
+        
+        file_exists = os.path.exists(output_file_name)
+        
+        try:
+            with open(output_file_name, 'a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                if not file_exists:
+                    writer.writerow(headers)
+                
+                writer.writerow(data)
+                
+            if not file_exists:
+                print(f"Successfully created CSV file: {output_file_name}")
+            else:
+                print(f"Successfully appended to CSV file: {output_file_name}")
+            
+        except Exception as e:
+            print(f"Error writing CSV file {output_file_name}: {e}")
+
+    def process_batch_runner_inputs(self, inputs_list):
+        """
+        Processes batch runner inputs by accessing nested parameters in self.specs.
+        Supports both simple parameters and nested parameters using dot notation.
+        
+        Args:
+            inputs_list (list): List of input parameter names (can include dot notation for nested access)
+        """
+        for input_param in inputs_list:
+            print(f"\nProcessing input: {input_param}")
+            
+            if '.' in input_param:
+                param_parts = input_param.split('.')
+                current_dict = self.specs
+                
+                try:
+                    for part in param_parts:
+                        if isinstance(current_dict, dict) and part in current_dict:
+                            current_dict = current_dict[part]
+                        else:
+                            print(f"  Warning: Could not access {input_param} - {part} not found")
+                            break
+                    else:
+                        print(f"  Input value for {input_param}: {current_dict}")
+                        continue
+                except Exception as e:
+                    print(f"  Error accessing {input_param}: {e}")
+                    continue
+            else:
+                if input_param in self.specs:
+                    print(f"  Input value for {input_param}: {self.specs[input_param]}")
+                else:
+                    print(f"  Warning: {input_param} not found in specs")

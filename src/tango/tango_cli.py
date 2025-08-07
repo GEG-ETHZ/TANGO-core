@@ -33,13 +33,16 @@ class Runner:
     def start(self) -> None:
         """
         Starts the execution of the workflow. If 'optimization' is present in the specs,
-        use the optimizer. Otherwise, use the regular Tango execution.
+        use the optimizer. Otherwise, check for batch simulation or use regular Tango execution.
         """
         if self._optimizer:
             print("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
+        elif 'batch_simulation' in self._tango.specs and self._tango.specs['batch_simulation'].get('enabled', False):
+            print("Batch simulation detected. Executing batch simulation...")
+            self._tango.execute_batch_simulation()
         else:
-            print("No optimization detected. Executing Tango workflow...")
+            print("No optimization or batch simulation detected. Executing Tango workflow...")
             self._tango.execute()
 
 

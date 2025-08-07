@@ -8,6 +8,7 @@ import inspect
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
+import itertools
 
 from dataclasses import dataclass
 from tango.core.config import *
@@ -56,6 +57,238 @@ def get_workflow_class(type_: str) -> object:
         return eval(WORKFLOW_OPTIONS[type_.lower()])
     except:
         raise ValueError(f"workflow type: {type_} is not supported.")
+
+
+class BatchSimulation:
+    """
+    Handles batch simulations with parameter ranges.
+    """
+    
+    def __init__(self, base_specs: dict, batch_config: dict):
+        """
+        Initialize batch simulation.
+        
+        Args:
+            base_specs (dict): Base specifications
+            batch_config (dict): Batch simulation configuration
+        """
+        self.base_specs = base_specs
+        self.batch_config = batch_config
+        self.inputs_list = batch_config.get('inputs_list', {})
+        self.outputs_list = batch_config.get('outputs_list', [])
+        self.time_steps = batch_config.get('time_steps', [])
+        self.output_file_name = batch_config.get('output_file_name', 'batch_simulation.csv')
+        
+    def generate_parameter_combinations(self):
+        """
+        Generate all parameter combinations from the ranges.
+        
+        Returns:
+            list: List of parameter dictionaries for each simulation
+        """
+        param_values = {}
+        
+        flattened_params = self._flatten_inputs_list()
+        
+        for param_path, range_config in flattened_params.items():
+            min_val = range_config['min']
+            max_val = range_config['max']
+            points = range_config['points']
+            
+            print(f"Processing parameter range: {param_path}")
+            print(f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})")
+            
+            try:
+                if isinstance(min_val, str):
+                    if 'e' in min_val.lower():
+                        min_val = float(min_val)
+                    else:
+                        min_val = float(min_val)
+                if isinstance(max_val, str):
+                    if 'e' in max_val.lower():
+                        max_val = float(max_val)
+                    else:
+                        max_val = float(max_val)
+                if isinstance(points, str):
+                    points = int(points)
+                
+                print(f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})")
+                
+            except (ValueError, TypeError) as e:
+                print(f"Error converting parameter {param_path}: {e}")
+                print(f"  min_val: {min_val} (type: {type(min_val)})")
+                print(f"  max_val: {max_val} (type: {type(max_val)})")
+                print(f"  points: {points} (type: {type(points)})")
+                continue
+            
+            if points == 1:
+                param_values[param_path] = [min_val]
+            else:
+                param_values[param_path] = np.linspace(min_val, max_val, points).tolist()
+            
+            print(f"  Generated values: {param_values[param_path]}")
+        
+        param_names = list(param_values.keys())
+        param_value_lists = list(param_values.values())
+        
+        combinations = []
+        for combination in itertools.product(*param_value_lists):
+            param_dict = dict(zip(param_names, combination))
+            combinations.append(param_dict)
+            
+        print(f"Generated {len(combinations)} parameter combinations")
+        return combinations
+    
+    def _flatten_inputs_list(self):
+        """
+        Flatten the nested inputs_list structure to get parameter paths.
+        
+        Returns:
+            dict: Dictionary with parameter paths as keys and range configs as values
+        """
+        flattened = {}
+        
+        for section_name, section_config in self.inputs_list.items():
+            if isinstance(section_config, dict):
+                for param_name, param_config in section_config.items():
+                    if isinstance(param_config, dict) and 'min' in param_config and 'max' in param_config and 'points' in param_config:
+                        param_path = f"{section_name}.{param_name}"
+                        flattened[param_path] = param_config
+                    elif isinstance(param_config, dict):
+                        for nested_param_name, nested_param_config in param_config.items():
+                            if isinstance(nested_param_config, dict) and 'min' in nested_param_config and 'max' in nested_param_config and 'points' in nested_param_config:
+                                param_path = f"{section_name}.{param_name}.{nested_param_name}"
+                                flattened[param_path] = nested_param_config
+        
+        return flattened
+    
+    def set_nested_parameter(self, specs: dict, param_path: str, value):
+        """
+        Set a nested parameter in the specifications.
+        
+        Args:
+            specs (dict): Specifications to modify
+            param_path (str): Parameter path (e.g., 'injection_well.diameter')
+            value: Value to set
+        """
+        if '.' in param_path:
+            parts = param_path.split('.')
+            current = specs
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+            current[parts[-1]] = value
+        else:
+            specs[param_path] = value
+    
+    def run_batch_simulation(self, input_file: str):
+        """
+        Run the batch simulation.
+        
+        Args:
+            input_file (str): Input file path
+        """
+        combinations = self.generate_parameter_combinations()
+        total_simulations = len(combinations)
+        
+        print(f"Starting batch simulation with {total_simulations} parameter combinations:")
+        for i, combo in enumerate(combinations):
+            print(f"  Simulation {i+1}: {combo}")
+        
+        self.prepare_csv_file(combinations)
+        
+        for i, param_combo in enumerate(tqdm(combinations, desc="Batch Simulation Progress")):
+            print(f"\n--- Running Simulation {i+1}/{total_simulations} ---")
+            print(f"Parameters: {param_combo}")
+            
+            modified_specs = copy.deepcopy(self.base_specs)
+            
+            for param_path, value in param_combo.items():
+                self.set_nested_parameter(modified_specs, param_path, value)
+            
+            tango = Tango(input_file, specs=modified_specs)
+            tango.execute()
+            
+            self.write_simulation_results(tango, param_combo, i+1)
+    
+    def prepare_csv_file(self, combinations):
+        """
+        Prepare the CSV file with headers.
+        
+        Args:
+            combinations (list): List of parameter combinations
+        """
+        import csv
+        
+        headers = []
+        
+        for param_name in combinations[0].keys():
+            headers.append(param_name)
+        
+        economic_outputs = ['LCOE', 'CAPEX_well', 'CAPEX_surface_pipe', 'CAPEX_power_plant', 
+                           'CAPEX_permitting', 'CAPEX_exploration', 'CAPEX_wells', 'CAPEX_total']
+        
+        for output_name in self.outputs_list:
+            if output_name in economic_outputs:
+                headers.append(output_name)
+            else:
+                for time_step in self.time_steps:
+                    headers.append(f"{output_name}_{time_step}")
+        
+        try:
+            with open(self.output_file_name, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(headers)
+            print(f"Created CSV file: {self.output_file_name}")
+        except Exception as e:
+            print(f"Error creating CSV file: {e}")
+    
+    def write_simulation_results(self, tango, param_combo, simulation_number):
+        """
+        Write results for a single simulation to CSV.
+        
+        Args:
+            tango: Tango instance with completed simulation
+            param_combo (dict): Parameter combination used
+            simulation_number (int): Simulation number
+        """
+        import csv
+        
+        input_values = list(param_combo.values())
+        
+        output_values = []
+        economic_outputs = ['LCOE', 'CAPEX_well', 'CAPEX_surface_pipe', 'CAPEX_power_plant', 
+                           'CAPEX_permitting', 'CAPEX_exploration', 'CAPEX_wells', 'CAPEX_total']
+        
+        for output_name in self.outputs_list:
+            if output_name in economic_outputs:
+                if hasattr(tango.workflow, 'economic') and tango.workflow.economic:
+                    if output_name in tango.workflow.economic._results:
+                        output_values.append(tango.workflow.economic._results[output_name])
+                    else:
+                        output_values.append(None)
+                else:
+                    output_values.append(None)
+            else:
+                if output_name in tango.workflow._results:
+                    values = tango.workflow._results[output_name]
+                    for i, time_step in enumerate(self.time_steps):
+                        if i < len(values):
+                            output_values.append(values[i])
+                        else:
+                            output_values.append(None)
+                else:
+                    for _ in self.time_steps:
+                        output_values.append(None)
+        
+        try:
+            with open(self.output_file_name, 'a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                row_data = input_values + output_values
+                writer.writerow(row_data)
+        except Exception as e:
+            print(f"Error writing to CSV: {e}")
 
 
 class Tango:
@@ -147,4 +380,14 @@ class Tango:
         self.workflow.execute()
 
         logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))
+
+    def execute_batch_simulation(self) -> None:
+        """
+        Executes batch simulation if configured.
+        """
+        if 'batch_simulation' in self.specs and self.specs['batch_simulation'].get('enabled', False):
+            batch_sim = BatchSimulation(self.specs, self.specs['batch_simulation'])
+            batch_sim.run_batch_simulation(self.input_file)
+        else:
+            self.execute()
 
