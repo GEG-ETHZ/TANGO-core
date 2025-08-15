@@ -153,7 +153,7 @@ class FunctionEvaluator:
         for param in param_names:
             if param in self.target_mapping:
                 parameters[param] = eval(self.target_mapping[param], {}, {"self": self.context})
-            elif param in self.variable_mapping:
+            elif self.variable_mapping and param in self.variable_mapping:
                 parameters[param] = eval(self.variable_mapping[param], {}, {"self": self.context})
             else:
                 raise KeyError(f"Parameter '{param}' not found in any mapping.")

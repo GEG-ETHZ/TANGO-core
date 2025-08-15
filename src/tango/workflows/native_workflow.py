@@ -89,6 +89,58 @@ class NativeWorkflow(Workflow):
             economic=self.economic
         )
         self.function_evaluator.set_context(self)
+        
+        if (hasattr(self.orchestrator, 'unit') and 
+            hasattr(self.orchestrator.unit, 'surface') and 
+            self.orchestrator.unit.surface and
+            hasattr(self.orchestrator.unit.surface, 'set_context')):
+            self.orchestrator.unit.surface.set_context(self)
+
+    def _generate_power_plant_mappings(self):
+        """
+        Generates dynamic power plant component attribute mappings for the FunctionEvaluator.
+        """
+        if (hasattr(self.orchestrator, 'unit') and 
+            hasattr(self.orchestrator.unit, 'surface') and 
+            self.orchestrator.unit.surface and
+            type(self.orchestrator.unit.surface).__name__ == 'SurfaceUnitFlexiblePP'):
+            
+            surface_unit = self.orchestrator.unit.surface
+            
+            if hasattr(surface_unit, 'specs'):
+                specs = surface_unit.specs
+                if hasattr(specs, 'new_config'):
+                    config = specs.new_config
+                elif hasattr(specs, 'org'):
+                    config = specs.org
+                else:
+                    config = None
+            else:
+                config = None
+                
+            if config and 'power_plant_graph' in config and 'nodes' in config['power_plant_graph']:
+                if not hasattr(self.function_evaluator, 'variable_mapping'):
+                    self.function_evaluator.variable_mapping = {}
+                if not self.function_evaluator.variable_mapping:
+                    self.function_evaluator.variable_mapping = {}
+                    
+                nodes = config['power_plant_graph']['nodes']
+                
+                for component_name, component_data in nodes.items():
+                    if isinstance(component_data, dict) and 'type' in component_data:
+                        if component_name in config:
+                            component_config = config[component_name]
+                            
+                            for attr_name, attr_value in component_config.items():
+                                mapping_key = f"{component_name}_{attr_name}"
+                                mapping_value = f"self.orchestrator.unit.surface.specs.new_config[\"{component_name}\"][\"{attr_name}\"]"
+                                self.function_evaluator.variable_mapping[mapping_key] = mapping_value
+                        else:
+                            for attr_name, attr_value in component_data.items():
+                                if attr_name != 'type':  
+                                    mapping_key = f"{component_name}_{attr_name}"
+                                    mapping_value = f"self.orchestrator.unit.surface.specs.new_config[\"power_plant_graph\"][\"nodes\"][\"{component_name}\"][\"{attr_name}\"]"
+                                    self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
     def _process_specs(self, specs) -> dict:
         """
@@ -553,6 +605,8 @@ class NativeWorkflow(Workflow):
         - Balances and advances the system state.
         - Saves results and performs post-processing tasks.
         """
+        self._generate_power_plant_mappings()
+        
         if 'functions' in self.specs and self.specs['functions']:
             self.function_evaluator.evaluate_functions(self.specs['functions'])
         current_date = self._start_date

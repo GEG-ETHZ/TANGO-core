@@ -203,22 +203,19 @@ class PowerPlant:
             orchestrator=None,
             economic=None
         )
-        self.function_evaluator.set_context(self)
-
-        if 'functions' in specs.org and specs.org['functions']:
-            self.function_evaluator.evaluate_functions(specs.org['functions'])
-
-        self.funcs = self.function_evaluator.evaluated_functions
+        
+        self._specs = specs
+        self._functions_evaluated = False
+        
+        self.funcs = {}
         self.iterative_inj_pressure = 9100000
         self.pp_specs = specs
         self.config = self.pp_specs.new_config
 
-        # Create TESPy components
         self.nodes = {}
         for node_name, node_data in self.config['power_plant_graph']['nodes'].items():
             self.nodes[node_name] = self._create_component(node_data['type'], node_name)
 
-        # Create TESPy connections
         self.connections = []
         for edge_id, edge_data in self.config['power_plant_graph']['edges'].items():
             source = self.nodes[edge_data['source']]
@@ -230,6 +227,32 @@ class PowerPlant:
 
         self.network = Network(p_unit='bar', T_unit='C', h_unit='kJ / kg', iterinfo=False)
         self.network.add_conns(*self.connections)
+
+    def set_context(self, context):
+        """
+        Sets the context for the function evaluator and evaluates functions if not already done.
+        
+        Args:
+            context (object): The context object (e.g., NativeWorkflow instance).
+        """
+        self.function_evaluator.set_context(context)
+        
+        if not self._functions_evaluated and 'functions' in self._specs.org and self._specs.org['functions']:
+            self.function_evaluator.evaluate_functions(self._specs.org['functions'])
+            self._functions_evaluated = True
+            self.funcs = self.function_evaluator.evaluated_functions
+
+    def get_funcs(self):
+        """
+        Gets the evaluated functions, with fallback to main workflow if needed.
+        
+        Returns:
+            dict: Dictionary of evaluated functions.
+        """
+        if not self.funcs and hasattr(self, 'context') and self.context:
+            if hasattr(self.context, 'function_evaluator'):
+                return self.context.function_evaluator.evaluated_functions
+        return self.funcs
 
     def _create_component(self, component_type, name):
         """
@@ -287,7 +310,7 @@ class PowerPlant:
                 adjusted_attributes = {}
                 for attr_name, attr_value in attributes.items():
                     if isinstance(attr_value, str):
-                        attr_value = self.funcs.get(attr_value, attr_value)
+                        attr_value = self.get_funcs().get(attr_value, attr_value)
                     if attr_name == 'efficiency':
                         adjusted_attributes['eta_s'] = attr_value
                     elif attr_name in ['ttd_u', 'ttd_l', 'pr1', 'pr2']:  # Specific to HeatExchanger
@@ -315,31 +338,31 @@ class PowerPlant:
                     if 'fluid' in source_config:
                         fluid_value = source_config['fluid']
                         if isinstance(fluid_value, str):
-                            fluid_value = self.funcs.get(fluid_value, fluid_value)
+                            fluid_value = self.get_funcs().get(fluid_value, fluid_value)
                         connection_attributes['fluid'] = fluid_value
 
                     if 'm' in source_config:
                         m_value = source_config['m']
                         if isinstance(m_value, str):
-                            m_value = self.funcs.get(m_value, m_value)
+                            m_value = self.get_funcs().get(m_value, m_value)
                         connection_attributes['m'] = m_value
 
                     if 'T' in source_config:
                         T_value = source_config['T']
                         if isinstance(T_value, str):
-                            T_value = self.funcs.get(T_value, T_value)
+                            T_value = self.get_funcs().get(T_value, T_value)
                         connection_attributes['T'] = T_value
 
                     if 'p' in source_config:
                         p_value = source_config['p']
                         if isinstance(p_value, str):
-                            p_value = self.funcs.get(p_value, p_value)
+                            p_value = self.get_funcs().get(p_value, p_value)
                         connection_attributes['p'] = p_value
 
                     if 'vapor_mass_fraction_out' in source_config:
                         x_value = source_config['vapor_mass_fraction_out']
                         if isinstance(x_value, str):
-                            x_value = self.funcs.get(x_value, x_value)
+                            x_value = self.get_funcs().get(x_value, x_value)
                         connection_attributes['x'] = x_value
 
             elif component_type == 'Sink':
@@ -349,13 +372,13 @@ class PowerPlant:
                 if 'T' in sink_config:
                     T_value = sink_config['T']
                     if isinstance(T_value, str):
-                        T_value = self.funcs.get(T_value, T_value)
+                        T_value = self.get_funcs().get(T_value, T_value)
                     connection_attributes['T'] = T_value
 
                 if 'p' in sink_config:
                     p_value = sink_config['p']
                     if isinstance(p_value, str):
-                        p_value = self.funcs.get(p_value, p_value)
+                        p_value = self.get_funcs().get(p_value, p_value)
                     connection_attributes['p'] = p_value
 
             elif component_type == 'Valve':
@@ -364,13 +387,13 @@ class PowerPlant:
                 if 'p_out' in valve_config:
                     p_out_value = valve_config['p_out']
                     if isinstance(p_out_value, str):
-                        p_out_value = self.funcs.get(p_out_value, p_out_value)
+                        p_out_value = self.get_funcs().get(p_out_value, p_out_value)
                     connection_attributes['p'] = p_out_value
 
                 if 'T_out' in valve_config:
                     T_out_value = valve_config['T_out']
                     if isinstance(T_out_value, str):
-                        T_out_value = self.funcs.get(T_out_value, T_out_value)
+                        T_out_value = self.get_funcs().get(T_out_value, T_out_value)
                     connection_attributes['T'] = T_out_value
 
             elif component_type == 'Turbine':
@@ -380,13 +403,13 @@ class PowerPlant:
                 if 'p_out' in turbine_config:
                     p_out_value = turbine_config['p_out']
                     if isinstance(p_out_value, str):
-                        p_out_value = self.funcs.get(p_out_value, p_out_value)
+                        p_out_value = self.get_funcs().get(p_out_value, p_out_value)
                     connection_attributes['p'] = p_out_value
 
                 if 'T_out' in turbine_config:
                     T_out_value = turbine_config['T_out']
                     if isinstance(T_out_value, str):
-                        T_out_value = self.funcs.get(T_out_value, T_out_value)
+                        T_out_value = self.get_funcs().get(T_out_value, T_out_value)
                     connection_attributes['T'] = T_out_value
 
             elif component_type == 'SimpleHeatExchanger':
@@ -397,19 +420,19 @@ class PowerPlant:
                     if 'p_out' in heat_exchanger_config:
                         p_out_value = heat_exchanger_config['p_out']
                         if isinstance(p_out_value, str):
-                            p_out_value = self.funcs.get(p_out_value, p_out_value)
+                            p_out_value = self.get_funcs().get(p_out_value, p_out_value)
                         connection_attributes['p'] = p_out_value
 
                     if 'T_out' in heat_exchanger_config:
                         T_out_value = heat_exchanger_config['T_out']
                         if isinstance(T_out_value, str):
-                            T_out_value = self.funcs.get(T_out_value, T_out_value)
+                            T_out_value = self.get_funcs().get(T_out_value, T_out_value)
                         connection_attributes['T'] = T_out_value
 
                     if 'vapor_mass_fraction_out' in heat_exchanger_config:
                         x_value = heat_exchanger_config['vapor_mass_fraction_out']
                         if isinstance(x_value, str):
-                            x_value = self.funcs.get(x_value, x_value)
+                            x_value = self.get_funcs().get(x_value, x_value)
                         connection_attributes['x'] = x_value
 
             elif component_type == 'Compressor':
@@ -418,13 +441,13 @@ class PowerPlant:
                 if 'p_out' in pump_config:
                     p_out_value = pump_config['p_out']
                     if isinstance(p_out_value, str):
-                        p_out_value = self.funcs.get(p_out_value, p_out_value)
+                        p_out_value = self.get_funcs().get(p_out_value, p_out_value)
                     connection_attributes['p'] = p_out_value
 
                 if 'T_out' in pump_config:
                     T_out_value = pump_config['T_out']
                     if isinstance(T_out_value, str):
-                        T_out_value = self.funcs.get(T_out_value, T_out_value)
+                        T_out_value = self.get_funcs().get(T_out_value, T_out_value)
                     connection_attributes['T'] = T_out_value
 
             elif component_type == 'DropletSeparator':
@@ -463,7 +486,7 @@ class PowerPlant:
                     if attr_key in heat_exchanger_config:
                         attr_value = heat_exchanger_config[attr_key]
                         if isinstance(attr_value, str):
-                            attr_value = self.funcs.get(attr_value, attr_value)
+                            attr_value = self.get_funcs().get(attr_value, attr_value)
                         connection_attributes[mapped_keys[attr_key]] = attr_value
 
             connection.set_attr(**connection_attributes)
