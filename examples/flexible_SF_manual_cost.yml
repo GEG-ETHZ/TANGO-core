@@ -80,7 +80,8 @@ production_well_pump:
 functions:
   new_cost_model:
     type: mathematical_expression
-    value: pump_efficiency/turbine_p_out + condenser_set_number
+    # value: pump_efficiency/turbine_p_out + condenser_set_number + turbine_P
+    value: 0 - turbine_P
 
 costs:
   permitting:

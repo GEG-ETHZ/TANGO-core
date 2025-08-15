@@ -140,7 +140,37 @@ class NativeWorkflow(Workflow):
                                 if attr_name != 'type':  
                                     mapping_key = f"{component_name}_{attr_name}"
                                     mapping_value = f"self.orchestrator.unit.surface.specs.new_config[\"power_plant_graph\"][\"nodes\"][\"{component_name}\"][\"{attr_name}\"]"
-                                    self.function_evaluator.variable_mapping[mapping_key] = mapping_value
+                                    self.function_evaluator.variable_mapping[mapping_key] = mapping_value                
+
+                tespy_output_mappings = {
+                    'P': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].P.val',  # Power
+                    'Q': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].Q.val',  # Heat load
+                    'T': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].T.val',  # Temperature
+                    'p': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].p.val',  # Pressure
+                    'h': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].h.val',  # Enthalpy
+                    'm': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].m.val',  # Mass flow rate
+                    'eta': 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].eta.val',  # Efficiency
+                }
+                
+                for component_name, component_data in nodes.items():
+                    if isinstance(component_data, dict) and 'type' in component_data:
+                        component_type = component_data['type']
+                        
+                        if component_type in ['Turbine', 'Compressor']:
+                            mapping_key = f"{component_name}_P"
+                            mapping_value = tespy_output_mappings['P'].format(component=component_name)
+                            self.function_evaluator.variable_mapping[mapping_key] = mapping_value
+                            
+                        elif component_type in ['SimpleHeatExchanger', 'HeatExchanger']:
+                            mapping_key = f"{component_name}_Q"
+                            mapping_value = tespy_output_mappings['Q'].format(component=component_name)
+                            self.function_evaluator.variable_mapping[mapping_key] = mapping_value
+                            
+                        for output_attr, mapping_template in tespy_output_mappings.items():
+                            if output_attr not in ['P', 'Q']:  
+                                mapping_key = f"{component_name}_{output_attr}"
+                                mapping_value = mapping_template.format(component=component_name)
+                                self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
     def _process_specs(self, specs) -> dict:
         """
