@@ -88,6 +88,13 @@ for category, parameters in VARIABLE_CATEGORIES.items():
         for param in parameters:
             VARIABLE_PARAMETER_MAPPING[param] = f"{BASE_PATHS['specs']}['{category}']['{param}']"
 
+VARIABLE_PARAMETER_MAPPING.update({
+    "mass_rate": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
+    "mass_rate_value": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
+    "mass_rate_type": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['type']",
+})
+
+
 def get_target_translation(parameter_name: str) -> str:
     """
     Retrieve the mapped TANGO system path for a given parameter.
