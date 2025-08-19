@@ -116,4 +116,24 @@ def get_target_translation(parameter_name: str) -> str:
     """
     if parameter_name in TARGET_PARAMETER_MAPPING:
         return TARGET_PARAMETER_MAPPING[parameter_name]
+
+    # Dynamic TESPy power plant outputs mapping (e.g., turbine_P, turbine7_P, condenser_Q, pump_eta, etc.)
+    if "_" in parameter_name:
+        component, attr = parameter_name.rsplit("_", 1)
+        tespy_attr_map = {
+            "P": ".P.val",   # Power (for Turbine/Compressor)
+            "Q": ".Q.val",   # Heat duty (for HeatExchanger)
+            "T": ".T.val",   # Temperature
+            "p": ".p.val",   # Pressure
+            "h": ".h.val",   # Enthalpy
+            "m": ".m.val",   # Mass flow
+            "eta": ".eta.val" # Efficiency
+        }
+        if attr in tespy_attr_map:
+            return (
+                "self.tango_instance.workflow.orchestrator.unit.surface.power_plant.nodes[" 
+                f"'{component}'" 
+                "]" + tespy_attr_map[attr]
+            )
+
     raise KeyError(f"Target parameter '{parameter_name}' not found in translation mapping.")

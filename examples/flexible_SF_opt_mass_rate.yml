@@ -226,7 +226,7 @@ optimization:
       upper_bound: 100
       type: continuous
   targets: # This should be a list, even if there's only one target
-    - LCOE
+    - turbine7_P
   target_type:
     - minimize
   parallel_processing: yes

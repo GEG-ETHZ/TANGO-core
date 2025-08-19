@@ -836,9 +836,15 @@ class NativeWorkflow(Workflow):
             else:
                 if output_component in self._results:
                     values = self._results[output_component]
-                    for i, time_step in enumerate(time_steps):
-                        if i < len(values):
-                            output_values[f"{output_component}_{time_step}"] = values[i]
+                    for time_step in time_steps:
+                        try:
+                            ts_idx = int(time_step)
+                        except (TypeError, ValueError):
+                            output_values[f"{output_component}_{time_step}"] = None
+                            continue
+                        idx = ts_idx - 1 if ts_idx > 0 else ts_idx
+                        if -len(values) <= idx < len(values):
+                            output_values[f"{output_component}_{time_step}"] = values[idx]
                         else:
                             output_values[f"{output_component}_{time_step}"] = None
                 else:

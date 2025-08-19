@@ -107,7 +107,7 @@ schedule:
     max_mass_rate: 150
   mass_rate:
     type: manual
-    value: 50
+    value: 38.663360
 
 economic: # optional
   type: 'native'
@@ -255,12 +255,12 @@ batch_simulation:
     schedule:
       mass_rate:
         value:
-          min: 30
-          max: 100
+          min: 38.663360
+          max: 40
           points: 2
   outputs_list:
-    - LCOE
+    - turbine7_power_T
   time_steps:
     - 1
     - 2
-    - 3
+    - 20

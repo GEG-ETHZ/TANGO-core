@@ -273,9 +273,16 @@ class BatchSimulation:
             else:
                 if output_name in tango.workflow._results:
                     values = tango.workflow._results[output_name]
-                    for i, time_step in enumerate(self.time_steps):
-                        if i < len(values):
-                            output_values.append(values[i])
+                    for time_step in self.time_steps:
+                        try:
+                            ts_idx = int(time_step)
+                        except (TypeError, ValueError):
+                            output_values.append(None)
+                            continue
+                        # Interpret time_steps as 1-based indices if positive
+                        idx = ts_idx - 1 if ts_idx > 0 else ts_idx
+                        if -len(values) <= idx < len(values):
+                            output_values.append(values[idx])
                         else:
                             output_values.append(None)
                 else:
