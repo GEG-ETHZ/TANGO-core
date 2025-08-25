@@ -214,3 +214,7 @@ pump:
 pump2:
   efficiency: 1.0
 #  p_out: 30
+
+# arangodb:
+#   enabled: 'yes'
+#   database: 'tango_geothermal'

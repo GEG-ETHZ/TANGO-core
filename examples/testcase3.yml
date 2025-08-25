@@ -112,3 +112,7 @@ addons:
     active: 'no'
     execute: 'no'
     results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/alpha.csv'
+
+# arangodb:
+#   enabled: 'yes'
+#   database: 'tango_geothermal'

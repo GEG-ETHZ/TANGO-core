@@ -9,6 +9,7 @@ import os
 import csv
 from copy import deepcopy
 
+from .arangodb_manager import ArangoDBManager
 from tango.core.abstracts.workflow import *
 from tango.core.constants import *
 from tango.core.config import *
@@ -95,6 +96,53 @@ class NativeWorkflow(Workflow):
             self.orchestrator.unit.surface and
             hasattr(self.orchestrator.unit.surface, 'set_context')):
             self.orchestrator.unit.surface.set_context(self)
+        
+        self.arango_manager = None
+        arango_config = self.specs.get('arangodb', {})
+        if arango_config.get('enabled', 'no') == 'yes':
+            try:
+                self.arango_manager = ArangoDBManager(arango_config)
+                self._current_user_id, self._current_simulation_id = self.arango_manager.get_current_user_and_simulation(self)
+                if self._current_user_id and self._current_simulation_id:
+                    logging.info(f"ArangoDB: User {self._current_user_id}, Simulation {self._current_simulation_id}")
+                else:
+                    logging.warning("ArangoDB: Failed to initialize user/simulation")
+            except Exception as e:
+                logging.error(f"Failed to initialize ArangoDB manager: {e}")
+                self.arango_manager = None
+
+    def write_to_arangodb(self, step_index: int, table_type: str = "main_graph", data_type: str = "timestep"):
+        """
+        Writes data to ArangoDB collections using the ArangoDB manager.
+        
+        Args:
+            step_index (int): The time step index.
+            table_type (str): Either "main_graph" or "power_plant" for data categorization.
+            data_type (str): Type of data being written ("timestep", "power_plant", "economic").
+        """
+        if not hasattr(self, 'arango_manager') or not self.arango_manager:
+            logging.debug("ArangoDB manager not available, skipping database write")
+            return
+            
+        try:
+            logging.debug(f"Routing ArangoDB write: data_type={data_type}, step_index={step_index}")
+            
+            if data_type == "main_graph":
+                self.arango_manager.write_timestep_data(step_index, table_type, "main_graph", self)
+            elif data_type == "power_plant":
+                self.arango_manager.write_timestep_data(step_index, table_type, "power_plant", self)
+            elif data_type == "economic":
+                self.arango_manager.write_economic_data(self)
+            elif data_type == "physics":
+                logging.info(f"Routing to physics data write")
+                self.arango_manager.write_physics_data(self)
+            else:
+                logging.warning(f"Unknown data_type: {data_type}")
+                
+        except Exception as e:
+            logging.error(f"Failed to write to ArangoDB: {e}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
 
     def _generate_power_plant_mappings(self):
         """
@@ -321,6 +369,7 @@ class NativeWorkflow(Workflow):
         """
         Writes all files for a specific timestep atomically.
         Ensures that if main_graph CSV is written, all other related files are also written and closed.
+        Also writes data to ArangoDB if enabled.
         
         Args:
             step_index (int): The time step index for file naming.
@@ -347,8 +396,20 @@ class NativeWorkflow(Workflow):
         if thermagraph_svg_enabled:
             files_to_write.append('thermagraph_svg')
         
-        if not files_to_write:
-            logging.debug(f"No files to write for timestep {step_index} (table_to_csv={write_csv}, output_table={output_table_enabled}, power_plant_table={power_plant_table_enabled}, thermagraph_svg={thermagraph_svg_enabled})")
+        arango_data_written = False
+        
+        if output_table_enabled:
+            logging.info(f"Writing main graph data to ArangoDB for timestep {step_index}")
+            self.write_to_arangodb(step_index, "main_graph", "main_graph")
+            arango_data_written = True
+            
+        if power_plant_table_enabled:
+            logging.info(f"Writing power plant data to ArangoDB for timestep {step_index}")
+            self.write_to_arangodb(step_index, "power_plant", "power_plant")
+            arango_data_written = True
+        
+        if not files_to_write and not arango_data_written:
+            logging.debug(f"No files or ArangoDB data to write for timestep {step_index} (table_to_csv={write_csv}, output_table={output_table_enabled}, power_plant_table={power_plant_table_enabled}, thermagraph_svg={thermagraph_svg_enabled})")
             return
             
         try:
@@ -358,6 +419,8 @@ class NativeWorkflow(Workflow):
             if power_plant_table_enabled and write_csv:
                 if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
                     self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=step_index, table_type="power_plant", write_csv=True, print_table=False)
+            
+
             
             if thermagraph_svg_enabled:
                 thermagraph_specs = getattr(self, 'ThermaGraph_specs')
@@ -380,7 +443,10 @@ class NativeWorkflow(Workflow):
             if not self._check_timestep_files_integrity(step_index):
                 raise RuntimeError(f"File integrity check failed for timestep {step_index}")
             
-            logging.info(f"All files for timestep {step_index} written successfully and verified: {files_to_write}")
+            if files_to_write:
+                logging.info(f"All files for timestep {step_index} written successfully and verified: {files_to_write}")
+            if arango_data_written:
+                logging.info(f"ArangoDB data for timestep {step_index} written successfully")
             
         except Exception as e:
             logging.error(f"Error writing files for timestep {step_index}: {e}")
@@ -670,6 +736,9 @@ class NativeWorkflow(Workflow):
 
         if self.economic:
             self.economic.execute(self._results, self.function_evaluator.evaluated_functions, self.dt_list)
+            self.write_to_arangodb(0, "economic", "economic")
+        
+        self.write_to_arangodb(0, "physics", "physics")
 
         for addon_name, addon_instance in self.addons.items():
             addon_specs = getattr(self, f"{addon_name}_specs")
@@ -686,6 +755,15 @@ class NativeWorkflow(Workflow):
             self.process_batch_runner_outputs()
         else:
             self._post_processing()
+
+        if hasattr(self, 'arango_manager') and self.arango_manager:
+            status = self.arango_manager.check_status()
+            summary = self.arango_manager.get_data_summary()
+            logging.info(f"ArangoDB Final Status: {summary}")
+            print(f"\n[ARANGODB] {summary}")
+            
+            if hasattr(self, '_current_simulation_id') and self._current_simulation_id:
+                print(f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully")
 
         if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
             self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
