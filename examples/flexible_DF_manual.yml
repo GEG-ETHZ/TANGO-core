@@ -1,15 +1,15 @@
 graph:
   nodes:
-    inj_1: # root node
+    injection_wellbore: # root node
       type: 'injection_well'
       unit: 'native'
     reservoir:
       type: 'reservoir'
       unit: 'native'
-    prd_1:
+    production_wellbore_lower:
       type: 'production_well'
       unit: 'native'
-    prd_2:
+    production_wellbore_upper:
       type: 'production_well_pump'
       unit: 'native'
     surface:
@@ -18,18 +18,18 @@ graph:
   edges:
     1:
       source: 'surface'
-      target: 'inj_1'
+      target: 'injection_wellbore'
     2:
-      source: 'inj_1'
+      source: 'injection_wellbore'
       target: 'reservoir'
     3:
       source: 'reservoir'
-      target: 'prd_1'
+      target: 'production_wellbore_lower'
     4:
-      source: 'prd_1'
-      target: 'prd_2'
+      source: 'production_wellbore_lower'
+      target: 'production_wellbore_upper'
     5:
-      source: 'prd_2'
+      source: 'production_wellbore_upper'
       target: 'surface'
 
 # simulation input

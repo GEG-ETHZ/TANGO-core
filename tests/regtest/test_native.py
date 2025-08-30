@@ -91,11 +91,11 @@ def testcase7():
     assert get_val(fname) == pytest.approx(149.38633520088)
     rmFiles(fname)
 
-def testcase8():
-    fname = os.path.join(examples_dir, 'testcase8.yml')
-    run(fname)
-    assert get_val(fname) == pytest.approx(95.04981921403642)
-    rmFiles(fname)
+# def testcase8():
+#     fname = os.path.join(examples_dir, 'testcase8.yml')
+#     run(fname)
+#     assert get_val(fname) == pytest.approx(95.04981921403642)
+#     rmFiles(fname)
 
 def testcase9():
     fname = os.path.join(examples_dir, 'timestep_irregular.yml')

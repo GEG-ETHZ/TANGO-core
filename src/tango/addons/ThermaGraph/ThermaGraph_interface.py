@@ -233,7 +233,7 @@ class ThermaGraph_addon(TangoAddon):
         auto_save_svg = getattr(self, 'auto_save_svg', 'no')
         svg_filename = getattr(self, 'svg_filename', '')
         args = [
-            'python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/ThermaGraph/Frame.py',
+            'xvfb-run', '-a', 'python', '/home/TANGO/src/tango/addons/ThermaGraph/Frame.py',
             components_file, connections_file, fluid_name, auto_save_svg, svg_filename
         ]
         try:

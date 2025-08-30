@@ -116,6 +116,9 @@ class WellUnitNative(Unit):
                 self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
             except Exception:
                 logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
+                print(f"h: {self._h[i]}, P: {self._P[i]}, T: {self._T_f[i]}")
+                if self._T_f[i] == 0:
+                    self._T_f[i] = 300.0
                 self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
 
             self._rho[i] = self.fluid_state_tmp.rho

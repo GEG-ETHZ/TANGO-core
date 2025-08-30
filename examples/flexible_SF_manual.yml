@@ -1,15 +1,15 @@
 graph:
   nodes:
-    inj_1: # root node
+    injection_wellbore: # root node
       type: 'injection_well'
       unit: 'native'
     reservoir:
       type: 'reservoir'
       unit: 'native'
-    prd_1:
+    production_well_lower:
       type: 'production_well'
       unit: 'native'
-    prd_2:
+    production_well_upper:
       type: 'production_well_pump'
       unit: 'native'
     surface:
@@ -18,18 +18,18 @@ graph:
   edges:
     1:
       source: 'surface'
-      target: 'inj_1'
+      target: 'injection_wellbore'
     2:
-      source: 'inj_1'
+      source: 'injection_wellbore'
       target: 'reservoir'
     3:
       source: 'reservoir'
-      target: 'prd_1'
+      target: 'production_well_lower'
     4:
-      source: 'prd_1'
-      target: 'prd_2'
+      source: 'production_well_lower'
+      target: 'production_well_upper'
     5:
-      source: 'prd_2'
+      source: 'production_well_upper'
       target: 'surface'
 
 # simulation input
@@ -151,7 +151,7 @@ power_plant_graph:
     pump2:
       type: 'Compressor'
       unit: 'native'
-    merge:
+    mixer:
       type: 'Merge'
       unit: 'native'
 
@@ -181,15 +181,15 @@ power_plant_graph:
     7:
       source: 'pump'
       source_port: 'out1'
-      target: 'merge'
+      target: 'mixer'
       target_port: 'in1'
     9:
       source: 'pump2'
       source_port: 'out1'
-      target: 'merge'
+      target: 'mixer'
       target_port: 'in2'
     10:
-      source: 'merge'
+      source: 'mixer'
       target: 'outlet'
 
 valve:
@@ -214,7 +214,3 @@ pump:
 pump2:
   efficiency: 1.0
 #  p_out: 30
-
-# arangodb:
-#   enabled: 'yes'
-#   database: 'tango_geothermal'

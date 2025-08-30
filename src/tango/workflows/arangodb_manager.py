@@ -1,9 +1,48 @@
 import logging
+import math
 import os
 import yaml
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 from arango import ArangoClient
+
+def _sanitize_numeric_value(value):
+    """
+    Sanitize numeric values for ArangoDB VPack serialization.
+    Handles NaN, inf, and other problematic values.
+    """
+    if value is None:
+        return None
+    
+    # Handle NaN
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    
+    # Handle infinity
+    if isinstance(value, float) and math.isinf(value):
+        return None
+    
+    # Handle very large numbers that might cause VPack issues
+    if isinstance(value, (int, float)):
+        if abs(value) > 1e15:  # Very large numbers
+            return None
+        if abs(value) < 1e-15 and value != 0:  # Very small numbers close to zero
+            return 0.0
+    
+    return value
+
+def _sanitize_economic_data(data):
+    """
+    Recursively sanitize economic data structure for ArangoDB compatibility.
+    """
+    if isinstance(data, dict):
+        return {key: _sanitize_economic_data(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [_sanitize_economic_data(item) for item in data]
+    else:
+        return _sanitize_numeric_value(data)
+
+
 
 
 class ArangoDBManager:
@@ -485,12 +524,15 @@ class ArangoDBManager:
                     economic_results = workflow_instance.economic._results.copy()
             
             if economic_results:
+                # Sanitize economic data to handle NaN, inf, and other problematic values
+                sanitized_results = _sanitize_economic_data(economic_results)
+                
                 collection = self.db.collection('economic_data')
                 doc = {
                     'user_id': self._current_user_id,
                     'simulation_id': self._current_simulation_id,
                     'timestamp': datetime.now().isoformat(),
-                    'economic_results': economic_results
+                    'economic_results': sanitized_results
                 }
                 
                 result = collection.insert(doc)
@@ -569,7 +611,9 @@ class ArangoDBManager:
                         if hasattr(outlet, 'H') and outlet.H is not None:
                             physics_results[f"node_{node_name}_outlet_enthalpy_j_kg"] = outlet.H
             
+            # Sanitize physics data to handle NaN, inf, and other problematic values
             if physics_results:
+                sanitized_physics = _sanitize_economic_data(physics_results)
                 collection = self.db.collection('physics_data')
                 doc = {
                     'user_id': self._current_user_id,
