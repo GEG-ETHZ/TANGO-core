@@ -102,7 +102,8 @@ class NativeWorkflow(Workflow):
         if arango_config.get('enabled', 'no') == 'yes':
             try:
                 self.arango_manager = ArangoDBManager(arango_config)
-                self._current_user_id, self._current_simulation_id = self.arango_manager.get_current_user_and_simulation(self)
+                # Pass the modified specs (with parameter overrides) to store in database
+                self._current_user_id, self._current_simulation_id = self.arango_manager.get_current_user_and_simulation(self, self.specs)
                 if self._current_user_id and self._current_simulation_id:
                     logging.info(f"ArangoDB: User {self._current_user_id}, Simulation {self._current_simulation_id}")
                 else:

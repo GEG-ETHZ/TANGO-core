@@ -298,12 +298,13 @@ class ArangoDBManager:
             logging.error(f"Failed to create simulation record: {e}")
             return None
     
-    def get_current_user_and_simulation(self, workflow_instance) -> Tuple[str, str]:
+    def get_current_user_and_simulation(self, workflow_instance, modified_specs=None) -> Tuple[str, str]:
         """
         Get or create current user and simulation.
         
         Args:
             workflow_instance: The workflow instance to get YAML content from
+            modified_specs: Modified specifications with parameter overrides applied
             
         Returns:
             Tuple[str, str]: (user_id, simulation_id)
@@ -312,7 +313,16 @@ class ArangoDBManager:
         user_id = self.create_or_get_user("emorteza@ethz.ch", "Morteza Esmaeilpour", "ETH Zurich")
         
         simulation_id = None
-        if hasattr(workflow_instance, '_input_file'):
+        if modified_specs is not None:
+            # Use the modified specs that include parameter overrides
+            try:
+                import yaml
+                yaml_content = yaml.dump(modified_specs, default_flow_style=False, sort_keys=False)
+                simulation_id = self.create_simulation_record(user_id, yaml_content, workflow_instance._input_file)
+            except Exception as e:
+                logging.error(f"Failed to create YAML from modified specs: {e}")
+        elif hasattr(workflow_instance, '_input_file'):
+            # Fallback to reading original file if no modified specs provided
             try:
                 with open(workflow_instance._input_file, 'r') as f:
                     yaml_content = f.read()
