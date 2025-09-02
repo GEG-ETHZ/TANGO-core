@@ -138,7 +138,7 @@ power_plant_graph:
     droplet_separator1:
       type: 'DropletSeparator'
       unit: 'native'
-    turbine1:
+    turbine:
       type: 'Turbine'
       unit: 'native'
     condenser1:
@@ -162,7 +162,7 @@ power_plant_graph:
     pump2:
       type: 'Compressor'
       unit: 'native'
-    turbine1_outlet:
+    turbine_outlet:
       type: 'Sink'
       unit: 'native'
     gas_flow_sink:
@@ -188,7 +188,7 @@ power_plant_graph:
     3:
       source: 'droplet_separator1'
       source_port: 'out2'
-      target: 'turbine1'
+      target: 'turbine'
       target_port: 'in1'
     5:
       source: 'droplet_separator1'
@@ -223,7 +223,7 @@ power_plant_graph:
       source: 'merge2'
       target: 'outlet'
     15:
-      source: 'turbine1'
+      source: 'turbine'
       target: 'condenser1'
     17:
       source: 'condenser2'
@@ -242,7 +242,7 @@ power_plant_graph:
 valve1:
   p_out: 1
 
-turbine1:
+turbine:
   efficiency: 1.0
   p_out: 0.05
 

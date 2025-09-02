@@ -211,6 +211,21 @@ def load_from_yaml_with_overrides(filename: str, parameter_overrides: List[str] 
     
     specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
     
+    try:
+        time_config = specs["schedule"].get("time", {})
+        time_type = time_config.get("type")
+        if time_type == "ConstantDT":
+            _process_constant_dt(specs, time_config)
+        elif time_type == "FunctionDT":
+            _process_function_dt(specs, time_config)
+        elif time_type == "MOOSEDT":
+            _process_MOOSE_dt(specs, time_config)
+        elif time_type == "HotmapsDispatchDT":
+            _process_HotmapsDispatch_dt(specs, time_config)
+    except Exception:
+        # Fail-safe: leave specs as-is if recomputation fails; validation upstream will catch
+        pass
+    
     return specs
 
 
