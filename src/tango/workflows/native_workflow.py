@@ -132,6 +132,8 @@ class NativeWorkflow(Workflow):
                 self.arango_manager.write_timestep_data(step_index, table_type, "main_graph", self)
             elif data_type == "power_plant":
                 self.arango_manager.write_timestep_data(step_index, table_type, "power_plant", self)
+            elif data_type == "phase_diagram":
+                self.arango_manager.write_timestep_data(step_index, table_type, "phase_diagram", self)
             elif data_type == "economic":
                 self.arango_manager.write_economic_data(self)
             elif data_type == "physics":
@@ -408,6 +410,8 @@ class NativeWorkflow(Workflow):
             logging.info(f"Writing power plant data to ArangoDB for timestep {step_index}")
             self.write_to_arangodb(step_index, "power_plant", "power_plant")
             arango_data_written = True
+            
+
         
         if not files_to_write and not arango_data_written:
             logging.debug(f"No files or ArangoDB data to write for timestep {step_index} (table_to_csv={write_csv}, output_table={output_table_enabled}, power_plant_table={power_plant_table_enabled}, thermagraph_svg={thermagraph_svg_enabled})")
@@ -440,6 +444,11 @@ class NativeWorkflow(Workflow):
                 self.addons['ThermaGraph'].svg_filename = thermagraph_specs.svg_filename
                 self.addons['ThermaGraph'].post_process(thermagraph_specs)
                 self.addons['ThermaGraph'].execute(step_index=step_index)
+                
+                # Write the generated SVG to ArangoDB after it's created
+                logging.info(f"Writing phase diagram data to ArangoDB for timestep {step_index}")
+                self.write_to_arangodb(step_index, "phase_diagram", "phase_diagram")
+                arango_data_written = True
             
             if not self._check_timestep_files_integrity(step_index):
                 raise RuntimeError(f"File integrity check failed for timestep {step_index}")

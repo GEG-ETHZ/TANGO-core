@@ -50,7 +50,7 @@ class CommonSpecs:
     injection_pressure: float = 2000000
     output_table: str = 'yes'
     power_plant_table: str = 'yes'
-    table_to_csv: str = 'no'
+    table_to_csv: str = 'yes'
     bypass_file_generation: str = 'no'
     min_thermal_power: float = 0.005 # (MW)
 
@@ -191,10 +191,10 @@ class ThermaGraphSpecs:
     states_file: str
     connections_file: str
     active: str = 'no'
-    execute: str = 'no'
-    per_timestep: str = 'no'
+    execute: str = 'yes'
+    per_timestep: str = 'yes'
     fluid_name: str = 'H2O'
-    auto_save_svg: str = 'no'  # 'yes' to auto-save SVG, 'no' to show UI
+    auto_save_svg: str = 'yes'  # 'yes' to auto-save SVG, 'no' to show UI
     svg_filename: str = 'output'     # SVG filename to use if auto_save_svg is yes
 
     @classmethod

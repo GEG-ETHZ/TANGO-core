@@ -148,7 +148,8 @@ class ArangoDBManager:
                 'main_graph_data',
                 'power_plant_data',
                 'economic_data',
-                'physics_data'
+                'physics_data',
+                'phase_diagram'
             ]
             
             for collection_name in collections:
@@ -186,6 +187,11 @@ class ArangoDBManager:
             if not physics.has_index(['user_id', 'simulation_id']):
                 physics.ensure_index(['user_id', 'simulation_id'], 
                                    name='idx_physics_user_sim')
+            
+            phase_diagram = self.db.collection('phase_diagram')
+            if not phase_diagram.has_index(['user_id', 'simulation_id', 'timestep']):
+                phase_diagram.ensure_index(['user_id', 'simulation_id', 'timestep'], 
+                                         name='idx_phase_diagram_user_sim_timestep')
             
             users = self.db.collection('users')
             if not users.has_index(['email']):
@@ -354,6 +360,8 @@ class ArangoDBManager:
                 self._write_main_graph_data(step_index, workflow_instance)
             elif data_type == "power_plant":
                 self._write_power_plant_data(step_index, workflow_instance)
+            elif data_type == "phase_diagram":
+                self._write_phase_diagram_data(step_index, workflow_instance)
             else:
                 logging.warning(f"Unknown data type for timestep writing: {data_type}")
                 
@@ -519,6 +527,51 @@ class ArangoDBManager:
             
         except Exception as e:
             logging.error(f"Failed to write power plant data to ArangoDB: {e}")
+            logging.error(f"Exception details: {type(e).__name__}: {str(e)}")
+    
+    def _write_phase_diagram_data(self, step_index: int, workflow_instance) -> None:
+        """Write phase diagram SVG data for a timestep."""
+        try:
+            import os
+            import base64
+            
+            # Look for the ThermaGraph SVG file generated for this timestep
+            svg_filename = f"thermagraph_output_{step_index}.svg"
+            
+            if not os.path.exists(svg_filename):
+                logging.warning(f"Phase diagram SVG file not found: {svg_filename}")
+                return
+            
+            # Read the SVG file content
+            with open(svg_filename, 'r', encoding='utf-8') as f:
+                svg_content = f.read()
+            
+            # Encode SVG content as base64 for efficient storage (optional)
+            svg_base64 = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+            
+            phase_diagram_doc = {
+                'user_id': self._current_user_id,
+                'simulation_id': self._current_simulation_id,
+                'timestep': step_index,
+                'timestamp': datetime.now().isoformat(),
+                'data_type': 'phase_diagram',
+                'svg_filename': svg_filename,
+                'svg_content': svg_content,  # Store raw SVG for easy viewing
+                'svg_base64': svg_base64,    # Store base64 encoded for efficient transfer
+                'file_size_bytes': len(svg_content),
+                'fluid_name': getattr(workflow_instance, 'fluid_name', None) or 
+                             workflow_instance.specs.get('fluid_name') or
+                             workflow_instance.specs.get('props', {}).get('fluid_name') or
+                             workflow_instance.specs.get('common', {}).get('fluid_name')
+            }
+            
+            collection = self.db.collection('phase_diagram')
+            result = collection.insert(phase_diagram_doc)
+            
+            logging.info(f"Successfully wrote phase diagram SVG for timestep {step_index} to ArangoDB, document ID: {result['_key']}")
+            
+        except Exception as e:
+            logging.error(f"Failed to write phase diagram data to ArangoDB: {e}")
             logging.error(f"Exception details: {type(e).__name__}: {str(e)}")
     
     def write_economic_data(self, workflow_instance) -> None:
