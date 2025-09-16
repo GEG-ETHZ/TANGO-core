@@ -81,9 +81,10 @@ def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogenerat
             }
             print("✅ TANGO simulation completed successfully")
         else:
-            simulation_status["error"] = f"Simulation failed with return code {process.returncode}"
+            error_details = stderr.strip() if stderr.strip() else f"Simulation failed with return code {process.returncode}"
+            simulation_status["error"] = error_details
             simulation_status["message"] = "TANGO simulation failed"
-            print(f"❌ TANGO simulation failed: {stderr}")
+            print(f"❌ TANGO simulation failed: {error_details}")
             
     except Exception as e:
         simulation_status["error"] = str(e)

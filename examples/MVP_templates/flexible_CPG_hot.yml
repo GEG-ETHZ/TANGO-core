@@ -99,7 +99,7 @@ schedule:
   mass_rate:
 #    type: automatic
     type: manual
-    value: 200
+    value: 100
 
 economic:
   type: 'native'

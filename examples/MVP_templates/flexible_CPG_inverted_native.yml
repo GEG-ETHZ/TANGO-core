@@ -81,6 +81,8 @@ costs:
     sizing_strategy: average_performance
 
 schedule:
+  main_product: 'electricity'
+  injection_pressure: 7500000
   bc_iteration_checkpoint: injection_well_bottom
   mass_flow_rate: 50.0  # kg/s (injection rate per pattern)
   well_pattern: 'INVERTED_5SPOT' # doublet, inverted_5spot, 5spot
@@ -96,7 +98,8 @@ schedule:
     check_fracing: yes
     max_mass_rate: 150
   mass_rate:
-    type: automatic
+    type: manual
+    value: 100
 
 economic: # optional
   type: 'native'
@@ -184,7 +187,8 @@ turbine:
 DH:
   Subtype: 'DH_component'
   vapor_mass_fraction_out: 0
-  p_out: 71
+  # p_out: 71
+  T_out: 29
 
 pump:
   efficiency: 0.99
