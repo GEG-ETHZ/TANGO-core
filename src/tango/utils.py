@@ -67,6 +67,11 @@ def parse_args(args) -> argparse.Namespace:
                        dest='params_json',
                        help='JSON string with multiple parameter overrides')
     
+    parser.add_argument('--user-id',
+                       dest='user_id',
+                       help='User ID for database operations',
+                       required=False)
+    
     return parser.parse_args(args)
 
 

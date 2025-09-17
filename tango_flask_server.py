@@ -29,7 +29,7 @@ simulation_status = {
     "error": None
 }
 
-def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogeneration_e.yml", parameter_overrides=None):
+def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogeneration_e.yml", parameter_overrides=None, user_id=None):
     """
     Run TANGO simulation using the existing CLI
     """
@@ -48,6 +48,10 @@ def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogenerat
         if parameter_overrides:
             for key, value in parameter_overrides.items():
                 cmd.extend(["--param", f"{key}={value}"])
+
+        if user_id:
+            cmd.extend(["--user-id", str(user_id)])
+            print(f"👤 Running simulation for user: {user_id}")
         
         print(f"🚀 Running TANGO command: {' '.join(cmd)}")
         
@@ -118,14 +122,18 @@ def run_simulation():
         # Parameter overrides from the request
         parameter_overrides = data.get('parameter_overrides', {})
         
+        # User ID from the request
+        user_id = data.get('user_id', None)
+        
         print(f"🎯 Starting TANGO simulation with config: {config_file}")
         print(f"📝 Parameter overrides: {parameter_overrides}")
+        print(f"👤 User ID: {user_id}")
         
         # Start simulation in background thread
         import threading
         thread = threading.Thread(
             target=run_tango_simulation,
-            args=(config_file, parameter_overrides)
+            args=(config_file, parameter_overrides, user_id)
         )
         thread.daemon = True
         thread.start()

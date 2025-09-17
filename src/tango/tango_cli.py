@@ -25,7 +25,8 @@ class Runner:
         
         self._tango = Tango(args.input_file, 
                            parameter_overrides=args.parameter_overrides,
-                           params_json=args.params_json)
+                           params_json=args.params_json,
+                           user_id=args.user_id)
         self._optimizer = None
         if "optimization" in self._tango.specs:
             self._optimizer = Optimizer(self._tango, self._tango.specs)

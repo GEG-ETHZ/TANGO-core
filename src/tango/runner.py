@@ -320,7 +320,7 @@ class Tango:
     >>> tango.execute()
     """
 
-    def __init__(self, input_file: str, specs: dict = None, parameter_overrides: list = None, params_json: str = None):
+    def __init__(self, input_file: str, specs: dict = None, parameter_overrides: list = None, params_json: str = None, user_id: str = None):
         """
         Initializes the Tango object.
 
@@ -334,6 +334,8 @@ class Tango:
             List of parameter override strings in format "section.parameter=value".
         params_json : str, optional
             JSON string with multiple parameter overrides.
+        user_id : str, optional
+            User ID for database operations.
         """
         if specs is None:
             self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides, params_json)
@@ -342,6 +344,7 @@ class Tango:
             self.specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
         
         self.input_file = input_file
+        self.user_id = user_id
 
     def _initialize_workflow(self) -> None:
         """
@@ -359,7 +362,7 @@ class Tango:
         """
         Workflow = get_workflow_class(self.specs['runspec']['workflow'])
         # print('self.specs',self.specs)
-        self.workflow = Workflow(self.specs, self.input_file)
+        self.workflow = Workflow(self.specs, self.input_file, self.user_id)
 
     def execute(self) -> None:
         """

@@ -51,18 +51,20 @@ class ArangoDBManager:
     Handles connection, collection setup, data writing, and multi-tenancy.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], user_id: str = None):
         """
         Initialize ArangoDB manager with configuration.
         
         Args:
             config (Dict[str, Any]): ArangoDB configuration from YAML
+            user_id (str, optional): User ID for database operations
         """
         self.config = config
         self.client = None
         self.db = None
         self._current_user_id = None
         self._current_simulation_id = None
+        self._provided_user_id = user_id
         
         if self.config.get('enabled', 'no') == 'yes':
             self._init_connection()
@@ -255,6 +257,50 @@ class ArangoDBManager:
             logging.error(f"Failed to create/get user: {e}")
             return None
     
+    def create_or_get_user_by_id(self, user_id: str) -> str:
+        """
+        Create or get existing user by user ID.
+        
+        Args:
+            user_id (str): User ID to create or retrieve
+            
+        Returns:
+            str: User ID (same as input)
+        """
+        if not self.db:
+            return user_id
+            
+        try:
+            users_collection = self.db.collection('users')
+
+            user_query = 'FOR user IN users FILTER user._key == @user_id RETURN user'
+            cursor = self.db.aql.execute(user_query, bind_vars={'user_id': user_id})
+            existing_user = list(cursor)
+            
+            if existing_user:
+                logging.info(f"User already exists: {user_id}")
+                return user_id
+
+            user_doc = {
+                '_key': user_id,
+                'user_id': user_id,
+                'name': f'User {user_id}',
+                'email': f'{user_id}@demo.local',
+                'organization': 'Demo Organization',
+                'created_at': datetime.now().isoformat(),
+                'last_login': datetime.now().isoformat()
+            }
+            
+            result = users_collection.insert(user_doc)
+            created_user_id = result['_key']
+            
+            logging.info(f"Created new user: {created_user_id}")
+            return created_user_id
+            
+        except Exception as e:
+            logging.error(f"Failed to create/get user by ID: {e}")
+            return user_id
+    
     def create_simulation_record(self, user_id: str, yaml_content: str, 
                                 yaml_file_path: str) -> str:
         """
@@ -315,8 +361,10 @@ class ArangoDBManager:
         Returns:
             Tuple[str, str]: (user_id, simulation_id)
         """
-        # Create default user
-        user_id = self.create_or_get_user("emorteza@ethz.ch", "Morteza Esmaeilpour", "ETH Zurich")
+        if self._provided_user_id:
+            user_id = self.create_or_get_user_by_id(self._provided_user_id)
+        else:
+            user_id = self.create_or_get_user("emorteza@ethz.ch", "Morteza Esmaeilpour", "ETH Zurich")
         
         simulation_id = None
         if modified_specs is not None:

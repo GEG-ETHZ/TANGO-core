@@ -62,20 +62,22 @@ class NativeWorkflow(Workflow):
         diagram_specs (DiagramSpecs): Diagram specifications for plotting.
     """
 
-    def __init__(self, specs: dict, input_file: str):
+    def __init__(self, specs: dict, input_file: str, user_id: str = None):
         """
         Initializes the NativeWorkflow object.
 
         Args:
             specs (dict): Specifications for the simulation.
             input_file (str): Path to the input file.
+            user_id (str, optional): User ID for database operations.
 
         Steps:
-        - Initializes the physical and economic systems.
-        - Sets up diagram specifications for plotting results.
+            - Initializes the physical and economic systems.
+            - Sets up diagram specifications for plotting results.
         """
         super().__init__(specs)
         self._input_file = input_file
+        self._user_id = user_id
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
         self.dt_list = None
         self._init_system()
@@ -101,7 +103,7 @@ class NativeWorkflow(Workflow):
         arango_config = self.specs.get('arangodb', {})
         if arango_config.get('enabled', 'no') == 'yes':
             try:
-                self.arango_manager = ArangoDBManager(arango_config)
+                self.arango_manager = ArangoDBManager(arango_config, self._user_id)
                 # Pass the modified specs (with parameter overrides) to store in database
                 self._current_user_id, self._current_simulation_id = self.arango_manager.get_current_user_and_simulation(self, self.specs)
                 if self._current_user_id and self._current_simulation_id:
