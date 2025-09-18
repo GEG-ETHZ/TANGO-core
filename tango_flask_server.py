@@ -20,26 +20,17 @@ sys.path.append(str(TANGO_SRC))
 app = Flask(__name__)
 CORS(app, origins=["https://tango.app.local"], supports_credentials=True)
 
-# Global variable to track simulation status
-simulation_status = {
-    "running": False,
-    "progress": 0,
-    "message": "",
-    "results": None,
-    "error": None
-}
+# Dictionary to track simulation status per user
+simulation_statuses = {}
 
 def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogeneration_e.yml", parameter_overrides=None, user_id=None):
     """
     Run TANGO simulation using the existing CLI
     """
-    global simulation_status
+    global simulation_statuses
     
     try:
-        simulation_status["running"] = True
-        simulation_status["progress"] = 0
-        simulation_status["message"] = "Starting TANGO simulation..."
-        simulation_status["error"] = None
+        # Status is already set in the /run endpoint
         
         # Build the command (same as manual CLI)
         cmd = ["python", "tango_cli.py", "-f", config_file]
@@ -69,61 +60,157 @@ def run_tango_simulation(config_file="/home/TANGO/examples/flexible_SF_cogenerat
         )
         
         # Update progress
-        simulation_status["progress"] = 25
-        simulation_status["message"] = "TANGO simulation in progress..."
+        simulation_statuses[user_id]["progress"] = 25
+        simulation_statuses[user_id]["message"] = "TANGO simulation in progress..."
         
         # Wait for completion
         stdout, stderr = process.communicate()
         
         if process.returncode == 0:
-            simulation_status["progress"] = 100
-            simulation_status["message"] = "TANGO simulation completed successfully!"
-            simulation_status["results"] = {
+            simulation_statuses[user_id]["progress"] = 100
+            simulation_statuses[user_id]["message"] = "TANGO simulation completed successfully!"
+            simulation_statuses[user_id]["results"] = {
                 "stdout": stdout,
                 "stderr": stderr,
                 "return_code": process.returncode
             }
-            print("✅ TANGO simulation completed successfully")
+            print(f"✅ TANGO simulation completed successfully for user {user_id}")
         else:
             error_details = stderr.strip() if stderr.strip() else f"Simulation failed with return code {process.returncode}"
-            simulation_status["error"] = error_details
-            simulation_status["message"] = "TANGO simulation failed"
-            print(f"❌ TANGO simulation failed: {error_details}")
+            simulation_statuses[user_id]["error"] = error_details
+            simulation_statuses[user_id]["message"] = "TANGO simulation failed"
+            print(f"❌ TANGO simulation failed for user {user_id}: {error_details}")
             
     except Exception as e:
-        simulation_status["error"] = str(e)
-        simulation_status["message"] = f"Error: {str(e)}"
-        print(f"❌ Error running TANGO simulation: {e}")
+        simulation_statuses[user_id]["error"] = str(e)
+        simulation_statuses[user_id]["message"] = f"Error: {str(e)}"
+        simulation_statuses[user_id]["running"] = False
+        print(f"❌ Error running TANGO simulation for user {user_id}: {e}")
     finally:
-        simulation_status["running"] = False
+        # Ensure running is always set to False when simulation ends
+        if user_id in simulation_statuses:
+            simulation_statuses[user_id]["running"] = False
+            print(f"🔄 Simulation completed for user {user_id}, status reset")
 
 @app.route('/status', methods=['GET'])
 def get_simulation_status():
-    """Get current simulation status"""
-    return jsonify(simulation_status)
+    """Get current simulation status for a specific user"""
+    user_id = request.args.get('user_id')
+    
+    if not user_id:
+        return jsonify({
+            "success": False,
+            "error": "user_id parameter is required"
+        }), 400
+    
+    # Return user-specific status or default if user doesn't exist
+    status = simulation_statuses.get(user_id, {
+        "running": False,
+        "progress": 0,
+        "message": "No simulation running",
+        "results": None,
+        "error": None
+    })
+    
+    return jsonify(status)
+
+@app.route('/reset', methods=['POST'])
+def reset_simulation():
+    """Reset simulation status for a specific user"""
+    global simulation_statuses
+    
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "error": "user_id is required"
+            }), 400
+        
+        if user_id in simulation_statuses:
+            simulation_statuses[user_id] = {
+                "running": False,
+                "progress": 0,
+                "message": "",
+                "results": None,
+                "error": None
+            }
+            print(f"🔄 Reset simulation status for user {user_id}")
+            return jsonify({
+                "success": True,
+                "message": f"Simulation status reset for user {user_id}"
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "message": f"No simulation status found for user {user_id}"
+            })
+            
+    except Exception as e:
+        print(f"❌ Error resetting simulation status: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route('/run', methods=['POST'])
 def run_simulation():
     """Start a new TANGO simulation"""
-    global simulation_status
-    
-    if simulation_status["running"]:
-        return jsonify({
-            "success": False,
-            "message": "Simulation already running"
-        }), 400
+    global simulation_statuses
     
     try:
         data = request.get_json() or {}
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "error": "user_id is required"
+            }), 400
+        
+        # Check if this user already has a simulation running
+        if user_id in simulation_statuses and simulation_statuses[user_id]["running"]:
+            print(f"❌ User {user_id} already has a simulation running")
+            return jsonify({
+                "success": False,
+                "message": f"Simulation already running for user {user_id}"
+            }), 400
+        
+        # Check if user recently completed a simulation (prevent rapid successive requests)
+        if user_id in simulation_statuses:
+            last_message = simulation_statuses[user_id].get("message", "")
+            if "completed successfully" in last_message or "failed" in last_message:
+                # Clear the completed status to allow new simulation
+                simulation_statuses[user_id]["message"] = ""
+                simulation_statuses[user_id]["error"] = None
+                simulation_statuses[user_id]["results"] = None
+        
+        # Initialize user status if not exists
+        if user_id not in simulation_statuses:
+            simulation_statuses[user_id] = {
+                "running": False,
+                "progress": 0,
+                "message": "",
+                "results": None,
+                "error": None
+            }
+        
+        # Set running to True immediately to prevent race conditions
+        simulation_statuses[user_id]["running"] = True
+        simulation_statuses[user_id]["progress"] = 0
+        simulation_statuses[user_id]["message"] = "Starting TANGO simulation..."
+        simulation_statuses[user_id]["error"] = None
+        simulation_statuses[user_id]["results"] = None
+        
+        print(f"✅ User {user_id} simulation status set to running")
         
         # Default configuration file (same as manual execution)
         config_file = data.get('config_file', '/home/TANGO/examples/flexible_SF_cogeneration_e.yml')
         
         # Parameter overrides from the request
         parameter_overrides = data.get('parameter_overrides', {})
-        
-        # User ID from the request
-        user_id = data.get('user_id', None)
         
         print(f"🎯 Starting TANGO simulation with config: {config_file}")
         print(f"📝 Parameter overrides: {parameter_overrides}")
