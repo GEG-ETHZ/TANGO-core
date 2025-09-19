@@ -7,6 +7,7 @@ import numpy as np
 import inspect
 import uuid
 import os
+import shutil
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
@@ -405,6 +406,20 @@ class Tango:
         self.workflow.execute()
 
         logging.info("Simulation finished normally. Elapsed time: {:.2f} seconds.".format(time.time() - self._start_time))
+
+        # Cleanup generated run directory after successful completion
+        try:
+            if os.path.isdir(self.run_dir):
+                # Only remove if the run_dir is within the gen_files directory for safety
+                gen_files_abs = os.path.abspath(self.gen_files_dir)
+                run_dir_abs = os.path.abspath(self.run_dir)
+                if run_dir_abs.startswith(gen_files_abs + os.sep):
+                    shutil.rmtree(self.run_dir, ignore_errors=True)
+                    logging.info(f"Cleaned up run directory: {self.run_dir}")
+                else:
+                    logging.warning(f"Skipped cleanup for unexpected path: {self.run_dir}")
+        except Exception as cleanup_err:
+            logging.error(f"Failed to cleanup run directory {self.run_dir}: {cleanup_err}")
 
     def execute_batch_simulation(self) -> None:
         """

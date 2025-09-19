@@ -429,8 +429,8 @@ class NativeWorkflow(Workflow):
                 self.generate_output_table(step_index=step_index, table_type="main_graph", write_csv=True, print_table=False)
             
             if power_plant_table_enabled and write_csv:
-                if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
-                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=step_index, table_type="power_plant", write_csv=True, print_table=False)
+                # Write power plant table only to the unique run directory
+                self.generate_power_plant_output_table(step_index=step_index, write_csv=True, print_table=False)
             
 
             
