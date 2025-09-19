@@ -733,6 +733,8 @@ if __name__ == '__main__':
         window.load_files(components_file, connections_file)
         if auto_save_svg == 'yes' and svg_filename:
             try:
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(svg_filename), exist_ok=True)
                 window.canvas.figure.savefig(svg_filename, format='svg')
                 print(f"SVG successfully saved to: {svg_filename}")
             except Exception as e:

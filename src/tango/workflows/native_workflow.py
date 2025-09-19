@@ -62,7 +62,7 @@ class NativeWorkflow(Workflow):
         diagram_specs (DiagramSpecs): Diagram specifications for plotting.
     """
 
-    def __init__(self, specs: dict, input_file: str, user_id: str = None):
+    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None):
         """
         Initializes the NativeWorkflow object.
 
@@ -70,6 +70,8 @@ class NativeWorkflow(Workflow):
             specs (dict): Specifications for the simulation.
             input_file (str): Path to the input file.
             user_id (str, optional): User ID for database operations.
+            run_id (str, optional): Unique run ID for file naming.
+            run_dir (str, optional): Directory for run-specific output files.
 
         Steps:
             - Initializes the physical and economic systems.
@@ -78,6 +80,8 @@ class NativeWorkflow(Workflow):
         super().__init__(specs)
         self._input_file = input_file
         self._user_id = user_id
+        self._run_id = run_id or "default"
+        self._run_dir = run_dir or os.getcwd()
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
         self.dt_list = None
         self._init_system()
@@ -382,6 +386,7 @@ class NativeWorkflow(Workflow):
         write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
         output_table_enabled = self.orchestrator.unit.surface.specs.output_table == 'yes'
         power_plant_table_enabled = (
+            hasattr(self.orchestrator.unit.surface.specs, 'power_plant_table') and
             self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and 
             self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'
         )
@@ -431,8 +436,8 @@ class NativeWorkflow(Workflow):
             
             if thermagraph_svg_enabled:
                 thermagraph_specs = getattr(self, 'ThermaGraph_specs')
-                thermagraph_specs.states_file = f"thermagraph_states_{step_index}.json"
-                thermagraph_specs.connections_file = f"thermagraph_connections_{step_index}.json"
+                thermagraph_specs.states_file = os.path.join(self._run_dir, f"{self._run_id}_thermagraph_states_{step_index}.json")
+                thermagraph_specs.connections_file = os.path.join(self._run_dir, f"{self._run_id}_thermagraph_connections_{step_index}.json")
                 fluid_name = (
                     self.specs.get('fluid_name') or
                     self.specs.get('props', {}).get('fluid_name') or
@@ -441,7 +446,8 @@ class NativeWorkflow(Workflow):
                 )
                 thermagraph_specs.fluid_name = fluid_name
                 thermagraph_specs.auto_save_svg = 'yes'
-                thermagraph_specs.svg_filename = f"thermagraph_output_{step_index}.svg"
+                # Use unique SVG filename in run directory
+                thermagraph_specs.svg_filename = os.path.join(self._run_dir, f"{self._run_id}_thermagraph_output_{step_index}.svg")
                 self.addons['ThermaGraph'].auto_save_svg = thermagraph_specs.auto_save_svg
                 self.addons['ThermaGraph'].svg_filename = thermagraph_specs.svg_filename
                 self.addons['ThermaGraph'].post_process(thermagraph_specs)
@@ -480,10 +486,10 @@ class NativeWorkflow(Workflow):
         expected_files = []
         
         if output_table_enabled and write_csv:
-            expected_files.append(f"main_graph_{step_index}.csv")
+            expected_files.append(os.path.join(self._run_dir, f"{self._run_id}_main_graph_{step_index}.csv"))
         
         if power_plant_table_enabled and write_csv:
-            expected_files.append(f"power_plant_{step_index}.csv")
+            expected_files.append(os.path.join(self._run_dir, f"{self._run_id}_power_plant_{step_index}.csv"))
         
         if thermagraph_svg_enabled:
             expected_files.append(f"thermagraph_output_{step_index}.svg")
@@ -513,10 +519,10 @@ class NativeWorkflow(Workflow):
         files_to_cleanup = []
         
         if output_table_enabled and write_csv:
-            files_to_cleanup.append(f"main_graph_{step_index}.csv")
+            files_to_cleanup.append(os.path.join(self._run_dir, f"{self._run_id}_main_graph_{step_index}.csv"))
         
         if power_plant_table_enabled and write_csv:
-            files_to_cleanup.append(f"power_plant_{step_index}.csv")
+            files_to_cleanup.append(os.path.join(self._run_dir, f"{self._run_id}_power_plant_{step_index}.csv"))
         
         if thermagraph_svg_enabled:
             files_to_cleanup.append(f"thermagraph_output_{step_index}.svg")
@@ -543,6 +549,7 @@ class NativeWorkflow(Workflow):
         write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
         output_table_enabled = self.orchestrator.unit.surface.specs.output_table == 'yes'
         power_plant_table_enabled = (
+            hasattr(self.orchestrator.unit.surface.specs, 'power_plant_table') and
             self.orchestrator.unit.surface.specs.power_plant_table == 'yes' and 
             self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'
         )
@@ -555,13 +562,13 @@ class NativeWorkflow(Workflow):
                 thermagraph_svg_enabled = auto_save_svg_val == 'yes'
         
         if output_table_enabled and write_csv:
-            expected_files.append(f"main_graph_{step_index}.csv")
+            expected_files.append(os.path.join(self._run_dir, f"{self._run_id}_main_graph_{step_index}.csv"))
         
         if power_plant_table_enabled and write_csv:
-            expected_files.append(f"power_plant_{step_index}.csv")
+            expected_files.append(os.path.join(self._run_dir, f"{self._run_id}_power_plant_{step_index}.csv"))
         
         if thermagraph_svg_enabled:
-            expected_files.append(f"thermagraph_output_{step_index}.svg")
+            expected_files.append(os.path.join(self._run_dir, f"{self._run_id}_thermagraph_output_{step_index}.svg"))
         
         return expected_files
     
@@ -581,10 +588,16 @@ class NativeWorkflow(Workflow):
             logging.debug(f"No files expected for timestep {step_index} - integrity check passed")
             return True  
         
-        main_csv_exists = os.path.exists(f"main_graph_{step_index}.csv")
-        if not main_csv_exists:
-            logging.warning(f"Main CSV file missing for timestep {step_index}: main_graph_{step_index}.csv")
-            return False
+        # Check if main CSV file exists (this should always be written if output_table is enabled)
+        write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == 'yes'
+        
+        if output_table_enabled and write_csv:
+            main_csv_path = os.path.join(self._run_dir, f"{self._run_id}_main_graph_{step_index}.csv")
+            main_csv_exists = os.path.exists(main_csv_path)
+            if not main_csv_exists:
+                logging.warning(f"Main CSV file missing for timestep {step_index}: {main_csv_path}")
+                return False
         
         missing_files = []
         for filename in expected_files:
@@ -731,12 +744,12 @@ class NativeWorkflow(Workflow):
             write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
             if getattr(self.orchestrator.unit.surface.specs, 'output_table', 'no') == 'yes':
                 logging.info(f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})")
-                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=False, print_table=True)
+                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=write_csv, print_table=True)
 
             if (getattr(self.orchestrator.unit.surface.specs, 'power_plant_table', 'no') == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
                 if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
                     logging.info(f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})")
-                    self.orchestrator.unit.surface.power_plant.generate_output_table(step_index=i, table_type="power_plant", write_csv=False, print_table=True)
+                    self.generate_power_plant_output_table(step_index=i, write_csv=write_csv, print_table=True)
 
             self._write_timestep_files(i)
 
@@ -842,7 +855,7 @@ class NativeWorkflow(Workflow):
 
         # Write to CSV file if requested
         if write_csv and step_index >= 0:
-            csv_filename = f"{table_type}_{step_index}.csv"
+            csv_filename = os.path.join(self._run_dir, f"{self._run_id}_{table_type}_{step_index}.csv")
             try:
                 with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
                     writer = csv.writer(csvfile)
@@ -866,6 +879,101 @@ class NativeWorkflow(Workflow):
             top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
             print(top_border)
             print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center")).replace("─", " "))
+            print(top_border)
+
+    def generate_power_plant_output_table(self, step_index: int = -1, write_csv: bool = False, print_table: bool = True):
+        """
+        Generates and prints a power plant table showing system information.
+        Also writes the table data to a CSV file for each time step if write_csv is True.
+        
+        Args:
+            step_index (int, optional): The time step index for CSV file naming.
+            write_csv (bool, optional): Whether to write the table to a CSV file.
+            print_table (bool, optional): Whether to print the table to the console.
+        """
+        if not (hasattr(self.orchestrator.unit.surface, 'power_plant') and 
+                hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table')):
+            return
+            
+        import csv
+        from tabulate import tabulate
+        from termcolor import colored
+        from itertools import cycle
+        
+        graph_nodes = self.orchestrator.unit.surface.power_plant.nodes
+        graph_edges = [(conn.source.label, conn.target.label) for conn in self.orchestrator.unit.surface.power_plant.connections]
+        table_data = []
+        headers = ["Unit", "Port", "Pressure (MPa)", "Temperature (°C)", "Enthalpy (kJ/kg)", "Mass Rate (kg/s)", "Vapor Mass Fraction"]
+        processed_ports = set()
+        
+        for edge in graph_edges:
+            source, target = edge
+            source_unit = graph_nodes[source]
+            target_unit = graph_nodes[target]
+            
+            for idx, outlet in enumerate(getattr(source_unit, 'outl', [])):
+                port_key = (source, f"Outlet-{idx + 1}")
+                if port_key not in processed_ports:
+                    processed_ports.add(port_key)
+                    x_attr = getattr(outlet, 'x', None)
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, 'val') else 'N/A'
+                    table_data.append([
+                        source,
+                        f"Outlet-{idx + 1}",
+                        outlet.p.val / 10,
+                        outlet.T.val,
+                        outlet.h.val,
+                        outlet.m.val,
+                        x_val
+                    ])
+            
+            for idx, inlet in enumerate(getattr(target_unit, 'inl', [])):
+                port_key = (target, f"Inlet-{idx + 1}")
+                if port_key not in processed_ports:
+                    processed_ports.add(port_key)
+                    x_attr = getattr(inlet, 'x', None)
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, 'val') else 'N/A'
+                    table_data.append([
+                        target,
+                        f"Inlet-{idx + 1}",
+                        inlet.p.val / 10,
+                        inlet.T.val,
+                        inlet.h.val,
+                        inlet.m.val,
+                        x_val
+                    ])
+        
+        # Rearrange table for better presentation
+        if table_data:
+            last_row = table_data.pop()
+            table_data.insert(0, last_row)
+        
+        # Write to CSV file if requested
+        if write_csv and step_index >= 0:
+            csv_filename = os.path.join(self._run_dir, f"{self._run_id}_power_plant_{step_index}.csv")
+            try:
+                with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(headers)
+                    writer.writerows(table_data)
+                print(f"Output table written to: {csv_filename}")
+            except Exception as e:
+                print(f"Error writing CSV file: {e}")
+        
+        if print_table:
+            available_colors = ["cyan", "green", "yellow", "red", "blue", "magenta", "white"]
+            unit_names = list({row[0] for row in table_data})
+            color_map = {unit: color for unit, color in zip(unit_names, cycle(available_colors))}
+            
+            colored_table_data = []
+            for row in table_data:
+                unit_color = color_map.get(row[0], "white")
+                colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
+                colored_table_data.append(colored_row)
+            
+            top_border = "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+" + "-" * 14 + "+"
+            print(top_border)
+            print(tabulate(colored_table_data, headers=headers, tablefmt="fancy_grid", colalign=("center", "center", "center", "center", "center", "center", "center")).replace("─", " "))
             print(top_border)
 
     def process_batch_runner_outputs(self):

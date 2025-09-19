@@ -5,6 +5,8 @@ import time
 import json
 import numpy as np
 import inspect
+import uuid
+import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
@@ -345,6 +347,19 @@ class Tango:
         
         self.input_file = input_file
         self.user_id = user_id
+        
+        # Generate unique run ID for file naming
+        self.run_id = str(uuid.uuid4())[:8]  # Short unique ID
+        
+        # Create gen_files directory if it doesn't exist
+        self.gen_files_dir = os.path.join(os.path.dirname(__file__), 'gen_files')
+        os.makedirs(self.gen_files_dir, exist_ok=True)
+        
+        # Create run-specific subdirectory
+        self.run_dir = os.path.join(self.gen_files_dir, f"run_{self.run_id}")
+        os.makedirs(self.run_dir, exist_ok=True)
+        
+        logging.info(f"Created unique run directory: {self.run_dir}")
 
     def _initialize_workflow(self) -> None:
         """
@@ -362,7 +377,7 @@ class Tango:
         """
         Workflow = get_workflow_class(self.specs['runspec']['workflow'])
         # print('self.specs',self.specs)
-        self.workflow = Workflow(self.specs, self.input_file, self.user_id)
+        self.workflow = Workflow(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
 
     def execute(self) -> None:
         """

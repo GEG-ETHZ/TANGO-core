@@ -1,3 +1,4 @@
+import os
 from tango.core.abstracts.workflow import Workflow
 from tango.orchestrators.cmg import *
 
@@ -15,13 +16,16 @@ class CMGWorkflow(Workflow):
         economic (object): The economic analysis unit (not yet implemented).
     """
 
-    def __init__(self, specs: dict, input_file: str):
+    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None):
         """
         Initializes the CMGWorkflow object.
 
         Args:
             specs (dict): Specifications for the simulation.
             input_file (str): Path to the input file.
+            user_id (str, optional): User ID for database operations.
+            run_id (str, optional): Unique run ID for file naming.
+            run_dir (str, optional): Directory for run-specific output files.
 
         Steps:
         - Initializes the physical system.
@@ -30,6 +34,9 @@ class CMGWorkflow(Workflow):
         """
         super().__init__(specs)
         self._input_file = input_file
+        self._user_id = user_id
+        self._run_id = run_id or "default"
+        self._run_dir = run_dir or os.getcwd()
         self._init_system()
         self._init_econ_unit()
         self._results = dict()

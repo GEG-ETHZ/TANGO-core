@@ -584,7 +584,12 @@ class ArangoDBManager:
             import base64
             
             # Look for the ThermaGraph SVG file generated for this timestep
-            svg_filename = f"thermagraph_output_{step_index}.svg"
+            # Try to find the SVG file in the workflow's run directory
+            svg_filename = None
+            if hasattr(workflow_instance, '_run_dir') and hasattr(workflow_instance, '_run_id'):
+                svg_filename = os.path.join(workflow_instance._run_dir, f"{workflow_instance._run_id}_thermagraph_output_{step_index}.svg")
+            else:
+                svg_filename = f"thermagraph_output_{step_index}.svg"
             
             if not os.path.exists(svg_filename):
                 logging.warning(f"Phase diagram SVG file not found: {svg_filename}")

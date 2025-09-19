@@ -49,6 +49,9 @@ class ThermaGraph_addon(TangoAddon):
             target = edge_data['target']
             connections.append([source, target, "non-isentropic"])
 
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.states_file), exist_ok=True)
+        
         with open(self.states_file, 'w') as file1:
             json.dump(components, file1, indent=4)
 
@@ -215,6 +218,9 @@ class ThermaGraph_addon(TangoAddon):
             target = edge_data['target']
             connections.append([source, target, "non-isentropic"])
 
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.states_file), exist_ok=True)
+        
         with open(self.states_file, 'w') as file1:
             json.dump(components, file1, indent=4)
 
