@@ -170,8 +170,21 @@ class FluidDiagramPlotter:
         line_styles = self.connection_line_styles()
 
         for start, end, line_type in connections:
-            start_state = next(state for point, states in states.items() for state in states if start in point)
-            end_state = next(state for point, states in states.items() for state in states if end in point)
+            # Prefer exact key match; fallback to substring match for backward compatibility
+            def get_last_state(point_name: str):
+                if point_name in states:
+                    lst = states[point_name]
+                    return lst[-1] if lst else None
+                # fallback: substring match
+                for key, seq in states.items():
+                    if point_name in key and seq:
+                        return seq[-1]
+                return None
+
+            start_state = get_last_state(start)
+            end_state = get_last_state(end)
+            if start_state is None or end_state is None:
+                continue
             style = line_styles.get(line_type, line_styles['default'])
             self.ax.plot([start_state[1], end_state[1]], [start_state[0], end_state[0]], **style)
 
