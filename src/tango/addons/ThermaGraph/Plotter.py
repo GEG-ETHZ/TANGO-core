@@ -210,6 +210,16 @@ class FluidDiagramPlotter:
                                    x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max,
                                    isoline_data=isoline_data)
 
+        # Customize axis labels after fluprodia draws the diagram
+        if self.diagram_type == 'logph':
+            self.ax.set_ylabel('Pressure, P [bar]')
+        elif self.diagram_type == 'Ts':
+            self.ax.set_ylabel('Temperature, T [°C]')
+        elif self.diagram_type == 'hs':
+            self.ax.set_ylabel('Entropy, s [kJ/kg·K]')
+        elif self.diagram_type == 'Th':
+            self.ax.set_ylabel('Temperature, T [°C]')
+
         for text in self.ax.texts:
             text.set_fontsize(self.label_fontsize)
 
