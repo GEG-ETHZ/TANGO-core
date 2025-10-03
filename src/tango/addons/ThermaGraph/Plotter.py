@@ -213,12 +213,20 @@ class FluidDiagramPlotter:
         # Customize axis labels after fluprodia draws the diagram
         if self.diagram_type == 'logph':
             self.ax.set_ylabel('Pressure, P [bar]')
+            self.ax.set_xlabel('Enthalpy, h [kJ/kg]')
         elif self.diagram_type == 'Ts':
             self.ax.set_ylabel('Temperature, T [°C]')
+            self.ax.set_xlabel('Entropy, s [kJ/kg·K]')
         elif self.diagram_type == 'hs':
             self.ax.set_ylabel('Entropy, s [kJ/kg·K]')
+            self.ax.set_xlabel('Enthalpy, h [kJ/kg]')
         elif self.diagram_type == 'Th':
             self.ax.set_ylabel('Temperature, T [°C]')
+            self.ax.set_xlabel('Enthalpy, h [kJ/kg]')
+        
+        # Set dynamic title based on fluid
+        fluid_display_name = self.fluid if self.fluid in ['H2O', 'CO2'] else self.fluid
+        self.ax.set_title(f'Phase Diagram for {fluid_display_name}', fontsize=14, fontweight='bold')
 
         for text in self.ax.texts:
             text.set_fontsize(self.label_fontsize)
@@ -253,7 +261,7 @@ class FluidDiagramPlotter:
             self.cbar.remove()
         self.cbar = self.fig.colorbar(ScalarMappable(norm=Normalize(vmin=0, vmax=num_states - 1), cmap='Greys'), ax=self.ax, pad=0.1)
 
-        self.cbar.set_label('Time Progression')
+        self.cbar.set_label('Time Progression [years]')
         self.cbar.set_ticks(range(num_states))
         self.cbar.set_ticklabels([str(i + 1) for i in range(num_states)])
 
