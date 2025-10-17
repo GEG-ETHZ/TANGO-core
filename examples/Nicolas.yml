@@ -1,0 +1,128 @@
+#
+# testcase1: CPG (Doublet, green_field)
+#
+
+graph:
+  nodes:
+    inj_1: # root node
+      type: 'injection_well'
+      unit: 'native'
+    reservoir:
+      type: 'reservoir'
+      unit: 'native'
+    prd_1:
+      type: 'production_well'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_CPG'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'reservoir'
+    3:
+      source: 'reservoir'
+      target: 'prd_1'
+    4:
+      source: 'prd_1'
+      target: 'surface'
+
+# simulation input
+
+runspec:
+  title: 'CPG DOUBLET'
+  workflow: 'native'
+
+props:
+  fluid_name: 'CO2'
+  brine_density: 1000 # kg/m3
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.8  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.030  # degC/m
+
+surface:
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78  # (-)
+
+reservoir:
+  reservoir_depth: 3600.0 # m
+  thickness: 100.0 # m
+  permeability: 5.0e-14    # m2 ~50mD
+  porosity: 0.1
+  hydro_static_pressure: 25000000
+  over_pressure_percentage: 20
+
+injection_well:
+  well_length: 3600. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 3600. ]
+  well_diameter_seq: [ 0.410 ]
+
+production_well:
+  well_length: 3600. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 3600. ]
+  well_diameter_seq: [ 0.410 ]
+
+schedule:
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 100.0  # kg/s (injection rate per pattern)
+  well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 20 # number of time steps
+  dt: 1.0  # time step increment (year)
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095
+
+phase_diagram: # optional
+  diagram_type: 'Ts' # 'Ts', 'hs', 'logph', 'Th', 'plogv'
+  include_Power_plant: 'yes' # yes, no
+  fluid: 'CO2' # CO2, H2O, R245fa, or any other fluid that coolprop supports
+  x_min: 1
+  x_max: 1.8
+  y_min: 0
+  y_max: 130
+  unit_system:
+    T: '°C' #  K, °C, °F
+    h: 'kJ/kg' #  J/kg, kJ/kg, MJ/kg
+    p: 'bar' # Pa, hPa, mbar, psi, kPa, bar, MPa
+    s: 'kJ/kgK' # J/kgK, kJ/kgK, MJ/kgK
+    v: 'm^3/kg' # m^3/kg, l/kg
+  isoline_config:
+    Q:
+      start: 0
+      end: 1
+      num: 11
+    T:
+      start: -40
+      end: 150
+      num: 10
+    p:
+      start: 20
+      end: 100
+      num: 9
+    v:
+      start: 0.001
+      end: 10
+      num: 0
+    s:
+      start: 1
+      end: 2
+      num: 11
+    h:
+      start: 0
+      end: 800
+      num: 21

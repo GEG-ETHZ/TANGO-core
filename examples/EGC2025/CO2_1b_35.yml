@@ -1,0 +1,103 @@
+
+graph:
+  nodes:
+    inj_1:
+      type: 'injection_well'
+      unit: 'moose'
+    surface:
+      type: 'surface'
+      unit: 'native_CPG'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'surface'
+
+# simulation input
+
+runspec:
+  title: 'AGS (MOOSE + native_CPG)'
+  workflow: 'native'
+
+props:
+  fluid_name: 'CO2'
+  brine_density: 1000 # kg/m3
+  rock_density: 2500.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.5  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.03  # degC/m
+
+surface:
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.3 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.8  # (-)
+
+injection_well:
+  well_length: 5000. # m
+  diameter: 0.4 # m
+  epsilon: 1.e-4
+  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/EGC2025/CO2_1b_35.yml"
+  template_file_path: "/Users/morteza/Documents/projects/TANGO/examples/EGC2025/CO2_1b_35.i"
+  output_file_name: "CO2_1b_35.i"
+  moose_input_path: '/Users/morteza/Documents/projects/moskito2/CO2_1b_35.i' #
+  post_processor_path: '/Users/morteza/Documents/projects/TANGO/src/tango/CO2_1b_35_out.csv' #
+  bc_columns:
+    pressure_column_index: 2
+    temperature_column_index: 6
+    flowrate_column_index: 4
+  pressure_bc_file: 'pc_1b_35.csv'
+  flowrate_bc_file: 'qc_1b_35.csv'
+  temperature_bc_file: 'tc_1b_35.csv'
+
+production_well:
+  well_length: 5000. # m
+  diameter: 0.3 # m
+
+#reservoir:
+#  reservoir_depth: 5000.0 # m
+#  thickness: 100.0 # m
+#  permeability: 1.0e-12    # m2 ~50mD
+#  porosity: 0.1
+
+functions:
+  wells_cost:
+    type: mathematical_expression
+    value: 15931.37 * 3600.0
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: custom
+    function: wells_cost
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+
+schedule:
+  bc_iteration_checkpoint: injection_well_bottom
+  num_pp: 1
+  mass_flow_rate: 70  # kg/s (injection rate per pattern)
+  well_pattern: 'AGS' # doublet, inverted_5spot, 5spot
+  well_spacing: 200. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_tsteps: 390 # number of time steps
+  dt: 1.0  # time step increment (year)
+  end_time: 946080000
+  time:
+    type: MOOSEDT
+    num_tsteps: 390 # number of time steps
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095

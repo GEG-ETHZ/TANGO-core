@@ -1,0 +1,32 @@
+[
+    [
+        "inj_1",
+        "reservoir",
+        "non-isentropic"
+    ],
+    [
+        "reservoir",
+        "prd_1",
+        "non-isentropic"
+    ],
+    [
+        "pump",
+        "inj_1",
+        "non-isentropic"
+    ],
+    [
+        "prd_1",
+        "turbine",
+        "non-isentropic"
+    ],
+    [
+        "turbine",
+        "cooler",
+        "non-isentropic"
+    ],
+    [
+        "cooler",
+        "pump",
+        "non-isentropic"
+    ]
+]

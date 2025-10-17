@@ -1,0 +1,13 @@
+# ArangoDB Configuration Template
+# Copy this file to arangodb.conf and update with your real credentials
+# This file is safe to commit to Git (contains no real secrets)
+
+# ArangoDB Connection Settings
+ARANGODB_HOST=https://your-arangodb-host:8529
+ARANGODB_USERNAME=your_username
+ARANGODB_PASSWORD=your_password_here
+ARANGODB_DATABASE=your_database_name
+
+# Optional: Additional settings
+# ARANGODB_TIMEOUT=30
+# ARANGODB_MAX_RETRIES=3 

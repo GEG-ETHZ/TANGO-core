@@ -1,0 +1,248 @@
+graph:
+  nodes:
+    inj_1: # root node
+      type: 'injection_well'
+      unit: 'native'
+    reservoir:
+      type: 'reservoir'
+      unit: 'native'
+    prd_1:
+      type: 'production_well'
+      unit: 'native'
+    prd_2:
+      type: 'production_well_pump'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_flexible'
+  edges:
+    1:
+      source: 'surface'
+      target: 'inj_1'
+    2:
+      source: 'inj_1'
+      target: 'reservoir'
+    3:
+      source: 'reservoir'
+      target: 'prd_1'
+    4:
+      source: 'prd_1'
+      target: 'prd_2'
+    5:
+      source: 'prd_2'
+      target: 'surface'
+
+# simulation input
+
+runspec:
+  title: 'Doublet Hydrothermal system with flexible ORC plant'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000 # kg/m3
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.035  # degC/m
+
+surface:
+  surface_temperature: 288  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  target_extraction_pressure: 3000000
+
+reservoir:
+  reservoir_depth: 5000.0 # m
+  thickness: 300.0 # m
+  permeability: 5.0e-14    # m2 ~50mD
+  porosity: 0.1
+  hydro_static_pressure: 50000000
+  over_pressure_percentage: 10
+
+injection_well:
+  well_length: 5000. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 5000. ]
+  well_diameter_seq: [ 0.410 ]
+
+production_well:
+  well_length: 4000. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 5000. ]
+  well_diameter_seq: [ 0.410 ]
+
+production_well_pump:
+  well_length: 1000. # m
+  diameter: 0.410 # m
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+    sizing_strategy: average_performance
+
+schedule:
+  bc_iteration_checkpoint: injection_well_bottom
+  mass_flow_rate: 50.0  # kg/s (injection rate per pattern)
+  well_pattern: 'DOUBLET' # DOUBLET, inverted_5spot, 5spot
+  well_spacing: 707. # m (inj-prod pair)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 20 # number of time steps
+    dt: 1.0  # time step increment (year)
+  bc_iteration:
+    check_fracing: yes
+    max_mass_rate: 150
+  mass_rate:
+    type: automatic
+
+economic:
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
+    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
+
+power_plant_graph:
+  nodes:
+    inlet:
+      type: 'Source'
+      unit: 'native'
+    outlet:
+      type: 'Sink'
+      unit: 'native'
+    pump2:
+      type: 'Compressor'
+      unit: 'native'
+    heatexchanger:
+      type: 'HeatExchanger'
+      unit: 'native'
+    heatexchanger2:
+      type: 'HeatExchanger'
+      unit: 'native'
+    turbine:
+      type: 'Turbine'
+      unit: 'native'
+    cooler:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+    condenser:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+    pump:
+      type: 'Compressor'
+      unit: 'native'
+    cc:
+      type: 'CycleCloser'
+      unit: 'native'
+
+  edges:
+    1:
+      source: 'inlet'
+      target: 'heatexchanger'
+      target_port: 'in1'
+    2:
+      source: 'heatexchanger'
+      source_port: 'out1'
+      target: 'heatexchanger2'
+      target_port: 'in1'
+    3:
+      source: 'heatexchanger2'
+      source_port: 'out1'
+      target: 'pump2'
+    4:
+      source: 'cc'
+      target: 'heatexchanger2'
+      target_port: 'in2'
+    5:
+      source: 'heatexchanger2'
+      source_port: 'out2'
+      target: 'heatexchanger'
+      target_port: 'in2'
+    6:
+      source: 'heatexchanger'
+      source_port: 'out2'
+      target: 'turbine'
+    7:
+      source: 'turbine'
+      target: 'cooler'
+    8:
+      source: 'cooler'
+      target: 'condenser'
+    9:
+      source: 'condenser'
+      target: 'pump'
+    10:
+      source: 'pump'
+      target: 'cc'
+    11:
+      source: 'pump2'
+      target: 'outlet'
+
+heatexchanger:
+  Subtype: 'boiler'
+  ttd_l: 7
+  pr1: 1.0
+  pr2: 1.0
+  h0_out1: 250
+  p0_out2: 13.8 #
+  vapor_mass_fraction_out2: 1 #
+
+heatexchanger2:
+  Subtype: 'preheater'
+  pr1: 1.0 #
+  pr2: 1.0 #
+#  T_out1: 50
+  vapor_mass_fraction_out2: 0 #
+  p0_out2: 5.0 #
+  fluid_out2:
+    R245fa: 1
+
+pump:
+  efficiency: 1.0
+  p_out: 5 #
+
+pump2:
+  efficiency: 1.0
+#  p_out: 30 #
+
+turbine:
+  efficiency: 1.0
+  p_out: 1 #
+
+cooler:
+  Subtype: 'cooler'
+  design: 'closed'
+  cooling_tower_mode: 'WET'
+  set_number: 1
+  p_out: 1 #
+  vapor_mass_fraction_out: 1 #
+
+condenser:
+  Subtype: 'condenser'
+  design: 'closed'
+  cooling_tower_mode: 'WET'
+  set_number: 1
+  p_out: 1 #
+  vapor_mass_fraction_out: 0 #

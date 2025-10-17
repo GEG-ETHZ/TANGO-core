@@ -6,7 +6,5 @@ class GemUnit(CMGBaseUnit):
         super().__init__(id, specs)
         self.simulator = 'gem'
         self.exe = 'gm'
-        raise NotImplementedError(f"GEM option is currently not supported.")
-
-    # def execute(self) -> None:
+           # def execute(self) -> None:
     #     pass

@@ -2,19 +2,29 @@ WORKFLOW_OPTIONS = {'native': 'NativeWorkflow',
                     'cmg': 'CMGWorkflow'}
 
 SYSTEM_OPTIONS = {'native': 'SystemNative',
+                  'external': 'SystemExternal',
+                  'native_flexible': 'SystemExternal',
                   'native_cpg': 'SystemCPGNative',
+                  'native_dh': 'SystemCPGNative',
                   'moose_cpg': 'SystemExternal',
-                  'dwsim_cpg': 'SystemExternal',
                   'tespy_cpg': 'SystemExternal',
+                  'tespy_orc': 'SystemExternal',
+                  'tespy_sf': 'SystemExternal',
+                  'tespy_df': 'SystemExternal',
                   'native_orc': 'SystemORCNative'}
 
 UNIT_OPTIONS = {
                     'surface':
                         {
+                            'native_flexible': 'SurfaceUnitFlexiblePP',
                             'native_cpg': 'SurfaceUnitCPGNative',
+                            'native_dh': 'SurfaceUnitDHNative',
                             'moose_cpg': 'SurfaceUnitCPGNative',
                             'dwsim_cpg': 'SurfaceUnitCPGDWSIM',
                             'tespy_cpg': 'SurfaceUnitCPGTESPy',
+                            'tespy_orc': 'SurfaceUnitORCTESPy',
+                            'tespy_sf': 'SurfaceUnitSingleFlashTESPy',
+                            'tespy_df': 'SurfaceUnitDoubleFlashTESPy',
                             'native_orc': 'SurfaceUnitORCNative'
                         },
                     'injection_well':
@@ -37,7 +47,8 @@ UNIT_OPTIONS = {
                     'reservoir':
                         {
                             'native': 'ReservoirUnitNative',
-                            'moose': 'ReservoirUnitPorousflow'
+                            'moose': 'ReservoirUnitPorousflow',
+                            'filereader': 'ReservoirFileReaderUnit'
                         },
                     'stream':
                         {
@@ -58,10 +69,14 @@ UNIT_OPTIONS = {
 UNIT_STATE_OPTIONS = {
                         'surface':
                             {
+                                'native_flexible': 'SurfaceUnitFlexiblePP',
                                 'native_cpg': 'SurfaceStateCPGNative',
                                 'moose_cpg': 'SurfaceStateCPGNative',
                                 'dwsim_cpg': 'SurfaceStateCPGDWSIM',
                                 'tespy_cpg': 'SurfaceStateCPGTESPy',
+                                'tespy_orc': 'SurfaceStateORCTESPy',
+                                'tespy_sf': 'SurfaceStateSingleFlashTESPy',
+                                'tespy_df': 'SurfaceStateDoubleFlashTESPy',
                                 'native_orc': 'SurfaceStateORCNative'
                             },
                        'injection_well':
@@ -99,12 +114,12 @@ UNIT_STATE_OPTIONS = {
 UNIT_OPTIONS_FOR_ECONUNIT = {
                             'native':
                                 {
-                                    'surface': ['native_cpg', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg', 'native_orc'],
+                                    'surface': ['native_flexible', 'native_cpg', 'native_dh', 'moose_cpg', 'dwsim_cpg', 'tespy_cpg',  'tespy_orc', 'tespy_sf', 'tespy_df', 'native_orc'],
                                     'injection_well': ['native', 'moose'],
                                     'production_well': ['native'],
                                     'production_well_pump': ['native'],
                                     'horizontal_well': ['native'],
-                                    'reservoir': ['native', 'moose']
+                                    'reservoir': ['native', 'moose', 'filereader']
                                 }
                             }
 
@@ -123,8 +138,8 @@ FLUID_NAME_OPTIONS = ['CO2', 'H2O']
 WELL_COST_OPTIONS = ['gengeo', 'halliburton', 'st_gallen', 'bavaria', 'swiss', 'ppgd']
 SURFACE_DESIGN_OPTIONS = ['OPEN', 'CLOSED']
 COOLING_MODE_OPTIONS = ['WET', 'DRY']
-SKIP_REPORT_ATTRIBUTES = ['mass_rate', 'mu', 'rho']
-REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'inlet_fluid', 'production_well': 'outlet_fluid'}
+SKIP_REPORT_ATTRIBUTES = ['mu', 'rho']
+REPORT_SETTINGS = {'surface': [], 'reservoir': 'outlet_fluid', 'injection_well': 'outlet_fluid', 'production_well': 'outlet_fluid', 'production_well_pump': 'outlet_fluid', 'horizontal_well': 'outlet_fluid'}
 MAP_ORC_OPTNAME_TO_TABLE_NAME = {'min_cost': 'minCost', 'max_power': 'maxPower'}
 DATETIME_FMT = '%Y-%m-%d'
 CONVERGENCE_CRITERIA = {'dP_reservoir': 1000, 'dP_surface': 100, 'dT_surface': 0.5, 'max_num_itr': 20}

@@ -45,10 +45,10 @@ runspec:
 
 props:
   fluid_name: 'H2O'
-  brine_density: 1000 # kg/m3
-  rock_density: 2650.0 # kg/m3
-  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
-  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  brine_density: 1000
+  rock_density: 2650.0
+  rock_cp: 1000.0
+  rock_k: 2.1
   thermal_gradient: 0.035  # degC/m
 surface:
   surface_temperature: 288.15  # K
@@ -65,29 +65,69 @@ reservoir:
   thickness: 100.0 # m
   permeability: 1.5e-13 # m2
   porosity: 0.1
+  hydro_static_pressure: 25000000
+  over_pressure_percentage: 20
 
 injection_well:
   well_length: 2500. # m
   diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 
 production_well:
   well_length: 2000. # m
   diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
 
 production_well_pump:
   well_length: 500. # m
   diameter: 0.410 # m
 
+functions:
+  dts:
+    type: segmented_linear
+    time: [0, 5]
+    dt: [1, 1 ]
+    end_time: 5
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+
 schedule:
+  bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 10.0  # kg/s (injection rate per pattern)
   well_pattern: 'DOUBLET' # doublet, inverted_5spot, 5spot
   well_spacing: 707. # m (inj-prod pair)
   well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
   start_date: '2019-01-01' # Year-mm-dd
-  num_tsteps: 1 # number of time steps
-  dt: 1.0  # time step increment (year)
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 1 # number of time steps
+    dt: 1.0  # time step increment (year)
 
 economic:
   type: 'native'
   project_maturity: 'green_field' # brown_field or green_field
   discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
+    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/alpha.csv'
