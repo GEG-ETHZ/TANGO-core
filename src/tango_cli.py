@@ -1,12 +1,21 @@
 import sys
+import logging
+from datetime import datetime
 from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
 sys.path.append(str(Path(__file__).parent.parent))
 
 from tango.runner import Tango
 from tango.utils import parse_args, set_logger
 from tango.optimizerr import Optimizer
 
+<<<<<<< HEAD:src/tango/tango_cli.py
 class Runner:
+=======
+EXPIRATION_DATE = datetime(2025, 12,31)
+
+class Tango:
+>>>>>>> main:src/tango_cli.py
 
     def __init__(self, args: list):
         """
@@ -49,7 +58,17 @@ class Runner:
 
 if __name__ == '__main__':
 
+<<<<<<< HEAD:src/tango/tango_cli.py
     runner = Runner(sys.argv[1:])
+=======
+    current_date = datetime.now()
+
+    if current_date > EXPIRATION_DATE:
+        logging.info("This executable has expired. Please contact the developer for an updated version.")
+        sys.exit()
+
+    tango = Tango(sys.argv[1:])
+>>>>>>> main:src/tango_cli.py
 
     runner.start()
 
