@@ -171,148 +171,147 @@ def testcase16():
 def testcase28():
     fname = Path(examples_dir) / "flexible_CPG_manual.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(1.0404096563681495)  #
+    assert get_val(fname) == pytest.approx(1.0404096563681495)
     rmFiles(fname)
 
 
 def testcase29():
     fname = Path(examples_dir) / "flexible_CPG_doublet.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.4397380004468383)  #
+    assert get_val(fname) == pytest.approx(0.4397380004468383)
     rmFiles(fname)
 
 
 def testcase30():
     fname = Path(examples_dir) / "flexible_CPG_inverted.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.8001014591125116)  #
+    assert get_val(fname) == pytest.approx(0.8001014591125116)
     rmFiles(fname)
 
 
 def testcase31():
     fname = Path(examples_dir) / "flexible_SF_manual.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.7740615973188385)  #
+    assert get_val(fname) == pytest.approx(0.7740615973188385)
     rmFiles(fname)
 
 
 def testcase32():
     fname = Path(examples_dir) / "flexible_SF_doublet.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.4925022003574962)  #
+    assert get_val(fname) == pytest.approx(0.4925022003574962)
     rmFiles(fname)
 
 
 def testcase33():
     fname = Path(examples_dir) / "flexible_SF_inverted.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.39811240341956)  #
+    assert get_val(fname) == pytest.approx(0.39811240341956)
     rmFiles(fname)
 
 
 def testcase34():
     fname = Path(examples_dir) / "flexible_DF_manual.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.6067861177138602)  #
+    assert get_val(fname) == pytest.approx(0.6067861177138602)
     rmFiles(fname)
 
 
 def testcase35():
     fname = Path(examples_dir) / "flexible_DF_doublet.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.4103680313020569)  #
+    assert get_val(fname) == pytest.approx(0.4103680313020569)
     rmFiles(fname)
 
 
 def testcase36():
     fname = Path(examples_dir) / "flexible_DF_inverted.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.33134907160158)  #
+    assert get_val(fname) == pytest.approx(0.33134907160158)
     rmFiles(fname)
 
 
 def testcase37():
     fname = Path(examples_dir) / "flexible_ORC_manual.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.5584699291443729)  #
+    assert get_val(fname) == pytest.approx(0.5584699291443729)
     rmFiles(fname)
 
 
 def testcase38():
     fname = Path(examples_dir) / "flexible_ORC_doublet.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.3415554829523203)  #
+    assert get_val(fname) == pytest.approx(0.3415554829523203)
     rmFiles(fname)
 
 
 def testcase39():
     fname = Path(examples_dir) / "flexible_ORC_inverted.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.434726923399815)  #
+    assert get_val(fname) == pytest.approx(0.434726923399815)
     rmFiles(fname)
 
 
 def testcase40():
     fname = Path(examples_dir) / "flexible_pp_cost_entire.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.3889103149974154)  #
+    assert get_val(fname) == pytest.approx(0.3889103149974154)
     rmFiles(fname)
 
 
 def testcase41():
     fname = Path(examples_dir) / "flexible_pp_cost_breakdown.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.603518640570858)  #
+    assert get_val(fname) == pytest.approx(0.603518640570858)
     rmFiles(fname)
 
 
 def testcase42():
     fname = Path(examples_dir) / "testcase1_external.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.7577190922186917)  #
+    assert get_val(fname) == pytest.approx(0.7577190922186917)
     rmFiles(fname)
 
 
 def testcase43():
     fname = Path(examples_dir) / "testcase5_external.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(1.1257180558208808)  #
+    assert get_val(fname) == pytest.approx(1.1257180558208808)
     rmFiles(fname)
 
 
 def testcase44():
     fname = Path(examples_dir) / "flexible_SF_cogeneration_e.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.4413799486937797)  #
+    assert get_val(fname) == pytest.approx(0.4413799486937797)
     rmFiles(fname)
 
 
 def testcase45():
     fname = Path(examples_dir) / "flexible_SF_cogeneration_h.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.0849757811401796)  #
+    assert get_val(fname) == pytest.approx(0.0849757811401796)
     rmFiles(fname)
 
 
-#
 def testcase46():
-    fname = Path(examples_dir) / "file_reader_CPG.yml")  ###
+    fname = Path(examples_dir) / "file_reader_CPG.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.5559390153189634)  #
+    assert get_val(fname) == pytest.approx(0.5559390153189634)
     rmFiles(fname)
 
 
 def testcase47():
     fname = Path(examples_dir) / "file_reader_ORC.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.32979757073231)  #
+    assert get_val(fname) == pytest.approx(0.32979757073231)
     rmFiles(fname)
 
 
 def testcase48():
     fname = Path(examples_dir) / "flexible_DF_reader.yml"
     run(fname)
-    assert get_val(fname) == pytest.approx(0.2278856925652175)  #
+    assert get_val(fname) == pytest.approx(0.2278856925652175)
     rmFiles(fname)
 
 
@@ -413,19 +412,19 @@ def testcase56():
 # def testcase49():
 #     fname = os.path.join(examples_dir, 'flexible_SF_opt.yml')
 #     run(fname)
-#     assert get_val(fname) == pytest.approx(0.6047041512786223, abs=0.001) #
+#     assert get_val(fname) == pytest.approx(0.6047041512786223, abs=0.001)
 #     rmFiles(fname)
 
 # def testcase50():
 #     fname = os.path.join(examples_dir, 'flexible_SF_opt_valve.yml')
 #     run(fname)
-#     assert get_val(fname) == pytest.approx(0.6672682394033819, abs=0.001) #
+#     assert get_val(fname) == pytest.approx(0.6672682394033819, abs=0.001)
 #     rmFiles(fname)
 
 # def testcase51():
 #     fname = os.path.join(examples_dir, 'flexible_DF_opt_valves.yml')
 #     run(fname)
-#     assert get_val(fname) == pytest.approx(0.5781967722329104, abs=0.002) #
+#     assert get_val(fname) == pytest.approx(0.5781967722329104, abs=0.002)
 #     rmFiles(fname)
 
 # def testcase52():
