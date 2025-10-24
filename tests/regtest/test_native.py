@@ -4,12 +4,15 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
-sys.path.append(Path(__file__).parent.parent.parent / "src")
+# TODO: make TANGO into an installable package.
+# Adding TANGO as a path is really dirty and undermines debugging, type
+# checking, interface checking, and various other useful coding tools.
+sys.path.append(str(Path(__file__).parents[2] / "src"))
 
 from tango.runner import Tango
 from tango.optimizerr import Optimizer
 
-examples_dir = Path(__file__).parent.parent.parent / "examples"
+examples_dir = Path(__file__).parents[2] / "examples"
 
 
 def run(fname) -> None:
