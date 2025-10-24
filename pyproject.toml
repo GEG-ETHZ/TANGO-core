@@ -1,9 +1,182 @@
-[build-system]
-# AVOID CHANGING REQUIRES: IT WILL BE UPDATED BY PYSCAFFOLD!
-requires = ["setuptools>=46.1.0", "setuptools_scm[toml]>=5", "wheel"]
-build-backend = "setuptools.build_meta"
+# [build-system]
 
-[tool.setuptools_scm]
-# For smarter version schemes and other configuration options,
-# check out https://github.com/pypa/setuptools_scm
-version_scheme = "no-guess-dev"
+[project]
+name = "tango"
+version = "0.0.1"
+authors = [{name = "ETHZ/EAPS/GEG Group"}]
+description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
+readme = "README.md"
+# license = { file = "LICENSE.md" }
+requires-python = ">=3.10,<3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+  "numpy>=1.25,<2.0",
+  "pandas>=2.1,<3.0",
+  "matplotlib>=3.7,<4.0",
+  "scipy>=1.11,<2.0",
+  "scikit-learn>=1.6,<2.0",
+  "seaborn>=0.13,<1.0",
+  "openpyxl>=3.1,<4.0",
+  "pyyaml>=6.0,<7.0",
+  "sphinx>=7.4,<8.0",
+  "joblib>=1.4,<2.0",
+  "networkx>=3.1,<4.0",
+  "jinja2>=3.1,<4.0",
+  "setuptools>=68.1,<69.0",
+  "pip>=23.2,<24.0",
+  "tqdm>=4.66,<5.0",
+  "furo>=2024.8,<2025.0",
+  "oyaml>=1.0,<2.0",
+  "tabulate>=0.8,<1.0",
+  "termcolor>=2.5,<3.0",
+  "sphinx-basic-ng>=1.0.0b2,<2.0",
+  "sphinx-rtd-theme>=3.0,<4.0",
+  "sphinxcontrib-applehelp>=2.0,<3.0",
+  "sphinxcontrib-devhelp>=2.0,<3.0",
+  "sphinxcontrib-htmlhelp>=2.1,<3.0",
+  "sphinxcontrib-jquery>=4.1,<5.0",
+  "sphinxcontrib-jsmath>=1.0,<2.0",
+  "sphinxcontrib-qthelp>=2.0,<3.0",
+  "sphinxcontrib-serializinghtml>=1.1,<2.0",
+  "pexpect>=4.0,<5.0",
+  "python-arango",
+  # # pip dependencies
+  # "CoolProp = {version = 6.8.0, channel = 'pypi'}",
+  # "pymoo = {version = 0.6.1.3, channel = 'pypi'}",
+  # "tespy = {version = 0.7.1.post1, channel = 'pypi'}",
+  # "sphinx-material = {version = 0.0.36, channel = 'pypi'}",
+  # "fluprodia = {version = 3.3, channel = 'pypi'}",
+]
+
+[project.urls]
+Homepage = "https://tango.app/"
+
+[project.optional-dependencies]
+dev = [
+    "pylsp-mypy>=0.7.0", # provides connection from python LSP to mypy
+    "pylsp-rope>=0.1.17", # provides linting tools
+    "ruff>=0.11.9", # provides additional linting tools
+    "pytest~=8.3", # for functional and unit testing
+    "python-lsp-server~=1.10", # server 
+    # "pymoo~=0.6",
+]
+
+[dependency-groups]
+dev = ["tango[dev]"]
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = [
+    "tango*", # NOTE: this may need to be changed to `src/`
+] # package names should match these glob patterns (["*"] by default)
+namespaces = false # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.pixi.workspace]
+channels = ["conda-forge", "pypi"]
+platforms = ["osx-64", "osx-arm64", "linux-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+tango = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+fmt = "ruff format"
+lint = "pylint"
+style = { depends-on = ["fmt", "lint"] }
+
+[tool.ruff]
+# Specify Python version
+target-version = "py311"
+# Maximum line length
+line-length = 100
+# Exclude specific paths
+exclude = [
+    "site-packages" # Ignore all errors in site-packages
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tango"]
+section-order = ["standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+preview = true
+select = [
+  "A", # flake8-builtins
+  "ARG", # flake8-unused-arguments
+  # "B", # flake8-bugbear
+  "C", # Pylint: Convention
+  "C4", # flake8-comprehensions
+  "C90", # mccabe
+  "COM", # flake8-commas
+  "D", # pydocstyle
+  "E", # Error
+  "F", # Pyflakes
+  "G", # flake8-logging-format
+  "I", # isort
+  "LOG", # flake8-logging
+  "N", # pep8-naming
+  "NPY", # numpy-specific
+  "PERF", # Perflint
+  # "PL", # Pylint
+  "Q", # flake8-quotes
+  "SIM", # flake8-simplify
+  # "TID", # flake8-tidy-imports (absolute imports)
+  "UP", # pyupgrade
+  "W" # Warning
+]
+ignore = [
+  "D400", # first-line-should-end-with-a-period
+  "E266", # Too many leading `#`
+  "D205", # blank line after summary
+  "N807",
+]
+
+# [tool.ruff.lint.pydocstyle]
+# convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+# https://mypy.readthedocs.io/en/stable/config_file.html#example-pyproject-toml
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+allow_redefinition = true
+exclude = [
+    # '^file1\.py$',  # TOML literal string (single-quotes, no escaping necessary)
+    # "^file2\\.py$",  # TOML basic string (double-quotes, backslash and other characters need escaping)
+]
+
+# mypy per-module options:
+
+# [[tool.mypy.overrides]]
+# module = "mycode.foo.*"
+# disallow_untyped_defs = true
+
+# [[tool.mypy.overrides]]
+# module = "mycode.bar"
+# warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = [
+    "pymoo.*",
+    "tango.*", # TODO: fix tango and remove this line
+]
+ignore_missing_imports = true
