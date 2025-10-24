@@ -82,7 +82,7 @@ schedule:
   num_tsteps: 5 # number of time steps
   dt: 1.0  # time step increment (year)
   flow_rate_from_csv: 'yes'
-  flow_rate_file: '/Users/morteza/Documents/projects/TANGO/examples/mass_rate.csv'
+  flow_rate_file: 'examples/mass_rate.csv'
 
 
 economic: # optional

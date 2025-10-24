@@ -60,8 +60,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 25000000
   over_pressure_percentage: 10
-  inlet_state: '/Users/morteza/Documents/projects/TANGO/examples/EGC2025_EGS/inj50.csv'
-  outlet_state:  '/Users/morteza/Documents/projects/TANGO/examples/EGC2025_EGS/pro50.csv'
+  inlet_state: 'examples/EGC2025_EGS/inj50.csv'
+  outlet_state:  'examples/EGC2025_EGS/pro50.csv'
 
 injection_well:
   well_length: 2586.228 # m
@@ -117,12 +117,12 @@ addons:
   ThermaGraph:
     active: 'yes'
     execute: 'yes'
-    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
-    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+    states_file: 'src/tango/states_test2.json'
+    connections_file: 'src/tango/connections_test2.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
+    results_file: 'src/tango/aaaa.csv'
 
 power_plant_graph:
   nodes:

@@ -72,7 +72,7 @@ production_well:
 functions:
   dts:
     type: segmented_linear_csv
-    file: "/Users/morteza/Documents/projects/TANGO/examples/timesteps.csv"
+    file: "examples/timesteps.csv"
     end_time: 5
 
 costs:
@@ -108,9 +108,9 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
-    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+    states_file: 'src/tango/states_test2.json'
+    connections_file: 'src/tango/connections_test2.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/alpha.csv'
+    results_file: 'src/tango/alpha.csv'

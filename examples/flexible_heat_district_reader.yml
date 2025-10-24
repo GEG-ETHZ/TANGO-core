@@ -112,8 +112,8 @@ schedule:
 #    type: manual
     type: automatic
     value: 50
-  power_raw_data: "/Users/morteza/Documents/projects/TANGO/examples/out.xlsx"
-  power_avg: "/Users/morteza/Documents/projects/TANGO/examples/out_avg.xlsx"
+  power_raw_data: "examples/out.xlsx"
+  power_avg: "examples/out_avg.xlsx"
   averaging_window: 400
   bypass_file_generation: 'yes'
   min_thermal_power: 0.005
@@ -127,12 +127,12 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
-    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+    states_file: 'src/tango/states_test2.json'
+    connections_file: 'src/tango/connections_test2.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
+    results_file: 'src/tango/aaaa.csv'
 
 power_plant_graph:
   nodes:
