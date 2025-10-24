@@ -7,7 +7,7 @@ authors = [{name = "ETHZ/EAPS/GEG Group"}]
 description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
 readme = "README.md"
 # license = { file = "LICENSE.md" }
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: Other/Proprietary License",
