@@ -13,6 +13,8 @@ from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# TODO: after setting up flask to use pixi, remove this because pixi properly
+# adds TANGO as module in the environment
 # Add TANGO source to path
 TANGO_SRC = Path(__file__).parent / "src"
 sys.path.append(str(TANGO_SRC))
