@@ -1,8 +1,4 @@
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-from src.tango.core import FluidState
+from tango.core import FluidState
 
 from CoolProp.CoolProp import PropsSI
 import pytest
@@ -10,16 +6,16 @@ import pytest
 
 class ComputePropsSI:
     def __init__(self, fluidname: str, P: float, T: float):
-        self.P     = PropsSI("P"        , "P", P, "T", T, fluidname)
-        self.T     = PropsSI("T"        , "P", P, "T", T, fluidname)
-        self.H     = PropsSI("H"        , "P", P, "T", T, fluidname)
-        self.S     = PropsSI("S"        , "P", P, "T", T, fluidname)
-        self.Q     = PropsSI("Q"        , "P", P, "T", T, fluidname)
-        self.rho   = PropsSI("D"        , "P", P, "T", T, fluidname)
-        self.cp    = PropsSI("CPMASS"   , "P", P, "T", T, fluidname)
-        self.mu    = PropsSI("VISCOSITY", "P", P, "T", T, fluidname)
-        self.Tcrit = PropsSI("TCRIT"    , "P", P, "T", T, fluidname)
-        self.Pcrit = PropsSI("PCRIT"    , "P", P, "T", T, fluidname)
+        self.P = PropsSI("P", "P", P, "T", T, fluidname)
+        self.T = PropsSI("T", "P", P, "T", T, fluidname)
+        self.H = PropsSI("H", "P", P, "T", T, fluidname)
+        self.S = PropsSI("S", "P", P, "T", T, fluidname)
+        self.Q = PropsSI("Q", "P", P, "T", T, fluidname)
+        self.rho = PropsSI("D", "P", P, "T", T, fluidname)
+        self.cp = PropsSI("CPMASS", "P", P, "T", T, fluidname)
+        self.mu = PropsSI("VISCOSITY", "P", P, "T", T, fluidname)
+        self.Tcrit = PropsSI("TCRIT", "P", P, "T", T, fluidname)
+        self.Pcrit = PropsSI("PCRIT", "P", P, "T", T, fluidname)
 
 
 def check(state):
@@ -37,9 +33,8 @@ def check(state):
 
 
 def test_FluidState():
-
-    state1 = FluidState.withPT("Water", 1.23e+5, 321.0)
-    assert state1.P == pytest.approx(1.23e+5)
+    state1 = FluidState.withPT("Water", 1.23e5, 321.0)
+    assert state1.P == pytest.approx(1.23e5)
     assert state1.T == pytest.approx(321.0)
     check(state1)
 
@@ -53,10 +48,10 @@ def test_FluidState():
     assert state3.S == pytest.approx(state2.S)
     check(state3)
 
-    state4 = FluidState.withPQ("Water", P = state3.P, Q = 0)
+    state4 = FluidState.withPQ("Water", P=state3.P, Q=0)
     assert state4.Q == pytest.approx(0.0)
     assert state4.P == pytest.approx(state3.P)
 
-    state5 = FluidState.withQT("Water", Q = 1, T = state4.T)
+    state5 = FluidState.withQT("Water", Q=1, T=state4.T)
     assert state5.Q == pytest.approx(1.0)
     assert state5.T == pytest.approx(state4.T)
