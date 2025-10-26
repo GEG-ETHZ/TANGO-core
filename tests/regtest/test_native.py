@@ -4,10 +4,6 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
-# TODO: make TANGO into an installable package.
-# Adding TANGO as a path is really dirty and undermines debugging, type
-# checking, interface checking, and various other useful coding tools.
-
 from tango.runner import Tango
 from tango.optimizerr import Optimizer
 
