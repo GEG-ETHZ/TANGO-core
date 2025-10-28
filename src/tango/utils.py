@@ -394,11 +394,11 @@ def set_logger(args):
 
     """
     input_file = args.input_file
-    DEBUG = args.debug
+    debug = args.debug
     if not os.path.isfile(input_file):
         raise FileNotFoundError(f"{input_file} not found")
     level = logging.INFO
-    if DEBUG:
+    if debug:
         level = logging.DEBUG
     logging.getLogger().setLevel(level)
     logging.basicConfig(filename=os.path.splitext(input_file)[0] + ".log",

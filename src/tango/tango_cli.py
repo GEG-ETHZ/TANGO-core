@@ -8,9 +8,7 @@ from tango.optimizerr import Optimizer
 
 class Runner:
     def __init__(self, args: list):
-        """
-        Initializes the Runner with parsed arguments, logging setup, and the Tango object.
-        """
+        """Initialize the Runner with parsed arguments, logging setup, and the Tango object."""
         args = parse_args(args)
         set_logger(args)
 
@@ -33,16 +31,19 @@ class Runner:
             self._optimizer = Optimizer(self._tango, self._tango.specs)
 
     def start(self) -> None:
-        """
-        Starts the execution of the workflow. If 'optimization' is present in the specs,
+        """Start the execution of the workflow. If 'optimization' is present in the specs,
         use the optimizer. Otherwise, check for batch simulation or use regular Tango execution.
         """
-        if self._optimizer:
+        if self._optimizer is not None:
             print("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
         elif "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
             "enabled", False
         ):
+            # TODO: `"batch_simulation" in self._tango.specs and ` is probably redundant with the
+            # second predicate
+            # NOTE: it's possible to have `self._optimizer is not None` and still satisfy this branch
+            # which is likely not the intended behavior
             print("Batch simulation detected. Executing batch simulation...")
             self._tango.execute_batch_simulation()
         else:
