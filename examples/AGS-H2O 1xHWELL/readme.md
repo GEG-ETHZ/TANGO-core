@@ -1,0 +1,2 @@
+# AGS-H2O 1xHWELL
+This directory is intended to store examples that perturb values in ../testcase7.yml to demonstrate failure modes and show that they are handled appropriately to clarify troubleshooting steps to users.
