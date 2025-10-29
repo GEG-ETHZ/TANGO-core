@@ -51,7 +51,11 @@ class Runner:
             self._tango.execute()
 
 
-if __name__ == "__main__":
+def main():
+    """Run TANGO CLI"""
     runner = Runner(sys.argv[1:])
-
     runner.start()
+
+
+if __name__ == "__main__":
+    main()

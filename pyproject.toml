@@ -56,6 +56,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://tango.app/"
 
+[project.scripts]
+tango_cli = "tango.tango_cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pylsp-mypy>=0.7.0", # provides connection from python LSP to mypy
