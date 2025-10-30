@@ -79,7 +79,7 @@ zip-safe = false
 
 [tool.setuptools.packages.find]
 include = [
-    "tango*", 
+    "src/tango/", 
 ] # package names should match these glob patterns (["*"] by default)
 namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 
