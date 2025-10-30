@@ -56,380 +56,154 @@ def rmFiles(fname):
 
 
 # Test cases
-
-
-def testcase1():
-    fname = Path(examples_dir) / "testcase1.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.044581)
-    rmFiles(fname)
-
-
-def testcase2():
-    fname = Path(examples_dir) / "testcase2.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.522312)
-    rmFiles(fname)
-
-
-def testcase3():
-    fname = Path(examples_dir) / "testcase3.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.690309)
-    rmFiles(fname)
-
-
-def testcase4():
-    fname = Path(examples_dir) / "testcase4.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(38.007733714)
-    rmFiles(fname)
-
-
-def testcase5():
-    fname = Path(examples_dir) / "testcase5.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(6.271013322477)
-    rmFiles(fname)
-
-
-def testcase6():
-    fname = Path(examples_dir) / "testcase6.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(65.16111942279903)
-    rmFiles(fname)
-
-
-def testcase7():
-    fname = Path(examples_dir) / "testcase7.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(149.38633520088)
-    rmFiles(fname)
-
-
-# def testcase8():
-#     fname = os.path.join(examples_dir, 'testcase8.yml')
-#     run(fname)
-#     assert get_lcoe_from_file(fname) == pytest.approx(95.04981921403642)
-#     rmFiles(fname)
-
-
-def testcase9():
-    fname = Path(examples_dir) / "timestep_irregular.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.044581)
-    rmFiles(fname)
-
-
-def testcase10():
-    fname = Path(examples_dir) / "timestep_linear.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.522312)
-    rmFiles(fname)
-
-
-def testcase11():
-    fname = Path(examples_dir) / "timestep_linear_csv.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.690309)
-    rmFiles(fname)
-
-
-def testcase12():
-    fname = Path(examples_dir) / "ORC_user_defined_cost.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(6.102323)
-    rmFiles(fname)
-
-
-def testcase13():
-    fname = Path(examples_dir) / "CPG_user_defined_cost.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.7079676159044549)
-    rmFiles(fname)
-
-
-def testcase14():
-    fname = Path(examples_dir) / "ORC_multiple_5spot.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(32.587342)
-    rmFiles(fname)
-
-
-def testcase15():
-    fname = Path(examples_dir) / "ORC_num_pp.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(32.915394)
-    rmFiles(fname)
-
-
-def testcase16():
-    fname = Path(examples_dir) / "CPG_num_pp.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.783523)
-    rmFiles(fname)
-
-
-def testcase28():
-    fname = Path(examples_dir) / "flexible_CPG_manual.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.0404096563681495)
-    rmFiles(fname)
-
-
-def testcase29():
-    fname = Path(examples_dir) / "flexible_CPG_doublet.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.4397380004468383)
-    rmFiles(fname)
-
-
-def testcase30():
-    fname = Path(examples_dir) / "flexible_CPG_inverted.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.8001014591125116)
-    rmFiles(fname)
-
-
-def testcase31():
-    fname = Path(examples_dir) / "flexible_SF_manual.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.7740615973188385)
-    rmFiles(fname)
-
-
-def testcase32():
-    fname = Path(examples_dir) / "flexible_SF_doublet.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.4925022003574962)
-    rmFiles(fname)
-
-
-def testcase33():
-    fname = Path(examples_dir) / "flexible_SF_inverted.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.39811240341956)
-    rmFiles(fname)
-
-
-def testcase34():
-    fname = Path(examples_dir) / "flexible_DF_manual.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.6067861177138602)
-    rmFiles(fname)
-
-
-def testcase35():
-    fname = Path(examples_dir) / "flexible_DF_doublet.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.4103680313020569)
-    rmFiles(fname)
-
-
-def testcase36():
-    fname = Path(examples_dir) / "flexible_DF_inverted.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.33134907160158)
-    rmFiles(fname)
-
-
-def testcase37():
-    fname = Path(examples_dir) / "flexible_ORC_manual.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.5584699291443729)
-    rmFiles(fname)
-
-
-def testcase38():
-    fname = Path(examples_dir) / "flexible_ORC_doublet.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.3415554829523203)
-    rmFiles(fname)
-
-
-def testcase39():
-    fname = Path(examples_dir) / "flexible_ORC_inverted.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.434726923399815)
-    rmFiles(fname)
-
-
-def testcase40():
-    fname = Path(examples_dir) / "flexible_pp_cost_entire.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.3889103149974154)
-    rmFiles(fname)
-
-
-def testcase41():
-    fname = Path(examples_dir) / "flexible_pp_cost_breakdown.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.603518640570858)
-    rmFiles(fname)
-
-
-def testcase42():
-    fname = Path(examples_dir) / "testcase1_external.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.7577190922186917)
-    rmFiles(fname)
-
-
-def testcase43():
-    fname = Path(examples_dir) / "testcase5_external.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(1.1257180558208808)
-    rmFiles(fname)
-
-
-def testcase44():
-    fname = Path(examples_dir) / "flexible_SF_cogeneration_e.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.4413799486937797)
-    rmFiles(fname)
-
-
-def testcase45():
-    fname = Path(examples_dir) / "flexible_SF_cogeneration_h.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.0849757811401796)
-    rmFiles(fname)
-
-
-def testcase46():
-    fname = Path(examples_dir) / "file_reader_CPG.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.5559390153189634)
-    rmFiles(fname)
-
-
-def testcase47():
-    fname = Path(examples_dir) / "file_reader_ORC.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.32979757073231)
-    rmFiles(fname)
-
-
-def testcase48():
-    fname = Path(examples_dir) / "flexible_DF_reader.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.2278856925652175)
-    rmFiles(fname)
-
-
-def testcase53():
-    fname = Path(examples_dir) / "flexible_CPG_hot.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.4184793978399103)
-    rmFiles(fname)
-
-
-def testcase54():
-    fname = Path(examples_dir) / "flexible_heat.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.0464719138352712)
-    rmFiles(fname)
-
-
-def testcase55():
-    fname = Path(examples_dir) / "file_reader_kang.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(2.0502977425279667)
-    rmFiles(fname)
-
-
-def testcase56():
-    fname = Path(examples_dir) / "file_reader_kang2.yml"
-    run(fname)
-    assert get_lcoe_from_file(fname) == pytest.approx(0.8841918490926264)
-    rmFiles(fname)
-
-
-# def testcase17():
+def files_and_values() -> list[tuple[Path, float]]:
+    """Return list of tuples of paths and corresponding reference values"""
+    filenames_and_vals = [
+        ("testcase1.yml", 1.044581),
+        ("testcase2.yml", 1.522312),
+        ("testcase3.yml", 0.690309),
+        ("testcase4.yml", 38.007733714),
+        ("testcase5.yml", 6.271013322477),
+        ("testcase6.yml", 65.16111942279903),
+        ("testcase7.yml", 149.38633520088),
+        ("timestep_irregular.yml", 1.044581),
+        ("timestep_linear.yml", 1.522312),
+        ("timestep_linear_csv.yml", 0.690309),
+        ("ORC_user_defined_cost.yml", 6.102323),
+        ("CPG_user_defined_cost.yml", 0.7079676159044549),
+        ("ORC_multiple_5spot.yml", 32.587342),
+        ("ORC_num_pp.yml", 32.915394),
+        ("CPG_num_pp.yml", 0.783523),
+        ("flexible_CPG_manual.yml", 1.0404096563681495),
+        ("flexible_CPG_doublet.yml", 0.4397380004468383),
+        ("flexible_CPG_inverted.yml", 0.8001014591125116),
+        ("flexible_SF_manual.yml", 0.7740615973188385),
+        ("flexible_SF_doublet.yml", 0.4925022003574962),
+        ("flexible_SF_inverted.yml", 0.39811240341956),
+        ("flexible_DF_manual.yml", 0.6067861177138602),
+        ("flexible_DF_doublet.yml", 0.4103680313020569),
+        ("flexible_DF_inverted.yml", 0.33134907160158),
+        ("flexible_ORC_manual.yml", 0.5584699291443729),
+        ("flexible_ORC_doublet.yml", 0.3415554829523203),
+        ("flexible_ORC_inverted.yml", 0.434726923399815),
+        ("flexible_pp_cost_entire.yml", 0.3889103149974154),
+        ("flexible_pp_cost_breakdown.yml", 0.603518640570858),
+        ("testcase1_external.yml", 0.7577190922186917),
+        ("testcase5_external.yml", 1.1257180558208808),
+        ("flexible_SF_cogeneration_e.yml", 0.4413799486937797),
+        ("flexible_SF_cogeneration_h.yml", 0.0849757811401796),
+        ("file_reader_CPG.yml", 0.5559390153189634),
+        ("file_reader_ORC.yml", 0.32979757073231),
+        ("flexible_DF_reader.yml", 0.2278856925652175),
+        ("flexible_CPG_hot.yml", 0.4184793978399103),
+        ("flexible_heat.yml", 0.0464719138352712),
+        ("file_reader_kang.yml", 2.0502977425279667),
+        ("file_reader_kang2.yml", 0.8841918490926264),
+    ]
+
+    filepaths = [Path(examples_dir) / fv[0] for fv in filenames_and_vals]
+    vals = [fv[1] for fv in filenames_and_vals]
+
+    return [(filepath, val) for (filepath, val) in zip(filepaths, vals)]
+
+
+@pytest.mark.parametrize(
+    "file_and_value",
+    files_and_values(),
+    ids=[fv[0].name for fv in files_and_values()],
+)
+def test_examples(file_and_value: tuple[Path, float]):
+    file = file_and_value[0]
+    value = file_and_value[1]
+    run(file)
+    assert get_lcoe_from_file(file) == pytest.approx(value)
+    rmFiles(file)
+
+# def test_case17():
 #     fname = os.path.join(examples_dir, 'SO1.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.799, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase18():
+# def test_case18():
 #     fname = os.path.join(examples_dir, 'SO2.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.799, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase19():
+# def test_case19():
 #     fname = os.path.join(examples_dir, 'SO3.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.799, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase20():
+# def test_case20():
 #     fname = os.path.join(examples_dir, 'SO4.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.796, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase21():
+# def test_case21():
 #     fname = os.path.join(examples_dir, 'SO5.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.615, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase22():
+# def test_case22():
 #     fname = os.path.join(examples_dir, 'SO6.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.867, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase23():
+# def test_case23():
 #     fname = os.path.join(examples_dir, 'SO7.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.811, abs=0.002)
 #     rmFiles(fname)
 
-# def testcase24():
+# def test_case24():
 #     fname = os.path.join(examples_dir, 'SO8.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.561, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase25():
+# def test_case25():
 #     fname = os.path.join(examples_dir, 'MO1.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.804, abs=0.002)
 #     rmFiles(fname)
 
-# def testcase26():
+# def test_case26():
 #     fname = os.path.join(examples_dir, 'MO2.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.814, abs=0.002)
 #     rmFiles(fname)
 
-# def testcase27():
+# def test_case27():
 #     fname = os.path.join(examples_dir, 'MO3.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.797, abs=0.002)
 #     rmFiles(fname)
 
-# def testcase49():
+# def test_case49():
 #     fname = os.path.join(examples_dir, 'flexible_SF_opt.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.6047041512786223, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase50():
+# def test_case50():
 #     fname = os.path.join(examples_dir, 'flexible_SF_opt_valve.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.6672682394033819, abs=0.001)
 #     rmFiles(fname)
 
-# def testcase51():
+# def test_case51():
 #     fname = os.path.join(examples_dir, 'flexible_DF_opt_valves.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.5781967722329104, abs=0.002)
 #     rmFiles(fname)
 
-# def testcase52():
+# def test_case52():
 #     fname = os.path.join(examples_dir, 'flexible_CPG_hot_opt.yml')
 #     run(fname)
 #     assert get_lcoe_from_file(fname) == pytest.approx(0.3874588709391597, abs=0.001)
