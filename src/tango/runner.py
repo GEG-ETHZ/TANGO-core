@@ -9,19 +9,18 @@ import uuid
 import numpy as np
 from tqdm import tqdm
 
-from tango.core.config import *
-from tango.core.constants import *
 from tango.utils import load_from_yaml_with_overrides
+from tango.core.abstracts.workflow import Workflow
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
 
-WORKFLOW_OPTIONS = {
+WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
     "native": NativeWorkflow,
     "cmg": CMGWorkflow,
 }
 
 
-def get_workflow_class(type_: str) -> NativeWorkflow | CMGWorkflow:
+def get_workflow_class(type_: str) -> type[Workflow]:
     """Retrieve the workflow class based on the specified type.
 
     This function looks up the `WORKFLOW_OPTIONS` dictionary to find and
@@ -312,7 +311,14 @@ class Tango:
 
     """
 
-    def __init__(self, input_file: str, specs: dict | None = None, parameter_overrides: list | None = None, params_json: str | None = None, user_id: str | None = None):
+    def __init__(
+        self,
+        input_file: str,
+        specs: dict | None = None,
+        parameter_overrides: list | None = None,
+        params_json: str | None = None,
+        user_id: str | None = None,
+    ):
         """Initializes the Tango object.
 
         Parameters
@@ -367,7 +373,7 @@ class Tango:
         """
         workflow_class  = get_workflow_class(self.specs["runspec"]["workflow"])
         # print('self.specs',self.specs)
-        self.workflow = workflow_class (self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
+        self.workflow = workflow_class(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
 
     def execute(self) -> None:
         """Executes the TANGO workflow.

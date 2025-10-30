@@ -159,7 +159,10 @@ def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None
     current[path_list[-1]] = value
 
 
-def apply_parameter_overrides(specs: dict[str, Any], parameter_overrides: list[str] = None, params_json: str = None) -> dict[str, Any]:
+def apply_parameter_overrides(specs: dict[str, Any],
+    parameter_overrides: list[str] | None = None,
+    params_json: str | None = None
+) -> dict[str, Any]:
     """Apply parameter overrides to the specifications dictionary
     
     Args:
@@ -196,7 +199,11 @@ def apply_parameter_overrides(specs: dict[str, Any], parameter_overrides: list[s
     return specs
 
 
-def load_from_yaml_with_overrides(filename: str, parameter_overrides: list[str] | None = None, params_json: str = None) -> dict[str, Any]:
+def load_from_yaml_with_overrides(
+    filename: str,
+     parameter_overrides: list[str] | None = None,
+     params_json: str | None = None,
+ ) -> dict[str, Any]:
     """Load YAML file and apply parameter overrides
     
     Args:

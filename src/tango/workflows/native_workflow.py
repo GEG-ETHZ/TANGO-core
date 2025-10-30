@@ -10,7 +10,7 @@ import csv
 from copy import deepcopy
 
 from .arangodb_manager import ArangoDBManager
-from tango.core.abstracts.workflow import *
+from tango.core.abstracts.workflow import Workflow
 from tango.core.constants import *
 from tango.core.config import *
 from tango import utils
