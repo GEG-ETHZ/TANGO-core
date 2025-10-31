@@ -267,9 +267,7 @@ class NativeWorkflow(Workflow):
         Balances the system and advances by one time step using native computations.
         """
         count = 0
-        while True:
-            if self.orchestrator.max_itr_reached(count):
-                break
+        while not self.orchestrator.max_itr_reached(count):
             count += 1
             self.orchestrator.execute()  # Run compute nodes
             if self.orchestrator.balanced():
