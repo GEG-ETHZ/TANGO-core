@@ -23,6 +23,8 @@ class Unit:
         """
         setattr(self, name, unit)
 
+NEG_DNSTY_COOL_PROP_MSG = "solver_rho_Tp was unable to find a solution"
+
 class UnitManager(ABC):
     r"""
     Abstract Base Class for managing interconnected units within a system.
@@ -201,5 +203,21 @@ class UnitManager(ABC):
         self._update_node(current_node)
         while not self._is_terminal():
             for id in self._next_nodes(current_node):
-                self._update_node(self.graph.nodes[id])
+                try:
+                    self._update_node(self.graph.nodes[id])
+                except ValueError as err:
+                    if NEG_DNSTY_COOL_PROP_MSG in str(err):
+                        context = (
+                            "\n\tAt the current mass flow rate (" +
+                            f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
+                            "between the following nodes:" +
+                            f"\n\tcurrent component:\n\t\t{current_node['id']}" +
+                            f"\n\tnext component:\n\t\t{id}\n" +
+                            "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
+                            " to identify flow restrictions or reduce mass flow rate." +
+                            "\n\n\tTODO: list upstream components and their approximate flow resistances"
+                        )
+                        raise ValueError(f"{context}\n\n\tCoolProp message:\n\t{err}")
+                    else:
+                        raise err
             current_node = self.graph.nodes[id]
