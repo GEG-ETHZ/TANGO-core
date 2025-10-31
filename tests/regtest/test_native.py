@@ -13,8 +13,7 @@ import pytest
 from tango.optimizerr import Optimizer
 from tango.runner import Tango
 
-examples_dir = Path(__file__).parents[2] / "examples"
-
+EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
 def run(fname: Path | str) -> None:
     """Execute the workflow. If the input file specifies optimization in the specs,
@@ -56,6 +55,7 @@ def rmFiles(fname):
 
 
 # Test cases
+
 def files_and_values() -> list[tuple[Path, float]]:
     """Return list of tuples of paths and corresponding reference values"""
     filenames_and_vals = [
@@ -101,7 +101,7 @@ def files_and_values() -> list[tuple[Path, float]]:
         ("file_reader_kang2.yml", 0.8841918490926264),
     ]
 
-    filepaths = [Path(examples_dir) / fv[0] for fv in filenames_and_vals]
+    filepaths = [Path(EXAMPLES_DIR) / fv[0] for fv in filenames_and_vals]
     vals = [fv[1] for fv in filenames_and_vals]
 
     return [(filepath, val) for (filepath, val) in zip(filepaths, vals)]
@@ -118,6 +118,29 @@ def test_examples(file_and_value: tuple[Path, float]):
     run(file)
     assert get_lcoe_from_file(file) == pytest.approx(value)
     rmFiles(file)
+
+
+def files_failing() -> list[Path]:
+    """Return list paths to examples that should fail"""
+    filepaths = [
+        f.resolve() for f in (EXAMPLES_DIR / "AGS-H2O 1xHWELL").iterdir() if f.suffix == ".yml"
+    ]
+
+    return filepaths
+
+
+@pytest.mark.parametrize(
+    "file_failing",
+    files_failing(),
+    ids=[f.name for f in files_failing()],
+)
+def test_failing_examples(file_failing: Path):
+    """Test files that are expected to fail"""
+    try:
+        run(file_failing)
+    except Exception as err:
+        rmFiles(file_failing)
+        raise err
 
 # def test_case17():
 #     fname = os.path.join(examples_dir, 'SO1.yml')
