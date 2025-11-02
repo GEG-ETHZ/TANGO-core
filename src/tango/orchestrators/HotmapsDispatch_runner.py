@@ -239,17 +239,20 @@ class ExcelGenerator:
     def _get_heat_generator_values(self, next_row):
         net_elec_mw = self.results.get('Net_Electricity_Generated_kWe') / 1000
         net_thermal_mw = self.results.get('Net_thermal_power_Generated_kWe') / 1000
-        CAPEX = self.results.get('CAPEX_total') / net_thermal_mw
+        CAPEX = self.results.get('CAPEX_total')
+        print('CAPEX', CAPEX)
+        print('net_thermal_mw', net_thermal_mw)
+        print('CAPEX/net_thermal_mw', CAPEX/net_thermal_mw) 
 
         return {
             "ID": 0,  # Always start with ID 0 for the first/only entry
             "name": "Geothermal Heat Generator",
-            "installed capacity (MW_th)": -self.thermal_power/1000000.0, # 6,  # net_thermal_mw,  # net_thermal_mw + net_elec_mw,
+            "installed capacity (MW_th)": 31.0, # -self.thermal_power/1000000.0 * 3.0, # 6,  # net_thermal_mw,  # net_thermal_mw + net_elec_mw,
             "efficiency th": self.specs.efficiency_thermal,
             "efficiency el": self.specs.efficiency_electric,
-            "investment costs (EUR/MW_th)": CAPEX/net_thermal_mw,  # 200000, # CAPEX/100.0,
-            "OPEX fix (EUR/MWa)": CAPEX*0.045/net_thermal_mw/25,  # 1000,  # CAPEX*0.045/100,
-            "OPEX var (EUR/MWh)": 0.0,  # 0.8,
+            "investment costs (EUR/MW_th)": 60000.0, # CAPEX/net_thermal_mw,  # 200000, # CAPEX/100.0,
+            "OPEX fix (EUR/MWa)": 2000.0, # CAPEX*0.045/net_thermal_mw/25,  # 1000,  # CAPEX*0.045/100,
+            "OPEX var (EUR/MWh)": 1.1,  # 0.8,
             "Coldstart Costs (EUR/Start)": self.specs.coldstart_cost,
             "life time": self.specs.feeding_time,
             "renewable factor": self.specs.renewable_factor,
@@ -278,7 +281,7 @@ class ExcelGenerator:
         return {
             "ID": 0,  # Always start with ID 0 for the first/only entry
             "name": "Geothermal Heat Generator",
-            "carrier": "natural gas"
+            "carrier": "electricity" # natural gas, electricity
         }
 
 def add_row_to_excel(excel_file_path, results=None, specs=None, thermal_power=None):

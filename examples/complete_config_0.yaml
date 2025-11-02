@@ -1,0 +1,197 @@
+modules:
+  - label: "Heat Generators"
+    fields:
+      - key: "name"
+        values: []
+
+      - key: "installed capacity (MW_th)"
+        values: []
+
+      - key: "efficiency th"
+        values: []
+
+      - key: "efficiency el"
+        values: []
+
+      - key: "investment costs (EUR/MW_th)"
+        values: []
+
+      - key: "OPEX fix (EUR/MWa)"
+        values: []
+
+      - key: "OPEX var (EUR/MWh)"
+        values: []
+
+      - key: "Coldstart Costs (EUR/Start)"
+        values: []
+
+      - key: "life time"
+        values: []
+
+      - key: "renewable factor"
+        values: []
+
+      - key: "must run [0-1]"
+        values: []
+
+      - key: "Maximal Available Potential [MWh]"
+        values: []
+
+      - key: "Maximal Output Power [MW]"
+        values: []
+
+      - key: "Excess Heat Source Price [EUR/MWh]"
+        values: []
+
+      - key: "Ramping Costs [EUR/MWh]"
+        values: []
+
+      - key: "type"
+        values: []
+
+      - key: "COP source temperature sensitivity (1/°C)"
+        values: []
+
+      - key: "COP flow temperature sensitivity (1/°C)"
+        values: []
+
+      - key: "COP return temperature sensitivity (1/°C)"
+        values: []
+
+      - key: "min shutoff source temperature (°C)"
+        values: []
+
+      - key: "fade out temp where power reduction starts (°C)"
+        values: []
+
+      - key: "Source Temperature (°C)"
+        values: []
+
+      - key: "Nominal Inlet Temperature (°C)"
+        values: []
+
+      - key: "Nominal Return Temperature (°C)"
+        values: []
+
+      - key: "Refrigerants"
+        values: []
+
+      - key: "Maximum Power of the Heatpump Compressor Pel (MW)"
+        values: []
+
+      - key: "Minimum Output Power Factor [0-1]"
+        values: []
+
+      - key: "Electricity price"
+        values: []
+
+      - key: "Sale Electricity price"
+        values: []
+
+  - label: "prices and emmision factors"
+    fields:
+      - key: "energy carrier"
+        values:
+          - "ambient heat"
+          - "electricity"
+          - "CHP gas"
+          - "gas/oil"
+          - "natural gas"
+          - "straw"
+          - "various"
+          - "waste"
+          - "waste heat 20°"
+          - "waste heat 40°"
+          - "wood chips"
+          - "wood pellets"
+          - "radiation"
+
+      - key: "prices(EUR/MWh)"
+        values: [0, 0, 100, 85, 100, 65, 20, 5, 0, 0, 45, 65, 0]
+
+      - key: "emission factor [tCO2/MWh]"
+        values: [0, 0.243, 0.227, 0.267, 0.202, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  - label: "Data"
+    fields:
+      - key: "CO2 Price [EUR/tC02]"
+        values: [25]
+
+      - key: "Interest Rate [0-1]"
+        values: [0.05]
+
+      - key: "Minimum Renewable Factor [0-1]"
+        values: [0]
+
+      - key: "Total Demand[ MWh]"
+        values: [50000]
+
+  - label: "Heat Storage"
+    fields:
+      - key: "name"
+        values:
+          - "default heat storage"
+
+      - key: "Storage Capacity [MWh]"
+        values: [0]
+
+      - key: "Hourly Stoarge Losses [%]"
+        values: [0.007]
+
+      - key: "maximum unloading power  [MW]"
+        values: [3]
+
+      - key: "maximum loading power [MW]"
+        values: [3]
+
+      - key: "loading efficiency"
+        values: [0.95]
+
+      - key: "unloading efficiency"
+        values: [0.95]
+
+      - key: "Invesment costs for additional storage capacity  [€/MWh]"
+        values: [400]
+
+      - key: "OPEX fix [€/MWh]"
+        values: [0]
+
+      - key: "Life Time [a]"
+        values: [25]
+
+  - label: "Energy Carrier"
+    fields:
+      - key: "name"
+        values: []
+
+      - key: "carrier"
+        values: []
+
+  - label: "Default - External Data"
+    fields:
+      - key: "Radiation"
+        values: [" Wien # 2016 "]
+
+      - key: "Temperature"
+        values: [" Wien # 2016 "]
+
+      - key: "Electricity price"
+        values: [" Wien # 2016 "]
+
+      - key: "Sale Electricity price"
+        values: [" Wien # 2016 "]
+
+      - key: "Heat Demand"
+        values: [" Wien # 2016 "]
+
+      - key: "Inlet Temperature"
+        values: [" VL(105/85)RL(60) # 2016 "]
+
+      - key: "Return Temperature"
+        values: [" VL(105/85)RL(60) # 2016 "]
+
+      - key: "River Temperature"
+        values: [" Wien # 2016 "]
+
+      - key: "Waste Water Temperature"
+        values: [" Wien # 2016 "]

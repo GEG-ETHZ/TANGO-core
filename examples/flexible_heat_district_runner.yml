@@ -163,5 +163,6 @@ district_heating:
   renewable_factor: 0.0
   must_run: 0.0
   ramping_cost: 0
-  operation_year: 10
+  operation_year: 5
   run_district_heating_simulator: 'yes'
+  efficiency_thermal: 0.9

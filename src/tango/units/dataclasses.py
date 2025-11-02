@@ -261,7 +261,7 @@ class DistrictHeatingSpecs:
     max_power_output: float = 0
     excess_heat_source_price: float = 0
     ramping_cost: float = 0
-    type: str = "boiler" # "CHP-BP"
+    type: str = "Heat Pump Air" # "CHP-BP", "boiler", "Heat Pump Air", "CHP-ST", "heat boiler wood pellets"
     COP_source_temperature_sensitivity: float = 0
     COP_flow_temperature_sensitivity: float = 0
     COP_return_temperature_sensitivity: float = 0
