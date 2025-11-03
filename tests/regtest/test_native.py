@@ -123,7 +123,7 @@ def test_examples(file_and_value: tuple[Path, float]):
 def files_failing() -> list[Path]:
     """Return list paths to examples that should fail"""
     filepaths = [
-        f.resolve() for f in (EXAMPLES_DIR / "AGS-H2O 1xHWELL").iterdir() if f.suffix == ".yml"
+        f.resolve() for f in (EXAMPLES_DIR / "flexible_SF_manual").iterdir() if f.suffix == ".yml"
     ]
 
     return filepaths
