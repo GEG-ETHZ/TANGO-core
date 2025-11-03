@@ -200,11 +200,28 @@ class UnitManager(ABC):
         """
         self._reset()
         current_node = self.root_node
-        self._update_node(current_node)
+        try:
+            self._update_node(current_node)
+        except ValueError as err:
+            if NEG_DNSTY_COOL_PROP_MSG in str(err):
+                # TODO: this is redundant with below
+                context = (
+                    "\n\tAt the current mass flow rate (" +
+                    f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
+                    "between the following nodes:" +
+                    f"\n\tcurrent component:\n\t\t{current_node['id']}" +
+                    f"\n\tnext component:\n\t\t{id}\n" +
+                    "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
+                    " to identify flow restrictions or reduce mass flow rate." +
+                    "\n\n\tTODO: list upstream components and their approximate flow resistances"
+                )
+                raise ValueError(f"{context}\n\n\tCoolProp message:\n\t{err}")
+            else:
+                raise err
         while not self._is_terminal():
-            for id in self._next_nodes(current_node):
+            for unit_id  in self._next_nodes(current_node):
                 try:
-                    self._update_node(self.graph.nodes[id])
+                    self._update_node(self.graph.nodes[unit_id ])
                 except ValueError as err:
                     if NEG_DNSTY_COOL_PROP_MSG in str(err):
                         context = (
@@ -212,7 +229,7 @@ class UnitManager(ABC):
                             f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
                             "between the following nodes:" +
                             f"\n\tcurrent component:\n\t\t{current_node['id']}" +
-                            f"\n\tnext component:\n\t\t{id}\n" +
+                            f"\n\tnext component:\n\t\t{unit_id }\n" +
                             "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
                             " to identify flow restrictions or reduce mass flow rate." +
                             "\n\n\tTODO: list upstream components and their approximate flow resistances"
@@ -220,4 +237,4 @@ class UnitManager(ABC):
                         raise ValueError(f"{context}\n\n\tCoolProp message:\n\t{err}")
                     else:
                         raise err
-            current_node = self.graph.nodes[id]
+            current_node = self.graph.nodes[unit_id ]
