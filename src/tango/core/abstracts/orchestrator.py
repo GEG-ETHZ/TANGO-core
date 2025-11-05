@@ -1,6 +1,7 @@
 import copy
 from tango.utils import *
 from tango.core.stream import *
+from tango.core.errors import TangoValueError
 from abc import ABC
 import networkx as nx
 
@@ -23,7 +24,6 @@ class Unit:
         """
         setattr(self, name, unit)
 
-NEG_DNSTY_COOL_PROP_MSG = "solver_rho_Tp was unable to find a solution"
 
 class UnitManager(ABC):
     r"""
@@ -144,22 +144,50 @@ class UnitManager(ABC):
         for id in self.graph.nodes:
             self.graph.nodes[id]['visited'] = False
 
-    def _update_node(self, node) -> None:
+    def _update_node(self, node, src_unit_id: str | None, nxt_unit_id: str) -> None:
         """
         Updates the state of a node during graph traversal.
 
         Args:
             node (dict): Node object to update.
+            src_unit_id (str): Source unit (i.e. component) id, used for error message generation
+            nxt_unit_id (str | None): Next unit (i.e. component) id, used for error message generation
         """
-        if node['visited']:
+
+        def raise_tve(
+            err: TangoValueError,
+            src_unit_id: str | None,
+            nxt_unit_id,
+            context: str | None = None
+        ) -> None:
+            if context is not None:
+                context = "\n\t" + context
+            if src_unit_id is not None:
+                raise TangoValueError(
+                    f"\n\tsource unit: {src_unit_id}\n\tnext unit: {nxt_unit_id}\n{err}" +
+                    "\n\tThis error likely occurs "
+                ) from err
+            else:
+                raise TangoValueError(
+                    f"\n\tsource unit: None\n\tnext unit: {nxt_unit_id}\n{err}"
+                ) from err
+
+        if node["visited"]:
             return
         if node != self.root_node:
-            for id in self._source_nodes(node):
-                self._update_node(self.graph.nodes[id])
-        node['unit'].update_inlet_state()
-        node['unit'].stream_interface()
-        node['unit'].update_outlet_streams()
-        node['visited'] = True
+            for src_id in self._source_nodes(node):
+                try:
+                    self._update_node(self.graph.nodes[src_id], src_id, nxt_unit_id)
+                except TangoValueError as err:
+                    raise_tve(err, src_unit_id, nxt_unit_id)
+        try:
+            node["unit"].update_inlet_state()
+            node["unit"].stream_interface()
+            node["unit"].update_outlet_streams()
+        except TangoValueError as err:
+            raise_tve(err, src_unit_id, nxt_unit_id)
+
+        node["visited"] = True
 
     def _source_nodes(self, node) -> list:
         """
@@ -200,41 +228,21 @@ class UnitManager(ABC):
         """
         self._reset()
         current_node = self.root_node
-        try:
-            self._update_node(current_node)
-        except ValueError as err:
-            if NEG_DNSTY_COOL_PROP_MSG in str(err):
-                # TODO: this is redundant with below
-                context = (
-                    "\n\tAt the current mass flow rate (" +
-                    f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
-                    "between the following nodes:" +
-                    f"\n\tcurrent component:\n\t\t{current_node['id']}" +
-                    f"\n\tnext component:\n\t\t{id}\n" +
-                    "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
-                    " to identify flow restrictions or reduce mass flow rate." +
-                    "\n\n\tTODO: list upstream components and their approximate flow resistances"
-                )
-                raise ValueError(f"{context}\n\n\tCoolProp message:\n\t{err}")
-            else:
-                raise err
+        self._update_node(current_node, None, next(iter(self._next_nodes(current_node))))
         while not self._is_terminal():
-            for unit_id  in self._next_nodes(current_node):
-                try:
-                    self._update_node(self.graph.nodes[unit_id ])
-                except ValueError as err:
-                    if NEG_DNSTY_COOL_PROP_MSG in str(err):
-                        context = (
-                            "\n\tAt the current mass flow rate (" +
-                            f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
-                            "between the following nodes:" +
-                            f"\n\tcurrent component:\n\t\t{current_node['id']}" +
-                            f"\n\tnext component:\n\t\t{unit_id }\n" +
-                            "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
-                            " to identify flow restrictions or reduce mass flow rate." +
-                            "\n\n\tTODO: list upstream components and their approximate flow resistances"
-                        )
-                        raise ValueError(f"{context}\n\n\tCoolProp message:\n\t{err}")
-                    else:
-                        raise err
-            current_node = self.graph.nodes[unit_id ]
+            for next_unit_id in self._next_nodes(current_node):
+                self._update_node(self.graph.nodes[next_unit_id], None, next_unit_id)
+            current_node = self.graph.nodes[next_unit_id]
+
+    def get_val_err_with_cntxt(self, current_node, err: ValueError) -> ValueError:
+        context = (
+            "At the current mass flow rate (" +
+            f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero " +
+            "between the following nodes:" +
+            f"\n\tcurrent component:\n\t\t{current_node['id']}" +
+            "\n\tTroubleshooting: trace back to the previous upstream pump/compressor" +
+            " to identify flow restrictions or reduce mass flow rate." +
+            "\n\n\tTODO: list upstream components and their approximate flow resistances"
+        )
+        new_err = ValueError(f"\n\n\tCoolProp message:\n\t{err}\n\t{context}")
+        return new_err

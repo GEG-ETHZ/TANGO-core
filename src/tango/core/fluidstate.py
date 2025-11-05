@@ -1,5 +1,6 @@
 import CoolProp
 
+from tango.core.errors import TangoValueError
 
 class FluidState:
     """
@@ -137,14 +138,33 @@ class FluidState:
         return FluidState(state)
 
     def updatePT(self, P: float, T: float):
-        """
-        Updates the fluid state with a new pressure and temperature.
+        """Update the fluid state with a new pressure and temperature.
 
         Args:
             P (float): The fluid pressure (in Pa).
             T (float): The fluid temperature (in K).
+
         """
-        self.cstate.update(CoolProp.PT_INPUTS, P, T)
+
+        # TODO: apply this error handling approach to the other methods for updating state
+        try:
+            self.cstate.update(CoolProp.PT_INPUTS, P, T)
+        except ValueError as cp_err:
+            match (P, T):
+                case (P, T) if P < 0.0 and T < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure and temperature must be greater than or equal to 0.0 Pa" +
+                          " and 0.0 K, respectively"
+                    ) from cp_err
+                case (P, T) if P < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure must be greater than or equal to 0.0 Pa"
+                    ) from cp_err
+                case (P, T) if T < 0.0:
+                    raise TangoValueError(
+                      "Temperature must be greater than or equal to 0.0 K"
+                    ) from cp_err
+
 
     def updateHP(self, H: float, P: float):
         """
