@@ -1,6 +1,7 @@
 import copy
-from tango.utils import *
-from tango.core.stream import *
+import logging
+from tango.utils import get_unit_class, MULTIPLE_UNIT_NODE_OPTIONS 
+from tango.core.stream import Stream
 from tango.core.errors import TangoValueError
 from abc import ABC
 import networkx as nx
@@ -169,7 +170,7 @@ class UnitManager(ABC):
                 ) from err
             else:
                 raise TangoValueError(
-                    f"\n\tsource unit: None\n\tnext unit: {nxt_unit_id}\n{err}"
+                    f"\n\tunit: {nxt_unit_id}\n{err}"
                 ) from err
 
         if node["visited"]:

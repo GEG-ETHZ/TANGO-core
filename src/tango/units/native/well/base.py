@@ -2,6 +2,7 @@ import logging
 import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
+from tango.core.errors import TangoValueError
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import WellSpecsNative
 
@@ -114,12 +115,16 @@ class WellUnitNative(Unit):
 
             try:
                 self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
-            except Exception:
-                logging.warning(f"Failed to update fluid state with HP. Updating with PT instead.")
-                print(f"h: {self._h[i]}, P: {self._P[i]}, T: {self._T_f[i]}")
-                if self._T_f[i] == 0:
-                    self._T_f[i] = 300.0
-                self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
+            except ValueError as outer_err:
+                try:
+                    # TODO: this seems really sketchy.  Check for unintented consequences
+                    if self._T_f[i] == 0:
+                        self._T_f[i] = 300.0
+                    self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
+                except ValueError as inner_err:
+                    raise TangoValueError(
+                        f"\tcell: {i} of {self._num_cells}\n\t{inner_err}"
+                    ) from outer_err
 
             self._rho[i] = self.fluid_state_tmp.rho
             self._mu[i] = self.fluid_state_tmp.mu

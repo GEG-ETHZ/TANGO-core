@@ -146,7 +146,6 @@ class FluidState:
 
         """
 
-        # TODO: apply this error handling approach to the other methods for updating state
         try:
             self.cstate.update(CoolProp.PT_INPUTS, P, T)
         except ValueError as cp_err:
@@ -174,7 +173,23 @@ class FluidState:
             H (float): The fluid specific enthalpy (in J/kg).
             P (float): The fluid pressure (in Pa).
         """
-        self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
+        try:
+            self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
+        except ValueError as cp_err:
+            match (P, H):
+                case (P, H) if P < 0.0 and H < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure and specific enthalpy must be greater than or equal to" +
+                          " 0.0 Pa and 0.0 J/kg, respectively"
+                    ) from cp_err
+                case (P, H) if P < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure must be greater than or equal to 0.0 Pa"
+                    ) from cp_err
+                case (P, H) if H < 0.0:
+                    raise TangoValueError(
+                      "Specific enthalpy must be greater than or equal to 0.0 J/kg"
+                    ) from cp_err
 
     def updatePS(self, P: float, S: float):
         """
@@ -184,27 +199,55 @@ class FluidState:
             P (float): The fluid pressure (in Pa).
             S (float): The fluid specific entropy (in J/(kg*K)).
         """
-        self.cstate.update(CoolProp.PSmass_INPUTS, P, S)
+        try:
+            self.cstate.update(CoolProp.PSmass_INPUTS, P, S)
+        except ValueError as cp_err:
+            match (P, S):
+                case (P, S) if P < 0.0 and S < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure and specific entropy must be greater than or equal to" +
+                          " 0.0 Pa and 0.0 J/(kg*K), respectively"
+                    ) from cp_err
+                case (P, S) if P < 0.0:
+                    raise TangoValueError(
+                      "Absolute pressure must be greater than or equal to 0.0 Pa"
+                    ) from cp_err
+                case (P, S) if S < 0.0:
+                    raise TangoValueError(
+                      "Specific entropy must be greater than or equal to 0.0 J/(kg*K)"
+                    ) from cp_err
 
-    def updatePQ(self, P: float, Q: float):
+    def updatePQ(self, P: float, x: float):
         """
         Updates the fluid state with a new pressure and Q (quality) value.
 
         Args:
             P (float): The fluid pressure (in Pa).
-            Q (float): The fluid quality value.
+            x (float): The fluid quality value.
         """
-        self.cstate.update(CoolProp.PQ_INPUTS, P, Q)
+        try:
+            self.cstate.update(CoolProp.PQ_INPUTS, P, x)
+        except ValueError as cp_err:
+            if P < 0.0:
+                raise TangoValueError(
+                  "Absolute pressure must be greater than or equal to 0.0 Pa"
+                ) from cp_err
 
-    def updateQT(self, Q: float, T: float):
+    def updateQT(self, x: float, T: float):
         """
         Updates the fluid state with a new temperature and Q (quality) value.
 
         Args:
-            Q (float): The fluid quality value.
+            x (float): The fluid quality value.
             T (float): The fluid temperature (in K).
         """
-        self.cstate.update(CoolProp.QT_INPUTS, Q, T)
+        try:
+            self.cstate.update(CoolProp.QT_INPUTS, x, T)
+        except ValueError as cp_err:
+            if T < 0.0:
+                raise TangoValueError(
+                  "Temperature must be greater than or equal to 0.0 K"
+                ) from cp_err
 
     # Properties
     @property
