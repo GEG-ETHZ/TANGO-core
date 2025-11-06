@@ -848,6 +848,7 @@ def get_unit_class(type_: str, unit_name: str) -> object:
         >>> get_unit_class("surface", "turbine")
 
     """
+    # TODO: get rid of this use of `eval` and otherwise clean things up
     try:
         return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
     except:
