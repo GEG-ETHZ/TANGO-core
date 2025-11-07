@@ -1,11 +1,16 @@
 import CoolProp
 
-from tango.core.errors import TangoValueError
+from tango.core.errors import (
+    TangoValueError,
+    check_feas_enthalpy,
+    check_feas_entropy,
+    check_feas_press,
+    check_feas_temp,
+)
 
 
 class FluidState:
-    """
-    Represents the thermodynamic state of a fluid.
+    """Represents the thermodynamic state of a fluid.
 
     This class provides various methods to create and manipulate fluid states using
     pressure, temperature, enthalpy, entropy, and quality (Q) values. The underlying
@@ -13,10 +18,11 @@ class FluidState:
 
     Attributes:
         cstate (CoolProp.AbstractState): The internal state object used for property calculations.
+
     """
+
     def __init__(self, state: CoolProp.AbstractState):
-        """
-        Initializes a new instance of the FluidState class with a given state.
+        """Initializes a new instance of the FluidState class with a given state.
 
         This constructor should not be used directly. Instead, use the following
         static methods to create a FluidState object:
@@ -29,29 +35,32 @@ class FluidState:
 
         Args:
             state (CoolProp.AbstractState): The CoolProp state object representing the fluid.
+
         """
         self.cstate: CoolProp.AbstractState = state
 
     @staticmethod
     def copy(state):
-        """
-        Creates a copy of a FluidState object.
+        """Creates a copy of a FluidState object.
 
         Args:
             state (FluidState): The FluidState object to be copied.
 
         Returns:
             FluidState: A new FluidState object with the same properties.
+
         """
-        state_copy = CoolProp.AbstractState('HEOS', state.fluidname)
-        state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
+        state_copy = CoolProp.AbstractState("HEOS", state.fluidname)
+        try:
+            state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
+        except ValueError as cp_err:
+
 
         return FluidState(state_copy)
 
     @staticmethod
     def withPT(fluidname: str, P: float, T: float):
-        """
-       Creates a FluidState object with a given pressure and temperature.
+        """Creates a FluidState object with a given pressure and temperature.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2).
@@ -60,16 +69,16 @@ class FluidState:
 
         Returns:
             FluidState: A new FluidState object.
+
         """
-        state = CoolProp.AbstractState('HEOS', fluidname)
+        state = CoolProp.AbstractState("HEOS", fluidname)
         state.update(CoolProp.PT_INPUTS, P, T)
 
         return FluidState(state)
 
     @staticmethod
     def withHP(fluidname: str, H: float, P: float):
-        """
-        Creates a FluidState object with a given pressure and specific enthalpy.
+        """Creates a FluidState object with a given pressure and specific enthalpy.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2).
@@ -78,16 +87,16 @@ class FluidState:
 
         Returns:
             FluidState: A new FluidState object.
+
         """
-        state = CoolProp.AbstractState('HEOS', fluidname)
+        state = CoolProp.AbstractState("HEOS", fluidname)
         state.update(CoolProp.HmassP_INPUTS, H, P)
 
         return FluidState(state)
 
     @staticmethod
     def withPS(fluidname: str, P: float, S: float):
-        """
-        Creates a FluidState object with a given pressure and specific entropy.
+        """Creates a FluidState object with a given pressure and specific entropy.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2).
@@ -96,16 +105,16 @@ class FluidState:
 
         Returns:
             FluidState: A new FluidState object.
+
         """
-        state = CoolProp.AbstractState('HEOS', fluidname)
+        state = CoolProp.AbstractState("HEOS", fluidname)
         state.update(CoolProp.PSmass_INPUTS, P, S)
 
         return FluidState(state)
 
     @staticmethod
     def withPQ(fluidname: str, P: float, Q: float):
-        """
-        Creates a FluidState object with a given pressure and Q (quality) value.
+        """Creates a FluidState object with a given pressure and Q (quality) value.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2).
@@ -114,16 +123,16 @@ class FluidState:
 
         Returns:
             FluidState: A new FluidState object.
+
         """
-        state = CoolProp.AbstractState('HEOS', fluidname)
+        state = CoolProp.AbstractState("HEOS", fluidname)
         state.update(CoolProp.PQ_INPUTS, P, Q)
 
         return FluidState(state)
 
     @staticmethod
     def withQT(fluidname: str, Q: float, T: float):
-        """
-        Creates a FluidState object with a given temperature and Q (quality) value.
+        """Creates a FluidState object with a given temperature and Q (quality) value.
 
         Args:
             fluidname (str): The name of the fluid (e.g., Water, CO2).
@@ -132,8 +141,9 @@ class FluidState:
 
         Returns:
             FluidState: A new FluidState object.
+
         """
-        state = CoolProp.AbstractState('HEOS', fluidname)
+        state = CoolProp.AbstractState("HEOS", fluidname)
         state.update(CoolProp.QT_INPUTS, Q, T)
 
         return FluidState(state)
@@ -157,6 +167,8 @@ class FluidState:
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
                 raise TangoValueError(msg) from cp_err
+            else:
+                raise cp_err
 
     def updateHP(self, H: float, P: float):
         """Update the fluid state with a new specific enthalpy and pressure.
@@ -177,6 +189,8 @@ class FluidState:
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
                 raise TangoValueError(msg) from cp_err
+            else:
+                raise cp_err
 
     def updatePS(self, P: float, S: float):
         """Update the fluid state with a new pressure and specific entropy.
@@ -197,6 +211,8 @@ class FluidState:
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
                 raise TangoValueError(msg) from cp_err
+            else:
+                raise cp_err
 
     def updatePQ(self, P: float, x: float):
         """Update the fluid state with a new pressure and Q (quality) value.
@@ -211,7 +227,7 @@ class FluidState:
         except ValueError as cp_err:
             if P < 0.0:
                 raise TangoValueError(
-                  "Absolute pressure must be greater than or equal to 0.0 Pa"
+                  "Absolute pressure must be greater than or equal to 0.0 Pa",
                 ) from cp_err
 
     def updateQT(self, x: float, T: float):
@@ -227,7 +243,7 @@ class FluidState:
         except ValueError as cp_err:
             if T < 0.0:
                 raise TangoValueError(
-                  "Temperature must be greater than or equal to 0.0 K"
+                  "Temperature must be greater than or equal to 0.0 K",
                 ) from cp_err
 
     # Properties
@@ -279,12 +295,12 @@ class FluidState:
     @property
     def Tcrit(self) -> float:
         """The fluid critical temperature (in K)."""
-        return CoolProp.CoolProp.PropsSI('TCRIT', "", 0, "", 0, self.cstate.name())
+        return CoolProp.CoolProp.PropsSI("TCRIT", "", 0, "", 0, self.cstate.name())
 
     @property
     def Pcrit(self) -> float:
         """The fluid critical pressure (in Pa)."""
-        return CoolProp.CoolProp.PropsSI('PCRIT', "", 0, "", 0, self.cstate.name())
+        return CoolProp.CoolProp.PropsSI("PCRIT", "", 0, "", 0, self.cstate.name())
 
     # Setters
     @T.setter
@@ -296,62 +312,3 @@ class FluidState:
     def P(self, P: float):
         """Updates the state of the fluid with a new pressure while maintaining the same temperature."""
         self.updatePT(P, self.T)
-
-
-def check_feas_press(p: float) -> str | None:
-    """Check that absolute pressure is non-negative
-
-    # Arguments:
-    - `p`: absolute pressure
-    """
-    if p < 0:
-        msg = (
-            f"Absolute pressure ({p:.5g} Pa) must be greater than or equal to 0.0 Pa" +
-            """
-            Troubleshooting steps:
-            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
-                component, working backwards to the injection wellhead
-            - increase the pressure at the injection wellhead (note: this can potentially exceed
-                fracture pressure limit of the subsurface caprock)
-            - reduce mass flow rate (note: this will reduce total power output and should only be
-                used if the other steps don't work)
-            - TODO: include an option for setting up automation
-            """
-        )
-        return msg
-    return None
-
-
-def check_feas_temp(te: float) -> str | None:
-    """Check that absolute temperature is non-negative
-
-    # Arguments:
-    - `te`: absolute temperature
-    """
-    if te < 0:
-        return f"Absolute temperature ({te:.5g} K) must be greater than or equal to 0.0 K"
-    return None
-
-
-def check_feas_enthalpy(h: float) -> str | None:
-    """Check that specific enthalpy is non-negative
-
-    # Arguments:
-    - `h`: specific enthalpy
-    """
-    if h < 0:
-        return f"Specific enthalpy ({h:.5g} J/kg) must be greater than or equal to 0.0 J/kg"
-    return None
-
-
-def check_feas_entropy(s: float) -> str | None:
-    """Check that specific entropy is non-negative
-
-    # Arguments:
-    - `h`: specific entropy
-    """
-    if s < 0:
-        return f"Specific entropy ({s:.5g} J/(kg*K)) must be greater than or equal to 0.0 J/(kg*K)"
-    return None
-
-# TODO: after verifying that quality should be in [0, 1], make a checker
