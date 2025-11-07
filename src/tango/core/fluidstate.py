@@ -6,6 +6,7 @@ from tango.core.errors import (
     check_feas_entropy,
     check_feas_press,
     check_feas_temp,
+    P_SAT_ERR_TEST,
 )
 
 
@@ -22,7 +23,7 @@ class FluidState:
     """
 
     def __init__(self, state: CoolProp.AbstractState):
-        """Initializes a new instance of the FluidState class with a given state.
+        """Initialize a new instance of the FluidState class with a given state.
 
         This constructor should not be used directly. Instead, use the following
         static methods to create a FluidState object:
@@ -41,7 +42,7 @@ class FluidState:
 
     @staticmethod
     def copy(state):
-        """Creates a copy of a FluidState object.
+        """Create a copy of a FluidState object.
 
         Args:
             state (FluidState): The FluidState object to be copied.
@@ -54,7 +55,16 @@ class FluidState:
         try:
             state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
         except ValueError as cp_err:
-
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_press(state.P)) is not None:
+                tango_errs.append(tango_err)
+            if (tango_err := check_feas_temp(state.T)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise TangoValueError(msg) from cp_err
+            else:
+                raise cp_err
 
         return FluidState(state_copy)
 
@@ -168,7 +178,12 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise TangoValueError(msg) from cp_err
             else:
-                raise cp_err
+                if P_SAT_ERR_TEST.search(str(cp_err)) is not None:
+                    raise TangoValueError(
+                      "\n\tTODO: propagate useful message for saturation pressure error"
+                    ) from cp_err
+                else:
+                    raise cp_err
 
     def updateHP(self, H: float, P: float):
         """Update the fluid state with a new specific enthalpy and pressure.

@@ -1,5 +1,7 @@
 """Module containing custom TANGO errors"""
 
+import re
+
 
 class TangoError(Exception):
     """Base exception for Tango package"""
@@ -70,3 +72,9 @@ def check_feas_entropy(s: float) -> str | None:
     return None
 
 # TODO: after verifying that quality should be in [0, 1], make a checker
+
+
+P_SAT_ERR_TEST = re.compile(
+    "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] " +
+        "is within 1e-4 \\% of given p \\[.+ Pa\\]"
+)
