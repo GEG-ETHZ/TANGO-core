@@ -120,7 +120,7 @@ class UnitManager(ABC):
         """
         for unit_name in required_units:
             if getattr(self.unit, unit_name, None) is None:
-                raise RuntimeError(f"Required unit: {unit_name} is not found.")
+                raise AttributeError(f"Required unit: {unit_name} is not found.")
 
     def _graph_check(self) -> None:
         """
