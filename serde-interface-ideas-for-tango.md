@@ -213,3 +213,14 @@ TANGO would benefit from adopting fastsim's pattern:
 - Key principle: Maintain backward compatibility while adding new capabilities
 - Consider TANGO's multi-physics nature when designing hierarchy (reservoir → well → surface → power_plant)
 
+
+---
+
+## Summary
+
+- NREL sim software keeps simulation results on the objects themselves (`state` for current values, `history` for time series) and exposes uniform serialization/deserialization (`to_pydict`, `from_pydict`, `to_file`, `from_file`).
+- TANGO flattens time series into `workflow._results` and writes CSVs post-run; units lack a standard `state`/`history` contract, so data access is ad hoc and not hierarchical.
+- Recommendation: adopt NREL-style interfaces across TANGO—add per-unit `state`/`history`, standardize (de)serialization helpers, and support round-trip tests to guarantee fidelity.
+- Implement with structured specs (dataclasses + Pydantic for validation), canonical constructors, and a consistent set of `from_*`/`to_*` helpers; keep CSV output for compatibility during the transition.
+- Expected benefits: clearer developer experience, easier interactive analysis, deterministic instantiation, and a foundation for richer tooling (dataframes, checkpointing, serialization across services).
+
