@@ -5847,7 +5847,7 @@ packages:
 - pypi: ./
   name: tango
   version: 0.0.1
-  sha256: 98cca41f25eac61ece470bb4ba11ba4f9f9979a6aabeb7478f41e3b911a25d4b
+  sha256: f7ef8065780ecd1063cc6bcce00b4d3ef7c5b031bc227ad88f55d2ea86b6b20d
   requires_dist:
   - pandas>=2.1,<3.0
   - matplotlib

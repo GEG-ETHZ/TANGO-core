@@ -188,5 +188,6 @@ exclude = [
 module = [
     "pymoo.*",
     "tango.*", # TODO: fix tango and remove this line
+    "CoolProp", 
 ]
 ignore_missing_imports = true
