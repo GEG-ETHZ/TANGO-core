@@ -229,11 +229,11 @@ DH:
   p_out: 0.5
 
 district_heating:
-  feeding_time: 15.0
+  feeding_time: 25.0
   coldstart_cost: 1000.0
   renewable_factor: 0.0
   must_run: 0.0
   ramping_cost: 0
-  operation_year: 5
+  operation_year: 15
   run_district_heating_simulator: 'yes'
   efficiency_thermal: 0.9
