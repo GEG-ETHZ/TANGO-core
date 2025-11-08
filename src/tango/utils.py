@@ -927,6 +927,11 @@ def parse_results(d: dict, nodes, current_date: str) -> dict:
             if REPORT_SETTINGS[unit_name]:
                 state = getattr(state, REPORT_SETTINGS[unit_name])
             append_results(d, state, unit_name)
+            if unit_name == 'production_well_pump':
+                w_pump = getattr(nodes[id]['unit'], '_w_pump', None)
+                if isinstance(w_pump, (int, float)):
+                    column_name = f"{unit_name}_w_pump"
+                    d.setdefault(column_name, []).append(w_pump)
 
 
 def append_results(d: dict, state: classmethod, base_name: str) -> None:
@@ -1044,10 +1049,23 @@ def parse_results_flexible(d: dict, nodes: dict, current_date: str) -> dict:
 
                 except AttributeError as e:
                     print(f"Error processing component {component_name}: {e}")
+
+            if hasattr(state, 'w_net') and isinstance(state.w_net, (int, float)):
+                column_name = f"{unit_name}_w_net"
+                if column_name not in d:
+                    d[column_name] = []
+                d[column_name].append(state.w_net)
         else:
             if REPORT_SETTINGS.get(unit_name):
                 state_attr = getattr(state, REPORT_SETTINGS[unit_name], None)
                 append_results(d, state_attr, unit_name)
+            if unit_name == 'production_well_pump':
+                w_pump = getattr(state, '_w_pump', None)
+                if isinstance(w_pump, (int, float)):
+                    column_name = f"{unit_name}_w_pump"
+                    if column_name not in d:
+                        d[column_name] = []
+                    d[column_name].append(w_pump)
 
     return d
 

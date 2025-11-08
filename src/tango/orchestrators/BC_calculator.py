@@ -328,6 +328,8 @@ class FlowRateCalculator():
         if self.pro_well_pump:
             self.surface.prod_pump_aux = -(self.pro_well_pump.inlet_fluid.H - self.pro_well.outlet_fluid.H) * self.pro_well_pump.mass_rate
             self.surface.prod_pump_w_list.append(self.surface.prod_pump_aux)
+            if hasattr(self.pro_well_pump, '_set_w_pump'):
+                self.pro_well_pump._set_w_pump(self.surface.prod_pump_aux)
 
 
 class PowerReader:

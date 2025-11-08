@@ -935,7 +935,8 @@ class PowerPlantCost:
         # print(f"Components - Turbine Power: {turbine_power:.2f} W, "
         #       f"Pump Power: {pump_power:.2f} W, "
         #       f"Cooling Power: {cooling_power:.2f} W, "
-        #       f"Condensing Power: {condensing_power:.2f} W")
+        #       f"Condensing Power: {condensing_power:.2f} W, "
+        #       f"Production Pump Work: {prod_pump_w:.2f} W")
 
         return net_power
 
