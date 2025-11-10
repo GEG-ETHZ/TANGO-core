@@ -134,18 +134,18 @@ class UnitManager(ABC):
                 for _, d2 in self.graph.adj[d1['target']].items():
                     if d2['source'] != self.root_node_id and d2['target'] == d1['target']:
                         raise RuntimeError("Multiple nodes at root node level is not supported.")
-        for id in self.graph.nodes:
-            if len(self.graph.nodes[id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[id]['unit'].outlet_streams) == 0:
-                logging.warning(f"Connections are not defined for node: '{id}'")
+        for node_id in self.graph.nodes:
+            if len(self.graph.nodes[node_id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[node_id]['unit'].outlet_streams) == 0:
+                logging.warning(f"Connections are not defined for node: '{node_id}'")
 
     def _reset(self) -> None:
         """
         Resets the visited status of all nodes in the graph.
         """
-        for id in self.graph.nodes:
-            self.graph.nodes[id]['visited'] = False
+        for node_id in self.graph.nodes:
+            self.graph.nodes[node_id]['visited'] = False
 
-    def _update_node(self, node, nxt_unit_id: str) -> None:
+    def _update_node(self, node) -> None:
         """
         Updates the state of a node during graph traversal.
 
@@ -160,7 +160,7 @@ class UnitManager(ABC):
         if node != self.root_node:
             for src_id in self._source_nodes(node):
                 try:
-                    self._update_node(self.graph.nodes[src_id], nxt_unit_id)
+                    self._update_node(self.graph.nodes[src_id])
                 except TangoValueError as err:
                     self.raise_tve(err, node)
         try:
@@ -217,10 +217,10 @@ class UnitManager(ABC):
         """
         self._reset()
         current_node = self.root_node
-        self._update_node(current_node, next(iter(self._next_nodes(current_node))))
+        self._update_node(current_node)
         while not self._is_terminal():
             for next_unit_id in self._next_nodes(current_node):
-                self._update_node(self.graph.nodes[next_unit_id], None, next_unit_id)
+                self._update_node(self.graph.nodes[next_unit_id])
             current_node = self.graph.nodes[next_unit_id]
 
     def get_val_err_with_cntxt(self, current_node, err: ValueError) -> ValueError:
