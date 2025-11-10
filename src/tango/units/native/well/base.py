@@ -3,7 +3,7 @@ import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.errors import TangoValueError
-from tango.core.abstracts.unit import *
+from tango.core.abstracts.unit import Unit, FluidState
 from tango.units.dataclasses import WellSpecsNative
 
 import csv

@@ -138,6 +138,7 @@ def test_failing_examples(file_failing: Path):
     """Test files that are expected to fail"""
     try:
         run(file_failing)
+        raise Exception("Should be unreachable")
     except Exception as _err:
         rmFiles(file_failing)
 

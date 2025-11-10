@@ -27,7 +27,7 @@ def check_feas_press(p: float) -> str | None:
             """
             Troubleshooting steps:
             - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
-                component, working backwards to the injection wellhead
+                component, working backwards to the injection wellhead)
             - increase the pressure at the injection wellhead (note: this can potentially exceed
                 fracture pressure limit of the subsurface caprock)
             - reduce mass flow rate (note: this will reduce total power output and should only be
