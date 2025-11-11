@@ -188,7 +188,7 @@ def files_and_msgs_failing() -> list[tuple[Path, str]]:
         ),
     ]
     filepaths_and_msgs = [
-        ((EXAMPLES_DIR / "flexible_SF_manual" / fv[0]).resolve(), fv[1]) for fv in files_and_errors
+        ((EXAMPLES_DIR / "failing" / fv[0]).resolve(), fv[1]) for fv in files_and_errors
     ]
 
     return filepaths_and_msgs
