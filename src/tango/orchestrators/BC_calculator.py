@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 
-from tango.core.errors import P_SAT_ERR_TEST, TangoError
+from tango.core.errors import P_SAT_ERR_TEST, TangoError, TangoValueError
 
 class FlowRateCalculator():
     """
@@ -294,7 +294,12 @@ class FlowRateCalculator():
                     raise self.get_p_sat_err()
                 else:
                     raise cp_err
-            self.pro_well.stream_interface()
+            try:
+                self.pro_well.stream_interface()
+            except TangoValueError as tve:
+                raise TangoValueError(
+                    f"\n\tUnable to solve production well stream interface\n{tve}"
+                ) from tve
 
             # If pump exists, apply pump logic
             if self.pro_well_pump:
@@ -399,7 +404,7 @@ class FlowRateCalculator():
     def get_p_sat_err(self):
         """Get formatted saturation pressure error"""
         return TangoError(
-            """Production well pump inlet is at vaporization threshold.
+            """\n\tProduction well pump inlet is at vaporization threshold.
             Troubleshooting steps:
             - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
                 component, too low reservoir permeability -- working backwards to the `bc_iteration_checkpoint`)

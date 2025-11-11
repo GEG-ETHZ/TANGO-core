@@ -86,9 +86,19 @@ class SystemExternal(UnitManager):
                 if self.unit.surface.__class__.__name__ in ['SurfaceUnitFlexiblePP', 'SurfaceUnitCPGNative', 'SurfaceUnitORCNative']:
 
                     if (self.unit.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
-                        self.flow_rate_calculator.iterator(self.unit.reservoir.inlet_pressure, self.unit.reservoir.inlet_flow, funcs)
+                        self.flow_rate_calculator.iterator(
+                            self.unit.reservoir.inlet_pressure,
+                            self.unit.reservoir.inlet_flow,
+                            funcs,
+                        )
                     else:
-                        self.flow_rate_calculator.iterator(self.unit.reservoir.specs.hydro_static_pressure * (self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0), None, funcs)
+                        self.flow_rate_calculator.iterator(
+                            self.unit.reservoir.specs.hydro_static_pressure * (
+                                self.unit.reservoir.specs.over_pressure_percentage / 100.0 + 1.0
+                            ),
+                            None,
+                            funcs,
+                        )
 
                 else:
                     raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
