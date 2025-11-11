@@ -178,16 +178,7 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise TangoValueError(msg) from cp_err
             else:
-                if P_SAT_ERR_TEST.search(str(cp_err)) is not None:
-                    raise TangoValueError(
-                      """
-                          \n\tTODO:
-                          - propagate useful message for saturation pressure error
-                          - make sure that this error gets wrapped with context for location in the system
-                      """,
-                    ) from cp_err
-                else:
-                    raise cp_err
+                raise cp_err
 
     def updateHP(self, H: float, P: float):
         """Update the fluid state with a new specific enthalpy and pressure.

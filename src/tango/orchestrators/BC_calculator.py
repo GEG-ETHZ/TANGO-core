@@ -1,6 +1,8 @@
 import math
 import pandas as pd
 
+from tango.core.errors import P_SAT_ERR_TEST, TangoError
+
 class FlowRateCalculator():
     """
     A class that calculates flow rate and pressure for a geothermal system involving injection wells,
@@ -266,28 +268,90 @@ class FlowRateCalculator():
                 if (self.scaling_factor == 4.0):
                     self.reservoir.m_dot_mult = 1.0
 
-            self.reservoir.inlet_fluid.updatePT(P=self.inj_well.outlet_fluid.P, T=self.inj_well.outlet_fluid.T)
+            self.reservoir.inlet_fluid.updatePT(
+                P=self.inj_well.outlet_fluid.P,
+                T=self.inj_well.outlet_fluid.T,
+            )
             self.reservoir.stream_interface()
 
             # Update production well
-            print(f'self.reservoir.mass_rate: {self.reservoir.mass_rate}, self.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P}, self.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T}, self.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}')
+            print(
+                "Updating production well to satisfy BCs",
+                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},",
+                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},",
+                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},",
+                f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}",
+                sep="\n",
+            )
             self.pro_well.mass_rate = self.reservoir.mass_rate
-            self.pro_well.inlet_fluid.updatePT(P=self.reservoir.outlet_fluid.P, T=self.reservoir.outlet_fluid.T)
+            try:
+                self.pro_well.inlet_fluid.updatePT(
+                    P=self.reservoir.outlet_fluid.P,
+                    T=self.reservoir.outlet_fluid.T,
+                )
+            except ValueError as cp_err:
+                if P_SAT_ERR_TEST.search(str(cp_err)) is not None:
+                    raise self.get_p_sat_err()
+                else:
+                    raise cp_err
             self.pro_well.stream_interface()
 
             # If pump exists, apply pump logic
             if self.pro_well_pump:
-                pump_dp = max(0.0, self.pro_well_pump._specs.well_length * self.pro_well.outlet_fluid.rho * 9.8 - self.pro_well.outlet_fluid.P)
+                pump_dp_raw = (
+                    self.pro_well_pump._specs.well_length * self.pro_well.outlet_fluid.rho * 9.8
+                        - self.pro_well.outlet_fluid.P
+                )
+                pump_dp = max(
+                    0.0,
+                    pump_dp_raw,
+                )
 
-                for i in range(5):
-                    self.pro_well_pump.mass_rate = self.reservoir.mass_rate
-                    self.pro_well_pump.inlet_fluid.updatePT(P=self.pro_well.outlet_fluid.P + pump_dp, T=self.pro_well.outlet_fluid.T)
+                self.pro_well_pump.mass_rate = self.reservoir.mass_rate
+                # TODO: why is this hardcoded to 5? seems like this should really be a while loop
+                num_dp_iter = 5
+                for i in range(num_dp_iter):
+                    try:
+                        self.pro_well_pump.inlet_fluid.updatePT(
+                            P=self.pro_well.outlet_fluid.P + pump_dp,
+                            T=self.pro_well.outlet_fluid.T,
+                        )
+                    except ValueError as cp_err:
+                        if (P_SAT_ERR_TEST.search(str(cp_err)) is not None) and (pump_dp != 0.0):
+                            if i == num_dp_iter - 1:
+                                # if it's the last iteration, this error will not be solved
+                                raise TangoError(
+                                    "Error in final iteration of pump pressure delta calculation",
+                                ) from cp_err
+                            # increment `pump_dp` because it may prevent this error in the next iter
+                            pump_dp += (
+                                self.surface.specs.target_extraction_pressure
+                                    - self.pro_well_pump.outlet_fluid.P
+                            )
+                            continue  # to the next iteration
+                        else:
+                            # if `pump_dp` is zero, this will not be solved in the next iteration
+                            if (P_SAT_ERR_TEST.search(str(cp_err)) is not None):
+                                raise self.get_p_sat_err()
+                            else:
+                                raise cp_err
+
+                    # Solve pump in streamwise direction
                     self.pro_well_pump.stream_interface()
 
-                    if pump_dp == 0.0 and self.pro_well_pump.outlet_fluid.P - self.surface.specs.target_extraction_pressure > 0:
+                    if (
+                        (pump_dp == 0.0)
+                        and (
+                            self.pro_well_pump.outlet_fluid.P
+                                - self.surface.specs.target_extraction_pressure > 0
+                        )
+                    ):
                         break
 
-                    pump_dp += (self.surface.specs.target_extraction_pressure - self.pro_well_pump.outlet_fluid.P)
+                    pump_dp += (
+                        self.surface.specs.target_extraction_pressure
+                            - self.pro_well_pump.outlet_fluid.P
+                    )
 
                 outlet_pressure = self.pro_well_pump.outlet_fluid.P
                 outlet_temperature = self.pro_well_pump.outlet_fluid.T
@@ -326,9 +390,29 @@ class FlowRateCalculator():
             )
 
         if self.pro_well_pump:
-            self.surface.prod_pump_aux = -(self.pro_well_pump.inlet_fluid.H - self.pro_well.outlet_fluid.H) * self.pro_well_pump.mass_rate
+            self.surface.prod_pump_aux = -(
+                self.pro_well_pump.inlet_fluid.H
+                    - self.pro_well.outlet_fluid.H
+            ) * self.pro_well_pump.mass_rate
             self.surface.prod_pump_w_list.append(self.surface.prod_pump_aux)
 
+    def get_p_sat_err(self):
+        """Get formatted saturation pressure error"""
+        return TangoError(
+            """Production well pump inlet is at vaporization threshold.
+            Troubleshooting steps:
+            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
+                component, too low reservoir permeability -- working backwards to the `bc_iteration_checkpoint`)
+            - try removing the production well pump because the thermosiphon effect is sufficient
+            - increase the pressure at the injection wellhead (note: this can potentially exceed
+                fracture pressure limit of the subsurface caprock)
+            - reduce mass flow rate (note: this will reduce total power output and should only be
+                used if the other steps don't work)
+            - TODO: print out component resistances ranked in decreasing order
+            - TODO: include an option for setting up automation
+            """,  # noqa: E501
+        )
+        
 
 class PowerReader:
     def __init__(self):
