@@ -63,7 +63,7 @@ reservoir:
 
 injection_well:
   well_length: 5000. # m
-  diameter: 0.0410 # m, reduced by a factor of ten relative to baseline
+  diameter: 0.0410 # m, reduced by a factor of ten relative to examples/flexible_SF_manual.yml
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
