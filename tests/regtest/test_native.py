@@ -120,28 +120,98 @@ def test_examples(file_and_value: tuple[Path, float]):
     rmFiles(file)
 
 
-def files_failing() -> list[Path]:
+def files_and_msgs_failing() -> list[tuple[Path, str]]:
     """Return list paths to examples that should fail"""
-    filepaths = [
-        f.resolve() for f in (EXAMPLES_DIR / "AGS-H2O 1xHWELL").iterdir() if f.suffix == ".yml"
+    files_and_errors = [
+        (
+            "flexible_SF_manual_0p1_inj.yml",
+            "\n\tunit: injection_wellbore"
+                + "\n\tcell: 1 of 100"
+                + "\n\tAbsolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa"
+                + "\n            Troubleshooting steps:"
+                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
+                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
+                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
+                + "\n                fracture pressure limit of the subsurface caprock)"
+                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
+                + "\n                used if the other steps don't work)"
+                + "\n            - TODO: print out component resistances ranked in decreasing order"
+                + "\n            - TODO: include an option for setting up automation"
+                + "\n            "
+        ),
+        (
+            "flexible_SF_manual_0p1_pro.yml",
+            "\n\tunit: production_well_lower"
+                + "\n\tcell: 4 of 100"
+                + "\n\tAbsolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa"
+                + "\n            Troubleshooting steps:"
+                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
+                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
+                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
+                + "\n                fracture pressure limit of the subsurface caprock)"
+                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
+                + "\n                used if the other steps don't work)"
+                + "\n            - TODO: print out component resistances ranked in decreasing order"
+                + "\n            - TODO: include an option for setting up automation"
+                + "\n            ",
+        ),
+        (
+            "flexible_SF_manual_narrow_inj.yml",
+            "\n\tProduction well pump inlet is at vaporization threshold."
+                + "\n            Troubleshooting steps:"
+                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
+                + "\n                component, too low reservoir permeability -- working backwards to the `bc_iteration_checkpoint`)"
+                + "\n            - try removing the production well pump because the thermosiphon effect is sufficient"
+                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
+                + "\n                fracture pressure limit of the subsurface caprock)"
+                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
+                + "\n                used if the other steps don't work)"
+                + "\n            - TODO: print out component resistances ranked in decreasing order"
+                + "\n            - TODO: include an option for setting up automation"
+                + "\n            "
+        ),
+        (
+            "flexible_SF_manual_narrow_pro.yml",
+            "\n\tUnable to solve production well stream interface"
+                + "\n\tcell: 94 of 100"
+                + "\n\tAbsolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa"
+                + "\n            Troubleshooting steps:"
+                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
+                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
+                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
+                + "\n                fracture pressure limit of the subsurface caprock)"
+                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
+                + "\n                used if the other steps don't work)"
+                + "\n            - TODO: print out component resistances ranked in decreasing order"
+                + "\n            - TODO: include an option for setting up automation"
+                + "\n            "
+        ),
+    ]
+    filepaths_and_msgs = [
+        ((EXAMPLES_DIR / "failing" / fv[0]).resolve(), fv[1]) for fv in files_and_errors
     ]
 
-    return filepaths
+    return filepaths_and_msgs
 
 
 @pytest.mark.parametrize(
-    "file_failing",
-    files_failing(),
-    ids=[f.name for f in files_failing()],
+    "file_and_msg_failing",
+    files_and_msgs_failing(),
+    ids=[fv[0].name for fv in files_and_msgs_failing()],
 )
-def test_failing_examples(file_failing: Path):
+def test_failing_examples(file_and_msg_failing: tuple[Path, str]):
     """Test files that are expected to fail"""
-    try:
-        run(file_failing)
-    except Exception as err:
-        rmFiles(file_failing)
-        raise err
+    file = file_and_msg_failing[0]
+    msg = file_and_msg_failing[1]
 
+    try:
+        run(file)
+        raise Exception("Should be unreachable")
+    except Exception as err:
+        assert msg in str(err)
+        rmFiles(file)
+
+# NOTE: these were commented when Chad first started working on TANGO with no explanation
 # def test_case17():
 #     fname = os.path.join(examples_dir, 'SO1.yml')
 #     run(fname)
