@@ -69,7 +69,7 @@ injection_well:
 
 production_well:
   well_length: 4000. # m
-  diameter: 0.10 # m, somewhat narrower than examples/flexible_SF_manual.yml
+  diameter: 0.10 # m, somewhat narrower than ../flexible_SF_manual.yml
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
