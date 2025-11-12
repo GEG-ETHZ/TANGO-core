@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from tango.core import FluidState
 
 
@@ -130,3 +130,20 @@ class Unit(ABC):
         """
         raise NotImplementedError("Implement 'stream_interface' method in your derived Unit class.")
 
+
+class Resistance(ABC):
+    """Provides interface for simple resistance calculations"""
+
+    @abstractmethod
+    def resistance(self) -> dict[str, float]:
+        """Return dictionary comprising e.g.:
+        ```
+            {
+                "L / (k * A)": 1.23e-5,
+                "L": 100.0,
+                "k": 1e-12,
+                "A": 0.785,
+            }
+        ```
+        """
+        ...

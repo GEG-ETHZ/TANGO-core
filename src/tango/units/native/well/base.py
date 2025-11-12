@@ -3,14 +3,14 @@ import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.errors import TangoValueError
-from tango.core.abstracts.unit import Unit, FluidState
+from tango.core.abstracts.unit import Unit, FluidState, Resistance
 from tango.units.dataclasses import WellSpecsNative
 
 import csv
 import os
 
 
-class WellUnitNative(Unit):
+class WellUnitNative(Unit, Resistance):
     """
     Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
 
@@ -50,6 +50,57 @@ class WellUnitNative(Unit):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
+    def resistance(self) -> dict[str, float]:
+        r"""Return dictionary comprising e.g.:
+        ```
+            {
+                "L / (k * A)": 1.23e-5,
+                "L": 100.0,
+                "k": 1e-12,
+                "A": 0.785,
+            }
+        ```
+
+        # Derivation
+        ```
+        \begin{equation}
+            \label{eq:Poiseuille}
+            \Delta P = \frac{8 \mu L Q}{\pi R^4}
+        \end{equation}
+        where
+        \begin{itemize}
+            \item $\Delta P$ is the pressure difference between the two ends
+            \item $L$ is the length of pipe
+            \item $\mu$ is the dynamic viscosity
+            \item $Q$ is the volumetric flow rate
+            \item $R$ is the pipe radius
+        \end{itemize}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance}
+            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-norm}
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-scale}
+            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad [1 / m^3]
+        \end{equation}
+        ```
+        """
+        out = {
+            "∆P / Vdot = 8 * L / (pi * R^4)":
+                8 * self.get_well_length() / (np.pi * (self.get_diameter() / 2) ** 4.0),
+            "L": self.get_well_length(),
+            "R": self.get_diameter()
+        }
+        return out
+
+    
     def stream_interface(self) -> None:
         """
         Interface for processing the stream within the well unit.
@@ -203,7 +254,7 @@ class WellUnitNative(Unit):
             next(reader)  # Skip the header row
             return list(reader)
 
-    def _specs_post_processor(self) -> float:
+    def _specs_post_processor(self):
         r"""
         Processes and sets various well specifications after initialization.
 
@@ -492,3 +543,4 @@ class WellUnitNative(Unit):
 
     def _get_dimensionless_time(self) -> float:
         return self._t_d
+
