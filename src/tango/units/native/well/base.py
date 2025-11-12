@@ -92,8 +92,9 @@ class WellUnitNative(Unit, Resistance):
         \end{equation}
         ```
         """
+        # TODO: make sure this calculation is consistent with what's used in pressure drop
         out = {
-            "∆P / Vdot = 8 * L / (pi * R^4)":
+            "∆P / Vdot ∝ 8 * L / (pi * R^4) = ":
                 8 * self.get_well_length() / (np.pi * (self.get_diameter() / 2) ** 4.0),
             "L": self.get_well_length(),
             "R": self.get_diameter()

@@ -1,12 +1,11 @@
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.units.dataclasses import ReservoirSpecsPorousflow
-from tango.units.external.MOOSE.base import *
-from tango.core.constants import GRAVITY_ACCELERATION
-from tango.units.dataclasses import ReservoirSpecsPorousflow
-from tango.units.external.MOOSE.base import *
+from tango.core.fluidstate import FluidState
+from tango.units.external.MOOSE.base import MOOSERunner, TangoMooseInterface
+from tango.core.abstracts.unit import Resistance
 
 
-class ReservoirUnitPorousflow(MOOSERunner):
+class ReservoirUnitPorousflow(MOOSERunner, Resistance):
     r"""
     MOOSE Reservoir Unit for simulating porous flow in reservoirs.
 
