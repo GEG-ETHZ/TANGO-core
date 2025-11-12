@@ -3,14 +3,15 @@ from math import erfc
 from math import e as exp
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import *
+from tango.core.abstracts.unit import Unit, Resistance 
+from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
 
 import csv
 import os
 
 
-class ReservoirUnitNative(Unit):
+class ReservoirUnitNative(Unit, Resistance):
     """
     Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
 
