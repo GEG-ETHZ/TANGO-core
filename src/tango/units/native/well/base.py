@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.errors import TangoValueError
+from tango.core.errors import CoolPropError
 from tango.core.abstracts.unit import Unit, FluidState, Resistance
 from tango.units.dataclasses import WellSpecsNative
 
@@ -174,7 +174,7 @@ class WellUnitNative(Unit, Resistance):
                         self._T_f[i] = 300.0
                     self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
                 except ValueError as inner_err:
-                    raise TangoValueError(
+                    raise CoolPropError(
                         f"\tcell: {i} of {self._num_cells}\n\t{inner_err}"
                     ) from outer_err
 

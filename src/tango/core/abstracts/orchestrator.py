@@ -2,7 +2,7 @@ import copy
 import logging
 from tango.utils import get_unit_class, MULTIPLE_UNIT_NODE_OPTIONS 
 from tango.core.stream import Stream
-from tango.core.errors import TangoValueError
+from tango.core.errors import CoolPropError
 from abc import ABC
 import networkx as nx
 
@@ -161,22 +161,23 @@ class UnitManager(ABC):
             for src_id in self._source_nodes(node):
                 try:
                     self._update_node(self.graph.nodes[src_id])
-                except TangoValueError as err:
-                    self.raise_tve(err, node)
+                except CoolPropError as err:
+                    self.raise_cperr_with_cntxt(err, node)
         try:
             node["unit"].update_inlet_state()
             node["unit"].stream_interface()
             node["unit"].update_outlet_streams()
-        except TangoValueError as err:
-            self.raise_tve(err, node)
+        except CoolPropError as err:
+            self.raise_cperr_with_cntxt(err, node)
 
         node["visited"] = True
 
-    def raise_tve(self, err: TangoValueError, node, context: str | None = None) -> None:
-        if context is not None:
-            context = "\n\t" + context
-        # TODO: figure out why this is providing the wrong component in the error message
-        raise TangoValueError(f"\n\tunit: {node['id']}\n{err}") from err
+    def raise_cperr_with_cntxt(self, err: CoolPropError, node) -> None:
+        """Raise `CoolPropError` with context"""
+        new_err = CoolPropError(
+            f"\n\tunit: {node['id']}\n{err}"
+        )
+        raise new_err from err
 
     def _source_nodes(self, node) -> list:
         """

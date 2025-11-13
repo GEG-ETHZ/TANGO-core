@@ -9,8 +9,8 @@ class TangoError(Exception):
     pass
 
 
-class TangoValueError(TangoError, ValueError):
-    """Value validation errors in Tango"""
+class CoolPropError(TangoError, ValueError):
+    """Error originating from CoolProp"""
 
     pass
 

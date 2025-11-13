@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 
-from tango.core.errors import P_SAT_ERR_TEST, TangoError, TangoValueError
+from tango.core.errors import P_SAT_ERR_TEST, CoolPropError
 
 class FlowRateCalculator():
     """
@@ -296,10 +296,10 @@ class FlowRateCalculator():
                     raise cp_err
             try:
                 self.pro_well.stream_interface()
-            except TangoValueError as tve:
-                raise TangoValueError(
-                    f"\n\tUnable to solve production well stream interface\n{tve}"
-                ) from tve
+            except CoolPropError as cp_err:
+                raise CoolPropError(
+                    f"\n\tUnable to solve production well stream interface\n{cp_err}"
+                ) from cp_err
 
             # If pump exists, apply pump logic
             if self.pro_well_pump:
@@ -325,7 +325,7 @@ class FlowRateCalculator():
                         if (P_SAT_ERR_TEST.search(str(cp_err)) is not None) and (pump_dp != 0.0):
                             if i == num_dp_iter - 1:
                                 # if it's the last iteration, this error will not be solved
-                                raise TangoError(
+                                raise CoolPropError(
                                     "Error in final iteration of pump pressure delta calculation",
                                 ) from cp_err
                             # increment `pump_dp` because it may prevent this error in the next iter
@@ -403,7 +403,7 @@ class FlowRateCalculator():
 
     def get_p_sat_err(self):
         """Get formatted saturation pressure error"""
-        return TangoError(
+        return CoolPropError(
             """\n\tProduction well pump inlet is at vaporization threshold.
             Troubleshooting steps:
             - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
