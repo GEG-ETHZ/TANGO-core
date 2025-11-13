@@ -1,6 +1,7 @@
 import numpy as np
 from math import erfc
 from math import e as exp
+from collections.abc import Callable
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import Unit, Resistance 
@@ -199,14 +200,28 @@ class ReservoirUnitNative(Unit, Resistance):
         self.time_step += 1
 
     def update_energy_extracted(self, del_: float) -> None:
-        """
-        Updates the total energy extracted from the reservoir.
+        """Update the total energy extracted from the reservoir.
 
         Args:
             del_ (float): Energy extracted in the current time step (J).
+
         """
         self._energy_extracted = self._energy_extracted_old + del_
 
+    def resistance(self) -> float:
+        """Return reservoir impedance."""
+        impedance: float = self.impedance
+        return impedance
+
+    # NOTE:
+    # Prepending `_` to a function name has no real effect in Python.  If we instead do
+    # `__read_csv_file`, then when called from another module, it would be mangled to
+    # (this behavior needs to be verified but is described in
+    # https://peps.python.org/pep-0008/#method-names-and-instance-variables)
+    # but this all needs thought.  Long term, it's not a good idea to have
+    # "private" (nothing is really private in python) functions unless there is
+    # a good rationale for having them, which is neither obvious nor documented
+    # for the functions below.
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self) -> list:
@@ -331,7 +346,11 @@ class ReservoirUnitNative(Unit, Resistance):
         """
         if self.specs.initial_temperature is not None:
             return self.specs.initial_temperature
-        h, dTdz, T0 = self.specs.reservoir_depth, self.specs.thermal_gradient, self.specs.surface_temperature
+        h, dTdz, T0 = (
+            self.specs.reservoir_depth,
+            self.specs.thermal_gradient,
+            self.specs.surface_temperature,
+        )
         return T0 + h * dTdz
 
     def _compute_initial_pressure(self) -> float:
@@ -371,6 +390,8 @@ class ReservoirUnitNative(Unit, Resistance):
         Raises:
             ValueError: If the well pattern is not supported.
         """
+        # TODO: use `match` statement to control which impedance function gets used so it's
+        # more obvious what options are possible here
         self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None)
         if self.impedance_func is None:
             raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")

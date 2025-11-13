@@ -180,7 +180,10 @@ def apply_parameter_overrides(
         >>> modified_specs = apply_parameter_overrides(specs, parameter_overrides=overrides)
 
     """
-    if params_json:
+
+    # TODO: what happens if both `parameter_overrides` and `params_json` are passed?
+    # Seems like this needs attention because these might be competing
+    if params_json is not None:
         try:
             json_overrides = json.loads(params_json)
             for param_path, value in json_overrides.items():

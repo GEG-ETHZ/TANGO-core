@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 class Workflow(ABC):
     r"""
@@ -11,8 +11,10 @@ class Workflow(ABC):
         specs (dict): Specifications for the workflow, including configurations for system and economic units. ..
     """
 
+    # TODO: figure out what this line was intended to do 
     orchestrator, economic_unit = 2 * [None]
 
+    @abstractmethod
     def __init__(self, specs: dict):
         """
         Initializes a new instance of the Workflow class.
@@ -46,6 +48,7 @@ class Workflow(ABC):
         """
         raise NotImplementedError("Implement '_init_econ_unit' method in child Workflow class.")
 
+    @abstractmethod
     def execute(self) -> None:
         r"""
         Abstract method to execute the workflow.

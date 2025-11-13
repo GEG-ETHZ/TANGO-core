@@ -13,6 +13,8 @@ from tango.utils import load_from_yaml_with_overrides
 from tango.core.abstracts.workflow import Workflow
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
+from tango.core.errors import CoolPropError
+from tango.optimizerr import Optimizer
 
 WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
     "native": NativeWorkflow,
@@ -335,6 +337,15 @@ class Tango:
             User ID for database operations.
 
         """
+        # these messages are here because the overrides are applied right after this
+        if params_json is not None:
+            print(f"Applying JSON parameter overrides: {params_json}")
+
+        if parameter_overrides:
+            print(f"Applying {len(parameter_overrides)} parameter overrides:")
+            for override in parameter_overrides:
+                print(f"  {override}")
+
         if specs is None:
             self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides, params_json)
         else:
@@ -373,7 +384,7 @@ class Tango:
         """
         workflow_class  = get_workflow_class(self.specs["runspec"]["workflow"])
         # print('self.specs',self.specs)
-        self.workflow = workflow_class(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
+        self.workflow: Workflow = workflow_class(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
 
     def execute(self) -> None:
         """Executes the TANGO workflow.
@@ -398,7 +409,10 @@ class Tango:
 
         self._start_time = time.time()
 
-        self.workflow.execute()
+        try:
+            self.workflow.execute()
+        except CoolPropError as cperr:
+            breakpoint()            
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 
@@ -424,3 +438,49 @@ class Tango:
             batch_sim.run_batch_simulation(self.input_file)
         else:
             self.execute()
+
+
+class Runner:
+    """Wrapper class for `Tango` and `Optimizer`"""
+
+    def __init__(
+        self,
+        input_file: str,
+        parameter_overrides: list | None = None,
+        params_json: str | None = None,
+        user_id: str | None = None,
+    ):
+        """Initialize the Runner"""
+        self._tango = Tango(
+            input_file,
+            parameter_overrides=parameter_overrides,
+            params_json=params_json,
+            user_id=user_id,
+        )
+        self._optimizer = None
+        if "optimization" in self._tango.specs:
+            self._optimizer = Optimizer(self._tango, self._tango.specs)
+
+    def start(self) -> None:
+        """Start the execution of the workflow. If 'optimization' is present in the specs,
+        use the optimizer. Otherwise, check for batch simulation or use regular Tango execution.
+        """
+        # TODO: we should probably make sure that if `self._optimizer is not None` and
+        # ```
+        # "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
+        #     "enabled", False
+        # )
+        # ```
+        # that an error is thrown because that combination does not make sense
+        # because it's not possible to do both
+        if self._optimizer is not None:
+            print("Optimization detected. Executing optimizer...")
+            self._optimizer.execute()
+        elif "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
+            "enabled", False
+        ):
+            print("Batch simulation detected. Executing batch simulation...")
+            self._tango.execute_batch_simulation()
+        else:
+            print("No optimization or batch simulation detected. Executing Tango workflow...")
+            self._tango.execute()

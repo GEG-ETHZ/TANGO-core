@@ -50,56 +50,16 @@ class WellUnitNative(Unit, Resistance):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def resistance(self) -> dict[str, float]:
-        r"""Return dictionary comprising e.g.:
-        ```
-            {
-                "L / (k * A)": 1.23e-5,
-                "L": 100.0,
-                "k": 1e-12,
-                "A": 0.785,
-            }
-        ```
-
-        # Derivation
-        ```
-        \begin{equation}
-            \label{eq:Poiseuille}
-            \Delta P = \frac{8 \mu L Q}{\pi R^4}
-        \end{equation}
-        where
-        \begin{itemize}
-            \item $\Delta P$ is the pressure difference between the two ends
-            \item $L$ is the length of pipe
-            \item $\mu$ is the dynamic viscosity
-            \item $Q$ is the volumetric flow rate
-            \item $R$ is the pipe radius
-        \end{itemize}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance}
-            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad [1 / m^3]
-        \end{equation}
-        ```
+    def resistance(self) -> float:
+        """Return well flow resistance
+        This is calculated as the pressure drop divided by the inlet and outlet averaged volume
+        flow rate
         """
         # TODO: make sure this calculation is consistent with what's used in pressure drop
-        out = {
-            "∆P / Vdot ∝ 8 * L / (pi * R^4) = ":
-                8 * self.get_well_length() / (np.pi * (self.get_diameter() / 2) ** 4.0),
-            "L": self.get_well_length(),
-            "R": self.get_diameter()
-        }
-        return out
+        dp: float = (self._P[-1] - self._P[0])
+        vdot: float = (0.5 * (self._u[-1] + self._u[0])) * self._cross_sectional_area
+        
+        return dp / vdot
 
     
     def stream_interface(self) -> None:
@@ -169,7 +129,8 @@ class WellUnitNative(Unit, Resistance):
                 self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
             except ValueError as outer_err:
                 try:
-                    # TODO: this seems really sketchy.  Check for unintented consequences
+                    # TODO: `self._T_f[i] = 300.0` seems really sketchy.
+                    # Check for unintented consequences
                     if self._T_f[i] == 0:
                         self._T_f[i] = 300.0
                     self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
@@ -390,6 +351,9 @@ class WellUnitNative(Unit, Resistance):
         self._num_cells = num_cells
         self._dL = self._well_length / num_cells
         self._dz = self._dL
+        # TODO: these should be nested in a `WellState` class instance attribute
+        # in the future which itself should be stored in a `History` class
+        # instance attribute in each time step
         self._P = np.zeros(num_cells)  # pressure (Pa)
         self._h = np.zeros(num_cells)  # specific enthalpy (J/kg)
         self._rho = np.zeros(num_cells)  # fluid density (kg/m3)

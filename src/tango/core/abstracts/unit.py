@@ -135,15 +135,6 @@ class Resistance(ABC):
     """Provides interface for simple resistance calculations"""
 
     @abstractmethod
-    def resistance(self) -> dict[str, float]:
-        """Return dictionary comprising e.g.:
-        ```
-            {
-                "L / (k * A)": 1.23e-5,
-                "L": 100.0,
-                "k": 1e-12,
-                "A": 0.785,
-            }
-        ```
-        """
-        ...
+    def resistance(self) -> float:
+        """Return module/component flow resistance"""
+        pass
