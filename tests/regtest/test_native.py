@@ -10,8 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from tango.optimizerr import Optimizer
-from tango.runner import Tango
+from tango.runner import Runner
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
@@ -20,18 +19,8 @@ def run(fname: Path | str) -> None:
     """Execute the workflow. If the input file specifies optimization in the specs,
     uses the optimizer. Otherwise, runs the regular Tango workflow.
     """
-    tango = Tango(Path(fname))
-
-    optimizer = None
-    if "optimization" in tango.specs:
-        optimizer = Optimizer(tango, tango.specs)
-
-    if optimizer is not None:
-        print(f"Optimization detected for {fname}. Executing optimizer...")
-        optimizer.execute()
-    else:
-        print(f"No optimization detected for {fname}. Executing Tango workflow...")
-        tango.execute()
+    runner = Runner(fname)
+    runner.start()
 
 
 def get_lcoe_from_file(fname) -> float:
