@@ -118,63 +118,25 @@ def files_and_msgs_failing() -> list[tuple[Path, str]]:
             "\n\tunit: injection_wellbore"
                 + "\n\tcell: 1 of 100"
                 + "\n\tAbsolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa"
-                + "\n            Troubleshooting steps:"
-                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
-                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
-                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
-                + "\n                fracture pressure limit of the subsurface caprock)"
-                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
-                + "\n                used if the other steps don't work)"
-                + "\n            - TODO: print out component resistances ranked in decreasing order"
-                + "\n            - TODO: include an option for setting up automation"
-                + "\n            "
+                + "\n            Troubleshooting steps:",
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
             "\n\tunit: production_well_lower"
                 + "\n\tcell: 4 of 100"
                 + "\n\tAbsolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa"
-                + "\n            Troubleshooting steps:"
-                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
-                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
-                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
-                + "\n                fracture pressure limit of the subsurface caprock)"
-                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
-                + "\n                used if the other steps don't work)"
-                + "\n            - TODO: print out component resistances ranked in decreasing order"
-                + "\n            - TODO: include an option for setting up automation"
-                + "\n            ",
+                + "\n            Troubleshooting steps:",
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
             "\n\tProduction well pump inlet is at vaporization threshold."
-                + "\n            Troubleshooting steps:"
-                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
-                + "\n                component, too low reservoir permeability -- working backwards to the `bc_iteration_checkpoint`)"
-                + "\n            - try removing the production well pump because the thermosiphon effect is sufficient"
-                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
-                + "\n                fracture pressure limit of the subsurface caprock)"
-                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
-                + "\n                used if the other steps don't work)"
-                + "\n            - TODO: print out component resistances ranked in decreasing order"
-                + "\n            - TODO: include an option for setting up automation"
-                + "\n            "
+                + "\n            Troubleshooting steps:",
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
             "\n\tUnable to solve production well stream interface"
                 + "\n\tcell: 94 of 100"
-                + "\n\tAbsolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa"
-                + "\n            Troubleshooting steps:"
-                + "\n            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current"
-                + "\n                component, working backwards to the `bc_iteration_checkpoint`)"
-                + "\n            - increase the pressure at the injection wellhead (note: this can potentially exceed"
-                + "\n                fracture pressure limit of the subsurface caprock)"
-                + "\n            - reduce mass flow rate (note: this will reduce total power output and should only be"
-                + "\n                used if the other steps don't work)"
-                + "\n            - TODO: print out component resistances ranked in decreasing order"
-                + "\n            - TODO: include an option for setting up automation"
-                + "\n            "
+                + "\n\tAbsolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa",
         ),
     ]
     filepaths_and_msgs = [

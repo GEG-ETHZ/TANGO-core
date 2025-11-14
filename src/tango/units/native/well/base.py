@@ -3,14 +3,14 @@ import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.errors import CoolPropError
-from tango.core.abstracts.unit import Unit, FluidState, Resistance
+from tango.core.abstracts.unit import Unit, FluidState, FlowResistance
 from tango.units.dataclasses import WellSpecsNative
 
 import csv
 import os
 
 
-class WellUnitNative(Unit, Resistance):
+class WellUnitNative(Unit, FlowResistance):
     """
     Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
 
@@ -45,23 +45,55 @@ class WellUnitNative(Unit, Resistance):
         self._initialize_attributes()
         self.current_row = 0
 
-        if self._specs.flow_rate_from_csv == 'yes':
+        if self._specs.flow_rate_from_csv == "yes":
             self.csv_data = self._read_csv_file()
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def resistance(self) -> float:
-        """Return well flow resistance
-        This is calculated as the pressure drop divided by the inlet and outlet averaged volume
-        flow rate
-        """
-        # TODO: make sure this calculation is consistent with what's used in pressure drop
-        dp: float = (self._P[-1] - self._P[0])
-        vdot: float = (0.5 * (self._u[-1] + self._u[0])) * self._cross_sectional_area
-        
-        return dp / vdot
+    def flow_res(self) -> float:
+        """Return well scaled flow resistance [m^-3]
 
-    
+        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
+        Note that this is simplistic and should be used only for
+        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
+        to work if this funciton call is triggered by a failed property calculation,
+        which is likely to be the case.
+        ```
+        \section{Poiseuille}
+        \begin{equation}
+            \label{eq:Poiseuille}
+            \Delta P = \frac{8 \mu L Q}{\pi R^4}
+        \end{equation}
+        where
+        \begin{itemize}
+            \item $\Delta P$ is the pressure difference between the two ends
+            \item $L$ is the length of pipe
+            \item $\mu$ is the dynamic viscosity
+            \item $Q$ is the volumetric flow rate
+            \item $R$ is the pipe radius
+        \end{itemize}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance}
+            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-norm}
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-scale}
+            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad [1 / m^3]
+        \end{equation}            
+        ```
+
+        """
+        res: float = 8.0 * self._well_length / (np.pi * (self._diameter / 2.0) ** 4.0)
+
+        return res
+
     def stream_interface(self) -> None:
         """
         Interface for processing the stream within the well unit.
@@ -108,7 +140,7 @@ class WellUnitNative(Unit, Resistance):
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
         """
-        if self._specs.flow_rate_from_csv == 'yes' and self.current_row < len(self.csv_data):
+        if self._specs.flow_rate_from_csv == "yes" and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
             self.mass_rate = float(row[1]) * self.scaling_factor
 
@@ -119,9 +151,11 @@ class WellUnitNative(Unit, Resistance):
         mdot, A = self.mass_rate, self._cross_sectional_area
 
         for i in range(1, self._num_cells):
-            ff = self._compute_friction_factor(self._rho[i-1], self._mu[i-1], self._u[i-1])
-            dP_loss = self._compute_delta_P_loss(ff, self._rho[i-1], self._u[i-1])
-            Q_loss = self._compute_Q_loss(self._T_f[i-1] - self._T_r[i-1], t_d)
+            ff = self._compute_friction_factor(self._rho[i - 1], self._mu[i - 1], self._u[i - 1])
+            dP_loss = self._compute_delta_P_loss(ff, self._rho[i - 1], self._u[i - 1])
+            Q_loss = self._compute_Q_loss(self._T_f[i - 1] - self._T_r[i - 1], t_d)
+            # TODO: make `Well` a pydantic dataclass and add this attribute so it's not mysteriously getting added here
+            self.dp_loss_for_cell = dP_loss
             self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
             self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
 
@@ -159,6 +193,7 @@ class WellUnitNative(Unit, Resistance):
         Returns:
             float: The well length (in meters).
         """
+        # TODO: figure out if this method is really needed
         return self._well_length
 
     def get_diameter(self) -> float:
@@ -211,7 +246,7 @@ class WellUnitNative(Unit, Resistance):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
@@ -273,7 +308,7 @@ class WellUnitNative(Unit, Resistance):
         """
         self._diameter = self._specs.diameter
         self._relative_roughness = self._specs.epsilon / self._diameter
-        self._cross_sectional_area = 0.25 * np.pi * self._diameter ** 2
+        self._cross_sectional_area = 0.25 * np.pi * self._diameter**2
         self._well_length = self._set_well_length()
         self._initialize_discretized_vars()
         self._initialize_farfield_temperature()
@@ -295,7 +330,6 @@ class WellUnitNative(Unit, Resistance):
         self._t_d = 0.0  # dimensionless time at the current time step
         self._t_d_old = 0.0  # dimensionless time at the previous time step
         self.time_step = 0
-
 
     def _set_well_length(self) -> float:
         """
@@ -329,7 +363,9 @@ class WellUnitNative(Unit, Resistance):
             ValueError: If 'vertical_deviation' is specified, as it is not supported.
         """
         if self._specs.vertical_deviation is not None:
-            raise ValueError(f"'vertical_deviation' is not supported in vertical well classes. Please use horizontal well.")
+            raise ValueError(
+                f"'vertical_deviation' is not supported in vertical well classes. Please use horizontal well."
+            )
 
         zspace = np.linspace(self._specs.wellhead_depth, self._well_length, self._num_cells + 1)
         zspace = (zspace[1:] + zspace[:-1]) * 0.5  # depth at cell centers
@@ -396,7 +432,11 @@ class WellUnitNative(Unit, Resistance):
                 - :math:`c_{p,rock}` is the specific heat capacity of the rock (J/kg·K),
                 - :math:`D` is the wellbore diameter (m).
         """
-        return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter ** 2)
+        return (
+            4.0
+            * self._specs.rock_k
+            / (self._specs.rock_density * self._specs.rock_cp * self._diameter**2)
+        )
 
     def _initialize_state(self) -> None:
         """
@@ -414,7 +454,9 @@ class WellUnitNative(Unit, Resistance):
             - `_T_f[0]`: Initial fluid temperature (in Kelvin).
             - `_u[0]`: Initial flow velocity (in meters per second).
         """
-        self.update_dimensionless_time(del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND)
+        self.update_dimensionless_time(
+            del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND
+        )
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
@@ -476,7 +518,7 @@ class WellUnitNative(Unit, Resistance):
                 - :math:`u` is the flow velocity (m/s),
                 - :math:`D` is the diameter of the wellbore (meters).
         """
-        return 0.5 * ff * self._dL * rho * u ** 2 / self._diameter
+        return 0.5 * ff * self._dL * rho * u**2 / self._diameter
 
     def _compute_friction_factor(self, rho, mu, u) -> float:
         r"""
@@ -508,4 +550,3 @@ class WellUnitNative(Unit, Resistance):
 
     def _get_dimensionless_time(self) -> float:
         return self._t_d
-

@@ -26,6 +26,9 @@ class WellUnitMOOSE(MOOSERunner):
         get_well_length: Retrieves the length of the well.
         get_diameter: Retrieves the diameter of the well.
     """
+    # TODO: ask why `Methods` is needed in class definition when methods have own self-contained documentation.  Why the redundancy?
+
+    
     def __init__(self, id: str, specs: dict):
         """
         Initializes a new instance of the WellUnitMOOSE class.

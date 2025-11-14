@@ -148,6 +148,9 @@ class FlowRateCalculator():
                 self.inj_well.mass_rate = inlet_flow
             else:
                 self.inj_well.mass_rate = self.mass_rate_test
+
+            # NOTE: might want to wrap `inj_well.update_inlet_fluid_state_PT`
+            # and `inj_well.stream_interface` in `try ... except`
             self.inj_well.update_inlet_fluid_state_PT(P=self.test_p, T=self.surface.outlet_fluid.T)
             self.inj_well.stream_interface()
 
@@ -413,8 +416,6 @@ class FlowRateCalculator():
                 fracture pressure limit of the subsurface caprock)
             - reduce mass flow rate (note: this will reduce total power output and should only be
                 used if the other steps don't work)
-            - TODO: print out component resistances ranked in decreasing order
-            - TODO: include an option for setting up automation
             """,  # noqa: E501
         )
         

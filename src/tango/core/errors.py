@@ -15,6 +15,12 @@ class CoolPropError(TangoError, ValueError):
     pass
 
 
+class TangoValueError(TangoError, ValueError):
+    """ValueError that needs to be handled"""
+
+    pass
+
+
 def check_feas_press(p: float) -> str | None:
     """Check that absolute pressure is non-negative
 
@@ -32,8 +38,6 @@ def check_feas_press(p: float) -> str | None:
                 fracture pressure limit of the subsurface caprock)
             - reduce mass flow rate (note: this will reduce total power output and should only be
                 used if the other steps don't work)
-            - TODO: print out component resistances ranked in decreasing order
-            - TODO: include an option for setting up automation
             """
         )
         return msg

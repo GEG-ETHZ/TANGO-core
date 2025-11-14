@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from tango.utils import load_from_yaml_with_overrides
 from tango.core.abstracts.workflow import Workflow
+from tango.core.abstracts.unit import FlowResistance
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
 from tango.core.errors import CoolPropError
@@ -387,7 +388,7 @@ class Tango:
         self.workflow: Workflow = workflow_class(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
 
     def execute(self) -> None:
-        """Executes the TANGO workflow.
+        """Execute the TANGO workflow.
 
         Logs the start time, initializes the workflow, and executes it.
         Also logs the elapsed time after the simulation is complete.
@@ -411,8 +412,18 @@ class Tango:
 
         try:
             self.workflow.execute()
-        except CoolPropError as cperr:
-            breakpoint()            
+        except CoolPropError as cpe:
+            res_dict = {
+                k: v.flow_res() for (k, v) in
+                    self.workflow.orchestrator.unit.__dict__.items() if isinstance(v, FlowResistance)
+            }
+            res_str = "\n\t\t".join(
+                [f"{k}: {v:.5e} (Pa / (m^3 / s)) / (Pa * s)" for (k, v) in res_dict.items()])
+            new_err = (
+                str(cpe) + "\n\tApprox. flow resistances (scaled w.r.t. viscosity):\n\t\t"
+                + res_str
+            )
+            raise CoolPropError(new_err)
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 

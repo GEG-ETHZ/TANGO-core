@@ -4,7 +4,7 @@ from math import e as exp
 from collections.abc import Callable
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import Unit, Resistance 
+from tango.core.abstracts.unit import Unit, FlowResistance 
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
 
@@ -12,7 +12,7 @@ import csv
 import os
 
 
-class ReservoirUnitNative(Unit, Resistance):
+class ReservoirUnitNative(Unit, FlowResistance):
     """
     Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
 
@@ -155,6 +155,9 @@ class ReservoirUnitNative(Unit, Resistance):
         self.m_dot = self.m_dot_mult * self.mass_rate
 
         # Update reservoir pressure
+        # TODO: `average_rho` and `outlet_pressure` should also be stored inside
+        # `self` as state variables so that they are accessible in other methods
+        # rather than recalculated, e.g. in `self.resistance`
         average_mu = 0.5 * (self.inlet_fluid.mu + self.outlet_fluid.mu)
         average_rho = 0.5 * (self.inlet_fluid.rho + self.outlet_fluid.rho)
         self._update_impedance(average_mu, average_rho)
@@ -208,10 +211,51 @@ class ReservoirUnitNative(Unit, Resistance):
         """
         self._energy_extracted = self._energy_extracted_old + del_
 
-    def resistance(self) -> float:
-        """Return reservoir impedance."""
-        impedance: float = self.impedance
-        return impedance
+    def flow_res(self) -> float:
+        """Return reservoir flow resistance with current state variables
+        This is calculated as the pressure drop divided by the
+        inlet-and-outlet-averaged volume flow rate at most recent time step
+
+        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
+        Note that this is simplistic and should be used only for
+        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
+        to work if this funciton call is triggered by a failed property calculation,
+        which is likely to be the case.
+        ```
+        \section{Darcy Porous Media}
+        \begin{equation}
+            \label{eq:Darcy}
+            \Delta P = \frac{\mu L Q}{k A}
+        \end{equation}
+        where
+        \begin{itemize}
+            \item $\Delta P$ is the pressure difference between the two ends
+            \item $\mu$ is the dynamic viscosity
+            \item $L$ is the length of reservoir
+            \item $Q$ is the volumetric flow rate
+            \item $k$ is the permeability [$m^2$]
+            \item $A$ is the reservoir cross-sectional flow area
+        \end{itemize}
+
+        \begin{equation}
+            \label{eq:Darcy-resistance}
+            \frac{\Delta P}{Q} = \frac{\mu L}{k A} \quad [\text{Pa} / (m^3 / s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Darcy-resistance-norm}
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{L}{k A} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Darcy-resistance-scale}
+            \frac{\Delta P}{Q} \propto \frac{L}{k A} \quad [1 / m^3]
+        \end{equation}            
+        ```
+
+        """
+        res: float = self.specs.well_spacing / (self.specs.permeability * self.area)
+        return res
 
     # NOTE:
     # Prepending `_` to a function name has no real effect in Python.  If we instead do
@@ -243,7 +287,7 @@ class ReservoirUnitNative(Unit, Resistance):
             next(reader)  # Skip the header row
             return list(reader)
 
-    def _specs_post_processor(self) -> float:
+    def _specs_post_processor(self):
         """
         Processes reservoir specifications and initializes key attributes.
 

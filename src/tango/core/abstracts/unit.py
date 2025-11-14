@@ -1,8 +1,8 @@
+from enum import Enum, auto
 from abc import ABC, abstractmethod
+
 from tango.core import FluidState
 
-
-from abc import ABC
 
 class UnitSpecs(ABC):
     """
@@ -131,10 +131,12 @@ class Unit(ABC):
         raise NotImplementedError("Implement 'stream_interface' method in your derived Unit class.")
 
 
-class Resistance(ABC):
+class FlowResistance(ABC):
     """Provides interface for simple resistance calculations"""
 
     @abstractmethod
-    def resistance(self) -> float:
-        """Return module/component flow resistance"""
+    def flow_res(self) -> float:
+        """Return module/component flow resistance as either pressure drop per mass flow
+        rate or pressure drop per volume flow rate
+        """
         pass
