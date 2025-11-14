@@ -409,8 +409,7 @@ class FlowRateCalculator():
         return CoolPropError(
             """\n\tProduction well pump inlet is at vaporization threshold.
             Troubleshooting steps:
-            - check for flow restrictions (e.g. too narrow wellbore diameter upstream of the current
-                component, too low reservoir permeability -- working backwards to the `bc_iteration_checkpoint`)
+            - check for flow restrictions
             - try removing the production well pump because the thermosiphon effect is sufficient
             - increase the pressure at the injection wellhead (note: this can potentially exceed
                 fracture pressure limit of the subsurface caprock)
