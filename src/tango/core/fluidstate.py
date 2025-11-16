@@ -64,7 +64,7 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise CoolPropError(msg) from cp_err
             else:
-                raise cp_err
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state_copy)
 
@@ -81,8 +81,20 @@ class FluidState:
             FluidState: A new FluidState object.
 
         """
-        state = CoolProp.AbstractState("HEOS", fluidname)
-        state.update(CoolProp.PT_INPUTS, P, T)
+        try:
+            state = CoolProp.AbstractState("HEOS", fluidname)
+            state.update(CoolProp.PT_INPUTS, P, T)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_press(P)) is not None:
+                tango_errs.append(tango_err)
+            if (tango_err := check_feas_temp(T)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state)
 
@@ -99,8 +111,20 @@ class FluidState:
             FluidState: A new FluidState object.
 
         """
-        state = CoolProp.AbstractState("HEOS", fluidname)
-        state.update(CoolProp.HmassP_INPUTS, H, P)
+        try:
+            state = CoolProp.AbstractState("HEOS", fluidname)
+            state.update(CoolProp.HmassP_INPUTS, H, P)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_press(P)) is not None:
+                tango_errs.append(tango_err)
+            if (tango_err := check_feas_enthalpy(H)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state)
 
@@ -117,8 +141,20 @@ class FluidState:
             FluidState: A new FluidState object.
 
         """
-        state = CoolProp.AbstractState("HEOS", fluidname)
-        state.update(CoolProp.PSmass_INPUTS, P, S)
+        try:
+            state = CoolProp.AbstractState("HEOS", fluidname)
+            state.update(CoolProp.PSmass_INPUTS, P, S)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_press(P)) is not None:
+                tango_errs.append(tango_err)
+            if (tango_err := check_feas_enthalpy(S)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state)
 
@@ -135,8 +171,18 @@ class FluidState:
             FluidState: A new FluidState object.
 
         """
-        state = CoolProp.AbstractState("HEOS", fluidname)
-        state.update(CoolProp.PQ_INPUTS, P, Q)
+        try:
+            state = CoolProp.AbstractState("HEOS", fluidname)
+            state.update(CoolProp.PQ_INPUTS, P, Q)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_press(P)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state)
 
@@ -153,8 +199,18 @@ class FluidState:
             FluidState: A new FluidState object.
 
         """
-        state = CoolProp.AbstractState("HEOS", fluidname)
-        state.update(CoolProp.QT_INPUTS, Q, T)
+        try:
+            state = CoolProp.AbstractState("HEOS", fluidname)
+            state.update(CoolProp.QT_INPUTS, Q, T)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_temp(T)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
 
         return FluidState(state)
 
@@ -178,7 +234,7 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise CoolPropError(msg) from cp_err
             else:
-                raise cp_err
+                raise CoolPropError(str(cp_err))
 
     def updateHP(self, H: float, P: float):
         """Update the fluid state with a new specific enthalpy and pressure.
@@ -200,7 +256,7 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise CoolPropError(msg) from cp_err
             else:
-                raise cp_err
+                raise CoolPropError(str(cp_err))
 
     def updatePS(self, P: float, S: float):
         """Update the fluid state with a new pressure and specific entropy.
@@ -222,7 +278,7 @@ class FluidState:
                 msg = "\n".join(tango_errs)
                 raise CoolPropError(msg) from cp_err
             else:
-                raise cp_err
+                raise CoolPropError(str(cp_err))
 
     def updatePQ(self, P: float, x: float):
         """Update the fluid state with a new pressure and Q (quality) value.
@@ -250,6 +306,16 @@ class FluidState:
         """
         try:
             self.cstate.update(CoolProp.QT_INPUTS, x, T)
+        except ValueError as cp_err:
+            tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            if (tango_err := check_feas_temp(T)) is not None:
+                tango_errs.append(tango_err)
+            if len(tango_errs) != 0:
+                msg = "\n".join(tango_errs)
+                raise CoolPropError(msg) from cp_err
+            else:
+                raise CoolPropError(str(cp_err))
+
         except ValueError as cp_err:
             if T < 0.0:
                 raise CoolPropError(
