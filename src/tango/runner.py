@@ -417,12 +417,12 @@ class Tango:
                 k: v.flow_res() for (k, v) in
                     self.workflow.orchestrator.unit.__dict__.items() if isinstance(v, FlowResistance)
             }
-            max_res = max(res_dict.values())
+            res_denom = sum(res_dict.values())
             res_str = "\n\t\t".join(
-                [f"{k}: {v / max_res:.3%}" for (k, v) in res_dict.items()])
+                [f"{k}: {v / res_denom:.3%}" for (k, v) in res_dict.items()])
             new_err = (
                 str(cpe)
-                + "\n\tApprox. flow resistances, scaled relative to module with max resistance"
+                + "\n\tApprox. flow resistances, scaled relative to sum of module resistances"
                 + "\n\tNOTES:"
                 + "\n\t- the reservoir is expected to have the highest resistance by"
                 + "\n\t  a few orders of magnitude in normal operation"
