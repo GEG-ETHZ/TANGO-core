@@ -170,7 +170,7 @@ class WellUnitNative(Unit, FlowResistance):
                     self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
                 except ValueError as inner_err:
                     raise CoolPropError(
-                        f"\tcell: {i} of {self._num_cells}\n\t{inner_err}"
+                        f"cell: {i} of {self._num_cells}\n\t{inner_err}"
                     ) from outer_err
 
             self._rho[i] = self.fluid_state_tmp.rho

@@ -175,7 +175,7 @@ class UnitManager(ABC):
     def raise_cperr_with_cntxt(self, err: CoolPropError, node) -> None:
         """Raise `CoolPropError` with context"""
         new_err = CoolPropError(
-            f"\n\tunit: {node['id']}\n{err}"
+            f"\n\tunit: {node['id']}\n\t{err}"
         )
         raise new_err from err
 

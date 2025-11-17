@@ -419,13 +419,13 @@ class Tango:
             }
             max_res = max(res_dict.values())
             res_str = "\n\t\t".join(
-                [f"{k}: {v / max_res:.3e}" for (k, v) in res_dict.items()])
+                [f"{k}: {v / max_res:.3%}" for (k, v) in res_dict.items()])
             new_err = (
                 str(cpe)
-                + "\n\tApprox. flow resistances, scaled relative to system max resistance"
+                + "\n\tApprox. flow resistances, scaled relative to module with max resistance"
                 + "\n\tNOTES:"
-                + "\n\t- the reservoir is likely to have the highest resistance by"
-                + "\n\t  a few orders of magnitude"
+                + "\n\t- the reservoir is expected to have the highest resistance by"
+                + "\n\t  a few orders of magnitude in normal operation"
                 + "\n\t- Resistances are calculated assuming laminar flow to avoid needing"
                 + "\n\t  fluid properties, in case property calculations fail."
                 + "\n\t- Total injection well resistance and production well resistance should"

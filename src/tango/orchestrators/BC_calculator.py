@@ -74,7 +74,7 @@ class FlowRateCalculator():
                 specs['power_raw_data'],
                 specs['power_avg'],
                 specs['averaging_window'],
-                specs['bypass_file_generation']
+                specs['bypass_file_generation'],
             )
 
     def fracing_flow(self):
@@ -149,10 +149,19 @@ class FlowRateCalculator():
             else:
                 self.inj_well.mass_rate = self.mass_rate_test
 
-            # NOTE: might want to wrap `inj_well.update_inlet_fluid_state_PT`
-            # and `inj_well.stream_interface` in `try ... except`
-            self.inj_well.update_inlet_fluid_state_PT(P=self.test_p, T=self.surface.outlet_fluid.T)
-            self.inj_well.stream_interface()
+            try:
+                self.inj_well.update_inlet_fluid_state_PT(P=self.test_p, T=self.surface.outlet_fluid.T)
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    f"`self.inj_well.update_inlet_fluid_state_PT` failed\n\t{cpe}",
+                ) from cpe
+
+            try:
+                self.inj_well.stream_interface()
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    f"`self.inj_well.stream_interface` failed\n\t{cpe}",
+                ) from cpe
 
             if (self.reservoir.specs.mass_rate['type'] != 'manual'):
                 self.test_p += (target_p - self.inj_well.outlet_fluid.P)
@@ -181,12 +190,31 @@ class FlowRateCalculator():
                                     max_iterations = 200
                                     tolerance = 0.0001
                                     
-                                    mass_rate_guess = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1 - self.ones_count, 'value'], self.specs["min_thermal_power"]) / 1.0
+                                    mass_rate_guess = self.mass_rate_test * max(
+                                        self.processor.averaged_df.loc[
+                                            self.time_step - 1 - self.ones_count,
+                                            'value',
+                                        ],
+                                        self.specs["min_thermal_power"],
+                                    ) / 1.0
                                     
                                     for iter_count in range(max_iterations):
                                         self.surface.mass_rate = mass_rate_guess * self.scaling_factor
-                                        self.surface.inlet_fluid.updatePT(P=self.pro_well.outlet_fluid.P, T=self.pro_well.outlet_fluid.T)
-                                        self.surface.stream_interface()
+                                        try:
+                                            self.surface.inlet_fluid.updatePT(
+                                                P=self.pro_well.outlet_fluid.P,
+                                                T=self.pro_well.outlet_fluid.T,
+                                            )
+                                        except CoolPropError as cpe:
+                                            raise CoolPropError(
+                                                "`self.surface.inlet_fluid.updatePT` failed",
+                                            ) from cpe
+                                        try:
+                                            self.surface.stream_interface()
+                                        except CoolPropError as cpe:
+                                            raise CoolPropError(
+                                                f"`self.surface.stream_interface` failed\n\t{cpe}"
+                                            ) from cpe
                                         
                                         prev_thermal_power = 0.0
                                         for node_name, node in self.surface.power_plant.nodes.items():
@@ -195,7 +223,13 @@ class FlowRateCalculator():
                                                 # break
                                         
                                         if prev_thermal_power > 0.0001:  # Small positive threshold
-                                            target_mass_rate = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1 - self.ones_count, 'value'], self.specs["min_thermal_power"]) / prev_thermal_power
+                                            target_mass_rate = self.mass_rate_test * max(
+                                                self.processor.averaged_df.loc[
+                                                    self.time_step - 1 - self.ones_count,
+                                                    "value",
+                                                ],
+                                                self.specs["min_thermal_power"],
+                                            ) / prev_thermal_power
                                             
                                             if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.000001) < tolerance:
                                                 mass_rate = target_mass_rate
@@ -214,7 +248,9 @@ class FlowRateCalculator():
                                 else:
                                     mass_rate = self.fracing_flow()
                         else:
-                            raise ValueError(f"Time step {self.time_step} exceeds dt_list length {len(self.specs['dt_list'])}. Cannot access dt_list[{self.time_step - 1}]")
+                            raise ValueError(
+                                f"Time step {self.time_step} exceeds dt_list length "
+                                    + f"{len(self.specs['dt_list'])}. Cannot access dt_list[{self.time_step - 1}]")
                     else:
                         if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
                             max_iterations = 10
@@ -224,8 +260,21 @@ class FlowRateCalculator():
                             
                             for iter_count in range(max_iterations):
                                 self.surface.mass_rate = mass_rate_guess * self.scaling_factor
-                                self.surface.inlet_fluid.updatePT(P=self.pro_well.outlet_fluid.P, T=self.pro_well.outlet_fluid.T)
-                                self.surface.stream_interface()
+                                try:
+                                    self.surface.inlet_fluid.updatePT(
+                                        P=self.pro_well.outlet_fluid.P,
+                                        T=self.pro_well.outlet_fluid.T,
+                                    )
+                                except CoolPropError as cpe:
+                                    raise CoolPropError(
+                                        "`self.surface.inlet_fluid.updatePT` failed",
+                                    ) from cpe
+                                try:
+                                    self.surface.stream_interface()
+                                except CoolPropError as cpe:
+                                    raise CoolPropError(
+                                        f"`self.surface.stream_interface` failed\n\t{cpe}",
+                                    ) from cpe
                                 
                                 prev_thermal_power = 0.0
                                 for node_name, node in self.surface.power_plant.nodes.items():
@@ -235,7 +284,10 @@ class FlowRateCalculator():
                                 
                                 # Check if thermal power is positive
                                 if prev_thermal_power > 0.001:
-                                    target_mass_rate = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1, 'value'], self.specs["min_thermal_power"]) / prev_thermal_power
+                                    target_mass_rate = self.mass_rate_test * max(
+                                        self.processor.averaged_df.loc[self.time_step - 1, 'value'],
+                                        self.specs["min_thermal_power"],
+                                    ) / prev_thermal_power
                                     
                                     if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.001) < tolerance:
                                         mass_rate = target_mass_rate
@@ -258,7 +310,7 @@ class FlowRateCalculator():
                         if (mass_rate > self.fracing_flow()):
                             mass_rate = self.fracing_flow()
                 elif (self.reservoir.specs.mass_rate['type'] == 'manual_func'):
-                    mass_rate = funcs[self.reservoir.specs.mass_rate['function']] 
+                    mass_rate = funcs[self.reservoir.specs.mass_rate['function']]
                     if (self.reservoir.specs.bc_iteration['check_fracing']):
                         if (mass_rate > self.fracing_flow()):
                             mass_rate = self.fracing_flow()
@@ -271,11 +323,21 @@ class FlowRateCalculator():
                 if (self.scaling_factor == 4.0):
                     self.reservoir.m_dot_mult = 1.0
 
-            self.reservoir.inlet_fluid.updatePT(
-                P=self.inj_well.outlet_fluid.P,
-                T=self.inj_well.outlet_fluid.T,
-            )
-            self.reservoir.stream_interface()
+            try:
+                self.reservoir.inlet_fluid.updatePT(
+                    P=self.inj_well.outlet_fluid.P,
+                    T=self.inj_well.outlet_fluid.T,
+                )
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    "`self.reservoir.inlet_fluid.updatePT` failed",
+                ) from cpe
+            try:
+                self.reservoir.stream_interface()
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    f"`self.reservoir.stream_interface` failed\n\t{cpe}",
+                ) from cpe
 
             # Update production well
             print(
@@ -292,17 +354,17 @@ class FlowRateCalculator():
                     P=self.reservoir.outlet_fluid.P,
                     T=self.reservoir.outlet_fluid.T,
                 )
-            except ValueError as cp_err:
-                if P_SAT_ERR_TEST.search(str(cp_err)) is not None:
+            except ValueError as cpe:
+                if P_SAT_ERR_TEST.search(str(cpe)) is not None:
                     raise self.get_p_sat_err()
                 else:
-                    raise cp_err
+                    raise cpe
             try:
                 self.pro_well.stream_interface()
-            except CoolPropError as cp_err:
+            except CoolPropError as cpe:
                 raise CoolPropError(
-                    f"\n\tUnable to solve production well stream interface\n{cp_err}"
-                ) from cp_err
+                    f"\n\tUnable to solve production well stream interface\n\t{cpe}",
+                ) from cpe
 
             # If pump exists, apply pump logic
             if self.pro_well_pump:
@@ -324,13 +386,13 @@ class FlowRateCalculator():
                             P=self.pro_well.outlet_fluid.P + pump_dp,
                             T=self.pro_well.outlet_fluid.T,
                         )
-                    except ValueError as cp_err:
-                        if (P_SAT_ERR_TEST.search(str(cp_err)) is not None) and (pump_dp != 0.0):
+                    except ValueError as cpe:
+                        if (P_SAT_ERR_TEST.search(str(cpe)) is not None) and (pump_dp != 0.0):
                             if i == num_dp_iter - 1:
                                 # if it's the last iteration, this error will not be solved
                                 raise CoolPropError(
                                     "Error in final iteration of pump pressure delta calculation",
-                                ) from cp_err
+                                ) from cpe
                             # increment `pump_dp` because it may prevent this error in the next iter
                             pump_dp += (
                                 self.surface.specs.target_extraction_pressure
@@ -339,13 +401,18 @@ class FlowRateCalculator():
                             continue  # to the next iteration
                         else:
                             # if `pump_dp` is zero, this will not be solved in the next iteration
-                            if (P_SAT_ERR_TEST.search(str(cp_err)) is not None):
+                            if (P_SAT_ERR_TEST.search(str(cpe)) is not None):
                                 raise self.get_p_sat_err()
                             else:
-                                raise cp_err
+                                raise cpe
 
                     # Solve pump in streamwise direction
-                    self.pro_well_pump.stream_interface()
+                    try:
+                        self.pro_well_pump.stream_interface()
+                    except CoolPropError as cpe:
+                        raise CoolPropError(
+                            f"\n\tProduction well pump `stream_interface` calculation failed\n\t{cpe}",
+                        ) from cpe
 
                     if (
                         (pump_dp == 0.0)
@@ -373,8 +440,18 @@ class FlowRateCalculator():
                 self.surface.power_plant.iterative_inj_pressure = self.test_p
             else:
                 self.surface.iterative_inj_pressure = self.test_p
-            self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
-            self.surface.stream_interface()
+            try:
+                self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    "`self.surface.inlet_fluid.updatePT` failed"
+                ) from cpe
+            try:
+                self.surface.stream_interface()
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    f"`self.surface.stream_interface` failed\n\t{cpe}"
+                ) from cpe
             self.mass_rate_test = self.surface.mass_rate
 
             if prev_test_p is not None and prev_mass_rate is not None and prev_inlet_p is not None:
@@ -394,7 +471,7 @@ class FlowRateCalculator():
             raise RuntimeError(
                 f"Convergence not reached after {iterations} iterations. "
                 f"Final relative differences: test_p={rel_tol_test_p:.6f}, "
-                f"mass_rate={rel_tol_mass_rate:.6f}, inlet_p={rel_tol_inlet_p:.6f}"
+                f"mass_rate={rel_tol_mass_rate:.6f}, inlet_p={rel_tol_inlet_p:.6f}",
             )
 
         if self.pro_well_pump:
@@ -407,7 +484,7 @@ class FlowRateCalculator():
     def get_p_sat_err(self):
         """Get formatted saturation pressure error"""
         return CoolPropError(
-            """\n\tProduction well pump inlet is at vaporization threshold.
+            f"""\n\tProduction well pump inlet is at vaporization threshold.
             Troubleshooting steps:
             - check for flow restrictions
             - try removing the production well pump because the thermosiphon effect is sufficient
