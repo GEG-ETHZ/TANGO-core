@@ -136,8 +136,18 @@ class SystemCPGNative(SystemNative):
         elif self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
             raise NotImplementedError(f"injection_well_bottom checkpoint is not supperted in native workflow!")
 
-        outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
-        self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
+            self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}"
+            ) from cpe
+        except Exception as err:
+            raise CoolPropError(
+                "Surface `process_stream` or `outlet_fluid.updatePT` failed"
+            ) from err
+        
 
     def update_time_dependent_vars(self) -> None:
         """
@@ -222,26 +232,32 @@ class SystemORCNative(SystemNative):
         count = 0
 
         while np.abs(dP_reservoir) > self._CONVERGENCE_CRIT_DP_RESERVOIR:
-            if self.max_itr_reached(count):
-                break
-            x_lst.append(copy.deepcopy(self.unit.injection_well.inlet_fluid.P))
-            y_lst.append(dP_reservoir)
-            if len(x_lst) == 1:
-                root = x_lst[0] + dP_reservoir
-            else:
-                root = newton(x_lst, y_lst)
-                x_lst.pop(0), y_lst.pop(0)
-            self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
-            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.injection_well.process_stream()
-            self.unit.injection_well.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
-            self.unit.reservoir.update_inlet_state()
             try:
+                if self.max_itr_reached(count):
+                    break
+                x_lst.append(copy.deepcopy(self.unit.injection_well.inlet_fluid.P))
+                y_lst.append(dP_reservoir)
+                if len(x_lst) == 1:
+                    root = x_lst[0] + dP_reservoir
+                else:
+                    root = newton(x_lst, y_lst)
+                    x_lst.pop(0), y_lst.pop(0)
+                self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
+                outlet_enthalpy, outlet_pressure, mass_rate = self.unit.injection_well.process_stream()
+                self.unit.injection_well.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+                self.unit.reservoir.update_inlet_state()
                 self.unit.reservoir.stream_interface()
+                self.unit.reservoir.update_outlet_streams()
+                dP_reservoir = self.unit.reservoir.get_del_pressure()
+                count += 1
             except CoolPropError as cpe:
-                raise CoolPropError(f"`reservoir.stream_interface()` failed\n\t{cpe}") from cpe
-            self.unit.reservoir.update_outlet_streams()
-            dP_reservoir = self.unit.reservoir.get_del_pressure()
-            count += 1
+                raise CoolPropError(
+                    f"`_update_injection_well_inlet_P` failed on iteration {count}\n\t{cpe}"
+                ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    f"`_update_injection_well_inlet_P` failed on iteration {count}"
+                ) from err
 
     def _compute_dP_surface(self) -> float:
         """
@@ -338,10 +354,20 @@ class SystemORCNative(SystemNative):
             else:
                 root = newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            self.unit.production_well_pump.set_dP_pump(root)
-            self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
-            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
-            self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+            try:
+                self.unit.production_well_pump.set_dP_pump(root)
+                self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
+                outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
+                self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+            except CoolPropError as cpe:
+                raise CoolPropError(
+                    f"`_update_production_well_pump` failed on iteration {count}\n\t{cpe}"
+                ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    f"`_update_production_well_pump` failed on iteration {count}"
+                ) from err
+            
             self.unit.surface.update_inlet_state()
             self.unit.surface.overwrite_state_pipe()
             dP_pump = self.unit.production_well_pump.get_dP_pump()

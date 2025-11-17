@@ -101,9 +101,18 @@ class WellUnitNative(Unit, FlowResistance):
         Processes the fluid stream to update enthalpy, pressure, and mass rate, and prints
         the inlet and outlet fluid properties.
         """
-        outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+        try:
+            outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream()
+            self.mass_rate = mass_rate
+            self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Well `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        except Exception as err:
+            raise type(err)(
+                "Well `stream_interface` failed"
+            ) from err
 
     def process_stream(self) -> tuple:
         r"""

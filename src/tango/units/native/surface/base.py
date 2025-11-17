@@ -1,4 +1,5 @@
 from tango.core.abstracts.unit import *
+from tango.core.errors import CoolPropError
 
 
 class SurfaceUnitNative(Unit):
@@ -43,11 +44,20 @@ class SurfaceUnitNative(Unit):
         This function processes the stream to compute outlet properties based on inlet conditions
         and displays the inlet and outlet fluid states.
         """
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-        self.P = self.outlet_fluid.P
-        self.H = self.outlet_fluid.H
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+            self.mass_rate = mass_rate
+            self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+            self.P = self.outlet_fluid.P
+            self.H = self.outlet_fluid.H
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Surface `stream_interface` failed\n\t{cpe}"
+            )
+        except Exception as err:
+            raise type(err)(
+                "Surface `stream_interface` failed"
+            ) from err
 
     def update_inlet_state(self) -> None:
         r"""

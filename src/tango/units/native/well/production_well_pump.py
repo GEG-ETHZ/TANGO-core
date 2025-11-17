@@ -1,6 +1,7 @@
 from tango.core import FluidState
 from tango.core.constants import MAX_PRD_PUMP_DP
 from tango.units.native.well import *
+from tango.core.errors import CoolPropError
 
 
 class ProductionWellPumpUnitNative(ProductionWellUnitNative):
@@ -57,8 +58,14 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         This method processes the fluid stream through the pump, calculating the outlet enthalpy,
         pressure, and mass rate, and updating the outlet fluid state accordingly.
         """
-        outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
-        self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+        try:
+            outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
+            self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Production well pump `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        
 
     def process_stream_pump(self) -> tuple:
         """
@@ -70,10 +77,19 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         Returns:
             tuple: (float, float, float) representing the outlet enthalpy, outlet pressure, and mass rate.
         """
-        self._set_inlet_pressure()
-        self.update_inlet_fluid_state_with_pump()
-        h_out, P_out, m_rate = self.process_stream()
-        self._update_w_pump()
+        try:
+            self._set_inlet_pressure()
+            self.update_inlet_fluid_state_with_pump()
+            h_out, P_out, m_rate = self.process_stream()
+            self._update_w_pump()
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Production well pump `process_stream_pump` failed\n\t{cpe}"
+            )
+        except Exception as err:
+            raise type(err)(
+                "Production well pump `process_stream_pump` failed"
+            ) from err
 
         return h_out, P_out, m_rate
 

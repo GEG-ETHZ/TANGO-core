@@ -1,13 +1,15 @@
 import numpy as np
 from math import erfc
 from math import e as exp
+import csv
+import os
+import logging
+
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
 from tango.units.dataclasses import ReservoirSpecsNative
-import csv
-import os
-import logging
+
 
 class ReservoirFileReaderUnit(Unit):
     """
@@ -62,8 +64,10 @@ class ReservoirFileReaderUnit(Unit):
         This method retrieves the pressure, temperature, and mass rate from the current row and updates
         the outlet fluid properties.
         """
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+            self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        except Cool
 
     def process_stream(self) -> tuple:
         """

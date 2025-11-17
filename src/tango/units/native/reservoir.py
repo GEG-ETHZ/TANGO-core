@@ -7,6 +7,7 @@ from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import Unit, FlowResistance 
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
+from tango.core.errors import CoolPropError
 
 import csv
 import os
@@ -86,9 +87,18 @@ class ReservoirUnitNative(Unit, FlowResistance):
         Warnings:
             If the mass rate exceeds the fracking mass rate, the user is prompted to select an action.
         """
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+            self.mass_rate = mass_rate
+            self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"Reservoir `stream_interface` failed\n\t{cpe}"
+            )
+        except Exception as err:
+            raise type(err)(
+                "Reservoir `stream_interface` failed"
+            ) from err
 
     def process_stream(self) -> tuple:
         r"""
