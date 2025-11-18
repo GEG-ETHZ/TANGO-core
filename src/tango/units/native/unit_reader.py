@@ -8,6 +8,7 @@ import logging
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import *
+from tango.core.errors import CoolPropError
 from tango.units.dataclasses import ReservoirSpecsNative
 
 
@@ -67,7 +68,14 @@ class ReservoirFileReaderUnit(Unit):
         try:
             outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
             self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-        except Cool
+        except CoolPropError as cpe:
+            raise CoolPropError(
+                f"ReservoirFileReaderUnit `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        except Exception as err:
+            raise type(err)(
+                "ReservoirFileReaderUnit `stream_interface` failed"
+            ) from err
 
     def process_stream(self) -> tuple:
         """

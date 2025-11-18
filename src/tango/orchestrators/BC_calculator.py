@@ -155,6 +155,10 @@ class FlowRateCalculator():
                 raise CoolPropError(
                     f"`self.inj_well.update_inlet_fluid_state_PT` failed\n\t{cpe}",
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.inj_well.update_inlet_fluid_state_PT` failed"
+                ) from err
 
             try:
                 self.inj_well.stream_interface()
@@ -162,6 +166,10 @@ class FlowRateCalculator():
                 raise CoolPropError(
                     f"`self.inj_well.stream_interface` failed\n\t{cpe}",
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.inj_well.stream_interface` failed"
+                ) from err
 
             if (self.reservoir.specs.mass_rate['type'] != 'manual'):
                 self.test_p += (target_p - self.inj_well.outlet_fluid.P)
@@ -209,12 +217,20 @@ class FlowRateCalculator():
                                             raise CoolPropError(
                                                 "`self.surface.inlet_fluid.updatePT` failed",
                                             ) from cpe
+                                        except Exception as err:
+                                            raise type(err)(
+                                                "`self.surface.inlet_fluid.updatePT` failed"
+                                            ) from err
                                         try:
                                             self.surface.stream_interface()
                                         except CoolPropError as cpe:
                                             raise CoolPropError(
                                                 f"`self.surface.stream_interface` failed\n\t{cpe}"
                                             ) from cpe
+                                        except Exception as err:
+                                            raise type(err)(
+                                                "`self.surface.stream_interface` failed"
+                                            ) from err
                                         
                                         prev_thermal_power = 0.0
                                         for node_name, node in self.surface.power_plant.nodes.items():
@@ -269,12 +285,20 @@ class FlowRateCalculator():
                                     raise CoolPropError(
                                         "`self.surface.inlet_fluid.updatePT` failed",
                                     ) from cpe
+                                except Exception as err:
+                                    raise type(err)(
+                                        "`self.surface.inlet_fluid.updatePT` failed"
+                                    ) from err
                                 try:
                                     self.surface.stream_interface()
                                 except CoolPropError as cpe:
                                     raise CoolPropError(
                                         f"`self.surface.stream_interface` failed\n\t{cpe}",
                                     ) from cpe
+                                except Exception as err:
+                                    raise type(err)(
+                                        "`self.surface.stream_interface` failed"
+                                    ) from err
                                 
                                 prev_thermal_power = 0.0
                                 for node_name, node in self.surface.power_plant.nodes.items():
@@ -332,12 +356,20 @@ class FlowRateCalculator():
                 raise CoolPropError(
                     "`self.reservoir.inlet_fluid.updatePT` failed",
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.reservoir.inlet_fluid.updatePT` failed"
+                ) from err
             try:
                 self.reservoir.stream_interface()
             except CoolPropError as cpe:
                 raise CoolPropError(
                     f"`self.reservoir.stream_interface` failed\n\t{cpe}",
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.reservoir.stream_interface` failed"
+                ) from err
 
             # Update production well
             print(
@@ -365,6 +397,10 @@ class FlowRateCalculator():
                 raise CoolPropError(
                     f"\n\tUnable to solve production well stream interface\n\t{cpe}",
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "\n\tUnable to solve production well stream interface"
+                ) from err
 
             # If pump exists, apply pump logic
             if self.pro_well_pump:
@@ -413,6 +449,10 @@ class FlowRateCalculator():
                         raise CoolPropError(
                             f"\n\tProduction well pump `stream_interface` calculation failed\n\t{cpe}",
                         ) from cpe
+                    except Exception as err:
+                        raise type(err)(
+                            "\n\tProduction well pump `stream_interface` calculation failed"
+                        ) from err
 
                     if (
                         (pump_dp == 0.0)
@@ -446,12 +486,20 @@ class FlowRateCalculator():
                 raise CoolPropError(
                     "`self.surface.inlet_fluid.updatePT` failed"
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.surface.inlet_fluid.updatePT` failed"
+                ) from err
             try:
                 self.surface.stream_interface()
             except CoolPropError as cpe:
                 raise CoolPropError(
                     f"`self.surface.stream_interface` failed\n\t{cpe}"
                 ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    "`self.surface.stream_interface` failed"
+                ) from err
             self.mass_rate_test = self.surface.mass_rate
 
             if prev_test_p is not None and prev_mass_rate is not None and prev_inlet_p is not None:

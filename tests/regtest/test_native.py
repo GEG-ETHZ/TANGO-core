@@ -6,6 +6,7 @@
 
 import os
 from pathlib import Path
+from collections.abc import Sequence
 
 import pandas as pd
 import pytest
@@ -110,33 +111,81 @@ def test_examples(file_and_value: tuple[Path, float]):
     rm_output_files(file)
 
 
-def files_and_msgs_failing() -> list[tuple[Path, str]]:
+def files_and_msgs_failing() -> list[tuple[Path, Sequence[str]]]:
     """Return list paths to examples that should fail"""
     files_and_errors = [
         (
+            "flexible_DF_manual_0p1_inj.yml",
+            [
+                "unit: injection_wellbore",
+                "Well `stream_interface` failed",
+                "cell: 1 of 100",
+                "Absolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa",
+            ],
+        ),
+        (
+            "flexible_DF_manual_0p1_pro.yml",
+            [
+                "unit: production_wellbore_lower",
+                "Well `stream_interface` failed",
+                "cell: 4 of 100",
+                "Absolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa",
+            ],
+        ),
+        (
+            "flexible_DF_manual_narrow_inj.yml",
+            ["Production well pump inlet is at vaporization threshold."],
+        ),
+        (
             "flexible_SF_manual_0p1_inj.yml",
-            "\n\tunit: injection_wellbore"
-                + "\n\tcell: 1 of 100"
-                + "\n\tAbsolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa"
-                + "\n            Troubleshooting steps:",
+            [
+                "unit: injection_wellbore",
+                "Well `stream_interface` failed",
+                "cell: 1 of 100",
+                "Absolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa",
+            ],
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            "\n\tunit: production_well_lower"
-                + "\n\tcell: 4 of 100"
-                + "\n\tAbsolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa"
-                + "\n            Troubleshooting steps:",
+            [
+                "unit: production_well_lower",
+                "Well `stream_interface` failed",
+                "cell: 4 of 100",
+                "Absolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa",
+            ],
+        ),
+        (
+            "flexible_SF_manual_0p1_pump.yml",
+            [
+                "unit: production_well_upper",
+                "Production well pump `stream_interface` failed",
+                "Production well pump `process_stream_pump` failed",
+                "cell: 5 of 100",
+                "Absolute pressure (-8.7551e+05 Pa) must be greater than or equal to 0.0 Pa",
+            ]
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            "\n\tProduction well pump inlet is at vaporization threshold."
-                + "\n            Troubleshooting steps:",
+            ("Production well pump inlet is at vaporization threshold."),
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            "\n\tUnable to solve production well stream interface"
-                + "\n\tcell: 94 of 100"
-                + "\n\tAbsolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa",
+            [
+                "Unable to solve production well stream interface",
+                "Well `stream_interface` failed",
+                "cell: 94 of 100",
+                "Absolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa",
+            ],
+        ),
+        (
+            "flexible_SF_manual_narrow_pump.yml",
+            [
+                "Production well pump `stream_interface` calculation failed",
+                "Production well pump `stream_interface` failed",
+                "Production well pump `process_stream_pump` failed",
+                "cell: 97 of 100",
+                "Absolute pressure (-1.1344e+06 Pa) must be greater than or equal to 0.0 Pa",
+            ],
         ),
     ]
     filepaths_and_msgs = [
@@ -151,16 +200,16 @@ def files_and_msgs_failing() -> list[tuple[Path, str]]:
     files_and_msgs_failing(),
     ids=[fv[0].name for fv in files_and_msgs_failing()],
 )
-def test_failing_examples(file_and_msg_failing: tuple[Path, str]):
+def test_failing_examples(file_and_msg_failing: tuple[Path, list[str]]):
     """Test files that are expected to fail"""
     file = file_and_msg_failing[0]
-    msg = file_and_msg_failing[1]
+    msgs = file_and_msg_failing[1]
 
     try:
         run(file)
         raise Exception("Should be unreachable")
     except Exception as err:
-        assert msg in str(err)
+        assert all(msg in str(err) for msg in msgs)
         rm_output_files(file)
 
 # NOTE: these were commented when Chad first started working on TANGO with no explanation

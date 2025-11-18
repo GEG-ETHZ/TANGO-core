@@ -10,11 +10,11 @@ import numpy as np
 from tqdm import tqdm
 
 from tango.utils import load_from_yaml_with_overrides
+from tango.core.errors import CoolPropError
 from tango.core.abstracts.workflow import Workflow
 from tango.core.abstracts.unit import FlowResistance
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
-from tango.core.errors import CoolPropError
 from tango.optimizerr import Optimizer
 
 WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {

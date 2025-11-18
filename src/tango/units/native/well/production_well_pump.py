@@ -65,7 +65,10 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
             raise CoolPropError(
                 f"Production well pump `stream_interface` failed\n\t{cpe}"
             ) from cpe
-        
+        except Exception as err:
+            raise type(err)(
+                "Production well pump `stream_interface` failed"
+            ) from err
 
     def process_stream_pump(self) -> tuple:
         """

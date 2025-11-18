@@ -144,7 +144,7 @@ class SystemCPGNative(SystemNative):
                 f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}"
             ) from cpe
         except Exception as err:
-            raise CoolPropError(
+            raise type(err)(
                 "Surface `process_stream` or `outlet_fluid.updatePT` failed"
             ) from err
         
@@ -289,36 +289,64 @@ class SystemORCNative(SystemNative):
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.update_inlet_state` failed"
+            ) from err
         try:
             self.unit.production_well.stream_interface()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.stream_interface` failed"
+            ) from err
         try:
             self.unit.production_well.update_outlet_streams()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.update_outlet_streams` failed"
+            ) from err
         try:
             self.unit.production_well_pump.update_inlet_state()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well_pump.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.update_inlet_state` failed"
+            ) from err
         try:
             self.unit.production_well_pump.stream_interface()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well_pump.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.stream_interface` failed"
+            ) from err
         try:
             self.unit.production_well_pump.update_outlet_streams()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.production_well_pump.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.update_outlet_streams` failed"
+            ) from err
         try:
             self._update_production_well_pump()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self._update_production_well_pump` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self._update_production_well_pump` failed"
+            ) from err
 
     def _update_production_well_pump(self) -> None:
         """
@@ -388,18 +416,34 @@ class SystemORCNative(SystemNative):
             self.unit.surface.update_inlet_state()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_inlet_state` failed"
+            ) from err
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.stream_interface` failed"
+            ) from err
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_outlet_streams` failed"
+            ) from err
         try:
             self.unit.injection_well.update_inlet_state()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.injection_well.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.injection_well.update_inlet_state` failed"
+            ) from err
 
     def _update_injection_well_inlet_T(self) -> None:
         """Perform local iterations to update the injection well inlet temperature.
@@ -424,15 +468,27 @@ class SystemORCNative(SystemNative):
             self.unit.surface.update_inlet_state()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_inlet_state` failed"
+            ) from err
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
             raise CoolPropError(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.stream_interface` failed"
+            ) from err
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
             raise CoolPropError(
                 f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_outlet_streams` failed"
+            ) from err
 
         dT_surface = self.unit.injection_well.get_del_temperature(
             T=self.unit.surface.outlet_fluid.T

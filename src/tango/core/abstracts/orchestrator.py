@@ -162,22 +162,29 @@ class UnitManager(ABC):
                 try:
                     self._update_node(self.graph.nodes[src_id])
                 except CoolPropError as err:
-                    self.raise_cperr_with_cntxt(err, node)
+                    new_err = CoolPropError(
+                        f"\n\tunit: {node['id']}\n\t{err}"
+                    )
+                    raise new_err from err
+                except Exception as err:
+                    raise type(err)(
+                        f"\n\tunit: {node['id']}"
+                    ) from err
         try:
             node["unit"].update_inlet_state()
             node["unit"].stream_interface()
             node["unit"].update_outlet_streams()
         except CoolPropError as err:
-            self.raise_cperr_with_cntxt(err, node)
+            new_err = CoolPropError(
+                f"\n\tunit: {node['id']}\n\t{err}"
+            )
+            raise new_err from err
+        except Exception as err:
+            raise type(err)(
+                f"\n\tunit: {node['id']}"
+            ) from err
 
         node["visited"] = True
-
-    def raise_cperr_with_cntxt(self, err: CoolPropError, node) -> None:
-        """Raise `CoolPropError` with context"""
-        new_err = CoolPropError(
-            f"\n\tunit: {node['id']}\n\t{err}"
-        )
-        raise new_err from err
 
     def _source_nodes(self, node) -> list:
         """
