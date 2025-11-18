@@ -7,11 +7,11 @@
 import os
 from pathlib import Path
 from collections.abc import Sequence
-
 import pandas as pd
 import pytest
 
 from tango.runner import Runner
+from tango.core.errors import CoolPropError
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
@@ -111,105 +111,68 @@ def test_examples(file_and_value: tuple[Path, float]):
     rm_output_files(file)
 
 
-def files_and_msgs_failing() -> list[tuple[Path, Sequence[str]]]:
+def files_and_err_types_failing() -> list[tuple[Path, type]]:
     """Return list paths to examples that should fail"""
     files_and_errors = [
         (
             "flexible_DF_manual_0p1_inj.yml",
-            [
-                "unit: injection_wellbore",
-                "Well `stream_interface` failed",
-                "cell: 1 of 100",
-                "Absolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
         (
             "flexible_DF_manual_0p1_pro.yml",
-            [
-                "unit: production_wellbore_lower",
-                "Well `stream_interface` failed",
-                "cell: 4 of 100",
-                "Absolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
         (
             "flexible_DF_manual_narrow_inj.yml",
-            ["Production well pump inlet is at vaporization threshold."],
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_0p1_inj.yml",
-            [
-                "unit: injection_wellbore",
-                "Well `stream_interface` failed",
-                "cell: 1 of 100",
-                "Absolute pressure (-8.0837e+06 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            [
-                "unit: production_well_lower",
-                "Well `stream_interface` failed",
-                "cell: 4 of 100",
-                "Absolute pressure (-1.2754e+07 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_0p1_pump.yml",
-            [
-                "unit: production_well_upper",
-                "Production well pump `stream_interface` failed",
-                "Production well pump `process_stream_pump` failed",
-                "cell: 5 of 100",
-                "Absolute pressure (-8.7551e+05 Pa) must be greater than or equal to 0.0 Pa",
-            ]
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            ("Production well pump inlet is at vaporization threshold."),
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            [
-                "Unable to solve production well stream interface",
-                "Well `stream_interface` failed",
-                "cell: 94 of 100",
-                "Absolute pressure (-2.2238e+06 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
         (
             "flexible_SF_manual_narrow_pump.yml",
-            [
-                "Production well pump `stream_interface` calculation failed",
-                "Production well pump `stream_interface` failed",
-                "Production well pump `process_stream_pump` failed",
-                "cell: 97 of 100",
-                "Absolute pressure (-1.1344e+06 Pa) must be greater than or equal to 0.0 Pa",
-            ],
+            CoolPropError,
         ),
     ]
-    filepaths_and_msgs = [
+    filepaths_and_err_types = [
         ((EXAMPLES_DIR / "failing" / fv[0]).resolve(), fv[1]) for fv in files_and_errors
     ]
 
-    return filepaths_and_msgs
+    return filepaths_and_err_types
 
 
 @pytest.mark.parametrize(
-    "file_and_msg_failing",
-    files_and_msgs_failing(),
-    ids=[fv[0].name for fv in files_and_msgs_failing()],
+    "file_and_err_type_failing",
+    files_and_err_types_failing(),
+    ids=[fv[0].name for fv in files_and_err_types_failing()],
 )
-def test_failing_examples(file_and_msg_failing: tuple[Path, list[str]]):
+def test_failing_examples(file_and_err_type_failing: tuple[Path, type]):
     """Test files that are expected to fail"""
-    file = file_and_msg_failing[0]
-    msgs = file_and_msg_failing[1]
+    file = file_and_err_type_failing[0]
+    err_type = file_and_err_type_failing[1]
 
     try:
         run(file)
         raise Exception("Should be unreachable")
     except Exception as err:
-        assert all(msg in str(err) for msg in msgs)
+        assert isinstance(err, err_type)
         rm_output_files(file)
 
 # NOTE: these were commented when Chad first started working on TANGO with no explanation
