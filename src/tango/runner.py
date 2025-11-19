@@ -424,9 +424,8 @@ class Tango:
                 str(cpe)
                 + "\n\tApprox. flow resistances, scaled relative to sum of module resistances"
                 + "\n\tNOTES:"
-                + "\n\t- the reservoir is expected to have the highest resistance by"
-                + "\n\t  a few orders of magnitude in normal operation"
-                + "\n\t- Resistances are calculated assuming laminar flow to avoid needing"
+                + "\n\t- the reservoir is expected to dominate total system resistance"
+                + "\n\t- Resistances are calculated based solely on system specs to avoid needing"
                 + "\n\t  fluid properties, in case property calculations fail, and should thus be "
                 + "\n\t  considered approximate."
                 + "\n\t- Total injection well resistance and production well resistance should"
@@ -434,7 +433,7 @@ class Tango:
                 + "\n\tVALUES:\n\t\t"
                 + res_str
             )
-            raise CoolPropError(new_err)
+            raise CoolPropError(new_err) from cpe
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 
