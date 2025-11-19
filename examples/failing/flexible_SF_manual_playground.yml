@@ -197,7 +197,7 @@ valve:
   p_out: 0.5
 
 turbine:
-  efficiency: 1.0
+  efficiency: 10.0
   p_out: 0.05
 
 condenser:
