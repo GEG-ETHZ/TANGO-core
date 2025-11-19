@@ -398,7 +398,6 @@ class PowerPlant:
                     connection_attributes['T'] = T_out_value
 
             elif component_type == 'Turbine':
-
                 component_label = source_component.label
                 turbine_config = self.config.get(component_label, {})
                 if 'p_out' in turbine_config:
