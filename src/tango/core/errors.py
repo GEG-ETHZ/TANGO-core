@@ -27,6 +27,50 @@ class SubzeroStateVarError(CoolPropError):
     pass
 
 
+class SubzeroPressureError(SubzeroStateVarError):
+    """Error caused by failed property evaluation due non-physical negative pressure"""
+
+    pass
+
+
+class SubzeroTempError(SubzeroStateVarError):
+    """Error caused by failed property evaluation due non-physical negative absolute temperature"""
+
+    pass
+
+
+class SubzeroPandTError(SubzeroPressureError, SubzeroTempError):
+    """Error caused by failed property evaluation due non-physical negative pressure and temperature"""
+
+    pass
+
+
+class InvalidEnthalpyError(SubzeroStateVarError):
+    """Error caused by failed property evaluation due non-physical enthalpy"""
+
+    pass
+
+
+class InvalidPandHError(SubzeroPressureError, InvalidEnthalpyError):
+    """Error caused by failed property evaluation due non-physical negative pressure and non-physical
+    enthalpy
+    """
+
+    pass
+
+
+class InvalidEntropyError(SubzeroStateVarError):
+    """Error caused by failed property evaluation due non-physical entropy"""
+
+    pass
+
+
+class InvalidPandSError(SubzeroPressureError, InvalidEntropyError):
+    """Error caused by failed property evaluation due non-physical negative pressure and entropy"""
+
+    pass
+
+
 class TangoValueError(TangoError, ValueError):
     """ValueError that needs to be handled"""
 
@@ -41,15 +85,17 @@ def check_feas_press(p: float) -> str | None:
     """
     if p < 0:
         msg = (
-            f"Absolute pressure ({p:.5g} Pa) must be greater than or equal to 0.0 Pa" +
-            """
-            Troubleshooting steps:
-            - check for flow restrictions
-            - increase the pressure at the injection wellhead (note: this can potentially exceed
-                fracture pressure limit of the subsurface caprock)
-            - reduce mass flow rate (note: this will reduce total power output and should only be
-                used if the other steps don't work)
-            """
+            f"Absolute pressure ({p:.5g} Pa) must be greater than or equal to 0.0 Pa"
+            # TODO: move this out to a higher level where mass flow rate control
+            # can be checked (either manual or automatic)
+            # """
+            # Troubleshooting steps:
+            # - check for flow restrictions
+            # - increase the pressure at the injection wellhead (note: this can potentially exceed
+            #     fracture pressure limit of the subsurface caprock)
+            # - reduce mass flow rate (note: this will reduce total power output and should only be
+            #     used if the other steps don't work)
+            # """
         )
         return msg
     return None
@@ -72,8 +118,9 @@ def check_feas_enthalpy(h: float) -> str | None:
     # Arguments:
     - `h`: specific enthalpy
     """
-    if h < 0:
-        return f"Specific enthalpy ({h:.5g} J/kg) must be greater than or equal to 0.0 J/kg"
+    # TODO: determine minimum enthalpy expected in geothermal system based on CoolProp reference state
+    # if h < 0:
+    #     return f"Specific enthalpy ({h:.5g} J/kg) must be greater than or equal to 0.0 J/kg"
     return None
 
 
@@ -81,10 +128,11 @@ def check_feas_entropy(s: float) -> str | None:
     """Check that specific entropy is non-negative
 
     # Arguments:
-    - `h`: specific entropy
+    - `s`: specific entropy
     """
-    if s < 0:
-        return f"Specific entropy ({s:.5g} J/(kg*K)) must be greater than or equal to 0.0 J/(kg*K)"
+    # TODO: determine minimum entropy expected in geothermal system based on CoolProp reference state
+    # if s < 0:
+    #     return f"Specific entropy ({s:.5g} J/(kg*K)) must be greater than or equal to 0.0 J/(kg*K)"
     return None
 
 # TODO: after verifying that quality should be in [0, 1], make a checker

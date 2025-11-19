@@ -3,6 +3,13 @@ import CoolProp
 from tango.core.errors import (
     CoolPropError,
     SubzeroStateVarError,
+    SubzeroPandTError,
+    SubzeroPressureError,
+    SubzeroTempError,
+    InvalidEnthalpyError,
+    InvalidPandHError,
+    InvalidEntropyError,
+    InvalidPandSError,
     check_feas_enthalpy,
     check_feas_entropy,
     check_feas_press,
@@ -57,13 +64,22 @@ class FluidState:
             state_copy.update(CoolProp.PT_INPUTS, state.P, state.T)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            p_err = False
+            t_err = False
             if (tango_err := check_feas_press(state.P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_temp(state.T)) is not None:
                 tango_errs.append(tango_err)
+                t_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and t_err:
+                    raise SubzeroPandTError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                if t_err:
+                    raise SubzeroTempError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -87,13 +103,22 @@ class FluidState:
             state.update(CoolProp.PT_INPUTS, P, T)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            p_err = False
+            t_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_temp(T)) is not None:
                 tango_errs.append(tango_err)
+                t_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and t_err:
+                    raise SubzeroPandTError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                if t_err:
+                    raise SubzeroTempError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -117,13 +142,23 @@ class FluidState:
             state.update(CoolProp.HmassP_INPUTS, H, P)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+
+            p_err = False
+            h_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_enthalpy(H)) is not None:
                 tango_errs.append(tango_err)
+                h_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and h_err:
+                    raise InvalidPandHError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                if h_err:
+                    raise InvalidEnthalpyError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -147,13 +182,22 @@ class FluidState:
             state.update(CoolProp.PSmass_INPUTS, P, S)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            p_err = False
+            s_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
-            if (tango_err := check_feas_enthalpy(S)) is not None:
+                p_err = True
+            if (tango_err := check_feas_entropy(S)) is not None:
                 tango_errs.append(tango_err)
+                s_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and s_err:
+                    raise InvalidPandSError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                if s_err:
+                    raise InvalidEntropyError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -177,11 +221,15 @@ class FluidState:
             state.update(CoolProp.PQ_INPUTS, P, Q)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            p_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                else:
+                    raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -205,11 +253,15 @@ class FluidState:
             state.update(CoolProp.QT_INPUTS, Q, T)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            t_err = False
             if (tango_err := check_feas_temp(T)) is not None:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if t_err:
+                    raise SubzeroTempError(msg) from cp_err
+                else:
+                    raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -227,13 +279,23 @@ class FluidState:
             self.cstate.update(CoolProp.PT_INPUTS, P, T)
         except ValueError as cp_err:
             tango_errs: list[str] = []
+            p_err = False
+            t_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_temp(T)) is not None:
                 tango_errs.append(tango_err)
+                t_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if t_err and p_err:
+                    raise SubzeroPandTError(msg) from cp_err
+                elif p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                elif t_err:
+                    raise SubzeroTempError(msg) from cp_err
+
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -271,13 +333,22 @@ class FluidState:
             self.cstate.update(CoolProp.PSmass_INPUTS, P, S)
         except ValueError as cp_err:
             tango_errs: list[str] = []
+            p_err = False
+            s_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_entropy(S)) is not None:
                 tango_errs.append(tango_err)
+                s_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and s_err:
+                    raise InvalidPandSError(msg) from cp_err
+                if p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                if s_err:
+                    raise InvalidEntropyError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -293,7 +364,7 @@ class FluidState:
             self.cstate.update(CoolProp.PQ_INPUTS, P, x)
         except ValueError as cp_err:
             if P < 0.0:
-                raise SubzeroStateVarError(
+                raise SubzeroPressureError(
                   "Absolute pressure must be greater than or equal to 0.0 Pa",
                 ) from cp_err
 
@@ -309,11 +380,17 @@ class FluidState:
             self.cstate.update(CoolProp.QT_INPUTS, x, T)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
+            t_err = False
             if (tango_err := check_feas_temp(T)) is not None:
                 tango_errs.append(tango_err)
+                t_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if t_err:
+                    raise SubzeroTempError(msg) from cp_err
+                else:
+                    # unreachable
+                    pass
             else:
                 raise CoolPropError(str(cp_err))
 
