@@ -140,7 +140,7 @@ class SystemCPGNative(SystemNative):
             outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
             self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}"
             ) from cpe
         except Exception as err:
@@ -251,7 +251,7 @@ class SystemORCNative(SystemNative):
                 dP_reservoir = self.unit.reservoir.get_del_pressure()
                 count += 1
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`_update_injection_well_inlet_P` failed on iteration {count}\n\t{cpe}"
                 ) from cpe
             except Exception as err:
@@ -287,7 +287,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well.update_inlet_state()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -296,7 +296,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well.stream_interface()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -305,7 +305,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well.update_outlet_streams()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -314,7 +314,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well_pump.update_inlet_state()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well_pump.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -323,7 +323,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well_pump.stream_interface()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well_pump.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -332,7 +332,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well_pump.update_outlet_streams()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.production_well_pump.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -341,7 +341,7 @@ class SystemORCNative(SystemNative):
         try:
             self._update_production_well_pump()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self._update_production_well_pump` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
@@ -388,7 +388,7 @@ class SystemORCNative(SystemNative):
                 outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
                 self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`_update_production_well_pump` failed on iteration {count}\n\t{cpe}"
                 ) from cpe
             except Exception as err:
@@ -415,7 +415,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.update_inlet_state()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.surface.update_inlet_state` failed"
@@ -423,7 +423,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.surface.stream_interface` failed"
@@ -431,7 +431,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.surface.update_outlet_streams` failed"
@@ -439,7 +439,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.injection_well.update_inlet_state()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.injection_well.update_inlet_state` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.injection_well.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.injection_well.update_inlet_state` failed"
@@ -467,7 +467,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.update_inlet_state()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.surface.update_inlet_state` failed"
@@ -475,7 +475,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
-            raise CoolPropError(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(
                 "`self.unit.surface.stream_interface` failed"
@@ -483,7 +483,7 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)(

@@ -51,7 +51,7 @@ class SurfaceUnitNative(Unit):
             self.P = self.outlet_fluid.P
             self.H = self.outlet_fluid.H
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Surface `stream_interface` failed\n\t{cpe}"
             )
         except Exception as err:

@@ -92,7 +92,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
             self.mass_rate = mass_rate
             self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Reservoir `stream_interface` failed\n\t{cpe}"
             )
         except Exception as err:

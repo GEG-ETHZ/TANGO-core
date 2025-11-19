@@ -161,11 +161,11 @@ class UnitManager(ABC):
             for src_id in self._source_nodes(node):
                 try:
                     self._update_node(self.graph.nodes[src_id])
-                except CoolPropError as err:
+                except CoolPropError as cpe:
                     new_err = CoolPropError(
-                        f"\n\tunit: {node['id']}\n\t{err}"
+                        f"\n\tunit: {node['id']}\n\t{cpe}"
                     )
-                    raise new_err from err
+                    raise new_err from cpe
                 except Exception as err:
                     raise type(err)(
                         f"\n\tunit: {node['id']}"
@@ -174,11 +174,11 @@ class UnitManager(ABC):
             node["unit"].update_inlet_state()
             node["unit"].stream_interface()
             node["unit"].update_outlet_streams()
-        except CoolPropError as err:
-            new_err = CoolPropError(
-                f"\n\tunit: {node['id']}\n\t{err}"
+        except CoolPropError as cpe:
+            new_err = type(cpe)(
+                f"\n\tunit: {node['id']}\n\t{cpe}"
             )
-            raise new_err from err
+            raise new_err from cpe
         except Exception as err:
             raise type(err)(
                 f"\n\tunit: {node['id']}"

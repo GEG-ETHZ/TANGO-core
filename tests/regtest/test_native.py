@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from tango.runner import Runner
-from tango.core.errors import CoolPropError
+from tango.core.errors import CoolPropError, SaturationPressureError, SubzeroStateVarError
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
@@ -46,6 +46,7 @@ def rm_output_files(fname):
 
 
 # Test cases
+
 
 def files_and_values() -> list[tuple[Path, float]]:
     """Return list of tuples of paths and corresponding reference values"""
@@ -116,39 +117,39 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
     files_and_errors = [
         (
             "flexible_DF_manual_0p1_inj.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_DF_manual_0p1_pro.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_DF_manual_narrow_inj.yml",
-            CoolPropError,
+            SaturationPressureError,
         ),
         (
             "flexible_SF_manual_0p1_inj.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_SF_manual_0p1_pump.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            CoolPropError,
+            SaturationPressureError,
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
         (
             "flexible_SF_manual_narrow_pump.yml",
-            CoolPropError,
+            SubzeroStateVarError,
         ),
     ]
     filepaths_and_err_types = [
@@ -174,6 +175,7 @@ def test_failing_examples(file_and_err_type_failing: tuple[Path, type]):
     except Exception as err:
         assert isinstance(err, err_type)
         rm_output_files(file)
+
 
 # NOTE: these were commented when Chad first started working on TANGO with no explanation
 # def test_case17():

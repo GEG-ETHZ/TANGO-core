@@ -69,7 +69,7 @@ class ReservoirFileReaderUnit(Unit):
             outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
             self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"ReservoirFileReaderUnit `stream_interface` failed\n\t{cpe}"
             ) from cpe
         except Exception as err:

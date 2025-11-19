@@ -106,7 +106,7 @@ class WellUnitNative(Unit, FlowResistance):
             self.mass_rate = mass_rate
             self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Well `stream_interface` failed\n\t{cpe}"
             ) from cpe
         except Exception as err:
@@ -170,15 +170,14 @@ class WellUnitNative(Unit, FlowResistance):
 
             try:
                 self.fluid_state_tmp.updateHP(self._h[i], self._P[i])
-            except ValueError as outer_err:
+            except CoolPropError as outer_err:
                 try:
-                    # TODO: `self._T_f[i] = 300.0` seems really sketchy.
-                    # Check for unintented consequences
+                    # TODO: `self._T_f[i] = 300.0` could have unintented consequences
                     if self._T_f[i] == 0:
                         self._T_f[i] = 300.0
                     self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
-                except ValueError as inner_err:
-                    raise CoolPropError(
+                except CoolPropError as inner_err:
+                    raise type(inner_err)(
                         f"cell: {i} of {self._num_cells}\n\t{inner_err}"
                     ) from outer_err
 

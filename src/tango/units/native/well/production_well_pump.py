@@ -62,7 +62,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
             outlet_enthalpy, outlet_pressure, mass_rate = self.process_stream_pump()
             self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Production well pump `stream_interface` failed\n\t{cpe}"
             ) from cpe
         except Exception as err:
@@ -86,7 +86,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
             h_out, P_out, m_rate = self.process_stream()
             self._update_w_pump()
         except CoolPropError as cpe:
-            raise CoolPropError(
+            raise type(cpe)(
                 f"Production well pump `process_stream_pump` failed\n\t{cpe}"
             )
         except Exception as err:

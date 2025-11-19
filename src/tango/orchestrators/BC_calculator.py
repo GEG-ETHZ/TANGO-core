@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 
-from tango.core.errors import P_SAT_ERR_TEST, CoolPropError
+from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError
 
 class FlowRateCalculator():
     """
@@ -152,7 +152,7 @@ class FlowRateCalculator():
             try:
                 self.inj_well.update_inlet_fluid_state_PT(P=self.test_p, T=self.surface.outlet_fluid.T)
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`self.inj_well.update_inlet_fluid_state_PT` failed\n\t{cpe}",
                 ) from cpe
             except Exception as err:
@@ -163,7 +163,7 @@ class FlowRateCalculator():
             try:
                 self.inj_well.stream_interface()
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`self.inj_well.stream_interface` failed\n\t{cpe}",
                 ) from cpe
             except Exception as err:
@@ -214,7 +214,7 @@ class FlowRateCalculator():
                                                 T=self.pro_well.outlet_fluid.T,
                                             )
                                         except CoolPropError as cpe:
-                                            raise CoolPropError(
+                                            raise type(cpe)(
                                                 "`self.surface.inlet_fluid.updatePT` failed",
                                             ) from cpe
                                         except Exception as err:
@@ -224,7 +224,7 @@ class FlowRateCalculator():
                                         try:
                                             self.surface.stream_interface()
                                         except CoolPropError as cpe:
-                                            raise CoolPropError(
+                                            raise type(cpe)(
                                                 f"`self.surface.stream_interface` failed\n\t{cpe}"
                                             ) from cpe
                                         except Exception as err:
@@ -282,7 +282,7 @@ class FlowRateCalculator():
                                         T=self.pro_well.outlet_fluid.T,
                                     )
                                 except CoolPropError as cpe:
-                                    raise CoolPropError(
+                                    raise type(cpe)(
                                         "`self.surface.inlet_fluid.updatePT` failed",
                                     ) from cpe
                                 except Exception as err:
@@ -292,7 +292,7 @@ class FlowRateCalculator():
                                 try:
                                     self.surface.stream_interface()
                                 except CoolPropError as cpe:
-                                    raise CoolPropError(
+                                    raise type(cpe)(
                                         f"`self.surface.stream_interface` failed\n\t{cpe}",
                                     ) from cpe
                                 except Exception as err:
@@ -353,7 +353,7 @@ class FlowRateCalculator():
                     T=self.inj_well.outlet_fluid.T,
                 )
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     "`self.reservoir.inlet_fluid.updatePT` failed",
                 ) from cpe
             except Exception as err:
@@ -363,7 +363,7 @@ class FlowRateCalculator():
             try:
                 self.reservoir.stream_interface()
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`self.reservoir.stream_interface` failed\n\t{cpe}",
                 ) from cpe
             except Exception as err:
@@ -388,13 +388,13 @@ class FlowRateCalculator():
                 )
             except ValueError as cpe:
                 if P_SAT_ERR_TEST.search(str(cpe)) is not None:
-                    raise self.get_p_sat_err()
+                    raise self.get_p_sat_err_for_pump(cpe) from cpe
                 else:
                     raise cpe
             try:
                 self.pro_well.stream_interface()
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"\n\tUnable to solve production well stream interface\n\t{cpe}",
                 ) from cpe
             except Exception as err:
@@ -422,11 +422,11 @@ class FlowRateCalculator():
                             P=self.pro_well.outlet_fluid.P + pump_dp,
                             T=self.pro_well.outlet_fluid.T,
                         )
-                    except ValueError as cpe:
+                    except CoolPropError as cpe:
                         if (P_SAT_ERR_TEST.search(str(cpe)) is not None) and (pump_dp != 0.0):
                             if i == num_dp_iter - 1:
                                 # if it's the last iteration, this error will not be solved
-                                raise CoolPropError(
+                                raise SaturationPressureError(
                                     "Error in final iteration of pump pressure delta calculation",
                                 ) from cpe
                             # increment `pump_dp` because it may prevent this error in the next iter
@@ -438,7 +438,7 @@ class FlowRateCalculator():
                         else:
                             # if `pump_dp` is zero, this will not be solved in the next iteration
                             if (P_SAT_ERR_TEST.search(str(cpe)) is not None):
-                                raise self.get_p_sat_err()
+                                raise self.get_p_sat_err_for_pump(cpe) from cpe
                             else:
                                 raise cpe
 
@@ -446,7 +446,7 @@ class FlowRateCalculator():
                     try:
                         self.pro_well_pump.stream_interface()
                     except CoolPropError as cpe:
-                        raise CoolPropError(
+                        raise type(cpe)(
                             f"\n\tProduction well pump `stream_interface` calculation failed\n\t{cpe}",
                         ) from cpe
                     except Exception as err:
@@ -461,6 +461,7 @@ class FlowRateCalculator():
                                 - self.surface.specs.target_extraction_pressure > 0
                         )
                     ):
+                        # pump has exceeded target extraction pressure
                         break
 
                     pump_dp += (
@@ -483,7 +484,7 @@ class FlowRateCalculator():
             try:
                 self.surface.inlet_fluid.updatePT(P=outlet_pressure, T=outlet_temperature)
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     "`self.surface.inlet_fluid.updatePT` failed"
                 ) from cpe
             except Exception as err:
@@ -493,7 +494,7 @@ class FlowRateCalculator():
             try:
                 self.surface.stream_interface()
             except CoolPropError as cpe:
-                raise CoolPropError(
+                raise type(cpe)(
                     f"`self.surface.stream_interface` failed\n\t{cpe}"
                 ) from cpe
             except Exception as err:
@@ -507,7 +508,11 @@ class FlowRateCalculator():
                 rel_tol_mass_rate = abs(self.inj_well.mass_rate - prev_mass_rate) / max(abs(prev_mass_rate), 1e-8)
                 rel_tol_inlet_p = abs(self.inj_well.inlet_fluid.P - prev_inlet_p) / max(abs(prev_inlet_p), 1e-8)
 
-                if rel_tol_test_p < tolerance and rel_tol_mass_rate < tolerance and rel_tol_inlet_p < tolerance:
+                if (
+                        (rel_tol_test_p < tolerance)
+                        and (rel_tol_mass_rate < tolerance)
+                        and (rel_tol_inlet_p < tolerance)
+                    ):
                     converged = True
                     break
 
@@ -529,18 +534,25 @@ class FlowRateCalculator():
             ) * self.pro_well_pump.mass_rate
             self.surface.prod_pump_w_list.append(self.surface.prod_pump_aux)
 
-    def get_p_sat_err(self):
-        """Get formatted saturation pressure error"""
-        return CoolPropError(
+    def get_p_sat_err_for_pump(self, err):
+        """Get formatted saturation pressure error for pump inlet
+
+        # Arguments
+        - `err`: original error from CoolProp
+        """
+        return SaturationPressureError(
             f"""\n\tProduction well pump inlet is at vaporization threshold.
-            Troubleshooting steps:
-            - check for flow restrictions
-            - try removing the production well pump because the thermosiphon effect is sufficient
-            - increase the pressure at the injection wellhead (note: this can potentially exceed
-                fracture pressure limit of the subsurface caprock)
-            - reduce mass flow rate (note: this will reduce total power output and should only be
-                used if the other steps don't work)
-            """,  # noqa: E501
+        Original CoolProp message:
+        "{err}"
+        Troubleshooting steps:
+        - check for flow restrictions
+        - try removing the production well pump because the thermosiphon effect is sufficient
+        - if mass_rate type is manual, reduce mass flow rate (note: this will
+          reduce total power output and should only be used if the other steps don't work)
+        """,  # noqa: E501
+        # TODO: make this conditional based on whether mass flow rate is manual or automatic
+        # - reduce mass flow rate (note: this will reduce total power output and should only be
+        #     used if the other steps don't work)
         )
         
 

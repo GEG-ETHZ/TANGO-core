@@ -433,7 +433,7 @@ class Tango:
                 + "\n\tVALUES:\n\t\t"
                 + res_str
             )
-            raise CoolPropError(new_err) from cpe
+            raise type(cpe)(new_err) from cpe
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 

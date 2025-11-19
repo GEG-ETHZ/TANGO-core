@@ -2,6 +2,7 @@ import CoolProp
 
 from tango.core.errors import (
     CoolPropError,
+    SubzeroStateVarError,
     check_feas_enthalpy,
     check_feas_entropy,
     check_feas_press,
@@ -62,7 +63,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -92,7 +93,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -122,7 +123,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -152,7 +153,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -180,7 +181,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -208,7 +209,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -232,7 +233,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -254,7 +255,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -276,7 +277,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -292,7 +293,7 @@ class FluidState:
             self.cstate.update(CoolProp.PQ_INPUTS, P, x)
         except ValueError as cp_err:
             if P < 0.0:
-                raise CoolPropError(
+                raise SubzeroStateVarError(
                   "Absolute pressure must be greater than or equal to 0.0 Pa",
                 ) from cp_err
 
@@ -312,7 +313,7 @@ class FluidState:
                 tango_errs.append(tango_err)
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise CoolPropError(msg) from cp_err
+                raise SubzeroStateVarError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
