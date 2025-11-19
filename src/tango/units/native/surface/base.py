@@ -1,4 +1,4 @@
-from tango.core.abstracts.unit import *
+from tango.core.abstracts.unit import Unit, FlowResistance
 from tango.core.errors import CoolPropError
 
 

@@ -1,5 +1,6 @@
 from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import *
+from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.fluidstate import FluidState
 from dataclasses import dataclass
 
 import yaml

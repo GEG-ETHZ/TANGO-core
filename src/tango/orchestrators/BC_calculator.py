@@ -540,14 +540,10 @@ class FlowRateCalculator():
         # Arguments
         - `err`: original error from CoolProp
         """
-        return SaturationPressureError(
+        return PumpInletFlashError(
             f"""\n\tProduction well pump inlet is at vaporization threshold.
         Original CoolProp message:
         "{err}"
-        Troubleshooting steps:
-        - check for flow restrictions
-        - if mass_rate type is manual, reduce mass flow rate (note: this will
-          reduce total power output and should only be used if the other steps don't work)
         """,  # noqa: E501
         # TODO: make this conditional based on whether mass flow rate is manual or automatic
         # - reduce mass flow rate (note: this will reduce total power output and should only be
@@ -555,8 +551,21 @@ class FlowRateCalculator():
         # TODO:
         # make sure the system is robust enough that this recommendation will work
         # `- try removing the production well pump because the thermosiphon effect is sufficient`
+        # TODO: propagate this out so mass_rate type is accessible
+        # ```
+        # Troubleshooting steps:
+        # - check for flow restrictions
+        # - if mass_rate type is manual, reduce mass flow rate (note: this will
+        #   reduce total power output and should only be used if the other steps don't work)
+        # ```
         )
-        
+
+
+class PumpInletFlashError(SaturationPressureError):
+    """Error indicating that liquid is hitting saturating threshold at pump inlet"""
+
+    pass
+
 
 class PowerReader:
     def __init__(self):

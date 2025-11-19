@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from tango.utils import load_from_yaml_with_overrides
-from tango.core.errors import CoolPropError
+from tango.core.errors import CoolPropError, PressureError
 from tango.core.abstracts.workflow import Workflow
 from tango.core.abstracts.unit import FlowResistance
 from tango.workflows.cmg_workflow import CMGWorkflow
@@ -412,7 +412,7 @@ class Tango:
 
         try:
             self.workflow.execute()
-        except CoolPropError as cpe:
+        except PressureError as cpe:
             res_dict = {
                 k: v.flow_res() for (k, v) in
                     self.workflow.orchestrator.unit.__dict__.items() if isinstance(v, FlowResistance)

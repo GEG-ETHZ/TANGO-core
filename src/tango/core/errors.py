@@ -15,7 +15,13 @@ class CoolPropError(TangoError, ValueError):
     pass
 
 
-class SaturationPressureError(CoolPropError):
+class PressureError(CoolPropError):
+    """Error caused by failed property evaluation involving pressure"""
+
+    pass
+
+
+class SaturationPressureError(PressureError):
     """Error caused by failed property evaluation due to saturation pressure threshold"""
 
     pass
@@ -27,7 +33,7 @@ class SubzeroStateVarError(CoolPropError):
     pass
 
 
-class SubzeroPressureError(SubzeroStateVarError):
+class SubzeroPressureError(PressureError):
     """Error caused by failed property evaluation due non-physical negative pressure"""
 
     pass

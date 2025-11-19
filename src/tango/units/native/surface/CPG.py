@@ -1,8 +1,9 @@
 import logging
 
 from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import *
+from tango.units.native.surface.base import SurfaceUnitNative
 from dataclasses import dataclass
+from tango.core.fluidstate import FluidState
 
 import csv
 import os

@@ -1,7 +1,8 @@
-from tango.core.constants import *
-from tango.core.config import *
+from tango.core.constants import K_TO_C, C_TO_K
+from tango.core.config import MAP_ORC_OPTNAME_TO_TABLE_NAME
 from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import *
+from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.fluidstate import FluidState
 from tango import utils
 from dataclasses import dataclass
 
@@ -108,7 +109,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
 
-    def init_stream_interface(self, P: float=None, T: float=None) -> None:
+    def init_stream_interface(self, P: float | None=None, T: float | None=None) -> None:
         """
         Initializes the fluid stream interface.
 
