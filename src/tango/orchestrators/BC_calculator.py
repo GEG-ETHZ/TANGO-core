@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 
-from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError
+from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, PumpInletFlashError
 
 class FlowRateCalculator():
     """
@@ -559,12 +559,6 @@ class FlowRateCalculator():
         #   reduce total power output and should only be used if the other steps don't work)
         # ```
         )
-
-
-class PumpInletFlashError(SaturationPressureError):
-    """Error indicating that liquid is hitting saturating threshold at pump inlet"""
-
-    pass
 
 
 class PowerReader:

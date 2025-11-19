@@ -11,7 +11,10 @@ import pandas as pd
 import pytest
 
 from tango.runner import Runner
-from tango.core.errors import CoolPropError, SaturationPressureError, SubzeroStateVarError
+from tango.core.errors import (
+     SaturationPressureError, SubzeroPressureError, PumpInletFlashError,
+)
+
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
@@ -117,11 +120,11 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
     files_and_errors = [
         (
             "flexible_DF_manual_0p1_inj.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_DF_manual_0p1_pro.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_DF_manual_narrow_inj.yml",
@@ -129,27 +132,27 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         ),
         (
             "flexible_SF_manual_0p1_inj.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_SF_manual_0p1_pump.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            SaturationPressureError,
+            PumpInletFlashError,
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
         (
             "flexible_SF_manual_narrow_pump.yml",
-            SubzeroStateVarError,
+            SubzeroPressureError,
         ),
     ]
     filepaths_and_err_types = [
@@ -173,7 +176,7 @@ def test_failing_examples(file_and_err_type_failing: tuple[Path, type]):
         run(file)
         raise Exception("Should be unreachable")
     except Exception as err:
-        assert isinstance(err, err_type)
+        assert isinstance(err, err_type), f"`type(err)`: {type(err)}, `err_type`: {err_type}"
         rm_output_files(file)
 
 

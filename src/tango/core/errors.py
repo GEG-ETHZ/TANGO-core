@@ -77,6 +77,12 @@ class InvalidPandSError(SubzeroPressureError, InvalidEntropyError):
     pass
 
 
+class PumpInletFlashError(SaturationPressureError):
+    """Error indicating that liquid is hitting saturating threshold at pump inlet"""
+
+    pass
+
+
 class TangoValueError(TangoError, ValueError):
     """ValueError that needs to be handled"""
 
