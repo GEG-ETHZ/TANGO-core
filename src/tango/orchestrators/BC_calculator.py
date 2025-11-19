@@ -546,13 +546,15 @@ class FlowRateCalculator():
         "{err}"
         Troubleshooting steps:
         - check for flow restrictions
-        - try removing the production well pump because the thermosiphon effect is sufficient
         - if mass_rate type is manual, reduce mass flow rate (note: this will
           reduce total power output and should only be used if the other steps don't work)
         """,  # noqa: E501
         # TODO: make this conditional based on whether mass flow rate is manual or automatic
         # - reduce mass flow rate (note: this will reduce total power output and should only be
         #     used if the other steps don't work)
+        # TODO:
+        # make sure the system is robust enough that this recommendation will work
+        # `- try removing the production well pump because the thermosiphon effect is sufficient`
         )
         
 
