@@ -51,8 +51,8 @@ surface:
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
-  # target_extraction_pressure: 7000000 # baseline
-  target_extraction_pressure: 70_000_000
+  # target_extraction_pressure: 7_000_000 # baseline
+  target_extraction_pressure: 7_000_000
 
 reservoir:
   reservoir_depth: 5000.0 # m
