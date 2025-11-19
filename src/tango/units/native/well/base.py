@@ -51,7 +51,7 @@ class WellUnitNative(Unit, FlowResistance):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def flow_res(self) -> float:
-        """Return well scaled flow resistance [m^-3]
+        r"""Return well scaled flow resistance
 
         # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
         Note that this is simplistic and should be used only for
@@ -80,15 +80,14 @@ class WellUnitNative(Unit, FlowResistance):
 
         \begin{equation}
             \label{eq:Poiseuille-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
         \end{equation}
 
         \begin{equation}
             \label{eq:Poiseuille-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad [1 / m^3]
-        \end{equation}            
+            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
+        \end{equation}
         ```
-
         """
         res: float = 8.0 * self._well_length / (np.pi * (self._diameter / 2.0) ** 4.0)
 

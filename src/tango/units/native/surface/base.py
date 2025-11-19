@@ -1,8 +1,10 @@
+import numpy as np
+
 from tango.core.abstracts.unit import Unit, FlowResistance
 from tango.core.errors import CoolPropError
 
 
-class SurfaceUnitNative(Unit):
+class SurfaceUnitNative(Unit, FlowResistance):
     r"""
     Represents the surface power plant unit based on Adams et al. (2015).
 
@@ -51,13 +53,9 @@ class SurfaceUnitNative(Unit):
             self.P = self.outlet_fluid.P
             self.H = self.outlet_fluid.H
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"Surface `stream_interface` failed\n\t{cpe}"
-            )
+            raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}")
         except Exception as err:
-            raise type(err)(
-                "Surface `stream_interface` failed"
-            ) from err
+            raise type(err)("Surface `stream_interface` failed") from err
 
     def update_inlet_state(self) -> None:
         r"""
@@ -81,6 +79,50 @@ class SurfaceUnitNative(Unit):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
+    def flow_res(self) -> float:
+        r"""Return surface pipe scaled flow resistance
+
+        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
+        Note that this is simplistic and should be used only for
+        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
+        to work if this funciton call is triggered by a failed property calculation,
+        which is likely to be the case.
+        ```
+        \section{Poiseuille}
+        \begin{equation}
+            \label{eq:Poiseuille}
+            \Delta P = \frac{8 \mu L Q}{\pi R^4}
+        \end{equation}
+        where
+        \begin{itemize}
+            \item $\Delta P$ is the pressure difference between the two ends
+            \item $L$ is the length of pipe
+            \item $\mu$ is the dynamic viscosity
+            \item $Q$ is the volumetric flow rate
+            \item $R$ is the pipe radius
+        \end{itemize}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance}
+            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-norm}
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
+        \end{equation}
+
+        \begin{equation}
+            \label{eq:Poiseuille-resistance-scale}
+            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
+        \end{equation}
+        ```
+        """
+
+        flow_res: float = 8.0 * self.specs.well_spacing / (np.pi * (self.specs.pipe_diameter / 2.0) ** 4.0)
+
+        return flow_res
+
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _set_mult(self) -> None:
@@ -94,7 +136,7 @@ class SurfaceUnitNative(Unit):
             - 4.0 for '5SPOT' or 'INVERTED_5SPOT'.
             - 1.0 for other patterns.
         """
-        self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
+        self._m_dot_mult = 4.0 if self.specs.well_pattern in ["5SPOT", "INVERTED_5SPOT"] else 1.0
 
     def _set_constants(self) -> None:
         """
@@ -105,10 +147,10 @@ class SurfaceUnitNative(Unit):
         Raises:
             ValueError: If the specified cooling mode is not supported.
         """
-        if self.specs.cooling_mode == 'WET':
+        if self.specs.cooling_mode == "WET":
             self._coeffs_cooling = [1.2, 0.0, -3.79e-3, 1.95e-2]
             self._coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.0]
-        elif self.specs.cooling_mode == 'DRY':
+        elif self.specs.cooling_mode == "DRY":
             self._coeffs_cooling = [7.65e-1, 0.0, 0.0, 1.28e-1]
             self._coeffs_condensing = [0.619, 0.0, 0.0, 0.0]
         else:

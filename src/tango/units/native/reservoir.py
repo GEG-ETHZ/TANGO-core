@@ -222,7 +222,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
         self._energy_extracted = self._energy_extracted_old + del_
 
     def flow_res(self) -> float:
-        """Return reservoir flow resistance with current state variables
+        r"""Return reservoir flow resistance with current state variables
         This is calculated as the pressure drop divided by the
         inlet-and-outlet-averaged volume flow rate at most recent time step
 
@@ -254,13 +254,13 @@ class ReservoirUnitNative(Unit, FlowResistance):
 
         \begin{equation}
             \label{eq:Darcy-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{L}{k A} \quad [\text{Pa} / (m^3 / s) \times 1 / (\text{Pa} \cdot s)]
+            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{L}{k A} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
         \end{equation}
 
         \begin{equation}
             \label{eq:Darcy-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{L}{k A} \quad [1 / m^3]
-        \end{equation}            
+            \frac{\Delta P}{Q} \propto \frac{L}{k A} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
+        \end{equation}
         ```
 
         """
