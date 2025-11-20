@@ -138,10 +138,12 @@ class FlowResistance(ABC):
     """Provides interface for simple resistance calculations"""
 
     @abstractmethod
-    def flow_res(self, te: float, p: float) -> float:
+    def flow_res(self, te: float, p: float, mdot: float) -> float:
         r"""Return approximate flow resistance [Pa / (kg / s)]
 
         # Arguments
-        - `te`: estimated temperature for property evaluations
-        - `p`: estimated pressure for property evaluations
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
         """
+        pass

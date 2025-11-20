@@ -79,15 +79,27 @@ class SurfaceUnitNative(Unit, FlowResistance):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
-    def flow_res(self, te: float, p: float) -> float:
+    def flow_res(self, te: float, p: float, mdot: float) -> float:
         r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]
 
         This approximates the flow resistance based on fluid properties evaluated at the well inlet.
 
         # Arguments
-        - `te`: estimated temperature for property evaluations
-        - `p`: estimated pressure for property evaluations
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
         """
+
+        state = FluidState.withPT(self._specs.fluid_name, p, te)
+        rho = state.rho
+        mu = state.mu
+        # See src/tango/units/native/surface/flexible_pp.py::process_stream
+        raise NotImplementedError("TODO: pick up here if this message appears")
+
+        flow_res_dp_per_mass_rate: float = None
+        return flow_res_dp_per_mass_rate
+
+        
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 

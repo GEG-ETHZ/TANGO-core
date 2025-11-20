@@ -419,7 +419,6 @@ class Tango:
                     if isinstance(v, FlowResistance)
             }
 
-            breakpoint()
             res_dict: dict[str, float] = {}
             # NOTE: these values will be approximate because they're not using numerical simulations, but
             # they'll be guaranteed to work even if the simulation has failed before completing the loop

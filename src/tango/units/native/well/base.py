@@ -50,48 +50,32 @@ class WellUnitNative(Unit, FlowResistance):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def flow_res(self) -> float:
-        r"""Return well scaled flow resistance [Pa / (m^3 / s) / (Pa * s)]
+    def flow_res(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow resistance [Pa / (kg / s)], including gravity effects
 
-        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
-        Note that this is simplistic and should be used only for
-        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
-        to work if this funciton call is triggered by a failed property calculation,
-        which is likely to be the case.
-        ```
-        \section{Poiseuille}
-        \begin{equation}
-            \label{eq:Poiseuille}
-            \Delta P = \frac{8 \mu L Q}{\pi R^4}
-        \end{equation}
-        where
-        \begin{itemize}
-            \item $\Delta P$ is the pressure difference between the two ends
-            \item $L$ is the length of pipe
-            \item $\mu$ is the dynamic viscosity
-            \item $Q$ is the volumetric flow rate
-            \item $R$ is the pipe radius
-        \end{itemize}
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
 
-        \begin{equation}
-            \label{eq:Poiseuille-resistance}
-            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-        ```
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
         """
-        res: float = 8.0 * self._well_length / (np.pi * (self._diameter / 2.0) ** 4.0)
 
-        return res
+        state = FluidState.withPT(self._specs.fluid_name, p, te)
+        rho = state.rho
+        mu = state.mu
+
+        u = mdot / self._cross_sectional_area / rho
+        ff = self._compute_friction_factor(rho, mu, u)
+        dp_loss_for_cell = self._compute_delta_P_loss(ff, rho, u)
+        dp_grav_for_cell = self._f_dir * rho * self._g * self._dz
+        dp_tot_for_cell = dp_loss_for_cell + dp_grav_for_cell
+        # positive indicates pressure drop in direction of flow
+        dp_tot_for_well = dp_tot_for_cell * self._num_cells
+
+        flow_res_dp_per_mass_rate: float = dp_tot_for_well / self.mass_rate
+
+        return flow_res_dp_per_mass_rate
 
     def stream_interface(self) -> None:
         """
