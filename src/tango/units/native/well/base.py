@@ -464,6 +464,11 @@ class WellUnitNative(Unit, FlowResistance):
         self.update_dimensionless_time(
             del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND
         )
+        # NOTE:
+        # These values may be overwritten in
+        # src/tango/orchestrators/native.py::SystemNative::update
+        # depending on whether the system is balanced, which is most likely not the
+        # case in the first iteration
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H

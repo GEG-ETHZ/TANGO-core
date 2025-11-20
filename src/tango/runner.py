@@ -420,6 +420,17 @@ class Tango:
             res_denom = sum(res_dict.values())
             res_str = "\n\t\t".join(
                 [f"{k}: {v / res_denom:.3%}" for (k, v) in res_dict.items()])
+            # TODO:
+            # - figure out reasonable density
+            # - figure out reasonable viscosity of liquid water
+            # - figure out a way to check working fluid so that the above properties are
+            #   working fluid responsive
+            # - check pressure drop in
+            #     - injection well
+            #     - injection well + reservoir
+            #     - injection well + reservoir + production well
+            #     - production well pump
+            #   based on resistance and mass flow rate
             new_err = (
                 str(cpe)
                 + "\n\tApprox. flow resistances, scaled relative to sum of module resistances"

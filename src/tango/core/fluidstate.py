@@ -311,13 +311,22 @@ class FluidState:
             self.cstate.update(CoolProp.HmassP_INPUTS, H, P)
         except ValueError as cp_err:
             tango_errs: list[str] = []
+            p_err = False
+            h_err = False
             if (tango_err := check_feas_press(P)) is not None:
                 tango_errs.append(tango_err)
+                p_err = True
             if (tango_err := check_feas_enthalpy(H)) is not None:
                 tango_errs.append(tango_err)
+                h_err = True
             if len(tango_errs) != 0:
                 msg = "\n".join(tango_errs)
-                raise SubzeroStateVarError(msg) from cp_err
+                if p_err and h_err:
+                    raise InvalidPandHError(msg) from cp_err
+                elif p_err:
+                    raise SubzeroPressureError(msg) from cp_err
+                elif h_err:
+                    raise InvalidEnthalpyError(msg) from cp_err
             else:
                 raise CoolPropError(str(cp_err))
 
@@ -352,32 +361,32 @@ class FluidState:
             else:
                 raise CoolPropError(str(cp_err))
 
-    def updatePQ(self, P: float, x: float):
+    def updatePQ(self, P: float, Q: float):
         """Update the fluid state with a new pressure and Q (quality) value.
 
         Args:
             P (float): The fluid pressure (in Pa).
-            x (float): The fluid quality value.
+            Q (float): The fluid quality value.
 
         """
         try:
-            self.cstate.update(CoolProp.PQ_INPUTS, P, x)
+            self.cstate.update(CoolProp.PQ_INPUTS, P, Q)
         except ValueError as cp_err:
             if P < 0.0:
                 raise SubzeroPressureError(
                   "Absolute pressure must be greater than or equal to 0.0 Pa",
                 ) from cp_err
 
-    def updateQT(self, x: float, T: float):
+    def updateQT(self, Q: float, T: float):
         """Update the fluid state with a new temperature and Q (quality) value.
 
         Args:
-            x (float): The fluid quality value.
+            Q (float): The fluid quality value.
             T (float): The fluid temperature (in K).
 
         """
         try:
-            self.cstate.update(CoolProp.QT_INPUTS, x, T)
+            self.cstate.update(CoolProp.QT_INPUTS, Q, T)
         except ValueError as cp_err:
             tango_errs: list[str] = []  # type: ignore[annotation-unchecked]
             t_err = False

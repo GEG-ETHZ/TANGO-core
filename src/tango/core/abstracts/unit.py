@@ -2,6 +2,7 @@ from enum import Enum, auto
 from abc import ABC, abstractmethod
 
 from tango.core import FluidState
+from tango.core.errors import CoolPropError
 
 
 class UnitSpecs(ABC):
@@ -72,8 +73,7 @@ class Unit(ABC):
         self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
     def update_inlet_state(self) -> None:
-        r"""
-        Updates the inlet fluid state based on mass flow rate weighted averages of inlet streams.
+        r"""Update the inlet fluid state based on mass flow rate weighted averages of inlet streams.
 
         Formula:
             .. math::
@@ -95,8 +95,11 @@ class Unit(ABC):
         self.mass_rate = total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
-        except:
-            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+        except CoolPropError as cpe:
+            try:
+                self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+            except CoolPropError as cpe_inner:
+                raise cpe_inner from cpe
 
     def update_outlet_streams(self) -> None:
         r"""
