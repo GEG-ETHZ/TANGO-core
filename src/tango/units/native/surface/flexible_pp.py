@@ -494,7 +494,9 @@ class PowerPlant:
         for connection in self.connections:
             if isinstance(connection.target, Sink) and connection.target.label == "outlet":
                 source_component = connection.source
-                connection.set_attr(p=self.iterative_inj_pressure/100000.0)
+                connection.set_attr(
+                    p=self.iterative_inj_pressure / 100_000.0,
+                )
                 break  # Exit loop after finding the outlet
 
     def _BAC_regression_model(self, coeffs: list) -> float:

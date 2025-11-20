@@ -222,7 +222,8 @@ class ReservoirUnitNative(Unit, FlowResistance):
         self._energy_extracted = self._energy_extracted_old + del_
 
     def flow_res(self) -> float:
-        r"""Return reservoir flow resistance with current state variables
+        r"""Return reservoir flow resistance [Pa / (m^3 / s) / (Pa * s)] based on static module properties
+
         This is calculated as the pressure drop divided by the
         inlet-and-outlet-averaged volume flow rate at most recent time step
 

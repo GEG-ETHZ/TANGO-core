@@ -80,7 +80,7 @@ class SurfaceUnitNative(Unit, FlowResistance):
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
     def flow_res(self) -> float:
-        r"""Return surface pipe scaled flow resistance
+        r"""Return surface pipe scaled flow resistance [Pa / (m^3 / s) / (Pa * s)]
 
         # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
         Note that this is simplistic and should be used only for
@@ -118,7 +118,6 @@ class SurfaceUnitNative(Unit, FlowResistance):
         \end{equation}
         ```
         """
-
         flow_res: float = 8.0 * self.specs.well_spacing / (np.pi * (self.specs.pipe_diameter / 2.0) ** 4.0)
 
         return flow_res

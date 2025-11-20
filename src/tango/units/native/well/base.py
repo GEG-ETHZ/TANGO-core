@@ -51,7 +51,7 @@ class WellUnitNative(Unit, FlowResistance):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def flow_res(self) -> float:
-        r"""Return well scaled flow resistance
+        r"""Return well scaled flow resistance [Pa / (m^3 / s) / (Pa * s)]
 
         # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
         Note that this is simplistic and should be used only for

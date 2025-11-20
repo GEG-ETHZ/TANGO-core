@@ -136,7 +136,7 @@ class FlowResistance(ABC):
 
     @abstractmethod
     def flow_res(self) -> float:
-        """Return module/component flow resistance as either pressure drop per mass flow
-        rate or pressure drop per volume flow rate
+        """Return module/component flow resistance [Pa / (m^3 / s) / (Pa * s)] as either
+        pressure drop per mass flow rate or pressure drop per volume flow rate
         """
         pass
