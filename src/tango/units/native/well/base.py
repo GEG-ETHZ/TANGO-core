@@ -97,7 +97,7 @@ class WellUnitNative(Unit, FlowResistance):
                 "Well `stream_interface` failed"
             ) from err
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Updates dynamic variables along the wellbore.
 
@@ -148,7 +148,8 @@ class WellUnitNative(Unit, FlowResistance):
             Q_loss = self._compute_Q_loss(self._T_f[i - 1] - self._T_r[i - 1], t_d)
             # TODO: make `Well` a pydantic dataclass and add this attribute so it's not mysteriously getting added here
             self.dp_loss_for_cell = dP_loss
-            self._P[i] = self._P[i - 1] - f_dir * self._rho[i - 1] * g * dz - dP_loss
+            dp_grav_for_cell = f_dir * self._rho[i - 1] * g * dz
+            self._P[i] = self._P[i - 1] - dp_grav_for_cell - dP_loss
             self._h[i] = self._h[i - 1] - f_dir * g * dz - Q_loss / mdot
 
             try:
@@ -449,10 +450,10 @@ class WellUnitNative(Unit, FlowResistance):
             del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND
         )
         # NOTE:
-        # These values may be overwritten in
+        # These values in `self.fluid_state_init` will likely be overwritten in
         # src/tango/orchestrators/native.py::SystemNative::update
-        # depending on whether the system is balanced, which is most likely not the
-        # case in the first iteration
+        # depending on whether the system is balanced, which is most likely not
+        # in the first iteration
         self.fluid_state_init = self.inlet_fluid
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
@@ -542,7 +543,8 @@ class WellUnitNative(Unit, FlowResistance):
         """
         Re = rho * u * self._diameter / mu  # Reynolds number
         r = self._relative_roughness  # relative roughness
-        return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
+        ff: float = (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
+        return ff
 
     def _get_dimensionless_time(self) -> float:
         return self._t_d

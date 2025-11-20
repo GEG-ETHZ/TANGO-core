@@ -491,7 +491,9 @@ class Tango:
                             )
                             p = self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
 
-                    res_dict[k] = v.flow_res(te=te, p=p)
+                    # TODO: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
+                    # `self.specs['schedule']['mass_rate']['type']` is not "manual"
+                    res_dict[k] = v.flow_res(te=te, p=p, mdot=self.specs['schedule']['mass_flow_rate'])
 
             res_denom = sum(res_dict.values())
             res_str = "\n\t\t".join(

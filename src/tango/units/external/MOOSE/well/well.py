@@ -60,7 +60,7 @@ class WellUnitMOOSE(MOOSERunner):
         self.inlet_fluid = FluidState.withPT(self._specs.fluid_name, P, T)
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Updates dynamic variables along the wellbore.
 

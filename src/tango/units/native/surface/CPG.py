@@ -92,7 +92,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
         self.outlet_fluid = FluidState.copy(self.outlet_fluid_pump)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the stream by updating turbine, condenser, and pump states,
         and computes the net system performance.

@@ -77,7 +77,7 @@ class ReservoirFileReaderUnit(Unit):
                 "ReservoirFileReaderUnit `stream_interface` failed"
             ) from err
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the current row of inlet and outlet data to extract pressure, temperature, and mass rate.
 

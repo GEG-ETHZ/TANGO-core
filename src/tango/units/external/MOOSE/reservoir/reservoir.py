@@ -57,7 +57,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Updates the reservoir state given the inlet state.
 

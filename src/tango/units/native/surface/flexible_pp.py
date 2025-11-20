@@ -1,5 +1,6 @@
 from tango.units.dataclasses import CommonSpecs
 from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.constants import C_TO_K
 from tango.core.fluidstate import FluidState
 from dataclasses import dataclass
 
@@ -69,13 +70,20 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
         self.outlet_fluid = FluidState.withPT(self.specs.fluid_name, 10000000.0, 290.0)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple[float, float, float]:
         """
-        Processes the stream by updating turbine, condenser, and pump states,
+        Processes the stream by [float, float, float]updating turbine, condenser, and pump states,
         and computes the net system performance.
         """
         self._update_state_pipe()
-        self.power_plant.set_attributes(fluid={self.specs.fluid_name: 1}, mass_rate=self.mass_rate, production_pressure=self.inlet_fluid.P/100000, production_temperature=self.inlet_fluid.T - 273.15)
+        self.power_plant.set_attributes(
+            fluid={self.specs.fluid_name: 1},
+            mass_rate=self.mass_rate,
+            # this expects bar
+            production_pressure=self.inlet_fluid.P / 100_000,
+            # this expects degrees Celsius
+            production_temperature=self.inlet_fluid.T - C_TO_K
+        )
         self.power_plant.network.solve('design')
         outlet_state = self.power_plant.get_outlet_conditions()
         self.w_net = self.power_plant.calculate_net_power()

@@ -123,7 +123,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the fluid stream and updates state variables.
 

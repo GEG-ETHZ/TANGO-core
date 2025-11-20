@@ -100,7 +100,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
                 "Reservoir `stream_interface` failed"
             ) from err
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Updates the reservoir state given the inlet state (outlet fluid state of the injection well).
 

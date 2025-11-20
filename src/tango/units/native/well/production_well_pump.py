@@ -70,7 +70,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
                 "Production well pump `stream_interface` failed"
             ) from err
 
-    def process_stream_pump(self) -> tuple:
+    def process_stream_pump(self) -> tuple[float, float, float]:
         """
         Processes the fluid stream through the well pump.
 
