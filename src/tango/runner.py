@@ -5,6 +5,7 @@ import os
 import shutil
 import time
 import uuid
+from typing import Any
 
 import numpy as np
 from tqdm import tqdm
@@ -413,10 +414,86 @@ class Tango:
         try:
             self.workflow.execute()
         except PressureError as cpe:
-            res_dict = {
-                k: v.flow_res() for (k, v) in
-                    self.workflow.orchestrator.unit.__dict__.items() if isinstance(v, FlowResistance)
+            res_inst_dict: dict[str, FlowResistance] = {
+                k: v for (k, v) in self.workflow.orchestrator.unit.__dict__.items()
+                    if isinstance(v, FlowResistance)
             }
+
+            breakpoint()
+            res_dict: dict[str, float] = {}
+            # NOTE: these values will be approximate because they're not using numerical simulations, but
+            # they'll be guaranteed to work even if the simulation has failed before completing the loop
+            # Also, they'll work reasonably well for liquids with minimal property dependence on pressure and
+            # may not work as well for gases, dependening on the quality of the assumptions
+            for k, v in res_inst_dict.items():
+                if isinstance(v, FlowResistance):
+                    match k:
+                        case "injection_well":
+                            te = v.fluid_state_init.T
+                            # averaged over inlet and outlet
+                            p = 0.5 * (
+                                v.fluid_state_init.P
+                                    + self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
+                            )
+
+                        ### for all other cases, the temperature and pressure must be approximated because the
+                        # state may not yet be available
+
+                        case "resevoir":
+                            depth_for_temp = res_inst_dict['reservoir'].specs.reservoir_depth
+                            te = (
+                                res_inst_dict['reservoir'].specs.surface_temperature
+                                    + (res_inst_dict['reservoir'].specs.thermal_gradient * depth_for_temp)
+                            )
+                            # NOTE: This assumes no pressure drop in the injection well, which will
+                            # overestimate the pressure. This assumption is reasonable for hydrothermal
+                            # systems but needs reassessment for CPG systems.
+                            p = self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
+                        case "production_well":
+                            # NOTE: assumes that production well bottom is always at same depth as injection
+                            # well bottom
+                            depth_for_temp = res_inst_dict['injection_well']._well_length
+                            # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
+                            # reservoir temperature has not decreased over time
+                            te = (
+                                res_inst_dict['production_well']._specs.surface_temperature
+                                    + (res_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
+                            )
+                            # NOTE: This assumes no pressure drop in the injection well or reservoir, which
+                            # will overestimate the pressure. This assumption is reasonable for hydrothermal
+                            # systems but needs reassessment for CPG systems.
+                            # averaged over inlet (reservoir depth) and outlet (production_well_pump length)
+                            p = 0.5 * (
+                                self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
+                                    + res_inst_dict['production_well_pump']._well_length
+                            )
+                        case "production_well_pump":
+                            # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                            # temperature, which will overestimate the actual temperature, and it's a good
+                            # idea to revisit the assumption in the future
+                            depth_for_temp = res_inst_dict['injection_well']._well_length
+                            te = (
+                                res_inst_dict['production_well_pump']._specs.surface_temperature
+                                    + (res_inst_dict['production_well_pump']._specs.thermal_gradient
+                                        * depth_for_temp)
+                            )
+                            # averaged over inlet (production_well_pump length) and outlet (surface)
+                            p = 0.5 * (
+                                self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
+                            )  
+                        case "surface":
+                            # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                            # temperature, which will overestimate the actual temperature, and it's a good
+                            # idea to revisit the assumption in the future
+                            depth = res_inst_dict['production_well_pump']._well_length
+                            te = (
+                                res_inst_dict['production_well_pump']._specs.surface_temperature
+                                    + (res_inst_dict['production_well_pump']._specs.thermal_gradient * depth)
+                            )
+                            p = self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
+
+                    res_dict[k] = v.flow_res(te=te, p=p)
+
             res_denom = sum(res_dict.values())
             res_str = "\n\t\t".join(
                 [f"{k}: {v / res_denom:.3%}" for (k, v) in res_dict.items()])

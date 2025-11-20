@@ -125,7 +125,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
                     - \( P_{\text{out}} \): Outlet pressure (Pa).
                     - \( P_{\text{in}} \): Inlet pressure (Pa).
                     - \( \dot{m} \): Mass flow rate (kg/s).
-                    - \( Z \): Impedance (Pa·s/m³).
+                    - \( Z \): Impedance (Pa·s/kg).
 
                 Impedance is calculated using average viscosity (\( \mu \)) and density (\( \rho \)) of the fluid.
 
@@ -221,62 +221,20 @@ class ReservoirUnitNative(Unit, FlowResistance):
         """
         self._energy_extracted = self._energy_extracted_old + del_
 
-    def flow_res(self) -> float:
-        r"""Return reservoir flow resistance [Pa / (m^3 / s) / (Pa * s)] based on static module properties
+    def flow_res(self, te: float, p: float) -> float:
+        r"""Return approximate reservoir flow resistance [Pa / (kg / s)]
 
-        This is calculated as the pressure drop divided by the
-        inlet-and-outlet-averaged volume flow rate at most recent time step
-
-        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
-        Note that this is simplistic and should be used only for
-        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
-        to work if this funciton call is triggered by a failed property calculation,
-        which is likely to be the case.
-        ```
-        \section{Darcy Porous Media}
-        \begin{equation}
-            \label{eq:Darcy}
-            \Delta P = \frac{\mu L Q}{k A}
-        \end{equation}
-        where
-        \begin{itemize}
-            \item $\Delta P$ is the pressure difference between the two ends
-            \item $\mu$ is the dynamic viscosity
-            \item $L$ is the length of reservoir
-            \item $Q$ is the volumetric flow rate
-            \item $k$ is the permeability [$m^2$]
-            \item $A$ is the reservoir cross-sectional flow area
-        \end{itemize}
-
-        \begin{equation}
-            \label{eq:Darcy-resistance}
-            \frac{\Delta P}{Q} = \frac{\mu L}{k A} \quad [\text{Pa} / (m^3 / s)]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Darcy-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{L}{k A} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Darcy-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{L}{k A} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-        ```
-
+        # Arguments
+        - `te`: estimated temperature for property evaluations
+        - `p`: estimated pressure for property evaluations
         """
-        res: float = self.specs.well_spacing / (self.specs.permeability * self.area)
-        return res
+        state = FluidState.withPT(self.specs.fluid_name, p, te)
+        rho = state.rho
+        mu = state.mu
+        # (Pa·s/kg)
+        impedance = self.get_impedance(mu, rho)
+        return impedance
 
-    # NOTE:
-    # Prepending `_` to a function name has no real effect in Python.  If we instead do
-    # `__read_csv_file`, then when called from another module, it would be mangled to
-    # (this behavior needs to be verified but is described in
-    # https://peps.python.org/pep-0008/#method-names-and-instance-variables)
-    # but this all needs thought.  Long term, it's not a good idea to have
-    # "private" (nothing is really private in python) functions unless there is
-    # a good rationale for having them, which is neither obvious nor documented
-    # for the functions below.
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self) -> list:
@@ -469,7 +427,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
             D (float): Well diameter (m).
 
         Returns:
-            float: Impedance (Pa·s/m³).
+            float: Impedance (Pa·s/kg).
         """
         return mu * np.log(4.0 * L / (np.pi * D)) / (rho * k * b)
 
@@ -491,9 +449,14 @@ class ReservoirUnitNative(Unit, FlowResistance):
             D (float): Well diameter (m).
 
         Returns:
-            float: Impedance (Pa·s/m³).
+            float: Impedance (Pa·s/kg).
         """
-        return mu * (np.log(L / (np.e * D)) + D / L) / (rho * k * b * np.pi)
+        impedance: float = (
+            mu  # (Pa * s)
+                * (np.log(L / (np.e * D)) + D / L)  # non-dimensional
+            / (rho * k * b * np.pi)  # (kg / m^3 * m^2 * m )
+        )
+        return impedance
 
     def _compute_depletion_curve_coeffs(self) -> list:
         r"""
@@ -529,8 +492,12 @@ class ReservoirUnitNative(Unit, FlowResistance):
         return p1, p2, p3
 
     def _update_impedance(self, mu: float, rho: float) -> None:
-        r"""
-        Updates the reservoir impedance using the doublet solution from Adams et al. (2020).
+        r"""Update the reservoir impedance by calling `self.get_impedance`"""
+        self.impedance = self.get_impedance(mu, rho)
+
+    def get_impedance(self, mu: float, rho: float) -> float:
+        r"""Calculate and return the reservoir impedance using the doublet solution from
+        Adams et al. (2020).
 
         This method calculates the impedance based on fluid properties, permeability, well spacing,
         and effective reservoir thickness.
@@ -558,12 +525,14 @@ class ReservoirUnitNative(Unit, FlowResistance):
                 - \( k \): Permeability (m²).
                 - \( L \): Well spacing (m).
                 - \( D \): Well diameter (m).
-                - \( Z \): Impedance (Pa·s/m³).
+                - \( Z \): Impedance (Pa·s/kg).
         """
         k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
         L, D = self.specs.well_spacing, self.specs.well_diameter
         b_eff = b * NTG  # Effective thickness
-        self.impedance = self.impedance_func(mu, rho, k, b_eff, L, D)
+        impedance: float = self.impedance_func(mu, rho, k, b_eff, L, D)
+
+        return impedance
 
     def _depletion_curve(self, psi: float) -> float:
         r"""

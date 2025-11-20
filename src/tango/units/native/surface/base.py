@@ -79,48 +79,15 @@ class SurfaceUnitNative(Unit, FlowResistance):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
-    def flow_res(self) -> float:
-        r"""Return surface pipe scaled flow resistance [Pa / (m^3 / s) / (Pa * s)]
+    def flow_res(self, te: float, p: float) -> float:
+        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]
 
-        # Derivation (in LaTeX format, to be converted to Sphinx-compatible format)
-        Note that this is simplistic and should be used only for
-        order-of-magnitude comparisons.  A more complicated solution is not guaranteed
-        to work if this funciton call is triggered by a failed property calculation,
-        which is likely to be the case.
-        ```
-        \section{Poiseuille}
-        \begin{equation}
-            \label{eq:Poiseuille}
-            \Delta P = \frac{8 \mu L Q}{\pi R^4}
-        \end{equation}
-        where
-        \begin{itemize}
-            \item $\Delta P$ is the pressure difference between the two ends
-            \item $L$ is the length of pipe
-            \item $\mu$ is the dynamic viscosity
-            \item $Q$ is the volumetric flow rate
-            \item $R$ is the pipe radius
-        \end{itemize}
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
 
-        \begin{equation}
-            \label{eq:Poiseuille-resistance}
-            \frac{\Delta P}{Q} = \frac{8 \mu L}{\pi R^4} \quad [\text{Pa} / (m^3 / s)]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-norm}
-            \frac{\Delta P}{Q} \times \frac{1}{\mu} = \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-
-        \begin{equation}
-            \label{eq:Poiseuille-resistance-scale}
-            \frac{\Delta P}{Q} \propto \frac{8 L}{\pi R^4} \quad \left[\frac{\text{Pa}}{(m^3 / s)} \times \frac{1}{\text{Pa} \cdot s}\right]
-        \end{equation}
-        ```
+        # Arguments
+        - `te`: estimated temperature for property evaluations
+        - `p`: estimated pressure for property evaluations
         """
-        flow_res: float = 8.0 * self.specs.well_spacing / (np.pi * (self.specs.pipe_diameter / 2.0) ** 4.0)
-
-        return flow_res
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
