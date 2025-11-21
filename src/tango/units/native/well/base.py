@@ -51,7 +51,8 @@ class WellUnitNative(Unit, FlowResistance):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate flow resistance [Pa / (kg / s)], including gravity effects
+        r"""Return approximate flow resistance [Pa / (kg / s)], including gravity effects, accounting
+        for gravitational effects
 
         This approximates the flow resistance based on fluid properties evaluated at the well inlet.
 
@@ -60,7 +61,6 @@ class WellUnitNative(Unit, FlowResistance):
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s]
         """
-
         state = FluidState.withPT(self._specs.fluid_name, p, te)
         rho = state.rho
         mu = state.mu

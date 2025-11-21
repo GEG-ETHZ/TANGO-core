@@ -139,7 +139,7 @@ class FlowResistance(ABC):
 
     @abstractmethod
     def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate flow resistance [Pa / (kg / s)]
+        r"""Return approximate flow resistance [Pa / (kg / s)], accounting for gravitational effects
 
         # Arguments
         - `te`: estimated temperature [K] for property evaluations

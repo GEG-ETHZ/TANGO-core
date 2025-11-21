@@ -82,8 +82,9 @@ class SurfaceUnitNative(Unit, FlowResistance):
 
     @abstractmethod
     def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]"""
-
+        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)], accounting for gravitational
+        effects
+        """
         pass  # to be implemented in child classes
 
     @abstractmethod

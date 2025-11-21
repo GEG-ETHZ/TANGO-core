@@ -116,7 +116,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         return ps_out
 
     def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]
+        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)], accounting for gravitational
+        effects
 
         This approximates the flow resistance based on fluid properties evaluated at the well inlet.
 
@@ -125,7 +126,6 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s]
         """
-
         pipe_inlet_fluid = copy(self.inlet_fluid)
         pipe_inlet_fluid.updatePT(P=p, T=te)
         rho = self.inlet_fluid.rho
