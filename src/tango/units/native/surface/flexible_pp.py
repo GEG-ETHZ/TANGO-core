@@ -16,7 +16,8 @@ from itertools import cycle
 
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
-from tango.units.dataclasses import *
+from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
+
 
 @dataclass
 class SurfaceSpecsFlexiblePP(CommonSpecs):
@@ -80,15 +81,47 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
             fluid={self.specs.fluid_name: 1},
             mass_rate=self.mass_rate,
             # this expects bar
-            production_pressure=self.inlet_fluid.P / 100_000,
+            production_pressure=self.inlet_fluid.P * PA_TO_BAR,
             # this expects degrees Celsius
-            production_temperature=self.inlet_fluid.T - C_TO_K
+            production_temperature=self.inlet_fluid.T + K_TO_C
         )
         self.power_plant.network.solve('design')
         outlet_state = self.power_plant.get_outlet_conditions()
         self.w_net = self.power_plant.calculate_net_power()
 
-        return outlet_state['pressure'] * 1000000.0, outlet_state['temperature'] + 273.15, self.mass_rate
+        ps_out = (
+            outlet_state['pressure'] * MPA_TO_PA,
+            outlet_state['temperature'] + C_TO_K,
+            self.mass_rate,
+        )
+
+        return ps_out
+
+    def flow_res(self, te: float, p: float, mdot: float) -> float:
+        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]
+
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+
+        pipe_inlet_fluid = copy(self.inlet_fluid)
+        pipe_inlet_fluid.updatePT(P=p, T=te)
+        rho = self.inlet_fluid.rho
+        mu = self.inlet_fluid.mu
+        # divide mdot by the number of wells in the well pattern
+        mdot_pipe = 1.0 / self._m_dot_mult * mdot
+        u = mdot_pipe / (0.25 * np.pi * self.specs.pipe_diameter ** 2) / rho
+        ff = self._compute_friction_factor(rho, mu, u)
+        dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
+        # this uses total mass flow rate through the power plant and total pressure drop through both the
+        # surface pipes but does not account for the pressure change through the power plant because this is
+        # not a flow resistance and some condensation is expected in the power plant
+        flow_res_dp_per_mass_rate: float = mdot / dP_pipe
+        return flow_res_dp_per_mass_rate
 
     def _update_state_pipe(self) -> None:
         r"""
@@ -757,7 +790,7 @@ class PowerPlant:
         for connection in self.connections:
             if isinstance(connection.target, Sink) and connection.target.label == "outlet":
                 try:
-                    outlet_conditions["pressure"] = connection.p.val / 10  # Convert bar to MPa
+                    outlet_conditions["pressure"] = connection.p.val * BAR_TO_MPA  # Convert bar to MPa
                     outlet_conditions["temperature"] = connection.T.val  # Convert K to °C
                 except AttributeError:
                     pass
