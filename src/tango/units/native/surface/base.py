@@ -1,4 +1,5 @@
 import numpy as np
+from abc import abstractmethod
 
 from tango.core.abstracts.unit import Unit, FlowResistance
 from tango.core.errors import CoolPropError
@@ -79,27 +80,16 @@ class SurfaceUnitNative(Unit, FlowResistance):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
+    @abstractmethod
     def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]
+        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)]"""
 
-        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
+        pass  # to be implemented in child classes
 
-        # Arguments
-        - `te`: estimated temperature [K] for property evaluations
-        - `p`: estimated pressure [Pa] for property evaluations
-        - `mdot`: mass flow rate [kg/s]
-        """
+    @abstractmethod
+    def process_stream(self) -> tuple[float, float, float]:
 
-        state = FluidState.withPT(self._specs.fluid_name, p, te)
-        rho = state.rho
-        mu = state.mu
-        # See src/tango/units/native/surface/flexible_pp.py::process_stream
-        raise NotImplementedError("TODO: pick up here if this message appears")
-
-        flow_res_dp_per_mass_rate: float = None
-        return flow_res_dp_per_mass_rate
-
-        
+        pass  # to be implemented in child classes
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
@@ -158,7 +148,8 @@ class SurfaceUnitNative(Unit, FlowResistance):
         T_ambient = self.specs.surface_temperature
         dT_approach = self.specs.approach_temperature
         dT_range = self._condensation_temperature_range
-        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        pwr_parasitic: float = a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        return pwr_parasitic
 
     def _get_parasitic_power_fraction_cooling(self):
         """

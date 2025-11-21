@@ -1,19 +1,28 @@
-from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import SurfaceUnitNative
-from tango.core.constants import C_TO_K
-from tango.core.fluidstate import FluidState
 from dataclasses import dataclass
-
 import yaml
-from tespy.components import Sink, Source, Turbine, SimpleHeatExchanger, Compressor, Valve, DropletSeparator, Merge, HeatExchanger, CycleCloser
+from tespy.components import (
+    Sink,
+    Source,
+    Turbine,
+    SimpleHeatExchanger,
+    Compressor,
+    Valve,
+    DropletSeparator,
+    Merge,
+    HeatExchanger,
+    CycleCloser
+)
 from tespy.connections import Connection
 from tespy.networks import Network
 import numpy as np
-
 from tabulate import tabulate
 from termcolor import colored
 from itertools import cycle
+from copy import copy
 
+from tango.units.dataclasses import CommonSpecs
+from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
 from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
@@ -32,6 +41,7 @@ class SurfaceSpecsFlexiblePP(CommonSpecs):
         for s in required_fields:
             if getattr(self, s, None) is None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
+
 
 class SurfaceUnitFlexiblePP(SurfaceUnitNative):
     def __init__(self, id: str, specs: dict):
@@ -68,13 +78,21 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         if P is not None and T is not None:
             self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        self.mass_rate = (
+            self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1]
+                / self.specs.num_pp
+        )
         self.outlet_fluid = FluidState.withPT(self.specs.fluid_name, 10000000.0, 290.0)
 
     def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the stream by [float, float, float]updating turbine, condenser, and pump states,
         and computes the net system performance.
+
+        # Returns
+        # - power plant outlet pressure [Pa]
+        # - power plant outlet temperature [K]
+        # - mass flow rate
         """
         self._update_state_pipe()
         self.power_plant.set_attributes(
@@ -184,7 +202,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         epsilon = self.specs.epsilon
         Re = rho * u * d / mu
         r = epsilon / d
-        return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
+        ff: float = (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
+        return ff
 
     def _get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
         r"""
@@ -206,7 +225,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         """
         d = self.specs.pipe_diameter
         L = self.specs.well_spacing
-        return 0.5 * ff * L * rho * u ** 2 / d
+        dP_pipe: float = 0.5 * ff * L * rho * u ** 2 / d
+        return dP_pipe
 
     def _process_specs(self, specs) -> dict:
         """

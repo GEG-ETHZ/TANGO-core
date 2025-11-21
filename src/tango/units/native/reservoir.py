@@ -221,14 +221,15 @@ class ReservoirUnitNative(Unit, FlowResistance):
         """
         self._energy_extracted = self._energy_extracted_old + del_
 
-    def flow_res(self, te: float, p: float, _mdot: float) -> float:
-        r"""Return approximate reservoir flow resistance [Pa / (kg / s)]
+    def flow_res(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate reservoir flow resistance [Pa / (kg / s)], accounting for gravitational effects
 
         # Arguments
         - `te`: estimated temperature [K] for property evaluations
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s], not used in this implementation
         """
+        _mdot = mdot
         state = FluidState.withPT(self.specs.fluid_name, p, te)
         rho = state.rho
         mu = state.mu
