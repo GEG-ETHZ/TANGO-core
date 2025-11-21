@@ -271,10 +271,10 @@ class PowerPlant:
             orchestrator=None,
             economic=None
         )
-        
+
         self._specs = specs
         self._functions_evaluated = False
-        
+
         self.funcs = {}
         self.iterative_inj_pressure = 9100000
         self.pp_specs = specs

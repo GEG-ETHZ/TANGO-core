@@ -461,7 +461,7 @@ class FlowRateCalculator():
                                 - self.surface.specs.target_extraction_pressure > 0
                         )
                     ):
-                        # pump has exceeded target extraction pressure
+                        # pump has achieved target extraction pressure
                         break
 
                     pump_dp += (

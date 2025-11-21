@@ -6,12 +6,13 @@ import shutil
 import time
 import uuid
 from typing import Any
+from dataclasses import dataclass, field
 
 import numpy as np
 from tqdm import tqdm
 
 from tango.utils import load_from_yaml_with_overrides
-from tango.core.errors import CoolPropError, PressureError
+from tango.core.errors import PressureError, TangoError, CoolPropError
 from tango.core.abstracts.workflow import Workflow
 from tango.core.abstracts.unit import FlowResistance
 from tango.workflows.cmg_workflow import CMGWorkflow
@@ -414,115 +415,7 @@ class Tango:
         try:
             self.workflow.execute()
         except PressureError as cpe:
-            res_inst_dict: dict[str, FlowResistance] = {
-                k: v for (k, v) in self.workflow.orchestrator.unit.__dict__.items()
-                    if isinstance(v, FlowResistance)
-            }
-
-            res_dict: dict[str, float] = {}
-            # NOTE: these values will be approximate because they're not using numerical simulations, but
-            # they'll be guaranteed to work even if the simulation has failed before completing the loop
-            # Also, they'll work reasonably well for liquids with minimal property dependence on pressure and
-            # may not work as well for gases, dependening on the quality of the assumptions
-            for k, v in res_inst_dict.items():
-                if isinstance(v, FlowResistance):
-                    match k:
-                        case "injection_well":
-                            te = v.fluid_state_init.T
-                            # averaged over inlet and outlet
-                            p = 0.5 * (
-                                v.fluid_state_init.P
-                                    + self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
-                            )
-
-                        ### for all other cases, the temperature and pressure must be approximated because the
-                        # state may not yet be available
-
-                        case "resevoir":
-                            depth_for_temp = res_inst_dict['reservoir'].specs.reservoir_depth
-                            te = (
-                                res_inst_dict['reservoir'].specs.surface_temperature
-                                    + (res_inst_dict['reservoir'].specs.thermal_gradient * depth_for_temp)
-                            )
-                            # NOTE: This assumes no pressure drop in the injection well, which will
-                            # overestimate the pressure. This assumption is reasonable for hydrothermal
-                            # systems but needs reassessment for CPG systems.
-                            p = self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
-                        case "production_well":
-                            # NOTE: assumes that production well bottom is always at same depth as injection
-                            # well bottom
-                            depth_for_temp = res_inst_dict['injection_well']._well_length
-                            # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
-                            # reservoir temperature has not decreased over time
-                            te = (
-                                res_inst_dict['production_well']._specs.surface_temperature
-                                    + (res_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
-                            )
-                            # NOTE: This assumes no pressure drop in the injection well or reservoir, which
-                            # will overestimate the pressure. This assumption is reasonable for hydrothermal
-                            # systems but needs reassessment for CPG systems.
-                            # averaged over inlet (reservoir depth) and outlet (production_well_pump length)
-                            p = 0.5 * (
-                                self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
-                                    + res_inst_dict['production_well_pump']._well_length
-                            )
-                        case "production_well_pump":
-                            # NOTE: this assumes no temperature decrease has occurred from the reservoir
-                            # temperature, which will overestimate the actual temperature, and it's a good
-                            # idea to revisit the assumption in the future
-                            depth_for_temp = res_inst_dict['injection_well']._well_length
-                            te = (
-                                res_inst_dict['production_well_pump']._specs.surface_temperature
-                                    + (res_inst_dict['production_well_pump']._specs.thermal_gradient
-                                        * depth_for_temp)
-                            )
-                            # averaged over inlet (production_well_pump length) and outlet (surface)
-                            p = 0.5 * (
-                                self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
-                            )  
-                        case "surface":
-                            # NOTE: this assumes no temperature decrease has occurred from the reservoir
-                            # temperature, which will overestimate the actual temperature, and it's a good
-                            # idea to revisit the assumption in the future
-                            depth = res_inst_dict['production_well_pump']._well_length
-                            te = (
-                                res_inst_dict['production_well_pump']._specs.surface_temperature
-                                    + (res_inst_dict['production_well_pump']._specs.thermal_gradient * depth)
-                            )
-                            p = self.workflow.orchestrator.unit.__dict__['reservoir'].specs.hydro_static_pressure
-
-                    # TODO: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
-                    # `self.specs['schedule']['mass_rate']['type']` is not "manual"
-                    res_dict[k] = v.flow_res(te=te, p=p, mdot=self.specs['schedule']['mass_flow_rate'])
-
-            res_denom = sum(res_dict.values())
-            res_str = "\n\t\t".join(
-                [f"{k}: {v / res_denom:.3%}" for (k, v) in res_dict.items()])
-            # TODO:
-            # - figure out reasonable density
-            # - figure out reasonable viscosity of liquid water
-            # - figure out a way to check working fluid so that the above properties are
-            #   working fluid responsive
-            # - check pressure drop in
-            #     - injection well
-            #     - injection well + reservoir
-            #     - injection well + reservoir + production well
-            #     - production well pump
-            #   based on resistance and mass flow rate
-            new_err = (
-                str(cpe)
-                + "\n\tApprox. flow resistances, scaled relative to sum of module resistances"
-                + "\n\tNOTES:"
-                + "\n\t- the reservoir is expected to dominate total system resistance"
-                + "\n\t- Resistances are calculated based solely on system specs to avoid needing"
-                + "\n\t  fluid properties, in case property calculations fail, and should thus be "
-                + "\n\t  considered approximate."
-                + "\n\t- Total injection well resistance and production well resistance should"
-                + "\n\t  be of similar magnitude\n"
-                + "\n\tVALUES:\n\t\t"
-                + res_str
-            )
-            raise type(cpe)(new_err) from cpe
+            self.handle_convergence_err(cpe)
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 
@@ -548,6 +441,205 @@ class Tango:
             batch_sim.run_batch_simulation(self.input_file)
         else:
             self.execute()
+
+    def handle_convergence_err(self, cpe: CoolPropError):
+        """Handle convergence error to provide troubleshooting context"""
+        unit = self.workflow.orchestrator.unit
+        # dictionary of module names and corresponding instances
+        res_inst_dict: dict[str, FlowResistance] = {
+            k: v for (k, v) in unit.__dict__.items()
+                if isinstance(v, FlowResistance)
+        }
+
+        # dictionary of module names and corresponding resistances 
+        res_dict: dict[str, float] = {}
+
+        @dataclass
+        class InletBCs(object):
+            """Class for storing pressure and temperature"""
+            p: float = field(init=False)
+            te: float
+
+        opt_inlet_bcs: dict[str, InletBCs] = {}
+
+        # NOTE: these values will be approximate because they're not using numerical simulations, but
+        # they'll be guaranteed to work even if the simulation has failed before completing the loop
+        # Also, they'll work reasonably well for liquids with minimal property dependence on pressure and
+        # may not work as well for gases, dependening on the quality of the assumptions
+        for k, v in res_inst_dict.items():
+            te: float | None = None
+            p: float | None = None
+            match k:
+                case "injection_well":
+                    te = v.fluid_state_init.T
+                    # averaged over inlet and outlet
+                    p = 0.5 * (
+                        v.fluid_state_init.P
+                            + unit.reservoir.specs.hydro_static_pressure
+                    )
+
+                ### for all other cases, the temperature and pressure must be approximated because the
+                # state may not yet be available
+
+                case "reservoir":
+                    depth_for_temp = res_inst_dict['reservoir'].specs.reservoir_depth
+                    te = (
+                        res_inst_dict['reservoir'].specs.surface_temperature
+                            + (res_inst_dict['reservoir'].specs.thermal_gradient * depth_for_temp)
+                    )
+                    # NOTE: This assumes no pressure drop in the injection well, which will
+                    # overestimate the pressure. This assumption is reasonable for fluids with
+                    # viscosity and density that are pressure insensitive.
+                    p = unit.reservoir.specs.hydro_static_pressure
+                case "production_well":
+                    # NOTE: assumes that production well bottom is always at same depth as injection
+                    # well bottom
+                    depth_for_temp = res_inst_dict['injection_well']._well_length
+                    # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
+                    # reservoir temperature has not decreased over time
+                    te = (
+                        res_inst_dict['production_well']._specs.surface_temperature
+                            + (res_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
+                    )
+                    # NOTE: This assumes no pressure drop in the injection well or reservoir, which
+                    # will overestimate the pressure. This assumption is reasonable for hydrothermal
+                    # systems but needs reassessment for CPG systems.
+                    # averaged over inlet (reservoir depth) and outlet (production_well_pump length)
+                    p = 0.5 * (
+                        unit.reservoir.specs.hydro_static_pressure
+                            + res_inst_dict['production_well_pump']._well_length
+                    )
+                case "production_well_pump":
+                    # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                    # temperature, which will overestimate the actual temperature, and it's a good
+                    # idea to revisit the assumption in the future
+                    depth_for_temp = res_inst_dict['injection_well']._well_length
+                    te = (
+                        res_inst_dict['production_well_pump']._specs.surface_temperature
+                            + (res_inst_dict['production_well_pump']._specs.thermal_gradient
+                                * depth_for_temp)
+                    )
+                    # averaged over inlet (production_well_pump length) and outlet (surface)
+                    p = 0.5 * (
+                        unit.reservoir.specs.hydro_static_pressure
+                    )
+                case "surface":
+                    # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                    # temperature, which will overestimate the actual temperature, and it's a good
+                    # idea to revisit the assumption in the future
+                    depth = res_inst_dict['production_well_pump']._well_length
+                    te = (
+                        res_inst_dict['production_well_pump']._specs.surface_temperature
+                            + (res_inst_dict['production_well_pump']._specs.thermal_gradient * depth)
+                    )
+                    p = unit.reservoir.specs.hydro_static_pressure
+
+            if te is None:
+                raise ValueError("`te` should be a float")
+            if p is None:
+                raise ValueError("`p` should be a float")
+
+            opt_inlet_bcs[k] = InletBCs(te=te)
+
+            # TODO: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
+            # `self.specs['schedule']['mass_rate']['type']` is not "manual"
+            flow_res = v.flow_res(
+                te=te,
+                p=p,
+                mdot=self.specs['schedule']['mass_flow_rate'],
+            )
+            res_dict[k] = flow_res
+
+        # TODO:
+        # - change `flow_res` function to `get_p_out_simple`
+        # - what's a typical injection well head pressure? injection well bottom pressure? same but temperatures?
+        # - how is initial guess of injection well pressure specified?
+        #
+        # # Logic:
+        # If pressure drops below either zero or saturation pressure in the injection well, then:
+        # - the injection well has too high resistance
+        # - the mass flow rate is too high for the injection well
+        # - the injection well head pressure is too low -- this gets solved by iteration, but only if the
+        #   first iteration doesn't trigger an error.  I think we should have the solver automatically
+        #   handle this, but this is beyond the scope of task 1.
+        #
+        # If pressure drops below either zero or saturation pressure in the reservoir, then:
+        # - assuming optimistically high inlet pressure (i.e. hydrostatic pressure + allowed over
+        #   pressure):
+        #     - the mass flow rate and/or impedance (i.e. well spacing) is too high in the reservoir, and
+        #       reducing these results in less heat extraction or shorter reservoir life, respectively
+        # - otherwise:
+        #     - the mass flow rate and/or impedance (i.e. well spacing) is too high for the reservoir
+        #       and the mass flow rate and/or flow resistance is too high in the injection well.
+        #         - what inlet pressure would the reservoir need to work?
+        #         - what injection well diameter would result in this pressure, subject to parameter
+        #           limits?
+        #     - the injection well head pressure is too low
+        #
+        # If pressure drops below either zero or saturation pressure in the production well, then:
+        # - assuming optimistically high inlet pressure (i.e. hydrostatic pressure + allowed over
+        #   pressure):
+        #     - the mass flow rate and/or impedance (i.e. well spacing) is too high in the reservoir, and
+        #       reducing these results in less heat extraction or shorter reservoir life, respectively
+        # - otherwise:
+        #     - the mass flow rate and/or impedance (i.e. well spacing) is too high for the reservoir
+        #       and the mass flow rate and/or flow resistance is too high in the injection well and/or
+        #       the production well.
+        #         - what inlet pressure would the production well need to work?
+        #         - what production well diameter would result in this pressure, subject to parameter
+        #           limits? If it exceeds the limit, can injection wellbore diameter be increased?
+        #     - the injection well head pressure is too low
+        #
+        # If pressure drops below either zero or saturation pressure in the production well pump, then:
+        # - what change in production well diameter would fix this?
+
+        # Optimistic pressures
+        # pressure at injection well outlet
+        p_out_injection_well = unit.injection_well.fluid_state_init.P
+        opt_inlet_bcs["reservoir"].p = p_out_injection_well
+        # pressure at reservoir outlet
+        # assume optimistic pressure
+        try:
+            p_out_from_spec = unit.reservoir.specs.hydro_static_pressure * (
+                1.0 + unit.reservoir.specs.over_pressure_percentage
+            )
+            p_out_res = max(
+                unit.reservoir.inlet_fluid.P,
+                p_out_from_spec,
+            )
+        except Exception:  # doesn't really matter what goes wrong above
+            p_out_res = p_out_from_spec
+        opt_inlet_bcs["production_well"].p = p_out_res
+        # pressure at production well outlet
+        try:
+            p_out_pro_well = max(
+                unit.production_well.inlet_fluid.P,
+                unit.reservoir.specs.hydro_static_pressure,
+            )
+        except Exception:
+            p_out_pro_well = unit.reservoir.specs.hydro_static_pressure
+        opt_inlet_bcs["production_well_pump"].p = p_out_pro_well
+        # pressure at production well pump outlet
+        p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
+        opt_inlet_bcs["surface"].p = p_out_pro_well_pump
+
+        ordered_modules = [
+            # "injection_well",
+            "reservoir",
+            "production_well",
+            "production_well_pump",
+            "surface"
+        ]
+
+        # list of errors that will be handled
+        errs: list[TangoError] = []
+
+        for (i, mod) in enumerate(ordered_modules):
+            # which modules, if any, individually trigger pressure problems?
+            p_mod_out = res_dict[mod]
+            
+        
+        raise NotImplementedError("raise the right error here") from cpe
 
 
 class Runner:
