@@ -178,6 +178,12 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         u = mdot / (0.25 * np.pi * self.specs.pipe_diameter ** 2) / rho
         ff = self._compute_friction_factor(rho, mu, u)
         self.dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
+        # NOTE: it seems like it would be better to have separate `FluidState`
+        # attrtibutes to track fluid state at pipe inlet and fluid state at pipe
+        # outlet, rather than just overwriting the `inlet_fluid` with the pipe
+        # outlet state
+        # Also, it would be good to have a `history` attribute that tracks both of these through time so that
+        # we have that information in the results
         self.inlet_fluid.updatePT(P=self.inlet_fluid.P - self.dP_pipe, T=self.inlet_fluid.T)
 
     def _compute_friction_factor(self, rho: float, mu: float, u: float) -> float:
