@@ -7,6 +7,7 @@ import time
 import uuid
 from typing import Any
 from dataclasses import dataclass, field
+import CoolProp as CP
 
 import numpy as np
 from tqdm import tqdm
@@ -521,7 +522,7 @@ class Tango:
                     # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
                     # reservoir temperature has not decreased over time
                     te = (
-                        p_simple_inst_dict["surface"]._specs.surface_temperature
+                        p_simple_inst_dict["surface"].specs.surface_temperature
                             + (p_simple_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
                     )
                     # NOTE: This assumes no pressure drop in the injection well or reservoir, which
@@ -538,7 +539,7 @@ class Tango:
                     # idea to revisit the assumption in the future
                     depth_for_temp = p_simple_inst_dict['injection_well']._well_length
                     te = (
-                        p_simple_inst_dict["surface"]._specs.surface_temperature
+                        p_simple_inst_dict["surface"].specs.surface_temperature
                             + (p_simple_inst_dict['production_well_pump']._specs.thermal_gradient * depth_for_temp)
                     )
                     # averaged over inlet (production_well_pump length) and outlet (surface)
@@ -559,10 +560,10 @@ class Tango:
                     # NOTE: this assumes no temperature decrease has occurred from the reservoir
                     # temperature, which will overestimate the actual temperature, and it's a good
                     # idea to revisit the assumption in the future
-                    depth = p_simple_inst_dict['production_well_pump']._well_length
+                    depth = p_simple_inst_dict["production_well_pump"]._well_length
                     te = (
-                        p_simple_inst_dict["surface"]._specs.surface_temperature
-                            + (p_simple_inst_dict['production_well_pump']._specs.thermal_gradient * depth)
+                        p_simple_inst_dict["surface"].specs.surface_temperature
+                            + (p_simple_inst_dict["reservoir"].specs.thermal_gradient * depth)
                     )
                     p = unit.reservoir.specs.hydro_static_pressure
                     p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
@@ -646,7 +647,7 @@ class Tango:
         p_out_delta_above_err: dict[str, float] = {}
         for (k, v) in opt_inlet_bcs.items():
             state_ad_hoc.updatePT(v.p, v.te)
-            p_sat[k] = state_ad_hoc.p_sat
+            p_sat[k] = CP.CoolProp.PropsSI("P", "T", v.te, "Q", 0, state_ad_hoc.fluidname)
             breakpoint()
             raise NotImplementedError()
             p_ref_for_k = 666

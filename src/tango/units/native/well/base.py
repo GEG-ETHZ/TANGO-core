@@ -453,7 +453,7 @@ class WellUnitNative(Unit, SimplePressureDrop):
         # depending on whether the system is balanced, which is most likely not
         # in the first iteration
         self.fluid_state_init = self.inlet_fluid
-        breakpoint()
+        # breakpoint()
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
         self._rho[0] = self.fluid_state_init.rho
