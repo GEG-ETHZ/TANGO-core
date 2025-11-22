@@ -134,12 +134,13 @@ class Unit(ABC):
         raise NotImplementedError("Implement 'stream_interface' method in your derived Unit class.")
 
 
-class FlowResistance(ABC):
-    """Provides interface for simple resistance calculations"""
+class SimplePressureDrop(ABC):
+    """Provides interface for simple, approximate pressure delta calculation"""
 
     @abstractmethod
-    def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate flow resistance [Pa / (kg / s)], accounting for gravitational effects
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational effects,
+        if applicable
 
         # Arguments
         - `te`: estimated temperature [K] for property evaluations

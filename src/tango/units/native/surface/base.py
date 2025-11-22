@@ -1,11 +1,11 @@
 import numpy as np
 from abc import abstractmethod
 
-from tango.core.abstracts.unit import Unit, FlowResistance
+from tango.core.abstracts.unit import Unit, SimplePressureDrop
 from tango.core.errors import CoolPropError
 
 
-class SurfaceUnitNative(Unit, FlowResistance):
+class SurfaceUnitNative(Unit, SimplePressureDrop):
     r"""
     Represents the surface power plant unit based on Adams et al. (2015).
 
@@ -81,8 +81,8 @@ class SurfaceUnitNative(Unit, FlowResistance):
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
     @abstractmethod
-    def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)], accounting for gravitational
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
         effects
         """
         pass  # to be implemented in child classes

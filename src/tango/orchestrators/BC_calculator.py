@@ -2,6 +2,7 @@ import math
 import pandas as pd
 
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, PumpInletFlashError
+from tango.core.constants import GRAVITY_ACCELERATION
 
 class FlowRateCalculator():
     """
@@ -405,7 +406,8 @@ class FlowRateCalculator():
             # If pump exists, apply pump logic
             if self.pro_well_pump:
                 pump_dp_raw = (
-                    self.pro_well_pump._specs.well_length * self.pro_well.outlet_fluid.rho * 9.8
+                    self.pro_well_pump._specs.well_length * self.pro_well.outlet_fluid.rho
+                        * GRAVITY_ACCELERATION
                         - self.pro_well.outlet_fluid.P
                 )
                 pump_dp = max(

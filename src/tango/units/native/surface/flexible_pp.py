@@ -115,8 +115,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
 
         return ps_out
 
-    def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return surface pipe approximate flow resistance [Pa / (kg / s)], accounting for gravitational
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
         effects
 
         This approximates the flow resistance based on fluid properties evaluated at the well inlet.
@@ -134,12 +134,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         mdot_pipe = 1.0 / self._m_dot_mult * mdot
         u = mdot_pipe / (0.25 * np.pi * self.specs.pipe_diameter ** 2) / rho
         ff = self._compute_friction_factor(rho, mu, u)
-        dP_pipe = self._get_pipe_pressure_drop(rho, u, ff)
-        # this uses total mass flow rate through the power plant and total pressure drop through both the
-        # surface pipes but does not account for the pressure change through the power plant because this is
-        # not a flow resistance and some condensation is expected in the power plant
-        flow_res_dp_per_mass_rate: float = mdot / dP_pipe
-        return flow_res_dp_per_mass_rate
+        dP_pipe: float = self._get_pipe_pressure_drop(rho, u, ff)
+        return dP_pipe
 
     def _update_state_pipe(self) -> None:
         r"""

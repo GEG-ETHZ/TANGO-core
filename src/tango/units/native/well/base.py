@@ -3,14 +3,14 @@ import numpy as np
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.errors import CoolPropError
-from tango.core.abstracts.unit import Unit, FluidState, FlowResistance
+from tango.core.abstracts.unit import Unit, FluidState, SimplePressureDrop
 from tango.units.dataclasses import WellSpecsNative
 
 import csv
 import os
 
 
-class WellUnitNative(Unit, FlowResistance):
+class WellUnitNative(Unit, SimplePressureDrop):
     """
     Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
 
@@ -50,8 +50,8 @@ class WellUnitNative(Unit, FlowResistance):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate flow resistance [Pa / (kg / s)], including gravity effects, accounting
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], including gravity effects, accounting
         for gravitational effects
 
         This approximates the flow resistance based on fluid properties evaluated at the well inlet.
@@ -71,11 +71,9 @@ class WellUnitNative(Unit, FlowResistance):
         dp_grav_for_cell = self._f_dir * rho * self._g * self._dz
         dp_tot_for_cell = dp_loss_for_cell + dp_grav_for_cell
         # positive indicates pressure drop in direction of flow
-        dp_tot_for_well = dp_tot_for_cell * self._num_cells
+        dp_tot_for_well: float = dp_tot_for_cell * self._num_cells
 
-        flow_res_dp_per_mass_rate: float = dp_tot_for_well / self.mass_rate
-
-        return flow_res_dp_per_mass_rate
+        return dp_tot_for_well
 
     def stream_interface(self) -> None:
         """
@@ -455,6 +453,7 @@ class WellUnitNative(Unit, FlowResistance):
         # depending on whether the system is balanced, which is most likely not
         # in the first iteration
         self.fluid_state_init = self.inlet_fluid
+        breakpoint()
         self._P[0] = self.fluid_state_init.P
         self._h[0] = self.fluid_state_init.H
         self._rho[0] = self.fluid_state_init.rho

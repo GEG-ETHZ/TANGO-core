@@ -4,7 +4,7 @@ from math import e as exp
 from collections.abc import Callable
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import Unit, FlowResistance 
+from tango.core.abstracts.unit import Unit, SimplePressureDrop 
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
 from tango.core.errors import CoolPropError
@@ -13,7 +13,7 @@ import csv
 import os
 
 
-class ReservoirUnitNative(Unit, FlowResistance):
+class ReservoirUnitNative(Unit, SimplePressureDrop):
     """
     Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
 
@@ -50,7 +50,7 @@ class ReservoirUnitNative(Unit, FlowResistance):
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
 
-    def init_stream_interface(self, P: float = None, T: float = None) -> None:
+    def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
         """
         Initializes the fluid interface for the reservoir.
 
@@ -221,8 +221,8 @@ class ReservoirUnitNative(Unit, FlowResistance):
         """
         self._energy_extracted = self._energy_extracted_old + del_
 
-    def flow_res(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate reservoir flow resistance [Pa / (kg / s)], accounting for gravitational effects
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational effects
 
         # Arguments
         - `te`: estimated temperature [K] for property evaluations
@@ -235,7 +235,8 @@ class ReservoirUnitNative(Unit, FlowResistance):
         mu = state.mu
         # (Pa·s/kg)
         impedance = self.get_impedance(mu, rho)
-        return impedance
+        dp = impedance * mdot
+        return dp
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
