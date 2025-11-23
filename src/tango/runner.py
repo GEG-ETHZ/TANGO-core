@@ -21,6 +21,7 @@ from tango.core.errors import (
     MassFlowRateError,
     FlowResistanceError,
     ProPumpInletFlashError,
+    P_SAT_ERR_TEST,
 )
 from tango.core.abstracts.workflow import Workflow
 from tango.core.abstracts.unit import SimplePressureDrop
@@ -42,6 +43,7 @@ injection_well = "injection_well"
 reservoir = "reservoir"
 production_well = "production_well"
 production_well_pump = "production_well_pump"
+production_well_upper = "production_well_upper"
 surface = "surface"
 ordered_subsurface = [
     injection_well,
@@ -50,6 +52,7 @@ ordered_subsurface = [
 ]
 ordered_surface = [
     production_well_pump,
+    production_well_upper,
     surface,
 ]
 
@@ -456,7 +459,9 @@ class Tango:
 
         try:
             self.workflow.execute()
-        except PressureError as cpe:
+        except CoolPropError as cpe:
+            if not isinstance(cpe, SaturationPressureError) and P_SAT_ERR_TEST.search(str(cpe)) is not None:
+                cpe = SaturationPressureError(cpe)
             self.handle_convergence_err(cpe)
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
@@ -493,6 +498,8 @@ class Tango:
                 if isinstance(v, SimplePressureDrop)
         }
 
+        breakpoint()
+
         # NOTE: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
         # `self.specs['schedule']['mass_rate']['type']` is not "manual"
         mdot = self.specs['schedule']['mass_flow_rate']
@@ -506,7 +513,7 @@ class Tango:
 
         # fractional margin above saturation pressure at which error is triggered
         # NOTE: this should eventually be configurable
-        p_sat_frac_margin = 0.05
+        p_sat_frac_margin = 1.0
 
         # module keys and corresponding errors that will be handled
         standalone_mod_errs: dict[str, TangoError] = {}
@@ -826,7 +833,7 @@ def check_complex_err(
     # - `mdot`: mass flow rate [kg/s]
 
     """
-
+    breakpoint()
     # determine component in which CoolProp error occurred
     if f"unit: {injection_well}" in str(cpe):
         cp_err_inlet = injection_well
@@ -936,8 +943,8 @@ def check_complex_err(
                 p_min_inlet[comp_with_narrow_d] - unit.__dict__[comp_with_narrow_d].inlet_fluid.P
             ) / dp_dict[comp_with_narrow_d]
         d_curr = narrow_d
-        d_new = d_curr * (1.0 - dp_needed) ** (-0.2)
-        breakpoint()
+        d_margin = 0.3
+        d_new = d_curr * (1.0 - dp_needed) ** (-0.2) * (1.0 + d_margin)
         raise FlowResistanceError(
             f"\n\t`{comp_with_narrow_d}` has too much flow resistance."
             + f"\n\tThis could by fixed, for example, by increasing the diameter (currently {d_curr:.3f} m)"
