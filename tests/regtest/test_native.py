@@ -111,7 +111,9 @@ def test_examples(file_and_value: tuple[Path, float]):
     file = file_and_value[0]
     value = file_and_value[1]
     run(file)
-    assert get_lcoe_from_file(file) == pytest.approx(value)
+    assert get_lcoe_from_file(file) == pytest.approx(value), (
+        f"LCOE calulated: {get_lcoe_from_file(file)}, LCOE expected: {value}"
+    )
     rm_output_files(file)
 
 
@@ -176,7 +178,7 @@ def test_failing_examples(file_and_err_type_failing: tuple[Path, type]):
         run(file)
         raise Exception("Should be unreachable")
     except Exception as err:
-        assert isinstance(err, err_type), f"`type(err)`: {type(err)}, `err_type`: {err_type}"
+        assert isinstance(err, err_type), f"error raised: {type(err)}, error expected: {err_type}"
         rm_output_files(file)
 
 

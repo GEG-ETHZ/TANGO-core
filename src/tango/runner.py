@@ -13,7 +13,14 @@ import numpy as np
 from tqdm import tqdm
 
 from tango.utils import load_from_yaml_with_overrides
-from tango.core.errors import PressureError, TangoError, CoolPropError
+from tango.core.errors import (
+    PressureError,
+    TangoError,
+    CoolPropError,
+    SaturationPressureError,
+    MassFlowRateError,
+    FlowResistanceError,
+)
 from tango.core.abstracts.workflow import Workflow
 from tango.core.abstracts.unit import SimplePressureDrop
 from tango.workflows.cmg_workflow import CMGWorkflow
@@ -26,6 +33,14 @@ WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
     "native": NativeWorkflow,
     "cmg": CMGWorkflow,
 }
+
+
+# define strings for frequently used dict keys to reduce likelihood of typos
+injection_well = "injection_well"
+reservoir = "reservoir"
+production_well = "production_well"
+production_well_pump = "production_well_pump"
+surface = "surface"
 
 
 def get_workflow_class(type_: str) -> type[Workflow]:
@@ -448,23 +463,39 @@ class Tango:
     def handle_convergence_err(self, cpe: CoolPropError):
         """Handle convergence error to provide troubleshooting context"""
         unit = self.workflow.orchestrator.unit
-        # dictionary of module names and corresponding instances
+        # dictionary of module names and corresponding instances that inhherit `SimplePressureDrop`
         p_simple_inst_dict: dict[str, SimplePressureDrop] = {
             k: v for (k, v) in unit.__dict__.items()
                 if isinstance(v, SimplePressureDrop)
         }
 
+        # NOTE: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
+        # `self.specs['schedule']['mass_rate']['type']` is not "manual"
+        mdot = self.specs['schedule']['mass_flow_rate']
+
         # dictionary of module names and corresponding pressure drops [Pa]
         dp_dict: dict[str, float] = {}
 
         @dataclass
-        class InletBCs(object):
-            """Class for storing pressure and temperature"""
+        class InletBCs:
+            """Class for storing pressure and temperature used as inlet BCs
+
+            # Attributes
+            # - `p`: pressure at inlet for current module
+            # - `te`: temperature at inlet for current module
+            """
+
             p: float
             te: float
 
         # dictionary of module names and corresponding BCs to use in calculating outlet pressure
         opt_inlet_bcs: dict[str, InletBCs] = {}
+
+        # state for ad hoc calculations
+        state_ad_hoc = FluidState.copy(p_simple_inst_dict[injection_well].fluid_state_init)
+        if not state_ad_hoc.rho > 0.0:
+            # should not be reachable code but here just in case
+            raise ValueError("`state_ad_hoc` should have been updated.  This may be a bug.")
 
         # NOTE: these values will be approximate because they're not using numerical simulations, but
         # they'll be guaranteed to work even if the simulation has failed before completing the loop
@@ -474,112 +505,143 @@ class Tango:
         # Determine temperatue and pressure to be used in calculating properties for calculating dP for each
         # module in TANGO loop
         for k, v in p_simple_inst_dict.items():
-            match k:
-                case "injection_well":
-                    # state for ad hoc calculations
-                    state_ad_hoc = FluidState.copy(v.fluid_state_init)
-                    te = v.fluid_state_init.T
-                    # averaged over inlet and outlet
-                    p = 0.5 * (
-                        v.fluid_state_init.P
-                            + unit.reservoir.specs.hydro_static_pressure
-                    )
-                    opt_inlet_bcs[k] = InletBCs(
-                        te=te,
-                        # this gets updated after an iteration, but if it fails before one iteration is
-                        # completei, then there's not a clear best choic for assuming an optimum inlet
-                        # pressure here
-                        p=v.fluid_state_init.P
-                    )
+            if k == injection_well:
+                te = v.fluid_state_init.T
+                # averaged over inlet and outlet for property calculations
+                p = 0.5 * (
+                    v.fluid_state_init.P
+                        + unit.reservoir.specs.hydro_static_pressure
+                )
+                dp_for_module = v.get_dp_simple(
+                    te=te,
+                    p=p,
+                    mdot=mdot,
+                )
+                dp_dict[k] = dp_for_module
+                opt_inlet_bcs[k] = InletBCs(
+                    te=te,
+                    # this gets updated after an iteration, but if it fails before one iteration is
+                    # complete, then there's not a clear best choice for assuming an optimum inlet
+                    # pressure here
+                    p=v.fluid_state_init.P
+                )
+                del te, p
 
-                ### for all other cases, the temperature and pressure must be approximated because the
-                # state may not yet be available
+            ### for all other cases, the temperature and pressure must be approximated because the
+            # state may not yet be available
 
-                case "reservoir":
-                    depth_for_temp = p_simple_inst_dict[k].specs.reservoir_depth
-                    # this overestimates temperature for pressure drop calculation but is
-                    # reasonable for saturation pressure calclulation
-                    te = (
-                        p_simple_inst_dict["surface"].specs.surface_temperature
-                            + (p_simple_inst_dict[k].specs.thermal_gradient * depth_for_temp)
+            elif k == reservoir:
+                depth_for_temp = p_simple_inst_dict[k].specs.reservoir_depth
+                # this overestimates temperature for pressure drop calculation but is
+                # reasonable for saturation pressure calclulation
+                te = (
+                    p_simple_inst_dict[surface].specs.surface_temperature
+                        + (p_simple_inst_dict[k].specs.thermal_gradient * depth_for_temp)
+                )
+                # NOTE: This assumes minimal pressure drop in the injection well.
+                # This assumption is reasonable for calculating fluid properties
+                # of fluids with viscosity and density that are pressure insensitive.
+                p = unit.reservoir.specs.hydro_static_pressure
+                dp_for_module = v.get_dp_simple(
+                    te=te,
+                    p=p,
+                    mdot=mdot,
+                )
+                dp_dict[k] = dp_for_module
+                opt_inlet_bcs[k] = InletBCs(
+                    te=te,
+                    # this assumes the injection well head pressure and resistances are high enough and
+                    # low enough, respectively, to feed the reservoir its maximum allowed inlet pressure
+                    p=unit.reservoir.specs.hydro_static_pressure * (
+                        1.0 + unit.reservoir.specs.over_pressure_percentage
                     )
-                    # NOTE: This assumes minimal pressure drop in the injection well.
-                    # This assumption is reasonable for calculating fluid properties
-                    # of fluids with viscosity and density that are pressure insensitive.
-                    p = unit.reservoir.specs.hydro_static_pressure
-                    opt_inlet_bcs[k] = InletBCs(
-                        te=te,
-                        # this assumes the injection well head pressure and resistances are high enough and
-                        # low enough, respectively, to feed the reservoir its maximum allowed inlet pressure
-                        p=unit.reservoir.specs.hydro_static_pressure * (
-                            1.0 + unit.reservoir.specs.over_pressure_percentage
-                        )
+                )
+                del te, p
+            elif k == production_well:
+                # NOTE: assumes that production well bottom is always at same depth as injection
+                # well bottom
+                depth_for_temp = p_simple_inst_dict['injection_well']._well_length
+                # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
+                # reservoir temperature has not decreased over time
+                te = (
+                    p_simple_inst_dict[surface].specs.surface_temperature
+                        + (p_simple_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
+                )
+                # NOTE: This assumes no pressure drop in the injection well or reservoir, which
+                # will overestimate the pressure. This assumption is reasonable for hydrothermal
+                # systems but needs reassessment for CPG systems.
+                # averaged over inlet (reservoir depth) and outlet (production_well_pump length) for property
+                # calculation
+                p = 0.5 * (
+                    unit.reservoir.specs.hydro_static_pressure
+                        + p_simple_inst_dict['production_well_pump']._well_length * GRAVITY_ACCELERATION
+                            * state_ad_hoc.rho
+                )
+                dp_for_module = v.get_dp_simple(
+                    te=te,
+                    p=p,
+                    mdot=mdot,
+                )
+                dp_dict[k] = dp_for_module
+                opt_inlet_bcs[k] = InletBCs(
+                    te=te,
+                    # this assumes the injection well head pressure and resistances are high enough and
+                    # low enough, respectively, to feed the reservoir its maximum allowed inlet pressure
+                    p=unit.reservoir.specs.hydro_static_pressure * (
+                        1.0 + unit.reservoir.specs.over_pressure_percentage
                     )
-                case "production_well":
-                    # NOTE: assumes that production well bottom is always at same depth as injection
-                    # well bottom
-                    depth_for_temp = p_simple_inst_dict['injection_well']._well_length
-                    # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
-                    # reservoir temperature has not decreased over time
-                    te = (
-                        p_simple_inst_dict["surface"].specs.surface_temperature
-                            + (p_simple_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
-                    )
-                    # NOTE: This assumes no pressure drop in the injection well or reservoir, which
-                    # will overestimate the pressure. This assumption is reasonable for hydrothermal
-                    # systems but needs reassessment for CPG systems.
-                    # averaged over inlet (reservoir depth) and outlet (production_well_pump length)
-                    p = 0.5 * (
-                        unit.reservoir.specs.hydro_static_pressure
-                            + p_simple_inst_dict['production_well_pump']._well_length
-                    )
-                case "production_well_pump":
-                    # NOTE: this assumes no temperature decrease has occurred from the reservoir
-                    # temperature, which will overestimate the actual temperature, and it's a good
-                    # idea to revisit the assumption in the future
-                    depth_for_temp = p_simple_inst_dict['injection_well']._well_length
-                    te = (
-                        p_simple_inst_dict["surface"].specs.surface_temperature
-                            + (p_simple_inst_dict['production_well_pump']._specs.thermal_gradient * depth_for_temp)
-                    )
-                    # averaged over inlet (production_well_pump length) and outlet (surface)
-                    p = 0.5 * (
-                        unit.reservoir.specs.hydro_static_pressure
-                    )
-                    if not state_ad_hoc.rho > 0.0:
-                        # should not be reachable code but here just in case
-                        raise ValueError("`state_ad_hoc` should have been updated.  This may be a bug.")
-                    opt_inlet_bcs[k] = InletBCs(
-                        p=unit.reservoir.specs.hydro_static_pressure - (
-                            unit.production_well.specs['well_length']
-                                - unit.production_well_pump.specs['well_length']
-                        ) * GRAVITY_ACCELERATION * state_ad_hoc.rho,
-                        te=te,
-                    )
-                case "surface":
-                    # NOTE: this assumes no temperature decrease has occurred from the reservoir
-                    # temperature, which will overestimate the actual temperature, and it's a good
-                    # idea to revisit the assumption in the future
-                    depth = p_simple_inst_dict["production_well_pump"]._well_length
-                    te = (
-                        p_simple_inst_dict["surface"].specs.surface_temperature
-                            + (p_simple_inst_dict["reservoir"].specs.thermal_gradient * depth)
-                    )
-                    p = unit.reservoir.specs.hydro_static_pressure
-                    p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
-                    opt_inlet_bcs["surface"] = InletBCs(p=p_out_pro_well_pump, te=te)
+                )
+                del te, p
+            elif k == production_well_pump:
+                # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                # temperature, which will overestimate the actual temperature, and it's a good
+                # idea to revisit the assumption in the future
+                depth_for_temp = p_simple_inst_dict['injection_well']._well_length
+                te = (
+                    p_simple_inst_dict[surface].specs.surface_temperature
+                        + (p_simple_inst_dict['production_well_pump']._specs.thermal_gradient * depth_for_temp)
+                )
+                # averaged over inlet (production_well_pump length) and outlet (surface)
+                p = 0.5 * (
+                    unit.reservoir.specs.hydro_static_pressure
+                )
+                dp_for_module = v.get_dp_simple(
+                    te=te,
+                    p=p,
+                    mdot=mdot,
+                )
+                dp_dict[k] = dp_for_module
+                opt_inlet_bcs[k] = InletBCs(
+                    p=unit.reservoir.specs.hydro_static_pressure - (
+                        unit.production_well.specs['well_length']
+                            - unit.production_well_pump.specs['well_length']
+                    ) * GRAVITY_ACCELERATION * state_ad_hoc.rho,
+                    te=te,
+                )
+                del te, p
+            elif k == surface:
+                # NOTE: this assumes no temperature decrease has occurred from the reservoir
+                # temperature, which will overestimate the actual temperature, and it's a good
+                # idea to revisit the assumption in the future
+                depth = p_simple_inst_dict[production_well_pump]._well_length
+                te = (
+                    p_simple_inst_dict[surface].specs.surface_temperature
+                        + (p_simple_inst_dict[reservoir].specs.thermal_gradient * depth)
+                )
+                p = unit.reservoir.specs.hydro_static_pressure
+                p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
+                dp_for_module = v.get_dp_simple(
+                    te=te,
+                    p=p,
+                    mdot=mdot,
+                )
+                dp_dict[k] = dp_for_module
+                opt_inlet_bcs[surface] = InletBCs(p=p_out_pro_well_pump, te=te)
+                del te, p
+            else:
+                # should be unreachable
+                raise ValueError(f"Invalid k: {k}")
 
-            # TODO: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
-            # `self.specs['schedule']['mass_rate']['type']` is not "manual"
-            #
-            # Determine
-            dp_for_module = v.get_dp_simple(
-                te=te,
-                p=p,
-                mdot=self.specs['schedule']['mass_flow_rate'],
-            )
-            del te, p
-            dp_dict[k] = dp_for_module
 
         # TODO:
         # - what's a typical
@@ -646,39 +708,86 @@ class Tango:
         # module key and corresponding difference between outlet pressure and error state (i.e. pressure below
         # saturation pressure or zero, whichever is greater)
         p_out_delta_above_err: dict[str, float] = {}
+
+        # fractional margin above saturation pressure at which error is triggered
+        # NOTE: this should eventually be configurable
+        p_sat_frac_margin = 0.05
+
+        # module keys and corresponding errors that will be handled
+        errs: dict[str, TangoError] = {}
+
         for (k, v) in opt_inlet_bcs.items():
             state_ad_hoc.updatePT(v.p, v.te)
-            p_sat[k] = CP.CoolProp.PropsSI("P", "T", v.te, "Q", 0, state_ad_hoc.fluidname)
-            breakpoint()
-            raise NotImplementedError()
-            p_ref_for_k = 666
-            p_out_for_k = opt_inlet_bcs - dp_dict[k]
-            # negative means solver will fail
-            p_out_delta_above_err[k] = p_out_for_k - p_ref_for_k
+            p_sat_for_k = CP.CoolProp.PropsSI("P", "T", v.te, "Q", 0, state_ad_hoc.fluidname)
+            p_sat[k] = p_sat_for_k
+            # calculate outlet pressure based on optimistically high inlet pressure
+            p_out_for_k = opt_inlet_bcs[k].p - dp_dict[k]
+            # negative means that `k` module is a bottleneck
+            p_out_delta_above_err_for_k = p_out_for_k - p_sat_for_k
+            p_out_delta_above_err[k] = p_out_delta_above_err_for_k
+            if p_out_delta_above_err_for_k <= (p_sat_frac_margin * p_sat_for_k):
+                errs[k] = SaturationPressureError(
+                    f"For flow rate {mdot} kg/s, module {k} as a standalone component will trigger saturation"
+                    + "pressure errors, assuming optimistic inlet BCs",
+                )
 
         # TODO: Tentative approach
         # If only one module triggers a problem, then try updating the resistance of that module and
         # re-running
         # If more than one triggers a problem, run the algorithm logic listed above
 
-        breakpoint()
-        ordered_modules = [
-            "injection_well",
-            "reservoir",
-            "production_well",
-            "production_well_pump",
-            "surface",
-        ]
+        if len(errs) == 0:
+            # NOTE: if we could fully simulate individual components, we could string together portions of the
+            # entire system and determine the exact mass flow rate that would work, but this is out of scope
+            # for now
+            raise MassFlowRateError("No single module is the dominant cause.  Lower mass flow rate.") from cpe
 
-        # list of errors that will be handled
-        errs: list[TangoError] = []
+        # module names and corresponding keys for pipe diameters
+        diameter_keys: dict[str, str] = {}
+        diameters: dict[str, float] = {}
+        for (k, v) in p_simple_inst_dict.items():
+            if "specs" in v.__dir__():
+                diameter_keys[k] = next(iter(x for x in unit[k].specs.__dir__() if "diameter" in x))
+                diameters[k] = unit[k].specs[diameter_keys[k]]
+            elif "_specs" in v.__dir__():
+                diameter_keys[k] = next(iter(x for x in unit[k]._specs.__dir__() if "diameter" in x))
+                diameters[k] = unit[k]._specs[diameter_keys[k]]
+            else:
+                # should be unreachable
+                raise AttributeError(
+                    f"unit {k} is has neither `_specs` or `specs`.  This is likely a bug",
+                ) from cpe
 
-        for (i, mod) in enumerate(ordered_modules):
-            # which modules, if any, individually trigger pressure problems?
-            p_mod_out = dp_dict[mod]
-            
-        
-        raise NotImplementedError("raise the right error here") from cpe
+        if len(errs) == 1:
+            k = next(iter(errs.keys()))
+
+            # TODO: check this function carefully!!!!!!
+
+            # Need to reduce dp by -p_out_delta_above_err[k] + margin
+            # For fully developed turbulence (i.e. flat part of the Moody chart) dp scales with D^-5, so...
+            d_res_needed = -p_out_delta_above_err[k] / dp_dict[k]
+            # TODO: check this against the the max allowed diameter
+            d_new = diameters[k] * (1.0 - d_res_needed) ** (-0.2)
+            assert d_new > diameters[k]
+            d_max = max(diameters.values())
+            mods_with_d_max: list[str] = [k for (k, v) in diameters.items() if v == d_max]
+            raise FlowResistanceError(
+                f"Module {k} has excessive standalone flow resistance."
+                    + f"\ncurrent diameter: {diameters[k]:.3f} m"
+                    + f"\nModules with max diameter ({d_max:.3f} m): {mods_with_d_max}"
+                        if d_max > d_new else ""
+                    + f"\n(Try changing diameter to match: {d_max:.3f} m)" if d_max > d_new else ""
+                    + f"\n(Try changing diameter to: {d_new:.3f} m)" if d_new > d_max else ""
+            ) from cpe
+
+        # ordered_modules = [
+        #     injection_well,
+        #     reservoir,
+        #     production_well,
+        #     production_well_pump,
+        #     surface,
+        # ]
+
 
 
 class Runner:
@@ -706,7 +815,7 @@ class Runner:
         """Start the execution of the workflow. If 'optimization' is present in the specs,
         use the optimizer. Otherwise, check for batch simulation or use regular Tango execution.
         """
-        # TODO: we should probably make sure that if `self._optimizer is not None` and
+        # NOTE: we should probably make sure that if `self._optimizer is not None` and
         # ```
         # "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
         #     "enabled", False

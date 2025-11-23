@@ -9,6 +9,18 @@ class TangoError(Exception):
     pass
 
 
+class ConvergenceError(TangoError):
+    """TANGO failed to converge on a solution"""
+
+
+class MassFlowRateError(ConvergenceError):
+    """Inappropriate mass flow rate causes convergence issue"""
+
+
+class FlowResistanceError(ConvergenceError):
+    """Module/component has excessive flow resistance"""
+
+
 class CoolPropError(TangoError, ValueError):
     """Error originating from CoolProp"""
 

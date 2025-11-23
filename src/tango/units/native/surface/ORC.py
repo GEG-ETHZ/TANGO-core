@@ -157,6 +157,19 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         """
         self._update_state_pipe()
 
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
+        effects
+
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
+
     def _read_csv_file(self):
         """
         Reads flow rate data from a CSV file specified in the specifications.
