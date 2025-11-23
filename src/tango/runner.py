@@ -635,6 +635,7 @@ class Tango:
         #               limits?
         #
         # If pressure drops below either zero or saturation pressure in the production well pump, then:
+        # - could pump depth fix this?  TODO: address this
         # - what change in production well diameter would fix this?
         #   If no saturation/subzero pressure error occurs before the pump inlet, then the production well
         #   pump is solely at fault.
