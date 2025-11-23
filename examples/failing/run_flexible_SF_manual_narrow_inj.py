@@ -9,5 +9,3 @@ from tango.runner import Runner
 
 runner = Runner(input_file=str(Path(__file__).parent / "flexible_SF_manual_narrow_inj.yml"))
 runner.start()
-
-

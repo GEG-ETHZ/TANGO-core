@@ -89,7 +89,7 @@ class InvalidPandSError(SubzeroPressureError, InvalidEntropyError):
     pass
 
 
-class PumpInletFlashError(SaturationPressureError):
+class ProPumpInletFlashError(SaturationPressureError):
     """Error indicating that liquid is hitting saturating threshold at pump inlet"""
 
     pass

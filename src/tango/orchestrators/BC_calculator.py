@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 
-from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, PumpInletFlashError
+from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
 
 class FlowRateCalculator():
@@ -542,7 +542,7 @@ class FlowRateCalculator():
         # Arguments
         - `err`: original error from CoolProp
         """
-        return PumpInletFlashError(
+        return ProPumpInletFlashError(
             f"""\n\tProduction well pump inlet is at vaporization threshold.
         Original CoolProp message:
         "{err}"

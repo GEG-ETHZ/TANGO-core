@@ -154,6 +154,7 @@ ignore = [
   "D400", # first-line-should-end-with-a-period
   "D415", # first-line-should-end-with-a-period
   "E266", # Too many leading `#`
+  "SIM108", 
   "D205", # blank line after summary
   "N807",
 ]
