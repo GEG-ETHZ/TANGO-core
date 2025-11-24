@@ -231,19 +231,19 @@ class Validator(ABC):
             for sk, sv in specs.items():
                 if sk.strip("_") == vdk.removesuffix("_warn").removesuffix("_err"):
                     # specs key.as validation key
-                    if sv > vdv[1] and "_err" in vdk:
+                    if (vdv[1] is not None) and (sv > vdv[1]) and ("_err" in vdk):
                         errors.append(
                             f"{sk}: {sv} exceeds max allowed value: {vdv}"
                         )
-                    if sv < vdv[0] and "_err" in vdk:
+                    if (vdv[0] is not None) and (sv < vdv[0]) and ("_err" in vdk):
                         errors.append(
                             f"{sk}: {sv} is less than min allowed value: {vdv}"
                         )
-                    if sv > vdv[1] and "_warn" in vdk:
+                    if (vdv[1] is not None) and (sv > vdv[1]) and ("_warn" in vdk):
                         warnings.append(
                             f"{sk}: {sv} exceeds max allowed value: {vdv}"
                         )
-                    if sv < vdv[0] and "_warn" in vdk:
+                    if (vdv[0] is not None) and (sv < vdv[0]) and ("_warn" in vdk):
                         warnings.append(
                             f"{sk}: {sv} is less than min allowed value: {vdv}"
                         )
