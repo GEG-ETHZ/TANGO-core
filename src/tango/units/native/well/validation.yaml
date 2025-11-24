@@ -1,0 +1,5 @@
+diameter_warn: [0.010, 1.0]  # 10 cm to 1 m
+diameter_err: [0, 5.0]  # 0 to 5 m
+well_length_warn: [10.0, 10_000.0]  
+well_length_err: [0, 15_000.0]  
+
