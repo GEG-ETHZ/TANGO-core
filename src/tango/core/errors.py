@@ -1,6 +1,11 @@
 """Module containing custom TANGO errors"""
 
 import re
+import logging
+import yaml
+from abc import ABC
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
 class TangoError(Exception):
@@ -166,3 +171,84 @@ P_SAT_ERR_TEST = re.compile(
     "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] " +
         "is within 1e-4 \\% of given p \\[.+ Pa\\]",
 )
+
+
+class ValidationError(ValueError):
+    """Error for failed validation"""
+    pass
+
+
+@dataclass
+class Validator(ABC):
+    """Base class that ensures validation methods
+
+    # Attributes
+    # - `val_file`: path to file containing validation data
+    #   This file contains key value pairs that get parsed to remove `_warn` or `_err` suffixes
+    #   If, for example a parameter `well_length_err: [10, 10_000]` is in the file, a warning will be logged
+    #   if the well length exceeds that value
+    # - `val_dict`: dictionary containing validation data
+    """
+
+    val_file: Path
+    val_dict: dict[str, float] = field(init=False)
+
+    def __post_init__(self):
+        """Load validation data from yml"""
+        try:
+            with open(self.val_file) as file:
+                self.val_dict = yaml.load(file, Loader=yaml.SafeLoader)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read {self.val_file}") from e
+        self.validate()
+
+    def validate(self):
+        """Validate parameters"""
+        # dictionary to store validation parameters that have been used
+        used_dict: dict[str, float] = {}
+
+        warnings: list[str] = []
+        errors: list[str] = []
+        for vdk in self.val_dict:
+            vdv = self.val_dict.pop(vdk)
+            assert len(vdv) == 2, vdv
+            assert vdv[1] > vdv[0], vdv
+            used_dict[vdk] = vdv
+
+            if "specs" in self.__dir__():
+                specs = self.specs
+            elif "_specs" in self.__dir__():
+                specs = self._specs
+            else:
+                raise AttributeError("`self` has neither `specs` nor `_specs`")
+
+            for sk, sv in specs.__dict__.items():
+                if sk.strip("_") == vdk.strip("_warn").strip("_err"):
+                    # specs key is same as validation key
+                    if sv > vdv[1] and "_err" in vdk:
+                        errors.append(ValidationError(
+                            f"{sk}: {sv} exceeds max allowed value: {vdv}"
+                        ))
+                    if sv < vdv[0] and "_err" in vdk:
+                        errors.append(ValidationError(
+                            f"{sk}: {sv} is less than min allowed value: {vdv}"
+                        ))
+                    if sv > vdv[1] and "_warn" in vdk:
+                        warnings.append(
+                            f"{sk}: {sv} exceeds max allowed value: {vdv}"
+                        )
+                    if sv < vdv[0] and "_warn" in vdk:
+                        warnings.append(
+                            f"{sk}: {sv} is less than min allowed value: {vdv}"
+                        )
+
+        if len(self.val_dict) > 0:
+            raise NameError(f"\nInvalid variables in {self.val_file}:\n{self.val_dict}")
+
+        if len(errors) > 0:
+            raise ValidationError(
+                "\n\t".join(errors)
+            )
+
+        if len(warnings) > 0:
+            logging.warning("\n\t".join(errors))
