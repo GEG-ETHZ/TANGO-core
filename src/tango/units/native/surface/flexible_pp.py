@@ -137,6 +137,19 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative):
         dP_pipe: float = self._get_pipe_pressure_drop(rho, u, ff)
         return dP_pipe
 
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        dP_pipe = self.get_dp_simple(te, p, mdot)
+        dp_per_dx: float = dP_pipe / self.specs.__dict__["well_spacing"]
+
+        return dp_per_dx
+    
     def _update_state_pipe(self) -> None:
         r"""
         Updates the state of the fluid in the surface pipe, accounting for pressure drops.

@@ -238,6 +238,19 @@ class ReservoirUnitNative(Unit, SimplePressureDrop):
         dp = impedance * mdot
         return dp
 
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa] per length, accounting only for dissipative losses
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s], not used in this implementation
+        """
+        dp = self.get_dp_simple(te, p, mdot)
+        dp_per_dx: float = dp / self.specs.well_spacing
+
+        return dp_per_dx
+
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self) -> list:

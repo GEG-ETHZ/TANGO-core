@@ -75,6 +75,25 @@ class WellUnitNative(Unit, SimplePressureDrop):
 
         return dp_tot_for_well
 
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        state = FluidState.withPT(self._specs.fluid_name, p, te)
+        rho = state.rho
+        mu = state.mu
+
+        u = mdot / self._cross_sectional_area / rho
+        ff = self._compute_friction_factor(rho, mu, u)
+        dp_loss_for_cell = self._compute_delta_P_loss(ff, rho, u)
+
+        dp_per_dx: float = dp_loss_for_cell / self._dL
+        return dp_per_dx
+
     def stream_interface(self) -> None:
         """
         Interface for processing the stream within the well unit.

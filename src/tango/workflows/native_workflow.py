@@ -50,7 +50,6 @@ ordered_subsurface = [
 ]
 ordered_surface = [
     production_well_pump,
-    production_well_upper,
     surface,
 ]
 
@@ -1182,19 +1181,9 @@ class NativeWorkflow(Workflow):
         # `self.specs['schedule']['mass_rate']['type']` is not "manual"
         mdot = self.specs['schedule']['mass_flow_rate']
 
-        # module key and corresponding saturation pressure, given assumed boundary conditions
-        p_sat_assumed: dict[str, float] = {}
-
-        # module key and corresponding difference between optimum outlet pressure and error state (i.e.
-        # pressure below saturation pressure or zero, whichever is greater)
-        p_out_opt_margin: dict[str, float] = {}
-
         # fractional margin above saturation pressure at which error is triggered
         # NOTE: this should eventually be configurable
         p_sat_frac_margin = 1.0
-
-        # module keys and corresponding errors that will be handled
-        standalone_mod_errs: dict[str, TangoError] = {}
 
         # state for ad hoc calculations
         state_ad_hoc = FluidState.copy(p_simple_inst_dict[injection_well].fluid_state_init)
@@ -1202,68 +1191,9 @@ class NativeWorkflow(Workflow):
             # should not be reachable
             raise ValueError("`state_ad_hoc` should have been updated.  Report this error to TANGO team.")
 
-        dp_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_opt_bcs(
-            unit,
-            p_simple_inst_dict,
-            mdot,
-            state_ad_hoc,
-        )
-
-        for (k, v) in opt_inlet_bcs.items():
-            state_ad_hoc.updatePT(v.p, v.te)
-            p_sat_for_k = CP.CoolProp.PropsSI("P", "T", v.te, "Q", 0, state_ad_hoc.fluidname)
-            p_sat_assumed[k] = p_sat_for_k
-            # calculate outlet pressure based on optimistically high inlet pressure
-            p_out_for_k = opt_inlet_bcs[k].p - dp_dict[k]
-            # negative means that `k` module is a bottleneck
-            p_out_delta_above_err_for_k = p_out_for_k - p_sat_for_k
-            p_out_opt_margin[k] = p_out_delta_above_err_for_k
-            if p_out_delta_above_err_for_k <= (p_sat_frac_margin * p_sat_for_k):
-                standalone_mod_errs[k] = SaturationPressureError(
-                    f"For flow rate {mdot} kg/s, module {k} as a standalone component will trigger saturation"
-                    + "pressure errors, assuming optimistic inlet BCs",
-                )
-
-        # module names and corresponding pipe diameters
-        diameters: dict[str, float] = {}
-        for (k, v) in p_simple_inst_dict.items():
-            if k == injection_well:
-                diameters[k] = unit.__dict__[k]._specs.__dict__["diameter"]
-            elif k == reservoir:
-                continue
-            elif k in (production_well, production_well_pump):
-                diameters[k] = unit.__dict__[k]._specs.__dict__["diameter"]
-            elif k == surface:
-                # TODO resolve the discrepancy between `_specs` and `specs` in surface and wellbores
-                diameters[k] = unit.__dict__[k].specs.__dict__["pipe_diameter"]
-            else:
-                # should be unreachable
-                raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
-
-        if len(standalone_mod_errs) == 1:
-            k = next(iter(standalone_mod_errs.keys()))
-
-            # Need to reduce dp by -p_out_delta_above_err[k] + margin
-            # For fully developed turbulence (i.e. flat part of the Moody chart) dp scales with D^-5, so...
-            d_res_needed = -p_out_opt_margin[k] / dp_dict[k]
-            # TODO: check this against the the max allowed diameter
-            d_new = diameters[k] * (1.0 - d_res_needed) ** (-0.2)
-            assert d_new > diameters[k]
-            d_max = max(diameters.values())
-            mods_with_d_max: list[str] = [k for (k, v) in diameters.items() if v == d_max]
-            raise FlowResistanceError(
-                f"\n\tModule {k} has excessive standalone flow resistance."
-                    + f"\n\tcurrent diameter: {diameters[k]:.3f} m"
-                    + f"\n\tModules with max diameter ({d_max:.3f} m): {mods_with_d_max}"
-                        if d_max > d_new else ""
-                    + f"\n\t(Try changing diameter to match: {d_max:.3f} m)" if d_max > d_new else ""
-                    + f"\n\t(Try changing diameter to: {d_new:.3f} m)" if d_new > d_max else "",
-            ) from cpe
-
         check_complex_err(
             unit,
             p_simple_inst_dict,
-            diameters,
             mdot,
             state_ad_hoc,
             cpe,
@@ -1271,12 +1201,12 @@ class NativeWorkflow(Workflow):
         )
 
 
-def get_dp_and_opt_bcs(
+def get_dp_and_flow_res(
     unit,
     p_simple_inst_dict: dict[str, SimplePressureDrop],
     mdot: float,
     state_ad_hoc: FluidState
-) -> tuple[dict[str, float], dict[str, InletBCs], dict[str, InletBCs | None]]:
+) -> tuple[dict[str, float], dict[str, float], dict[str, InletBCs], dict[str, InletBCs | None]]:
     """Get module-wise estimated pressure drop for a given mass flow rate
 
     # Returns
@@ -1286,6 +1216,8 @@ def get_dp_and_opt_bcs(
     """
     # dictionary of module names and corresponding pressure drops [Pa]
     dp_dict: dict[str, float] = {}
+
+    flow_res_dict: dict[str, float] = {}
 
     # dictionary of module names and corresponding optimal BCs to use in calculating outlet pressure
     opt_inlet_bcs: dict[str, InletBCs] = {}
@@ -1308,12 +1240,16 @@ def get_dp_and_opt_bcs(
                 v.fluid_state_init.P
                     + unit.reservoir.specs.hydro_static_pressure
             )
-            dp_for_module = v.get_dp_simple(
+            dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
                 mdot=mdot,
             )
-            dp_dict[k] = dp_for_module
+            flow_res_dict[k] = v.get_flow_res_per_dx(
+                te=te,
+                p=p,
+                mdot=mdot,
+            )
             opt_inlet_bcs[k] = InletBCs(
                 te=te,
                 # this gets updated after an iteration, but if it fails before one iteration is
@@ -1330,7 +1266,7 @@ def get_dp_and_opt_bcs(
                     # pressure here
                     p=v.inlet_fluid.P
                 )
-            except Exception as err:
+            except Exception as _err:
                 act_inlet_bcs[k] = None
 
         ### for all other cases, the temperature and pressure must be approximated because the
@@ -1348,12 +1284,18 @@ def get_dp_and_opt_bcs(
             # This assumption is reasonable for calculating fluid properties
             # of fluids with viscosity and density that are pressure insensitive.
             p = unit.reservoir.specs.hydro_static_pressure
-            dp_for_module = v.get_dp_simple(
+            dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
                 mdot=mdot,
             )
-            dp_dict[k] = dp_for_module
+            # reservoir is intentionally left out because we want to prioritize having the user adjust pipe
+            # parameters
+            # flow_res_dict[k] = v.get_flow_res_per_dx(
+            #     te=te,
+            #     p=p,
+            #     mdot=mdot,
+            # )
             opt_inlet_bcs[k] = InletBCs(
                 te=te,
                 # this assumes the injection well head pressure and resistances are high enough and
@@ -1393,12 +1335,16 @@ def get_dp_and_opt_bcs(
                     + p_simple_inst_dict['production_well_pump']._well_length * GRAVITY_ACCELERATION
                         * state_ad_hoc.rho
             )
-            dp_for_module = v.get_dp_simple(
+            dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
                 mdot=mdot,
             )
-            dp_dict[k] = dp_for_module
+            flow_res_dict[k] = v.get_flow_res_per_dx(
+                te=te,
+                p=p,
+                mdot=mdot,
+            )
             opt_inlet_bcs[k] = InletBCs(
                 te=te,
                 # this assumes the injection well head pressure and resistances are high enough and
@@ -1433,12 +1379,16 @@ def get_dp_and_opt_bcs(
             p = 0.5 * (
                 unit.reservoir.specs.hydro_static_pressure
             )
-            dp_for_module = v.get_dp_simple(
+            dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
                 mdot=mdot,
             )
-            dp_dict[k] = dp_for_module
+            flow_res_dict[k] = v.get_flow_res_per_dx(
+                te=te,
+                p=p,
+                mdot=mdot,
+            )
             opt_inlet_bcs[k] = InletBCs(
                 p=unit.reservoir.specs.hydro_static_pressure - (
                     unit.production_well.specs['well_length']
@@ -1455,7 +1405,7 @@ def get_dp_and_opt_bcs(
                     # pressure here
                     p=v.inlet_fluid.P
                 )
-            except Exception as err:
+            except Exception as _err:
                 act_inlet_bcs[k] = None
         elif k == surface:
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
@@ -1468,12 +1418,16 @@ def get_dp_and_opt_bcs(
             )
             p = unit.reservoir.specs.hydro_static_pressure
             p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
-            dp_for_module = v.get_dp_simple(
+            dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
                 mdot=mdot,
             )
-            dp_dict[k] = dp_for_module
+            flow_res_dict[k] = v.get_flow_res_per_dx(
+                te=te,
+                p=p,
+                mdot=mdot,
+            )
             opt_inlet_bcs[surface] = InletBCs(p=p_out_pro_well_pump, te=te)
             del te, p
             try:
@@ -1484,19 +1438,18 @@ def get_dp_and_opt_bcs(
                     # pressure here
                     p=v.inlet_fluid.P
                 )
-            except Exception as err:
+            except Exception as _err:
                 act_inlet_bcs[k] = None
         else:
             # should be unreachable
             raise ValueError(f"Invalid k: {k}.  Report this to the TANGO team.")
 
-    return dp_dict, opt_inlet_bcs, act_inlet_bcs
+    return dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs
 
 
 def check_complex_err(
     unit,
     p_simple_inst_dict: dict[str, SimplePressureDrop],
-    diameters: dict[str, float],
     mdot: float,
     state_ad_hoc: FluidState,
     cpe: CoolPropError,
@@ -1506,63 +1459,97 @@ def check_complex_err(
     because of flow restriction in injection well
 
     # Arguments
-    # - `opt_inlet_bcs`: optimal inlet BCs -- only temperature is used to calculate conservative estimate of
     #   saturation pressure
     # - `mdot`: mass flow rate [kg/s]
 
     """
+    # module names and corresponding pipe diameters
+    diameters: dict[str, float] = {}
+    for (k, v) in p_simple_inst_dict.items():
+        if k == injection_well:
+            diameters[k] = v._specs.__dict__["diameter"]
+        elif k == reservoir: continue
+        elif k in (production_well, production_well_pump):
+            diameters[k] = v._specs.__dict__["diameter"]
+        elif k == surface:
+            # TODO resolve the discrepancy between `_specs` and `specs` in surface and wellbores
+            diameters[k] = v.specs.__dict__["pipe_diameter"]
+        else:
+            # should be unreachable
+            raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
+
+    d_max_in_sys = max(diameters.values())
+
     # determine component in which CoolProp error occurred
     if f"unit: {injection_well}" in str(cpe):
         cp_err_inlet = injection_well
+    elif f"unit: {production_well_pump}" in str(cpe) or f"unit: {production_well_upper}" in str(cpe):
+        # must be checked before "production_well"
+        cp_err_inlet = production_well_pump
     elif f"unit: {production_well}" in str(cpe):
         cp_err_inlet = production_well
     elif f"unit: {reservoir}" in str(cpe):
         cp_err_inlet = reservoir
     elif isinstance(cpe, ProPumpInletFlashError):
         cp_err_inlet = production_well
-    elif f"unit: {production_well_pump}" in str(cpe):
-        cp_err_inlet = production_well_pump
     elif f"unit: {surface}" in str(cpe):
         cp_err_inlet = surface
     else:
-        raise Exception("Unable to determine location of failure from previous errors")
+        raise type(cpe)("Unable to determine location of failure from previous errors") from cpe
 
     if cp_err_inlet in ordered_subsurface:
         idx_cp_err = ordered_subsurface.index(cp_err_inlet)
         # subset of ordered_subsurface to check
         ord_sub_subset = ordered_subsurface[:idx_cp_err + 1]
-        diam_subset = {k: v for k, v in diameters.items() if k in ord_sub_subset}
+        mod_subset = ordered_subsurface
     elif cp_err_inlet in ordered_surface:
         idx_cp_err = ordered_surface.index(cp_err_inlet)
         # subset of ordered_surface to check
         ord_surf_subset = ordered_surface[:idx_cp_err + 1]
-        diam_subset = {k: v for k, v in diameters.items() if k in ord_surf_subset}
+        # subset of all modules in which error can be found
+        mod_subset = ordered_surface
     else:
         raise cpe
 
-    d_max_in_sys = max(diameters.values())
-    comps_with_less_than_d_max = {k: v for (k, v) in diam_subset.items() if v < d_max_in_sys}
-
-    dp_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_opt_bcs(
+    dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_flow_res(
         unit,
         p_simple_inst_dict,
         mdot,
         state_ad_hoc,
     )
 
-    if len(comps_with_less_than_d_max) == 1:
-        comp_with_narrow_d = next(iter(comps_with_less_than_d_max.keys()))
-        narrow_d = next(iter(comps_with_less_than_d_max.values()))
+    # determine reasonable resistance cutoff to assess resistances of components
+    # that can easily change -- this considers any pipes to be suitable
+    # modification.  If the reservoir resistance is the limitng factor, well
+    # spacing or mass flow rate can be reduced, but these both come with
+    # substantial tradeoffs so if there are any components with obviously
+    # high resistances compared to the others, these should be prioritized.
+    # Basically anything with a well defined diameter is considered fair game
+    # for modification.
+    flow_res_threshold = np.percentile(
+        [v for (k, v) in flow_res_dict.items() if k in mod_subset],
+        0.25,
+    )
+    # find any models with resistance greater than `res_threshold_coeff` times the threshold resistance
+    res_threshold_coeff = 5.0
+    mods_with_outlier_res = {
+        k: v for (k, v) in flow_res_dict.items()
+            if v > res_threshold_coeff * flow_res_threshold and k in mod_subset
+    }
+
+    if len(mods_with_outlier_res) == 1:
+        comp_with_narrow_d = next(iter(mods_with_outlier_res.keys()))
+        narrow_d = diameters[next(iter(mods_with_outlier_res.keys()))]
         # adjusting one component might solve the problem
         # inlet pressure for current component that will not cause saturation
         p_min_inlet: dict[str, float] = {}
 
-        p_min_to_avoid_sat = CP.CoolProp.PropsSI(
-            "P", "T", opt_inlet_bcs[production_well_pump].te, "Q", 0, state_ad_hoc.fluidname
-        ) * (1.0 + p_sat_frac_margin)
         first_iter = False
         if cp_err_inlet in ordered_subsurface:
             # minimum pressure at production well outlet (pump inlet) to avoid saturation
+            p_min_to_avoid_sat = CP.CoolProp.PropsSI(
+                "P", "T", opt_inlet_bcs[production_well_pump].te, "Q", 0, state_ad_hoc.fluidname,
+            ) * (1.0 + p_sat_frac_margin)
             for i in range(len(ord_sub_subset)):
                 # iterate backward from the component that failed toward the previous specified BC
                 # estimated saturation pressure entering production well pump
@@ -1581,8 +1568,10 @@ def check_complex_err(
                 else:
                     p_min_inlet[key_curr] = p_min_inlet[key_prev] + dp_dict[key_curr]
         elif cp_err_inlet in ordered_surface:
-            # TODO: check this branch
             # minimum pressure at production well outlet (pump inlet) to avoid saturation
+            p_min_to_avoid_sat = CP.CoolProp.PropsSI(
+                    "P", "T", opt_inlet_bcs[surface].te, "Q", 0, state_ad_hoc.fluidname,
+                ) * (1.0 + p_sat_frac_margin)
             for i in range(len(ord_surf_subset)):
                 # iterate backward from the component that failed toward the previous specified BC
                 # estimated saturation pressure entering production well pump
@@ -1624,12 +1613,21 @@ def check_complex_err(
         d_new = d_curr * (1.0 - dp_needed) ** (-0.2) * (1.0 + d_margin)
         raise FlowResistanceError(
             f"\n\t`{comp_with_narrow_d}` has too much flow resistance."
-            + f"\n\tThis could by fixed, for example, by increasing the diameter (currently {d_curr:.3f} m)"
+            + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
+                if d_max_in_sys > d_new else "")
+            + f"\n\tAnother option is increasing the diameter (currently {d_curr:.3f} m)"
             + f" to at least {d_new:.3f} m"
-            + f"\n\tor matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
+            + "\n\tNote that other errors may arise, and these troubleshooting steps will adapt."
         ) from cpe
 
         # TODO: see what happens if pump depth is modulated and make sure it gets handled appropriately
+        # TODO: check target_extraction_pressure w.r.t. to p_sat
 
     else:
-        figure_out_mass_flow_that_works
+        raise FlowResistanceError(
+            "\n\tThe overall system cannot accommodate this mass flow rate"
+            + "\n\tTry reducing mass flow rate or reducing flow resistance of multiple components, by e.g.:"
+            + "\n\t- increasing pipe diameters"
+            + "\n\t- reducing well spacing"
+            + "\n\n\tNote that other errors may arise, and these troubleshooting steps will adapt.",
+        ) from cpe

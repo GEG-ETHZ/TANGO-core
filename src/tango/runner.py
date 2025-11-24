@@ -416,12 +416,7 @@ class Tango:
 
         self._start_time = time.time()
 
-        try:
-            self.workflow.execute()
-        except CoolPropError as cpe:
-            if not isinstance(cpe, SaturationPressureError) and P_SAT_ERR_TEST.search(str(cpe)) is not None:
-                cpe = SaturationPressureError(cpe)
-            self.handle_convergence_err(cpe)
+        self.workflow.execute()
 
         logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
 

@@ -170,6 +170,16 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         """
         raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
 
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
+
     def _read_csv_file(self):
         """
         Reads flow rate data from a CSV file specified in the specifications.

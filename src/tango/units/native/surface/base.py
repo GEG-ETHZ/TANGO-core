@@ -88,6 +88,17 @@ class SurfaceUnitNative(Unit, SimplePressureDrop):
         pass  # to be implemented in child classes
 
     @abstractmethod
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        pass
+
+    @abstractmethod
     def process_stream(self) -> tuple[float, float, float]:
 
         pass  # to be implemented in child classes

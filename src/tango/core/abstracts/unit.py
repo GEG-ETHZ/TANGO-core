@@ -139,8 +139,18 @@ class SimplePressureDrop(ABC):
 
     @abstractmethod
     def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
-        r"""Return approximate flow pressure delta [Pa], accounting for gravitational effects,
-        if applicable
+        r"""Return approximate pressure delta [Pa], accounting for gravitational effects, if applicable
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        pass
+
+    @abstractmethod
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
 
         # Arguments
         - `te`: estimated temperature [K] for property evaluations

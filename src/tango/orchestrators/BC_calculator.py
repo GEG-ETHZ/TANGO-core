@@ -396,7 +396,8 @@ class FlowRateCalculator():
                 self.pro_well.stream_interface()
             except CoolPropError as cpe:
                 raise type(cpe)(
-                    f"\n\tUnable to solve production well stream interface\n\t{cpe}",
+                    f"\n\tUnable to solve production well stream interface\n\t{cpe}"
+                    + "\n\tunit: production_well",
                 ) from cpe
             except Exception as err:
                 raise type(err)(
@@ -449,11 +450,12 @@ class FlowRateCalculator():
                         self.pro_well_pump.stream_interface()
                     except CoolPropError as cpe:
                         raise type(cpe)(
-                            f"\n\tProduction well pump `stream_interface` calculation failed\n\t{cpe}",
+                            f"\n\tProduction well pump `stream_interface` calculation failed\n\t{cpe}"
+                            + "\n\tunit: production_well_pump",
                         ) from cpe
                     except Exception as err:
                         raise type(err)(
-                            "\n\tProduction well pump `stream_interface` calculation failed"
+                            "\n\tProduction well pump `stream_interface` calculation failed",
                         ) from err
 
                     if (

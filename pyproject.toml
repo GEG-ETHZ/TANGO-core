@@ -155,6 +155,7 @@ ignore = [
   "D415", # first-line-should-end-with-a-period
   "E266", # Too many leading `#`
   "SIM108", 
+  "SIM118",  # allow `.keys()`
   "D205", # blank line after summary
   "N807",
 ]
