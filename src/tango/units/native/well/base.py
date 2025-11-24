@@ -1,16 +1,16 @@
 import logging
 import numpy as np
+import csv
+import os
+from pathlib import Path
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.errors import CoolPropError
+from tango.core.errors import CoolPropError, Validator
 from tango.core.abstracts.unit import Unit, FluidState, SimplePressureDrop
 from tango.units.dataclasses import WellSpecsNative
 
-import csv
-import os
 
-
-class WellUnitNative(Unit, SimplePressureDrop):
+class WellUnitNative(Unit, SimplePressureDrop, Validator):
     """
     Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
 
@@ -28,7 +28,7 @@ class WellUnitNative(Unit, SimplePressureDrop):
         _u (ndarray): Array of flow velocity values (in meters per second).
     """
 
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the WellUnitNative class.
 
@@ -39,10 +39,12 @@ class WellUnitNative(Unit, SimplePressureDrop):
         Raises:
             FileNotFoundError: If the CSV file specified in `specs` does not exist.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
+        Validator.__init__(self, Path(__file__).parent / "validation.yaml")
         self._specs = WellSpecsNative.from_dict(specs)
         self._specs_post_processor()
         self._initialize_attributes()
+        self.validate()
         self.current_row = 0
 
         if self._specs.flow_rate_from_csv == "yes":

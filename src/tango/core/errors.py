@@ -210,29 +210,35 @@ class Validator(ABC):
         warnings: list[str] = []
         errors: list[str] = []
         for vdk in self.val_dict:
-            vdv = self.val_dict.pop(vdk)
+            vdv = self.val_dict[vdk]
             assert len(vdv) == 2, vdv
             assert vdv[1] > vdv[0], vdv
             used_dict[vdk] = vdv
 
             if "specs" in self.__dir__():
-                specs = self.specs
+                if isinstance(self.specs, dict):
+                    specs = self.specs
+                else:
+                    specs = self.specs.__dict__
             elif "_specs" in self.__dir__():
-                specs = self._specs
+                if isinstance(self.specs, dict):
+                    specs = self._specs
+                else:
+                    specs = self._specs.__dict__
             else:
                 raise AttributeError("`self` has neither `specs` nor `_specs`")
 
-            for sk, sv in specs.__dict__.items():
-                if sk.strip("_") == vdk.strip("_warn").strip("_err"):
-                    # specs key is same as validation key
+            for sk, sv in specs.items():
+                if sk.strip("_") == vdk.removesuffix("_warn").removesuffix("_err"):
+                    # specs key.as validation key
                     if sv > vdv[1] and "_err" in vdk:
-                        errors.append(ValidationError(
+                        errors.append(
                             f"{sk}: {sv} exceeds max allowed value: {vdv}"
-                        ))
+                        )
                     if sv < vdv[0] and "_err" in vdk:
-                        errors.append(ValidationError(
+                        errors.append(
                             f"{sk}: {sv} is less than min allowed value: {vdv}"
-                        ))
+                        )
                     if sv > vdv[1] and "_warn" in vdk:
                         warnings.append(
                             f"{sk}: {sv} exceeds max allowed value: {vdv}"
@@ -242,13 +248,11 @@ class Validator(ABC):
                             f"{sk}: {sv} is less than min allowed value: {vdv}"
                         )
 
-        if len(self.val_dict) > 0:
-            raise NameError(f"\nInvalid variables in {self.val_file}:\n{self.val_dict}")
+        if len(self.val_dict) != len(used_dict):
+            raise NameError(f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}")
 
         if len(errors) > 0:
-            raise ValidationError(
-                "\n\t".join(errors)
-            )
+            raise ValidationError(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
 
         if len(warnings) > 0:
-            logging.warning("\n\t".join(errors))
+            logging.warning(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
