@@ -212,7 +212,8 @@ class Validator(ABC):
         for vdk in self.val_dict:
             vdv = self.val_dict[vdk]
             assert len(vdv) == 2, vdv
-            assert vdv[1] > vdv[0], vdv
+            if vdv[1] is not None and vdv[0] is not None:
+                assert vdv[1] > vdv[0], vdv
             used_dict[vdk] = vdv
 
             if "specs" in self.__dir__():
@@ -231,6 +232,11 @@ class Validator(ABC):
             for sk, sv in specs.items():
                 if sk.strip("_") == vdk.removesuffix("_warn").removesuffix("_err"):
                     # specs key.as validation key
+                    # coerce to float in case it's a string
+                    if vdv[0] is not None:
+                        vdv[0] = float(vdv[0])
+                    if vdv[1] is not None:
+                        vdv[1] = float(vdv[1])
                     if (vdv[1] is not None) and (sv > vdv[1]) and ("_err" in vdk):
                         errors.append(
                             f"{sk}: {sv} exceeds max allowed value: {vdv}"

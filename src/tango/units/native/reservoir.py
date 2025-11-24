@@ -2,18 +2,19 @@ import numpy as np
 from math import erfc
 from math import e as exp
 from collections.abc import Callable
+from pathlib import Path
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import Unit, SimplePressureDrop 
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
-from tango.core.errors import CoolPropError
+from tango.core.errors import CoolPropError, Validator
 
 import csv
 import os
 
 
-class ReservoirUnitNative(Unit, SimplePressureDrop):
+class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
     """
     Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
 
@@ -40,9 +41,11 @@ class ReservoirUnitNative(Unit, SimplePressureDrop):
             specs (dict): Specifications of the reservoir unit.
         """
         super().__init__(id, specs)
+        Validator.__init__(self, Path(__file__).resolve().parent / "reservoir_validation.yaml")
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self._initialize_attributes()
         self._specs_post_processor()
+        self.validate()
         self.init_stream_interface()
         if (self.specs.bc_iteration == None):
             self._thermal_depletion()

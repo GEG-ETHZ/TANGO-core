@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import yaml
+from pathlib import Path
 from tespy.components import (
     Sink,
     Source,
@@ -26,6 +27,7 @@ from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
 from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
+from tango.core.errors import Validator
 
 
 @dataclass
@@ -43,12 +45,14 @@ class SurfaceSpecsFlexiblePP(CommonSpecs):
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
 
-class SurfaceUnitFlexiblePP(SurfaceUnitNative):
+class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
     def __init__(self, id: str, specs: dict):
         SurfaceUnitNative.__init__(self, id, specs)
+        Validator.__init__(self, Path(__file__).resolve().parent / "validation.yaml")
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
         self.specs.org = specs
+        self.validate()
         self._fluid_name = self.specs.fluid_name
         self._m_dot_mult = 1
         self.current_row = 0
