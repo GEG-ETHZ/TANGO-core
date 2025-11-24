@@ -252,7 +252,7 @@ class Validator(ABC):
             raise NameError(f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}")
 
         if len(errors) > 0:
-            raise ValidationError(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
+            raise ValidationError(f"\nmodule id: {self.id}\n\t" + "\n\t".join(errors))
 
         if len(warnings) > 0:
             logging.warning(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
