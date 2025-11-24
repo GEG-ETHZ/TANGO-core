@@ -1498,18 +1498,13 @@ def check_complex_err(
         raise type(cpe)("Unable to determine location of failure from previous errors") from cpe
 
     if cp_err_inlet in ordered_subsurface:
-        idx_cp_err = ordered_subsurface.index(cp_err_inlet)
         # subset of ordered_subsurface to check
-        ord_sub_subset = ordered_subsurface[:idx_cp_err + 1]
         mod_subset = ordered_subsurface
     elif cp_err_inlet in ordered_surface:
-        idx_cp_err = ordered_surface.index(cp_err_inlet)
-        # subset of ordered_surface to check
-        ord_surf_subset = ordered_surface[:idx_cp_err + 1]
         # subset of all modules in which error can be found
         mod_subset = ordered_surface
     else:
-        raise cpe
+        raise Exception("Should be unreachable.  Notify TANGO team")
 
     dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_flow_res(
         unit,
@@ -1539,6 +1534,15 @@ def check_complex_err(
 
     if len(mods_with_outlier_res) == 1:
         comp_with_narrow_d = next(iter(mods_with_outlier_res.keys()))
+        try:
+            if comp_with_narrow_d in ordered_subsurface:
+                comp_after_narrow = ordered_subsurface[ordered_subsurface.index(comp_with_narrow_d) + 1]
+            elif comp_with_narrow_d in ordered_surface:
+                comp_after_narrow = ordered_surface[ordered_surface.index(comp_with_narrow_d) + 1]
+            else:
+                raise Exception("This should be unreachable.  Notify TANGO team")
+        except Exception:
+            comp_after_narrow = comp_with_narrow_d
         narrow_d = diameters[next(iter(mods_with_outlier_res.keys()))]
         # adjusting one component might solve the problem
         # inlet pressure for current component that will not cause saturation
@@ -1550,15 +1554,15 @@ def check_complex_err(
             p_min_to_avoid_sat = CP.CoolProp.PropsSI(
                 "P", "T", opt_inlet_bcs[production_well_pump].te, "Q", 0, state_ad_hoc.fluidname,
             ) * (1.0 + p_sat_frac_margin)
-            for i in range(len(ord_sub_subset)):
+            for i in range(len(ordered_subsurface)):
                 # iterate backward from the component that failed toward the previous specified BC
                 # estimated saturation pressure entering production well pump
                 # index for reversing direction
-                irev = len(ord_sub_subset) - 1 - i
-                key_curr = ord_sub_subset[irev]
+                irev = len(ordered_subsurface) - 1 - i
+                key_curr = ordered_subsurface[irev]
                 if first_iter:
                     # after the first iteraton
-                    key_prev = ord_sub_subset[irev + 1]
+                    key_prev = ordered_subsurface[irev + 1]
                 else:
                     key_prev = None
                 first_iter = True
@@ -1572,15 +1576,15 @@ def check_complex_err(
             p_min_to_avoid_sat = CP.CoolProp.PropsSI(
                     "P", "T", opt_inlet_bcs[surface].te, "Q", 0, state_ad_hoc.fluidname,
                 ) * (1.0 + p_sat_frac_margin)
-            for i in range(len(ord_surf_subset)):
+            for i in range(len(ordered_surface)):
                 # iterate backward from the component that failed toward the previous specified BC
                 # estimated saturation pressure entering production well pump
                 # index for reversing direction
-                irev = len(ord_surf_subset) - 1 - i
-                key_curr = ord_surf_subset[irev]
+                irev = len(ordered_surface) - 1 - i
+                key_curr = ordered_surface[irev]
                 if first_iter:
                     # after the first iteraton
-                    key_prev = ord_surf_subset[irev + 1]
+                    key_prev = ordered_surface[irev + 1]
                 else:
                     key_prev = None
                 first_iter = True
@@ -1594,32 +1598,28 @@ def check_complex_err(
 
         # reduction in pressure needed to avoid saturation downstream
         dp_margin = 0.3
-        if isinstance(unit.__dict__[comp_with_narrow_d], WellUnitNative):
-            if comp_with_narrow_d == production_well:
-                depth = (
-                    unit.__dict__[production_well_pump]._well_length
-                        + unit.__dict__[comp_with_narrow_d]._well_length
-                )
-            else:
-                depth = unit.__dict__[comp_with_narrow_d]._well_length
-            dp_needed = (
-                p_min_inlet[comp_with_narrow_d] - unit.__dict__[comp_with_narrow_d].inlet_fluid.P
-            ) / (
-                    dp_dict[comp_with_narrow_d] + GRAVITY_ACCELERATION * depth * state_ad_hoc.rho
-                ) * (1.0 + dp_margin)
+        # pressure needed to avoid saturation
+        p_needed = p_min_inlet[comp_after_narrow]
+        # pressure actually achieved in component
+        p_have = unit.__dict__[comp_after_narrow].inlet_fluid.P
+        if comp_with_narrow_d == surface:
+            dp_length = p_simple_inst_dict[comp_with_narrow_d].specs.well_spacing
         else:
-            dp_needed = (
-                p_min_inlet[comp_with_narrow_d] - unit.__dict__[comp_with_narrow_d].inlet_fluid.P
-            ) / dp_dict[comp_with_narrow_d] * (1.0 + dp_margin)
+            dp_length = p_simple_inst_dict[comp_with_narrow_d].specs['well_length']
+        # fractional increase in pressurre needed
+        dp_needed = p_needed - p_have
+        res_curr = (flow_res_dict[comp_with_narrow_d] * dp_length * (1.0 + dp_margin))
+        d_res_frac_needed = dp_needed / res_curr
         d_curr = narrow_d
         d_margin = 0.3
-        d_new = d_curr * (1.0 - dp_needed) ** (-0.2) * (1.0 + d_margin)
+        # approximate value of new diameter for resistance reduction needed
+        d_new = d_curr * (1.0 - d_res_frac_needed ) ** (-0.2) * (1.0 + d_margin)
         raise FlowResistanceError(
             f"\n\t`{comp_with_narrow_d}` has too much flow resistance."
             + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
                 if d_max_in_sys > d_new else "")
-            + f"\n\tAnother option is increasing the diameter (currently {d_curr:.3f} m)"
-            + f" to at least {d_new:.3f} m"
+            # + f"\n\tAnother option is increasing the diameter (currently {d_curr:.3f} m)"
+            # + f" to at least {d_new:.3f} m"
             + "\n\tNote that other errors may arise, and these troubleshooting steps will adapt."
         ) from cpe
 
