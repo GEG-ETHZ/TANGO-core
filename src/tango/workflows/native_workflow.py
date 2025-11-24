@@ -1597,7 +1597,7 @@ def check_complex_err(
             raise Exception("Should be unreachable. Notify TANGO team")
 
         # reduction in pressure needed to avoid saturation downstream
-        dp_margin = 0.3
+        dp_margin = 0.5
         # pressure needed to avoid saturation
         p_needed = p_min_inlet[comp_after_narrow]
         # pressure actually achieved in component
@@ -1611,9 +1611,9 @@ def check_complex_err(
         res_curr = (flow_res_dict[comp_with_narrow_d] * dp_length * (1.0 + dp_margin))
         d_res_frac_needed = dp_needed / res_curr
         d_curr = narrow_d
-        d_margin = 0.3
+        d_margin = 0.5
         # approximate value of new diameter for resistance reduction needed
-        d_new = d_curr * (1.0 - d_res_frac_needed ) ** (-0.2) * (1.0 + d_margin)
+        d_new = d_curr * (1.0 - d_res_frac_needed) ** (-0.2) * (1.0 + d_margin)
         raise FlowResistanceError(
             f"\n\t`{comp_with_narrow_d}` has too much flow resistance."
             + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
