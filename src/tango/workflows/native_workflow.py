@@ -1593,6 +1593,7 @@ def check_complex_err(
             raise Exception("Should be unreachable. Notify TANGO team")
 
         # reduction in pressure needed to avoid saturation downstream
+        dp_margin = 0.3
         if isinstance(unit.__dict__[comp_with_narrow_d], WellUnitNative):
             if comp_with_narrow_d == production_well:
                 depth = (
@@ -1603,11 +1604,13 @@ def check_complex_err(
                 depth = unit.__dict__[comp_with_narrow_d]._well_length
             dp_needed = (
                 p_min_inlet[comp_with_narrow_d] - unit.__dict__[comp_with_narrow_d].inlet_fluid.P
-            ) / (dp_dict[comp_with_narrow_d] + GRAVITY_ACCELERATION * depth * state_ad_hoc.rho)
+            ) / (
+                    dp_dict[comp_with_narrow_d] + GRAVITY_ACCELERATION * depth * state_ad_hoc.rho
+                ) * (1.0 + dp_margin)
         else:
             dp_needed = (
                 p_min_inlet[comp_with_narrow_d] - unit.__dict__[comp_with_narrow_d].inlet_fluid.P
-            ) / dp_dict[comp_with_narrow_d]
+            ) / dp_dict[comp_with_narrow_d] * (1.0 + dp_margin)
         d_curr = narrow_d
         d_margin = 0.3
         d_new = d_curr * (1.0 - dp_needed) ** (-0.2) * (1.0 + d_margin)
