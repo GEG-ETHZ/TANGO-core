@@ -1171,14 +1171,12 @@ class NativeWorkflow(Workflow):
 
     def handle_convergence_err(self, cpe: CoolPropError):
         """Handle convergence error to provide troubleshooting context"""
-        unit = self.workflow.orchestrator.unit
+        unit = self.orchestrator.unit
         # dictionary of module names and corresponding instances that inhherit `SimplePressureDrop`
         p_simple_inst_dict: dict[str, SimplePressureDrop] = {
             k: v for (k, v) in unit.__dict__.items()
                 if isinstance(v, SimplePressureDrop)
         }
-
-        breakpoint()
 
         # NOTE: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
         # `self.specs['schedule']['mass_rate']['type']` is not "manual"
@@ -1513,7 +1511,6 @@ def check_complex_err(
     # - `mdot`: mass flow rate [kg/s]
 
     """
-    breakpoint()
     # determine component in which CoolProp error occurred
     if f"unit: {injection_well}" in str(cpe):
         cp_err_inlet = injection_well
