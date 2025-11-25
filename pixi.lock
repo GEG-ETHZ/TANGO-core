@@ -5843,7 +5843,7 @@ packages:
 - pypi: ./
   name: tango
   version: 0.0.1
-  sha256: 224cee694f3a86dc3102cb308ce754e4cf5f11c2be2ad914bfdd3b387f1fb5ad
+  sha256: e290ea79765d259087c53fb31ef1625cb786370a625751d7e1f11c82c9ea1dcf
   requires_dist:
   - pandas>=2.1,<3.0
   - matplotlib
