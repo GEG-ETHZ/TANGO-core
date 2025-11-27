@@ -1,6 +1,7 @@
 from tango.addons.base import *
 import subprocess
 import os
+import sys
 import csv
 
 
@@ -40,7 +41,7 @@ class Analyzer_addon(TangoAddon):
             keys = list(updated_results.keys())
             rows = zip(*updated_results.values())
 
-            with open(self.results_file, 'w', newline='') as cf:
+            with open(self.results_file, "w", newline="") as cf:
                 writer = csv.writer(cf)
                 writer.writerow(keys)
                 writer.writerows(rows)
@@ -53,13 +54,22 @@ class Analyzer_addon(TangoAddon):
     def execute(self):
         """
         Execute the add-on by launching the PyQt module with the generated files.
+        Uses pixi run -e tango-app to ensure PyQt5 dependencies are available.
         """
         results_file = os.path.abspath(self.results_file)
 
         try:
             subprocess.run(
-                ['python', '/Users/morteza/Documents/projects/TANGO/src/tango/addons/Analyzer/results_analysis.py', results_file],
-                check=True
+                [
+                    "pixi",
+                    "run",
+                    "-e",
+                    "tango-app",
+                    "python",
+                    "/home/TANGO/src/tango/addons/Analyzer/results_analysis.py",
+                    results_file,
+                ],
+                check=True,
             )
         except subprocess.CalledProcessError as e:
             print(f"Error launching PyQt module: {e}")
