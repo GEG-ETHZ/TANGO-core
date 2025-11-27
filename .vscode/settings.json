@@ -1,0 +1,9 @@
+{
+    "makefile.configureOnOpen": false,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/dev/bin/python",
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.analysis.typeCheckingMode": "off",
+    "python.terminal.activateEnvInCurrentTerminal": false,
+    "python.terminal.activateEnvironment": false,
+}
