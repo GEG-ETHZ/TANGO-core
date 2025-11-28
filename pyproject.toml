@@ -100,6 +100,7 @@ tango-app = { features = ["tango-app"], solve-group = "default" }
 
 [tool.pixi.tasks]
 test = { cmd = "pixi run -e dev pytest" }
+helix = { cmd = "pixi run -e dev hx ." }  # launch helix editor
 fmt = "ruff format"
 lint = "pylint"
 style = { depends-on = ["fmt", "lint"] }
