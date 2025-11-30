@@ -60,8 +60,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 25000000
   over_pressure_percentage: 10
-  inlet_state: 'examples/EGC2025_EGS/inj50.csv'
-  outlet_state:  'examples/EGC2025_EGS/pro50.csv'
+  inlet_state: '/Users/morteza/git/projects/tango-super/TANGO/examples/EGC2025_EGS/inj50.csv'
+  outlet_state:  '/Users/morteza/git/projects/tango-super/TANGO/examples/EGC2025_EGS/pro50.csv'
 
 injection_well:
   well_length: 2586.228 # m
@@ -115,8 +115,8 @@ economic: # optional
 
 addons:
   ThermaGraph:
-    active: 'yes'
-    execute: 'yes'
+    active: 'no'
+    execute: 'no'
     states_file: 'src/tango/states_test2.json'
     connections_file: 'src/tango/connections_test2.json'
   Analyzer:
