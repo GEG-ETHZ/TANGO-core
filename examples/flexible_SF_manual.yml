@@ -48,7 +48,7 @@ props:
 
 surface:
   surface_temperature: 288  # K
-  injection_pressure: 2_000_000  # initial guess at injection pressure [Pa] for solver convergence
+  injection_pressure: 2_000_060  # initial guess at injection pressure [Pa] for solver convergence
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
