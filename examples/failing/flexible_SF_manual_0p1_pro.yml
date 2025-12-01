@@ -49,7 +49,9 @@ props:
 surface:
   surface_temperature: 288  # K
   surface_pressure: 100_000  # Pa
+  injection_pressure: 2_000_000  # initial guess at injection pressure [Pa] for solver convergence
   pipe_diameter: 0.41 # m
+  epsilon: 55.e-6 # m, absolute surface roughness
   approach_temperature: 7.0  # K
   target_extraction_pressure: 7000000
 
@@ -64,18 +66,21 @@ reservoir:
 injection_well:
   well_length: 5000. # m
   diameter: 0.410 # m
+  epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well:
   well_length: 4000. # m
   diameter: 0.0410 # m, 0.1 * ../flexible_SF_manual.yml
+  epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well_pump:
   well_length: 1000. # m
   diameter: 0.410 # m
+  epsilon: 55.e-6 # m, absolute surface roughness
 
 costs:
   permitting:
