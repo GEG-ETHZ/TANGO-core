@@ -58,9 +58,9 @@ class FlowRateCalculator():
             self.test_p = self.surface.specs.injection_pressure
         else:
             if (self.surface._fluid_name == 'CO2'):
-                self.test_p = 9100000
+                self.test_p = 9_100_000
             else:
-                self.test_p = 7000000.0
+                self.test_p = 7_000_000.0
 
         if (self.reservoir.specs.well_pattern == 'DOUBLET'):
             self.scaling_factor = 1.0
