@@ -12,7 +12,7 @@ import pytest
 
 from tango.runner import Runner
 from tango.core.errors import (
-     SaturationPressureError, SubzeroPressureError, ProPumpInletFlashError,
+     SaturationPressureError, FlowResistanceError, ProPumpInletFlashError,
 )
 
 
@@ -122,39 +122,39 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
     files_and_errors = [
         (
             "flexible_DF_manual_0p1_inj.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_DF_manual_0p1_pro.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_DF_manual_narrow_inj.yml",
-            SaturationPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_0p1_inj.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_0p1_pump.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            ProPumpInletFlashError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
         (
             "flexible_SF_manual_narrow_pump.yml",
-            SubzeroPressureError,
+            FlowResistanceError,
         ),
     ]
     filepaths_and_err_types = [

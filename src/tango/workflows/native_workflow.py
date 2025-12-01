@@ -1537,10 +1537,14 @@ def check_complex_err(
         narrow_d = diameters[next(iter(mods_with_outlier_res.keys()))]
         d_curr = narrow_d
         raise FlowResistanceError(
-            f"\n\t`{comp_with_narrow_d}` has too much flow resistance."
+            f"\n\t`{comp_with_narrow_d}` has excessive flow resistance compared to other components."
             + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
                 if d_max_in_sys != d_curr else "")
-            + "\n\tNote that other errors may arise, and these troubleshooting steps will adapt."
+            + "\n\tTry the following"
+            + "\n\t- reducing flow resistance, by e.g.:"
+            + "\n\t\t- increasing pipe diameter"
+            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`"
+            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
         ) from cpe
 
         # TODO: see what happens if pump depth is modulated and make sure it gets handled appropriately
@@ -1549,9 +1553,15 @@ def check_complex_err(
     else:
         raise FlowResistanceError(
             "\n\tThe overall system cannot accommodate this mass flow rate"
-            + "\n\tTry reducing flow resistance of multiple components, by e.g.:"
-            + "\n\t- increasing pipe diameters"
-            + "\n\t- reducing well spacing"
-            + "\n\t- reducing pipe interior surface roughness"  # check how to even do this
-            + "\n\n\tNote that other errors may arise, and these troubleshooting steps will adapt.",
+            + "\n\tTry the following"
+            + "\n\t- reducing flow resistance of multiple components, by e.g.:"
+            + "\n\t\t- increasing pipe diameters"
+            + "\n\t\t- reducing well spacing"
+            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
+            + "\n\t\t\t- `surface`"
+            + "\n\t\t\t- `injection_well`"
+            + "\n\t\t\t- `production_well`"
+            + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
+            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
+            + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe
