@@ -1,4 +1,5 @@
 # PRESSURE CONVERSION CONSTANTS
+# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
 KPA_TO_PA = 1.0e+3
 MPA_TO_PA = 1.0e+6
 GPA_TO_PA = 1.0e+9
@@ -13,10 +14,12 @@ PA_TO_BAR = 1.0 / 100_000.0
 BAR_TO_MPA = 0.1
 
 # TEMPERATURE CONVERSION CONSTANTS
+# Add these constants to convert source (C in `C_TO_K`) to target (K in `C_TO_K`) units
 C_TO_K = +273.15
 K_TO_C = -273.15
 
 # ENERGY CONVERSION CONSTANTS
+# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
 KJ_TO_J = 1.0e+3
 MJ_TO_J = 1.0e+6
 GJ_TO_J = 1.0e+9
@@ -26,17 +29,19 @@ J_TO_MJ = 1.0e-6
 J_TO_GJ = 1.0e-9
 
 KW_TO_W = 1.0e+3
-W_TO_KW = 1.0/1.0e+3
-W_TO_MW = 1.0/1.0e+6
+W_TO_KW = 1.0e-3
+W_TO_MW = 1.0e-6
 
 # TIME CONVERSION CONSTANTS
+# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
 YEAR_TO_SECOND = 31536000
 YEAR_TO_HOUR = 8760
 YEAR_TO_MONTH = 12
 YEAR_TO_DAY = 365
 SECOND_TO_YEAR = 1.0/YEAR_TO_SECOND
 
+# Non-conversion constants
 GRAVITY_ACCELERATION = 9.81  # m/s
-ATMOSPHERIC_PRESSURE = 101325. # Pa
+ATMOSPHERIC_PRESSURE = 101_325. # Pa
 MIN_INJ_TEMPERATURE = 274.15 # K (=1.0 deg. C)
-MAX_PRD_PUMP_DP = 1.0e7 # Pa
+MAX_PRD_PUMP_DP = 1.0e+7 # Pa

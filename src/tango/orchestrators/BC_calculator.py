@@ -3,6 +3,7 @@ import pandas as pd
 
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
+from tango.core.constants import W_TO_MW
 
 class FlowRateCalculator():
     """
@@ -236,7 +237,7 @@ class FlowRateCalculator():
                                         prev_thermal_power = 0.0
                                         for node_name, node in self.surface.power_plant.nodes.items():
                                             if self.surface.power_plant.config.get(node_name, {}).get('Subtype') == 'DH_component':
-                                                prev_thermal_power += -node.Q.val/1000000.0
+                                                prev_thermal_power += -node.Q.val * W_TO_MW
                                                 # break
                                         
                                         if prev_thermal_power > 0.0001:  # Small positive threshold

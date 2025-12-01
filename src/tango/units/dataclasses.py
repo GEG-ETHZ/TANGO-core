@@ -46,8 +46,8 @@ class CommonSpecs:
     flow_rate_file: str = None
     bc_iteration: Optional[BcIteration] = None
     mass_rate: Optional[MassRate] = None
-    target_extraction_pressure: float = 2000000
-    injection_pressure: float = 2000000
+    target_extraction_pressure: float = 2_000_000
+    injection_pressure: float = 2_000_000
     output_table: str = 'yes'
     power_plant_table: str = 'yes'
     table_to_csv: str = 'no'
