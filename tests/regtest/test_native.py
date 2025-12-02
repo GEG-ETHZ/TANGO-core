@@ -12,7 +12,8 @@ import pytest
 
 from tango.runner import Runner
 from tango.core.errors import (
-     SaturationPressureError, FlowResistanceError, ProPumpInletFlashError,
+     ComponentError,
+     MultiError
 )
 
 
@@ -122,39 +123,43 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
     files_and_errors = [
         (
             "flexible_DF_manual_0p1_inj.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_DF_manual_0p1_pro.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_DF_manual_narrow_inj.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_0p1_inj.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_0p1_pro.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_0p1_pump.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_narrow_inj.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_narrow_pro.yml",
-            FlowResistanceError,
+            ComponentError,
         ),
         (
             "flexible_SF_manual_narrow_pump.yml",
-            FlowResistanceError,
+            ComponentError,
+        ),
+        (
+            "flexible_SF_manual_excess_mflow.yml",
+            MultiError,
         ),
     ]
     filepaths_and_err_types = [

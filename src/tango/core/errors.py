@@ -22,8 +22,12 @@ class MassFlowRateError(ConvergenceError):
     """Inappropriate mass flow rate causes convergence issue"""
 
 
-class FlowResistanceError(ConvergenceError):
-    """Module/component has excessive flow resistance"""
+class ComponentError(ConvergenceError):
+    """Specific module/component is likely source of failed convergence"""
+
+
+class MultiError(ConvergenceError):
+    """System failed to converge with no single likely cause"""
 
 
 class CoolPropError(TangoError, ValueError):
@@ -164,17 +168,19 @@ def check_feas_entropy(s: float) -> str | None:
     #     return f"Specific entropy ({s:.5g} J/(kg*K)) must be greater than or equal to 0.0 J/(kg*K)"
     return None
 
+
 # TODO: after verifying that quality should be in [0, 1], make a checker
 
 
 P_SAT_ERR_TEST = re.compile(
-    "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] " +
-        "is within 1e-4 \\% of given p \\[.+ Pa\\]",
+    "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] "
+    + "is within 1e-4 \\% of given p \\[.+ Pa\\]",
 )
 
 
 class ValidationError(ValueError):
     """Error for failed validation"""
+
     pass
 
 
@@ -238,24 +244,18 @@ class Validator(ABC):
                     if vdv[1] is not None:
                         vdv[1] = float(vdv[1])
                     if (vdv[1] is not None) and (sv > vdv[1]) and ("_err" in vdk):
-                        errors.append(
-                            f"{sk}: {sv} exceeds max allowed value: {vdv}"
-                        )
+                        errors.append(f"{sk}: {sv} exceeds max allowed value: {vdv}")
                     if (vdv[0] is not None) and (sv < vdv[0]) and ("_err" in vdk):
-                        errors.append(
-                            f"{sk}: {sv} is less than min allowed value: {vdv}"
-                        )
+                        errors.append(f"{sk}: {sv} is less than min allowed value: {vdv}")
                     if (vdv[1] is not None) and (sv > vdv[1]) and ("_warn" in vdk):
-                        warnings.append(
-                            f"{sk}: {sv} exceeds max allowed value: {vdv}"
-                        )
+                        warnings.append(f"{sk}: {sv} exceeds max allowed value: {vdv}")
                     if (vdv[0] is not None) and (sv < vdv[0]) and ("_warn" in vdk):
-                        warnings.append(
-                            f"{sk}: {sv} is less than min allowed value: {vdv}"
-                        )
+                        warnings.append(f"{sk}: {sv} is less than min allowed value: {vdv}")
 
         if len(self.val_dict) != len(used_dict):
-            raise NameError(f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}")
+            raise NameError(
+                f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}"
+            )
 
         if len(errors) > 0:
             raise ValidationError(f"\nmodule id: {self.id}\n\t" + "\n\t".join(errors))

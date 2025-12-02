@@ -19,13 +19,11 @@ from tango.core.abstracts.unit import SimplePressureDrop
 from tango.units.native.well import WellUnitNative
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.errors import (
-    PressureError,
-    TangoError,
     CoolPropError,
     SaturationPressureError,
-    MassFlowRateError,
-    FlowResistanceError,
     ProPumpInletFlashError,
+    ComponentError,
+    MultiError,
     P_SAT_ERR_TEST,
 )
 from tango.core.config import SYSTEM_OPTIONS, DATETIME_FMT
@@ -1536,7 +1534,7 @@ def check_complex_err(
         comp_with_narrow_d = next(iter(mods_with_outlier_res.keys()))
         narrow_d = diameters[next(iter(mods_with_outlier_res.keys()))]
         d_curr = narrow_d
-        raise FlowResistanceError(
+        raise ComponentError(
             f"\n\t`{comp_with_narrow_d}` has excessive flow resistance compared to other components."
             + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
                 if d_max_in_sys != d_curr else "")
@@ -1547,11 +1545,10 @@ def check_complex_err(
             + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
         ) from cpe
 
-        # TODO: see what happens if pump depth is modulated and make sure it gets handled appropriately
         # TODO: check target_extraction_pressure w.r.t. to p_sat
 
     else:
-        raise FlowResistanceError(
+        raise MultiError(
             "\n\tThe overall system cannot accommodate this mass flow rate"
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance of multiple components, by e.g.:"
