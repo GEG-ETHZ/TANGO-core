@@ -131,37 +131,41 @@ indent-style = "space"
 [tool.ruff.lint]
 preview = true
 select = [
-  "A", # flake8-builtins
-  "ARG", # flake8-unused-arguments
-  # "B", # flake8-bugbear
-  "C", # Pylint: Convention
-  "C4", # flake8-comprehensions
-  "C90", # mccabe
-  "COM", # flake8-commas
-  "D", # pydocstyle
-  "E", # Error
-  "F", # Pyflakes
-  "G", # flake8-logging-format
-  "I", # isort
-  "LOG", # flake8-logging
-  "N", # pep8-naming
-  "NPY", # numpy-specific
-  "PERF", # Perflint
-  # "PL", # Pylint
-  "Q", # flake8-quotes
-  "SIM", # flake8-simplify
-  # "TID", # flake8-tidy-imports (absolute imports)
-  "UP", # pyupgrade
-  "W" # Warning
+    "A", # flake8-builtins
+    "ARG", # flake8-unused-arguments
+    # "B", # flake8-bugbear
+    "C", # Pylint: Convention
+    "C4", # flake8-comprehensions
+    "C90", # mccabe
+    "COM", # flake8-commas
+    "D", # pydocstyle
+    "E", # Error
+    "F", # Pyflakes
+    "G", # flake8-logging-format
+    "I", # isort
+    "LOG", # flake8-logging
+    "N", # pep8-naming
+    "NPY", # numpy-specific
+    "PERF", # Perflint
+    # "PL", # Pylint
+    "Q", # flake8-quotes
+    "SIM", # flake8-simplify
+    # "TID", # flake8-tidy-imports (absolute imports)
+    "UP", # pyupgrade
+    "W" # Warning
 ]
 ignore = [
-  "D400", # first-line-should-end-with-a-period
-  "D415", # first-line-should-end-with-a-period
-  "E266", # Too many leading `#`
-  "SIM108", 
-  "SIM118",  # allow `.keys()`
-  "D205", # blank line after summary
-  "N807",
+    "D400", # first-line-should-end-with-a-period
+    "D415", # first-line-should-end-with-a-period
+    "E266", # Too many leading `#`
+    "SIM108", 
+    "SIM118",  # allow `.keys()`
+    "D205", # blank line after summary
+    "C901", # name is too complex
+    "PERF401", # Use `list.extend` to transform list
+    "LOG015", # `info()` call on root logger
+    "N807",
+    "G004", # log statement uses f-string
 ]
 
 # [tool.ruff.lint.pydocstyle]
