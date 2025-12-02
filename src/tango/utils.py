@@ -13,15 +13,16 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from tango.core.config import *
-from tango.core.constants import *
 from tango.time_stepper import LinearInterpolation
-from tango.units.cmg.coflow import *
-from tango.units.cmg.gem import *
-from tango.units.cmg.imex import *
-from tango.units.external.DWSIM.CPG import *
-from tango.units.external.MOOSE.reservoir.reservoir import *
-from tango.units.external.MOOSE.well.well import *
+from tango.units.cmg.imex import (
+    REPORT_SETTINGS,
+    SKIP_REPORT_ATTRIBUTES,
+    UNIT_OPTIONS,
+    MULTIPLE_UNIT_NODE_OPTIONS,
+)
+
+# from tango.units.external.MOOSE.reservoir.reservoir import *
+# from tango.units.external.MOOSE.well.well import *
 from tango.units.native import *
 from tango.units.native.surface import *
 from tango.units.native.surface.flexible_pp import *
@@ -859,7 +860,7 @@ def get_unit_class(type_: str, unit_name: str) -> object:
     # TODO: get rid of this use of `eval` and otherwise clean things up
     try:
         return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
-    except:
+    except Exception:
         raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
 
