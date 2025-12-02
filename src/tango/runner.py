@@ -61,12 +61,11 @@ def get_workflow_class(type_: str) -> type[Workflow]:
 
 
 class BatchSimulation:
-    """Handles batch simulations with parameter ranges.
-    """
+    """Handles batch simulations with parameter ranges."""
 
     def __init__(self, base_specs: dict, batch_config: dict):
         """Initialize batch simulation.
-        
+
         Args:
             base_specs (dict): Base specifications
             batch_config (dict): Batch simulation configuration
@@ -81,7 +80,7 @@ class BatchSimulation:
 
     def generate_parameter_combinations(self):
         """Generate all parameter combinations from the ranges.
-        
+
         Returns:
             list: List of parameter dictionaries for each simulation
 
@@ -96,7 +95,9 @@ class BatchSimulation:
             points = range_config["points"]
 
             print(f"Processing parameter range: {param_path}")
-            print(f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})")
+            print(
+                f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})"
+            )
 
             try:
                 if isinstance(min_val, str):
@@ -112,7 +113,9 @@ class BatchSimulation:
                 if isinstance(points, str):
                     points = int(points)
 
-                print(f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})")
+                print(
+                    f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})"
+                )
 
             except (ValueError, TypeError) as e:
                 print(f"Error converting parameter {param_path}: {e}")
@@ -141,7 +144,7 @@ class BatchSimulation:
 
     def _flatten_inputs_list(self):
         """Flatten the nested inputs_list structure to get parameter paths.
-        
+
         Returns:
             dict: Dictionary with parameter paths as keys and range configs as values
 
@@ -151,12 +154,22 @@ class BatchSimulation:
         for section_name, section_config in self.inputs_list.items():
             if isinstance(section_config, dict):
                 for param_name, param_config in section_config.items():
-                    if isinstance(param_config, dict) and "min" in param_config and "max" in param_config and "points" in param_config:
+                    if (
+                        isinstance(param_config, dict)
+                        and "min" in param_config
+                        and "max" in param_config
+                        and "points" in param_config
+                    ):
                         param_path = f"{section_name}.{param_name}"
                         flattened[param_path] = param_config
                     elif isinstance(param_config, dict):
                         for nested_param_name, nested_param_config in param_config.items():
-                            if isinstance(nested_param_config, dict) and "min" in nested_param_config and "max" in nested_param_config and "points" in nested_param_config:
+                            if (
+                                isinstance(nested_param_config, dict)
+                                and "min" in nested_param_config
+                                and "max" in nested_param_config
+                                and "points" in nested_param_config
+                            ):
                                 param_path = f"{section_name}.{param_name}.{nested_param_name}"
                                 flattened[param_path] = nested_param_config
 
@@ -164,7 +177,7 @@ class BatchSimulation:
 
     def set_nested_parameter(self, specs: dict, param_path: str, value):
         """Set a nested parameter in the specifications.
-        
+
         Args:
             specs (dict): Specifications to modify
             param_path (str): Parameter path (e.g., 'injection_well.diameter')
@@ -184,7 +197,7 @@ class BatchSimulation:
 
     def run_batch_simulation(self, input_file: str):
         """Run the batch simulation.
-        
+
         Args:
             input_file (str): Input file path
 
@@ -226,8 +239,16 @@ class BatchSimulation:
         for param_name in combinations[0].keys():
             headers.append(param_name)
 
-        economic_outputs = ["LCOE", "CAPEX_well", "CAPEX_surface_pipe", "CAPEX_power_plant",
-                           "CAPEX_permitting", "CAPEX_exploration", "CAPEX_wells", "CAPEX_total"]
+        economic_outputs = [
+            "LCOE",
+            "CAPEX_well",
+            "CAPEX_surface_pipe",
+            "CAPEX_power_plant",
+            "CAPEX_permitting",
+            "CAPEX_exploration",
+            "CAPEX_wells",
+            "CAPEX_total",
+        ]
 
         for output_name in self.outputs_list:
             if output_name in economic_outputs:
@@ -246,7 +267,7 @@ class BatchSimulation:
 
     def write_simulation_results(self, tango, param_combo, simulation_number):
         """Write results for a single simulation to CSV.
-        
+
         Args:
             tango: Tango instance with completed simulation
             param_combo (dict): Parameter combination used
@@ -258,8 +279,16 @@ class BatchSimulation:
         input_values = list(param_combo.values())
 
         output_values = []
-        economic_outputs = ["LCOE", "CAPEX_well", "CAPEX_surface_pipe", "CAPEX_power_plant",
-                           "CAPEX_permitting", "CAPEX_exploration", "CAPEX_wells", "CAPEX_total"]
+        economic_outputs = [
+            "LCOE",
+            "CAPEX_well",
+            "CAPEX_surface_pipe",
+            "CAPEX_power_plant",
+            "CAPEX_permitting",
+            "CAPEX_exploration",
+            "CAPEX_wells",
+            "CAPEX_total",
+        ]
 
         for output_name in self.outputs_list:
             if output_name in economic_outputs:
@@ -357,6 +386,7 @@ class Tango:
             self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides, params_json)
         else:
             from tango.utils import apply_parameter_overrides
+
             self.specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
 
         self.input_file = input_file
@@ -389,9 +419,11 @@ class Tango:
             If the workflow type is not supported.
 
         """
-        workflow_class  = get_workflow_class(self.specs["runspec"]["workflow"])
+        workflow_class = get_workflow_class(self.specs["runspec"]["workflow"])
         # print('self.specs',self.specs)
-        self.workflow: Workflow = workflow_class(self.specs, self.input_file, self.user_id, self.run_id, self.run_dir)
+        self.workflow: Workflow = workflow_class(
+            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir
+        )
 
     def execute(self) -> None:
         """Execute the TANGO workflow.
@@ -418,7 +450,9 @@ class Tango:
 
         self.workflow.execute()
 
-        logging.info(f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.")
+        logging.info(
+            f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds."
+        )
 
         # Cleanup generated run directory after successful completion
         try:
@@ -435,8 +469,7 @@ class Tango:
             logging.error(f"Failed to cleanup run directory {self.run_dir}: {cleanup_err}")
 
     def execute_batch_simulation(self) -> None:
-        """Executes batch simulation if configured.
-        """
+        """Executes batch simulation if configured."""
         if "batch_simulation" in self.specs and self.specs["batch_simulation"].get("enabled", False):
             batch_sim = BatchSimulation(self.specs, self.specs["batch_simulation"])
             batch_sim.run_batch_simulation(self.input_file)

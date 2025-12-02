@@ -1,4 +1,5 @@
 """TANGO utilities"""
+
 import argparse
 import csv
 import json
@@ -45,48 +46,47 @@ def parse_args(args) -> argparse.Namespace:
         >>> args = parse_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
 
     """
-    parser = argparse.ArgumentParser(description="TANGO - Techno-economic ANalysis of GeOthermal power simulator")
-    parser.add_argument("-f",
-                        "--file",
-                        dest="input_file",
-                        help="Input file (.yml)",
-                        required=True)
-    parser.add_argument("-d",
-                        "--debug",
-                        dest="debug",
-                        help="Set log level to DEBUG",
-                        required=False,
-                        default=False,
-                        action=argparse.BooleanOptionalAction)
+    parser = argparse.ArgumentParser(
+        description="TANGO - Techno-economic ANalysis of GeOthermal power simulator"
+    )
+    parser.add_argument("-f", "--file", dest="input_file", help="Input file (.yml)", required=True)
+    parser.add_argument(
+        "-d",
+        "--debug",
+        dest="debug",
+        help="Set log level to DEBUG",
+        required=False,
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
 
-    parser.add_argument("--param",
-                       action="append",
-                       dest="parameter_overrides",
-                       help="Override YAML parameters (format: section.parameter=value)")
-    parser.add_argument("--params-json",
-                       dest="params_json",
-                       help="JSON string with multiple parameter overrides")
+    parser.add_argument(
+        "--param",
+        action="append",
+        dest="parameter_overrides",
+        help="Override YAML parameters (format: section.parameter=value)",
+    )
+    parser.add_argument(
+        "--params-json", dest="params_json", help="JSON string with multiple parameter overrides"
+    )
 
-    parser.add_argument("--user-id",
-                       dest="user_id",
-                       help="User ID for database operations",
-                       required=False)
+    parser.add_argument("--user-id", dest="user_id", help="User ID for database operations", required=False)
 
     return parser.parse_args(args)
 
 
 def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
     """Parse parameter override string like "schedule.mass_flow_rate=0.2"
-    
+
     Args:
         param_string (str): Parameter override string in format "path.to.parameter=value"
-        
+
     Returns:
         Tuple[List[str], Any]: (path_list, value) where path_list is the nested path and value is the parsed value
-        
+
     Raises:
         ValueError: If the parameter string format is invalid
-        
+
     Example:
         >>> path, value = parse_parameter_override("schedule.mass_flow_rate=0.2")
         >>> print(path)  # ['schedule', 'mass_flow_rate']
@@ -94,7 +94,9 @@ def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
 
     """
     if "=" not in param_string:
-        raise ValueError(f"Invalid parameter format: {param_string}. Expected format: section.parameter=value")
+        raise ValueError(
+            f"Invalid parameter format: {param_string}. Expected format: section.parameter=value"
+        )
 
     path_str, value_str = param_string.split("=", 1)
     path_list = path_str.split(".")
@@ -106,13 +108,13 @@ def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
 
 def parse_value(value_str: str) -> Any:
     """Convert string value to appropriate Python type
-    
+
     Args:
         value_str (str): String representation of the value
-        
+
     Returns:
         Any: Parsed value with appropriate type (int, float, bool, str, list, dict)
-        
+
     Example:
         >>> parse_value("0.2")  # 0.2 (float)
         >>> parse_value("true")  # True (bool)
@@ -134,17 +136,17 @@ def parse_value(value_str: str) -> Any:
     elif re.match(r"^-?\d*\.?\d+([eE][-+]?\d+)?$", value_str):
         return float(value_str)
     else:
-        return value_str.strip('"\'')
+        return value_str.strip("\"'")
 
 
 def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None:
     """Set nested dictionary value using path list
-    
+
     Args:
         dictionary (dict): The dictionary to modify
         path_list (List[str]): List of keys representing the nested path
         value (Any): Value to set at the specified path
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> set_nested_value(specs, ['schedule', 'mass_flow_rate'], 0.2)
@@ -160,20 +162,18 @@ def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None
 
 
 def apply_parameter_overrides(
-    specs: dict[str, Any],
-    parameter_overrides: list[str] | None = None,
-    params_json: str | None = None
+    specs: dict[str, Any], parameter_overrides: list[str] | None = None, params_json: str | None = None
 ) -> dict[str, Any]:
     """Apply parameter overrides to the specifications dictionary
-    
+
     Args:
         specs (Dict[str, Any]): Original specifications dictionary
         parameter_overrides (List[str], optional): List of parameter override strings
         params_json (str, optional): JSON string with multiple parameter overrides
-        
+
     Returns:
         Dict[str, Any]: Modified specifications dictionary
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> overrides = ['schedule.mass_flow_rate=0.2', 'reservoir.permeability=1e-14']
@@ -207,7 +207,7 @@ def load_from_yaml_with_overrides(
     filename: str,
     parameter_overrides: list[str] | None = None,
     params_json: str | None = None,
- ) -> dict[str, Any]:
+) -> dict[str, Any]:
     """Load YAML file and apply parameter overrides
 
     Args:
@@ -219,7 +219,7 @@ def load_from_yaml_with_overrides(
         Dict[str, Any]: Specifications dictionary with applied overrides
 
     Example:
-        >>> specs = load_from_yaml_with_overrides("input.yml", 
+        >>> specs = load_from_yaml_with_overrides("input.yml",
         ...                                      parameter_overrides=["schedule.mass_flow_rate=0.2"])
 
     """
@@ -247,14 +247,14 @@ def load_from_yaml_with_overrides(
 
 def stringify_parameters(specs: dict[str, Any], prefix: str = "") -> list[str]:
     """Convert specifications dictionary to list of parameter strings
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         prefix (str): Current path prefix for nested parameters
-        
+
     Returns:
         List[str]: List of parameter strings in format "path.to.parameter=value"
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> params = stringify_parameters(specs)
@@ -283,14 +283,14 @@ def stringify_parameters(specs: dict[str, Any], prefix: str = "") -> list[str]:
 
 def validate_parameter_path(specs: dict[str, Any], path_list: list[str]) -> bool:
     """Validate if a parameter path exists in the specifications
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         path_list (List[str]): List of keys representing the nested path
-        
+
     Returns:
         bool: True if path exists, False otherwise
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> validate_parameter_path(specs, ['schedule', 'mass_flow_rate'])  # True
@@ -307,17 +307,17 @@ def validate_parameter_path(specs: dict[str, Any], path_list: list[str]) -> bool
 
 def get_parameter_value(specs: dict[str, Any], path_list: list[str]) -> Any:
     """Get parameter value from specifications using path list
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         path_list (List[str]): List of keys representing the nested path
-        
+
     Returns:
         Any: Value at the specified path
-        
+
     Raises:
         KeyError: If the path doesn't exist
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> value = get_parameter_value(specs, ['schedule', 'mass_flow_rate'])  # 0.1
@@ -333,13 +333,13 @@ def get_parameter_value(specs: dict[str, Any], path_list: list[str]) -> Any:
 
 def generate_parameter_strings(form_data: dict[str, str]) -> list[str]:
     """Convert web form data to parameter strings for TANGO CLI
-    
+
     Args:
         form_data (Dict[str, str]): Dictionary of form field names and values
-        
+
     Returns:
         List[str]: List of parameter strings in format "section.parameter=value"
-        
+
     Example:
         >>> form_data = {
         ...     'schedule_mass_flow_rate': '0.2',
@@ -361,13 +361,13 @@ def generate_parameter_strings(form_data: dict[str, str]) -> list[str]:
 
 def generate_json_overrides(form_data: dict[str, str]) -> str:
     """Convert web form data to JSON parameter overrides
-    
+
     Args:
         form_data (Dict[str, str]): Dictionary of form field names and values
-        
+
     Returns:
         str: JSON string with parameter overrides
-        
+
     Example:
         >>> form_data = {
         ...     'schedule_mass_flow_rate': '0.2',
@@ -412,11 +412,13 @@ def set_logger(args):
     if debug:
         level = logging.DEBUG
     logging.getLogger().setLevel(level)
-    logging.basicConfig(filename=os.path.splitext(input_file)[0] + ".log",
-                        filemode="w",
-                        format="%(asctime)s, %(levelname)s %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S",
-                        level=level)
+    logging.basicConfig(
+        filename=os.path.splitext(input_file)[0] + ".log",
+        filemode="w",
+        format="%(asctime)s, %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=level,
+    )
     console = logging.StreamHandler()
     console.setLevel(level)
     logging.getLogger("").addHandler(console)
@@ -824,7 +826,10 @@ def system_name(specs) -> str:
         sys_name = node["unit"].strip().split("_")[0]
         if node["type"] == "surface":
             sys_name = node["unit"]
-        if "reservoir" in specs["graph"]["nodes"] and specs["graph"]["nodes"]["reservoir"].get("unit") == "filereader":
+        if (
+            "reservoir" in specs["graph"]["nodes"]
+            and specs["graph"]["nodes"]["reservoir"].get("unit") == "filereader"
+        ):
             sys_name = "external"
         if specs["schedule"]["bc_iteration_checkpoint"] == "injection_well_bottom":
             sys_name = "external"
@@ -1112,12 +1117,16 @@ def calculate_and_set_average(d: dict, nodes: dict):
                                     inlet_index = int(location[-1]) - 1
                                     if 0 <= inlet_index < len(component.inl):
                                         setattr(component.inl[inlet_index], attribute, average_value)
-                                        print(f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}")
+                                        print(
+                                            f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}"
+                                        )
                                 elif location.startswith("outlet") and hasattr(component, "outl"):
                                     outlet_index = int(location[-1]) - 1
                                     if 0 <= outlet_index < len(component.outl):
                                         setattr(component.outl[outlet_index], attribute, average_value)
-                                        print(f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}")
+                                        print(
+                                            f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}"
+                                        )
 
             s[key] = [average_value]
     print("Available nodes and connections:")
