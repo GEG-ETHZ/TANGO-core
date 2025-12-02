@@ -1,11 +1,12 @@
 import numpy as np
 from abc import abstractmethod
+from pathlib import Path
 
 from tango.core.abstracts.unit import Unit, SimplePressureDrop
-from tango.core.errors import CoolPropError
+from tango.core.errors import CoolPropError, Validator
 
 
-class SurfaceUnitNative(Unit, SimplePressureDrop):
+class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
     r"""
     Represents the surface power plant unit based on Adams et al. (2015).
 
@@ -37,7 +38,6 @@ class SurfaceUnitNative(Unit, SimplePressureDrop):
         self.diagram_states = {}
         self.diagram_connections = {}
         self.thermal_power = 0.0
-
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:

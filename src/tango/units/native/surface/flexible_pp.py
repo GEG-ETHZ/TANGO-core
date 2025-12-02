@@ -16,9 +16,7 @@ from tespy.components import (
 from tespy.connections import Connection
 from tespy.networks import Network
 import numpy as np
-from tabulate import tabulate
-from termcolor import colored
-from itertools import cycle
+import CoolProp as CP
 from copy import copy
 
 from tango.units.dataclasses import CommonSpecs
@@ -52,8 +50,31 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
         self.specs.org = specs
-        self.validate()
         self._fluid_name = self.specs.fluid_name
+        # estimated temperature of fluid entering powerplant
+        te_pp_in_est = (
+            specs['surface']['surface_temperature']
+                + specs['reservoir']['reservoir_depth'] * specs['props']['thermal_gradient']
+        )
+        p_sat: float = CP.CoolProp.PropsSI('P', 'T', te_pp_in_est, 'Q', 0, self._fluid_name)
+        # warn if target_extraction is below this threshold
+        p_sat_warn = p_sat * 1.01
+        # err if target_extraction is below this threshold
+        p_sat_err = p_sat
+        # warn if target extraction pressure exceeds 35 MPa, which is typical for a superheated coal-fired
+        # plant and would be absurdly high pressure for a geothermal plant
+        p_max_warn = 35e6
+        # error if target extraction pressure exceeds 50 MPa, which is higher than a superheated coal-fired
+        # plant and would be ludicrously high pressure for a geothermal plant
+        p_max_err = 50e6
+        # target extraction pressure
+        if "target_extraction_pressure_warn" not in self.val_dict:
+            self.val_dict["target_extraction_pressure_warn"] = [p_sat_warn, p_max_warn]
+        # target extraction pressure
+        if "target_extraction_pressure_err" not in self.val_dict:
+            self.val_dict["target_extraction_pressure_err"] = [p_sat_err, p_max_err]
+        self.validate()
+
         self._m_dot_mult = 1
         self.current_row = 0
         self.prod_pump_w_list = []

@@ -53,7 +53,10 @@ surface:
   pipe_diameter: 0.41 # m
   epsilon: 55.e-6 # m, absolute surface roughness
   approach_temperature: 7.0  # K
-  target_extraction_pressure: 7000000
+  # triggers warning
+  target_extraction_pressure: 1251115.0
+  # uncomment to trigger error
+  # target_extraction_pressure: 1251114.656246712
 
 reservoir:
   reservoir_depth: 5000.0 # m

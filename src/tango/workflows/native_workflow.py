@@ -9,7 +9,6 @@ import os
 from dataclasses import dataclass
 from copy import deepcopy
 from .arangodb_manager import ArangoDBManager
-import CoolProp as CP
 
 from tango.core.abstracts.workflow import Workflow
 from tango.orchestrators.external import SystemExternal  # noqa: F401

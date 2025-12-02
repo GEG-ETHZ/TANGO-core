@@ -197,7 +197,7 @@ class Validator(ABC):
     """
 
     val_file: Path
-    val_dict: dict[str, float] = field(init=False)
+    val_dict: dict[str, list[float | None]] = field(init=False)
 
     def __post_init__(self):
         """Load validation data from yml"""
