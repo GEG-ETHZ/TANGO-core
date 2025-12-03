@@ -18,7 +18,6 @@ from tango.time_stepper import LinearInterpolation
 from tango.core.config import (
     REPORT_SETTINGS,
     SKIP_REPORT_ATTRIBUTES,
-    UNIT_OPTIONS,
     MULTIPLE_UNIT_NODE_OPTIONS,
 )
 
@@ -833,12 +832,13 @@ def system_name(specs) -> str:
     return sys_name
 
 
-def get_unit_class(type_: str, unit_name: str) -> object:
+def get_unit_class(type_: str, unit_name: str, unit_options: dict[str, Any]) -> object:
     """Retrieves the unit class based on the type and unit name.
 
     Args:
         type_ (str): The type of the unit.
         unit_name (str): The name of the unit.
+        unit_options (dict): Dictionary mapping unit types and names to classes.
 
     Returns:
         object: The class object corresponding to the unit.
@@ -847,26 +847,26 @@ def get_unit_class(type_: str, unit_name: str) -> object:
         ValueError: If the type or unit name is unsupported.
 
     Example:
-        >>> get_unit_class("surface", "turbine")
+        >>> get_unit_class("surface", "turbine", unit_options)
 
     """
     try:
-        full_path = UNIT_OPTIONS[type_.lower()][unit_name.lower()]
+        unit_class = unit_options[type_.lower()][unit_name.lower()]
     except KeyError:
         raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
-    if "." in full_path:
-        module_path, class_name = full_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        return getattr(module, class_name)
-    else:
-        # Fallback for legacy or incomplete paths (e.g. StreamNative)
-        # We cannot use eval here as we removed the imports.
-        # If it's not a full path, we can try to find it in the current module or raise an error.
-        # Given we removed the imports, it MUST be a full path or we fail.
-        raise ValueError(
-            f"Unit class '{full_path}' for {type_}/{unit_name} is not a full module path and cannot be imported dynamically."
-        )
+    if isinstance(unit_class, str):
+        # Fallback for string paths (legacy or TODOs) -- normally this block is skipped
+        if "." in unit_class:
+            module_path, class_name = unit_class.rsplit(".", 1)
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name)
+        else:
+            raise ValueError(
+                f"Unit class '{unit_class}' for {type_}/{unit_name} is not a valid class or full module path."
+            )
+
+    return unit_class
 
 
 def newton(x_lst: list, y_lst: list) -> float:

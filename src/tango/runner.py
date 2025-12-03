@@ -419,10 +419,12 @@ class Tango:
             If the workflow type is not supported.
 
         """
+        from tango.units.registry import UNIT_OPTIONS
+
         workflow_class = get_workflow_class(self.specs["runspec"]["workflow"])
         # print('self.specs',self.specs)
         self.workflow: Workflow = workflow_class(
-            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir
+            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir, UNIT_OPTIONS
         )
 
     def execute(self) -> None:

@@ -22,14 +22,15 @@ class SystemNative(UnitManager):
         y_lst (list): List of y-values corresponding to `x_lst`.
         MAX_NUM_ITR (int): Maximum number of iterations allowed for convergence.
     """
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes the SystemNative object.
 
         Args:
             specs (dict): The specifications for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
-        super().__init__(specs)
+        super().__init__(specs, unit_options)
         self.x_lst, self.y_lst = [], []
         self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
 
@@ -85,14 +86,15 @@ class SystemCPGNative(SystemNative):
         _CONVERGENCE_CRIT_DP_RESERVOIR (float): Convergence criterion for reservoir pressure difference.
         stop (bool): Indicates if the system should stop iterations.
     """
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes the SystemCPGNative object.
 
         Args:
             specs (dict): The specifications for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
-        super().__init__(specs)
+        super().__init__(specs, unit_options)
         self._set_convergence_criteria()
         self.stop = False
 
@@ -179,14 +181,15 @@ class SystemORCNative(SystemNative):
     Methods:
         None specific to this class beyond the inherited methods.
     """
-    def __init__(self, state):
+    def __init__(self, state, unit_options):
         """
         Initializes the SystemORCNative object.
 
         Args:
             state (dict): The state for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
-        super().__init__(state)
+        super().__init__(state, unit_options)
         self._input_check(['injection_well', 'reservoir', 'production_well', 'production_well_pump', 'surface'])
         self._set_convergence_criteria()
 

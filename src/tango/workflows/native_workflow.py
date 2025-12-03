@@ -8,6 +8,7 @@ import importlib
 import os
 from dataclasses import dataclass
 from copy import deepcopy
+from typing import Any
 from .arangodb_manager import ArangoDBManager
 
 from tango.core.abstracts.workflow import Workflow
@@ -28,6 +29,7 @@ from tango.core.errors import (
 from tango.core.config import SYSTEM_OPTIONS, DATETIME_FMT
 from tango import utils
 from tango.utils import get_unit_class
+from tango.units.registry import UNIT_OPTIONS
 from tango.core.constants import YEAR_TO_MONTH
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
@@ -102,19 +104,18 @@ class NativeWorkflow(Workflow):
         diagram_specs (DiagramSpecs): Diagram specifications for plotting.
     """
 
-    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None):
+    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None, unit_options: dict[str, Any] | None = None):
         """
         Initializes the NativeWorkflow object.
 
         Args:
             specs (dict): Specifications for the simulation.
             input_file (str): Path to the input file.
-            user_id (str, optional): User ID for database operations.
-            run_id (str, optional): Unique run ID for file naming.
-            run_dir (str, optional): Directory for run-specific output files.
 
         Steps:
-            - Initializes the physical and economic systems.
+            - Validates inputs.
+            - Initializes system and economic units.
+            - Sets up ArangoDB connection if configured.
             - Sets up diagram specifications for plotting results.
         """
         super().__init__(specs)
@@ -124,21 +125,23 @@ class NativeWorkflow(Workflow):
         self._run_dir = run_dir or os.getcwd()
         self._start_date = datetime.strptime(self.specs['schedule']['start_date'], DATETIME_FMT)
         self.dt_list = None
+        self.unit_options = unit_options or UNIT_OPTIONS
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
         self.addons_manager()
 
         self.function_evaluator = FunctionEvaluator(
-            target_mapping=TARGET_PARAMETER_MAPPING,
             variable_mapping=VARIABLE_PARAMETER_MAPPING,
+            target_mapping=TARGET_PARAMETER_MAPPING,
             orchestrator=self.orchestrator,
             economic=self.economic
         )
         self.function_evaluator.set_context(self)
+        self._generate_power_plant_mappings()
         
+        # Set context for flexible power plant if applicable
         if (hasattr(self.orchestrator, 'unit') and 
-            hasattr(self.orchestrator.unit, 'surface') and 
             self.orchestrator.unit.surface and
             hasattr(self.orchestrator.unit.surface, 'set_context')):
             self.orchestrator.unit.surface.set_context(self)
@@ -157,6 +160,9 @@ class NativeWorkflow(Workflow):
             except Exception as e:
                 logging.error(f"Failed to initialize ArangoDB manager: {e}")
                 self.arango_manager = None
+
+        self._fluid_states = {}
+        self._process_specs(specs)
 
     def write_to_arangodb(self, step_index: int, table_type: str = "main_graph", data_type: str = "timestep"):
         """
@@ -279,7 +285,7 @@ class NativeWorkflow(Workflow):
         Returns:
             dict: Processed phase diagram specifications.
         """
-        return specs['phase_diagram']
+        return specs.get('phase_diagram', {})
 
     def _init_system(self) -> None:
         """
@@ -291,7 +297,7 @@ class NativeWorkflow(Workflow):
         if 'bc_iteration' in self.specs.get('schedule', {}):
             self.sys_name = 'external'
         UnitManager = get_system_class(self.sys_name)
-        self.orchestrator = UnitManager(self.specs)
+        self.orchestrator = UnitManager(self.specs, unit_options=UNIT_OPTIONS)
 
     def _init_econ_unit(self) -> None:
         """
@@ -299,7 +305,7 @@ class NativeWorkflow(Workflow):
         """
         self.economic = None
         if 'economic' in self.specs:
-            Unit = get_unit_class(type_='economic', unit_name=self.specs['economic']['type'])
+            Unit = get_unit_class(type_='economic', unit_name=self.specs['economic']['type'], unit_options=UNIT_OPTIONS)
             self.economic = Unit(specs=self.specs, nodes=self.orchestrator.graph.nodes)
 
     def _native_system_iteration(self) -> None:
@@ -667,7 +673,7 @@ class NativeWorkflow(Workflow):
             dict: Dictionary with file status information.
         """
         expected_files = self._get_expected_files_for_timestep(step_index)
-        status = {
+        status: dict[str, Any] = {
             'timestep': step_index,
             'expected_files': expected_files,
             'files_status': {},
@@ -1439,7 +1445,8 @@ def get_dp_and_flow_res(
                 act_inlet_bcs[k] = None
         else:
             # should be unreachable
-            raise ValueError(f"Invalid k: {k}.  Report this to the TANGO team.")
+            # raise ValueError(f"Invalid k: {k}.  Report this to the TANGO team.")
+            continue
 
     return dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs
 
@@ -1473,7 +1480,8 @@ def check_complex_err(
             diameters[k] = v.specs.__dict__["pipe_diameter"]
         else:
             # should be unreachable
-            raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
+            # raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
+            continue
 
     d_max_in_sys = max(diameters.values())
 

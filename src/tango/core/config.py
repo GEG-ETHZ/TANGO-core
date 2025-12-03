@@ -14,41 +14,7 @@ SYSTEM_OPTIONS = {
     "native_orc": "SystemORCNative",
 }
 
-UNIT_OPTIONS = {
-    "surface": {
-        "native_flexible": "tango.units.native.surface.flexible_pp.SurfaceUnitFlexiblePP",
-        "native_cpg": "tango.units.native.surface.CPG.SurfaceUnitCPGNative",
-        "native_dh": "SurfaceUnitDHNative",
-        "moose_cpg": "tango.units.native.surface.CPG.SurfaceUnitCPGNative",
-        "dwsim_cpg": "tango.units.external.DWSIM.CPG.SurfaceUnitCPGDWSIM",
-        "tespy_cpg": "SurfaceUnitCPGTESPy",
-        "tespy_orc": "SurfaceUnitORCTESPy",
-        "tespy_sf": "SurfaceUnitSingleFlashTESPy",
-        "tespy_df": "SurfaceUnitDoubleFlashTESPy",
-        "native_orc": "tango.units.native.surface.ORC.SurfaceUnitORCNative",
-    },
-    "injection_well": {
-        "native": "tango.units.native.well.injection_well.InjectionWellUnitNative",
-        "moose": "tango.units.external.MOOSE.well.well.WellUnitMOOSE",
-    },
-    "production_well": {"native": "tango.units.native.well.production_well.ProductionWellUnitNative"},
-    "horizontal_well": {"native": "tango.units.native.well.horizontal_well.HorizontalWellUnitNative"},
-    "production_well_pump": {
-        "native": "tango.units.native.well.production_well_pump.ProductionWellPumpUnitNative"
-    },
-    "reservoir": {
-        "native": "tango.units.native.reservoir.ReservoirUnitNative",
-        "moose": "tango.units.external.MOOSE.reservoir.reservoir.ReservoirUnitPorousflow",
-        "filereader": "tango.units.native.unit_reader.ReservoirFileReaderUnit",
-    },
-    "stream": {"native": "tango.core.stream.Stream"},
-    "cmg": {
-        "imex": "tango.units.cmg.imex.ImexUnit",
-        "gem": "tango.units.cmg.gem.GemUnit",
-        "coflow": "tango.units.cmg.coflow.CoFlowUnit",
-    },
-    "economic": {"native": "tango.units.native.economic.economic.EconomicUnitNative"},
-}  # {'node_type_name': 'UnitClassName'}
+
 
 UNIT_STATE_OPTIONS = {
     "surface": {

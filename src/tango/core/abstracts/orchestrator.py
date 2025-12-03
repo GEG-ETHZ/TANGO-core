@@ -41,14 +41,16 @@ class UnitManager(ABC):
         root_node (dict): The root node object.
     """
 
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes a new instance of the UnitManager class.
 
         Args:
             specs (dict): Specifications for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
         self.specs = specs
+        self.unit_options = unit_options
         self.unit = Unit()
         self._build_graph()
         self._init_nodes()
@@ -69,11 +71,12 @@ class UnitManager(ABC):
         Initializes all nodes in the graph by instantiating their associated units.
         """
         self._process_specs()
-        for id in self.graph.nodes:
-            node = self.graph.nodes[id]
-            Unit = get_unit_class(node['type'], node['unit'])
-            node['unit'] = Unit(id, self.specs)
-            node['id'] = id
+        for node_id in self.graph.nodes:
+            node = self.graph.nodes[node_id]
+            Unit = get_unit_class(type_=node['type'], unit_name=node['unit'], unit_options=self.unit_options)
+            node['unit'] = Unit(node_id, specs=self.specs)
+            self.unit.add_unit(node['unit'], node_id)
+            node['id'] = node_id
             self._set_node_object(node)
         self.root_node_id = list(self.graph.nodes)[0]
         self.root_node = self.graph.nodes[self.root_node_id]
@@ -103,7 +106,10 @@ class UnitManager(ABC):
         Args:
             node (dict): Node object containing unit information.
         """
-        if getattr(self.unit, f"{node['type']}", None) is not None:
+        existing_unit = getattr(self.unit, node['type'], None)
+        if existing_unit is not None:
+            if existing_unit is node['unit']:
+                return
             if node['type'] not in MULTIPLE_UNIT_NODE_OPTIONS:
                 raise ValueError(f"Multiple node type: {node['type']} is not supported.")
         self.unit.add_unit(node['unit'], node['type'])

@@ -23,14 +23,15 @@ class SystemCMG(UnitManager):
         graph (nx.Graph): NetworkX graph representing connections between units.
     """
 
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes a new instance of the SystemCMG class.
 
         Args:
             specs (dict): Specifications for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
-        super().__init__(specs)
+        super().__init__(specs, unit_options)
 
     def _build_graph(self) -> None:
         """
@@ -58,7 +59,7 @@ class SystemCMG(UnitManager):
         class for each node based on its type and configuration.
         """
         for node in self.nodes:
-            Unit = get_unit_class(node[1]['type'], node[1]['unit'])
+            Unit = get_unit_class(type_=node[1]['type'], unit_name=node[1]['unit'], unit_options=self.unit_options)
             node[1]['unit'] = Unit(node[0], self.specs['cmg'])
             node[1]['unit'].initialize()
 

@@ -1,6 +1,7 @@
 import os
 from tango.core.abstracts.workflow import Workflow
 from tango.orchestrators.cmg import *
+from tango.units.registry import UNIT_OPTIONS
 
 class CMGWorkflow(Workflow):
     """
@@ -16,7 +17,7 @@ class CMGWorkflow(Workflow):
         economic (object): The economic analysis unit (not yet implemented).
     """
 
-    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None):
+    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None, unit_options: dict = None):
         """
         Initializes the CMGWorkflow object.
 
@@ -26,6 +27,7 @@ class CMGWorkflow(Workflow):
             user_id (str, optional): User ID for database operations.
             run_id (str, optional): Unique run ID for file naming.
             run_dir (str, optional): Directory for run-specific output files.
+            unit_options (dict, optional): Dictionary of unit options.
 
         Steps:
         - Initializes the physical system.
@@ -37,6 +39,7 @@ class CMGWorkflow(Workflow):
         self._user_id = user_id
         self._run_id = run_id or "default"
         self._run_dir = run_dir or os.getcwd()
+        self.unit_options = unit_options or UNIT_OPTIONS
         self._init_system()
         self._init_econ_unit()
         self._results = dict()
@@ -48,7 +51,7 @@ class CMGWorkflow(Workflow):
 
         Uses `SystemCMG` for CMG-based integration.
         """
-        self.system = SystemCMG(self.specs)
+        self.system = SystemCMG(self.specs, unit_options=self.unit_options)
 
     def _init_econ_unit(self) -> None:
         """
