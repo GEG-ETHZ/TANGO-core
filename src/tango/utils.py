@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import sys
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -14,20 +15,12 @@ import pandas as pd
 import yaml
 
 from tango.time_stepper import LinearInterpolation
-from tango.units.cmg.imex import (
+from tango.core.config import (
     REPORT_SETTINGS,
     SKIP_REPORT_ATTRIBUTES,
     UNIT_OPTIONS,
     MULTIPLE_UNIT_NODE_OPTIONS,
 )
-
-# from tango.units.external.MOOSE.reservoir.reservoir import *
-# from tango.units.external.MOOSE.well.well import *
-from tango.units.native import *
-from tango.units.native.surface import *
-from tango.units.native.surface.flexible_pp import *
-from tango.units.native.unit_reader import *
-from tango.units.native.well import *
 
 
 def parse_args(args) -> argparse.Namespace:
@@ -857,11 +850,23 @@ def get_unit_class(type_: str, unit_name: str) -> object:
         >>> get_unit_class("surface", "turbine")
 
     """
-    # TODO: get rid of this use of `eval` and otherwise clean things up
     try:
-        return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
-    except Exception:
+        full_path = UNIT_OPTIONS[type_.lower()][unit_name.lower()]
+    except KeyError:
         raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
+
+    if "." in full_path:
+        module_path, class_name = full_path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    else:
+        # Fallback for legacy or incomplete paths (e.g. StreamNative)
+        # We cannot use eval here as we removed the imports.
+        # If it's not a full path, we can try to find it in the current module or raise an error.
+        # Given we removed the imports, it MUST be a full path or we fail.
+        raise ValueError(
+            f"Unit class '{full_path}' for {type_}/{unit_name} is not a full module path and cannot be imported dynamically."
+        )
 
 
 def newton(x_lst: list, y_lst: list) -> float:
