@@ -1236,7 +1236,7 @@ def get_dp_and_flow_res(
     # Determine temperatue and pressure to be used in calculating properties for calculating dP for each
     # module in TANGO loop
     for k, v in p_simple_inst_dict.items():
-        if k == injection_well:
+        if k in (injection_well, "injection_wellbore"):
             te = v.fluid_state_init.T
             # averaged over inlet and outlet for property calculations
             p = 0.5 * (
@@ -1318,7 +1318,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well:
+        elif k in (production_well, "production_well_lower", "production_wellbore_lower"):
             # NOTE: assumes that production well bottom is always at same depth as injection
             # well bottom
             depth_for_temp = p_simple_inst_dict['injection_well']._well_length
@@ -1367,7 +1367,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well_pump:
+        elif k in (production_well_pump, production_well_upper, "production_wellbore_upper"):
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
             # temperature, which will overestimate the actual temperature, and it's a good
             # idea to revisit the assumption in the future
@@ -1445,8 +1445,7 @@ def get_dp_and_flow_res(
                 act_inlet_bcs[k] = None
         else:
             # should be unreachable
-            # raise ValueError(f"Invalid k: {k}.  Report this to the TANGO team.")
-            continue
+            raise ValueError(f"Invalid k: {k}.  Report this to the TANGO team.")
 
     return dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs
 
@@ -1470,18 +1469,17 @@ def check_complex_err(
     # module names and corresponding pipe diameters
     diameters: dict[str, float] = {}
     for (k, v) in p_simple_inst_dict.items():
-        if k == injection_well:
+        if k in (injection_well, "injection_wellbore"):
             diameters[k] = v._specs.__dict__["diameter"]
         elif k == reservoir: continue
-        elif k in (production_well, production_well_pump):
+        elif k in (production_well, production_well_pump, production_well_upper, "production_well_lower", "production_wellbore_lower", "production_wellbore_upper"):
             diameters[k] = v._specs.__dict__["diameter"]
         elif k == surface:
             # TODO resolve the discrepancy between `_specs` and `specs` in surface and wellbores
             diameters[k] = v.specs.__dict__["pipe_diameter"]
         else:
             # should be unreachable
-            # raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
-            continue
+            raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
 
     d_max_in_sys = max(diameters.values())
 

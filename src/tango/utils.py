@@ -856,15 +856,10 @@ def get_unit_class(type_: str, unit_name: str, unit_options: dict[str, Any]) -> 
         raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
 
     if isinstance(unit_class, str):
-        # Fallback for string paths (legacy or TODOs) -- normally this block is skipped
-        if "." in unit_class:
-            module_path, class_name = unit_class.rsplit(".", 1)
-            module = importlib.import_module(module_path)
-            return getattr(module, class_name)
-        else:
-            raise ValueError(
-                f"Unit class '{unit_class}' for {type_}/{unit_name} is not a valid class or full module path."
-            )
+        raise ValueError(
+            f"Legacy string path found for {type_}/{unit_name}: '{unit_class}'. "
+            "This usage is deprecated. Report this to the TANGO dev team."
+        )
 
     return unit_class
 
