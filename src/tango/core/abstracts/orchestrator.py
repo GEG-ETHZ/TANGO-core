@@ -97,7 +97,13 @@ class UnitManager(ABC):
         """
         Processes and combines common specifications for units.
         """
-        self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
+        from tango.units.dataclasses import CommonSpecs
+        import inspect
+        
+        common_keys = set(inspect.signature(CommonSpecs).parameters.keys())
+        surface_common = {k: v for k, v in self.specs.get('surface', {}).items() if k in common_keys}
+        
+        self.specs['common'] = self.specs['props'] | self.specs['schedule'] | surface_common
 
     def _set_node_object(self, node) -> None:
         """
