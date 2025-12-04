@@ -166,6 +166,7 @@ ignore = [
     "LOG015", # `info()` call on root logger
     "N807",
     "G004", # log statement uses f-string
+    "N803", # allow upper case variable names
 ]
 
 # [tool.ruff.lint.pydocstyle]

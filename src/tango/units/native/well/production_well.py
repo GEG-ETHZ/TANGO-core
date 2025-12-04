@@ -1,4 +1,5 @@
-from tango.units.native.well.base import *
+from tango.units.native.well.base import WellUnitNative
+from tango.core.fluidstate import FluidState
 
 
 class ProductionWellUnitNative(WellUnitNative):
@@ -34,7 +35,7 @@ class ProductionWellUnitNative(WellUnitNative):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def init_stream_interface(self, P: float = None, T: float = None) -> None:
+    def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
         """
         Initializes the stream interface for the production well.
 
