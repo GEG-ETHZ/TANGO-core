@@ -28,13 +28,15 @@ J_TO_KJ = 1.0e-3
 J_TO_MJ = 1.0e-6
 J_TO_GJ = 1.0e-9
 
+# POWER CONVERSION CONSTANTS
+# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
 KW_TO_W = 1.0e+3
 W_TO_KW = 1.0e-3
 W_TO_MW = 1.0e-6
 
 # TIME CONVERSION CONSTANTS
 # Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
-YEAR_TO_SECOND = 31536000
+YEAR_TO_SECOND = 31_536_000
 YEAR_TO_HOUR = 8760
 YEAR_TO_MONTH = 12
 YEAR_TO_DAY = 365
