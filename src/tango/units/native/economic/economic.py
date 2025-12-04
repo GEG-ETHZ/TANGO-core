@@ -92,7 +92,7 @@ class EconomicSpecsNative(CommonSpecs):
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
     well_cost_model: str = 'gengeo'
-    wellbore_solver: str = 'external'
+    well_solver: str = 'external'
     main_product: str = 'electricity'
     electricity_price: float = 0.25
     heat_price: float = 0.05

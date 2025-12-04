@@ -8,7 +8,7 @@ import importlib
 import os
 from dataclasses import dataclass
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 from .arangodb_manager import ArangoDBManager
 
 from tango.core.abstracts.workflow import Workflow
@@ -17,6 +17,7 @@ from tango.orchestrators import SystemCPGNative, SystemNative, SystemORCNative  
 from tango.core.fluidstate import FluidState
 from tango.core.abstracts.unit import SimplePressureDrop
 from tango.units.native.well import WellUnitNative
+from tango.units.native.surface import SurfaceUnitNative
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.errors import (
     CoolPropError,
@@ -1236,7 +1237,7 @@ def get_dp_and_flow_res(
     # Determine temperatue and pressure to be used in calculating properties for calculating dP for each
     # module in TANGO loop
     for k, v in p_simple_inst_dict.items():
-        if k in (injection_well, "injection_wellbore"):
+        if k == injection_well:
             te = v.fluid_state_init.T
             # averaged over inlet and outlet for property calculations
             p = 0.5 * (
@@ -1318,7 +1319,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k in (production_well, "production_well_lower", "production_wellbore_lower"):
+        elif k in (production_well, "production_well_lower"):
             # NOTE: assumes that production well bottom is always at same depth as injection
             # well bottom
             depth_for_temp = p_simple_inst_dict['injection_well']._well_length
@@ -1367,7 +1368,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k in (production_well_pump, production_well_upper, "production_wellbore_upper"):
+        elif k in (production_well_pump, production_well_upper):
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
             # temperature, which will overestimate the actual temperature, and it's a good
             # idea to revisit the assumption in the future
@@ -1469,14 +1470,13 @@ def check_complex_err(
     # module names and corresponding pipe diameters
     diameters: dict[str, float] = {}
     for (k, v) in p_simple_inst_dict.items():
-        if k in (injection_well, "injection_wellbore"):
-            diameters[k] = v._specs.__dict__["diameter"]
+        if k == injection_well:
+            diameters[k] = cast(WellUnitNative, v)._specs.diameter
         elif k == reservoir: continue
-        elif k in (production_well, production_well_pump, production_well_upper, "production_well_lower", "production_wellbore_lower", "production_wellbore_upper"):
-            diameters[k] = v._specs.__dict__["diameter"]
+        elif k in (production_well, production_well_pump, production_well_upper, "production_well_lower"):
+            diameters[k] = cast(WellUnitNative, v)._specs.diameter
         elif k == surface:
-            # TODO resolve the discrepancy between `_specs` and `specs` in surface and wellbores
-            diameters[k] = v.specs.__dict__["pipe_diameter"]
+            diameters[k] = cast(SurfaceUnitNative, v).specs.pipe_diameter
         else:
             # should be unreachable
             raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
