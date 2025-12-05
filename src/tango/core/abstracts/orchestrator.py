@@ -87,7 +87,7 @@ class UnitManager(ABC):
         """
         for u, v, d in self.graph.edges(data=True):
             source, target = d['source'], d['target']
-            stream = Stream(id=d['id'], state=self.graph.nodes[source]['unit'])
+            stream = Stream(unit_id=d['id'], state=self.graph.nodes[source]['unit'])
             self.graph.nodes[source]['unit'].set_outlet_stream(stream.state)
             self.graph.nodes[target]['unit'].set_inlet_stream(stream.state)
             self.graph.nodes[target]['unit'].init_inlet_state(self.graph.nodes[source]['unit'])
