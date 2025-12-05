@@ -1,11 +1,12 @@
 """Module containing custom TANGO errors"""
 
-import re
 import logging
-import yaml
+import re
 from abc import ABC
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import yaml
 
 
 class TangoError(Exception):
@@ -211,10 +212,13 @@ class Validator(ABC):
     def validate(self):
         """Validate parameters"""
         # dictionary to store validation parameters that have been used
-        used_dict: dict[str, float] = {}
+        # to later verify that all validation parameters get mapped to object parameters
+        used_dict = {}
 
-        warnings: list[str] = []
-        errors: list[str] = []
+        self.validate_custom()
+
+        warnings = []
+        errors = []
         for vdk in self.val_dict:
             vdv = self.val_dict[vdk]
             assert len(vdv) == 2, vdv
@@ -254,7 +258,8 @@ class Validator(ABC):
 
         if len(self.val_dict) != len(used_dict):
             raise NameError(
-                f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}"
+                f"\nInvalid variables in {self.val_file}:\n"
+                    + f"{set(self.val_dict.keys()) - set(used_dict.keys())}",
             )
 
         if len(errors) > 0:
@@ -262,3 +267,7 @@ class Validator(ABC):
 
         if len(warnings) > 0:
             logging.warning(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
+
+    def validate_custom(self):
+        """Override in subclass to add custom validation ranges."""
+        pass
