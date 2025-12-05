@@ -45,14 +45,14 @@ class SurfaceSpecsFlexiblePP(CommonSpecs):
 
 class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
     def __init__(self, unit_id: str, specs: dict):
+        self.raw_specs = specs
+        specs_obj = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
+        self._fluid_name = specs_obj.fluid_name
         SurfaceUnitNative.__init__(self, unit_id, specs)
+        self.specs = specs_obj
         Validator.__init__(self, Path(__file__).resolve().parent / "validation.yaml")
-        self.specs_global = specs
-        self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
         self.specs.org = specs
-        self._fluid_name = self.specs.fluid_name
-        self.validate()
 
         self._m_dot_mult = 1
         self.current_row = 0
@@ -65,7 +65,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         reasonable max
         """
         # estimated temperature of fluid entering powerplant
-        specs = self.specs_global
+        specs = self.raw_specs
         te_pp_in_est = (
             specs['surface']['surface_temperature']
                 + specs['reservoir']['reservoir_depth'] * specs['props']['thermal_gradient']
