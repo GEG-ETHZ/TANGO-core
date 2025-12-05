@@ -1,18 +1,6 @@
-WORKFLOW_OPTIONS = {"native": "NativeWorkflow", "cmg": "CMGWorkflow"}
 
-SYSTEM_OPTIONS = {
-    "native": "SystemNative",
-    "external": "SystemExternal",
-    "native_flexible": "SystemExternal",
-    "native_cpg": "SystemCPGNative",
-    "native_dh": "SystemCPGNative",
-    "moose_cpg": "SystemExternal",
-    "tespy_cpg": "SystemExternal",
-    "tespy_orc": "SystemExternal",
-    "tespy_sf": "SystemExternal",
-    "tespy_df": "SystemExternal",
-    "native_orc": "SystemORCNative",
-}
+
+
 
 
 

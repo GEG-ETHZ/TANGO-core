@@ -27,13 +27,13 @@ from tango.core.errors import (
     MultiError,
     P_SAT_ERR_TEST,
 )
-from tango.core.config import SYSTEM_OPTIONS, DATETIME_FMT
-from tango import utils
-from tango.utils import get_unit_class
-from tango.units.registry import UNIT_OPTIONS
+from tango.units.registry import UNIT_OPTIONS, SYSTEM_OPTIONS
 from tango.core.constants import YEAR_TO_MONTH
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
+from tango import utils
+from tango.core.config import DATETIME_FMT
+from tango.utils import get_unit_class
 
 
 # define strings for frequently used dict keys to reduce likelihood of typos
@@ -66,6 +66,7 @@ class InletBCs:
     p: float
     te: float
 
+
 def get_system_class(type_: str) -> object:
     """
     Retrieves the system class corresponding to the given type.
@@ -83,8 +84,8 @@ def get_system_class(type_: str) -> object:
         >>> get_system_class("surface_unit")
     """
     try:
-        return eval(SYSTEM_OPTIONS[type_.lower()])
-    except:
+        return SYSTEM_OPTIONS[type_.lower()]
+    except KeyError:
         raise ValueError(f"System type: {type_} is not supported.")
 
 
