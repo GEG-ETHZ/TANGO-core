@@ -12,7 +12,7 @@ import CoolProp as CP
 import numpy as np
 from tqdm import tqdm
 
-from tango.utils import load_from_yaml_with_overrides
+from tango.utils import load_from_yaml_with_overrides, set_nested_value
 from tango.core.errors import (
     CoolPropError,
     SaturationPressureError,
@@ -392,17 +392,17 @@ class Tango:
         self.input_file = input_file
         self.user_id = user_id
 
-        # Generate unique run ID for file naming
-        self.run_id = str(uuid.uuid4())[:8]  # Short unique ID
-
         # Create gen_files directory if it doesn't exist
         self.gen_files_dir = os.path.join(os.path.dirname(__file__), "gen_files")
         os.makedirs(self.gen_files_dir, exist_ok=True)
 
-        # Create run-specific subdirectory
+        self._setup_run_directory()
+
+    def _setup_run_directory(self) -> None:
+        """Generate a unique run ID and create the run directory."""
+        self.run_id = str(uuid.uuid4())[:8]  # Short unique ID
         self.run_dir = os.path.join(self.gen_files_dir, f"run_{self.run_id}")
         os.makedirs(self.run_dir, exist_ok=True)
-
         logging.info(f"Created unique run directory: {self.run_dir}")
 
     def _initialize_workflow(self) -> None:
@@ -478,6 +478,22 @@ class Tango:
         else:
             self.execute()
 
+    def update_parameters(self, parameters: dict[str, Any] | None = None) -> None:
+        """Update specifications with new parameters and regenerate run ID.
+
+        Args:
+            parameters (dict, optional): Dictionary of parameter paths and values to update.
+                                       Format: {"section.parameter": value}.
+                                       If None, only regenerates run ID (assumes specs updated directly).
+        """
+        if parameters:
+            for param_path, value in parameters.items():
+                path_list = param_path.split(".")
+                set_nested_value(self.specs, path_list, value)
+
+        # Regenerate run ID and directory for the modified run
+        self._setup_run_directory()
+
 
 class Runner:
     """Wrapper class for `Tango` and `Optimizer`"""
@@ -490,15 +506,19 @@ class Runner:
         user_id: str | None = None,
     ):
         """Initialize the Runner"""
-        self._tango = Tango(
+        self.tango = Tango(
             input_file,
             parameter_overrides=parameter_overrides,
             params_json=params_json,
             user_id=user_id,
         )
+        self._setup_optimizer()
+
+    def _setup_optimizer(self) -> None:
+        """Initialize the optimizer if configured in specs."""
         self._optimizer = None
-        if "optimization" in self._tango.specs:
-            self._optimizer = Optimizer(self._tango, self._tango.specs)
+        if "optimization" in self.tango.specs:
+            self._optimizer = Optimizer(self.tango, self.tango.specs)
 
     def start(self) -> None:
         """Start the execution of the workflow. If 'optimization' is present in the specs,
@@ -506,7 +526,7 @@ class Runner:
         """
         # NOTE: we should probably make sure that if `self._optimizer is not None` and
         # ```
-        # "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
+        # "batch_simulation" in self.tango.specs and self.tango.specs["batch_simulation"].get(
         #     "enabled", False
         # )
         # ```
@@ -515,11 +535,30 @@ class Runner:
         if self._optimizer is not None:
             print("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
-        elif "batch_simulation" in self._tango.specs and self._tango.specs["batch_simulation"].get(
+        elif "batch_simulation" in self.tango.specs and self.tango.specs["batch_simulation"].get(
             "enabled", False
         ):
             print("Batch simulation detected. Executing batch simulation...")
-            self._tango.execute_batch_simulation()
+            self.tango.execute_batch_simulation()
         else:
             print("No optimization or batch simulation detected. Executing Tango workflow...")
-            self._tango.execute()
+            self.tango.execute()
+
+    def clone(self) -> "Runner":
+        """Create a deep copy of the Runner instance.
+
+        Returns:
+            Runner: A new Runner instance with identical state.
+        """
+        return copy.deepcopy(self)
+
+    def update_parameters(self, parameters: dict[str, Any] | None = None) -> None:
+        """Update parameters in the underlying Tango instance.
+
+        Args:
+            parameters (dict, optional): Dictionary of parameter paths and values to update.
+                                       Format: {"section.parameter": value}.
+                                       If None, assumes specs were updated directly.
+        """
+        self.tango.update_parameters(parameters)
+        self._setup_optimizer()

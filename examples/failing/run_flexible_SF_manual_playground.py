@@ -18,4 +18,4 @@ console = logging.StreamHandler()
 console.setLevel(logging.WARNING)
 
 print("Baseline LCOE: 0.7740618821215702")
-print(f"LCOE: {runner._tango.workflow.economic.get_results()['LCOE']}")
+print(f"LCOE: {runner.tango.workflow.economic.get_results()['LCOE']}")
