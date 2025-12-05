@@ -32,7 +32,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         csv_data (list): Data read from the CSV file, if applicable.
     """
 
-    def __init__(self, id: str, specs: dict) -> None:
+    def __init__(self, unit_id: str, specs: dict) -> None:
         """
         Initializes a new instance of the ReservoirUnitNative class.
 
@@ -40,7 +40,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             id (str): Unique identifier for the reservoir unit.
             specs (dict): Specifications of the reservoir unit.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
         Validator.__init__(self, Path(__file__).resolve().parent / "reservoir_validation.yaml")
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self._initialize_attributes()

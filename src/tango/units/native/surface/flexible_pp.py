@@ -44,8 +44,8 @@ class SurfaceSpecsFlexiblePP(CommonSpecs):
 
 
 class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
-    def __init__(self, id: str, specs: dict):
-        SurfaceUnitNative.__init__(self, id, specs)
+    def __init__(self, unit_id: str, specs: dict):
+        SurfaceUnitNative.__init__(self, unit_id, specs)
         Validator.__init__(self, Path(__file__).resolve().parent / "validation.yaml")
         self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)

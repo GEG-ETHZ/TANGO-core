@@ -1103,9 +1103,9 @@ def calculate_and_set_average(d: dict, nodes: dict):
         if isinstance(d[key], list) and all(isinstance(x, (int, float)) for x in d[key]):
             average_value = sum(d[key]) / len(d[key]) if d[key] else 0
 
-            for id in nodes:
-                state = nodes[id]["unit"]
-                unit_name = nodes[id]["type"]
+            for node_id in nodes:
+                state = nodes[node_id]["unit"]
+                unit_name = nodes[node_id]["type"]
 
                 if unit_name == "surface":
                     for component_name, component in state.power_plant.nodes.items():
@@ -1131,9 +1131,9 @@ def calculate_and_set_average(d: dict, nodes: dict):
 
             s[key] = [average_value]
     print("Available nodes and connections:")
-    for id in nodes:
-        state = nodes[id]["unit"]
-        print(f"Node ID: {id}, Unit Type: {nodes[id]['type']}")
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
+        print(f"Node ID: {node_id}, Unit Type: {nodes[node_id]['type']}")
         if hasattr(state, "power_plant"):
             print("Components:")
             for component_name, component in state.power_plant.nodes.items():
@@ -1143,8 +1143,8 @@ def calculate_and_set_average(d: dict, nodes: dict):
                 if hasattr(component, "outl"):
                     print(f"    Outlets: {len(component.outl)}")
 
-    for id in nodes:
-        state = nodes[id]["unit"]
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
         if hasattr(state, "power_plant"):
             for component_name, component in state.power_plant.nodes.items():
                 if hasattr(component, "P") and hasattr(component.P, "val"):

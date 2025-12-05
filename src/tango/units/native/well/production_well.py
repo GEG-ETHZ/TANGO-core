@@ -16,7 +16,7 @@ class ProductionWellUnitNative(WellUnitNative):
         scaling_factor (float): Factor used to scale mass flow rate.
     """
 
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the ProductionWellUnitNative class.
 
@@ -28,7 +28,7 @@ class ProductionWellUnitNative(WellUnitNative):
             RuntimeError: If required specifications for well length or reservoir depth are missing.
             ValueError: If the production and injection well lengths differ.
         """
-        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
+        WellUnitNative.__init__(self, unit_id, specs=self._process_specs(specs))
         self._specs_post_processor_pw()
         self.init_stream_interface()
         self.scaling_factor = self._m_dot_mult

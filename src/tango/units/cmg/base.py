@@ -60,7 +60,7 @@ class CMGBaseUnit(Unit):
         _parse_args: Constructs the command for simulation execution.
     """
 
-    def __init__(self, id: str, specs: dict) -> None:
+    def __init__(self, unit_id: str, specs: dict) -> None:
         """
         Initializes a new instance of the CMGBaseUnit class.
 
@@ -68,7 +68,7 @@ class CMGBaseUnit(Unit):
             id (str): Identifier for the CMG unit.
             specs (dict): Specifications for the CMG simulation.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
         self.specs = CMGSpecs(**specs)
         self.inputfilepath = self.specs.inputfilepath
         self.queue = self.specs.queue
