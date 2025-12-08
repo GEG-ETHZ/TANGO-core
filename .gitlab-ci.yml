@@ -20,7 +20,7 @@ stages:
 test:
   stage: test
   script:
-    - pixi run -e dev pytest -v
+    - pixi run test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
