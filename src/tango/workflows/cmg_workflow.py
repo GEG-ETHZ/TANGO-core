@@ -17,7 +17,15 @@ class CMGWorkflow(Workflow):
         economic (object): The economic analysis unit (not yet implemented).
     """
 
-    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None, unit_options: dict = None):
+    def __init__(
+        self,
+        specs: dict,
+        input_file: str,
+        user_id: str | None = None,
+        run_id: str | None = None,
+        run_dir: str | None = None,
+        unit_options: dict | None = None
+    ):
         """
         Initializes the CMGWorkflow object.
 
