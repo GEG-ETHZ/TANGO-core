@@ -1,9 +1,3 @@
-
-
-
-
-
-
 UNIT_STATE_OPTIONS = {
     "surface": {
         "native_flexible": "SurfaceUnitFlexiblePP",

@@ -1,6 +1,7 @@
 import copy
 import logging
-from tango.utils import get_unit_class, MULTIPLE_UNIT_NODE_OPTIONS 
+from tango.utils import get_unit_class
+from tango.core.config import MULTIPLE_UNIT_NODE_OPTIONS
 from tango.core.stream import Stream
 from tango.core.errors import CoolPropError
 from abc import ABC
