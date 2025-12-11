@@ -6,22 +6,15 @@ import shutil
 import time
 import uuid
 from typing import Any
-from dataclasses import dataclass, field
-import CoolProp as CP
 
 import numpy as np
 from tqdm import tqdm
 
-from tango.utils import load_from_yaml_with_overrides, set_nested_value
-from tango.core.errors import (
-    CoolPropError,
-    SaturationPressureError,
-    P_SAT_ERR_TEST,
-)
 from tango.core.abstracts.workflow import Workflow
+from tango.optimizerr import Optimizer
+from tango.utils import load_from_yaml_with_overrides, set_nested_value
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
-from tango.optimizerr import Optimizer
 
 WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
     "native": NativeWorkflow,
@@ -96,7 +89,7 @@ class BatchSimulation:
 
             print(f"Processing parameter range: {param_path}")
             print(
-                f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})"
+                f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
             )
 
             try:
@@ -114,7 +107,7 @@ class BatchSimulation:
                     points = int(points)
 
                 print(
-                    f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})"
+                    f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
                 )
 
             except (ValueError, TypeError) as e:
@@ -418,7 +411,7 @@ class Tango:
         workflow_class = get_workflow_class(self.specs["runspec"]["workflow"])
         # print('self.specs',self.specs)
         self.workflow: Workflow = workflow_class(
-            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir, UNIT_OPTIONS
+            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir, UNIT_OPTIONS,
         )
 
     def execute(self) -> None:
@@ -447,7 +440,7 @@ class Tango:
         self.workflow.execute()
 
         logging.info(
-            f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds."
+            f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.",
         )
 
         # Cleanup generated run directory after successful completion
@@ -479,6 +472,7 @@ class Tango:
             parameters (dict, optional): Dictionary of parameter paths and values to update.
                                        Format: {"section.parameter": value}.
                                        If None, only regenerates run ID (assumes specs updated directly).
+
         """
         if parameters:
             for param_path, value in parameters.items():
@@ -528,7 +522,7 @@ class Runner:
             print("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
         elif "batch_simulation" in self.tango.specs and self.tango.specs["batch_simulation"].get(
-            "enabled", False
+            "enabled", False,
         ):
             print("Batch simulation detected. Executing batch simulation...")
             self.tango.execute_batch_simulation()
@@ -541,6 +535,7 @@ class Runner:
 
         Returns:
             Runner: A new Runner instance with identical state.
+
         """
         return copy.deepcopy(self)
 
@@ -551,6 +546,7 @@ class Runner:
             parameters (dict, optional): Dictionary of parameter paths and values to update.
                                        Format: {"section.parameter": value}.
                                        If None, assumes specs were updated directly.
+
         """
         self.tango.update_parameters(parameters)
         self._setup_optimizer()
