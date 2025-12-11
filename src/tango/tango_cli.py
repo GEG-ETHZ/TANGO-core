@@ -14,7 +14,6 @@ def main():
     runner = Runner(
         input_file=args.input_file,
         parameter_overrides=args.parameter_overrides,
-        params_json=args.params_json,
         user_id=args.user_id,
     )
     runner.start()

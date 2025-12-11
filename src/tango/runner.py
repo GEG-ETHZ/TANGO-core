@@ -354,7 +354,6 @@ class Tango:
         input_file: str,
         specs: dict | None = None,
         parameter_overrides: list | None = None,
-        params_json: str | None = None,
         user_id: str | None = None,
     ):
         """Initializes the Tango object.
@@ -367,27 +366,22 @@ class Tango:
             A dictionary containing workflow specifications. If not provided, it is loaded from `input_file`.
         parameter_overrides : list, optional
             List of parameter override strings in format "section.parameter=value".
-        params_json : str, optional
-            JSON string with multiple parameter overrides.
         user_id : str, optional
             User ID for database operations.
 
         """
         # these messages are here because the overrides are applied right after this
-        if params_json is not None:
-            print(f"Applying JSON parameter overrides: {params_json}")
-
         if parameter_overrides:
             print(f"Applying {len(parameter_overrides)} parameter overrides:")
             for override in parameter_overrides:
                 print(f"  {override}")
 
         if specs is None:
-            self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides, params_json)
+            self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides)
         else:
             from tango.utils import apply_parameter_overrides
 
-            self.specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
+            self.specs = apply_parameter_overrides(specs, parameter_overrides)
 
         self.input_file = input_file
         self.user_id = user_id
@@ -502,14 +496,12 @@ class Runner:
         self,
         input_file: str,
         parameter_overrides: list | None = None,
-        params_json: str | None = None,
         user_id: str | None = None,
     ):
         """Initialize the Runner"""
         self.tango = Tango(
             input_file,
             parameter_overrides=parameter_overrides,
-            params_json=params_json,
             user_id=user_id,
         )
         self._setup_optimizer()

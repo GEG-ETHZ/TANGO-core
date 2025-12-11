@@ -31,7 +31,6 @@ def parse_tango_args(args) -> argparse.Namespace:
             - `input_file` (str): Path to the input YAML file.
             - `debug` (bool): Whether to enable debug logging.
             - `parameter_overrides` (list): List of parameter override strings.
-            - `params_json` (str): JSON string with multiple parameter overrides.
             - `user_id` (str): user id
 
     Example:
@@ -57,11 +56,6 @@ def parse_tango_args(args) -> argparse.Namespace:
         action="append",
         dest="parameter_overrides",
         help="Override YAML parameters (format: section.parameter=value)",
-    )
-    parser.add_argument(
-        "--params-json",
-        dest="params_json",
-        help="JSON string with multiple parameter overrides",
     )
 
     parser.add_argument("--user-id", dest="user_id", help="User ID for database operations", required=False)
@@ -158,14 +152,12 @@ def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None
 def apply_parameter_overrides(
     specs: dict[str, Any],
     parameter_overrides: list[str] | None = None,
-    params_json: str | None = None,
 ) -> dict[str, Any]:
     """Apply parameter overrides to the specifications dictionary
 
     Args:
         specs (Dict[str, Any]): Original specifications dictionary
         parameter_overrides (List[str], optional): List of parameter override strings
-        params_json (str, optional): JSON string with multiple parameter overrides
 
     Returns:
         Dict[str, Any]: Modified specifications dictionary
@@ -176,17 +168,6 @@ def apply_parameter_overrides(
         >>> modified_specs = apply_parameter_overrides(specs, parameter_overrides=overrides)
 
     """
-    # TODO: what happens if both `parameter_overrides` and `params_json` are passed?
-    # Seems like this needs attention because these might be competing
-    if params_json is not None:
-        try:
-            json_overrides = json.loads(params_json)
-            for param_path, value in json_overrides.items():
-                path_list = param_path.split(".")
-                set_nested_value(specs, path_list, value)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format in --params-json: {e}")
-
     if parameter_overrides:
         for param_override in parameter_overrides:
             try:
@@ -201,14 +182,12 @@ def apply_parameter_overrides(
 def load_from_yaml_with_overrides(
     filename: str,
     parameter_overrides: list[str] | None = None,
-    params_json: str | None = None,
 ) -> dict[str, Any]:
     """Load YAML file and apply parameter overrides
 
     Args:
         filename (str): Path to the YAML file
         parameter_overrides (List[str], optional): List of parameter override strings
-        params_json (str, optional): JSON string with multiple parameter overrides
 
     Returns:
         Dict[str, Any]: Specifications dictionary with applied overrides
@@ -220,7 +199,7 @@ def load_from_yaml_with_overrides(
     """
     specs = load_from_yaml(filename)
 
-    specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
+    specs = apply_parameter_overrides(specs, parameter_overrides)
 
     try:
         time_config = specs["schedule"].get("time", {})
