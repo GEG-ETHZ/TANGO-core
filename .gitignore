@@ -60,3 +60,7 @@ config/*.conf
 config/secrets/
 *.env
 secrets/
+
+# gitlab runner artefacts
+cache
+builds
