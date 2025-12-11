@@ -20,8 +20,8 @@ from tango.core.config import (
 from tango.time_stepper import LinearInterpolation
 
 
-def parse_args(args) -> argparse.Namespace:
-    """Parses command-line arguments for the TANGO application.
+def parse_tango_args(args) -> argparse.Namespace:
+    """Parse command-line arguments for the TANGO application.
 
     Args:
         args (list): List of command-line arguments.
@@ -32,13 +32,14 @@ def parse_args(args) -> argparse.Namespace:
             - `debug` (bool): Whether to enable debug logging.
             - `parameter_overrides` (list): List of parameter override strings.
             - `params_json` (str): JSON string with multiple parameter overrides.
+            - `user_id` (str): user id
 
     Example:
-        >>> args = parse_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
+        >>> args = parse_tango_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
 
     """
     parser = argparse.ArgumentParser(
-        description="TANGO - Techno-economic ANalysis of GeOthermal power simulator"
+        description="TANGO - Techno-economic ANalysis of GeOthermal power simulator",
     )
     parser.add_argument("-f", "--file", dest="input_file", help="Input file (.yml)", required=True)
     parser.add_argument(
@@ -58,7 +59,9 @@ def parse_args(args) -> argparse.Namespace:
         help="Override YAML parameters (format: section.parameter=value)",
     )
     parser.add_argument(
-        "--params-json", dest="params_json", help="JSON string with multiple parameter overrides"
+        "--params-json",
+        dest="params_json",
+        help="JSON string with multiple parameter overrides",
     )
 
     parser.add_argument("--user-id", dest="user_id", help="User ID for database operations", required=False)
@@ -86,7 +89,7 @@ def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
     """
     if "=" not in param_string:
         raise ValueError(
-            f"Invalid parameter format: {param_string}. Expected format: section.parameter=value"
+            f"Invalid parameter format: {param_string}. Expected format: section.parameter=value",
         )
 
     path_str, value_str = param_string.split("=", 1)
@@ -153,7 +156,9 @@ def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None
 
 
 def apply_parameter_overrides(
-    specs: dict[str, Any], parameter_overrides: list[str] | None = None, params_json: str | None = None
+    specs: dict[str, Any],
+    parameter_overrides: list[str] | None = None,
+    params_json: str | None = None,
 ) -> dict[str, Any]:
     """Apply parameter overrides to the specifications dictionary
 
@@ -855,7 +860,7 @@ def get_unit_class(type_: str, unit_name: str, unit_options: dict[str, Any]) -> 
     if isinstance(unit_class, str):
         raise ValueError(
             f"Legacy string path found for {type_}/{unit_name}: '{unit_class}'. "
-            "This usage is deprecated. Report this to the TANGO dev team."
+            "This usage is deprecated. Report this to the TANGO dev team.",
         )
 
     return unit_class
@@ -1116,14 +1121,14 @@ def calculate_and_set_average(d: dict, nodes: dict):
                                     if 0 <= inlet_index < len(component.inl):
                                         setattr(component.inl[inlet_index], attribute, average_value)
                                         print(
-                                            f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}"
+                                            f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}",
                                         )
                                 elif location.startswith("outlet") and hasattr(component, "outl"):
                                     outlet_index = int(location[-1]) - 1
                                     if 0 <= outlet_index < len(component.outl):
                                         setattr(component.outl[outlet_index], attribute, average_value)
                                         print(
-                                            f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}"
+                                            f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}",
                                         )
 
             s[key] = [average_value]

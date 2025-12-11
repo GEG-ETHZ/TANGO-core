@@ -3,12 +3,12 @@ from pathlib import Path
 
 from tango.core.errors import CoolPropError
 from tango.runner import Tango, Runner
-from tango.utils import parse_args, set_logger
+from tango.utils import parse_tango_args, set_logger
 
 
 def main():
     """Run TANGO CLI"""
-    args = parse_args(sys.argv[1:])
+    args = parse_tango_args(sys.argv[1:])
     set_logger(args)
 
     runner = Runner(
