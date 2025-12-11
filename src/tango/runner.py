@@ -22,37 +22,6 @@ WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
 }
 
 
-def get_workflow_class(type_: str) -> type[Workflow]:
-    """Retrieve the workflow class based on the specified type.
-
-    This function looks up the `WORKFLOW_OPTIONS` dictionary to find and
-    return the corresponding workflow class for the provided type.
-
-    Parameters
-    ----------
-    type_ : str
-        The workflow type (case-insensitive).
-
-    Returns
-    -------
-    object
-        The workflow class associated with the specified type.
-
-    Raises
-    ------
-    ValueError
-        If the specified workflow type is not supported.
-
-    Example
-    -------
-    >>> workflow_class = get_workflow_class("example")
-    >>> print(workflow_class)
-    <class 'ExampleWorkflow'>
-
-    """
-    return WORKFLOW_OPTIONS[type_.lower()]
-
-
 class BatchSimulation:
     """Handles batch simulations with parameter ranges."""
 
@@ -393,7 +362,7 @@ class Tango:
         logging.info(f"Created unique run directory: {self.run_dir}")
 
     def _initialize_workflow(self) -> None:
-        """Initializes the workflow based on the specifications.
+        """Initialize the workflow based on the specifications.
 
         Notes
         -----
@@ -408,8 +377,7 @@ class Tango:
         """
         from tango.units.registry import UNIT_OPTIONS
 
-        workflow_class = get_workflow_class(self.specs["runspec"]["workflow"])
-        # print('self.specs',self.specs)
+        workflow_class = WORKFLOW_OPTIONS[self.specs["runspec"]["workflow"].lower()]
         self.workflow: Workflow = workflow_class(
             self.specs, self.input_file, self.user_id, self.run_id, self.run_dir, UNIT_OPTIONS,
         )
