@@ -64,3 +64,6 @@ secrets/
 # gitlab runner artefacts
 cache
 builds
+
+# Runner artifacts
+gen_files/*
