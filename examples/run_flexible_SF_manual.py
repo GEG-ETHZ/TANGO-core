@@ -10,7 +10,8 @@ from tango.runner import Runner
 input_file = Path(__file__).parent / "flexible_SF_manual.yml"
 runner_base = Runner(
     input_file=input_file,
-    save_dir=Path(__file__).parent / input_file.stem,
+    # save_dir=Path(__file__).parent / input_file.stem,
+    no_save=True,
 )
 runner = runner_base.clone()
 runner.start()
