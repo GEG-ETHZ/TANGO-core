@@ -6,6 +6,7 @@ import shutil
 import time
 import uuid
 from typing import Any
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -16,7 +17,7 @@ from tango.utils import load_from_yaml_with_overrides, set_nested_value
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
 
-WORKFLOW_OPTIONS: dict[str, type[Workflow]] = {
+WORKFLOW_MAP: dict[str, type[Workflow]] = {
     "native": NativeWorkflow,
     "cmg": CMGWorkflow,
 }
@@ -182,6 +183,9 @@ class BatchSimulation:
             for param_path, value in param_combo.items():
                 self.set_nested_parameter(modified_specs, param_path, value)
 
+            # TODO: instantiate TANGO then modify specs because there's no need
+            # to pass specs in as an argument since the `update_params` method
+            # was created
             tango = Tango(input_file, specs=modified_specs)
             tango.execute()
 
@@ -297,8 +301,6 @@ class Tango:
 
     Attributes:
     ----------
-    specs : dict
-        The specifications for the TANGO workflow, loaded from a YAML file or provided directly.
     input_file : str
         The path to the input YAML file.
     workflow : object
@@ -308,17 +310,19 @@ class Tango:
     -------
     >>> tango = Tango("input.yaml")
     >>> tango.execute()
-
     """
+
+    # TODO: update `Attributes` in the doc string above
 
     def __init__(
         self,
-        input_file: str,
+        input_file: Path,
+        save_dir: Path | None,
         specs: dict | None = None,
         parameter_overrides: list | None = None,
         user_id: str | None = None,
     ):
-        """Initializes the Tango object.
+        """Initialize the Tango object.
 
         Parameters
         ----------
@@ -332,7 +336,7 @@ class Tango:
             User ID for database operations.
 
         """
-        # these messages are here because the overrides are applied right after this
+        # TODO: update the above args to match function signature
         if parameter_overrides:
             print(f"Applying {len(parameter_overrides)} parameter overrides:")
             for override in parameter_overrides:
@@ -345,20 +349,27 @@ class Tango:
 
             self.specs = apply_parameter_overrides(specs, parameter_overrides)
 
-        self.input_file = input_file
+        self.input_file = (Path().cwd() / input_file).resolve()
         self.user_id = user_id
 
         # Create gen_files directory if it doesn't exist
-        self.gen_files_dir = os.path.join(os.path.dirname(__file__), "gen_files")
-        os.makedirs(self.gen_files_dir, exist_ok=True)
+        if save_dir is not None:
+            self.gen_files_dir: Path | None = Path(save_dir) / "gen_files"
+            self.gen_files_dir.mkdir(exist_ok=True, parents=True)
+        else:
+            self.gen_files_dir = None
 
         self._setup_run_directory()
 
     def _setup_run_directory(self) -> None:
         """Generate a unique run ID and create the run directory."""
         self.run_id = str(uuid.uuid4())[:8]  # Short unique ID
-        self.run_dir = os.path.join(self.gen_files_dir, f"run_{self.run_id}")
-        os.makedirs(self.run_dir, exist_ok=True)
+        if self.gen_files_dir is not None:
+            self.run_dir: Path | None = self.gen_files_dir / f"run_{self.run_id}"
+            self.run_dir.mkdir(exist_ok=True, parents=True)
+        else:
+            self.run_dir = None
+
         logging.info(f"Created unique run directory: {self.run_dir}")
 
     def _initialize_workflow(self) -> None:
@@ -377,9 +388,9 @@ class Tango:
         """
         from tango.units.registry import UNIT_OPTIONS
 
-        workflow_class = WORKFLOW_OPTIONS[self.specs["runspec"]["workflow"].lower()]
+        workflow_class = WORKFLOW_MAP[self.specs["runspec"]["workflow"].lower()]
         self.workflow: Workflow = workflow_class(
-            self.specs, self.input_file, self.user_id, self.run_id, self.run_dir, UNIT_OPTIONS,
+            self.specs, self.input_file, self.run_dir, UNIT_OPTIONS, self.user_id, self.run_id,
         )
 
     def execute(self) -> None:
@@ -410,20 +421,6 @@ class Tango:
         logging.info(
             f"Simulation finished normally. Elapsed time: {time.time() - self._start_time:.2f} seconds.",
         )
-
-        # Cleanup generated run directory after successful completion
-        try:
-            if os.path.isdir(self.run_dir):
-                # Only remove if the run_dir is within the gen_files directory for safety
-                gen_files_abs = os.path.abspath(self.gen_files_dir)
-                run_dir_abs = os.path.abspath(self.run_dir)
-                if run_dir_abs.startswith(gen_files_abs + os.sep):
-                    shutil.rmtree(self.run_dir, ignore_errors=True)
-                    logging.info(f"Cleaned up run directory: {self.run_dir}")
-                else:
-                    logging.warning(f"Skipped cleanup for unexpected path: {self.run_dir}")
-        except Exception as cleanup_err:
-            logging.error(f"Failed to cleanup run directory {self.run_dir}: {cleanup_err}")
 
     def execute_batch_simulation(self) -> None:
         """Executes batch simulation if configured."""
@@ -456,13 +453,24 @@ class Runner:
 
     def __init__(
         self,
-        input_file: str,
+        input_file: str | Path,
+        save_dir: Path | str | None = None,
+        no_save: bool = False,
         parameter_overrides: list | None = None,
         user_id: str | None = None,
     ):
         """Initialize the Runner"""
+        if no_save:
+            # if `no_save` is True, set `save_dir = None`, and this will make it so
+            # that no files are saved
+            save_dir = None
+        else:
+            # otherwise, make `save_dir` the current working directory
+            save_dir = Path(save_dir) if save_dir is not None else Path().cwd()
+
         self.tango = Tango(
-            input_file,
+            Path(input_file),
+            save_dir,
             parameter_overrides=parameter_overrides,
             user_id=user_id,
         )

@@ -1,8 +1,6 @@
 import sys
-from pathlib import Path
 
-from tango.core.errors import CoolPropError
-from tango.runner import Tango, Runner
+from tango.runner import Runner
 from tango.utils import parse_tango_args, set_logger
 
 
@@ -13,6 +11,8 @@ def main():
 
     runner = Runner(
         input_file=args.input_file,
+        save_dir=args.save_dir,
+        no_save=args.no_save,
         parameter_overrides=args.parameter_overrides,
         user_id=args.user_id,
     )

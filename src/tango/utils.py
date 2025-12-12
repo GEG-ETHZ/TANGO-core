@@ -29,7 +29,9 @@ def parse_tango_args(args) -> argparse.Namespace:
     Returns:
         argparse.Namespace: Parsed arguments with the following attributes:
             - `input_file` (str): Path to the input YAML file.
-            - `debug` (bool): Whether to enable debug logging.
+            - `save_dir` (str): Path to directory in which results are saved
+            - `no_save` (bool): If True, no results files are saved
+            - `debug` (bool): Whether to enable debug logging, defaults to False.
             - `parameter_overrides` (list): List of parameter override strings.
             - `user_id` (str): user id
 
@@ -41,6 +43,21 @@ def parse_tango_args(args) -> argparse.Namespace:
         description="TANGO - Techno-economic ANalysis of GeOthermal power simulator",
     )
     parser.add_argument("-f", "--file", dest="input_file", help="Input file (.yml)", required=True)
+    parser.add_argument(
+        "-s",
+        "--save-dir",
+        dest="save_dir",
+        help="Directory in which results are saved",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "--no-save",
+        dest="no_save",
+        help="If `--no-save` is passed, no results are saved",
+        required=False,
+        default=False,
+    )
     parser.add_argument(
         "-d",
         "--debug",
@@ -380,11 +397,13 @@ def set_logger(args):
     """
     input_file = args.input_file
     debug = args.debug
-    if not os.path.isfile(input_file):
+    if not Path(input_file).exists():
         raise FileNotFoundError(f"{input_file} not found")
-    level = logging.INFO
     if debug:
         level = logging.DEBUG
+    else:
+        level = logging.INFO
+
     logging.getLogger().setLevel(level)
     logging.basicConfig(
         filename=os.path.splitext(input_file)[0] + ".log",
@@ -647,7 +666,7 @@ def _read_csv_single_column(csv_file: str) -> list:
     return dt_list
 
 
-def _read_csv_time_dt(csv_file: str) -> (list, list):
+def _read_csv_time_dt(csv_file: str) -> tuple[list, list]:
     """Reads time and `dt` values from a two-column CSV file.
 
     Args:
@@ -861,7 +880,8 @@ def newton(x_lst: list, y_lst: list) -> float:
 
     """
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])
-    return x_lst[0] - y_lst[0] / dydx
+    out: float = x_lst[0] - y_lst[0] / dydx
+    return out
 
 
 def get_table(fname: str, header: int = 0) -> pd.DataFrame:
@@ -903,7 +923,7 @@ def get_table(fname: str, header: int = 0) -> pd.DataFrame:
         raise RuntimeError(f"Failed to read {path}.")
 
 
-def parse_results(d: dict, nodes, current_date: str) -> dict:
+def parse_results(d: dict, nodes, current_date: str) -> None:
     """Parses and updates results for the given nodes.
 
     This function adds the current date to the dictionary `d` under the key 'date'.
@@ -925,9 +945,9 @@ def parse_results(d: dict, nodes, current_date: str) -> dict:
         d[name] = [current_date]
     else:
         d[name].append(current_date)
-    for id in nodes:
-        state = nodes[id]["unit"]
-        unit_name = nodes[id]["type"]
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
+        unit_name = nodes[node_id]["type"]
         if unit_name in REPORT_SETTINGS.keys():
             if REPORT_SETTINGS[unit_name]:
                 state = getattr(state, REPORT_SETTINGS[unit_name])
@@ -1226,11 +1246,12 @@ def create_connections(pp_inclusion, graph_edges, state):
     return combined
 
 
-def write_results(input_file: str, results: tuple) -> None:
-    """Writes the simulation results to CSV files.
+def write_results(save_dir: Path | None, input_file: Path | str, results: tuple) -> None:
+    """Write the simulation results to CSV files.
 
     Args:
-        input_file (str): Path to the input file used for the simulation.
+        save_dir (Path | None): Path to directory in which to save the results
+        input_file (Path): Path to the input file used for the simulation.
         results (tuple): A tuple containing:
             - `physics_results` (dict): Results from physics-based units.
             - `econ_results` (dict): Results from economic-based units.
@@ -1244,22 +1265,27 @@ def write_results(input_file: str, results: tuple) -> None:
         >>> write_results("input.yml", (physics_results, econ_results))
 
     """
+    if save_dir is None:
+        return
+    save_dir = Path(save_dir)
+    input_file = Path(input_file)
+
     physics_results, econ_results = results
 
-    fname = os.path.splitext(input_file)[0] + ".smry.csv"
-    logging.info("Saving output summary of physics-based units > %s", fname)
+    fname_smry = save_dir / (input_file.stem + ".smry.csv")
+    logging.info("Saving output summary of physics-based units > %s", fname_smry)
     physics_results.pop("surface__condensation_temperature_range", None)
     physics_results.pop("DH_heat_transfer_T", None)
     df = pd.DataFrame(physics_results)
-    df.to_csv(fname, index=False)
+    df.to_csv(fname_smry, index=False)
 
     if econ_results is None:
         return
 
-    fname = os.path.splitext(input_file)[0] + ".econ.csv"
-    logging.info("Saving output summary of economic units > %s", fname)
-    d = dict()
+    fname_econ = save_dir / (input_file.stem + ".econ.csv")
+    logging.info("Saving output summary of economic units > %s", fname_econ)
+    d = {}
     for key in econ_results.keys():
         d[key] = [econ_results[key]]
     df = pd.DataFrame(d)
-    df.to_csv(fname, index=False)
+    df.to_csv(fname_econ, index=False)

@@ -352,9 +352,9 @@ class NativeWorkflow(Workflow):
             )
 
     def _post_processing(self) -> None:
-        """Handles post-processing tasks, including saving results and generating plots.
-        """
+        """Handle post-processing tasks, including saving results and generating plots."""
         utils.write_results(
+            save_dir=self.run_dir,
             input_file=self.input_file,
             results=(self.results, self.economic.get_results() if self.economic else None),
         )

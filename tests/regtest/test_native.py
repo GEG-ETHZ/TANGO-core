@@ -6,7 +6,6 @@
 
 import os
 from pathlib import Path
-from collections.abc import Sequence
 import pandas as pd
 import pytest
 
@@ -18,20 +17,6 @@ from tango.core.errors import (
 
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
-
-
-def run(fname: Path | str) -> None:
-    """Execute the workflow. If the input file specifies optimization in the specs,
-    uses the optimizer. Otherwise, runs the regular Tango workflow.
-    """
-    runner = Runner(fname)
-    runner.start()
-
-
-def get_lcoe_from_file(fname) -> float:
-    """Read the .econ.csv file corresponding to the input file and extracts the LCOE value."""
-    df = pd.read_csv(Path(str(fname).replace(".yml", ".econ.csv")))
-    return float(df["LCOE"].iloc[0])
 
 
 def rm_output_files(fname):
@@ -109,13 +94,20 @@ def files_and_values() -> list[tuple[Path, float]]:
     ids=[fv[0].name for fv in files_and_values()],
 )
 def test_examples(file_and_value: tuple[Path, float]):
-    file = file_and_value[0]
+    input_file = file_and_value[0]
     value = file_and_value[1]
-    run(file)
-    assert get_lcoe_from_file(file) == pytest.approx(value), (
-        f"LCOE calulated: {get_lcoe_from_file(file)}, LCOE expected: {value}"
+    runner = Runner(input_file)
+    runner.start()
+    econ_file = runner.tango.workflow.run_dir / (input_file.stem + ".econ.csv")
+    df = pd.read_csv(econ_file)
+    lcoe = df["LCOE"].iloc[0]
+
+    # TODO: make sure that lcoe is the same in the file and the live runner
+
+    assert lcoe == pytest.approx(value), (
+        f"LCOE calulated: {lcoe}, LCOE expected: {value}"
     )
-    rm_output_files(file)
+    rm_output_files(econ_file)
 
 
 def files_and_err_types_failing() -> list[tuple[Path, type]]:
@@ -176,15 +168,16 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
 )
 def test_failing_examples(file_and_err_type_failing: tuple[Path, type]):
     """Test files that are expected to fail"""
-    file = file_and_err_type_failing[0]
+    input_file = file_and_err_type_failing[0]
     err_type = file_and_err_type_failing[1]
 
     try:
-        run(file)
+        runner = Runner(input_file)
+        runner.start()
         raise Exception("Should be unreachable")
     except Exception as err:
         assert isinstance(err, err_type), f"error raised: {type(err)}, error expected: {err_type}"
-        rm_output_files(file)
+        rm_output_files(input_file)
 
 
 # NOTE: these were commented when Chad first started working on TANGO with no explanation

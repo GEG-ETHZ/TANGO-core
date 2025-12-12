@@ -3,8 +3,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from tango.units.registry import UNIT_OPTIONS
-
 
 @dataclass
 class Workflow(ABC):
@@ -16,21 +14,21 @@ class Workflow(ABC):
     Attributes:
         specs (dict): Specifications for the workflow, including configurations for system and economic
         units.
-        input_file (str): Path to the input file.
-        user_id (str, optional): User ID for database operations.
-        run_id (str, optional): Unique run ID for file naming.
+        input_file (Path): Path to the input file.
         run_dir (str, optional): Directory for run-specific output files.
         unit_options (dict, optional): Dictionary of unit options.
+        user_id (str, optional): User ID for database operations.
+        run_id (str, optional): Unique run ID for file naming.
 
     """
 
     # user inputs
     specs: dict
-    input_file: str | None = None
+    input_file: Path
+    run_dir: Path | None
+    unit_options: dict
     user_id: str | None = None
     run_id: str = "default"
-    run_dir: Path | str = field(default_factory=lambda: Path().cwd())
-    unit_options: dict = field(default_factory=lambda: UNIT_OPTIONS.copy())
 
     # attributes that get generated automatically
     results: dict = field(init=False, default_factory=dict)
