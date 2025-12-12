@@ -592,6 +592,7 @@ class NativeWorkflow(Workflow):
             write_csv (bool): Whether CSV files should be written.
 
         """
+        # TODO: make use of python `tempfile` module for this
         files_to_cleanup = []
 
         if output_table_enabled and write_csv:
