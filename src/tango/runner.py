@@ -1,10 +1,11 @@
 import copy
 import itertools
+import hashlib
+import json
 import logging
 import os
 import shutil
 import time
-import uuid
 from typing import Any
 from pathlib import Path
 
@@ -363,7 +364,9 @@ class Tango:
 
     def _setup_run_directory(self) -> None:
         """Generate a unique run ID and create the run directory."""
-        self.run_id = str(uuid.uuid4())[:8]  # Short unique ID
+        # Create a deterministic hash based on the specs
+        specs_str = json.dumps(self.specs, sort_keys=True)
+        self.run_id = hashlib.sha256(specs_str.encode("utf-8")).hexdigest()[:8]
         if self.gen_files_dir is not None:
             self.run_dir: Path | None = self.gen_files_dir / f"run_{self.run_id}"
             self.run_dir.mkdir(exist_ok=True, parents=True)
