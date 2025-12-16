@@ -12,6 +12,7 @@ runner_base = Runner(
     input_file=input_file,
     # save_dir=Path(__file__).parent / input_file.stem,
     no_save=True,
+    log_level="NONE",
 )
 runner = runner_base.clone()
 runner.start()

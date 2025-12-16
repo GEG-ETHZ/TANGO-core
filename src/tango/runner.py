@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from tango.core.abstracts.workflow import Workflow
 from tango.optimizerr import Optimizer
-from tango.utils import load_from_yaml_with_overrides, set_nested_value
+from tango.utils import load_from_yaml_with_overrides, set_logger, set_nested_value
 from tango.workflows.cmg_workflow import CMGWorkflow
 from tango.workflows.native_workflow import NativeWorkflow
 
@@ -58,9 +58,10 @@ class BatchSimulation:
             max_val = range_config["max"]
             points = range_config["points"]
 
-            print(f"Processing parameter range: {param_path}")
-            print(
-                f"  Original values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
+            logging.debug(f"Processing parameter range: {param_path}")
+            logging.debug(
+                f"  Original values - min: {min_val} ({type(min_val)}), "
+                f"max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
             )
 
             try:
@@ -77,23 +78,25 @@ class BatchSimulation:
                 if isinstance(points, str):
                     points = int(points)
 
-                print(
-                    f"  Converted values - min: {min_val} ({type(min_val)}), max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
+                logging.debug(
+                    f"  Converted values - min: {min_val} ({type(min_val)}), "
+                    f"max: {max_val} ({type(max_val)}), points: {points} ({type(points)})",
                 )
 
             except (ValueError, TypeError) as e:
-                print(f"Error converting parameter {param_path}: {e}")
-                print(f"  min_val: {min_val} (type: {type(min_val)})")
-                print(f"  max_val: {max_val} (type: {type(max_val)})")
-                print(f"  points: {points} (type: {type(points)})")
-                continue
+                raise type(e)(
+                    f"Error converting parameter {param_path}: {e}\n"
+                    f"  min_val: {min_val} (type: {type(min_val)})\n"
+                    f"  max_val: {max_val} (type: {type(max_val)})\n"
+                    f"  points: {points} (type: {type(points)})"
+                ) from e
 
             if points == 1:
                 param_values[param_path] = [min_val]
             else:
                 param_values[param_path] = np.linspace(min_val, max_val, points).tolist()
 
-            print(f"  Generated values: {param_values[param_path]}")
+            logging.debug(f"  Generated values: {param_values[param_path]}")
 
         param_names = list(param_values.keys())
         param_value_lists = list(param_values.values())
@@ -103,7 +106,7 @@ class BatchSimulation:
             param_dict = dict(zip(param_names, combination))
             combinations.append(param_dict)
 
-        print(f"Generated {len(combinations)} parameter combinations")
+        logging.info(f"Generated {len(combinations)} parameter combinations")
         return combinations
 
     def _flatten_inputs_list(self):
@@ -169,15 +172,18 @@ class BatchSimulation:
         combinations = self.generate_parameter_combinations()
         total_simulations = len(combinations)
 
-        print(f"Starting batch simulation with {total_simulations} parameter combinations:")
+        logging.info(f"Starting batch simulation with {total_simulations} parameter combinations:")
         for i, combo in enumerate(combinations):
-            print(f"  Simulation {i + 1}: {combo}")
+            logging.debug(f"  Simulation {i + 1}: {combo}")
 
         self.prepare_csv_file(combinations)
 
-        for i, param_combo in enumerate(tqdm(combinations, desc="Batch Simulation Progress")):
-            print(f"\n--- Running Simulation {i + 1}/{total_simulations} ---")
-            print(f"Parameters: {param_combo}")
+        disable_progress = logging.getLogger().getEffectiveLevel() > logging.INFO
+        for i, param_combo in enumerate(
+            tqdm(combinations, desc="Batch Simulation Progress", disable=disable_progress)
+        ):
+            logging.info(f"\n--- Running Simulation {i + 1}/{total_simulations} ---")
+            logging.debug(f"Parameters: {param_combo}")
 
             modified_specs = copy.deepcopy(self.base_specs)
 
@@ -228,9 +234,9 @@ class BatchSimulation:
             with open(self.output_file_name, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(headers)
-            print(f"Created CSV file: {self.output_file_name}")
+            logging.info(f"Created CSV file: {self.output_file_name}")
         except Exception as e:
-            print(f"Error creating CSV file: {e}")
+            raise type(e)(f"Error creating CSV file: {e}") from e
 
     def write_simulation_results(self, tango, param_combo, simulation_number):
         """Write results for a single simulation to CSV.
@@ -291,7 +297,7 @@ class BatchSimulation:
                 row_data = input_values + output_values
                 writer.writerow(row_data)
         except Exception as e:
-            print(f"Error writing to CSV: {e}")
+            raise type(e)(f"Error writing to CSV: {e}") from e
 
 
 class Tango:
@@ -339,9 +345,9 @@ class Tango:
         """
         # TODO: update the above args to match function signature
         if parameter_overrides:
-            print(f"Applying {len(parameter_overrides)} parameter overrides:")
+            logging.info(f"Applying {len(parameter_overrides)} parameter overrides:")
             for override in parameter_overrides:
-                print(f"  {override}")
+                logging.debug(f"  {override}")
 
         if specs is None:
             self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides)
@@ -461,8 +467,22 @@ class Runner:
         no_save: bool = False,
         parameter_overrides: list | None = None,
         user_id: str | None = None,
+        log_level: str = "INFO",
     ):
-        """Initialize the Runner"""
+        """Initialize the Runner.
+
+        Args:
+            input_file: Path to the input YAML file.
+            save_dir: Directory to save output files. Defaults to current directory.
+            no_save: If True, suppress all file saving.
+            parameter_overrides: List of parameter override strings.
+            user_id: User ID for database operations.
+            log_level: Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE).
+
+        """
+        # Set up logging first
+        set_logger(log_level, input_file)
+
         if no_save:
             # if `no_save` is True, set `save_dir = None`, and this will make it so
             # that no files are saved
@@ -498,15 +518,15 @@ class Runner:
         # that an error is thrown because that combination does not make sense
         # because it's not possible to do both
         if self._optimizer is not None:
-            print("Optimization detected. Executing optimizer...")
+            logging.info("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
         elif "batch_simulation" in self.tango.specs and self.tango.specs["batch_simulation"].get(
             "enabled", False,
         ):
-            print("Batch simulation detected. Executing batch simulation...")
+            logging.info("Batch simulation detected. Executing batch simulation...")
             self.tango.execute_batch_simulation()
         else:
-            print("No optimization or batch simulation detected. Executing Tango workflow...")
+            logging.info("No optimization or batch simulation detected. Executing Tango workflow...")
             self.tango.execute()
 
     def clone(self) -> "Runner":

@@ -1,3 +1,4 @@
+import logging
 import math
 import pandas as pd
 
@@ -374,13 +375,12 @@ class FlowRateCalculator():
                 ) from err
 
             # Update production well
-            print(
-                "Updating production well to satisfy BCs",
-                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},",
-                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},",
-                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},",
+            logging.debug(
+                "Updating production well to satisfy BCs\n"
+                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},\n"
+                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},\n"
+                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},\n"
                 f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}",
-                sep="\n",
             )
             self.pro_well.mass_rate = self.reservoir.mass_rate
             try:
@@ -581,33 +581,37 @@ class PowerReader:
             bypass_processing: If True, skip all processing and just load existing output_file
         """
         if bypass_processing == 'yes':
-            print(f"Bypassing processing - loading existing file: {output_file}")
+            logging.info(f"Bypassing processing - loading existing file: {output_file}")
             self.averaged_df = pd.read_excel(output_file)
-            print(f"Loaded {len(self.averaged_df)} rows from existing file")
+            logging.info(f"Loaded {len(self.averaged_df)} rows from existing file")
             return self.averaged_df
-        
-        print("Reading Excel file...")
+
+        logging.info("Reading Excel file...")
         df = pd.read_excel(input_file)
 
         geothermal_filter = (df['heat generator'].str.contains('geothermal', case=False, na=False)) & \
                            (df['topic'].str.contains('Thermal Power Energymix', case=False, na=False))
         geothermal_data = df[geothermal_filter]
 
-        print(f"Found {len(geothermal_data)} rows with geothermal data")
-        print(f"Unique time values: {geothermal_data['time'].nunique()}")
-        print(f"Time range: {geothermal_data['time'].min()} to {geothermal_data['time'].max()}")
+        logging.info(f"Found {len(geothermal_data)} rows with geothermal data")
+        logging.debug(f"Unique time values: {geothermal_data['time'].nunique()}")
+        logging.debug(
+            f"Time range: {geothermal_data['time'].min()} to {geothermal_data['time'].max()}"
+        )
 
         duplicate_times = geothermal_data[geothermal_data.duplicated(subset=['time'], keep=False)]
         if len(duplicate_times) > 0:
-            print(f"Found {len(duplicate_times)} rows with duplicate time values")
-            print("\nSample duplicate entries:")
-            print(duplicate_times[['time', 'topic', 'heat generator', 'value']].head(10))
-            print("\nRemoving duplicates (keeping first occurrence)...")
+            logging.warning(f"Found {len(duplicate_times)} rows with duplicate time values")
+            logging.debug("\nSample duplicate entries:")
+            logging.debug(
+                duplicate_times[['time', 'topic', 'heat generator', 'value']].head(10)
+            )
+            logging.info("\nRemoving duplicates (keeping first occurrence)...")
             geothermal_data = geothermal_data.drop_duplicates(subset=['time'], keep='first')
-            print(f"After removing duplicates: {len(geothermal_data)} rows")
+            logging.info(f"After removing duplicates: {len(geothermal_data)} rows")
 
         geothermal_data = geothermal_data.sort_values('time').reset_index(drop=True)
-        print(f"Calculating {window_size}-point average...")
+        logging.debug(f"Calculating {window_size}-point average...")
 
         averaged_rows = []
         for i in range(0, len(geothermal_data), window_size):
@@ -625,6 +629,6 @@ class PowerReader:
 
         self.averaged_df = pd.DataFrame(averaged_rows)
         self.averaged_df.to_excel(output_file, index=False)
-        print(f"Averaged data saved to: {output_file} ({len(self.averaged_df)} rows)")
+        logging.info(f"Averaged data saved to: {output_file} ({len(self.averaged_df)} rows)")
 
         return self.averaged_df

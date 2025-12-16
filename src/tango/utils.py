@@ -59,13 +59,20 @@ def parse_tango_args(args) -> argparse.Namespace:
         default=False,
     )
     parser.add_argument(
-        "-d",
-        "--debug",
-        dest="debug",
-        help="Set log level to DEBUG",
+        "--log-level",
+        dest="log_level",
+        help=(
+            "Set logging verbosity. "
+            "DEBUG: detailed diagnostic info. "
+            "INFO: general operational messages (default). "
+            "WARNING: unexpected but non-critical issues. "
+            "ERROR: serious problems. "
+            "CRITICAL: severe errors. "
+            "NONE: suppress all logging output."
+        ),
         required=False,
-        default=False,
-        action=argparse.BooleanOptionalAction,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NONE"],
     )
 
     parser.add_argument(
@@ -378,35 +385,65 @@ def generate_json_overrides(form_data: dict[str, str]) -> str:
     return json.dumps(overrides)
 
 
-def set_logger(args):
-    """Sets up logging for the TANGO application.
+def set_logger(log_level: str, input_file: str | Path) -> None:
+    """Configure logging for the TANGO application.
+
+    Sets up both file and console logging handlers with the specified verbosity level.
+    The log file is created in the same directory as the input file, with the same
+    base name but a `.log` extension.
 
     Args:
-        args (argparse.Namespace): Parsed arguments containing:
-            - `input_file` (str): Path to the input YAML file.
-            - `debug` (bool): Whether to enable debug logging.
+        log_level: Logging verbosity level. Valid values are:
+            - "DEBUG": Detailed diagnostic information for debugging.
+            - "INFO": General operational messages (default).
+            - "WARNING": Unexpected but non-critical issues.
+            - "ERROR": Serious problems that need attention.
+            - "CRITICAL": Severe errors that may cause failure.
+            - "NONE": Suppress all logging output.
+        input_file: Path to the input YAML file. Used to determine
+            the log file name (e.g., "config.yml" -> "config.log").
 
     Raises:
-        FileNotFoundError: If the input file specified in `args` does not exist.
+        FileNotFoundError: If the input file does not exist.
+        ValueError: If an invalid log_level is provided.
 
-    Behavior:
-        - Logs messages to a log file named after the input file (with `.log` extension).
-        - Logs messages to the console.
-        - Adjusts log level based on the `debug` flag.
+    Example:
+        >>> set_logger("DEBUG", "examples/config.yml")
+        >>> set_logger("NONE", Path("examples/config.yml"))
 
     """
-    input_file = args.input_file
-    debug = args.debug
-    if not Path(input_file).exists():
+    input_path = Path(input_file)
+    if not input_path.exists():
         raise FileNotFoundError(f"{input_file} not found")
-    if debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
+
+    # Handle NONE level - suppress all logging
+    if log_level.upper() == "NONE":
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        # Also silence TESPy's logger
+        tespy_logger = logging.getLogger("TESPyLogger")
+        tespy_logger.setLevel(logging.CRITICAL + 1)
+        tespy_logger.handlers = []
+        tespy_logger.propagate = False
+        return
+
+    # Map string to logging level
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    level = level_map.get(log_level.upper())
+    if level is None:
+        raise ValueError(
+            f"Invalid log_level '{log_level}'. "
+            f"Valid options: DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE"
+        )
 
     logging.getLogger().setLevel(level)
     logging.basicConfig(
-        filename=os.path.splitext(input_file)[0] + ".log",
+        filename=str(input_path.with_suffix(".log")),
         filemode="w",
         format="%(asctime)s, %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

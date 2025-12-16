@@ -824,8 +824,13 @@ class NativeWorkflow(Workflow):
             if "functions" in self.specs and self.specs["functions"]:
                 self.function_evaluator.evaluate_functions(self.specs["functions"])
             current_date = self.start_date
+            disable_progress = logging.getLogger().getEffectiveLevel() > logging.INFO
             for i in tqdm(
-                range(len(self.specs["schedule"]["dt_list"])), desc="Progress: ", ncols=100, file=sys.stdout,
+                range(len(self.specs["schedule"]["dt_list"])),
+                desc="Progress: ",
+                ncols=100,
+                file=sys.stdout,
+                disable=disable_progress,
             ):
                 self._dt_months = np.round(self.specs["schedule"]["dt_list"][i] * YEAR_TO_MONTH)
                 if (
@@ -844,7 +849,10 @@ class NativeWorkflow(Workflow):
                         f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})",
                     )
                     self.generate_output_table(
-                        step_index=i, table_type="main_graph", write_csv=write_csv, print_table=True,
+                        step_index=i,
+                        table_type="main_graph",
+                        write_csv=write_csv,
+                        print_table=logging.getLogger().getEffectiveLevel() <= logging.INFO,
                     )
 
                 if (
@@ -858,7 +866,9 @@ class NativeWorkflow(Workflow):
                             f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})",
                         )
                         self.generate_power_plant_output_table(
-                            step_index=i, write_csv=write_csv, print_table=True,
+                            step_index=i,
+                            write_csv=write_csv,
+                            print_table=logging.getLogger().getEffectiveLevel() <= logging.INFO,
                         )
 
                 self._write_timestep_files(i)
