@@ -149,6 +149,12 @@ def main():
 
             # Perturb
             set_nested_value(runner.tango.specs, param_path, new_value)
+
+            # Sync injection well length = production_well + production_well_pump lengths
+            prod_len = get_nested_value(runner.tango.specs, "production_well.well_length")
+            pump_len = get_nested_value(runner.tango.specs, "production_well_pump.well_length")
+            set_nested_value(runner.tango.specs, "injection_well.well_length", prod_len + pump_len)
+
             runner.update_parameters()
 
             # Run
