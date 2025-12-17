@@ -368,11 +368,14 @@ class Tango:
 
         self._setup_run_directory()
 
+    def get_hash_from_specs(self) -> str:
+        """Generate a deterministic hash from specs."""
+        specs_str = json.dumps(self.specs, sort_keys=True)
+        return hashlib.sha256(specs_str.encode("utf-8")).hexdigest()[:8]
+
     def _setup_run_directory(self) -> None:
         """Generate a unique run ID and create the run directory."""
-        # Create a deterministic hash based on the specs
-        specs_str = json.dumps(self.specs, sort_keys=True)
-        self.run_id = hashlib.sha256(specs_str.encode("utf-8")).hexdigest()[:8]
+        self.run_id = self.get_hash_from_specs()
         if self.gen_files_dir is not None:
             self.run_dir: Path | None = self.gen_files_dir / f"run_{self.run_id}"
             self.run_dir.mkdir(exist_ok=True, parents=True)
