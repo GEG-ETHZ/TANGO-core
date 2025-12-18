@@ -14,6 +14,8 @@ You can run anything in the `./examples/` folder with, e.g. `pixi run tango_cli 
 
 ## Developers and Internal Users
 
+Note that these instructions have been verified to work on Euler.
+
 ### Installation
 
 If you have not previously done so, install pixi: https://pixi.sh/v0.34.0/.

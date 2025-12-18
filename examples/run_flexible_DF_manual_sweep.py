@@ -79,7 +79,7 @@ DEFAULT_SEED = 42
 DEFAULT_LOG_LEVEL = "NONE"
 
 # Paths
-SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
+DEFAULT_SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
 INPUT_FILE = Path(__file__).parent / "flexible_DF_manual.yml"
 
 
@@ -337,6 +337,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Print progress every N completions (default: n_workers)",
     )
+    parser.add_argument(
+        "--sweep-dir",
+        type=Path,
+        default=None,
+        help=f"Directory for sweep outputs (default: {DEFAULT_SWEEP_DIR})",
+    )
     return parser.parse_args()
 
 
@@ -350,13 +356,15 @@ def main(
     log_level: str = DEFAULT_LOG_LEVEL,
     quiet: bool = False,
     progress_interval: int | None = None,
+    sweep_dir: Path | None = None,
 ) -> None:
     """Run the full LHS sweep pipeline.
 
     Can be called programmatically or via CLI.
     """
-    design_matrix_file = SWEEP_DIR / "design_matrix.parquet"
-    results_dir = SWEEP_DIR / "results"
+    sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
+    design_matrix_file = sweep_dir / "design_matrix.parquet"
+    results_dir = sweep_dir / "results"
 
     if not quiet:
         print(f"Parameters: {len(PARAMETERS)}")
@@ -391,7 +399,7 @@ def main(
 
     # Aggregate results
     results_df = aggregate_results(results_dir)
-    results_file = SWEEP_DIR / "results.parquet"
+    results_file = sweep_dir / "results.parquet"
     results_df.write_parquet(results_file)
     if not quiet:
         print(f"Results saved: {results_file}")
@@ -417,4 +425,5 @@ if __name__ == "__main__":
         log_level=args.log_level,
         quiet=args.quiet,
         progress_interval=args.progress_interval,
+        sweep_dir=args.sweep_dir,
     )
