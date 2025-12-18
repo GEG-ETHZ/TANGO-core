@@ -20,6 +20,13 @@ from tango.core.config import (
 from tango.time_stepper import LinearInterpolation
 
 
+def print_datetime() -> None:
+    """Print the current datetime (YYYY-MM-DD HH:MM:SS) on its own line."""
+    from datetime import datetime
+
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
 def parse_tango_args(args) -> argparse.Namespace:
     """Parse command-line arguments for the TANGO application.
 
