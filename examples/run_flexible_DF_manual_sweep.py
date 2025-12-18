@@ -405,6 +405,8 @@ def main(
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.quiet and args.progress_interval is not None:
+        raise ValueError("--quiet and --progress-interval are mutually exclusive")
     main(
         scale_min=args.scale_min,
         scale_max=args.scale_max,
