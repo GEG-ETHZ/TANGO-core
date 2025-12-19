@@ -1,24 +1,32 @@
 image: ubuntu:latest
 
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
 
 cache:
   paths:
     - .pixi/
-    - .cache/pip
+    - ~/.pixi/
 
 before_script:
   - apt-get update && apt-get install -y curl
-  - curl -fsSL https://pixi.sh/install.sh | bash
+  - |
+    if ! command -v pixi &> /dev/null; then
+      echo "Installing pixi..."
+      curl -fsSL https://pixi.sh/install.sh | bash
+    else
+      echo "Pixi already installed"
+    fi
   - export PATH="$HOME/.pixi/bin:$PATH"
-  - pixi --version  # For debugging
+  - pixi --version
 
 stages:
   - test
 
 test:
   stage: test
+  interruptible: true
   script:
     - pixi run test
   rules:
