@@ -435,8 +435,6 @@ def process_yaml_and_setup_hotmaps(yaml_file_path, results, specs, results_over_
         generator = ExcelGenerator(yaml_file_path, results, specs, thermal_power)
         excel_file = generator.create_excel()
 
-        add_row_to_excel(excel_file, results, specs, thermal_power)
-
         # Run HotmapsDispatch directly via subprocess
         return_code = run_hotmaps_dispatch()
 
