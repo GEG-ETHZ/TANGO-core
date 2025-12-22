@@ -3,14 +3,15 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 import yaml
 import sys
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 ELECTRICITY_PRICE_SCALE = 3.0
 SALE_ELECTRICITY_PRICE_SCALE = 3.0
-WINDOWS_APP_DIRECTORY = r"C:\Mac\Home\Desktop\hotmapsDispatch"
-SHARED_FOLDER = os.path.expanduser("~/Documents/shared")
-TRIGGER_FILE = "run_trigger.txt"
+HOTMAPS_DISPATCH_DIR = "/home/morteza/projects/hotmapsDispatch"
+OUTPUT_DIR = "/home/morteza/projects/TANGO/examples"
+HOTMAPS_CONDA_ENV = "hotmapsDispatch"
 
 SHEET_COLORS = {
     "Heat Generators": "DAEEF3",
@@ -72,8 +73,8 @@ class ExcelGenerator:
         if self.wb.active:
             self.wb.remove(self.wb.active)
 
-        original_output_file = getattr(self.specs, 'output_file', 'output.xlsx')
-        shared_output_file = os.path.join(SHARED_FOLDER, os.path.basename(original_output_file))
+        original_output_file = getattr(self.specs, 'output_file', 'fff.xlsx')
+        output_file_path = os.path.join(OUTPUT_DIR, os.path.basename(original_output_file))
 
         for module_config in self.config.get('modules', []):
             self._create_sheet(module_config)
@@ -85,11 +86,9 @@ class ExcelGenerator:
         self._add_custom_rows()
 
         try:
-            self.wb.save(original_output_file)
-            print(f"Excel file '{original_output_file}' has been created successfully.")
-            self.wb.save(shared_output_file)
-            print(f"Excel file also saved to shared folder: '{shared_output_file}'")
-            return original_output_file
+            self.wb.save(output_file_path)
+            print(f"Excel file '{output_file_path}' has been created successfully.")
+            return output_file_path
         except Exception as e:
             print(f"Error saving Excel file: {e}")
             sys.exit(1)
@@ -324,92 +323,55 @@ def add_row_to_excel(excel_file_path, results=None, specs=None, thermal_power=No
         return False
 
 
-def create_hotmaps_batch():
-    """Create batch file for running Hotmaps Dispatch"""
-    os.makedirs(SHARED_FOLDER, exist_ok=True)
-
-    batch_file = os.path.join(SHARED_FOLDER, "run_hotmaps.bat")
-    with open(batch_file, "w") as f:
-        f.write("@echo off\n")
-        f.write("echo Starting Hotmaps Dispatch runner...\n")
-        f.write(f"cd /d {WINDOWS_APP_DIRECTORY}\n")
-        f.write("call \"C:\\Users\\morteza\\miniconda3\\Scripts\\activate.bat\" hotmapsdispatch\n")
-
-    # Create the price setting script
-    script_path = os.path.join(SHARED_FOLDER, "set_prices.py")
-    with open(script_path, "w") as script_file:
-        script_file.write(f"""
-import time
-print("Waiting for application to initialize...")
-time.sleep(15)
-
-try:
-    import os
-    from bokeh.io import curdoc
-    from bokeh.models import CustomJS
-
-    js_code = '''
-    console.log("Setting electricity price scales...");
-    try {{
-        if (window.widgets) {{
-            if (window.widgets["Electricity price"] && window.widgets["Electricity price"]["scale"]) {{
-                window.widgets["Electricity price"]["scale"].value = {ELECTRICITY_PRICE_SCALE};
-                console.log("Electricity price scale set to {ELECTRICITY_PRICE_SCALE}");
-            }} else {{
-                console.error("Electricity price widget not found");
-            }}
-
-            if (window.widgets["Sale Electricity price"] && window.widgets["Sale Electricity price"]["scale"]) {{
-                window.widgets["Sale Electricity price"]["scale"].value = {SALE_ELECTRICITY_PRICE_SCALE};
-                console.log("Sale electricity price scale set to {SALE_ELECTRICITY_PRICE_SCALE}");
-            }} else {{
-                console.error("Sale Electricity price widget not found");
-            }}
-        }} else {{
-            console.error("Widgets object not found");
-        }}
-    }} catch(err) {{
-        console.error("Error setting electricity price scales:", err);
-    }}
-    '''
-
-    cb = CustomJS(code=js_code)
-    curdoc().js_on_event('document_ready', cb)
-    print("Price scale settings registered successfully")
-
-except Exception as e:
-    print(f"Error setting price scales: {{e}}")
-""")
-
-    # Continue with the batch file
-    with open(batch_file, "a") as f:
-        f.write("echo Running HotmapsDispatch application...\n")
-        f.write(f"python -m app --openbrowser True\n")
-        f.write("echo Application is running. Press any key to close this window...\n")
-        f.write("pause > nul\n")
-
-    print(f"Created batch file at: {batch_file}")
-    return batch_file
-
-
-def create_trigger_file():
-    """Create trigger file for the Windows VM to detect"""
-    trigger_file = Path(SHARED_FOLDER) / TRIGGER_FILE
-    trigger_file.write_text("run")
-    print(f"✅ Trigger file written at: {trigger_file}")
-    return trigger_file
-
-
-def setup_hotmaps_dispatch():
-    """Set up Hotmaps Dispatch environment"""
-    print(f"Setting up Hotmaps Dispatch with electricity price scale: {ELECTRICITY_PRICE_SCALE}")
-    batch_file = create_hotmaps_batch()
-    trigger_file = create_trigger_file()
-
-    print("\nThe Windows VM should now automatically run the batch file.")
-    print("Ensure your AutoHotkey script is running in the Windows VM.")
-
-    return batch_file, trigger_file
+def run_hotmaps_dispatch():
+    """Run HotmapsDispatch using subprocess with conda environment"""
+    print(f"Starting HotmapsDispatch from: {HOTMAPS_DISPATCH_DIR}")
+    print(f"Using conda environment: {HOTMAPS_CONDA_ENV}")
+    print(f"Electricity price scale: {ELECTRICITY_PRICE_SCALE}")
+    print("=" * 60)
+    print("HotmapsDispatch output below:")
+    print("=" * 60)
+    
+    try:
+        # Run HotmapsDispatch (single process, with browser)
+        # Using Popen to stream output in real-time
+        process = subprocess.Popen(
+            [
+                "conda", "run", "--no-capture-output", "-n", HOTMAPS_CONDA_ENV,
+                "python", "-u", "-m", "app",
+                "--solver", "gurobi_direct",
+                "--openbrowser",
+                "--num_procs", "1"
+            ],
+            cwd=HOTMAPS_DISPATCH_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        
+        # Stream output line by line
+        for line in process.stdout:
+            print(f"[HotmapsDispatch] {line}", end='')
+        
+        process.wait()
+        
+        print("=" * 60)
+        if process.returncode == 0:
+            print("✅ HotmapsDispatch completed successfully")
+        else:
+            print(f"⚠️ HotmapsDispatch exited with return code: {process.returncode}")
+            
+        return process.returncode
+        
+    except FileNotFoundError:
+        print("❌ Error: conda command not found. Make sure conda is in your PATH.")
+        return -1
+    except Exception as e:
+        print(f"❌ Error running HotmapsDispatch: {e}")
+        import traceback
+        traceback.print_exc()
+        return -1
 
 def calculate_annual_averages(values, time_steps):
     """
@@ -457,7 +419,7 @@ def calculate_annual_averages(values, time_steps):
 
 
 def process_yaml_and_setup_hotmaps(yaml_file_path, results, specs, results_over_time, dt_list):
-    """Main function that processes YAML and sets up Hotmaps Dispatch"""
+    """Main function that processes YAML and runs Hotmaps Dispatch"""
     print('inf', results)
     print('inf', specs)
     print('results_over_time', results_over_time.get('DH_heat_transfer_real'))
@@ -475,16 +437,16 @@ def process_yaml_and_setup_hotmaps(yaml_file_path, results, specs, results_over_
 
         add_row_to_excel(excel_file, results, specs, thermal_power)
 
-        batch_file, trigger_file = setup_hotmaps_dispatch()
+        # Run HotmapsDispatch directly via subprocess
+        return_code = run_hotmaps_dispatch()
 
         return {
-            "status": "success",
+            "status": "success" if return_code == 0 else "error",
             "excel_file": excel_file,
-            "batch_file": batch_file,
-            "trigger_file": str(trigger_file)
+            "return_code": return_code
         }
     except Exception as e:
-        print(f"Error processing YAML and setting up Hotmaps: {e}")
+        print(f"Error processing YAML and running Hotmaps: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -502,8 +464,10 @@ def generate_excel_from_yaml(yaml_file_path, results=None, specs=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python excel_generator.py <yaml_config_file>")
-        print("Alternatively: python excel_generator.py --add-row <excel_file>")
+        print("Usage: python HotmapsDispatch_runner.py <yaml_config_file>")
+        print("Alternatively: python HotmapsDispatch_runner.py --add-row <excel_file>")
+        print(f"\nOutput directory: {OUTPUT_DIR}")
+        print(f"HotmapsDispatch directory: {HOTMAPS_DISPATCH_DIR}")
         sys.exit(1)
 
     if sys.argv[1] == "--add-row" and len(sys.argv) >= 3:
@@ -520,10 +484,11 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         yaml_file = sys.argv[1]
-        result = process_yaml_and_setup_hotmaps(yaml_file, None, None)
+        result = process_yaml_and_setup_hotmaps(yaml_file, None, None, None, None)
 
         if result["status"] == "success":
             print("Process completed successfully!")
+            print(f"Excel file: {result['excel_file']}")
         else:
-            print(f"Process failed: {result['message']}")
+            print(f"Process failed: {result.get('message', 'Unknown error')}")
             sys.exit(1)

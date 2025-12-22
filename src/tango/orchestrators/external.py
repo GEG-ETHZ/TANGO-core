@@ -124,12 +124,10 @@ class SystemExternal(UnitManager):
                 raise NotImplementedError("Only SurfaceUnitCPGNative and SurfaceUnitORCNative are supported for now")
 
     def hotmapsdispatch_runner(self, eco_results, t_results, dt_list) -> None:
-        result = process_yaml_and_setup_hotmaps('/Users/morteza/git/projects/tango-super/TANGO/examples/complete_config_1.yaml', eco_results, self.specs2, t_results, dt_list)
-
+        result = process_yaml_and_setup_hotmaps('/home/morteza/projects/TANGO/examples/complete_config_1.yaml', eco_results, self.specs2, t_results, dt_list)
 
         if result["status"] == "success":
             print(f"Excel file created at: {result['excel_file']}")
-            print(f"Batch file created at: {result['batch_file']}")
-            print(f"Trigger file created at: {result['trigger_file']}")
+            print(f"HotmapsDispatch return code: {result.get('return_code', 'N/A')}")
         else:
-            print(f"Error: {result['message']}")
+            print(f"Error: {result.get('message', 'Unknown error')}")
