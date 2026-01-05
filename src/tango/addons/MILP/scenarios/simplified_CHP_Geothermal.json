@@ -1,0 +1,70 @@
+{
+    "name": "Simplified CHP Geothermal",
+    "demand": {
+        "file": "demand_profile_AT.csv",
+        "annual_total_mwh": 45000
+    },
+    "technologies": [
+        {
+            "name": "Geothermal",
+            "installed_capacity": 9.38,
+            "min_generation": 0.0,
+            "max_generation": 9.38,
+            "SpCC": 2391474.27,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 1.1,
+            "coldstart_cost": 1000.0,
+            "energy_carrier_price": "electricity_price",
+            "emission_factor": 0.243,
+            "efficiency": 0.9,
+            "lifetime": 25
+        },
+        {
+            "name": "CHP Backpressure",
+            "installed_capacity": 10.0,
+            "min_generation": 0.0,
+            "max_generation": 10.0,
+            "SpCC": 150000.0,
+            "OPEX_fix": 3000.0,
+            "OPEX_var": 1.5,
+            "coldstart_cost": 1500.0,
+            "energy_carrier_price": 100.0,
+            "emission_factor": 0.202,
+            "efficiency": 0.45,
+            "efficiency_el": 0.35,
+            "lifetime": 25,
+            "chp_type": "backpressure",
+            "sale_electricity_price": "electricity_price"
+        },
+        {
+            "name": "CHP Steam Extraction",
+            "installed_capacity": 10.0,
+            "min_generation": 0.0,
+            "max_generation": 10.0,
+            "SpCC": 200000.0,
+            "OPEX_fix": 4000.0,
+            "OPEX_var": 2.0,
+            "coldstart_cost": 2000.0,
+            "energy_carrier_price": 100.0,
+            "emission_factor": 0.202,
+            "efficiency": 0.45,
+            "efficiency_el": 0.40,
+            "lifetime": 25,
+            "chp_type": "extraction",
+            "ratio_pmax": 0.549,
+            "ratio_pmax_fw": 0.643,
+            "sale_electricity_price": "electricity_price"
+        }
+    ],
+    "storage": {
+        "name": "Heat Storage",
+        "capacity": 50000.0,
+        "hourly_losses": 0.00007,
+        "max_discharge_rate": 3.0,
+        "max_charge_rate": 3.0,
+        "discharge_efficiency": 0.95,
+        "charge_efficiency": 0.95,
+        "investment_cost_per_capacity": 400.0,
+        "lifetime": 25
+    }
+}

@@ -1,0 +1,76 @@
+{
+    "name": "Full Mix",
+    "demand": {
+        "file": "demand_profile_AT.csv",
+        "annual_total_mwh": 50000
+    },
+    "technologies": [
+        {
+            "name": "Geothermal",
+            "installed_capacity": 9.38,
+            "min_generation": 0.0,
+            "max_generation": 9.38,
+            "SpCC": 2391474.27,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 1.1,
+            "coldstart_cost": 1000.0,
+            "energy_carrier_price": "electricity_price",
+            "emission_factor": 0.243,
+            "efficiency": 0.9,
+            "lifetime": 25
+        },
+        {
+            "name": "Natural Gas",
+            "installed_capacity": 20.0,
+            "min_generation": 0.0,
+            "max_generation": 20.0,
+            "SpCC": 60000.0,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 1.1,
+            "coldstart_cost": 1000.0,
+            "energy_carrier_price": 100.0,
+            "emission_factor": 0.202,
+            "efficiency": 0.9,
+            "lifetime": 25
+        },
+        {
+            "name": "Boiler",
+            "installed_capacity": 10.0,
+            "min_generation": 0.0,
+            "max_generation": 10.0,
+            "SpCC": 50000.0,
+            "OPEX_fix": 1500.0,
+            "OPEX_var": 0.5,
+            "coldstart_cost": 500.0,
+            "energy_carrier_price": 80.0,
+            "emission_factor": 0.18,
+            "efficiency": 0.92,
+            "lifetime": 20
+        },
+        {
+            "name": "Waste Heat",
+            "installed_capacity": 5.0,
+            "min_generation": 0.0,
+            "max_generation": 5.0,
+            "SpCC": 30000.0,
+            "OPEX_fix": 500.0,
+            "OPEX_var": 0.2,
+            "coldstart_cost": 100.0,
+            "energy_carrier_price": 0.0,
+            "emission_factor": 0.0,
+            "efficiency": 0.95,
+            "lifetime": 25
+        }
+    ],
+    "storage": {
+        "name": "Heat Storage",
+        "capacity": 50000.0,
+        "hourly_losses": 0.00007,
+        "max_discharge_rate": 3.0,
+        "max_charge_rate": 3.0,
+        "discharge_efficiency": 0.95,
+        "charge_efficiency": 0.95,
+        "investment_cost_per_capacity": 400.0,
+        "lifetime": 25
+    }
+}
