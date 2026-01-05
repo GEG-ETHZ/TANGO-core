@@ -277,9 +277,30 @@ class DistrictHeatingSpecs:
     sale_electricity_price: str = " "
     output_file: str = "fff.xlsx"
     run_district_heating_simulator: str = 'no'
+    run_milp_optimizer: str = 'no'  # Whether to run MILP instead of HotmapsDispatch
 
     @classmethod
     def from_dict(cls, env): # ignore extra arguments passed to a dataclass
+        return cls(**{
+            k: v for k, v in env.items()
+            if k in inspect.signature(cls).parameters
+        })
+
+
+@dataclass
+class MILPSpecs:
+    """Specifications for the MILP addon - Mixed Integer Linear Programming optimizer."""
+    active: str = 'no'  # 'yes' or 'no' - whether addon is active
+    execute: str = 'no'  # 'yes' or 'no' - whether to run optimization
+    scenario_file: str = ''  # Path to base scenario JSON file
+    output_dir: str = ''  # Output directory for results
+    solver: str = 'highs'  # MILP solver: 'highs', 'gurobi', 'cbc'
+    add_geothermal: str = 'yes'  # Whether to add geothermal from TANGO results
+    generate_plots: str = 'yes'  # Whether to generate visualization plots
+
+    @classmethod
+    def from_dict(cls, env):
+        """Create MILPSpecs from dictionary, ignoring extra arguments."""
         return cls(**{
             k: v for k, v in env.items()
             if k in inspect.signature(cls).parameters

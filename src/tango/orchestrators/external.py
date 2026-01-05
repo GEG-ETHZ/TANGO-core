@@ -1,6 +1,7 @@
 from tango.core.abstracts.orchestrator import *
 from tango.orchestrators.BC_calculator import *
 from tango.orchestrators.HotmapsDispatch_runner import process_yaml_and_setup_hotmaps
+from tango.orchestrators.MILP_runner import process_json_and_run_milp, DEFAULT_SCENARIO
 from tango.units.dataclasses import DistrictHeatingSpecs
 
 
@@ -131,3 +132,29 @@ class SystemExternal(UnitManager):
             print(f"HotmapsDispatch return code: {result.get('return_code', 'N/A')}")
         else:
             print(f"Error: {result.get('message', 'Unknown error')}")
+
+    def milp_runner(self, eco_results, t_results, dt_list, scenario_file: str = None) -> dict:
+        """Run MILP optimization for hybrid energy system.
+        
+        Args:
+            eco_results: Economic results from TANGO
+            t_results: Time series results from TANGO
+            dt_list: List of time step durations
+            scenario_file: Path to JSON scenario file (optional, defaults to with_all_HP.json)
+            
+        Returns:
+            Dictionary with status, scenario file, and optimization results
+        """
+        if scenario_file is None:
+            scenario_file = DEFAULT_SCENARIO
+        
+        result = process_json_and_run_milp(scenario_file, eco_results, self.specs2, t_results, dt_list)
+
+        if result["status"] == "success":
+            print(f"[MILP] Scenario file: {result['scenario_file']}")
+            print(f"[MILP] Output directory: {result['output_dir']}")
+            print(f"[MILP] Optimization completed successfully")
+        else:
+            print(f"[MILP] Error: {result.get('message', 'Unknown error')}")
+        
+        return result

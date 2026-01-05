@@ -790,8 +790,26 @@ class NativeWorkflow(Workflow):
             if hasattr(self, '_current_simulation_id') and self._current_simulation_id:
                 print(f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully")
 
-        if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
-            self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
+        # Run district heating optimizer (HotmapsDispatch or MILP)
+        if 'district_heating' in self.specs:
+            dh_config = self.specs.get('district_heating', {})
+            
+            # Check for MILP optimizer first (preferred)
+            if dh_config.get('run_milp_optimizer', '').lower() == 'yes':
+                print("\n[TANGO] Running MILP optimizer for district heating...")
+                self.orchestrator.milp_runner(
+                    self.economic._results, 
+                    self._results, 
+                    self.economic.specs.dt_list
+                )
+            # Fall back to HotmapsDispatch
+            elif dh_config.get('run_district_heating_simulator', '').lower() == 'yes':
+                print("\n[TANGO] Running HotmapsDispatch for district heating...")
+                self.orchestrator.hotmapsdispatch_runner(
+                    self.economic._results, 
+                    self._results, 
+                    self.economic.specs.dt_list
+                )
 
     def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False, print_table: bool = True):
         """
