@@ -37,6 +37,8 @@ class Technology:
     ratio_pmax: Optional[float] = None     # Heat/Power ratio at max power (steam extraction)
     ratio_pmax_fw: Optional[float] = None  # Heat/Power ratio at full heat (steam extraction)
     sale_electricity_price: Union[float, np.ndarray, None] = None  # EUR/MWh electricity sale price
+    # Piecewise linear performance (for geothermal etc.)
+    piecewise_file: Optional[str] = None  # Path to CSV with piecewise breakpoints
     
     def get_energy_price(self, hour: int = None) -> float:
         """Get energy carrier price (constant or hour-specific)."""

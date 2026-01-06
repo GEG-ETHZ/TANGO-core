@@ -22,7 +22,7 @@ class MILPScenarioManager:
         """Initialize with a base scenario JSON file.
         
         Args:
-            base_scenario_path: Path to base JSON scenario (e.g., with_all_HP.json)
+            base_scenario_path: Path to base JSON scenario (e.g., geothermal_piecewise_5bp.json)
         """
         self.base_scenario_path = base_scenario_path
         self.scenario = self._load_scenario()
@@ -39,18 +39,33 @@ class MILPScenarioManager:
         print(f"[MILP] Technologies: {len(scenario.get('technologies', []))}")
         return scenario
     
-    def add_geothermal_from_tango(self, eco_results: Dict, dh_specs, thermal_power: float):
+    def add_geothermal_from_tango(self, eco_results: Dict, dh_specs, thermal_power: float,
+                                    piecewise_file: str = None):
         """Add/update geothermal technology from TANGO results.
         
         Args:
             eco_results: Economic results from TANGO
             dh_specs: DistrictHeatingSpecs from TANGO
             thermal_power: Thermal power output in Watts
+            piecewise_file: Optional path to piecewise performance CSV file.
+                           If None but base scenario has piecewise_file, it will be preserved.
         """
         # Calculate geothermal parameters from TANGO
         net_thermal_mw = abs(thermal_power) / 1_000_000.0
         CAPEX = eco_results.get('CAPEX_total', 0)
         SpCC = CAPEX / net_thermal_mw if net_thermal_mw > 0 else 0
+        
+        # Find existing geothermal to check for piecewise settings
+        existing_idx = None
+        existing_piecewise_file = None
+        for i, tech in enumerate(self.scenario.get('technologies', [])):
+            if tech.get('name', '').lower() == 'geothermal':
+                existing_idx = i
+                existing_piecewise_file = tech.get('piecewise_file')
+                break
+        
+        # Use provided piecewise_file, or preserve from base scenario
+        effective_piecewise_file = piecewise_file or existing_piecewise_file
         
         # Create geothermal technology spec
         geothermal_tech = {
@@ -64,16 +79,19 @@ class MILPScenarioManager:
             "coldstart_cost": getattr(dh_specs, 'coldstart_cost', 1000.0),
             "energy_carrier_price": "electricity_price",
             "emission_factor": 0.243,
-            "efficiency": getattr(dh_specs, 'efficiency_thermal', 0.9),
             "lifetime": int(getattr(dh_specs, 'feeding_time', 25))
         }
         
-        # Find existing geothermal and update, or add new
-        existing_idx = None
-        for i, tech in enumerate(self.scenario.get('technologies', [])):
-            if tech.get('name', '').lower() == 'geothermal':
-                existing_idx = i
-                break
+        # Handle piecewise vs standard efficiency
+        if effective_piecewise_file:
+            # Piecewise linear performance - efficiency is determined by CSV curve
+            geothermal_tech["efficiency"] = None
+            geothermal_tech["piecewise_file"] = effective_piecewise_file
+            geothermal_tech["sale_electricity_price"] = "electricity_price"
+            print(f"[MILP] Using piecewise performance from: {effective_piecewise_file}")
+        else:
+            # Standard efficiency-based formulation
+            geothermal_tech["efficiency"] = getattr(dh_specs, 'efficiency_thermal', 0.9)
         
         if existing_idx is not None:
             self.scenario['technologies'][existing_idx] = geothermal_tech
@@ -180,6 +198,7 @@ def run_milp_optimization(scenario_path: str, output_dir: str = None) -> Dict:
     opt.add_variables()
     opt.add_demand_constraint()
     opt.add_generation_constraints()
+    opt.add_piecewise_constraints()  # Piecewise linear geothermal performance
     opt.add_soc_constraints()
     opt.add_storage_discharge_constraint()
     opt.add_coldstart_constraints()
@@ -201,6 +220,18 @@ def run_milp_optimization(scenario_path: str, output_dir: str = None) -> Dict:
         flow = results["storage"]["flow"]
         print(f"[MILP] Storage: Charged={np.maximum(flow, 0).sum():,.0f}, "
               f"Discharged={np.maximum(-flow, 0).sum():,.0f} MWh")
+    
+    # Verify piecewise electricity values
+    if results.get("electricity_consumption") or results.get("electricity_production"):
+        print("\n[MILP] --- Piecewise Electricity Verification ---")
+        for name in results.get("electricity_consumption", {}):
+            e_cons = results["electricity_consumption"][name]
+            e_prod = results["electricity_production"].get(name, np.zeros_like(e_cons))
+            heat = results["generation"][name]
+            print(f"[MILP] {name}:")
+            print(f"[MILP]   Heat total: {heat.sum():,.1f} MWh")
+            print(f"[MILP]   E_consumption total: {e_cons.sum():,.1f} MWh (ratio: {e_cons.sum()/heat.sum():.4f})")
+            print(f"[MILP]   E_production total: {e_prod.sum():,.1f} MWh (ratio: {e_prod.sum()/heat.sum():.4f})")
     
     # Performance metrics
     metrics = PerformanceMetrics(technologies, storage=storage)
@@ -245,7 +276,8 @@ def run_milp_optimization(scenario_path: str, output_dir: str = None) -> Dict:
 
 
 def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_specs, 
-                               results_over_time: Dict, dt_list: List[float]) -> Dict:
+                               results_over_time: Dict, dt_list: List[float],
+                               piecewise_file: str = None) -> Dict:
     """Main function to process JSON scenario and run MILP optimization.
     
     Args:
@@ -254,6 +286,7 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
         dh_specs: DistrictHeatingSpecs from TANGO
         results_over_time: Time series results from TANGO
         dt_list: List of time step durations
+        piecewise_file: Optional path to piecewise performance CSV (e.g., "geothermal_performance_5bp.csv")
         
     Returns:
         Dictionary with status, scenario file, and results
@@ -261,6 +294,8 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
     print('[MILP] Processing scenario and running optimization')
     print(f'[MILP] Base scenario: {scenario_json_path}')
     print(f'[MILP] CAPEX: €{eco_results.get("CAPEX_total", 0):,.0f}')
+    if piecewise_file:
+        print(f'[MILP] Piecewise file: {piecewise_file}')
     
     # Calculate thermal power for the operation year
     thermal_values = results_over_time.get('DH_heat_transfer_real', [])
@@ -278,7 +313,8 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
         
         # Add geothermal from TANGO results
         if thermal_power is not None:
-            manager.add_geothermal_from_tango(eco_results, dh_specs, thermal_power)
+            manager.add_geothermal_from_tango(eco_results, dh_specs, thermal_power, 
+                                              piecewise_file=piecewise_file)
         
         # Save modified scenario
         output_dir = os.path.join(MILP_ADDON_DIR, "outputs", "tango_integrated")
@@ -304,7 +340,7 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
 
 
 # Default scenario path
-DEFAULT_SCENARIO = os.path.join(MILP_ADDON_DIR, "scenarios", "with_all_HP.json")
+DEFAULT_SCENARIO = os.path.join(MILP_ADDON_DIR, "scenarios", "geothermal_piecewise_5bp.json")
 
 
 if __name__ == "__main__":

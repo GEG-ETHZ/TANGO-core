@@ -27,6 +27,7 @@ def run(scenario_path: str):
     opt.add_variables()
     opt.add_demand_constraint()
     opt.add_generation_constraints()
+    opt.add_piecewise_constraints()  # Piecewise linear geothermal performance
     opt.add_soc_constraints()
     opt.add_storage_discharge_constraint()
     opt.add_coldstart_constraints()
@@ -45,6 +46,20 @@ def run(scenario_path: str):
     if "storage" in results:
         flow = results["storage"]["flow"]
         print(f"Storage: Charged={np.maximum(flow, 0).sum():,.0f}, Discharged={np.maximum(-flow, 0).sum():,.0f} MWh")
+    
+    # Verify piecewise electricity values
+    if results.get("electricity_consumption") or results.get("electricity_production"):
+        print("\n--- Piecewise Electricity Verification ---")
+        for name in results.get("electricity_consumption", {}):
+            e_cons = results["electricity_consumption"][name]
+            e_prod = results["electricity_production"].get(name, np.zeros_like(e_cons))
+            heat = results["generation"][name]
+            print(f"{name}:")
+            print(f"  Heat total: {heat.sum():,.1f} MWh")
+            print(f"  E_consumption total: {e_cons.sum():,.1f} MWh (ratio: {e_cons.sum()/heat.sum():.4f})")
+            print(f"  E_production total: {e_prod.sum():,.1f} MWh (ratio: {e_prod.sum()/heat.sum():.4f})")
+            # Check if ratio matches curve (at max: e_prod/h = 0.66/9.38 = 0.0704)
+            print(f"  Expected e_prod ratio from curve: ~0.070")
     
     # Performance metrics
     metrics = PerformanceMetrics(technologies, storage=storage)

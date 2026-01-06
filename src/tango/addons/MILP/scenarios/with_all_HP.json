@@ -10,7 +10,7 @@
             "installed_capacity": 9.38,
             "min_generation": 0.0,
             "max_generation": 9.38,
-            "SpCC": 2391474.27,
+            "SpCC": 1713739.0,
             "OPEX_fix": 2000.0,
             "OPEX_var": 1.1,
             "coldstart_cost": 1000.0,

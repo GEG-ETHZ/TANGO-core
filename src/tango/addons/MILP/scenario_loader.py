@@ -257,7 +257,9 @@ def load_scenario(scenario_path: str) -> Tuple[Profile, List[Technology], Option
             efficiency_el=tech_config.get('efficiency_el'),
             ratio_pmax=tech_config.get('ratio_pmax'),
             ratio_pmax_fw=tech_config.get('ratio_pmax_fw'),
-            sale_electricity_price=sale_price
+            sale_electricity_price=sale_price,
+            # Piecewise linear performance
+            piecewise_file=tech_config.get('piecewise_file')
         )
         technologies.append(tech)
     

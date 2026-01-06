@@ -146,7 +146,7 @@ class PerformanceMetrics:
                     else:
                         fuel_cost = tech.energy_carrier_price * total_gen / tech.efficiency
                     
-                    co2_cost = tech.emission_factor * CO2_PRICE * fuel_input
+                co2_cost = tech.emission_factor * CO2_PRICE * fuel_input
             else:
                 # For technologies without efficiency, use price directly
                 if isinstance(tech.energy_carrier_price, np.ndarray):
