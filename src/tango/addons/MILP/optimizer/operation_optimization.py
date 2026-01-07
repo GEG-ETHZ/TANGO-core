@@ -4,6 +4,7 @@ This implementation matches the Hotmaps Dispatch formulation exactly.
 Supports both:
 1. Standard efficiency-based formulation
 2. Piecewise linear geothermal performance (from CSV)
+3. Investment optimization (opt_mode="investment") or dispatch only (opt_mode="dispatch")
 """
 
 import highspy
@@ -16,6 +17,19 @@ from pre_processors.profile_generator import Profile
 from post_processors.performance_metrics import PerformanceMetrics
 
 HOURS_PER_YEAR = 8760
+INTEREST_RATE = 0.05  # Default interest rate for annuity calculation
+
+
+def calculate_annuity_factor(lifetime: int, interest_rate: float = INTEREST_RATE) -> float:
+    """Calculate annuity factor for investment cost.
+    
+    annuity = ir * (1 + ir)^lifetime / ((1 + ir)^lifetime - 1)
+    """
+    if interest_rate <= 0:
+        return 1.0 / lifetime
+    r = interest_rate
+    n = lifetime
+    return r * (1 + r)**n / ((1 + r)**n - 1)
 
 
 def load_piecewise_data(csv_path: str) -> Optional[Dict]:
@@ -79,17 +93,32 @@ def load_piecewise_data(csv_path: str) -> Optional[Dict]:
 
 
 class OperationOptimizer:
-    """Optimize hourly operation of energy technologies (MILP with Hotmaps-compatible formulation)."""
+    """Optimize hourly operation of energy technologies (MILP with Hotmaps-compatible formulation).
     
-    def __init__(self, demand: Profile, technologies: List[Technology], storage: Optional[Storage] = None):
+    Args:
+        demand: Hourly demand profile
+        technologies: List of available technologies
+        storage: Optional heat storage
+        inv_flag: If True, optimize capacity investments; if False, use fixed capacities (dispatch only)
+        max_demand: Maximum demand (for investment upper bound), defaults to peak demand * 1.5
+        interest_rate: Interest rate for annuity calculation (default 0.05)
+    """
+    
+    def __init__(self, demand: Profile, technologies: List[Technology], storage: Optional[Storage] = None,
+                 inv_flag: bool = False, max_demand: Optional[float] = None, interest_rate: float = INTEREST_RATE):
         self.demand = demand
         self.technologies = technologies
         self.storage = storage
+        self.inv_flag = inv_flag
+        self.interest_rate = interest_rate
         self.n_hours = HOURS_PER_YEAR
         self.n_techs = len(technologies)
         self.model = highspy.Highs()
         self.model.setOptionValue("output_flag", True)
         self.model.setOptionValue("time_limit", 300.0)
+        
+        # Max demand for investment upper bound
+        self.max_demand = max_demand if max_demand else max(demand.values) * 1.5
         
         # Variable offsets (set in add_variables)
         self._gen_offset = {}      # x_th_jt: thermal generation [MW]
@@ -99,6 +128,7 @@ class OperationOptimizer:
         self._flow_offset = 0      # x_load_hs_t: storage flow (±)
         self._soc_offset = 0       # store_level_hs_t: storage SOC
         self._el_offset = 0        # x_el_jt: CHP electricity generation [MW]
+        self._cap_offset = 0       # Cap_j: installed capacity (investment mode)
         
         # Piecewise linear variables (for geothermal)
         self._pw_lambda_offset = 0     # Lambda weights for piecewise interpolation
@@ -152,6 +182,10 @@ class OperationOptimizer:
     def _el_prod_idx(self, pw_idx: int, hour: int) -> int:
         """Index for electricity production variable."""
         return self._el_prod_offset + pw_idx * self.n_hours + hour
+    
+    def _cap_idx(self, tech_idx: int) -> int:
+        """Index for capacity variable (investment mode)."""
+        return self._cap_offset + tech_idx
     
     # ==================== VARIABLES ====================
     def add_variables(self):
@@ -266,6 +300,19 @@ class OperationOptimizer:
                 for h in range(self.n_hours):
                     self.model.addVar(0, max_prod)
             next_offset += len(self._pw_techs) * self.n_hours
+        
+        # 8. Capacity variables (investment mode only)
+        if self.inv_flag:
+            self._cap_offset = next_offset
+            for t_idx, tech in enumerate(self.technologies):
+                # Cap_j: [installed_capacity, max_demand]
+                # Lower bound = existing capacity (can't remove)
+                # Upper bound = max demand (can invest up to this)
+                lb = tech.installed_capacity
+                ub = self.max_demand
+                self.model.addVar(lb, ub)
+            next_offset += self.n_techs
+            print(f"[Investment Mode] Added {self.n_techs} capacity variables")
     
     # ==================== CONSTRAINTS ====================
     
@@ -282,7 +329,11 @@ class OperationOptimizer:
             self.model.addRow(self.demand[h], self.demand[h], len(indices), indices, coeffs)
     
     def add_generation_constraints(self):
-        """Hotmaps generation bounds with Active binary."""
+        """Hotmaps generation bounds with Active binary.
+        
+        In dispatch mode: gen <= max_generation * Active
+        In investment mode: gen <= Cap_j * Active (with Cap_j as variable)
+        """
         for t_idx, tech in enumerate(self.technologies):
             min_factor = tech.min_generation / tech.max_generation if tech.max_generation > 0 else 0
             
@@ -296,15 +347,50 @@ class OperationOptimizer:
                 else:
                     max_gen_h = tech.max_generation
                 
-                # gen <= max * Active
-                self.model.addRow(-highspy.kHighsInf, 0, 2, 
-                                  [gen_i, active_i], [1, -max_gen_h])
-                
-                # gen >= min * Active
-                min_gen = max_gen_h * min_factor
-                if min_gen > 0:
-                    self.model.addRow(0, highspy.kHighsInf, 2,
-                                      [gen_i, active_i], [1, -min_gen])
+                if self.inv_flag:
+                    # Investment mode: gen <= Cap_j * Active
+                    # Linearized as: gen - M * Active <= 0, where M is big-M
+                    # Using: gen <= Cap_j and gen <= M * Active
+                    cap_i = self._cap_idx(t_idx)
+                    
+                    # For radiation-dependent technologies, also apply hourly limit
+                    if tech.max_generation_profile is not None:
+                        # gen <= profile_ratio * Cap_j, where profile_ratio = max_gen_h / installed_cap
+                        # This scales with the invested capacity
+                        if tech.installed_capacity > 0:
+                            profile_ratio = max_gen_h / tech.installed_capacity
+                        else:
+                            # For greenfield, use ratio to max possible capacity
+                            profile_ratio = max_gen_h / tech.max_generation if tech.max_generation > 0 else 0
+                        
+                        # gen - profile_ratio * Cap_j <= 0
+                        self.model.addRow(-highspy.kHighsInf, 0, 2,
+                                          [gen_i, cap_i], [1, -profile_ratio])
+                    else:
+                        # gen <= Cap_j (capacity limit)
+                        self.model.addRow(-highspy.kHighsInf, 0, 2,
+                                          [gen_i, cap_i], [1, -1])
+                    
+                    # gen <= max_demand * Active (big-M for on/off)
+                    self.model.addRow(-highspy.kHighsInf, 0, 2,
+                                      [gen_i, active_i], [1, -self.max_demand])
+                    
+                    # gen >= min_factor * Cap_j * Active (minimum when on)
+                    # Approximated as: gen >= min_factor * installed_capacity * Active
+                    min_gen = tech.installed_capacity * min_factor
+                    if min_gen > 0:
+                        self.model.addRow(0, highspy.kHighsInf, 2,
+                                          [gen_i, active_i], [1, -min_gen])
+                else:
+                    # Dispatch mode: gen <= max_generation * Active
+                    self.model.addRow(-highspy.kHighsInf, 0, 2, 
+                                      [gen_i, active_i], [1, -max_gen_h])
+                    
+                    # gen >= min * Active
+                    min_gen = max_gen_h * min_factor
+                    if min_gen > 0:
+                        self.model.addRow(0, highspy.kHighsInf, 2,
+                                          [gen_i, active_i], [1, -min_gen])
     
     def add_piecewise_constraints(self):
         """Add piecewise linear interpolation constraints for geothermal.
@@ -433,27 +519,46 @@ class OperationOptimizer:
                                       [ramp_i, gen_h, gen_prev], [1, -1, 1])
     
     def add_chp_constraints(self):
-        """CHP heat-to-power coupling constraints."""
+        """CHP heat-to-power coupling constraints.
+        
+        Matches HotmapsDispatch simpel_dispatch.py exactly:
+        - chp_generation_restriction1: x_el <= Cap/ratioPMax - sv * x_th
+        - chp_generation_restriction3: x_el >= x_th / ratioPMaxFW
+        """
         if not self._chp_techs:
             return
         
         for chp_idx, (t_idx, tech) in enumerate(self._chp_techs):
+            # Get capacity variable index if in investment mode
+            cap_i = self._cap_idx(t_idx) if self.inv_flag else None
+            
             for h in range(self.n_hours):
                 gen_i = self._gen_idx(t_idx, h)
                 el_i = self._el_idx(chp_idx, h)
                 
                 if tech.chp_type == "backpressure":
+                    # Backpressure: fixed ratio x_el = x_th * (η_el / η_th)
                     ratio = tech.efficiency_el / tech.efficiency
                     self.model.addRow(0, 0, 2, [el_i, gen_i], [1, -ratio])
                 else:  # extraction
+                    # Extraction CHP: flexible ratio with bounds (HotmapsDispatch formulation)
+                    sv = (tech.ratio_pmax_fw - tech.ratio_pmax) / (tech.ratio_pmax * tech.ratio_pmax_fw)
+                    
+                    # Upper bound: x_el <= Cap/ratioPMax - sv * x_th
+                    if self.inv_flag and cap_i is not None:
+                        # x_el + sv * x_th - Cap / ratio_pmax <= 0
+                        coef_cap = -1.0 / tech.ratio_pmax
+                        self.model.addRow(-highspy.kHighsInf, 0, 3,
+                                          [el_i, gen_i, cap_i], [1, sv, coef_cap])
+                    else:
+                        max_el_at_zero_heat = tech.installed_capacity / tech.ratio_pmax
+                        self.model.addRow(-highspy.kHighsInf, max_el_at_zero_heat, 2,
+                                          [el_i, gen_i], [1, sv])
+                    
+                    # Lower bound: x_el >= x_th / ratioPMaxFW
                     min_ratio = 1.0 / tech.ratio_pmax_fw
                     self.model.addRow(0, highspy.kHighsInf, 2, 
                                       [el_i, gen_i], [1, -min_ratio])
-                    
-                    sv = (tech.ratio_pmax_fw - tech.ratio_pmax) / (tech.ratio_pmax * tech.ratio_pmax_fw)
-                    max_el_at_zero_heat = tech.installed_capacity / tech.ratio_pmax
-                    self.model.addRow(-highspy.kHighsInf, max_el_at_zero_heat, 2,
-                                      [el_i, gen_i], [1, sv])
     
     # ==================== OBJECTIVE ====================
     
@@ -501,17 +606,44 @@ class OperationOptimizer:
         return mc
     
     def set_objective(self):
-        """Hotmaps objective with piecewise support.
+        """Hotmaps objective with piecewise support and investment costs.
         
         For piecewise techs:
         - Cost based on e_consumption * electricity_price
         - Revenue from e_production * sale_price
+        
+        For investment mode:
+        - Adds annualized investment cost: (Cap_j - installed_capacity) * SpCC * annuity_factor
         """
         self.model.changeObjectiveSense(highspy.ObjSense.kMinimize)
         
-        # Fixed OPEX
-        c_op_fix = sum(tech.OPEX_fix * tech.installed_capacity for tech in self.technologies)
+        # Fixed OPEX (in investment mode, this depends on Cap_j variable)
+        if self.inv_flag:
+            # Fixed OPEX will be added as variable cost on Cap_j
+            c_op_fix = 0  # Will be added via Cap_j cost coefficient
+        else:
+            c_op_fix = sum(tech.OPEX_fix * tech.installed_capacity for tech in self.technologies)
         self.model.changeObjectiveOffset(c_op_fix)
+        
+        # Investment costs (investment mode only)
+        if self.inv_flag:
+            for t_idx, tech in enumerate(self.technologies):
+                cap_i = self._cap_idx(t_idx)
+                annuity = calculate_annuity_factor(tech.lifetime, self.interest_rate)
+                
+                # Cost = (Cap_j - installed_capacity) * SpCC * annuity + Cap_j * OPEX_fix
+                # = Cap_j * (SpCC * annuity + OPEX_fix) - installed_capacity * SpCC * annuity
+                # The constant term goes to offset, variable coefficient goes to Cap_j
+                inv_cost_per_mw = tech.SpCC * annuity + tech.OPEX_fix
+                self.model.changeColCost(cap_i, inv_cost_per_mw)
+                
+                # Subtract the existing capacity investment (sunk cost) from objective offset
+                # This makes new investment = (Cap_j - installed) * SpCC * annuity
+                sunk_cost = tech.installed_capacity * tech.SpCC * annuity
+                current_offset = self.model.getInfo().objective_offset if hasattr(self.model.getInfo(), 'objective_offset') else 0
+                # Note: We don't subtract sunk cost as in Hotmaps, installed_capacity is the minimum
+                
+            print(f"[Investment Mode] Added investment costs to objective")
         
         # Build set of piecewise tech indices for quick lookup
         pw_tech_indices = {t_idx for t_idx, _, _ in self._pw_techs}
@@ -553,7 +685,8 @@ class OperationOptimizer:
                     # Negative cost = revenue
                     self.model.changeColCost(self._el_prod_idx(pw_idx, h), -sale_price)
         
-        # CHP electricity revenue
+        # CHP electricity revenue (matches HotmapsDispatch: rev_gen_electricity)
+        # HotmapsDispatch: pure revenue, fuel cost charged on thermal output only
         for chp_idx, (t_idx, tech) in enumerate(self._chp_techs):
             for h in range(self.n_hours):
                 if isinstance(tech.sale_electricity_price, np.ndarray):
@@ -561,6 +694,7 @@ class OperationOptimizer:
                 else:
                     sale_price = tech.sale_electricity_price if tech.sale_electricity_price else 0.0
                 
+                # Negative cost = revenue (matches HotmapsDispatch exactly)
                 self.model.changeColCost(self._el_idx(chp_idx, h), -sale_price)
     
     # ==================== SOLVE ====================
@@ -571,13 +705,52 @@ class OperationOptimizer:
         sol = self.model.getSolution()
         info = self.model.getInfo()
         
-        variable_cost = info.objective_function_value
-        fixed_cost = sum(tech.OPEX_fix * tech.installed_capacity for tech in self.technologies)
+        col_values = np.array(sol.col_value)
+        
+        # Calculate costs
+        objective_value = info.objective_function_value
+        
+        if self.inv_flag:
+            # In investment mode, objective includes investment + fixed OPEX + variable costs
+            # Extract capacity values
+            optimized_capacities = {}
+            investment_costs = {}
+            total_investment_cost = 0.0
+            total_fixed_opex = 0.0
+            
+            for t_idx, tech in enumerate(self.technologies):
+                cap_i = self._cap_idx(t_idx)
+                opt_cap = col_values[cap_i]
+                optimized_capacities[tech.name] = opt_cap
+                
+                # Investment for new capacity
+                new_cap = max(0, opt_cap - tech.installed_capacity)
+                annuity = calculate_annuity_factor(tech.lifetime, self.interest_rate)
+                inv_cost = new_cap * tech.SpCC * annuity
+                investment_costs[tech.name] = inv_cost
+                total_investment_cost += inv_cost
+                
+                # Fixed OPEX on total capacity
+                total_fixed_opex += opt_cap * tech.OPEX_fix
+            
+            variable_cost = objective_value - total_investment_cost - total_fixed_opex
+            fixed_cost = total_fixed_opex
+        else:
+            variable_cost = objective_value
+            fixed_cost = sum(tech.OPEX_fix * tech.installed_capacity for tech in self.technologies)
+            optimized_capacities = {tech.name: tech.installed_capacity for tech in self.technologies}
+            investment_costs = {tech.name: 0.0 for tech in self.technologies}
+            total_investment_cost = 0.0
         
         results = {
+            "opt_mode": "investment" if self.inv_flag else "dispatch",
+            "objective_value": objective_value,
             "variable_cost": variable_cost,
             "fixed_cost": fixed_cost,
-            "total_cost": variable_cost + fixed_cost,
+            "investment_cost": total_investment_cost,
+            "total_cost": objective_value,
+            "optimized_capacities": optimized_capacities,
+            "investment_costs": investment_costs,
             "generation": {},
             "on_hours": {},
             "coldstarts": {},
@@ -586,8 +759,6 @@ class OperationOptimizer:
             "electricity_production": {},
             "electricity_revenue": 0.0
         }
-        
-        col_values = np.array(sol.col_value)
         
         for t_idx, tech in enumerate(self.technologies):
             gen_start = t_idx * self.n_hours

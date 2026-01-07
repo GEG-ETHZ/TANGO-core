@@ -40,7 +40,7 @@ class MILPScenarioManager:
         return scenario
     
     def add_geothermal_from_tango(self, eco_results: Dict, dh_specs, thermal_power: float,
-                                    piecewise_file: str = None):
+                                    piecewise_file: str = None, max_capacity_override: float = None):
         """Add/update geothermal technology from TANGO results.
         
         Args:
@@ -49,6 +49,8 @@ class MILPScenarioManager:
             thermal_power: Thermal power output in Watts
             piecewise_file: Optional path to piecewise performance CSV file.
                            If None but base scenario has piecewise_file, it will be preserved.
+            max_capacity_override: Optional max capacity in MW (for investment mode).
+                                   If specified, overrides the default max_generation.
         """
         # Calculate geothermal parameters from TANGO
         net_thermal_mw = abs(thermal_power) / 1_000_000.0
@@ -67,12 +69,15 @@ class MILPScenarioManager:
         # Use provided piecewise_file, or preserve from base scenario
         effective_piecewise_file = piecewise_file or existing_piecewise_file
         
+        # Determine max_generation: use override if provided, otherwise use installed capacity
+        max_generation = max_capacity_override if max_capacity_override is not None else net_thermal_mw
+        
         # Create geothermal technology spec
         geothermal_tech = {
             "name": "Geothermal",
             "installed_capacity": net_thermal_mw,
             "min_generation": 0.0,
-            "max_generation": net_thermal_mw,
+            "max_generation": max_generation,
             "SpCC": SpCC,
             "OPEX_fix": getattr(dh_specs, 'OPEX_fix', 2000.0) if hasattr(dh_specs, 'OPEX_fix') else 2000.0,
             "OPEX_var": getattr(dh_specs, 'OPEX_var', 1.1) if hasattr(dh_specs, 'OPEX_var') else 1.1,
@@ -95,10 +100,14 @@ class MILPScenarioManager:
         
         if existing_idx is not None:
             self.scenario['technologies'][existing_idx] = geothermal_tech
-            print(f"[MILP] Updated Geothermal: {net_thermal_mw:.2f} MW, SpCC: €{SpCC:,.0f}/MW")
+            msg = f"[MILP] Updated Geothermal: {net_thermal_mw:.2f} MW, SpCC: €{SpCC:,.0f}/MW"
         else:
             self.scenario['technologies'].insert(0, geothermal_tech)
-            print(f"[MILP] Added Geothermal: {net_thermal_mw:.2f} MW, SpCC: €{SpCC:,.0f}/MW")
+            msg = f"[MILP] Added Geothermal: {net_thermal_mw:.2f} MW, SpCC: €{SpCC:,.0f}/MW"
+        
+        if max_capacity_override is not None:
+            msg += f", max_capacity: {max_generation:.2f} MW (overridden)"
+        print(msg)
     
     def save_scenario(self, output_path: str) -> str:
         """Save modified scenario to JSON file.
@@ -191,10 +200,13 @@ def run_milp_optimization(scenario_path: str, output_dir: str = None) -> Dict:
     print("=" * 60)
     
     # Load scenario
-    demand, technologies, storage = load_scenario(scenario_path)
+    demand, technologies, storage, opt_mode = load_scenario(scenario_path)
+    
+    # Convert opt_mode string to inv_flag boolean
+    inv_flag = (opt_mode == "investment")
     
     # Create and run optimizer
-    opt = OperationOptimizer(demand, technologies, storage=storage)
+    opt = OperationOptimizer(demand, technologies, storage=storage, inv_flag=inv_flag)
     opt.add_variables()
     opt.add_demand_constraint()
     opt.add_generation_constraints()
@@ -277,7 +289,8 @@ def run_milp_optimization(scenario_path: str, output_dir: str = None) -> Dict:
 
 def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_specs, 
                                results_over_time: Dict, dt_list: List[float],
-                               piecewise_file: str = None) -> Dict:
+                               piecewise_file: str = None,
+                               geothermal_max_capacity: float = None) -> Dict:
     """Main function to process JSON scenario and run MILP optimization.
     
     Args:
@@ -287,6 +300,7 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
         results_over_time: Time series results from TANGO
         dt_list: List of time step durations
         piecewise_file: Optional path to piecewise performance CSV (e.g., "geothermal_performance_5bp.csv")
+        geothermal_max_capacity: Optional max capacity for geothermal in MW (for investment mode)
         
     Returns:
         Dictionary with status, scenario file, and results
@@ -296,6 +310,8 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
     print(f'[MILP] CAPEX: €{eco_results.get("CAPEX_total", 0):,.0f}')
     if piecewise_file:
         print(f'[MILP] Piecewise file: {piecewise_file}')
+    if geothermal_max_capacity:
+        print(f'[MILP] Geothermal max capacity override: {geothermal_max_capacity} MW')
     
     # Calculate thermal power for the operation year
     thermal_values = results_over_time.get('DH_heat_transfer_real', [])
@@ -314,7 +330,8 @@ def process_json_and_run_milp(scenario_json_path: str, eco_results: Dict, dh_spe
         # Add geothermal from TANGO results
         if thermal_power is not None:
             manager.add_geothermal_from_tango(eco_results, dh_specs, thermal_power, 
-                                              piecewise_file=piecewise_file)
+                                              piecewise_file=piecewise_file,
+                                              max_capacity_override=geothermal_max_capacity)
         
         # Save modified scenario
         output_dir = os.path.join(MILP_ADDON_DIR, "outputs", "tango_integrated")

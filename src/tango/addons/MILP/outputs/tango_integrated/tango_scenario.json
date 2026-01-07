@@ -1,6 +1,7 @@
 {
     "name": "Geothermal Piecewise (5 breakpoints)",
     "description": "Scenario with reduced piecewise breakpoints for faster solving",
+    "opt_mode": "dispatch",
     "demand": {
         "file": "demand_profile_AT.csv",
         "annual_total_mwh": 50000

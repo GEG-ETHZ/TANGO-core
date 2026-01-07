@@ -1,6 +1,7 @@
 {
     "name": "Geothermal Piecewise (5 breakpoints)",
     "description": "Scenario with reduced piecewise breakpoints for faster solving",
+    "opt_mode": "dispatch",
     "demand": {
         "file": "demand_profile_AT.csv",
         "annual_total_mwh": 50000
@@ -8,10 +9,10 @@
     "technologies": [
         {
             "name": "Geothermal",
-            "installed_capacity": 9.38,
+            "installed_capacity": 9.380536828358904,
             "min_generation": 0.0,
-            "max_generation": 9.38,
-            "SpCC": 2391474.27,
+            "max_generation": 9.380536828358904,
+            "SpCC": 1713738.709357934,
             "OPEX_fix": 2000.0,
             "OPEX_var": 1.1,
             "coldstart_cost": 1000.0,

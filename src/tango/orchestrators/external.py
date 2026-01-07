@@ -1,3 +1,4 @@
+import os
 from tango.core.abstracts.orchestrator import *
 from tango.orchestrators.BC_calculator import *
 from tango.orchestrators.HotmapsDispatch_runner import process_yaml_and_setup_hotmaps
@@ -133,22 +134,29 @@ class SystemExternal(UnitManager):
         else:
             print(f"Error: {result.get('message', 'Unknown error')}")
 
-    def milp_runner(self, eco_results, t_results, dt_list, scenario_file: str = None) -> dict:
+    def milp_runner(self, eco_results, t_results, dt_list, scenario_file: str = None,
+                    geothermal_max_capacity: float = None) -> dict:
         """Run MILP optimization for hybrid energy system.
         
         Args:
             eco_results: Economic results from TANGO
             t_results: Time series results from TANGO
             dt_list: List of time step durations
-            scenario_file: Path to JSON scenario file (optional, defaults to with_all_HP.json)
+            scenario_file: Path to JSON scenario file (optional, defaults to geothermal_piecewise_5bp.json)
+            geothermal_max_capacity: Max capacity for geothermal in MW (optional, overrides default)
             
         Returns:
             Dictionary with status, scenario file, and optimization results
         """
         if scenario_file is None:
             scenario_file = DEFAULT_SCENARIO
+        elif not os.path.isabs(scenario_file):
+            # Resolve relative path from TANGO project root
+            tango_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            scenario_file = os.path.join(tango_root, scenario_file)
         
-        result = process_json_and_run_milp(scenario_file, eco_results, self.specs2, t_results, dt_list)
+        result = process_json_and_run_milp(scenario_file, eco_results, self.specs2, t_results, dt_list,
+                                           geothermal_max_capacity=geothermal_max_capacity)
 
         if result["status"] == "success":
             print(f"[MILP] Scenario file: {result['scenario_file']}")

@@ -15,15 +15,18 @@ from visualizers.energymix_visualization import plot_thermal_power_energymix, pl
 def run(scenario_path: str):
     """Run optimization for the given scenario."""
     # Load scenario
-    demand, technologies, storage = load_scenario(scenario_path)
+    demand, technologies, storage, opt_mode = load_scenario(scenario_path)
     
     # Output directory based on scenario name
     scenario_name = os.path.splitext(os.path.basename(scenario_path))[0]
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", scenario_name)
     os.makedirs(output_dir, exist_ok=True)
     
+    # Determine investment flag from opt_mode
+    inv_flag = (opt_mode.lower() == "investment")
+    
     # Create and run optimizer
-    opt = OperationOptimizer(demand, technologies, storage=storage)
+    opt = OperationOptimizer(demand, technologies, storage=storage, inv_flag=inv_flag)
     opt.add_variables()
     opt.add_demand_constraint()
     opt.add_generation_constraints()
@@ -37,11 +40,28 @@ def run(scenario_path: str):
     results = opt.solve()
     
     # Print results
-    print(f"\n--- Results ---")
-    print(f"Variable Cost: €{results['variable_cost']:,.0f}")
+    print(f"\n--- Results ({results['opt_mode'].upper()} mode) ---")
+    print(f"Total Cost (Objective): €{results['objective_value']:,.0f}")
+    if inv_flag:
+        print(f"  Investment Cost: €{results['investment_cost']:,.0f}")
+        print(f"  Fixed OPEX: €{results['fixed_cost']:,.0f}")
+        print(f"  Variable Cost: €{results['variable_cost']:,.0f}")
+        print("\nOptimized Capacities:")
+        for name, cap in results["optimized_capacities"].items():
+            orig_cap = next(t.installed_capacity for t in technologies if t.name == name)
+            new_cap = cap - orig_cap
+            inv_cost = results["investment_costs"][name]
+            if new_cap > 0.01:
+                print(f"  {name}: {cap:.2f} MW (+{new_cap:.2f} MW new, €{inv_cost:,.0f}/yr)")
+            else:
+                print(f"  {name}: {cap:.2f} MW (existing)")
+    else:
+        print(f"Variable Cost: €{results['variable_cost']:,.0f}")
+    
+    print("\nGeneration:")
     for name, gen in results["generation"].items():
         cs = results["coldstarts"][name]
-        print(f"{name}: {gen.sum():,.0f} MWh, Coldstarts={cs}")
+        print(f"  {name}: {gen.sum():,.0f} MWh, Coldstarts={cs}")
     
     if "storage" in results:
         flow = results["storage"]["flow"]

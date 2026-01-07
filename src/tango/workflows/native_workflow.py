@@ -797,10 +797,16 @@ class NativeWorkflow(Workflow):
             # Check for MILP optimizer first (preferred)
             if dh_config.get('run_milp_optimizer', '').lower() == 'yes':
                 print("\n[TANGO] Running MILP optimizer for district heating...")
+                # Get scenario file from config (optional)
+                scenario_file = dh_config.get('json_scenario_file', None)
+                # Get optional geothermal max capacity override
+                geothermal_max_capacity = dh_config.get('geothermal_max_capacity', None)
                 self.orchestrator.milp_runner(
                     self.economic._results, 
                     self._results, 
-                    self.economic.specs.dt_list
+                    self.economic.specs.dt_list,
+                    scenario_file=scenario_file,
+                    geothermal_max_capacity=geothermal_max_capacity
                 )
             # Fall back to HotmapsDispatch
             elif dh_config.get('run_district_heating_simulator', '').lower() == 'yes':

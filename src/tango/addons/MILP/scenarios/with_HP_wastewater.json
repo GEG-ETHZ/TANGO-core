@@ -1,5 +1,6 @@
 {
     "name": "All Technologies with Heat Pump Wastewater",
+    "opt_mode": "dispatch",
     "demand": {
         "file": "demand_profile_AT.csv",
         "annual_total_mwh": 100000

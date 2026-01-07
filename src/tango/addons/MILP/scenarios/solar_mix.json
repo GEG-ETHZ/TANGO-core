@@ -1,5 +1,6 @@
 {
     "name": "Solar Mix",
+    "opt_mode": "dispatch",
     "demand": {
         "file": "demand_profile_AT.csv",
         "annual_total_mwh": 50000

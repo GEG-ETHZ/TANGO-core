@@ -114,16 +114,22 @@ def calculate_heat_pump_restriction(
     return factor
 
 
-def load_scenario(scenario_path: str) -> Tuple[Profile, List[Technology], Optional[Storage]]:
+def load_scenario(scenario_path: str) -> Tuple[Profile, List[Technology], Optional[Storage], str]:
     """Load a scenario from JSON file.
     
     Returns:
-        (demand_profile, technologies, storage)
+        (demand_profile, technologies, storage, opt_mode)
+        
+    opt_mode can be:
+        - "dispatch": Fixed capacities, optimize operation only
+        - "investment": Optimize both capacity investment and operation
     """
     with open(scenario_path, 'r') as f:
         config = json.load(f)
     
-    print(f"Loading scenario: {config['name']}")
+    # Get optimization mode (default to "dispatch" for backward compatibility)
+    opt_mode = config.get('opt_mode', 'dispatch')
+    print(f"Loading scenario: {config['name']} (mode: {opt_mode})")
     
     # Data directory contains all CSV files
     data_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -263,6 +269,25 @@ def load_scenario(scenario_path: str) -> Tuple[Profile, List[Technology], Option
         )
         technologies.append(tech)
     
+    # Validation: In dispatch mode, max_generation should not exceed installed_capacity
+    if opt_mode == "dispatch":
+        errors = []
+        for tech in technologies:
+            if tech.max_generation > tech.installed_capacity:
+                errors.append(
+                    f"  {tech.name}: max_generation ({tech.max_generation:.2f} MW) > "
+                    f"installed_capacity ({tech.installed_capacity:.2f} MW)"
+                )
+        if errors:
+            raise ValueError(
+                f"Invalid scenario configuration for DISPATCH mode.\n"
+                f"In dispatch mode, max_generation cannot exceed installed_capacity:\n"
+                + "\n".join(errors) +
+                f"\n\nEither:\n"
+                f"  1. Set max_generation <= installed_capacity for dispatch mode\n"
+                f"  2. Change opt_mode to 'investment' to allow capacity expansion"
+            )
+    
     # Load storage (optional)
     storage = None
     if 'storage' in config:
@@ -279,12 +304,13 @@ def load_scenario(scenario_path: str) -> Tuple[Profile, List[Technology], Option
             lifetime=s.get('lifetime', 25)
         )
     
-    return demand, technologies, storage
+    return demand, technologies, storage, opt_mode
 
 
 if __name__ == "__main__":
     # Test loading
-    demand, techs, storage = load_scenario("scenarios/baseline.json")
+    demand, techs, storage, opt_mode = load_scenario("scenarios/baseline.json")
     print(f"Demand: {demand.values.sum():.0f} MWh")
     print(f"Technologies: {[t.name for t in techs]}")
     print(f"Storage: {storage.name if storage else 'None'}")
+    print(f"Optimization mode: {opt_mode}")
