@@ -137,6 +137,9 @@ district_heating:
   run_district_heating_simulator: 'no'   # Disable HotmapsDispatch
   run_milp_optimizer: 'yes'              # Enable MILP optimizer
   efficiency_thermal: 0.9
+  json_scenario_file: 'src/tango/addons/MILP/scenarios/geothermal_piecewise_5bp_inv.json'
+  # json_scenario_file: 'src/tango/addons/MILP/scenarios/geothermal_piecewise_5bp.json'
+  geothermal_max_capacity: 99.380536828358904          # Max capacity for geothermal investment (MW)
 
 # Addon configuration
 addons:
