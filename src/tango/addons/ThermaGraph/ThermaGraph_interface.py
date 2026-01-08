@@ -1,10 +1,45 @@
-from tango.addons.base import *
-import subprocess
+"""ThermaGraph addon for TANGO phase diagram generation.
+
+This addon generates phase diagrams (P-h, T-s, etc.) showing simulation
+state points and connections overlaid on thermodynamic curves.
+
+IMPORTANT DESIGN NOTES:
+- post_process(): Generates JSON files with state data for visualization
+- execute(): Launches PyQt5 UI or saves SVG in batch mode
+- TANGO-APP INTEGRATION: The SVG output is consumed by tango-app via ArangoDB,
+  NOT via file paths. The workflow calls _write_phase_diagram_data() which reads
+  the SVG and stores svg_content in the 'phase_diagram' collection.
+- For headless servers without a display, you can use xvfb-run externally:
+  `xvfb-run -a python -c "from ThermaGraph_interface import ..."`
+"""
+
+from tango.addons.base import TangoAddon
 import os
 import json
+import sys
 
 
 class ThermaGraph_addon(TangoAddon):
+    """Addon for generating thermodynamic phase diagrams.
+
+    Generates visual representations of simulation state points on
+    thermodynamic diagrams (log P-h, T-s, h-s, etc.).
+
+    Data Flow to tango-app:
+        1. post_process() generates JSON files (states, connections)
+        2. execute() generates SVG file (when auto_save_svg='yes')
+        3. native_workflow._write_phase_diagram_data() reads SVG
+        4. arangodb_manager stores svg_content in 'phase_diagram' collection
+        5. tango-app fetches via getPhaseDiagramData() API
+
+    Attributes:
+        graph: Merged graph structure with main_graph and power_plant_graph
+        results: Dictionary of simulation results by timestep
+        states_file: Path to JSON file with state point data
+        connections_file: Path to JSON file with connection data
+        fluid_name: Working fluid (default: CO2)
+    """
+
     def __init__(self, graph, results):
         super().__init__(graph, results)
 
@@ -261,37 +296,45 @@ class ThermaGraph_addon(TangoAddon):
 
     def execute(self, step_index=None):
         """
-        Execute the add-on by launching the PyQt module with the generated files.
-        Uses pixi run -e tango-app to ensure PyQt5 dependencies are available.
+        Execute the add-on by launching the PyQt interactive diagram plotter.
+
+        This method directly imports and calls the Frame module rather than
+        spawning a subprocess, which is cleaner and avoids environment issues.
         """
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
         fluid_name = getattr(self, "fluid_name", "CO2")
         auto_save_svg = getattr(self, "auto_save_svg", "no")
         svg_filename = getattr(self, "svg_filename", "")
-        # Use pixi run -e tango-app to run with PyQt5 dependencies
-        args = [
-            "xvfb-run",
-            "-a",
-            "pixi",
-            "run",
-            "-e",
-            "tango-app",
-            "python",
-            "/home/TANGO/src/tango/addons/ThermaGraph/Frame.py",
-            components_file,
-            connections_file,
-            fluid_name,
-            auto_save_svg,
-            svg_filename,
-        ]
-        try:
-            result = subprocess.run(args, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error launching PyQt module: {e}")
-            print(f"Command: {' '.join(args)}")
-            if e.stdout:
-                print(f"STDOUT: {e.stdout}")
-            if e.stderr:
-                print(f"STDERR: {e.stderr}")
-            raise
+
+        if not os.path.exists(components_file):
+            print(f"Error: Components file does not exist: {components_file}")
+            return
+        if not os.path.exists(connections_file):
+            print(f"Error: Connections file does not exist: {connections_file}")
+            return
+
+        # Add the ThermaGraph directory to path for relative imports in Frame.py
+        thermagraph_dir = os.path.dirname(os.path.abspath(__file__))
+        if thermagraph_dir not in sys.path:
+            sys.path.insert(0, thermagraph_dir)
+
+        from tango.addons.ThermaGraph.Frame import MainWindow
+        from PyQt5.QtWidgets import QApplication
+
+        app = QApplication(sys.argv)
+        window = MainWindow(default_fluid=fluid_name)
+        window.load_files(components_file, connections_file)
+
+        if auto_save_svg == "yes" and svg_filename:
+            try:
+                os.makedirs(os.path.dirname(svg_filename), exist_ok=True)
+                window.canvas.figure.savefig(svg_filename, format="svg")
+                print(f"SVG successfully saved to: {svg_filename}")
+            except Exception as e:
+                print(f"Error saving SVG: {e}")
+            return  # Exit without showing UI in batch mode
+
+        # Interactive mode - show UI
+        window.show()
+        app.exec_()
