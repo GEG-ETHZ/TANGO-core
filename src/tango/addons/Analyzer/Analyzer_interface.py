@@ -59,7 +59,14 @@ class Analyzer_addon(TangoAddon):
         Args:
             specs: AnalyzerSpecs dataclass with configuration including results_file path
         """
-        self.results_file = specs.results_file
+        from tango.addons.utils import resolve_addon_output_path
+
+        # Use output_dir from specs if provided (injected by workflow), else default
+        output_dir = getattr(specs, "output_dir", None) or "output"
+
+        self.results_file = resolve_addon_output_path(
+            getattr(specs, "results_file", None), "analyzer_results.csv", output_dir
+        )
 
         # Define replacements for renaming columns (customize as needed)
         replacements = {

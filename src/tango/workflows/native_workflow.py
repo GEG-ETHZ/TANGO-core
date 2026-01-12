@@ -1032,6 +1032,10 @@ class NativeWorkflow(Workflow):
             for addon_name, addon_instance in self.addons.items():
                 addon_specs = getattr(self, f"{addon_name}_specs")
 
+                # Inject output directory so addon files land in run_dir
+                if self.run_dir is not None:
+                    addon_specs.output_dir = self.run_dir
+
                 if addon_specs.active.lower() == "yes":
                     logging.info(f"Running post_process for addon: {addon_name}")
                     addon_instance.post_process(addon_specs)

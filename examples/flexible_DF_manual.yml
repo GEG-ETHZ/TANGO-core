@@ -120,12 +120,12 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: 'src/tango/states2.json'
-    connections_file: 'src/tango/connections2.json'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: 'src/tango/aaaa.csv'
+    results_file: 'analyzer_results.csv'
 
 power_plant_graph:
   nodes:

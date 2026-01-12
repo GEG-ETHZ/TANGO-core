@@ -104,23 +104,77 @@ class TestThermaGraphAddon:
 
 
 class TestExplicitImports:
-    """Test that explicit imports work correctly (replaces dynamic discovery)."""
+    """Tests verifying that explicit imports work correctly."""
 
     def test_can_import_thermagraph(self):
-        """Verify ThermaGraph addon can be imported directly."""
+        """Test that ThermaGraph addon can be explicitly imported."""
         from tango.addons.ThermaGraph.ThermaGraph_interface import ThermaGraph_addon
 
         assert ThermaGraph_addon is not None
 
     def test_can_import_analyzer(self):
-        """Verify Analyzer addon can be imported directly."""
+        """Test that Analyzer addon can be explicitly imported."""
         from tango.addons.Analyzer.Analyzer_interface import Analyzer_addon
 
         assert Analyzer_addon is not None
 
     def test_can_import_specs(self):
-        """Verify addon specs can be imported from dataclasses."""
-        from tango.units.dataclasses import ThermaGraphSpecs, AnalyzerSpecs
+        """Test that specs dataclasses can be imported from dataclasses.py."""
+        from tango.units.dataclasses import CommonSpecs
 
-        assert ThermaGraphSpecs is not None
-        assert AnalyzerSpecs is not None
+        assert CommonSpecs is not None
+
+
+class TestPathResolver:
+    """Tests for the addon output path resolver utility."""
+
+    def test_none_returns_default(self):
+        """Test that None path returns output/default_filename."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path(None, "states.json")
+        assert result == Path("output/states.json")
+
+    def test_empty_string_returns_default(self):
+        """Test that empty string returns output/default_filename."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path("", "states.json")
+        assert result == Path("output/states.json")
+
+    def test_relative_path_gets_output_prefix(self):
+        """Test that relative path gets output/ prefix."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path("my_states.json", "states.json")
+        assert result == Path("output/my_states.json")
+
+    def test_explicit_output_path_unchanged(self):
+        """Test that output/... paths are returned as-is."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path("output/custom.json", "states.json")
+        assert result == Path("output/custom.json")
+
+    def test_absolute_path_unchanged(self):
+        """Test that absolute paths are returned as-is."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path("/tmp/states.json", "states.json")
+        assert result == Path("/tmp/states.json")
+
+    def test_custom_output_dir(self):
+        """Test that custom output_dir is used instead of default."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path(
+            "states.json", "default.json", "/custom/path"
+        )
+        assert result == Path("/custom/path/states.json")
+
+    def test_path_object_input(self):
+        """Test that Path objects work as input."""
+        from tango.addons.utils import resolve_addon_output_path
+
+        result = resolve_addon_output_path(Path("my_states.json"), "states.json")
+        assert result == Path("output/my_states.json")

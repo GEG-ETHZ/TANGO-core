@@ -1,5 +1,6 @@
 import inspect
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from tango.core.config import WELL_PATTERN_OPTIONS
 
@@ -61,7 +62,9 @@ class CommonSpecs:
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
-        return cls(**{k: v for k, v in env.items() if k in inspect.signature(cls).parameters})
+        return cls(
+            **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
+        )
 
 
 @dataclass
@@ -87,11 +90,17 @@ class WellSpecs(CommonSpecs):
 class WellSpecsNative(WellSpecs):
     """The well specs based on Adams et al. (2015)."""
 
-    vertical_deviation: float | None = None  # vertical deviation angle defined in degrees
+    vertical_deviation: float | None = (
+        None  # vertical deviation angle defined in degrees
+    )
     num_cells: int = 100  # number of cells that is used for discretization
-    gravity_scale_factor: float = 1.0  # the scale factor used for changing the direction of gravity
+    gravity_scale_factor: float = (
+        1.0  # the scale factor used for changing the direction of gravity
+    )
     wellhead_depth: float = 0.0  # wellhead measured depth (m)
-    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    brine_density: float = (
+        1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    )
 
 
 @dataclass
@@ -99,12 +108,18 @@ class WellSpecsMOOSE(WellSpecs):
     """MOOSE well specs"""
 
     yaml_file_path: str = "/examples/MOOSE_Tespy examples/testcase20.yml"
-    template_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/AGS_Mahmoud_template.i"
+    template_file_path: str = (
+        "/Users/morteza/Documents/projects/TANGO/examples/AGS_Mahmoud_template.i"
+    )
     output_directory: str = "/Users/morteza/Documents/projects/moskito2"
     output_file_name: str = "AGS_Mahmoud.i"
-    moose_executable_path: str = "/Users/morteza/Documents/projects/moskito2/moskito-opt"
+    moose_executable_path: str = (
+        "/Users/morteza/Documents/projects/moskito2/moskito-opt"
+    )
     moose_input_path: str = "/Users/morteza/Documents/projects/moskito2/AGS_Mahmoud.i"
-    post_processor_path: str = "/Users/morteza/Documents/projects/TANGO/src/tango/gg_out.csv"
+    post_processor_path: str = (
+        "/Users/morteza/Documents/projects/TANGO/src/tango/gg_out.csv"
+    )
     pressure_bc_file: str = "pc.csv"
     flowrate_bc_file: str = "qc.csv"
     temperature_bc_file: str = "tc.csv"
@@ -127,7 +142,11 @@ class SurfaceSpecsCPGNative(CommonSpecs):
     cooling_mode: str = "WET"  # WET or DRY
 
     def __post_init__(self):
-        required_fields = ["pipe_diameter", "approach_temperature", "condensation_pressure_offset"]
+        required_fields = [
+            "pipe_diameter",
+            "approach_temperature",
+            "condensation_pressure_offset",
+        ]
         for s in required_fields:
             if getattr(self, s, None) is None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
@@ -136,9 +155,7 @@ class SurfaceSpecsCPGNative(CommonSpecs):
 # should be removed - we don't use DWSIM anymore!
 @dataclass
 class SurfaceSpecsCPGDWSIM(SurfaceSpecsCPGNative):
-    local_script_path = (
-        "/Users/morteza/Documents/projects/TANGO/src/tango/interfaces/tango_dwsim_interface.py"
-    )
+    local_script_path = "/Users/morteza/Documents/projects/TANGO/src/tango/interfaces/tango_dwsim_interface.py"
     remote_username = "morteza"
     remote_ip = "10.211.55.3"
     remote_script_path = "/Users/morteza/Desktop/new.py"
@@ -152,7 +169,9 @@ class ReservoirSpecs(CommonSpecs):
     reservoir_depth: float | None = None  # (m)
     porosity: float | None = None  # the rock porosity in the reservoir (dimensionless)
     permeability: float | None = None  # the rock permeability in the reservoir (in m2)
-    brine_density: float = 1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    brine_density: float = (
+        1000.0  # the brine density used to calculate the reservoir pressure (kg/m3)
+    )
     initial_pressure: float | None = None  # (Pa)
     initial_temperature: float | None = None  # (K)
     hydro_static_pressure: float | None = None  # (Pa)
@@ -168,7 +187,9 @@ class ReservoirSpecsNative(ReservoirSpecs):
     thickness: float | None = None  # the reservoir thickness (in m)
     area: float | None = None
     net_to_gross_ratio: float = 1.0
-    well_eff_diameter: float = 0.41  # effective (average) wellbore diameter (inj and prod) (m)
+    well_eff_diameter: float = (
+        0.41  # effective (average) wellbore diameter (inj and prod) (m)
+    )
 
     def __post_init__(self):
         required_fields = ["reservoir_depth", "thickness", "porosity", "permeability"]
@@ -182,13 +203,23 @@ class ReservoirSpecsNative(ReservoirSpecs):
 class ReservoirSpecsPorousflow(ReservoirSpecs):
     """MOOSE well specs"""
 
-    yaml_file_path: str = "/Users/morteza/Documents/projects/TANGO/examples/testcase17.yml"
+    yaml_file_path: str = (
+        "/Users/morteza/Documents/projects/TANGO/examples/testcase17.yml"
+    )
     template_file_path: str = "/examples/MOOSE input files/pf.i"
-    output_directory: str = "/Users/morteza/Documents/projects/moose/modules/porous_flow"
+    output_directory: str = (
+        "/Users/morteza/Documents/projects/moose/modules/porous_flow"
+    )
     output_file_name: str = "pf_copy.i"
-    moose_executable_path: str = "/Users/morteza/Documents/projects/moose/modules/porous_flow/porous_flow-opt"
-    moose_input_path: str = "/Users/morteza/Documents/projects/moose/modules/porous_flow/pf.i"
-    post_processor_path: str = "/Users/morteza/Documents/projects/moose/modules/porous_flow/pf_out.csv"
+    moose_executable_path: str = (
+        "/Users/morteza/Documents/projects/moose/modules/porous_flow/porous_flow-opt"
+    )
+    moose_input_path: str = (
+        "/Users/morteza/Documents/projects/moose/modules/porous_flow/pf.i"
+    )
+    post_processor_path: str = (
+        "/Users/morteza/Documents/projects/moose/modules/porous_flow/pf_out.csv"
+    )
     pressure_bc_file: str = "pcres.csv"
     flowrate_bc_file: str = "qcres.csv"
     temperature_bc_file: str = "tcres.csv"
@@ -210,10 +241,13 @@ class ThermaGraphSpecs:
     fluid_name: str = "H2O"
     auto_save_svg: str = "no"  # 'yes' to auto-save SVG, 'no' to show UI
     svg_filename: str = "output"  # SVG filename to use if auto_save_svg is yes
+    output_dir: Path | None = None  # Injected by workflow from run_dir/save_dir
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
-        return cls(**{k: v for k, v in env.items() if k in inspect.signature(cls).parameters})
+        return cls(
+            **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
+        )
 
 
 @dataclass
@@ -221,16 +255,20 @@ class AnalyzerSpecs:
     results_file: str
     active: str = "no"
     execute: str = "no"
+    output_dir: Path | None = None  # Injected by workflow from run_dir/save_dir
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
-        return cls(**{k: v for k, v in env.items() if k in inspect.signature(cls).parameters})
+        return cls(
+            **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
+        )
 
 
 @dataclass
 class OptimizationSpecs:
     variables: dict[
-        str, dict[str, float | str],
+        str,
+        dict[str, float | str],
     ]  # Variable names with bounds and type (e.g., continuous or integer)
     targets: list[str]
     target_type: list[str]  # 'maximize' or 'minimize'
@@ -252,12 +290,20 @@ class OptimizationSpecs:
     def __post_init__(self):
         # Ensure all required fields are present
         for var, specs in self.variables.items():
-            if "lower_bound" not in specs or "upper_bound" not in specs or "type" not in specs:
-                raise RuntimeError(f"Variable {var} must have 'lower_bound', 'upper_bound', and 'type'.")
+            if (
+                "lower_bound" not in specs
+                or "upper_bound" not in specs
+                or "type" not in specs
+            ):
+                raise RuntimeError(
+                    f"Variable {var} must have 'lower_bound', 'upper_bound', and 'type'."
+                )
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
-        return cls(**{k: v for k, v in env.items() if k in inspect.signature(cls).parameters})
+        return cls(
+            **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
+        )
 
 
 @dataclass
@@ -292,4 +338,6 @@ class DistrictHeatingSpecs:
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
-        return cls(**{k: v for k, v in env.items() if k in inspect.signature(cls).parameters})
+        return cls(
+            **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
+        )

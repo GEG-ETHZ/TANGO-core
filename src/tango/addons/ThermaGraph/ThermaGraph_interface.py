@@ -56,9 +56,19 @@ class ThermaGraph_addon(TangoAddon):
         """
         Generate two JSON files based on the graph and results.
         """
+        from tango.addons.utils import resolve_addon_output_path
 
-        self.states_file = specs.states_file
-        self.connections_file = specs.connections_file
+        # Use output_dir from specs if provided (injected by workflow), else default
+        output_dir = getattr(specs, "output_dir", None) or "output"
+
+        self.states_file = resolve_addon_output_path(
+            getattr(specs, "states_file", None), "thermagraph_states.json", output_dir
+        )
+        self.connections_file = resolve_addon_output_path(
+            getattr(specs, "connections_file", None),
+            "thermagraph_connections.json",
+            output_dir,
+        )
 
         # Extract nodes and edges
         nodes = self.graph["main_graph"].get("nodes", {})
@@ -108,9 +118,19 @@ class ThermaGraph_addon(TangoAddon):
         according to the specified logic.
         """
         import json
+        from tango.addons.utils import resolve_addon_output_path
 
-        self.states_file = specs.states_file
-        self.connections_file = specs.connections_file
+        # Use output_dir from specs if provided (injected by workflow), else default
+        output_dir = getattr(specs, "output_dir", None) or "output"
+
+        self.states_file = resolve_addon_output_path(
+            getattr(specs, "states_file", None), "thermagraph_states.json", output_dir
+        )
+        self.connections_file = resolve_addon_output_path(
+            getattr(specs, "connections_file", None),
+            "thermagraph_connections.json",
+            output_dir,
+        )
 
         # Extract nodes and edges
         nodes = self.graph["main_graph"].get("nodes", {})
