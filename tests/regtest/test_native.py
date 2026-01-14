@@ -59,8 +59,8 @@ def files_and_values() -> list[tuple[Path, float]]:
         ("flexible_DF_reader.yml", 0.2278856925744952),
         ("flexible_CPG_hot.yml", 0.418689367029366),
         ("flexible_heat.yml", 0.0464719141105572),
-        ("file_reader_kang.yml", 2.050293870015362),
-        ("file_reader_kang2.yml", 0.8841888808490465),
+        ("file_reader_Kang.yml", 2.050293870015362),
+        ("file_reader_Kang2.yml", 0.8841888808490465),
     ]
 
     filepaths = [Path(EXAMPLES_DIR) / fv[0] for fv in filenames_and_vals]
@@ -92,9 +92,7 @@ def test_examples(file_and_value: tuple[Path, float], tmp_path: Path):
     lcoe = df["LCOE"].iloc[0]
 
     # TODO: make sure that lcoe is the same in the file and the live runner
-    assert lcoe == pytest.approx(value), (
-        f"LCOE calulated: {lcoe}, LCOE expected: {value}"
-    )
+    assert lcoe == pytest.approx(value), f"LCOE calulated: {lcoe}, LCOE expected: {value}"
 
 
 def files_and_err_types_failing() -> list[tuple[Path, type]]:
