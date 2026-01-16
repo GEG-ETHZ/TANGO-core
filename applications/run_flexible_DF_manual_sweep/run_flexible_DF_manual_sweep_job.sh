@@ -2,7 +2,8 @@
 #SBATCH --job-name=run_flexible_DF_manual_sweep
 #SBATCH --time=48:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=48
+# #SBATCH --cpus-per-task=64
 # #SBATCH --cpus-per-task=19
 #SBATCH --mem-per-cpu=1G
 #SBATCH --output=run_flexible_DF_manual_sweep_%j.out
