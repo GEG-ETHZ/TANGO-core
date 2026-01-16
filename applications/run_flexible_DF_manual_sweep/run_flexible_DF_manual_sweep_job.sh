@@ -2,7 +2,7 @@
 #SBATCH --job-name=run_flexible_DF_manual_sweep
 #SBATCH --time=04:00:00
 #SBATCH --ntasks=1
-# #SBATCH --cpus-per-task=48
+# #SBATCH --cpus-per-task=64
 #SBATCH --cpus-per-task=19
 #SBATCH --mem-per-cpu=1G
 #SBATCH --output=run_flexible_DF_manual_sweep_%j.out
@@ -49,9 +49,10 @@ echo ""
 
 N_WORKERS=$((SLURM_CPUS_PER_TASK - 3))
 # Run this first to verify behavior
-pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
+pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
+  --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS --scale-min 0.999 --scale-max 1.001
 
-# pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 10 --sweep-dir ./ --n-workers $N_WORKERS --n-samples 10000
+# pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval $N_WORKERS --sweep-dir ./ --n-workers $N_WORKERS --n-samples 10000
 
 echo ""
 echo "=========================================="
