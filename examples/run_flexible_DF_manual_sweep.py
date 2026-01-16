@@ -14,7 +14,7 @@ import traceback
 from pathlib import Path
 
 import polars as pl
-from scipy.stats import qmc
+from scipy.stats import qmc  # type: ignore[import-untyped]
 
 from tango.runner import Runner
 from tango.utils import print_datetime
@@ -174,8 +174,12 @@ def run_single_simulation(args: tuple) -> None:
 
         # Sync injection well length
         prod_len = get_nested_value(runner.tango.specs, "production_well.well_length")
-        pump_len = get_nested_value(runner.tango.specs, "production_well_pump.well_length")
-        set_nested_value(runner.tango.specs, "injection_well.well_length", prod_len + pump_len)
+        pump_len = get_nested_value(
+            runner.tango.specs, "production_well_pump.well_length"
+        )
+        set_nested_value(
+            runner.tango.specs, "injection_well.well_length", prod_len + pump_len
+        )
 
         # Sync _seq params
         seq_mappings = [
@@ -229,7 +233,10 @@ def run_sweep(
     pending = [i for i in range(n_samples) if i not in completed]
 
     if not quiet:
-        print(f"Sweep status: {len(completed)}/{n_samples} completed, {len(pending)} pending")
+        print(
+            f"Sweep status: {len(completed)}/{n_samples} completed, {len(pending)} pending",
+            flush=True,
+        )
 
     if not pending:
         if not quiet:
@@ -237,13 +244,19 @@ def run_sweep(
         return
 
     # Prepare args for each worker (includes log_level and quiet)
-    worker_args = [(idx, design_matrix_file, results_dir, log_level, quiet) for idx in pending]
+    worker_args = [
+        (idx, design_matrix_file, results_dir, log_level, quiet) for idx in pending
+    ]
 
     # Progress interval defaults to n_workers if not specified
     interval = progress_interval if progress_interval is not None else n_workers
 
     # Run in parallel with progress tracking
-    with multiprocessing.Pool(n_workers) as pool:
+    # Use 'spawn' context for HPC compatibility (fork can cause issues on SLURM)
+    if not quiet:
+        print(f"Starting pool with {n_workers} workers (spawn context)...", flush=True)
+    ctx = multiprocessing.get_context("spawn")
+    with ctx.Pool(n_workers) as pool:
         completed_count = 0
         total = len(pending)
         for _ in pool.imap_unordered(run_single_simulation, worker_args):
@@ -394,7 +407,12 @@ def main(
 
     # Task 2: Run simulations
     run_sweep(
-        design_matrix_file, results_dir, n_workers, log_level, quiet, progress_interval,
+        design_matrix_file,
+        results_dir,
+        n_workers,
+        log_level,
+        quiet,
+        progress_interval,
     )
 
     # Aggregate results
