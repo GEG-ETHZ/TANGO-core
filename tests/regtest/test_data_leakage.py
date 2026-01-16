@@ -4,16 +4,19 @@ This module verifies that specifications intended for one unit type (e.g., surfa
 do not incorrectly appear in the specifications of other unit types (e.g., common or well units).
 This ensures that the `_process_specs` logic correctly filters and assigns parameters.
 """
+
+from pathlib import Path
+
 from tango.runner import Runner
 
 
-def test_data_leakage_in_common_specs():
+def test_data_leakage_in_common_specs(tmp_path: Path):
     """Test to ensure that surface-specific parameters do not leak into common specs."""
     # Use an example file that is known to exist
     input_file = "examples/flexible_SF_manual.yml"
 
     # Initialize Tango workflow
-    runner = Runner(input_file)
+    runner = Runner(input_file, save_dir=tmp_path)
     runner.tango._initialize_workflow()
 
     # Access common specs
