@@ -9,8 +9,11 @@ Usage:
 
 import argparse
 import json
+import math
 from collections import Counter
 from pathlib import Path
+
+import polars as pl
 
 # Paths (same defaults as sweep script)
 DEFAULT_SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
@@ -25,10 +28,10 @@ def load_results(results_dir: Path) -> list[dict]:
     return results
 
 
-def generate_result_type_table(results: list[dict]) -> str:
-    """Generate a markdown table of result types (success/error breakdown).
+def generate_result_type_table(results: list[dict]) -> pl.DataFrame:
+    """Generate a polars DataFrame of result types (success/error breakdown).
 
-    Returns a markdown-formatted table with Result Type and Count columns,
+    Returns a DataFrame with Result Type, Count, and Percentage columns,
     including a success row.
     """
     # Count successes vs errors by type
@@ -55,22 +58,20 @@ def generate_result_type_table(results: list[dict]) -> str:
         key=lambda x: (0 if x[0] == "Success" else 1, -x[1]),
     )
 
-    # Build markdown table
-    lines = [
-        "| Result Type | Count | Percentage |",
-        "|-------------|-------|------------|",
-    ]
+    # Build DataFrame
+    rows = []
     for result_type, count in sorted_types:
         pct = count / total * 100 if total > 0 else 0
-        lines.append(f"| {result_type} | {count:,} | {pct:.2f}% |")
-    lines.append(f"| **Total** | **{total:,}** | **100.00%** |")
+        rows.append({"Result Type": result_type, "Count": count, "Percentage": pct})
+    # Add total row
+    rows.append({"Result Type": "Total", "Count": total, "Percentage": 100.0})
 
-    return "\n".join(lines)
+    return pl.DataFrame(rows)
 
 
-def generate_lcoe_statistics(results: list[dict]) -> str:
-    """Generate LCOE statistics for successful runs."""
-    import math
+def generate_lcoe_statistics(results: list[dict]) -> pl.DataFrame:
+    """Generate LCOE statistics for successful runs as a polars DataFrame."""
+    import numpy as np
 
     # Filter for valid LCOE values (not None, not NaN, not infinite)
     lcoe_values = [
@@ -82,29 +83,26 @@ def generate_lcoe_statistics(results: list[dict]) -> str:
     ]
 
     if not lcoe_values:
-        return "No successful simulations to analyze."
+        return pl.DataFrame({"Statistic": ["No valid data"], "Value": [None]})
 
-    # Use numpy for statistics
-    import numpy as np
-
-    lines = [
-        "## LCOE Statistics",
-        "",
-        f"- **Count**: {len(lcoe_values):,}",
-        f"- **Min**: {min(lcoe_values):.4f}",
-        f"- **Max**: {max(lcoe_values):.4f}",
-        f"- **Mean**: {np.mean(lcoe_values):.4f}",
-        f"- **Median**: {np.median(lcoe_values):.4f}",
-    ]
+    stats = {
+        "Count": float(len(lcoe_values)),
+        "Min": min(lcoe_values),
+        "Max": max(lcoe_values),
+        "Mean": float(np.mean(lcoe_values)),
+        "Median": float(np.median(lcoe_values)),
+    }
 
     if len(lcoe_values) > 1:
-        lines.append(f"- **Std Dev**: {np.std(lcoe_values):.4f}")
+        stats["Std Dev"] = float(np.std(lcoe_values))
 
-    return "\n".join(lines)
+    return pl.DataFrame(
+        {"Statistic": list(stats.keys()), "Value": list(stats.values())}
+    )
 
 
-def generate_error_module_breakdown(results: list[dict]) -> str:
-    """Break down errors by module ID (for ValidationErrors)."""
+def generate_error_module_breakdown(results: list[dict]) -> pl.DataFrame:
+    """Break down errors by module ID (for ValidationErrors) as a polars DataFrame."""
     module_counts: Counter[str] = Counter()
 
     for r in results:
@@ -122,23 +120,18 @@ def generate_error_module_breakdown(results: list[dict]) -> str:
                             break
 
     if not module_counts:
-        return ""
+        return pl.DataFrame({"Module": [], "Error Count": []})
 
-    lines = [
-        "",
-        "## Errors by Module",
-        "",
-        "| Module | Error Count |",
-        "|--------|-------------|",
+    rows = [
+        {"Module": module, "Error Count": count}
+        for module, count in module_counts.most_common()
     ]
-    for module, count in module_counts.most_common():
-        lines.append(f"| {module} | {count:,} |")
 
-    return "\n".join(lines)
+    return pl.DataFrame(rows)
 
 
 def analyze_sweep(sweep_dir: Path) -> str:
-    """Run full analysis and return markdown report."""
+    """Run full analysis and return markdown report with embedded polars tables."""
     results_dir = sweep_dir / "results"
 
     if not results_dir.exists():
@@ -149,6 +142,12 @@ def analyze_sweep(sweep_dir: Path) -> str:
     if not results:
         return "Error: No results found."
 
+    # Generate tables
+    result_type_df = generate_result_type_table(results)
+    lcoe_stats_df = generate_lcoe_statistics(results)
+    error_module_df = generate_error_module_breakdown(results)
+
+    # Build report sections
     sections = [
         "# LHS Sweep Analysis Report",
         "",
@@ -157,11 +156,22 @@ def analyze_sweep(sweep_dir: Path) -> str:
         "",
         "## Result Type Breakdown",
         "",
-        generate_result_type_table(results),
+        str(result_type_df),
         "",
-        generate_lcoe_statistics(results),
-        generate_error_module_breakdown(results),
+        "## LCOE Statistics",
+        "",
+        str(lcoe_stats_df),
     ]
+
+    if len(error_module_df) > 0:
+        sections.extend(
+            [
+                "",
+                "## Errors by Module",
+                "",
+                str(error_module_df),
+            ]
+        )
 
     return "\n".join(sections)
 
