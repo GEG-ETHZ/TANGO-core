@@ -1535,13 +1535,17 @@ def check_complex_err(
         d_curr = narrow_d
         raise ComponentError(
             f"\n\t`{comp_with_narrow_d}` has excessive flow resistance compared to other components."
-            + (f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
-                if d_max_in_sys != d_curr else "")
+            + (
+                f"\n\tThis could by fixed, for example, by matching the diameter used elsewhere in the system: {d_max_in_sys:.3f} m"
+                if d_max_in_sys != d_curr
+                else ""
+            )
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance, by e.g.:"
-            + "\n\t\t- increasing pipe diameter"
-            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`"
-            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
+            + "\n\t\t- increasing pipe or wellbore diameter"
+            + "\n\t\t- reducing pipe or wellbore interior surface roughness, `epsilon`"
+            + "\n\t\t- checking that reservoir permeability is typed correctly",
+            # + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
         ) from cpe
 
         # TODO: check target_extraction_pressure w.r.t. to p_sat
@@ -1551,13 +1555,14 @@ def check_complex_err(
             "\n\tThe overall system cannot accommodate this mass flow rate"
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance of multiple components, by e.g.:"
-            + "\n\t\t- increasing pipe diameters"
+            + "\n\t\t- increasing pipe or wellbore diameters"
             + "\n\t\t- reducing well spacing"
             + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
             + "\n\t\t\t- `surface`"
             + "\n\t\t\t- `injection_well`"
             + "\n\t\t\t- `production_well`"
             + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
+            + "\n\t\t- checking that reservoir permeability is typed correctly"
             + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe
