@@ -27,13 +27,10 @@ echo "Memory info: $(free -h | grep 'Mem:')"
 echo ""
 
 # LHS Parameter Sweep for TANGO simulations
+# Parameter bounds are defined per-parameter in PARAMETER_BOUNDS dict.
 
 # options:
 #   -h, --help            show this help message and exit
-#   --scale-min SCALE_MIN
-#                         Minimum scale factor for parameters (default: 0.2)
-#   --scale-max SCALE_MAX
-#                         Maximum scale factor for parameters (default: 10.0)
 #   --n-samples N_SAMPLES
 #                         Number of LHS samples to generate (default: 100)
 #   --n-workers N_WORKERS
@@ -44,15 +41,16 @@ echo ""
 #                         Log level for TANGO simulations (default: NONE)
 #   --quiet, -q           Suppress progress output (default: False)
 #   --progress-interval PROGRESS_INTERVAL
-#                         Print progress every N completions (default: n_workers) (default: None)
+#                         Print progress every N completions (default: n_workers)
 #   --sweep-dir SWEEP_DIR
-#                         Directory for sweep outputs (default: ../examples/run_flexible_DF_manual_sweep) (default: None)
+#                         Directory for sweep outputs (default: ../examples/run_flexible_DF_manual_sweep)
 
 N_WORKERS=$((SLURM_CPUS_PER_TASK - 3))
-# Run this first to verify behavior
+# Quick test run (small sample size matching workers)
 # pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
-#   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS --scale-min 0.999 --scale-max 1.001
+#   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
 
+# Production run (10k samples)
 pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval $N_WORKERS \
   --sweep-dir ./ --n-workers $N_WORKERS --n-samples 10000
 

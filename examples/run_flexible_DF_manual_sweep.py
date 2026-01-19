@@ -4,7 +4,9 @@ Latin Hypercube Sampling sweep with parallel execution and checkpoint/resume.
 
 Usage:
     python run_flexible_DF_manual_sweep.py --n-samples 100 --n-workers 8
-    python run_flexible_DF_manual_sweep.py --scale-min 0.5 --scale-max 2.0
+    python run_flexible_DF_manual_sweep.py --regenerate --n-samples 1000
+
+Parameter bounds are defined per-parameter in PARAMETER_BOUNDS dict.
 """
 
 import argparse
@@ -19,60 +21,74 @@ from scipy.stats import qmc  # type: ignore[import-untyped]
 from tango.runner import Runner
 from tango.utils import print_datetime
 
-# Parameter definitions
-PARAMETERS = [
-    # props
-    "props.brine_density",
-    "props.rock_density",
-    "props.rock_cp",
-    "props.rock_k",
-    "props.thermal_gradient",
-    # surface
-    "surface.surface_temperature",
-    "surface.surface_pressure",
-    "surface.pipe_diameter",
-    "surface.approach_temperature",
-    "surface.target_extraction_pressure",
-    # reservoir
-    "reservoir.reservoir_depth",
-    "reservoir.thickness",
-    "reservoir.permeability",
-    "reservoir.porosity",
-    "reservoir.hydro_static_pressure",
-    "reservoir.over_pressure_percentage",
-    # injection_well
-    "injection_well.well_length",
-    "injection_well.diameter",
-    # production_well
-    "production_well.well_length",
-    "production_well.diameter",
-    # production_well_pump
-    "production_well_pump.well_length",
-    "production_well_pump.diameter",
-    # schedule
-    "schedule.mass_flow_rate",
-    "schedule.well_spacing",
-    "schedule.num_pp",
-    "schedule.mass_rate.value",
-    # economic
-    "economic.discount_rate",
-    # Double-Flash power plant
-    "valve1.p_out",
-    "turbine1.efficiency",
-    "turbine1.p_out",
-    "condenser1.p_out",
-    "condenser1.vapor_mass_fraction_out",
-    "valve2.p_out",
-    "turbine2.efficiency",
-    "turbine2.p_out",
-    "condenser2.vapor_mass_fraction_out",
-    "pump1.efficiency",
-    "pump2.efficiency",
-]
+# Parameter bounds: (min_scale, max_scale) relative to base YAML values
+# Bounds are derived from:
+#   - Validation limits (e.g., well_length max 15km, diameter max 5m)
+#   - Physics constraints (e.g., CoolProp valid ranges for pressures)
+#   - Sensitivity considerations (some params can vary widely, others are sensitive)
+PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
+    # --- Material properties (relatively flexible) ---
+    "props.brine_density": (0.9, 1.1),  # scale factor, ±10%
+    "props.rock_density": (0.8, 1.2),  # scale factor, ±20%
+    "props.rock_cp": (0.5, 2.0),  # scale factor, wide range ok
+    "props.rock_k": (0.5, 2.0),  # scale factor, wide range ok
+    "props.thermal_gradient": (0.7, 1.5),  # scale factor, ±30-50%
+    # --- Surface parameters ---
+    "surface.surface_temperature": (0.9, 1.1),  # scale factor, ±10% (base ~288K)
+    "surface.surface_pressure": (0.9, 1.1),  # scale factor, ±10% (base 100kPa)
+    "surface.pipe_diameter": (0.5, 2.0),  # scale factor, max 5m validation limit
+    "surface.approach_temperature": (0.5, 2.0),  # scale factor, 3.5-14K range
+    "surface.target_extraction_pressure": (
+        0.7,
+        1.5,
+    ),  # scale factor, CoolProp sensitive
+    # --- Reservoir parameters ---
+    "reservoir.reservoir_depth": (0.5, 1.5),  # scale factor, 2.5-7.5km range
+    "reservoir.thickness": (0.5, 2.0),  # scale factor, 150-600m range
+    "reservoir.permeability": (
+        0.1,
+        10.0,
+    ),  # scale factor, wide range (log-scale in reality)
+    "reservoir.porosity": (0.5, 2.0),  # scale factor, 5-20% range
+    "reservoir.hydro_static_pressure": (0.8, 1.2),  # scale factor, ±20%
+    "reservoir.over_pressure_percentage": (0.5, 2.0),  # scale factor, 5-20% range
+    # --- Well parameters (constrained by 15km max validation limit) ---
+    # Base: inj=5km, prod=4km, pump=1km → total prod=5km
+    # At 3x: 15km each → hits validation limit
+    "injection_well.well_length": (
+        0.5,
+        2.5,
+    ),  # scale factor, max ~12.5km (under 15km limit)
+    "injection_well.diameter": (0.5, 2.0),  # scale factor, max ~0.8m (under 5m limit)
+    "production_well.well_length": (0.5, 2.5),  # scale factor, max ~10km
+    "production_well.diameter": (0.5, 2.0),  # scale factor
+    "production_well_pump.well_length": (0.5, 2.5),  # scale factor, max ~2.5km
+    "production_well_pump.diameter": (0.5, 2.0),  # scale factor
+    # --- Schedule parameters ---
+    "schedule.mass_flow_rate": (0.5, 2.0),  # scale factor, 25-100 kg/s
+    "schedule.well_spacing": (0.5, 2.0),  # scale factor, 350-1400m
+    "schedule.num_pp": (1.0, 3.0),  # scale factor, 1-3 patterns (integer)
+    "schedule.mass_rate.value": (0.5, 2.0),  # scale factor, matches mass_flow_rate
+    # --- Economic parameters (flexible) ---
+    "economic.discount_rate": (0.5, 2.0),  # scale factor, 4.75-19%
+    # --- Power plant components (pressure-sensitive, CoolProp constraints) ---
+    "valve1.p_out": (0.5, 2.0),  # scale factor, 0.5-2 bar (base 1 bar)
+    "turbine1.efficiency": (0.7, 1.0),  # scale factor, 70-100% (capped at 1.0)
+    "turbine1.p_out": (0.5, 3.0),  # scale factor, 0.025-0.15 bar
+    "condenser1.p_out": (0.5, 3.0),  # scale factor, 0.025-0.15 bar
+    "condenser1.vapor_mass_fraction_out": (1.0, 1.0),  # fixed at 0 (no variation)
+    "valve2.p_out": (0.5, 2.0),  # scale factor, 0.25-1 bar (base 0.5 bar)
+    "turbine2.efficiency": (0.7, 1.0),  # scale factor, 70-100%
+    "turbine2.p_out": (0.5, 3.0),  # scale factor, 0.025-0.15 bar
+    "condenser2.vapor_mass_fraction_out": (1.0, 1.0),  # fixed at 0 (no variation)
+    "pump1.efficiency": (0.7, 1.0),  # scale factor, 70-100%
+    "pump2.efficiency": (0.7, 1.0),  # scale factor, 70-100%
+}
+
+# Derived: list of parameter names for iteration
+PARAMETERS = list(PARAMETER_BOUNDS.keys())
 
 # Defaults
-DEFAULT_SCALE_MIN = 0.2
-DEFAULT_SCALE_MAX = 10.0
 DEFAULT_N_SAMPLES = 100
 DEFAULT_N_WORKERS = 8
 DEFAULT_SEED = 42
@@ -102,11 +118,9 @@ def set_nested_value(d: dict, path: str, value):
 def generate_design_matrix(
     n_samples: int,
     seed: int,
-    scale_min: float,
-    scale_max: float,
     output_file: Path,
 ) -> pl.DataFrame:
-    """Generate LHS design matrix and save to parquet."""
+    """Generate LHS design matrix with per-parameter bounds and save to parquet."""
     output_file.parent.mkdir(exist_ok=True, parents=True)
 
     # Create .gitignore to exclude sweep outputs from version control
@@ -119,11 +133,12 @@ def generate_design_matrix(
     sampler = qmc.LatinHypercube(d=len(PARAMETERS), seed=seed)
     samples = sampler.random(n=n_samples)
 
-    # Scale to [scale_min, scale_max]
-    scale_factors = qmc.scale(samples, scale_min, scale_max)
-
-    # Create DataFrame with parameter columns
-    data = {param: scale_factors[:, i] for i, param in enumerate(PARAMETERS)}
+    # Scale each parameter to its specific [min, max] bounds
+    data: dict[str, list[float]] = {}
+    for i, param in enumerate(PARAMETERS):
+        min_scale, max_scale = PARAMETER_BOUNDS[param]
+        # Scale from [0,1] to [min_scale, max_scale]
+        data[param] = (samples[:, i] * (max_scale - min_scale) + min_scale).tolist()
     data["row_idx"] = list(range(n_samples))
 
     df = pl.DataFrame(data)
@@ -296,18 +311,7 @@ def parse_args() -> argparse.Namespace:
         description="LHS Parameter Sweep for TANGO simulations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "--scale-min",
-        type=float,
-        default=DEFAULT_SCALE_MIN,
-        help="Minimum scale factor for parameters",
-    )
-    parser.add_argument(
-        "--scale-max",
-        type=float,
-        default=DEFAULT_SCALE_MAX,
-        help="Maximum scale factor for parameters",
-    )
+
     parser.add_argument(
         "--n-samples",
         type=int,
@@ -360,8 +364,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def main(
-    scale_min: float = DEFAULT_SCALE_MIN,
-    scale_max: float = DEFAULT_SCALE_MAX,
     n_samples: int = DEFAULT_N_SAMPLES,
     n_workers: int = DEFAULT_N_WORKERS,
     seed: int = DEFAULT_SEED,
@@ -380,8 +382,7 @@ def main(
     results_dir = sweep_dir / "results"
 
     if not quiet:
-        print(f"Parameters: {len(PARAMETERS)}")
-        print(f"Scale range: [{scale_min}, {scale_max}]")
+        print(f"Parameters: {len(PARAMETERS)} (per-parameter bounds)")
         print(f"Samples: {n_samples}")
         print(f"Workers: {n_workers}")
         print(f"Seed: {seed}")
@@ -398,8 +399,6 @@ def main(
         generate_design_matrix(
             n_samples=n_samples,
             seed=seed,
-            scale_min=scale_min,
-            scale_max=scale_max,
             output_file=design_matrix_file,
         )
     elif not quiet:
@@ -434,8 +433,6 @@ if __name__ == "__main__":
     if args.quiet and args.progress_interval is not None:
         raise ValueError("--quiet and --progress-interval are mutually exclusive")
     main(
-        scale_min=args.scale_min,
-        scale_max=args.scale_max,
         n_samples=args.n_samples,
         n_workers=args.n_workers,
         seed=args.seed,
