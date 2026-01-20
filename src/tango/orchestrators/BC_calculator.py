@@ -1,88 +1,91 @@
 import math
 import pandas as pd
+from dataclasses import dataclass, field
 
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.constants import W_TO_MW
 from tango.units.dataclasses import FlowRateCalculatorSpecs
+from tango.units.native.well.base import WellUnitNative
+from tango.units.native.reservoir import ReservoirUnitNative
+from tango.units.native.surface.base import SurfaceUnitNative
 
 
+@dataclass
 class FlowRateCalculator:
-    """
-    A class that calculates flow rate and pressure for a geothermal system involving injection wells,
-    production wells, reservoir, and surface facilities. This class supports dynamic adjustment of mass
-    flow rates based on reservoir specifications and conditions, including fracking flow calculations.
+    """Calculate flow rate and pressure for a geothermal system.
+
+    This class handles dynamic adjustment of mass flow rates based on reservoir
+    specifications and conditions, including fracking flow calculations.
 
     Attributes:
-        inj_well (object): Injection well instance.
-        pro_well (object): Production well instance.
-        pro_well_pump (object): Production well pump instance.
-        reservoir (object): Reservoir instance.
-        surface (object): Surface unit instance.
-        mass_rate_test (float): Initial mass flow rate for testing.
-        scaling_factor (float): Scaling factor for mass flow rate based on well pattern.
-        tp (list): List to store thermal power values for later analysis.
+        specs: Typed specifications for flow rate calculation.
+        inj_well: Injection well unit.
+        pro_well: Production well unit.
+        pro_well_pump: Production well pump unit (or None if no pump).
+        reservoir: Reservoir unit.
+        surface: Surface unit.
+        mass_rate_test: Initial mass flow rate for testing (kg/s).
+        scaling_factor: Scaling factor for mass flow rate based on well pattern.
+        ones_count: Count of leading 1s in dt_list for HotmapsDispatchDT.
+        time_step: Current simulation time step.
+        test_p: Test pressure for flow rate calculations (Pa).
+        tp: List to store thermal power values for later analysis.
+        processor: PowerReader instance for controlled power generation.
+
     """
-    def __init__(
-        self,
-        specs: FlowRateCalculatorSpecs,
-        injection_well_class,
-        production_well_class,
-        production_well_pump_class,
-        reservoir_class,
-        surface_class,
-    ):
-        """
-        Initialize the FlowRateCalculator with system components.
 
-        Args:
-            specs: Typed specifications for flow rate calculation.
-            injection_well_class: Instance of the injection well.
-            production_well_class: Instance of the production well.
-            production_well_pump_class: Instance of the production well pump (or None).
-            reservoir_class: Instance of the reservoir.
-            surface_class: Instance of the surface unit.
+    specs: FlowRateCalculatorSpecs
+    inj_well: WellUnitNative
+    pro_well: WellUnitNative
+    pro_well_pump: WellUnitNative | None
+    reservoir: ReservoirUnitNative
+    surface: SurfaceUnitNative
 
-        Raises:
-            ValueError: If the reservoir's well pattern is unsupported.
-        """
-        self.specs = specs
-        self.inj_well = injection_well_class
-        self.pro_well = production_well_class
-        self.pro_well_pump = production_well_pump_class
-        self.reservoir = reservoir_class
-        self.surface = surface_class
-        self.mass_rate_test = 0.1
+    # Internal state (initialized in __post_init__)
+    mass_rate_test: float = field(init=False, default=0.1)
+    scaling_factor: float = field(init=False, default=1.0)
+    ones_count: int = field(init=False, default=0)
+    time_step: int = field(init=False, default=0)
+    test_p: float = field(init=False, default=0.0)
+    tp: list = field(init=False, default_factory=list)
+    processor: "PowerReader | None" = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        """Initialize computed fields after dataclass construction."""
         self.surface._m_dot_mult = 1
         self.surface.system_external = True
-        self.tp = []
-        self.time_step = 0
 
-        self.ones_count = 0
-        if self.specs.time_type == 'HotmapsDispatchDT':
+        # Count leading ones in dt_list for HotmapsDispatchDT
+        if self.specs.time_type == "HotmapsDispatchDT":
             for component in self.specs.dt_list:
                 if component == 1:
                     self.ones_count += 1
                 else:
                     break
 
-        if (self.reservoir.specs.mass_rate['type'] == 'manual'):
+        # Set initial test pressure
+        if self.reservoir.specs.mass_rate["type"] == "manual":
             self.test_p = self.surface.specs.injection_pressure
         else:
-            if (self.surface._fluid_name == 'CO2'):
+            if self.surface._fluid_name == "CO2":
                 self.test_p = 9_100_000
             else:
                 self.test_p = 7_000_000.0
 
-        if (self.reservoir.specs.well_pattern == 'DOUBLET'):
+        # Set scaling factor based on well pattern
+        if self.reservoir.specs.well_pattern == "DOUBLET":
             self.scaling_factor = 1.0
-        elif (self.reservoir.specs.well_pattern == 'INVERTED_5SPOT'):
+        elif self.reservoir.specs.well_pattern == "INVERTED_5SPOT":
             self.scaling_factor = 4.0
         else:
-            raise ValueError(f"well_pattern: {self.reservoir.specs.well_pattern} is not supported.")
+            raise ValueError(
+                f"well_pattern: {self.reservoir.specs.well_pattern} is not supported."
+            )
 
+        # Initialize power reader if controlled power generation is enabled
         bc_iter = self.specs.bc_iteration or {}
-        if bc_iter.get('controlled_power_generation') == 'yes':
+        if bc_iter.get("controlled_power_generation") == "yes":
             self.processor = PowerReader()
             self.processor.process_geothermal_data(
                 self.specs.power_raw_data,
