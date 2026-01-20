@@ -1,5 +1,5 @@
 from tango.core.abstracts.orchestrator import *
-from tango.orchestrators.BC_calculator import *
+from tango.orchestrators.BC_calculator import FlowRateCalculator
 from tango.orchestrators.HotmapsDispatch_runner import process_yaml_and_setup_hotmaps
 from tango.units.dataclasses import DistrictHeatingSpecs
 
@@ -41,7 +41,14 @@ class SystemExternal(UnitManager):
         self.specs3 = (self._process_specs3(specs))
 
         if (self.unit.injection_well.__class__.__name__ != 'WellUnitMOOSE'):
-            self.flow_rate_calculator = FlowRateCalculator(self.specs3, self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
+            self.flow_rate_calculator = FlowRateCalculator(
+                self.specs3,
+                self.unit.injection_well,
+                self.unit.production_well,
+                self.unit.production_well_pump,
+                self.unit.reservoir,
+                self.unit.surface,
+            )
 
     def _process_specs2(self, specs) -> dict:
         """

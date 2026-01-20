@@ -5,7 +5,8 @@ from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureE
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.constants import W_TO_MW
 
-class FlowRateCalculator():
+
+class FlowRateCalculator:
     """
     A class that calculates flow rate and pressure for a geothermal system involving injection wells,
     production wells, reservoir, and surface facilities. This class supports dynamic adjustment of mass
@@ -21,7 +22,15 @@ class FlowRateCalculator():
         scaling_factor (float): Scaling factor for mass flow rate based on well pattern.
         tp (list): List to store thermal power values for later analysis.
     """
-    def __init__(self, specs, injection_well_class, production_well_class, production_well_pump_class, reservoir_class, surface_class):
+    def __init__(
+        self,
+        specs,
+        injection_well_class,
+        production_well_class,
+        production_well_pump_class,
+        reservoir_class,
+        surface_class,
+    ):
         """
         Initializes the FlowRateCalculator class with instances of different system components.
 
@@ -73,10 +82,10 @@ class FlowRateCalculator():
         if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
             self.processor = PowerReader()
             self.processor.process_geothermal_data(
-                specs['power_raw_data'],
-                specs['power_avg'],
-                specs['averaging_window'],
-                specs['bypass_file_generation'],
+                self.specs['power_raw_data'],
+                self.specs['power_avg'],
+                self.specs['averaging_window'],
+                self.specs['bypass_file_generation'],
             )
 
     def fracing_flow(self):
@@ -144,9 +153,8 @@ class FlowRateCalculator():
         converged = False
 
         for _ in range(iterations):
-
             # Update injection well
-            if(self.reservoir.__class__.__name__ == 'ReservoirFileReaderUnit'):
+            if (self.reservoir.__class__.__name__ == "ReservoirFileReaderUnit"):
                 self.inj_well.mass_rate = inlet_flow
             else:
                 self.inj_well.mass_rate = self.mass_rate_test
@@ -176,7 +184,7 @@ class FlowRateCalculator():
             if (self.reservoir.specs.mass_rate['type'] != 'manual'):
                 self.test_p += (target_p - self.inj_well.outlet_fluid.P)
             else:
-                if (self.inj_well.outlet_fluid.P < target_p):
+                if (target_p > self.inj_well.outlet_fluid.P):
                     pass
                 else:
                     self.test_p += (target_p - self.inj_well.outlet_fluid.P)
@@ -189,14 +197,18 @@ class FlowRateCalculator():
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
                     if self.specs.get('time', {}).get('type') == 'HotmapsDispatchDT':
                         if self.time_step <= len(self.specs['dt_list']):
-                            
                             if self.time_step <= self.ones_count:
                                 mass_rate = self.reservoir.specs.mass_rate['value']
-                                if (self.reservoir.specs.bc_iteration['check_fracing']):
-                                    if (mass_rate > self.fracing_flow()):
-                                        mass_rate = self.fracing_flow()
+                                if (
+                                    self.reservoir.specs.bc_iteration["check_fracing"]
+                                    and (mass_rate > self.fracing_flow())
+                                ):
+                                    mass_rate = self.fracing_flow()
                             else:
-                                if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+                                if (
+                                    self.specs.get("bc_iteration", {}).get("controlled_power_generation")
+                                        == "yes"
+                                ):
                                     max_iterations = 200
                                     tolerance = 0.0001
                                     
