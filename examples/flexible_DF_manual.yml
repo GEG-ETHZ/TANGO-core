@@ -58,8 +58,7 @@ reservoir:
   thickness: 300.0 # m
   permeability: 5.0e-14    # m2 ~50mD
   porosity: 0.1
-# hydro_static_pressure: 50000000
-  hydro_static_pressure: 5000000
+  hydro_static_pressure: 50000000
   over_pressure_percentage: 10
 
 injection_well:
