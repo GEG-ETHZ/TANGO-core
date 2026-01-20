@@ -79,7 +79,7 @@ class SystemExternal(UnitManager):
             NotImplementedError: If the surface unit or checkpoint type is unsupported.
         """
         if (self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
-            pass # check bc_point here
+            raise NotImplementedError("Implement check bc_point here")
         else:
             if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
 
