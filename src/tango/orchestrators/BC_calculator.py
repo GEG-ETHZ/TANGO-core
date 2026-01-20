@@ -4,6 +4,7 @@ import pandas as pd
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.constants import W_TO_MW
+from tango.units.dataclasses import FlowRateCalculatorSpecs
 
 
 class FlowRateCalculator:
@@ -24,7 +25,7 @@ class FlowRateCalculator:
     """
     def __init__(
         self,
-        specs,
+        specs: FlowRateCalculatorSpecs,
         injection_well_class,
         production_well_class,
         production_well_pump_class,
@@ -32,14 +33,15 @@ class FlowRateCalculator:
         surface_class,
     ):
         """
-        Initializes the FlowRateCalculator class with instances of different system components.
+        Initialize the FlowRateCalculator with system components.
 
         Args:
-            injection_well_class (object): Instance of the injection well class.
-            production_well_class (object): Instance of the production well class.
-            production_well_pump_class (object): Instance of the production well pump class.
-            reservoir_class (object): Instance of the reservoir class.
-            surface_class (object): Instance of the surface unit class.
+            specs: Typed specifications for flow rate calculation.
+            injection_well_class: Instance of the injection well.
+            production_well_class: Instance of the production well.
+            production_well_pump_class: Instance of the production well pump (or None).
+            reservoir_class: Instance of the reservoir.
+            surface_class: Instance of the surface unit.
 
         Raises:
             ValueError: If the reservoir's well pattern is unsupported.
@@ -57,8 +59,8 @@ class FlowRateCalculator:
         self.time_step = 0
 
         self.ones_count = 0
-        if self.specs.get('time', {}).get('type') == 'HotmapsDispatchDT':
-            for component in self.specs['dt_list']:
+        if self.specs.time_type == 'HotmapsDispatchDT':
+            for component in self.specs.dt_list:
                 if component == 1:
                     self.ones_count += 1
                 else:
@@ -79,13 +81,14 @@ class FlowRateCalculator:
         else:
             raise ValueError(f"well_pattern: {self.reservoir.specs.well_pattern} is not supported.")
 
-        if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+        bc_iter = self.specs.bc_iteration or {}
+        if bc_iter.get('controlled_power_generation') == 'yes':
             self.processor = PowerReader()
             self.processor.process_geothermal_data(
-                self.specs['power_raw_data'],
-                self.specs['power_avg'],
-                self.specs['averaging_window'],
-                self.specs['bypass_file_generation'],
+                self.specs.power_raw_data,
+                self.specs.power_avg,
+                self.specs.averaging_window,
+                self.specs.bypass_file_generation,
             )
 
     def fracing_flow(self):
@@ -141,6 +144,7 @@ class FlowRateCalculator:
             - Supports HotmapsDispatchDT time type with list-based mass rate control.
         """
         self.time_step += 1
+        bc_iter = self.specs.bc_iteration or {}
         if (self.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
             self.surface.power_plant.funcs = funcs
 
@@ -195,8 +199,8 @@ class FlowRateCalculator:
             if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
-                    if self.specs.get('time', {}).get('type') == 'HotmapsDispatchDT':
-                        if self.time_step <= len(self.specs['dt_list']):
+                    if self.specs.time_type == 'HotmapsDispatchDT':
+                        if self.time_step <= len(self.specs.dt_list):
                             if self.time_step <= self.ones_count:
                                 mass_rate = self.reservoir.specs.mass_rate['value']
                                 if (
@@ -206,7 +210,7 @@ class FlowRateCalculator:
                                     mass_rate = self.fracing_flow()
                             else:
                                 if (
-                                    self.specs.get("bc_iteration", {}).get("controlled_power_generation")
+                                    bc_iter.get("controlled_power_generation")
                                         == "yes"
                                 ):
                                     max_iterations = 200
@@ -217,7 +221,7 @@ class FlowRateCalculator:
                                             self.time_step - 1 - self.ones_count,
                                             'value',
                                         ],
-                                        self.specs["min_thermal_power"],
+                                        self.specs.min_thermal_power,
                                     ) / 1.0
                                     
                                     for iter_count in range(max_iterations):
@@ -258,7 +262,7 @@ class FlowRateCalculator:
                                                     self.time_step - 1 - self.ones_count,
                                                     "value",
                                                 ],
-                                                self.specs["min_thermal_power"],
+                                                self.specs.min_thermal_power,
                                             ) / prev_thermal_power
                                             
                                             if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.000001) < tolerance:
@@ -280,13 +284,13 @@ class FlowRateCalculator:
                         else:
                             raise ValueError(
                                 f"Time step {self.time_step} exceeds dt_list length "
-                                    + f"{len(self.specs['dt_list'])}. Cannot access dt_list[{self.time_step - 1}]")
+                                    + f"{len(self.specs.dt_list)}. Cannot access dt_list[{self.time_step - 1}]")
                     else:
-                        if self.specs.get('bc_iteration', {}).get('controlled_power_generation') == 'yes':
+                        if bc_iter.get('controlled_power_generation') == 'yes':
                             max_iterations = 10
                             tolerance = 0.001
                             
-                            mass_rate_guess = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1, 'value'], self.specs["min_thermal_power"]) / 1.0
+                            mass_rate_guess = self.mass_rate_test * max(self.processor.averaged_df.loc[self.time_step - 1, 'value'], self.specs.min_thermal_power) / 1.0
                             
                             for iter_count in range(max_iterations):
                                 self.surface.mass_rate = mass_rate_guess * self.scaling_factor
@@ -324,7 +328,7 @@ class FlowRateCalculator:
                                 if prev_thermal_power > 0.001:
                                     target_mass_rate = self.mass_rate_test * max(
                                         self.processor.averaged_df.loc[self.time_step - 1, 'value'],
-                                        self.specs["min_thermal_power"],
+                                        self.specs.min_thermal_power,
                                     ) / prev_thermal_power
                                     
                                     if abs(target_mass_rate - mass_rate_guess) / max(abs(mass_rate_guess), 0.001) < tolerance:

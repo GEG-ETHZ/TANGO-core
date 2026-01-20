@@ -10,6 +10,58 @@ from typing import List, Dict, Union, Optional
 class BcIteration:
     check_fracing: str  # 'yes' or 'no'
     controlled_power_generation: str = 'No'
+    max_mass_rate: float = 150.0
+
+
+@dataclass
+class FlowRateCalculatorSpecs:
+    """Specifications for FlowRateCalculator (BC iteration).
+
+    This dataclass provides typed access to schedule/common specs needed
+    by FlowRateCalculator, replacing the confusing merged dict pattern.
+
+    Attributes:
+        dt_list: List of time step durations (years).
+        bc_iteration: BC iteration config (check_fracing, max_mass_rate, controlled_power_generation).
+        time_type: Time stepping type ('ConstantDT', 'HotmapsDispatchDT', etc.).
+        power_raw_data: Path to raw power data file (for controlled_power_generation).
+        power_avg: Path to averaged power output file.
+        averaging_window: Window size for power averaging.
+        bypass_file_generation: 'yes' to skip file generation.
+        min_thermal_power: Minimum thermal power threshold (MW).
+    """
+    dt_list: list[float]
+    bc_iteration: dict | None = None
+    time_type: str | None = None
+    power_raw_data: str | None = None
+    power_avg: str | None = None
+    averaging_window: int | None = None
+    bypass_file_generation: str = 'no'
+    min_thermal_power: float = 0.005
+
+    @classmethod
+    def from_schedule_specs(cls, specs: dict) -> 'FlowRateCalculatorSpecs':
+        """Construct from the full specs dict (extracts schedule fields).
+
+        Args:
+            specs: Full TANGO specs dict containing 'schedule' key.
+
+        Returns:
+            FlowRateCalculatorSpecs instance.
+        """
+        schedule = specs.get('schedule', {})
+        time_config = schedule.get('time', {})
+
+        return cls(
+            dt_list=schedule.get('dt_list', []),
+            bc_iteration=schedule.get('bc_iteration'),
+            time_type=time_config.get('type') if time_config else None,
+            power_raw_data=schedule.get('power_raw_data'),
+            power_avg=schedule.get('power_avg'),
+            averaging_window=schedule.get('averaging_window'),
+            bypass_file_generation=schedule.get('bypass_file_generation', 'no'),
+            min_thermal_power=schedule.get('min_thermal_power', 0.005),
+        )
 
 @dataclass
 class MassRate:
