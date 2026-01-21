@@ -25,7 +25,7 @@ from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
 from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
-from tango.core.errors import Validator
+from tango.core.errors import Validator, TESPySubZeroError, TESPY_SUBZERO_ERR_TEST
 
 
 @dataclass
@@ -136,7 +136,14 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
             # this expects degrees Celsius
             production_temperature=self.inlet_fluid.T + K_TO_C
         )
-        self.power_plant.network.solve('design')
+        try:
+            self.power_plant.network.solve('design')
+        except ValueError as err:
+            if TESPY_SUBZERO_ERR_TEST.search(str(err)) is not None:
+                raise TESPySubZeroError(
+                    f"TESPy solver failed with non-physical state: {err}"
+                ) from err
+            raise
         outlet_state = self.power_plant.get_outlet_conditions()
         self.w_net = self.power_plant.calculate_net_power()
 

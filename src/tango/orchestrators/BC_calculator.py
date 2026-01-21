@@ -411,7 +411,7 @@ class FlowRateCalculator:
                 if P_SAT_ERR_TEST.search(str(cpe)) is not None:
                     raise self.get_p_sat_err_for_pump(cpe) from cpe
                 else:
-                    raise cpe
+                    raise cpe from cpe
             try:
                 self.pro_well.stream_interface()
             except CoolPropError as cpe:
@@ -463,7 +463,7 @@ class FlowRateCalculator:
                             if (P_SAT_ERR_TEST.search(str(cpe)) is not None):
                                 raise self.get_p_sat_err_for_pump(cpe) from cpe
                             else:
-                                raise cpe
+                                raise cpe from cpe
 
                     # Solve pump in streamwise direction
                     try:

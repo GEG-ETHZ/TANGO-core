@@ -56,7 +56,7 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
             self.P = self.outlet_fluid.P
             self.H = self.outlet_fluid.H
         except CoolPropError as cpe:
-            raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}")
+            raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
             raise type(err)("Surface `stream_interface` failed") from err
 
