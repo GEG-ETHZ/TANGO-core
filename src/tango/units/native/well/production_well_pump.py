@@ -169,7 +169,12 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         if 'production_well' not in specs:
             raise RuntimeError(f"Required unit when using unit: 'production_well' is not found.")
         if specs['production_well_pump']['well_length'] > specs['production_well']['well_length']:
-            raise ValueError(f"Unrealistic value found: 'well_length' of 'production_well_pump' is greater than production well length.")
+            raise ValueError(
+                "Unrealistic value found:" +
+                    "\n\t`well_length` of `production_well_pump` is greater than `production_well`" +
+                    " `well_length`."
+                    "\n\tThis means that the pump is more than halfway down the total depth."
+            )
         return specs['common'] | specs['production_well_pump']
 
     def _update_w_pump(self) -> None:
