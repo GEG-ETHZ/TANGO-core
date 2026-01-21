@@ -141,7 +141,10 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         except ValueError as err:
             if TESPY_SUBZERO_ERR_TEST.search(str(err)) is not None:
                 raise TESPySubZeroError(
-                    f"TESPy solver failed with non-physical state: {err}"
+                    f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
+                    f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
+                    f"\n\t{err}"
+                    f"\n\tunit: surface"
                 ) from err
             raise
         outlet_state = self.power_plant.get_outlet_conditions()

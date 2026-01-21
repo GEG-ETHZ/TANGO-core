@@ -1564,5 +1564,6 @@ def check_complex_err(
             + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
             + "\n\t\t- checking that reservoir permeability is typed correctly"
             + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
+            + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe
