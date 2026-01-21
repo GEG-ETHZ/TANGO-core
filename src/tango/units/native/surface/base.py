@@ -3,7 +3,7 @@ from abc import abstractmethod
 from pathlib import Path
 
 from tango.core.abstracts.unit import Unit, SimplePressureDrop
-from tango.core.errors import CoolPropError, Validator
+from tango.core.errors import CoolPropError, Validator, EXCESS_SMOLAR_TEST
 
 
 class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
@@ -58,7 +58,10 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         except CoolPropError as cpe:
             raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)("Surface `stream_interface` failed") from err
+            if EXCESS_SMOLAR_TEST.search(str(err)):
+                raise CoolPropError("Surface `stream_interface` failed") from err
+            else:
+                raise type(err)("Surface `stream_interface` failed") from err
 
     def update_inlet_state(self) -> None:
         r"""

@@ -198,6 +198,12 @@ TESPY_SUBZERO_ERR_TEST = re.compile(
     + r"is below the minimum of 0\.0+ mol/m3",
 )
 
+EXCESS_SMOLAR_TEST = re.compile(
+    "unable to solve 1phase PY flash with Tmin=\\d+\\.\\d*, Tmax=\\d+(\\.\\d*){0,1} due to error: " +
+        "HSU_P_flash_singlephase_Brent could not find a solution because Smolar \\[\\d+\\.\\d* J/mol/K] " +
+        "is above the maximum value of \\d+\\.\\d* J/mol/K",
+)
+
 
 class ValidationError(ValueError):
     """Error for failed validation"""
