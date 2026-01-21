@@ -1,11 +1,12 @@
 """Module containing custom TANGO errors"""
 
-import re
 import logging
-import yaml
+import re
 from abc import ABC
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import yaml
 
 
 class TangoError(Exception):
@@ -104,6 +105,16 @@ class ProPumpInletFlashError(SaturationPressureError):
     pass
 
 
+class TESPySubZeroError(SubzeroStateVarError):
+    """Error from TESPy solver encountering non-physical negative state variable
+    
+    Typically occurs when solver_rho_Tp fails with negative molar density,
+    often caused by negative pressure input.
+    """
+
+    pass
+
+
 class TangoValueError(TangoError, ValueError):
     """ValueError that needs to be handled"""
 
@@ -175,6 +186,16 @@ def check_feas_entropy(s: float) -> str | None:
 P_SAT_ERR_TEST = re.compile(
     "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] "
     + "is within 1e-4 \\% of given p \\[.+ Pa\\]",
+)
+
+
+# Matches TESPy solver errors with non-physical negative values
+# Example: "solver_rho_Tp was unable to find a solution for T=286.818, p=-4.14216e+07, 
+#           with guess value -17369.7 with error: The molar density of -17369.665904 mol/m3 
+#           is below the minimum of 0.000000 mol/m3"
+TESPY_SUBZERO_ERR_TEST = re.compile(
+    r"solver_rho_Tp was unable to find a solution.*"
+    + r"is below the minimum of 0\.0+ mol/m3",
 )
 
 
@@ -254,7 +275,7 @@ class Validator(ABC):
 
         if len(self.val_dict) != len(used_dict):
             raise NameError(
-                f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}"
+                f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}",
             )
 
         if len(errors) > 0:
