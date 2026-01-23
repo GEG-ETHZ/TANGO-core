@@ -295,6 +295,8 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
         self.rock_C_v = self.specs.rock_density * self.specs.rock_cp
+        # TODO: `initial_temperature` gets updated at each time step so we really
+        # need to change how this is handled
         self.initial_temperature = self._compute_initial_temperature()
         self.initial_pressure = self._compute_initial_pressure()
         self.specs.well_diameter = self.specs.well_eff_diameter
