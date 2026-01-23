@@ -13,7 +13,8 @@ import pytest
 from tango.runner import Runner
 from tango.core.errors import (
      ComponentError,
-     MultiError
+     MultiError,
+     TESPyExcessSMolarError,
 )
 
 
@@ -160,6 +161,10 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         (
             "flexible_SF_manual_excess_mflow.yml",
             MultiError,
+        ),
+        (
+            "flexible_DF_manual_small_spacing.yml",
+            TESPyExcessSMolarError,
         ),
     ]
     filepaths_and_err_types = [
