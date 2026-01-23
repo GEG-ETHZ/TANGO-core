@@ -161,6 +161,7 @@ ignore = [
   "SIM108", 
   "SIM118",  # allow `.keys()`
   "D205", # blank line after summary
+  "G003", # logging uses `+`
   "N807",
 ]
 
