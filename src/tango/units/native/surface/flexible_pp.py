@@ -145,19 +145,24 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         try:
             self.power_plant.network.solve('design')
         except ValueError as err:
-            # Get component diagnostics before raising
-            # Include traceback so we can identify e.g. compressor from the stack
+            import logging
             import traceback
-            err_str = str(err)
+            
+            # Log detailed diagnostics at WARNING level
             tb_str = traceback.format_exc()
             diagnostics = self.power_plant.get_surface_diagnostics(tb_str)
-
+            logging.warning(f"Surface power plant solve failed. Diagnostics:{diagnostics}")
+            
+            # Calculate saturation pressure at inlet temperature for analysis
+            err_str = str(err)
+            saturation_analysis = self._get_saturation_pressure_analysis()
+            
             if SUBZERO_DNSTY_ERR_TEST.search(err_str) is not None:
                 raise TESPySubZeroError(
                     f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
                     f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
                     f"\n\t{err}"
-                    f"{diagnostics}"
+                    f"{saturation_analysis}"
                 ) from err
 
             if EXCESS_SMOLAR_TEST.search(str(err)):
@@ -165,14 +170,14 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
                     f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
                     f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
                     f"\n\t{err}"
-                    f"{diagnostics}"
+                    f"{saturation_analysis}"
                 ) from err
 
             # Re-raise with diagnostics for other ValueErrors
             raise ValueError(
                 f"TESPy network.solve('design') failed"
                 f"\n\t{err}"
-                f"{diagnostics}"
+                f"{saturation_analysis}"
                 f"\n\tunit: surface"
             ) from err
         outlet_state = self.power_plant.get_outlet_conditions()
@@ -185,6 +190,88 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         )
 
         return ps_out
+
+    def _get_saturation_pressure_analysis(self) -> str:
+        """Analyze if any power plant components have outlet pressures below saturation.
+        
+        Calculates the saturation pressure at the inlet temperature and checks
+        against configured outlet pressures in the power plant. Components with
+        p_out < P_sat cannot physically work (would require flashing at sub-saturation).
+        
+        Returns:
+            Formatted string with saturation analysis for error messages.
+        """
+        lines = []
+        
+        # Get saturation pressure at inlet temperature
+        T_inlet_K = self.inlet_fluid.T
+        T_inlet_C = T_inlet_K + K_TO_C
+        fluid_name = self.specs.fluid_name
+        
+        try:
+            # CoolProp saturation pressure lookup
+            P_sat_Pa = CP.CoolProp.PropsSI("P", "T", T_inlet_K, "Q", 0, fluid_name)
+            P_sat_bar = P_sat_Pa * PA_TO_BAR
+        except Exception as e:
+            lines.append(f"\n\tCould not calculate saturation pressure: {e}")
+            return ''.join(lines)
+        
+        lines.append(f"\n\t=== Saturation Pressure Analysis ===")
+        lines.append(f"\n\tInlet T: {T_inlet_C:.1f} °C ({T_inlet_K:.1f} K)")
+        lines.append(f"\n\tP_sat at inlet T: {P_sat_bar:.2f} bar ({P_sat_Pa:.2e} Pa)")
+        
+        # Check valve configurations - valve p_out must be <= P_sat to flash
+        can_flash = []
+        cannot_flash = []
+        config = self.power_plant.config
+        
+        for comp_name, comp_config in config.items():
+            if not isinstance(comp_config, dict):
+                continue
+            
+            # Only check valves and turbines (expansion devices)
+            if not (comp_name.lower().startswith('valve') or comp_name.lower().startswith('turbine')):
+                continue
+            
+            p_out_value = comp_config.get('p_out')
+            
+            if p_out_value is not None:
+                # Resolve function references if needed
+                if isinstance(p_out_value, str):
+                    p_out_value = self.power_plant.get_funcs().get(p_out_value, None)
+                
+                if p_out_value is not None and isinstance(p_out_value, (int, float)):
+                    # Valve p_out must be <= P_sat to flash liquid to vapor
+                    if p_out_value <= P_sat_bar:
+                        can_flash.append((comp_name, p_out_value))
+                    else:
+                        cannot_flash.append((comp_name, p_out_value))
+        
+        lines.append("\n\tExpansion device outlet pressures (must be <= P_sat to flash):")
+        if can_flash:
+            for comp_name, p_val in can_flash:
+                lines.append(f"\n\t  ✓ {comp_name}: p_out={p_val:.2f} bar")
+        if cannot_flash:
+            for comp_name, p_val in cannot_flash:
+                lines.append(f"\n\t  ⚠ {comp_name}: p_out={p_val:.2f} bar (> P_sat, cannot flash)")
+            lines.append(
+                "\nTry increasing parameters that increase surface pipe inlet temperature (and correspondingly "
+                + "decrease saturation pressure), e.g.:"
+                + "\n- `schedule`: `well_spacing` (higher value increases reservoir residence time -> "
+                    "production temperature)"
+                + "\n- `reservoir`: `thickness` (higher value increases reservoir residence time -> "
+                    + "production temperature)"
+                + "\n- `reservoir`: `reservoir_depth` (higher value increases reservoir temperature -> "
+                    + "production temperature)"
+                + "\n- `props`: `thermal_gradient` (higher values increase reservoir temperature -> "
+                    + "production temperature)"
+                ""
+            )
+        if not can_flash and not cannot_flash:
+            lines.append("\n\t  (no valves have configured outlet pressures)")
+
+        return ''.join(lines)
+
 
     def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
         r"""Return approximate flow pressure delta [Pa], accounting for gravitational
