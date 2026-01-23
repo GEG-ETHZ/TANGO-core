@@ -15,6 +15,18 @@ class TangoError(Exception):
     pass
 
 
+class ThermodynamicError(TangoError):
+    """Base class for all thermodynamic property evaluation errors.
+
+    Subclasses distinguish error SOURCE:
+    - CoolPropError: error originated directly from CoolProp
+    - TESPyError: error originated from TESPy (not involving CoolProp)
+    - TESPyCoolPropError: error originated from CoolProp via TESPy
+    """
+
+    pass
+
+
 class ConvergenceError(TangoError):
     """TANGO failed to converge on a solution"""
 
@@ -31,8 +43,8 @@ class MultiError(ConvergenceError):
     """System failed to converge with no single likely cause"""
 
 
-class CoolPropError(TangoError, ValueError):
-    """Error originating from CoolProp"""
+class CoolPropError(ThermodynamicError, ValueError):
+    """Error originating directly from CoolProp"""
 
     pass
 
@@ -105,12 +117,38 @@ class ProPumpInletFlashError(SaturationPressureError):
     pass
 
 
-class TESPySubZeroError(SubzeroStateVarError):
-    """Error from TESPy solver encountering non-physical negative state variable
-    
-    Typically occurs when solver_rho_Tp fails with negative molar density,
-    often caused by negative pressure input.
+# --- TESPy Error Classes ---
+# These represent errors originating from TESPy (not directly from CoolProp)
+
+
+class TESPyError(ThermodynamicError):
+    """Error originating from TESPy solver
+
+    Use this for TESPy-specific solver failures, convergence issues,
+    and other TESPy errors
     """
+
+    pass
+
+
+class TESPyCoolPropError(CoolPropError, TESPyError):
+    """Error originating from CoolProp via TESPy.
+
+    Use this when TESPy calls CoolProp internally and CoolProp raises an error.
+    The traceback will show the error propagating through TESPy from CoolProp.
+    """
+
+    pass
+
+
+class TESPySubZeroError(TESPyCoolPropError):
+    """Error from TESPy solver encountering non-physical negative state variable."""
+
+    pass
+
+
+class TESPyExcessSMolarError(TESPyCoolPropError):
+    """Error from TESPy solver encountering molar entropy."""
 
     pass
 
@@ -156,7 +194,7 @@ def check_feas_temp(te: float) -> str | None:
     return None
 
 
-def check_feas_enthalpy(h: float) -> str | None:
+def check_feas_enthalpy(_h: float) -> str | None:
     """Check that specific enthalpy is non-negative
 
     # Arguments:
@@ -168,7 +206,7 @@ def check_feas_enthalpy(h: float) -> str | None:
     return None
 
 
-def check_feas_entropy(s: float) -> str | None:
+def check_feas_entropy(_s: float) -> str | None:
     """Check that specific entropy is non-negative
 
     # Arguments:
@@ -190,10 +228,10 @@ P_SAT_ERR_TEST = re.compile(
 
 
 # Matches TESPy solver errors with non-physical negative values
-# Example: "solver_rho_Tp was unable to find a solution for T=286.818, p=-4.14216e+07, 
-#           with guess value -17369.7 with error: The molar density of -17369.665904 mol/m3 
+# Example: "solver_rho_Tp was unable to find a solution for T=286.818, p=-4.14216e+07,
+#           with guess value -17369.7 with error: The molar density of -17369.665904 mol/m3
 #           is below the minimum of 0.000000 mol/m3"
-TESPY_SUBZERO_ERR_TEST = re.compile(
+SUBZERO_DNSTY_ERR_TEST = re.compile(
     r"solver_rho_Tp was unable to find a solution.*"
     + r"is below the minimum of 0\.0+ mol/m3",
 )
@@ -281,11 +319,12 @@ class Validator(ABC):
 
         if len(self.val_dict) != len(used_dict):
             raise NameError(
-                f"\nInvalid variables in {self.val_file}:\n{set(self.val_dict.keys()) - set(used_dict.keys())}",
+                f"\nInvalid variables in {self.val_file}:" +
+                    f"\n{set(self.val_dict.keys()) - set(used_dict.keys())}",
             )
 
         if len(errors) > 0:
             raise ValidationError(f"\nmodule id: {self.id}\n\t" + "\n\t".join(errors))
 
         if len(warnings) > 0:
-            logging.warning(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))
+            logging.warning(f"\nmodule id: {self.id}\n\t" + "\n\t".join(warnings))  # noqa: LOG015

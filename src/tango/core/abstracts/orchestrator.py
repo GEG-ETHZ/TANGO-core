@@ -180,9 +180,10 @@ class UnitManager(ABC):
             )
             raise new_err from cpe
         except Exception as err:
+            # Include original error message so it appears in the final traceback
             raise type(err)(
-                f"\n\tunit: {node['id']}"
-            ) from err
+                f"{err}"
+            )
 
         node["visited"] = True
 

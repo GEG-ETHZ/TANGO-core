@@ -23,6 +23,7 @@ from tango.core.errors import (
     ProPumpInletFlashError,
     ComponentError,
     MultiError,
+    TESPyError,
     P_SAT_ERR_TEST,
 )
 from tango.core.config import SYSTEM_OPTIONS, DATETIME_FMT
@@ -1551,19 +1552,22 @@ def check_complex_err(
         # TODO: check target_extraction_pressure w.r.t. to p_sat
 
     else:
-        raise MultiError(
-            "\n\tThe overall system cannot accommodate this mass flow rate"
-            + "\n\tTry the following"
-            + "\n\t- reducing flow resistance of multiple components, by e.g.:"
-            + "\n\t\t- increasing pipe or wellbore diameters"
-            + "\n\t\t- reducing well spacing"
-            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
-            + "\n\t\t\t- `surface`"
-            + "\n\t\t\t- `injection_well`"
-            + "\n\t\t\t- `production_well`"
-            + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
-            + "\n\t\t- checking that reservoir permeability is typed correctly"
-            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
-            + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
-            + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
-        ) from cpe
+        if isinstance(cpe, TESPyError):
+            raise type(cpe)(cpe)
+        else:
+            raise MultiError(
+                "\n\tThe overall system cannot accommodate this mass flow rate"
+                + "\n\tTry the following"
+                + "\n\t- reducing flow resistance of multiple components, by e.g.:"
+                + "\n\t\t- increasing pipe or wellbore diameters"
+                + "\n\t\t- reducing well spacing"
+                + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
+                + "\n\t\t\t- `surface`"
+                + "\n\t\t\t- `injection_well`"
+                + "\n\t\t\t- `production_well`"
+                + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
+                + "\n\t\t- checking that reservoir permeability is typed correctly"
+                + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
+                + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
+                + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
+            ) from cpe

@@ -1,38 +1,44 @@
+from copy import copy
 from dataclasses import dataclass
-import yaml
 from pathlib import Path
+
+import numpy as np
 from tespy.components import (
+    Compressor,
+    CycleCloser,
+    DropletSeparator,
+    HeatExchanger,
+    Merge,
+    SimpleHeatExchanger,
     Sink,
     Source,
     Turbine,
-    SimpleHeatExchanger,
-    Compressor,
     Valve,
-    DropletSeparator,
-    Merge,
-    HeatExchanger,
-    CycleCloser
 )
 from tespy.connections import Connection
 from tespy.networks import Network
-import numpy as np
 import CoolProp as CP
-from copy import copy
 
-from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.constants import BAR_TO_MPA, C_TO_K, K_TO_C, MPA_TO_PA, PA_TO_BAR
+from tango.core.errors import (
+    EXCESS_SMOLAR_TEST,
+    SUBZERO_DNSTY_ERR_TEST,
+    TESPySubZeroError,
+    TESPyExcessSMolarError,
+    Validator,
+)
 from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
-from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
-from tango.core.errors import Validator, TESPySubZeroError, TESPY_SUBZERO_ERR_TEST
+from tango.units.dataclasses import CommonSpecs
+from tango.units.native.surface.base import SurfaceUnitNative
 
 
 @dataclass
 class SurfaceSpecsFlexiblePP(CommonSpecs):
-
-    pipe_diameter: float = None
-    approach_temperature: float = None
+    # `None` is a placeholder to prevent inheritance issues
+    pipe_diameter: float | None = None
+    approach_temperature: float | None = None
     epsilon: float = 55.e-6
     temperature_range: float = 0.0
 
@@ -139,14 +145,36 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         try:
             self.power_plant.network.solve('design')
         except ValueError as err:
-            if TESPY_SUBZERO_ERR_TEST.search(str(err)) is not None:
+            # Get component diagnostics before raising
+            # Include traceback so we can identify e.g. compressor from the stack
+            import traceback
+            err_str = str(err)
+            tb_str = traceback.format_exc()
+            diagnostics = self.power_plant.get_failed_component_diagnostics(tb_str)
+
+            if SUBZERO_DNSTY_ERR_TEST.search(err_str) is not None:
                 raise TESPySubZeroError(
                     f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
                     f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
                     f"\n\t{err}"
-                    f"\n\tunit: surface"
+                    f"{diagnostics}"
                 ) from err
-            raise
+
+            if EXCESS_SMOLAR_TEST.search(str(err)):
+                raise TESPyExcessSMolarError(
+                    f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
+                    f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
+                    f"\n\t{err}"
+                    f"{diagnostics}"
+                ) from err
+
+            # Re-raise with diagnostics for other ValueErrors
+            raise ValueError(
+                f"TESPy network.solve('design') failed"
+                f"\n\t{err}"
+                f"{diagnostics}"
+                f"\n\tunit: surface"
+            ) from err
         outlet_state = self.power_plant.get_outlet_conditions()
         self.w_net = self.power_plant.calculate_net_power()
 
@@ -875,3 +903,124 @@ class PowerPlant:
                 break  # Exit after finding the outlet
 
         return outlet_conditions
+
+    def get_failed_component_diagnostics(self, error_msg: str) -> str:
+        """Extract diagnostic info for the component that failed during TESPy solve.
+        
+        Parses the error message to identify the failed component, then extracts:
+        - Component name and type
+        - Inlet state (P, T, h, s if available)
+        - Outlet state (P, T, h, s if available)
+        - Upstream and downstream component names
+        
+        Args:
+            error_msg: The error message string from TESPy
+            
+        Returns:
+            Formatted diagnostic string for error reporting
+        """
+        lines = []
+        
+        # Try to identify failed component from common TESPy error patterns
+        # TESPy errors often mention the component label in the traceback
+        failed_comp_name = None
+        failed_comp = None
+        
+        for comp_name, comp in self.nodes.items():
+            # Check if component name appears in error
+            if comp_name in error_msg or (hasattr(comp, 'label') and comp.label in error_msg):
+                failed_comp_name = comp_name
+                failed_comp = comp
+                break
+        
+        # If no specific component found, try to identify from component type in traceback
+        if failed_comp is None:
+            comp_type_map = {
+                'compressor': ['pump1', 'pump2'],
+                'turbine': ['turbine1', 'turbine2'],
+                'valve': ['valve1', 'valve2'],
+            }
+            for comp_type, candidates in comp_type_map.items():
+                if comp_type.lower() in error_msg.lower():
+                    # Report on all candidates of this type
+                    for cand_name in candidates:
+                        if cand_name in self.nodes:
+                            failed_comp_name = cand_name
+                            failed_comp = self.nodes[cand_name]
+                            break
+                    break
+        
+        if failed_comp is None:
+            lines.append("\n\tFailed component: Could not identify from error message")
+            lines.append(f"\n\tKnown components: {list(self.nodes.keys())}")
+        else:
+            lines.append(f"\n\tFailed component: {failed_comp_name} ({type(failed_comp).__name__})")
+        
+        # Get upstream and downstream components
+        upstream = []
+        downstream = []
+        for conn in self.connections:
+            if failed_comp_name:
+                if conn.target.label == failed_comp_name:
+                    upstream.append(conn.source.label)
+                if conn.source.label == failed_comp_name:
+                    downstream.append(conn.target.label)
+        
+        if upstream:
+            lines.append(f"\n\tUpstream: {', '.join(upstream)}")
+        if downstream:
+            lines.append(f"\n\tDownstream: {', '.join(downstream)}")
+        
+        # Extract state for failed component (and candidates if type-based match)
+        components_to_report = []
+        if failed_comp_name:
+            components_to_report.append(failed_comp_name)
+        
+        # Also report on related pumps if this is a compressor error
+        if 'compressor' in error_msg.lower():
+            for name in ['pump1', 'pump2']:
+                if name in self.nodes and name not in components_to_report:
+                    components_to_report.append(name)
+        
+        for comp_name in components_to_report:
+            comp = self.nodes.get(comp_name)
+            if comp is None:
+                continue
+                
+            lines.append(f"\n\t--- {comp_name} state ---")
+            
+            # Inlet state
+            inlets = getattr(comp, 'inl', [])
+            for idx, inlet in enumerate(inlets):
+                try:
+                    p_val = inlet.p.val if hasattr(inlet.p, 'val') else inlet.p
+                    t_val = inlet.T.val if hasattr(inlet.T, 'val') else inlet.T
+                    h_val = inlet.h.val if hasattr(inlet.h, 'val') else inlet.h
+                    s_val = getattr(inlet, 's', None)
+                    s_str = f", s={s_val.val:.3f}" if s_val and hasattr(s_val, 'val') else ""
+                    x_val = getattr(inlet, 'x', None)
+                    x_str = f", x={x_val.val:.3f}" if x_val and hasattr(x_val, 'val') else ""
+                    lines.append(
+                        f"\n\t  Inlet-{idx+1}: P={p_val:.3f} bar, T={t_val:.1f} °C, h={h_val:.1f} kJ/kg{s_str}{x_str}"
+                    )
+                except Exception as e:
+                    lines.append(f"\n\t  Inlet-{idx+1}: Could not read state ({e})")
+            
+            # Outlet state
+            outlets = getattr(comp, 'outl', [])
+            for idx, outlet in enumerate(outlets):
+                try:
+                    p_val = outlet.p.val if hasattr(outlet.p, 'val') else outlet.p
+                    t_val = outlet.T.val if hasattr(outlet.T, 'val') else outlet.T
+                    h_val = outlet.h.val if hasattr(outlet.h, 'val') else outlet.h
+                    s_val = getattr(outlet, 's', None)
+                    s_str = f", s={s_val.val:.3f}" if s_val and hasattr(s_val, 'val') else ""
+                    x_val = getattr(outlet, 'x', None)
+                    x_str = f", x={x_val.val:.3f}" if x_val and hasattr(x_val, 'val') else ""
+                    lines.append(
+                        f"\n\t  Outlet-{idx+1}: P={p_val:.3f} bar, T={t_val:.1f} °C, h={h_val:.1f} kJ/kg{s_str}{x_str}"
+                    )
+                except Exception as e:
+                    lines.append(f"\n\t  Outlet-{idx+1}: Could not read state ({e})")
+        
+        return ''.join(lines)
