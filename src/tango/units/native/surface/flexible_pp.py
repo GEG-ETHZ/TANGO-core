@@ -150,7 +150,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
             import traceback
             err_str = str(err)
             tb_str = traceback.format_exc()
-            diagnostics = self.power_plant.get_failed_component_diagnostics(tb_str)
+            diagnostics = self.power_plant.get_surface_diagnostics(tb_str)
 
             if SUBZERO_DNSTY_ERR_TEST.search(err_str) is not None:
                 raise TESPySubZeroError(
@@ -904,14 +904,13 @@ class PowerPlant:
 
         return outlet_conditions
 
-    def get_failed_component_diagnostics(self, error_msg: str) -> str:
-        """Extract diagnostic info for the component that failed during TESPy solve.
+    def get_surface_diagnostics(self, error_msg: str) -> str:
+        """Extract diagnostic info for the surface power plant during TESPy solve failure.
         
-        Parses the error message to identify the failed component, then extracts:
-        - Component name and type
-        - Inlet state (P, T, h, s if available)
-        - Outlet state (P, T, h, s if available)
-        - Upstream and downstream component names
+        Shows:
+        - Graph structure of the power plant network
+        - Each component's inlet and outlet pressure and temperature
+        - Identification of failed component from error message
         
         Args:
             error_msg: The error message string from TESPy
@@ -919,22 +918,89 @@ class PowerPlant:
         Returns:
             Formatted diagnostic string for error reporting
         """
+        import math
         lines = []
         
-        # Try to identify failed component from common TESPy error patterns
-        # TESPy errors often mention the component label in the traceback
-        failed_comp_name = None
-        failed_comp = None
+        # --- Section 1: Graph structure ---
+        lines.append("\n\t=== Power Plant Graph ===")
+        # Build adjacency from connections
+        edges = []
+        for conn in self.connections:
+            src = conn.source.label
+            tgt = conn.target.label
+            edges.append((src, tgt))
+        
+        # Text-based graph: list edges grouped by source
+        from collections import defaultdict
+        adj = defaultdict(list)
+        for src, tgt in edges:
+            adj[src].append(tgt)
+        
+        # Find starting nodes (sources with no incoming edges)
+        all_targets = {tgt for _, tgt in edges}
+        all_sources = {src for src, _ in edges}
+        start_nodes = all_sources - all_targets
+        
+        # Build ASCII graph representation
+        lines.append("\n\t[Flow Structure]")
+        visited = set()
+        
+        def format_node_flow(node: str, depth: int = 0) -> None:
+            """Recursively format node and its downstream connections."""
+            if node in visited:
+                return
+            visited.add(node)
+            indent = "\t" + "  " * depth
+            downstream = adj.get(node, [])
+            if downstream:
+                for i, tgt in enumerate(downstream):
+                    connector = "├─>" if i < len(downstream) - 1 else "└─>"
+                    lines.append(f"\n{indent}{node} {connector} {tgt}")
+                    format_node_flow(tgt, depth + 1)
+            elif node not in adj:
+                lines.append(f"\n{indent}{node} (terminal)")
+        
+        for start in sorted(start_nodes):
+            format_node_flow(start)
+        
+        # --- Section 2: Component states ---
+        lines.append("\n\n\t=== Component States (P, T) ===")
+        
+        def get_pt_str(port) -> str:
+            """Extract P and T from a port, return formatted string."""
+            try:
+                p_val = port.p.val if hasattr(port.p, 'val') else port.p
+                t_val = port.T.val if hasattr(port.T, 'val') else port.T
+                p_str = f"{p_val:.2f}" if not math.isnan(p_val) else "nan"
+                t_str = f"{t_val:.1f}" if not math.isnan(t_val) else "nan"
+                return f"P={p_str} bar, T={t_str} °C"
+            except Exception:
+                return "P=?, T=?"
         
         for comp_name, comp in self.nodes.items():
-            # Check if component name appears in error
+            comp_type = type(comp).__name__
+            lines.append(f"\n\t{comp_name} ({comp_type}):")
+            
+            # Inlets
+            inlets = getattr(comp, 'inl', [])
+            for idx, inlet in enumerate(inlets):
+                lines.append(f"\n\t  in{idx+1}:  {get_pt_str(inlet)}")
+            
+            # Outlets
+            outlets = getattr(comp, 'outl', [])
+            for idx, outlet in enumerate(outlets):
+                lines.append(f"\n\t  out{idx+1}: {get_pt_str(outlet)}")
+        
+        # --- Section 3: Failed component identification ---
+        lines.append("\n\n\t=== Failure Analysis ===")
+        failed_comp_name = None
+        for comp_name, comp in self.nodes.items():
             if comp_name in error_msg or (hasattr(comp, 'label') and comp.label in error_msg):
                 failed_comp_name = comp_name
-                failed_comp = comp
                 break
         
-        # If no specific component found, try to identify from component type in traceback
-        if failed_comp is None:
+        if failed_comp_name is None:
+            # Try component type matching
             comp_type_map = {
                 'compressor': ['pump1', 'pump2'],
                 'turbine': ['turbine1', 'turbine2'],
@@ -942,85 +1008,23 @@ class PowerPlant:
             }
             for comp_type, candidates in comp_type_map.items():
                 if comp_type.lower() in error_msg.lower():
-                    # Report on all candidates of this type
-                    for cand_name in candidates:
-                        if cand_name in self.nodes:
-                            failed_comp_name = cand_name
-                            failed_comp = self.nodes[cand_name]
+                    for cand in candidates:
+                        if cand in self.nodes:
+                            failed_comp_name = cand
                             break
                     break
         
-        if failed_comp is None:
-            lines.append("\n\tFailed component: Could not identify from error message")
-            lines.append(f"\n\tKnown components: {list(self.nodes.keys())}")
-        else:
-            lines.append(f"\n\tFailed component: {failed_comp_name} ({type(failed_comp).__name__})")
-        
-        # Get upstream and downstream components
-        upstream = []
-        downstream = []
-        for conn in self.connections:
-            if failed_comp_name:
-                if conn.target.label == failed_comp_name:
-                    upstream.append(conn.source.label)
-                if conn.source.label == failed_comp_name:
-                    downstream.append(conn.target.label)
-        
-        if upstream:
-            lines.append(f"\n\tUpstream: {', '.join(upstream)}")
-        if downstream:
-            lines.append(f"\n\tDownstream: {', '.join(downstream)}")
-        
-        # Extract state for failed component (and candidates if type-based match)
-        components_to_report = []
         if failed_comp_name:
-            components_to_report.append(failed_comp_name)
-        
-        # Also report on related pumps if this is a compressor error
-        if 'compressor' in error_msg.lower():
-            for name in ['pump1', 'pump2']:
-                if name in self.nodes and name not in components_to_report:
-                    components_to_report.append(name)
-        
-        for comp_name in components_to_report:
-            comp = self.nodes.get(comp_name)
-            if comp is None:
-                continue
-                
-            lines.append(f"\n\t--- {comp_name} state ---")
-            
-            # Inlet state
-            inlets = getattr(comp, 'inl', [])
-            for idx, inlet in enumerate(inlets):
-                try:
-                    p_val = inlet.p.val if hasattr(inlet.p, 'val') else inlet.p
-                    t_val = inlet.T.val if hasattr(inlet.T, 'val') else inlet.T
-                    h_val = inlet.h.val if hasattr(inlet.h, 'val') else inlet.h
-                    s_val = getattr(inlet, 's', None)
-                    s_str = f", s={s_val.val:.3f}" if s_val and hasattr(s_val, 'val') else ""
-                    x_val = getattr(inlet, 'x', None)
-                    x_str = f", x={x_val.val:.3f}" if x_val and hasattr(x_val, 'val') else ""
-                    lines.append(
-                        f"\n\t  Inlet-{idx+1}: P={p_val:.3f} bar, T={t_val:.1f} °C, h={h_val:.1f} kJ/kg{s_str}{x_str}"
-                    )
-                except Exception as e:
-                    lines.append(f"\n\t  Inlet-{idx+1}: Could not read state ({e})")
-            
-            # Outlet state
-            outlets = getattr(comp, 'outl', [])
-            for idx, outlet in enumerate(outlets):
-                try:
-                    p_val = outlet.p.val if hasattr(outlet.p, 'val') else outlet.p
-                    t_val = outlet.T.val if hasattr(outlet.T, 'val') else outlet.T
-                    h_val = outlet.h.val if hasattr(outlet.h, 'val') else outlet.h
-                    s_val = getattr(outlet, 's', None)
-                    s_str = f", s={s_val.val:.3f}" if s_val and hasattr(s_val, 'val') else ""
-                    x_val = getattr(outlet, 'x', None)
-                    x_str = f", x={x_val.val:.3f}" if x_val and hasattr(x_val, 'val') else ""
-                    lines.append(
-                        f"\n\t  Outlet-{idx+1}: P={p_val:.3f} bar, T={t_val:.1f} °C, h={h_val:.1f} kJ/kg{s_str}{x_str}"
-                    )
-                except Exception as e:
-                    lines.append(f"\n\t  Outlet-{idx+1}: Could not read state ({e})")
+            lines.append(f"\n\tFailed component: {failed_comp_name}")
+            # Show upstream/downstream
+            upstream = [src for src, tgt in edges if tgt == failed_comp_name]
+            downstream = [tgt for src, tgt in edges if src == failed_comp_name]
+            if upstream:
+                lines.append(f"\n\tUpstream: {', '.join(upstream)}")
+            if downstream:
+                lines.append(f"\n\tDownstream: {', '.join(downstream)}")
+        else:
+            lines.append("\n\tFailed component: Could not identify from error message")
         
         return ''.join(lines)
+
