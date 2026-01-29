@@ -39,10 +39,6 @@ class ComponentError(ConvergenceError):
     """Specific module/component is likely source of failed convergence"""
 
 
-class MultiError(ConvergenceError):
-    """System failed to converge with no single likely cause"""
-
-
 class CoolPropError(ThermodynamicError, ValueError):
     """Error originating directly from CoolProp"""
 

@@ -166,6 +166,10 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
             "flexible_DF_manual_small_spacing.yml",
             TESPyExcessSMolarError,
         ),
+        (
+            "flexible_DF_manual_vlv2_p_out_high.yml",
+            NotImplementedError,
+        ),
     ]
     filepaths_and_err_types = [
         ((EXAMPLES_DIR / "failing" / fv[0]).resolve(), fv[1]) for fv in files_and_errors
