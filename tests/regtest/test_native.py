@@ -170,7 +170,11 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         ),
         (
             "flexible_DF_manual_vlv2_p_out_high.yml",
-            ValidationError,  # Transitive check: valve2.p_out > valve1.p_out
+            ValidationError,  # Transitive check: valve2.p_out > valve1.p_out is not allowed
+        ),
+        (
+            "flexible_DF_manual_cond2_xgt0.yml",
+            TESPyExcessSMolarError,  # vapor_mass_fraction_out=0.9 prevents condensation
         ),
     ]
     filepaths_and_err_types = [

@@ -344,6 +344,63 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         if not can_flash and not cannot_flash:
             lines.append("\n\t  (no valves have configured outlet pressures)")
 
+        # Check condensers: compare inlet vapor fraction vs configured outlet
+        condenser_issues = []
+        nodes = self.power_plant.config.get('power_plant_graph', {}).get('nodes', {})
+
+        for conn in self.power_plant.connections:
+            target_name = conn.target.label
+            node_data = nodes.get(target_name, {})
+
+            # Check if target is a condenser (SimpleHeatExchanger with Subtype=condenser)
+            if node_data.get('type') != 'SimpleHeatExchanger':
+                continue
+
+            comp_config = config.get(target_name, {})
+            if comp_config.get('Subtype', '').lower() != 'condenser':
+                continue
+
+            x_out_specified = comp_config.get('vapor_mass_fraction_out')
+            if x_out_specified is None:
+                continue
+
+            # Get inlet vapor fraction from TESPy connection (may not be available if solve failed)
+            try:
+                x_inlet = conn.x.val
+                has_inlet_data = x_inlet is not None and x_inlet >= 0
+            except AttributeError:
+                x_inlet = None
+                has_inlet_data = False
+
+            # Check if outlet is problematically high
+            # If we have inlet data: warn if outlet >= inlet - tolerance
+            # If no inlet data: warn if outlet > 0.5 (heuristic for "high")
+            tolerance = 0.01
+            if has_inlet_data:
+                if x_out_specified >= x_inlet - tolerance:
+                    condenser_issues.append((target_name, x_inlet, x_out_specified))
+            elif x_out_specified > 0.5:
+                # No inlet data, but high outlet is suspicious
+                condenser_issues.append((target_name, None, x_out_specified))
+
+        if condenser_issues:
+            lines.append("\n\t=== Condenser Configuration Warning ===")
+            for comp_name, x_in, x_out in condenser_issues:
+                if x_in is not None:
+                    lines.append(
+                        f"\n\t  ⚠ {comp_name}: inlet x={x_in:.2f}, "
+                        f"vapor_mass_fraction_out={x_out:.2f} (minimal/no condensation)"
+                    )
+                else:
+                    lines.append(
+                        f"\n\t  ⚠ {comp_name}: vapor_mass_fraction_out={x_out:.2f} "
+                        "(unusually high, may prevent condensation)"
+                    )
+            lines.append(
+                "\n\tHigh vapor_mass_fraction_out means minimal/no condensation. "
+                "Reduce vapor_mass_fraction_out (e.g., 0 for full condensation)."
+            )
+
         return ''.join(lines)
 
 
