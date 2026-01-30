@@ -199,7 +199,7 @@ class FlowRateCalculator:
             if hasattr(self.surface, 'condensation_pressure'):
                 self.test_p = max(self.test_p, self.surface.condensation_pressure)
 
-            if(self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
+            if (self.reservoir.__class__.__name__ != 'ReservoirFileReaderUnit'):
                 # Update reservoir
                 if (self.reservoir.specs.mass_rate['type'] == 'automatic'):
                     if self.specs.time_type == 'HotmapsDispatchDT':

@@ -25,6 +25,7 @@ from tango.core.errors import (
     SUBZERO_DNSTY_ERR_TEST,
     TESPySubZeroError,
     TESPyExcessSMolarError,
+    ValidationError,
     Validator,
 )
 from tango.core.fluidstate import FluidState
@@ -93,6 +94,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         self.current_row = 0
         self.prod_pump_w_list = []
         self.init_stream_interface()
+        self.validate_pressure_monotonicity(specs)
         self.power_plant = PowerPlant(self.specs)
 
     def _filter_power_plant_graph(self, specs: dict):
@@ -108,6 +110,78 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
                 filtered_specs[node] = specs[node]
 
         return filtered_specs
+
+    def validate_pressure_monotonicity(self, specs: dict) -> None:
+        """Validate p_out values for physical consistency.
+
+        Performs transitive checking: for each component with p_out, traces
+        upstream through the graph and verifies p_out decreases along flow
+        direction (stopping at pump/compressor boundaries).
+
+        Raises:
+            ValidationError: If pressure configuration is physically invalid.
+        """
+        pp_graph = specs.get("power_plant_graph", {})
+        edges = pp_graph.get("edges", {})
+        nodes = pp_graph.get("nodes", {})
+
+        # Collect p_out values (bar) from component configs
+        p_out_values: dict[str, float] = {}
+        for comp_name in nodes.keys():
+            comp_config = specs.get(comp_name, {})
+            if isinstance(comp_config, dict) and "p_out" in comp_config:
+                p_out_values[comp_name] = comp_config["p_out"]
+
+        # Components that increase pressure by design
+        pressure_increasing_types = {"Pump", "Compressor"}
+
+        # Build reverse adjacency: target -> list of sources (upstream)
+        upstream_map: dict[str, list[str]] = {}
+        for edge_data in edges.values():
+            src, tgt = edge_data.get("source"), edge_data.get("target")
+            if tgt not in upstream_map:
+                upstream_map[tgt] = []
+            upstream_map[tgt].append(src)
+
+        def find_upstream_p_out(node: str, visited: set[str]) -> list[tuple[str, float]]:
+            """Find all upstream components with p_out, stopping at pumps/compressors."""
+            if node in visited:
+                return []
+            visited.add(node)
+
+            results: list[tuple[str, float]] = []
+            for upstream in upstream_map.get(node, []):
+                upstream_type = nodes.get(upstream, {}).get("type", "")
+                # Stop at pressure-increasing components (they reset pressure context)
+                if upstream_type in pressure_increasing_types:
+                    continue
+                # If upstream has p_out, record it
+                if upstream in p_out_values:
+                    results.append((upstream, p_out_values[upstream]))
+                # Continue tracing further upstream
+                results.extend(find_upstream_p_out(upstream, visited))
+            return results
+
+        errors: list[str] = []
+
+        # For each component with p_out, check against all upstream p_out values
+        for comp_name, comp_p_out in p_out_values.items():
+            comp_type = nodes.get(comp_name, {}).get("type", "")
+            # Skip if this component increases pressure
+            if comp_type in pressure_increasing_types:
+                continue
+            upstream_pressures = find_upstream_p_out(comp_name, set())
+            for upstream_name, upstream_p_out in upstream_pressures:
+                if comp_p_out > upstream_p_out:
+                    errors.append(
+                        f"{comp_name}.p_out ({comp_p_out} bar) > "
+                        f"{upstream_name}.p_out ({upstream_p_out} bar)"
+                    )
+
+        if errors:
+            raise ValidationError(
+                "Invalid power plant pressure configuration:\n\t" + "\n\t".join(errors)
+            )
 
     def init_stream_interface(self, P: float = None, T: float = None) -> None:
         """

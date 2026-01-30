@@ -13,8 +13,10 @@ import pytest
 from tango.runner import Runner
 from tango.core.errors import (
      ComponentError,
-     MultiError,
+     SaturationPressureError,
+     SubzeroPressureError,
      TESPyExcessSMolarError,
+     ValidationError,
 )
 
 
@@ -160,7 +162,7 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         ),
         (
             "flexible_SF_manual_excess_mflow.yml",
-            MultiError,
+            SubzeroPressureError,
         ),
         (
             "flexible_DF_manual_small_spacing.yml",
@@ -168,7 +170,7 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         ),
         (
             "flexible_DF_manual_vlv2_p_out_high.yml",
-            NotImplementedError,
+            ValidationError,  # Transitive check: valve2.p_out > valve1.p_out
         ),
     ]
     filepaths_and_err_types = [
