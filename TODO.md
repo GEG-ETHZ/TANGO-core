@@ -1,4 +1,5 @@
 # Idea for making graph network more human readable
+Consider doing this
 
 ## Compact Format
 
