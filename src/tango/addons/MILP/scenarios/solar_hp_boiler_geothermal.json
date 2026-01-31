@@ -1,0 +1,91 @@
+{
+    "name": "Solar, Air HP, Gas Boiler & Geothermal Mix",
+    "description": "Mixed scenario with solar thermal, air-source heat pump, natural gas boiler, and geothermal with piecewise performance from SF_performance_curve",
+    "opt_mode": "dispatch",
+    "demand": {
+        "file": "demand_profile_AT.csv",
+        "annual_total_mwh": 65000
+    },
+    "technologies": [
+        {
+            "name": "Geothermal",
+            "installed_capacity": 14.20242032600458,
+            "min_generation": 0.0,
+            "max_generation": 14.20242032600458,
+            "SpCC": 3450561.4446099554,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 1.1,
+            "coldstart_cost": 1000.0,
+            "energy_carrier_price": "electricity_price",
+            "emission_factor": 0.243,
+            "lifetime": 20,
+            "efficiency": null,
+            "piecewise_file": "SF_geothermal_performance.csv",
+            "sale_electricity_price": "electricity_price"
+        },
+        {
+            "name": "Solar Thermal",
+            "installed_capacity": 12.0,
+            "min_generation": 0.0,
+            "max_generation": 12.0,
+            "SpCC": 400000.0,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 0.1,
+            "coldstart_cost": 0.0,
+            "energy_carrier_price": 0.0,
+            "emission_factor": 0.0,
+            "efficiency": 0.5,
+            "lifetime": 25,
+            "radiation_dependent": true
+        },
+        {
+            "name": "Heat Pump Air",
+            "installed_capacity": 8.0,
+            "min_generation": 0.5,
+            "max_generation": 8.0,
+            "SpCC": 800000.0,
+            "OPEX_fix": 2000.0,
+            "OPEX_var": 0.5,
+            "coldstart_cost": 200.0,
+            "energy_carrier_price": "electricity_price",
+            "emission_factor": 0.243,
+            "efficiency": 3.5,
+            "lifetime": 20,
+            "heat_pump_type": "air",
+            "cop_nominal": 3.5,
+            "source_temp_nominal": 7.0,
+            "flow_temp_nominal": 90.0,
+            "return_temp_nominal": 60.0,
+            "cop_sensitivity_source": 0.03,
+            "cop_sensitivity_flow": -0.015,
+            "cop_sensitivity_return": 0.01,
+            "min_source_temp": -15.0,
+            "fadeout_source_temp": -5.0
+        },
+        {
+            "name": "Boiler Natural Gas",
+            "installed_capacity": 15.0,
+            "min_generation": 0.0,
+            "max_generation": 15.0,
+            "SpCC": 50000.0,
+            "OPEX_fix": 1500.0,
+            "OPEX_var": 0.5,
+            "coldstart_cost": 500.0,
+            "energy_carrier_price": 50.0,
+            "emission_factor": 0.202,
+            "efficiency": 0.92,
+            "lifetime": 20
+        }
+    ],
+    "storage": {
+        "name": "Heat Storage",
+        "capacity": 10000.0,
+        "hourly_losses": 7e-06,
+        "max_discharge_rate": 3.0,
+        "max_charge_rate": 3.0,
+        "discharge_efficiency": 0.95,
+        "charge_efficiency": 0.95,
+        "investment_cost_per_capacity": 400.0,
+        "lifetime": 25
+    }
+}

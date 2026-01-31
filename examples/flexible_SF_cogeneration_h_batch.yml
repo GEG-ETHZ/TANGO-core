@@ -237,7 +237,7 @@ batch_simulation:
         value:
           min: 1
           max: 100
-          points: 10
+          points: 5
   outputs_list:
     - surface_w_net
     - production_well_pump_w_pump
@@ -245,4 +245,4 @@ batch_simulation:
     - turbine_power_T
 
   time_steps:
-    - 15
+    - 5
