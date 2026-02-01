@@ -242,6 +242,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         eta = self.specs.eta_turbine  # Turbine efficiency (-)
         X_CO2 = self._X_CO2
         self.w_turbine = X_CO2 * self.mass_rate * eta * (h_inlet - hs_outlet)
+        print('turbine outlet state:', self.condensation_pressure, self.outlet_fluid_turbine.T, self.outlet_fluid_turbine.H)
+        print('turbine work:', self.w_turbine, self.mass_rate*eta*(h_inlet-hs_outlet))
 
     def _update_condenser_state(self) -> None:
         r"""
@@ -292,6 +294,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
 
         self.outlet_fluid_cooler.updateHP(h_saturated_vapor, self.condensation_pressure)
         self.outlet_fluid_condenser.updateHP(h_condensed, self.condensation_pressure)
+        print('condenser outlet state:', self.outlet_fluid_condenser.P, self.outlet_fluid_condenser.T, self.outlet_fluid_condenser.H)
 
 
     def _update_pump_state(self) -> None:
@@ -360,6 +363,8 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             P_inj_inlet = P_pump_outlet + min(0.0, dP_pump)
             self.P_out = P_inj_inlet
             self.T_out = self.outlet_fluid_pump.T
+        print('pump outlet state:', self.P_out, self.T_out, self.outlet_fluid_pump.H)
+        print('pump work:', self.w_pump, -1.0 * X_CO2 * self.mass_rate * (h_pump_outlet - h_pump_inlet))
 
     def _update_net_state(self) -> None:
         """

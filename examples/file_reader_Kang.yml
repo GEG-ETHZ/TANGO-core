@@ -59,8 +59,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 25000000
   over_pressure_percentage: 10
-  inlet_state: 'examples/complex_cpg_inlet.csv'
-  outlet_state:  'examples/complex_cpg_outlet.csv'
+  inlet_state: '/home/morteza/projects/TANGO/examples/Complex_cpg_inlet.csv'
+  outlet_state:  '/home/morteza/projects/TANGO/examples/Complex_cpg_outlet.csv'
 
 injection_well:
   well_length: 2500. # m
