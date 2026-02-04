@@ -2,6 +2,10 @@
 [MR #40](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/40)
 - [ ] ...
 
+# TODO Items
+- [ ] restore and update [GUIDELINES.md](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md?ref_type=heads)
+
+
 # Idea for making graph network more human readable
 Consider doing this
 
