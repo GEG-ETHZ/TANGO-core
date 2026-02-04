@@ -1,0 +1,4 @@
+[editor.file-picker]
+# hidden = false  # Show hidden files
+# follow-symlinks = true
+# git-ignore = false  # Ignore .gitignore rules

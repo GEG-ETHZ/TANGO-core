@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from datetime import datetime
 from typing import Any, cast
 
 import numpy as np
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 from tqdm import tqdm
 
 from tango import utils
@@ -19,14 +20,13 @@ from tango.core.errors import (
     P_SAT_ERR_TEST,
     ComponentError,
     CoolPropError,
-    MultiError,
     ProPumpInletFlashError,
     SaturationPressureError,
 )
 from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
-from tango.orchestrators import SystemCPGNative, SystemNative, SystemORCNative  # noqa: F401
-from tango.orchestrators.external import SystemExternal  # noqa: F401
+from tango.orchestrators import SystemCPGNative, SystemNative, SystemORCNative  # noqa: F401  # noqa: F401
+from tango.orchestrators.external import SystemExternal  # noqa: F401  # noqa: F401
 from tango.parameter_mappings import (
     TARGET_PARAMETER_MAPPING,
     VARIABLE_PARAMETER_MAPPING,
@@ -1883,7 +1883,7 @@ def get_dp_and_flow_res(
 
 
 def check_complex_err(
-    unit,
+    unit_search,
     p_simple_inst_dict: dict[str, SimplePressureDrop],
     mdot: float,
     state_ad_hoc: FluidState,
@@ -1898,6 +1898,14 @@ def check_complex_err(
     # - `mdot`: mass flow rate [kg/s]
 
     """
+
+    if not isinstance(cpe, SaturationPressureError) and P_SAT_ERR_TEST.search(str(cpe)) is not None:
+        # Convert CoolPropError to SaturationPressureError while preserving context
+        try:
+            raise SaturationPressureError(cpe) from cpe
+        except SaturationPressureError as spe:
+            cpe = spe
+
     # module names and corresponding pipe diameters
     diameters: dict[str, float] = {}
     for k, v in p_simple_inst_dict.items():
@@ -1950,8 +1958,8 @@ def check_complex_err(
     else:
         raise Exception("Should be unreachable.  Notify TANGO team")
 
-    dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_flow_res(
-        unit,
+    _dp_dict, flow_res_dict, _opt_inlet_bcs, _act_inlet_bcs = get_dp_and_flow_res(
+        unit_search,
         p_simple_inst_dict,
         mdot,
         state_ad_hoc,
@@ -1990,25 +1998,31 @@ def check_complex_err(
             )
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance, by e.g.:"
-            + "\n\t\t- increasing pipe diameter"
-            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`"
-            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
+            + "\n\t\t- increasing pipe or wellbore diameter"
+            + "\n\t\t- reducing pipe or wellbore interior surface roughness, `epsilon`"
+            + "\n\t\t- checking that reservoir permeability is typed correctly",
+            # + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
         ) from cpe
 
         # TODO: check target_extraction_pressure w.r.t. to p_sat
 
     else:
-        raise MultiError(
-            "\n\tThe overall system cannot accommodate this mass flow rate"
+        unit_search = re.search(r"unit: (\w+)", str(cpe))
+        if unit_search:
+            unit_str = unit_search[1]
+        raise type(cpe)(
+            f"\n\tThe overall system has a non-specific error arising in:\n\tunit: {unit_str}"
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance of multiple components, by e.g.:"
-            + "\n\t\t- increasing pipe diameters"
+            + "\n\t\t- increasing pipe or wellbore diameters"
             + "\n\t\t- reducing well spacing"
             + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
             + "\n\t\t\t- `surface`"
             + "\n\t\t\t- `injection_well`"
             + "\n\t\t\t- `production_well`"
             + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
+            + "\n\t\t- checking that reservoir permeability is typed correctly"
             + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
+            + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe

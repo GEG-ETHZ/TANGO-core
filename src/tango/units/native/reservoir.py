@@ -3,9 +3,10 @@ from math import erfc
 from math import e as exp
 from collections.abc import Callable
 from pathlib import Path
+import logging
 
 from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import Unit, SimplePressureDrop 
+from tango.core.abstracts.unit import Unit, SimplePressureDrop
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
 from tango.core.errors import CoolPropError, Validator
@@ -46,11 +47,17 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self._initialize_attributes()
         self._specs_post_processor()
         self.validate()
+        thickness_warn = self.val_dict["thickness_warn"]
+        if not (float(thickness_warn[0]) <= self.specs.thickness <= float(thickness_warn[-1])):
+            logging.warning(
+                f"Thickness ({self.specs.thicness:.3g} m) is outside expected range ({thickness_warn})"
+            )
+            logging.warning(f"This is ok if permeability ({self.permeability} m^2 is high")
         self.init_stream_interface()
-        if (self.specs.bc_iteration == None):
+        if self.specs.bc_iteration == None:
             self._thermal_depletion()
         self.current_row = 0
-        if self.specs.flow_rate_from_csv == 'yes':
+        if self.specs.flow_rate_from_csv == "yes":
             self.csv_data = self._read_csv_file()
 
     def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
@@ -95,13 +102,9 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             self.mass_rate = mass_rate
             self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"Reservoir `stream_interface` failed\n\t{cpe}"
-            )
+            raise type(cpe)(f"Reservoir `stream_interface` failed\n\t{cpe}")
         except Exception as err:
-            raise type(err)(
-                "Reservoir `stream_interface` failed"
-            ) from err
+            raise type(err)("Reservoir `stream_interface` failed") from err
 
     def process_stream(self) -> tuple[float, float, float]:
         r"""
@@ -160,7 +163,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         Notes:
             The energy dynamics are updated to account for reservoir depletion over time.
         """
-        if self.specs.flow_rate_from_csv == 'yes':
+        if self.specs.flow_rate_from_csv == "yes":
             if self.current_row < len(self.csv_data):
                 row = self.csv_data[self.current_row]
                 self.mass_rate = float(row[1])
@@ -270,7 +273,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
@@ -292,6 +295,8 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self.fluid_volume = self.specs.porosity * self.volume
         self.rock_volume = self.volume - self.fluid_volume
         self.rock_C_v = self.specs.rock_density * self.specs.rock_cp
+        # TODO: `initial_temperature` gets updated at each time step so we really
+        # need to change how this is handled
         self.initial_temperature = self._compute_initial_temperature()
         self.initial_pressure = self._compute_initial_pressure()
         self.specs.well_diameter = self.specs.well_eff_diameter
@@ -333,16 +338,16 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
                 - Defaults to 0.41 m if no values are provided.
             - Merge common and reservoir-specific specs.
         """
-        if 'well_eff_diameter' not in specs['reservoir']:
+        if "well_eff_diameter" not in specs["reservoir"]:
             val = 0.41
-            if 'injection_well' in specs:
-                if 'diameter' in specs['injection_well']:
-                    val = specs['injection_well']['diameter']
-            if 'production_well' in specs:
-                if 'diameter' in specs['production_well']:
-                    val = 0.5 * (val + specs['production_well']['diameter'])
-            specs['reservoir']['well_eff_diameter'] = val
-        return specs['common'] | specs['reservoir']
+            if "injection_well" in specs:
+                if "diameter" in specs["injection_well"]:
+                    val = specs["injection_well"]["diameter"]
+            if "production_well" in specs:
+                if "diameter" in specs["production_well"]:
+                    val = 0.5 * (val + specs["production_well"]["diameter"])
+            specs["reservoir"]["well_eff_diameter"] = val
+        return specs["common"] | specs["reservoir"]
 
     def _compute_area(self) -> float:
         r"""
@@ -358,7 +363,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             Where:
                 - \( S \): Well spacing (m).
         """
-        return 0.5 * (self.specs.well_spacing ** 2) if self.specs.area is None else self.specs.area
+        return 0.5 * (self.specs.well_spacing**2) if self.specs.area is None else self.specs.area
 
     def _compute_initial_temperature(self) -> float:
         r"""
@@ -413,7 +418,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             - Sets multiplier to 0.25 for 'INVERTED_5SPOT' well pattern.
             - Defaults to 1.0 for other patterns.
         """
-        self.m_dot_mult = 0.25 if self.well_pattern == 'INVERTED_5SPOT' else 1.0
+        self.m_dot_mult = 0.25 if self.well_pattern == "INVERTED_5SPOT" else 1.0
 
     def _set_impedance_func(self) -> None:
         """
@@ -424,7 +429,9 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         """
         # TODO: use `match` statement to control which impedance function gets used so it's
         # more obvious what options are possible here
-        self.impedance_func = getattr(self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None)
+        self.impedance_func = getattr(
+            self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None
+        )
         if self.impedance_func is None:
             raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")
 
@@ -472,7 +479,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         """
         impedance: float = (
             mu  # (Pa * s)
-                * (np.log(L / (np.e * D)) + D / L)  # non-dimensional
+            * (np.log(L / (np.e * D)) + D / L)  # non-dimensional
             / (rho * k * b * np.pi)  # (kg / m^3 * m^2 * m )
         )
         return impedance
@@ -488,10 +495,14 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             1. Compute coefficients based on reservoir and fluid properties.
             2. \( p1 \), \( p2 \), and \( p3 \) are used in the depletion curve function.
         """
-        if (self.specs.bc_iteration != None):
-            m_dot = self.mass_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.mass_rate
+        if self.specs.bc_iteration != None:
+            m_dot = self.mass_rate / 4.0 if self.well_pattern == "INVERTED_5SPOT" else self.mass_rate
         else:
-            m_dot = self.specs.mass_flow_rate / 4.0 if self.well_pattern == 'INVERTED_5SPOT' else self.specs.mass_flow_rate
+            m_dot = (
+                self.specs.mass_flow_rate / 4.0
+                if self.well_pattern == "INVERTED_5SPOT"
+                else self.specs.mass_flow_rate
+            )
 
         b = self.specs.thickness
         k_rock = self.specs.rock_k
@@ -506,7 +517,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         p1 = np.minimum(-890.97 * coeff1 - 1.30, -1.3)
         p2 = 0.4095 * np.exp(-0.7815 * p1)
-        p3 = np.clip(1 - (1.4646 * np.exp(-377.3 * coeff2)), 0., 1.)
+        p3 = np.clip(1 - (1.4646 * np.exp(-377.3 * coeff2)), 0.0, 1.0)
 
         return p1, p2, p3
 
@@ -582,7 +593,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         Notes:
             - The depletion curve models how energy extraction affects reservoir temperature dynamics.
         """
-        if (self.specs.bc_iteration != None):
+        if self.specs.bc_iteration != None:
             self._thermal_depletion()
 
         p1, p2, p3 = self.p1, self.p2, self.p3

@@ -1,7 +1,7 @@
 from tango.core.abstracts.orchestrator import UnitManager
 from tango.orchestrators.BC_calculator import FlowRateCalculator
 from tango.orchestrators.HotmapsDispatch_runner import process_yaml_and_setup_hotmaps
-from tango.units.dataclasses import DistrictHeatingSpecs
+from tango.units.dataclasses import DistrictHeatingSpecs, FlowRateCalculatorSpecs
 
 
 class SystemExternal(UnitManager):
@@ -39,10 +39,17 @@ class SystemExternal(UnitManager):
         if ((self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE') and (self.unit.surface.__class__.__name__ == 'SurfaceUnitORCNative')):
             self.unit.surface.P_out_constraint = True
 
-        self.specs3 = (self._process_specs3(specs))
+        self.flow_rate_specs = FlowRateCalculatorSpecs.from_schedule_specs(specs)
 
         if (self.unit.injection_well.__class__.__name__ != 'WellUnitMOOSE'):
-            self.flow_rate_calculator = FlowRateCalculator(self.specs3, self.unit.injection_well, self.unit.production_well, self.unit.production_well_pump, self.unit.reservoir, self.unit.surface)
+            self.flow_rate_calculator = FlowRateCalculator(
+                self.flow_rate_specs,
+                self.unit.injection_well,
+                self.unit.production_well,
+                self.unit.production_well_pump,
+                self.unit.reservoir,
+                self.unit.surface,
+            )
 
     def _process_specs2(self, specs) -> dict:
         """
@@ -65,9 +72,7 @@ class SystemExternal(UnitManager):
         """
         return specs['district_heating'] # | specs['schedule']
 
-    def _process_specs3(self, specs) -> dict:
-
-        return specs['schedule'] | specs['common']
+    # NOTE: _process_specs3 has been replaced by FlowRateCalculatorSpecs.from_schedule_specs()
 
     def update(self, funcs, results) -> None:
         """
@@ -80,7 +85,7 @@ class SystemExternal(UnitManager):
             NotImplementedError: If the surface unit or checkpoint type is unsupported.
         """
         if (self.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
-            pass # check bc_point here
+            raise NotImplementedError("Implement check bc_point here")
         else:
             if self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
 
