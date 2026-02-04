@@ -9,6 +9,7 @@ from tango.core.config import WELL_PATTERN_OPTIONS
 class BcIteration:
     check_fracing: str  # 'yes' or 'no'
     controlled_power_generation: str = "No"
+    max_mass_rate: float = 150.0
 
 
 @dataclass

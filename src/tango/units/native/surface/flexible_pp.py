@@ -65,6 +65,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         self.current_row = 0
         self.prod_pump_w_list = []
         self.init_stream_interface()
+        self.validate_pressure_monotonicity(specs)
         self.power_plant = PowerPlant(self.specs)
 
     def validate_custom(self):

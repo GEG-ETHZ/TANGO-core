@@ -1,24 +1,24 @@
-image: ubuntu:latest
+# # image: ubuntu:latest
 
 workflow:
   auto_cancel:
     on_new_commit: interruptible
 
-cache:
-  paths:
-    - .pixi/
-    - ~/.pixi/
+# cache:
+#   paths:
+#     - .pixi/
+#     - ~/.pixi/
 
 before_script:
-  - apt-get update && apt-get install -y curl
-  - |
-    if ! command -v pixi &> /dev/null; then
-      echo "Installing pixi..."
-      curl -fsSL https://pixi.sh/install.sh | bash
-    else
-      echo "Pixi already installed"
-    fi
-  - export PATH="$HOME/.pixi/bin:$PATH"
+#   - apt-get update && apt-get install -y curl
+#   - |
+#     if ! command -v pixi &> /dev/null; then
+#       echo "Installing pixi..."
+#       curl -fsSL https://pixi.sh/install.sh | bash
+#     else
+#       echo "Pixi already installed"
+#     fi
+#   - export PATH="$HOME/.pixi/bin:$PATH"
   - pixi --version
 
 stages:
@@ -28,7 +28,7 @@ test:
   stage: test
   interruptible: true
   script:
-    - pixi run test
+    - pixi run -e dev pytest
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

@@ -1,5 +1,5 @@
 # TODO
-
+- [ ] restore and update [GUIDELINES.md](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md?ref_type=heads)
 - [ ] Investigate what it would take to have round trip symmetry in writing
       `tango.specs` to a yaml file.  Right now, merged defaults would be expanded (the
       common dict gets merged with unit-specific dicts), and it may be worth trying to
