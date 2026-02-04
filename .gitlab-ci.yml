@@ -1,4 +1,4 @@
-image: ubuntu:latest
+# image: ubuntu:latest
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
