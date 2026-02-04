@@ -63,6 +63,7 @@ class Optimizer:
         self._pop_size = self.optimization_specs.pop_size
         self.variable_names = list(self.optimization_specs.variables.keys())
         self.objective_names = self.optimization_specs.targets
+        self.output_dir = os.path.dirname(os.path.abspath(tango_object.input_file))
 
     def _process_specs(self, specs) -> dict:
         """
@@ -335,7 +336,8 @@ class Optimizer:
                 self._parallel_processing,
                 self.optimization_specs,
                 self.variable_names,
-                self.objective_names
+                self.objective_names,
+                self.output_dir
             )
         else:
             optimizer = SOOOptimizer(
@@ -347,7 +349,8 @@ class Optimizer:
                 self._parallel_processing,
                 self.optimization_specs,
                 self.variable_names,
-                self.objective_names
+                self.objective_names,
+                self.output_dir
             )
 
         start = time.time()
@@ -403,7 +406,7 @@ class BaseOptimizer:
 
     """
 
-    def __init__(self, objective_func, constraints, variable_ranges, variable_types, algorithm_name, parallel_processing, optimization_specs, variable_names, objective_names):
+    def __init__(self, objective_func, constraints, variable_ranges, variable_types, algorithm_name, parallel_processing, optimization_specs, variable_names, objective_names, output_dir):
         """
         Initializes the BaseOptimizer.
 
@@ -423,6 +426,8 @@ class BaseOptimizer:
             Whether parallel processing is enabled.
         optimization_specs : object
             The specifications for the optimization process (variables, constraints, etc.).
+        output_dir : str
+            Directory for output files (logs, plots).
         """
         self.optimization_specs = optimization_specs
         self.objective_func = objective_func
@@ -435,6 +440,7 @@ class BaseOptimizer:
         self.plot_name = self.optimization_specs.plot_name
         self.variable_names = variable_names
         self.objective_names = objective_names
+        self.output_dir = output_dir
 
         if self.parallel_processing:
             self.n_processes = self.optimization_specs.n_processes
@@ -673,7 +679,7 @@ class SOOOptimizer(BaseOptimizer):
         - Optimal variables and function value.
         - Results across generations.
         """
-        log_filename = os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_log')
+        log_filename = os.path.join(self.output_dir, self.plot_name + '_log')
         with open(log_filename, 'w') as log_file:
             log_file.write("Optimal Variables:\n")
             formatted_vars = []
@@ -722,7 +728,7 @@ class SOOOptimizer(BaseOptimizer):
             plt.grid(alpha=0.5, linestyle='--')
 
         plt.tight_layout()
-        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_variables.png'), dpi=300)
+        plt.savefig(os.path.join(self.output_dir, self.plot_name + '_variables.png'), dpi=300)
 
         plt.figure(figsize=(8, 6))
         f_min_values_array = np.array(self.f_min_values)
@@ -735,7 +741,7 @@ class SOOOptimizer(BaseOptimizer):
         plt.grid(alpha=0.5, linestyle='--')
 
         plt.tight_layout()
-        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_objective.png'), dpi=300)
+        plt.savefig(os.path.join(self.output_dir, self.plot_name + '_objective.png'), dpi=300)
 
 
 class MOOOptimizer(BaseOptimizer):
@@ -938,7 +944,7 @@ class MOOOptimizer(BaseOptimizer):
         - Variable values and objective values for each solution on the Pareto front.
         - The final selected solution.
         """
-        log_filename = os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_log')
+        log_filename = os.path.join(self.output_dir, self.plot_name + '_log')
         with open(log_filename, 'w') as log_file:
             if self.x_opt is None or self.f_opt is None:
                 log_file.write("No valid optimization results to display.\n")
@@ -996,7 +1002,7 @@ class MOOOptimizer(BaseOptimizer):
             plt.legend(fontsize=12)
             plt.grid(alpha=0.5, linestyle='--')
             plt.tight_layout()
-            plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_2d.png'), dpi=300)
+            plt.savefig(os.path.join(self.output_dir, self.plot_name + '_moo_pareto_front_2d.png'), dpi=300)
 
         elif len(original_f_opt[0]) == 3:
             fig = plt.figure(figsize=(10, 8))
@@ -1013,7 +1019,7 @@ class MOOOptimizer(BaseOptimizer):
             ax.set_zlabel(self.objective_names[2], fontsize=14)
             ax.legend(fontsize=12)
             plt.tight_layout()
-            plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_moo_pareto_front_3d.png'), dpi=300)
+            plt.savefig(os.path.join(self.output_dir, self.plot_name + '_moo_pareto_front_3d.png'), dpi=300)
         else:
             print("Plotting is only supported for 2 or 3 objectives.")
 
@@ -1057,7 +1063,7 @@ class MOOOptimizer(BaseOptimizer):
         plt.legend(fontsize=12)
 
         plt.tight_layout()
-        plt.savefig(os.path.join("/Users/morteza/Documents/projects/TANGO/examples/", self.plot_name + '_hypervolume_igd.png'), dpi=300)
+        plt.savefig(os.path.join(self.output_dir, self.plot_name + '_hypervolume_igd.png'), dpi=300)
 
 
 def calculate_asf(normalized_objectives):

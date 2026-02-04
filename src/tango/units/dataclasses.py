@@ -48,8 +48,8 @@ class CommonSpecs:
     mass_rate: Optional[MassRate] = None
     target_extraction_pressure: float = 2000000
     injection_pressure: float = 2000000
-    output_table: str = 'yes'
-    power_plant_table: str = 'yes'
+    output_table: str = 'no'
+    power_plant_table: str = 'no'
     table_to_csv: str = 'no'
     bypass_file_generation: str = 'no'
     min_thermal_power: float = 0.005 # (MW)
