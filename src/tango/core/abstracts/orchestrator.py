@@ -232,15 +232,3 @@ class UnitManager(ABC):
                 self._update_node(self.graph.nodes[next_unit_id])
             current_node = self.graph.nodes[next_unit_id]
 
-    def get_val_err_with_cntxt(self, current_node, err: ValueError) -> ValueError:
-        context = (
-            "At the current mass flow rate ("
-            + f"{self.specs['common']['mass_flow_rate']} kg/s), pressure/density drop below zero "
-            + "between the following nodes:"
-            + f"\n\tcurrent component:\n\t\t{current_node['id']}"
-            + "\n\tTroubleshooting: trace back to the previous upstream pump/compressor"
-            + " to identify flow restrictions or reduce mass flow rate."
-            + "\n\n\tTODO: list upstream components and their approximate flow resistances"
-        )
-        new_err = ValueError(f"\n\n\tCoolProp message:\n\t{err}\n\t{context}")
-        return new_err
