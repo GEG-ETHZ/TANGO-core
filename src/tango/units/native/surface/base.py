@@ -73,18 +73,6 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
                 f"Surface `stream_interface` failed\n\t{err}"
             ) from err
 
-    def _get_inlet_state_context(self) -> str:
-        """Build context string with inlet state information for error messages."""
-        try:
-            p_mpa = self.inlet_fluid.P / 1e6
-            t_c = self.inlet_fluid.T - 273.15
-            return (
-                f"\n\tInlet state: P={p_mpa:.3f} MPa, T={t_c:.1f} °C"
-                f"\n\tMass rate: {self.mass_rate:.3f} kg/s"
-            )
-        except Exception:
-            return "\n\tInlet state: unavailable"
-
     def update_inlet_state(self) -> None:
         r"""
         Updates the inlet fluid state based on mass flow rate weighted averages of inlet streams.
