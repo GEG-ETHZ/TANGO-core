@@ -1,6 +1,7 @@
 import math
 import pandas as pd
 from dataclasses import dataclass, field
+import logging
 
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
@@ -393,7 +394,7 @@ class FlowRateCalculator:
                 ) from err
 
             # Update production well
-            print(
+            logging.info(
                 "Updating production well to satisfy BCs",
                 f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},",
                 f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},",
