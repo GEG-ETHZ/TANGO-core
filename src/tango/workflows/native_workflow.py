@@ -41,13 +41,13 @@ production_well = "production_well"
 production_well_pump = "production_well_pump"
 production_well_upper = "production_well_upper"
 surface = "surface"
-ordered_subsurface = [
+ordered_subsurf_outlets = [
     injection_well,
     reservoir,
     production_well,
 ]
-ordered_surface = [
-    production_well_pump,
+ordered_surface_outlets = [
+    production_well_pump,  # included here because outlet is at surface
     surface,
 ]
 
@@ -1503,12 +1503,12 @@ def check_complex_err(
     else:
         raise type(cpe)("Unable to determine location of failure from previous errors") from cpe
 
-    if cp_err_inlet in ordered_subsurface:
+    if cp_err_inlet in ordered_subsurf_outlets:
         # subset of ordered_subsurface to check
-        mod_subset = ordered_subsurface
-    elif cp_err_inlet in ordered_surface:
+        mod_subset = ordered_subsurf_outlets
+    elif cp_err_inlet in ordered_surface_outlets:
         # subset of all modules in which error can be found
-        mod_subset = ordered_surface
+        mod_subset = ordered_surface_outlets
     else:
         raise Exception("Should be unreachable.  Notify TANGO team")
 
