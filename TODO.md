@@ -7,6 +7,7 @@
 - [ ] `SimplePressureDrop` looks more like a mixin interface than a core unit abstraction. Consider moving it to a separate file for clarity.
 - [ ] src/tango/runner.py has 3 class definitions that aren't consistent and needs some architectural tweaking
 - [ ] Clean up src/tango/units/native/surface/flexible_pp.py::get_surface_diagnostics to better address separation of concerns
+- [ ] get_dp_simple, get_flow_res_per_dx and some other methods have overlapping logic, you might want to refactor to avoid repetition.
 
 # Idea for making graph network more human readable
 Consider doing this
