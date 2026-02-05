@@ -9,7 +9,7 @@ import os
 from copy import deepcopy
 from .arangodb_manager import ArangoDBManager
 
-from tango.workflows.native_workflow_err import handle_convergence_err
+from tango.workflows.native_workflow_utils import handle_convergence_err
 from tango.core.abstracts.workflow import Workflow
 from tango.orchestrators.external import SystemExternal  # noqa: F401
 from tango.orchestrators import SystemCPGNative, SystemNative, SystemORCNative  # noqa: F401
