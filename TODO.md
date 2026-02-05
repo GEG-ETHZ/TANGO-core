@@ -4,7 +4,7 @@
 
 # TODO Items
 - [ ] restore and update [GUIDELINES.md](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md?ref_type=heads)
-
+- [ ] `SimplePressureDrop` looks more like a mixin interface than a core unit abstraction. Consider moving it to a separate file for clarity.
 
 # Idea for making graph network more human readable
 Consider doing this
