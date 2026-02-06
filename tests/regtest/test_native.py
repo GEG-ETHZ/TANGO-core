@@ -109,7 +109,8 @@ def files_and_values() -> list[tuple[Path, float, float]]:
         # ("MO1.yml", 0.806, 0.002),
         # ("MO2.yml", 0.814, 0.002),
         # ("MO3.yml", 0.797, 0.002),
-        ("flexible_SF_opt_valve.yml", 0.6672682394033819, 0.001),
+        # flexible_DF_opt_valves.yml is sufficiently similar that this can be skipped
+        # ("flexible_SF_opt_valve.yml", 0.6672682394033819, 0.001),
         ("flexible_DF_opt_valves.yml", 0.5781967722329104, 0.002),
         ("flexible_CPG_hot_opt.yml", 0.3874588709391597, 0.001),
     ]
