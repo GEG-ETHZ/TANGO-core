@@ -8,6 +8,16 @@
 - [ ] src/tango/runner.py has 3 class definitions that aren't consistent and needs some architectural tweaking
 - [ ] Clean up src/tango/units/native/surface/flexible_pp.py::get_surface_diagnostics to better address separation of concerns
 - [ ] get_dp_simple, get_flow_res_per_dx and some other methods have overlapping logic, you might want to refactor to avoid repetition.
+- [ ] make it so that the following files get saved in a user-specified location:
+    - [ ] CPG_hot_opt_log
+    - [ ] CPG_hot_opt_objective.png
+    - [ ] CPG_hot_opt_variables.png
+    - [ ] DF_opt_valves_log
+    - [ ] DF_opt_valves_objective.png
+    - [ ] DF_opt_valves_variables.png
+    - [ ] SF_opt_valve_log
+    - [ ] SF_opt_valve_objective.png
+    - [ ] SF_opt_valve_variables.png
 
 # Idea for making graph network more human readable
 Consider doing this
