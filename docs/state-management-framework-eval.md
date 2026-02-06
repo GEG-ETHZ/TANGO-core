@@ -1,52 +1,20 @@
 # State Management Framework Evaluation
 
-## Framework: [Name]
+| Criteria                          | Framework 1 | Framework 2 | Framework 3 | Framework 4 |
+|-----------------------------------|-------------|-------------|-------------|-------------|
+| **Name**                          |             |             |             |             |
+| **Python Support**                |             |             |             |             |
+| **JS/TS Support**                 |             |             |             |             |
+| **Physics Modeling Adaptability** |             |             |             |             |
+| **Hierarchical State**            |             |             |             |             |
+| **Validation/Constraints**        |             |             |             |             |
+| **Time-Stepping Support**         |             |             |             |             |
+| **Visualization/Debugging**       |             |             |             |             |
+| **Performance Overhead**          |             |             |             |             |
+| **License**                       |             |             |             |             |
+| **Active Maintenance**            |             |             |             |             |
+| **Notes**                         |             |             |             |             |
 
-- **Python Support:** 
-- **JS/TS Support:** 
-- **Physics Modeling Adaptability:** 
-- **Hierarchical State:** 
-- **Validation/Constraints:** 
-- **Time-Stepping Support:** 
-- **Visualization/Debugging:** 
-- **Performance Overhead:** 
-- **License:** 
-- **Active Maintenance:** 
-- **Notes:** 
-
----
-
-## Framework: [Name]
-
-- **Python Support:** 
-- **JS/TS Support:** 
-- **Physics Modeling Adaptability:** 
-- **Hierarchical State:** 
-- **Validation/Constraints:** 
-- **Time-Stepping Support:** 
-- **Visualization/Debugging:** 
-- **Performance Overhead:** 
-- **License:** 
-- **Active Maintenance:** 
-- **Notes:** 
-
----
-
-## Framework: [Name]
-
-- **Python Support:** 
-- **JS/TS Support:** 
-- **Physics Modeling Adaptability:** 
-- **Hierarchical State:** 
-- **Validation/Constraints:** 
-- **Time-Stepping Support:** 
-- **Visualization/Debugging:** 
-- **Performance Overhead:** 
-- **License:** 
-- **Active Maintenance:** 
-- **Notes:** 
-
----
 
 ## Evaluation Criteria
 
