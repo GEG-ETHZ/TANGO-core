@@ -168,6 +168,8 @@ ignore = [
     "N807",
     "G004", # log statement uses f-string
     "N803", # allow upper case variable names
+    "G003", # logging uses `+`
+    "N807",
 ]
 
 # [tool.ruff.lint.pydocstyle]

@@ -15,6 +15,18 @@ class TangoError(Exception):
     pass
 
 
+class ThermodynamicError(TangoError):
+    """Base class for all thermodynamic property evaluation errors.
+
+    Subclasses distinguish error SOURCE:
+    - CoolPropError: error originated directly from CoolProp
+    - TESPyError: error originated from TESPy (not involving CoolProp)
+    - TESPyCoolPropError: error originated from CoolProp via TESPy
+    """
+
+    pass
+
+
 class ConvergenceError(TangoError):
     """TANGO failed to converge on a solution"""
 
@@ -27,12 +39,8 @@ class ComponentError(ConvergenceError):
     """Specific module/component is likely source of failed convergence"""
 
 
-class MultiError(ConvergenceError):
-    """System failed to converge with no single likely cause"""
-
-
-class CoolPropError(TangoError, ValueError):
-    """Error originating from CoolProp"""
+class CoolPropError(ThermodynamicError, ValueError):
+    """Error originating directly from CoolProp"""
 
     pass
 
@@ -105,6 +113,42 @@ class ProPumpInletFlashError(SaturationPressureError):
     pass
 
 
+# --- TESPy Error Classes ---
+# These represent errors originating from TESPy (not directly from CoolProp)
+
+
+class TESPyError(ThermodynamicError):
+    """Error originating from TESPy solver
+
+    Use this for TESPy-specific solver failures, convergence issues,
+    and other TESPy errors
+    """
+
+    pass
+
+
+class TESPyCoolPropError(CoolPropError, TESPyError):
+    """Error originating from CoolProp via TESPy.
+
+    Use this when TESPy calls CoolProp internally and CoolProp raises an error.
+    The traceback will show the error propagating through TESPy from CoolProp.
+    """
+
+    pass
+
+
+class TESPySubZeroError(TESPyCoolPropError):
+    """Error from TESPy solver encountering non-physical negative state variable."""
+
+    pass
+
+
+class TESPyExcessSMolarError(TESPyCoolPropError):
+    """Error from TESPy solver encountering molar entropy."""
+
+    pass
+
+
 class TangoValueError(TangoError, ValueError):
     """ValueError that needs to be handled"""
 
@@ -146,7 +190,7 @@ def check_feas_temp(te: float) -> str | None:
     return None
 
 
-def check_feas_enthalpy(h: float) -> str | None:
+def check_feas_enthalpy(_h: float) -> str | None:
     """Check that specific enthalpy is non-negative
 
     # Arguments:
@@ -158,7 +202,7 @@ def check_feas_enthalpy(h: float) -> str | None:
     return None
 
 
-def check_feas_entropy(s: float) -> str | None:
+def check_feas_entropy(_s: float) -> str | None:
     """Check that specific entropy is non-negative
 
     # Arguments:
@@ -176,6 +220,22 @@ def check_feas_entropy(s: float) -> str | None:
 P_SAT_ERR_TEST = re.compile(
     "Saturation pressure \\[.+ Pa\\] corresponding to T \\[.+ K\\] "
     + "is within 1e-4 \\% of given p \\[.+ Pa\\]",
+)
+
+
+# Matches TESPy solver errors with non-physical negative values
+# Example: "solver_rho_Tp was unable to find a solution for T=286.818, p=-4.14216e+07,
+#           with guess value -17369.7 with error: The molar density of -17369.665904 mol/m3
+#           is below the minimum of 0.000000 mol/m3"
+SUBZERO_DNSTY_ERR_TEST = re.compile(
+    r"solver_rho_Tp was unable to find a solution.*"
+    + r"is below the minimum of 0\.0+ mol/m3",
+)
+
+EXCESS_SMOLAR_TEST = re.compile(
+    "unable to solve 1phase PY flash with Tmin=\\d+\\.\\d*, Tmax=\\d+(\\.\\d*){0,1} due to error: " +
+        "HSU_P_flash_singlephase_Brent could not find a solution because Smolar \\[\\d+\\.\\d* J/mol/K] " +
+        "is above the maximum value of \\d+\\.\\d* J/mol/K",
 )
 
 

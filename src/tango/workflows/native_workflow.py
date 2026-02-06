@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -19,9 +20,9 @@ from tango.core.errors import (
     P_SAT_ERR_TEST,
     ComponentError,
     CoolPropError,
-    MultiError,
     ProPumpInletFlashError,
     SaturationPressureError,
+    TESPyError,
 )
 from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
@@ -118,11 +119,10 @@ class NativeWorkflow(Workflow):
             - Sets up diagram specifications for plotting results.
 
         """
-
         Workflow.__post_init__(self)
 
         self.start_date = datetime.strptime(
-            self.specs["schedule"]["start_date"], DATETIME_FMT
+            self.specs["schedule"]["start_date"], DATETIME_FMT,
         )
         self.dt_list = None
         self.addons_manager()
@@ -152,7 +152,7 @@ class NativeWorkflow(Workflow):
                 # Pass the modified specs (with parameter overrides) to store in database
                 self._current_user_id, self._current_simulation_id = (
                     self.arango_manager.get_current_user_and_simulation(
-                        self, self.specs
+                        self, self.specs,
                     )
                 )
                 if self._current_user_id and self._current_simulation_id:
@@ -188,20 +188,20 @@ class NativeWorkflow(Workflow):
 
         try:
             logging.debug(
-                f"Routing ArangoDB write: data_type={data_type}, step_index={step_index}"
+                f"Routing ArangoDB write: data_type={data_type}, step_index={step_index}",
             )
 
             if data_type == "main_graph":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "main_graph", self
+                    step_index, table_type, "main_graph", self,
                 )
             elif data_type == "power_plant":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "power_plant", self
+                    step_index, table_type, "power_plant", self,
                 )
             elif data_type == "phase_diagram":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "phase_diagram", self
+                    step_index, table_type, "phase_diagram", self,
                 )
             elif data_type == "economic":
                 self.arango_manager.write_economic_data(self)
@@ -287,7 +287,7 @@ class NativeWorkflow(Workflow):
                         if component_type in ["Turbine", "Compressor"]:
                             mapping_key = f"{component_name}_P"
                             mapping_value = tespy_output_mappings["P"].format(
-                                component=component_name
+                                component=component_name,
                             )
                             self.function_evaluator.variable_mapping[mapping_key] = (
                                 mapping_value
@@ -296,7 +296,7 @@ class NativeWorkflow(Workflow):
                         elif component_type in ["SimpleHeatExchanger", "HeatExchanger"]:
                             mapping_key = f"{component_name}_Q"
                             mapping_value = tespy_output_mappings["Q"].format(
-                                component=component_name
+                                component=component_name,
                             )
                             self.function_evaluator.variable_mapping[mapping_key] = (
                                 mapping_value
@@ -309,7 +309,7 @@ class NativeWorkflow(Workflow):
                             if output_attr not in ["P", "Q"]:
                                 mapping_key = f"{component_name}_{output_attr}"
                                 mapping_value = mapping_template.format(
-                                    component=component_name
+                                    component=component_name,
                                 )
                                 self.function_evaluator.variable_mapping[
                                     mapping_key
@@ -370,7 +370,7 @@ class NativeWorkflow(Workflow):
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
         self.economic.execute(
-            self.results, self.function_evaluator.evaluated_functions, self.dt_list
+            self.results, self.function_evaluator.evaluated_functions, self.dt_list,
         )
 
     def _save_results(self, current_date: datetime) -> None:
@@ -436,7 +436,7 @@ class NativeWorkflow(Workflow):
                 thermagraph_specs = ThermaGraphSpecs.from_dict(thermagraph_config)
                 setattr(self, "ThermaGraph_specs", thermagraph_specs)
                 self.addons["ThermaGraph"] = ThermaGraph_addon(
-                    merged_graph, self.results
+                    merged_graph, self.results,
                 )
                 logging.info("Addon 'ThermaGraph' initialized successfully.")
             except Exception as e:
@@ -507,14 +507,14 @@ class NativeWorkflow(Workflow):
 
         if output_table_enabled:
             logging.info(
-                f"Writing main graph data to ArangoDB for timestep {step_index}"
+                f"Writing main graph data to ArangoDB for timestep {step_index}",
             )
             self.write_to_arangodb(step_index, "main_graph", "main_graph")
             arango_data_written = True
 
         if power_plant_table_enabled:
             logging.info(
-                f"Writing power plant data to ArangoDB for timestep {step_index}"
+                f"Writing power plant data to ArangoDB for timestep {step_index}",
             )
             self.write_to_arangodb(step_index, "power_plant", "power_plant")
             arango_data_written = True
@@ -574,14 +574,14 @@ class NativeWorkflow(Workflow):
 
                 # Write the generated SVG to ArangoDB after it's created
                 logging.info(
-                    f"Writing phase diagram data to ArangoDB for timestep {step_index}"
+                    f"Writing phase diagram data to ArangoDB for timestep {step_index}",
                 )
                 self.write_to_arangodb(step_index, "phase_diagram", "phase_diagram")
                 arango_data_written = True
 
             if not self._check_timestep_files_integrity(step_index):
                 raise RuntimeError(
-                    f"File integrity check failed for timestep {step_index}"
+                    f"File integrity check failed for timestep {step_index}",
                 )
 
             if files_to_write:
@@ -590,7 +590,7 @@ class NativeWorkflow(Workflow):
                 )
             if arango_data_written:
                 logging.info(
-                    f"ArangoDB data for timestep {step_index} written successfully"
+                    f"ArangoDB data for timestep {step_index} written successfully",
                 )
 
         except Exception as e:
@@ -626,14 +626,14 @@ class NativeWorkflow(Workflow):
 
         if output_table_enabled and write_csv:
             expected_files.append(
-                os.path.join(self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv")
+                os.path.join(self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv"),
             )
 
         if power_plant_table_enabled and write_csv:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv"
-                )
+                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                ),
             )
 
         if thermagraph_svg_enabled:
@@ -648,7 +648,7 @@ class NativeWorkflow(Workflow):
             logging.warning(f"Missing files for timestep {step_index}: {missing_files}")
         else:
             logging.debug(
-                f"All expected files for timestep {step_index} are present: {expected_files}"
+                f"All expected files for timestep {step_index} are present: {expected_files}",
             )
 
     def _cleanup_timestep_files(
@@ -675,14 +675,14 @@ class NativeWorkflow(Workflow):
         if output_table_enabled and write_csv:
             files_to_cleanup.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv"
+                    self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv",
                 ),
             )
 
         if power_plant_table_enabled and write_csv:
             files_to_cleanup.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv"
+                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
                 ),
             )
 
@@ -740,20 +740,20 @@ class NativeWorkflow(Workflow):
 
         if output_table_enabled and write_csv:
             expected_files.append(
-                os.path.join(self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv")
+                os.path.join(self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv"),
             )
 
         if power_plant_table_enabled and write_csv:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv"
-                )
+                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                ),
             )
 
         if thermagraph_svg_enabled:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_thermagraph_output_{step_index}.svg"
+                    self.run_dir, f"{self.run_id}_thermagraph_output_{step_index}.svg",
                 ),
             )
 
@@ -773,7 +773,7 @@ class NativeWorkflow(Workflow):
 
         if not expected_files:
             logging.debug(
-                f"No files expected for timestep {step_index} - integrity check passed"
+                f"No files expected for timestep {step_index} - integrity check passed",
             )
             return True
 
@@ -787,12 +787,12 @@ class NativeWorkflow(Workflow):
 
         if output_table_enabled and write_csv:
             main_csv_path = os.path.join(
-                self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv"
+                self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv",
             )
             main_csv_exists = os.path.exists(main_csv_path)
             if not main_csv_exists:
                 logging.warning(
-                    f"Main CSV file missing for timestep {step_index}: {main_csv_path}"
+                    f"Main CSV file missing for timestep {step_index}: {main_csv_path}",
                 )
                 return False
 
@@ -806,13 +806,13 @@ class NativeWorkflow(Workflow):
                         pass
                 except Exception as e:
                     logging.warning(
-                        f"File {filename} exists but may not be properly closed: {e}"
+                        f"File {filename} exists but may not be properly closed: {e}",
                     )
                     missing_files.append(filename)
 
         if missing_files:
             logging.warning(
-                f"Missing or improperly closed files for timestep {step_index}: {missing_files}"
+                f"Missing or improperly closed files for timestep {step_index}: {missing_files}",
             )
             return False
 
@@ -950,7 +950,7 @@ class NativeWorkflow(Workflow):
                 disable=disable_progress,
             ):
                 self._dt_months = np.round(
-                    self.specs["schedule"]["dt_list"][i] * YEAR_TO_MONTH
+                    self.specs["schedule"]["dt_list"][i] * YEAR_TO_MONTH,
                 )
                 if (
                     type(self.orchestrator).__name__ != "SystemExternal"
@@ -960,7 +960,7 @@ class NativeWorkflow(Workflow):
                     self._native_system_iteration()
                 else:
                     self._external_system_iteration(
-                        self.function_evaluator.evaluated_functions
+                        self.function_evaluator.evaluated_functions,
                     )
 
                 self._save_results(current_date)
@@ -986,14 +986,14 @@ class NativeWorkflow(Workflow):
 
                 if (
                     getattr(
-                        self.orchestrator.unit.surface.specs, "power_plant_table", "no"
+                        self.orchestrator.unit.surface.specs, "power_plant_table", "no",
                     )
                     == "yes"
                     and self.orchestrator.unit.surface.__class__.__name__
                     == "SurfaceUnitFlexiblePP"
                 ):
                     if hasattr(
-                        self.orchestrator.unit.surface, "power_plant"
+                        self.orchestrator.unit.surface, "power_plant",
                     ) and hasattr(
                         self.orchestrator.unit.surface.power_plant,
                         "generate_output_table",
@@ -1060,7 +1060,7 @@ class NativeWorkflow(Workflow):
                     and self._current_simulation_id
                 ):
                     print(
-                        f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully"
+                        f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully",
                     )
 
             if (
@@ -1075,12 +1075,9 @@ class NativeWorkflow(Workflow):
                     self.results,
                     self.economic.specs.dt_list,
                 )
+        except TESPyError as tpe:
+            raise tpe
         except CoolPropError as cpe:
-            if (
-                not isinstance(cpe, SaturationPressureError)
-                and P_SAT_ERR_TEST.search(str(cpe)) is not None
-            ):
-                cpe = SaturationPressureError(cpe)
             self.handle_convergence_err(cpe)
 
     def generate_output_table(
@@ -1148,7 +1145,7 @@ class NativeWorkflow(Workflow):
                         else outlet_H
                     )
                     table_data.append(
-                        [source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate]
+                        [source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate],
                     )
             except AttributeError:
                 table_data.append([source, "Outlet", "Error", "Error", "Error", "N/A"])
@@ -1176,7 +1173,7 @@ class NativeWorkflow(Workflow):
                         else inlet_H
                     )
                     table_data.append(
-                        [target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate]
+                        [target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate],
                     )
             except AttributeError:
                 table_data.append([target, "Inlet", "Error", "Error", "Error", "N/A"])
@@ -1188,7 +1185,7 @@ class NativeWorkflow(Workflow):
         # Write to CSV file if requested
         if write_csv and step_index >= 0:
             csv_filename = os.path.join(
-                self.run_dir, f"{self.run_id}_{table_type}_{step_index}.csv"
+                self.run_dir, f"{self.run_id}_{table_type}_{step_index}.csv",
             )
             try:
                 with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
@@ -1273,7 +1270,7 @@ class NativeWorkflow(Workflow):
         if not (
             hasattr(self.orchestrator.unit.surface, "power_plant")
             and hasattr(
-                self.orchestrator.unit.surface.power_plant, "generate_output_table"
+                self.orchestrator.unit.surface.power_plant, "generate_output_table",
             )
         ):
             return
@@ -1358,7 +1355,7 @@ class NativeWorkflow(Workflow):
         # Write to CSV file if requested
         if write_csv and step_index >= 0:
             csv_filename = os.path.join(
-                self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv"
+                self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
             )
             try:
                 with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
@@ -1441,7 +1438,7 @@ class NativeWorkflow(Workflow):
         inputs_list = batch_config.get("inputs_list", [])
         time_steps = batch_config.get("time_steps", [])
         output_file_name = batch_config.get(
-            "output_file_name", "batch_runner_output.csv"
+            "output_file_name", "batch_runner_output.csv",
         )
 
         economic_outputs = [
@@ -1467,7 +1464,7 @@ class NativeWorkflow(Workflow):
                             current_dict = current_dict[part]
                         else:
                             print(
-                                f"  Warning: Could not access {input_param} - {part} not found"
+                                f"  Warning: Could not access {input_param} - {part} not found",
                             )
                             input_values[input_param] = None
                             break
@@ -1518,7 +1515,7 @@ class NativeWorkflow(Workflow):
                             output_values[f"{output_component}_{time_step}"] = None
                 else:
                     print(
-                        f"  Warning: {output_component} not found in simulation results"
+                        f"  Warning: {output_component} not found in simulation results",
                     )
                     for time_step in time_steps:
                         output_values[f"{output_component}_{time_step}"] = None
@@ -1582,7 +1579,7 @@ class NativeWorkflow(Workflow):
                             current_dict = current_dict[part]
                         else:
                             print(
-                                f"  Warning: Could not access {input_param} - {part} not found"
+                                f"  Warning: Could not access {input_param} - {part} not found",
                             )
                             break
                     else:
@@ -1617,12 +1614,12 @@ class NativeWorkflow(Workflow):
 
         # state for ad hoc calculations
         state_ad_hoc = FluidState.copy(
-            p_simple_inst_dict[injection_well].fluid_state_init
+            p_simple_inst_dict[injection_well].fluid_state_init,
         )
         if not state_ad_hoc.rho > 0.0:
             # should not be reachable
             raise ValueError(
-                "`state_ad_hoc` should have been updated.  Report this error to TANGO team."
+                "`state_ad_hoc` should have been updated.  Report this error to TANGO team.",
             )
 
         check_complex_err(
@@ -1641,7 +1638,7 @@ def get_dp_and_flow_res(
     mdot: float,
     state_ad_hoc: FluidState,
 ) -> tuple[
-    dict[str, float], dict[str, float], dict[str, InletBCs], dict[str, InletBCs | None]
+    dict[str, float], dict[str, float], dict[str, InletBCs], dict[str, InletBCs | None],
 ]:
     """Get module-wise estimated pressure drop for a given mass flow rate
 
@@ -1883,7 +1880,7 @@ def get_dp_and_flow_res(
 
 
 def check_complex_err(
-    unit,
+    unit_search,
     p_simple_inst_dict: dict[str, SimplePressureDrop],
     mdot: float,
     state_ad_hoc: FluidState,
@@ -1898,6 +1895,13 @@ def check_complex_err(
     # - `mdot`: mass flow rate [kg/s]
 
     """
+    if not isinstance(cpe, SaturationPressureError) and P_SAT_ERR_TEST.search(str(cpe)) is not None:
+        # Convert CoolPropError to SaturationPressureError while preserving context
+        try:
+            raise SaturationPressureError(cpe) from cpe
+        except SaturationPressureError as spe:
+            cpe = spe
+
     # module names and corresponding pipe diameters
     diameters: dict[str, float] = {}
     for k, v in p_simple_inst_dict.items():
@@ -1924,7 +1928,7 @@ def check_complex_err(
     if f"unit: {injection_well}" in str(cpe):
         cp_err_inlet = injection_well
     elif f"unit: {production_well_pump}" in str(
-        cpe
+        cpe,
     ) or f"unit: {production_well_upper}" in str(cpe):
         # must be checked before "production_well"
         cp_err_inlet = production_well_pump
@@ -1938,7 +1942,7 @@ def check_complex_err(
         cp_err_inlet = surface
     else:
         raise type(cpe)(
-            "Unable to determine location of failure from previous errors"
+            "Unable to determine location of failure from previous errors",
         ) from cpe
 
     if cp_err_inlet in ordered_subsurface:
@@ -1950,8 +1954,8 @@ def check_complex_err(
     else:
         raise Exception("Should be unreachable.  Notify TANGO team")
 
-    dp_dict, flow_res_dict, opt_inlet_bcs, act_inlet_bcs = get_dp_and_flow_res(
-        unit,
+    _dp_dict, flow_res_dict, _opt_inlet_bcs, _act_inlet_bcs = get_dp_and_flow_res(
+        unit_search,
         p_simple_inst_dict,
         mdot,
         state_ad_hoc,
@@ -1990,25 +1994,31 @@ def check_complex_err(
             )
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance, by e.g.:"
-            + "\n\t\t- increasing pipe diameter"
-            + "\n\t\t- reducing pipe interior surface roughness, `epsilon`"
-            + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
+            + "\n\t\t- increasing pipe or wellbore diameter"
+            + "\n\t\t- reducing pipe or wellbore interior surface roughness, `epsilon`"
+            + "\n\t\t- checking that reservoir permeability is typed correctly",
+            # + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`",
         ) from cpe
 
         # TODO: check target_extraction_pressure w.r.t. to p_sat
 
     else:
-        raise MultiError(
-            "\n\tThe overall system cannot accommodate this mass flow rate"
+        unit_search = re.search(r"unit: (\w+)", str(cpe))
+        if unit_search:
+            unit_str = unit_search[1]
+        raise type(cpe)(
+            f"\n\tThe overall system has a non-specific error arising in:\n\tunit: {unit_str}"
             + "\n\tTry the following"
             + "\n\t- reducing flow resistance of multiple components, by e.g.:"
-            + "\n\t\t- increasing pipe diameters"
+            + "\n\t\t- increasing pipe or wellbore diameters"
             + "\n\t\t- reducing well spacing"
             + "\n\t\t- reducing pipe interior surface roughness, `epsilon`, in:"
             + "\n\t\t\t- `surface`"
             + "\n\t\t\t- `injection_well`"
             + "\n\t\t\t- `production_well`"
             + "\n\t\t\t- `production_well_pump` (which includes upper production well pipe)"
+            + "\n\t\t- checking that reservoir permeability is typed correctly"
             + "\n\t- changing (e.g. increasing) `injection_pressure` (initial guess for solver) in `surface`"
+            + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe

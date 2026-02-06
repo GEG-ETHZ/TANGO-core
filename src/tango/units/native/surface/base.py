@@ -3,7 +3,11 @@ from abc import abstractmethod
 from pathlib import Path
 
 from tango.core.abstracts.unit import Unit, SimplePressureDrop
-from tango.core.errors import CoolPropError, Validator
+from tango.core.errors import (
+    CoolPropError,
+    TESPyCoolPropError,
+    Validator,
+)
 
 
 class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
@@ -38,6 +42,8 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         self.diagram_states = {}
         self.diagram_connections = {}
         self.thermal_power = 0.0
+        self.system_external: bool = False
+
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:
@@ -54,9 +60,30 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
             self.P = self.outlet_fluid.P
             self.H = self.outlet_fluid.H
         except CoolPropError as cpe:
-            raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}")
+            # Direct CoolProp error - reraise with context
+            raise type(cpe)(
+                f"Surface `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        except TESPyCoolPropError as tes_err:
+            raise type(tes_err)(
+                f"Surface `stream_interface` failed\n\t{tes_err}"
+            ) from tes_err
         except Exception as err:
-            raise type(err)("Surface `stream_interface` failed") from err
+            raise type(err)(
+                f"Surface `stream_interface` failed\n\t{err}"
+            ) from err
+
+    def _get_inlet_state_context(self) -> str:
+        """Build context string with inlet state information for error messages."""
+        try:
+            p_mpa = self.inlet_fluid.P / 1e6
+            t_c = self.inlet_fluid.T - 273.15
+            return (
+                f"\n\tInlet state: P={p_mpa:.3f} MPa, T={t_c:.1f} °C"
+                f"\n\tMass rate: {self.mass_rate:.3f} kg/s"
+            )
+        except Exception:
+            return "\n\tInlet state: unavailable"
 
     def update_inlet_state(self) -> None:
         r"""

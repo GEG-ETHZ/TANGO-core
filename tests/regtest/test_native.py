@@ -9,7 +9,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from tango.core.errors import ComponentError, MultiError
+from tango.core.errors import (
+     ComponentError,
+     SubzeroPressureError,
+     TESPyExcessSMolarError,
+     ValidationError,
+)
 from tango.runner import Runner
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
@@ -136,7 +141,19 @@ def files_and_err_types_failing() -> list[tuple[Path, type]]:
         ),
         (
             "flexible_SF_manual_excess_mflow.yml",
-            MultiError,
+            SubzeroPressureError,
+        ),
+        (
+            "flexible_DF_manual_small_spacing.yml",
+            TESPyExcessSMolarError,
+        ),
+        (
+            "flexible_DF_manual_vlv2_p_out_high.yml",
+            ValidationError,  # Transitive check: valve2.p_out > valve1.p_out is not allowed
+        ),
+        (
+            "flexible_DF_manual_cond2_xgt0.yml",
+            TESPyExcessSMolarError,  # vapor_mass_fraction_out=0.9 prevents condensation
         ),
     ]
     filepaths_and_err_types = [

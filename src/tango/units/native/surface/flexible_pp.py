@@ -1,38 +1,45 @@
+from copy import copy
 from dataclasses import dataclass
-import yaml
 from pathlib import Path
+
+import numpy as np
 from tespy.components import (
+    Compressor,
+    CycleCloser,
+    DropletSeparator,
+    HeatExchanger,
+    Merge,
+    SimpleHeatExchanger,
     Sink,
     Source,
     Turbine,
-    SimpleHeatExchanger,
-    Compressor,
     Valve,
-    DropletSeparator,
-    Merge,
-    HeatExchanger,
-    CycleCloser
 )
 from tespy.connections import Connection
 from tespy.networks import Network
-import numpy as np
 import CoolProp as CP
-from copy import copy
 
-from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.constants import BAR_TO_MPA, C_TO_K, K_TO_C, MPA_TO_PA, PA_TO_BAR
+from tango.core.errors import (
+    EXCESS_SMOLAR_TEST,
+    SUBZERO_DNSTY_ERR_TEST,
+    TESPySubZeroError,
+    TESPyExcessSMolarError,
+    ValidationError,
+    Validator,
+)
 from tango.core.fluidstate import FluidState
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
-from tango.core.constants import BAR_TO_PA, PA_TO_BAR, C_TO_K, K_TO_C, BAR_TO_MPA, MPA_TO_PA
-from tango.core.errors import Validator
+from tango.units.dataclasses import CommonSpecs
+from tango.units.native.surface.base import SurfaceUnitNative
 
 
 @dataclass
 class SurfaceSpecsFlexiblePP(CommonSpecs):
-
-    pipe_diameter: float = None
-    approach_temperature: float = None
+    # `None` is a placeholder to prevent inheritance issues
+    pipe_diameter: float | None = None
+    approach_temperature: float | None = None
     epsilon: float = 55.e-6
     temperature_range: float = 0.0
 
@@ -58,6 +65,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         self.current_row = 0
         self.prod_pump_w_list = []
         self.init_stream_interface()
+        self.validate_pressure_monotonicity(specs)
         self.power_plant = PowerPlant(self.specs)
 
     def validate_custom(self):
@@ -83,6 +91,8 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
                 p_sat_warn = None
                 # err if target_extraction is below this threshold
                 p_sat_err = None
+            else:
+                raise err
         # warn if target extraction pressure exceeds 35 MPa, which is typical for a superheated coal-fired
         # plant and would be absurdly high pressure for a geothermal plant
         p_max_warn = 35e6
@@ -96,6 +106,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         if "target_extraction_pressure_err" not in self.val_dict:
             self.val_dict["target_extraction_pressure_err"] = [p_sat_err, p_max_err]
 
+        self.validate_pressure_monotonicity(specs)
 
     def _filter_power_plant_graph(self, specs: dict):
         """Filters and retains only the power_plant_graph, including nodes, edges, and their specifications."""
@@ -110,6 +121,78 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
                 filtered_specs[node] = specs[node]
 
         return filtered_specs
+
+    def validate_pressure_monotonicity(self, specs: dict) -> None:
+        """Validate p_out values for physical consistency.
+
+        Performs transitive checking: for each component with p_out, traces
+        upstream through the graph and verifies p_out decreases along flow
+        direction (stopping at pump/compressor boundaries).
+
+        Raises:
+            ValidationError: If pressure configuration is physically invalid.
+        """
+        pp_graph = specs.get("power_plant_graph", {})
+        edges = pp_graph.get("edges", {})
+        nodes = pp_graph.get("nodes", {})
+
+        # Collect p_out values (bar) from component configs
+        p_out_values: dict[str, float] = {}
+        for comp_name in nodes.keys():
+            comp_config = specs.get(comp_name, {})
+            if isinstance(comp_config, dict) and "p_out" in comp_config:
+                p_out_values[comp_name] = comp_config["p_out"]
+
+        # Components that increase pressure by design
+        pressure_increasing_types = {"Pump", "Compressor"}
+
+        # Build reverse adjacency: target -> list of sources (upstream)
+        upstream_map: dict[str, list[str]] = {}
+        for edge_data in edges.values():
+            src, tgt = edge_data.get("source"), edge_data.get("target")
+            if tgt not in upstream_map:
+                upstream_map[tgt] = []
+            upstream_map[tgt].append(src)
+
+        def find_upstream_p_out(node: str, visited: set[str]) -> list[tuple[str, float]]:
+            """Find all upstream components with p_out, stopping at pumps/compressors."""
+            if node in visited:
+                return []
+            visited.add(node)
+
+            results: list[tuple[str, float]] = []
+            for upstream in upstream_map.get(node, []):
+                upstream_type = nodes.get(upstream, {}).get("type", "")
+                # Stop at pressure-increasing components (they reset pressure context)
+                if upstream_type in pressure_increasing_types:
+                    continue
+                # If upstream has p_out, record it
+                if upstream in p_out_values:
+                    results.append((upstream, p_out_values[upstream]))
+                # Continue tracing further upstream
+                results.extend(find_upstream_p_out(upstream, visited))
+            return results
+
+        errors: list[str] = []
+
+        # For each component with p_out, check against all upstream p_out values
+        for comp_name, comp_p_out in p_out_values.items():
+            comp_type = nodes.get(comp_name, {}).get("type", "")
+            # Skip if this component increases pressure
+            if comp_type in pressure_increasing_types:
+                continue
+            upstream_pressures = find_upstream_p_out(comp_name, set())
+            for upstream_name, upstream_p_out in upstream_pressures:
+                if comp_p_out > upstream_p_out:
+                    errors.append(
+                        f"{comp_name}.p_out ({comp_p_out} bar) > "
+                        f"{upstream_name}.p_out ({upstream_p_out} bar)"
+                    )
+
+        if errors:
+            raise ValidationError(
+                "Invalid power plant pressure configuration:\n\t" + "\n\t".join(errors)
+            )
 
     def init_stream_interface(self, P: float = None, T: float = None) -> None:
         """
@@ -144,7 +227,44 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
             # this expects degrees Celsius
             production_temperature=self.inlet_fluid.T + K_TO_C
         )
-        self.power_plant.network.solve('design')
+        try:
+            self.power_plant.network.solve('design')
+        except ValueError as err:
+            import logging
+            import traceback
+            
+            # Log detailed diagnostics at WARNING level
+            tb_str = traceback.format_exc()
+            diagnostics = self.power_plant.get_surface_diagnostics(tb_str)
+            logging.warning(f"Surface power plant solve failed. Diagnostics:{diagnostics}")
+            
+            # Calculate saturation pressure at inlet temperature for analysis
+            err_str = str(err)
+            saturation_analysis = self._get_saturation_pressure_analysis()
+            
+            if SUBZERO_DNSTY_ERR_TEST.search(err_str) is not None:
+                raise TESPySubZeroError(
+                    f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
+                    f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
+                    f"\n\t{err}"
+                    f"{saturation_analysis}"
+                ) from err
+
+            if EXCESS_SMOLAR_TEST.search(str(err)):
+                raise TESPyExcessSMolarError(
+                    f"TESPy network.solve('design') failed in SurfaceUnitFlexiblePP.process_stream()"
+                    f"\n\tInlet state: P={self.inlet_fluid.P:.2e} Pa, T={self.inlet_fluid.T:.2f} K"
+                    f"\n\t{err}"
+                    f"{saturation_analysis}"
+                ) from err
+
+            # Re-raise with diagnostics for other ValueErrors
+            raise ValueError(
+                f"TESPy network.solve('design') failed"
+                f"\n\t{err}"
+                f"{saturation_analysis}"
+                f"\n\tunit: surface"
+            ) from err
         outlet_state = self.power_plant.get_outlet_conditions()
         self.w_net = self.power_plant.calculate_net_power()
 
@@ -155,6 +275,145 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         )
 
         return ps_out
+
+    def _get_saturation_pressure_analysis(self) -> str:
+        """Analyze if any power plant components have outlet pressures below saturation.
+        
+        Calculates the saturation pressure at the inlet temperature and checks
+        against configured outlet pressures in the power plant. Components with
+        p_out < P_sat cannot physically work (would require flashing at sub-saturation).
+        
+        Returns:
+            Formatted string with saturation analysis for error messages.
+        """
+        lines = []
+        
+        # Get saturation pressure at inlet temperature
+        T_inlet_K = self.inlet_fluid.T
+        T_inlet_C = T_inlet_K + K_TO_C
+        fluid_name = self.specs.fluid_name
+        
+        try:
+            # CoolProp saturation pressure lookup
+            P_sat_Pa = CP.CoolProp.PropsSI("P", "T", T_inlet_K, "Q", 0, fluid_name)
+            P_sat_bar = P_sat_Pa * PA_TO_BAR
+        except Exception as e:
+            lines.append(f"\n\tCould not calculate saturation pressure: {e}")
+            return ''.join(lines)
+        
+        lines.append(f"\n\t=== Saturation Pressure Analysis ===")
+        lines.append(f"\n\tInlet T: {T_inlet_C:.1f} °C ({T_inlet_K:.1f} K)")
+        lines.append(f"\n\tP_sat at inlet T: {P_sat_bar:.2f} bar ({P_sat_Pa:.2e} Pa)")
+        
+        # Check valve configurations - valve p_out must be <= P_sat to flash
+        can_flash = []
+        cannot_flash = []
+        config = self.power_plant.config
+        
+        for comp_name, comp_config in config.items():
+            if not isinstance(comp_config, dict):
+                continue
+            
+            # Only check valves and turbines (expansion devices)
+            if not (comp_name.lower().startswith('valve') or comp_name.lower().startswith('turbine')):
+                continue
+            
+            p_out_value = comp_config.get('p_out')
+            
+            if p_out_value is not None:
+                # Resolve function references if needed
+                if isinstance(p_out_value, str):
+                    p_out_value = self.power_plant.get_funcs().get(p_out_value, None)
+                
+                if p_out_value is not None and isinstance(p_out_value, (int, float)):
+                    # Valve p_out must be <= P_sat to flash liquid to vapor
+                    if p_out_value <= P_sat_bar:
+                        can_flash.append((comp_name, p_out_value))
+                    else:
+                        cannot_flash.append((comp_name, p_out_value))
+        
+        lines.append("\n\tExpansion device outlet pressures (must be <= P_sat to flash):")
+        if can_flash:
+            for comp_name, p_val in can_flash:
+                lines.append(f"\n\t  ✓ {comp_name}: p_out={p_val:.2f} bar")
+        if cannot_flash:
+            for comp_name, p_val in cannot_flash:
+                lines.append(f"\n\t  ⚠ {comp_name}: p_out={p_val:.2f} bar (> P_sat, cannot flash)")
+            lines.append(
+                "\nTry increasing parameters that increase surface pipe inlet temperature (and correspondingly "
+                + "decrease saturation pressure), e.g.:"
+                + "\n- `schedule`: `well_spacing` (higher value increases reservoir residence time -> "
+                    "production temperature)"
+                + "\n- `reservoir`: `thickness` (higher value increases reservoir residence time -> "
+                    + "production temperature)"
+                + "\n- `reservoir`: `reservoir_depth` (higher value increases reservoir temperature -> "
+                    + "production temperature)"
+                + "\n- `props`: `thermal_gradient` (higher values increase reservoir temperature -> "
+                    + "production temperature)"
+                ""
+            )
+        if not can_flash and not cannot_flash:
+            lines.append("\n\t  (no valves have configured outlet pressures)")
+
+        # Check condensers: compare inlet vapor fraction vs configured outlet
+        condenser_issues = []
+        nodes = self.power_plant.config.get('power_plant_graph', {}).get('nodes', {})
+
+        for conn in self.power_plant.connections:
+            target_name = conn.target.label
+            node_data = nodes.get(target_name, {})
+
+            # Check if target is a condenser (SimpleHeatExchanger with Subtype=condenser)
+            if node_data.get('type') != 'SimpleHeatExchanger':
+                continue
+
+            comp_config = config.get(target_name, {})
+            if comp_config.get('Subtype', '').lower() != 'condenser':
+                continue
+
+            x_out_specified = comp_config.get('vapor_mass_fraction_out')
+            if x_out_specified is None:
+                continue
+
+            # Get inlet vapor fraction from TESPy connection (may not be available if solve failed)
+            try:
+                x_inlet = conn.x.val
+                has_inlet_data = x_inlet is not None and x_inlet >= 0
+            except AttributeError:
+                x_inlet = None
+                has_inlet_data = False
+
+            # Check if outlet is problematically high
+            # If we have inlet data: warn if outlet >= inlet - tolerance
+            # If no inlet data: warn if outlet > 0.5 (heuristic for "high")
+            tolerance = 0.01
+            if has_inlet_data:
+                if x_out_specified >= x_inlet - tolerance:
+                    condenser_issues.append((target_name, x_inlet, x_out_specified))
+            elif x_out_specified > 0.5:
+                # No inlet data, but high outlet is suspicious
+                condenser_issues.append((target_name, None, x_out_specified))
+
+        if condenser_issues:
+            lines.append("\n\t=== Condenser Configuration Warning ===")
+            for comp_name, x_in, x_out in condenser_issues:
+                if x_in is not None:
+                    lines.append(
+                        f"\n\t  ⚠ {comp_name}: inlet x={x_in:.2f}, "
+                        f"vapor_mass_fraction_out={x_out:.2f} (minimal/no condensation)"
+                    )
+                else:
+                    lines.append(
+                        f"\n\t  ⚠ {comp_name}: vapor_mass_fraction_out={x_out:.2f} "
+                        "(unusually high, may prevent condensation)"
+                    )
+            lines.append(
+                "\n\tHigh vapor_mass_fraction_out means minimal/no condensation. "
+                "Reduce vapor_mass_fraction_out (e.g., 0 for full condensation)."
+            )
+
+        return ''.join(lines)
+
 
     def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
         r"""Return approximate flow pressure delta [Pa], accounting for gravitational
@@ -873,3 +1132,128 @@ class PowerPlant:
                 break  # Exit after finding the outlet
 
         return outlet_conditions
+
+    def get_surface_diagnostics(self, error_msg: str) -> str:
+        """Extract diagnostic info for the surface power plant during TESPy solve failure.
+        
+        Shows:
+        - Graph structure of the power plant network
+        - Each component's inlet and outlet pressure and temperature
+        - Identification of failed component from error message
+        
+        Args:
+            error_msg: The error message string from TESPy
+            
+        Returns:
+            Formatted diagnostic string for error reporting
+        """
+        import math
+        lines = []
+        
+        # --- Section 1: Graph structure ---
+        lines.append("\n\t=== Power Plant Graph ===")
+        # Build adjacency from connections
+        edges = []
+        for conn in self.connections:
+            src = conn.source.label
+            tgt = conn.target.label
+            edges.append((src, tgt))
+        
+        # Text-based graph: list edges grouped by source
+        from collections import defaultdict
+        adj = defaultdict(list)
+        for src, tgt in edges:
+            adj[src].append(tgt)
+        
+        # Find starting nodes (sources with no incoming edges)
+        all_targets = {tgt for _, tgt in edges}
+        all_sources = {src for src, _ in edges}
+        start_nodes = all_sources - all_targets
+        
+        # Build ASCII graph representation
+        lines.append("\n\t[Flow Structure]")
+        visited = set()
+        
+        def format_node_flow(node: str, depth: int = 0) -> None:
+            """Recursively format node and its downstream connections."""
+            if node in visited:
+                return
+            visited.add(node)
+            indent = "\t" + "  " * depth
+            downstream = adj.get(node, [])
+            if downstream:
+                for i, tgt in enumerate(downstream):
+                    connector = "├─>" if i < len(downstream) - 1 else "└─>"
+                    lines.append(f"\n{indent}{node} {connector} {tgt}")
+                    format_node_flow(tgt, depth + 1)
+            elif node not in adj:
+                lines.append(f"\n{indent}{node} (terminal)")
+        
+        for start in sorted(start_nodes):
+            format_node_flow(start)
+        
+        # --- Section 2: Component states ---
+        lines.append("\n\n\t=== Component States (P, T) ===")
+        
+        def get_pt_str(port) -> str:
+            """Extract P and T from a port, return formatted string."""
+            try:
+                p_val = port.p.val if hasattr(port.p, 'val') else port.p
+                t_val = port.T.val if hasattr(port.T, 'val') else port.T
+                p_str = f"{p_val:.2f}" if not math.isnan(p_val) else "nan"
+                t_str = f"{t_val:.1f}" if not math.isnan(t_val) else "nan"
+                return f"P={p_str} bar, T={t_str} °C"
+            except Exception:
+                return "P=?, T=?"
+        
+        for comp_name, comp in self.nodes.items():
+            comp_type = type(comp).__name__
+            lines.append(f"\n\t{comp_name} ({comp_type}):")
+            
+            # Inlets
+            inlets = getattr(comp, 'inl', [])
+            for idx, inlet in enumerate(inlets):
+                lines.append(f"\n\t  in{idx+1}:  {get_pt_str(inlet)}")
+            
+            # Outlets
+            outlets = getattr(comp, 'outl', [])
+            for idx, outlet in enumerate(outlets):
+                lines.append(f"\n\t  out{idx+1}: {get_pt_str(outlet)}")
+        
+        # --- Section 3: Failed component identification ---
+        lines.append("\n\n\t=== Failure Analysis ===")
+        failed_comp_name = None
+        for comp_name, comp in self.nodes.items():
+            if comp_name in error_msg or (hasattr(comp, 'label') and comp.label in error_msg):
+                failed_comp_name = comp_name
+                break
+        
+        if failed_comp_name is None:
+            # Try component type matching
+            comp_type_map = {
+                'compressor': ['pump1', 'pump2'],
+                'turbine': ['turbine1', 'turbine2'],
+                'valve': ['valve1', 'valve2'],
+            }
+            for comp_type, candidates in comp_type_map.items():
+                if comp_type.lower() in error_msg.lower():
+                    for cand in candidates:
+                        if cand in self.nodes:
+                            failed_comp_name = cand
+                            break
+                    break
+        
+        if failed_comp_name:
+            lines.append(f"\n\tFailed component: {failed_comp_name}")
+            # Show upstream/downstream
+            upstream = [src for src, tgt in edges if tgt == failed_comp_name]
+            downstream = [tgt for src, tgt in edges if src == failed_comp_name]
+            if upstream:
+                lines.append(f"\n\tUpstream: {', '.join(upstream)}")
+            if downstream:
+                lines.append(f"\n\tDownstream: {', '.join(downstream)}")
+        else:
+            lines.append("\n\tFailed component: Could not identify from error message")
+        
+        return ''.join(lines)
+
