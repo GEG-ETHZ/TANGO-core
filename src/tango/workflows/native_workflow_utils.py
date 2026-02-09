@@ -27,6 +27,7 @@ reservoir = "reservoir"
 production_well = "production_well"
 production_well_pump = "production_well_pump"
 production_well_upper = "production_well_upper"
+production_well_lower = "production_well_lower"
 surface = "surface"
 ordered_subsurf_outlets = [
     injection_well,
@@ -166,7 +167,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well:
+        elif k in (production_well, production_well_lower):
             # NOTE: assumes that production well bottom is always at same depth as injection
             # well bottom
             depth_for_temp = p_simple_inst_dict['injection_well']._well_length
@@ -215,7 +216,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well_pump:
+        elif k in (production_well_pump, production_well_upper):
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
             # temperature, which will overestimate the actual temperature, and it's a good
             # idea to revisit the assumption in the future
@@ -369,7 +370,7 @@ def check_complex_err(
             production_well,
             production_well_pump,
             production_well_upper,
-            "production_well_lower",
+            production_well_lower,
         ):
             diameters[k] = cast(WellUnitNative, v)._specs.diameter
         elif k == surface:
