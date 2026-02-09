@@ -3,6 +3,8 @@ Error methods/functions for use in src/tango/workflows/native_workflow.py
 """
 
 from dataclasses import dataclass
+from typing import cast
+
 import numpy as np
 import re
 
@@ -16,6 +18,8 @@ from tango.core.errors import (
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import SimplePressureDrop
 from tango.core.fluidstate import FluidState
+from tango.units.native.well import WellUnitNative
+from tango.units.native.surface import SurfaceUnitNative
 
 # define strings for frequently used dict keys to reduce likelihood of typos
 injection_well = "injection_well"
@@ -397,12 +401,12 @@ def check_complex_err(
             "Unable to determine location of failure from previous errors",
         ) from cpe
 
-    if cp_err_inlet in ordered_subsurface:
-        # subset of ordered_subsurface to check
-        mod_subset = ordered_subsurface
-    elif cp_err_inlet in ordered_surface:
+    if cp_err_inlet in ordered_subsurf_outlets:
+        # subset of ordered_subsurf_outlets to check
+        mod_subset = ordered_subsurf_outlets
+    elif cp_err_inlet in ordered_surface_outlets:
         # subset of all modules in which error can be found
-        mod_subset = ordered_surface
+        mod_subset = ordered_surface_outlets
     else:
         raise Exception("Should be unreachable.  Notify TANGO team")
 
