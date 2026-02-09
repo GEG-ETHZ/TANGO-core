@@ -4,6 +4,7 @@
 # modeling, "component" is more commonly used because "unit" often can be
 # conflated with "units of measure"
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -23,8 +24,13 @@ EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 # Test cases
 
 
-def files_and_values() -> list[tuple[Path, float]]:
-    """Return list of tuples of paths and corresponding reference values"""
+def files_and_values() -> list[tuple[Path, float, float]]:
+    """Return list of tuples of (path, reference_value, tolerance)"""
+
+    # To enable tests gated by this boolean, run
+    # `ENABLE_ALL_TESTS=true pixi run -e dev pytest -v`
+    enable_all_tests = os.environ.get("ENABLE_ALL_TESTS", "false").lower() == "true"
+    
     filenames_and_vals = [
         ("testcase1.yml", 1.0476074181749977),
         ("testcase2.yml", 1.5316080111875296),
@@ -64,14 +70,37 @@ def files_and_values() -> list[tuple[Path, float]]:
         ("flexible_DF_reader.yml", 0.2278856925744952),
         ("flexible_CPG_hot.yml", 0.418689367029366),
         ("flexible_heat.yml", 0.0464719141105572),
-        ("file_reader_Kang.yml", 2.050293870015362),
-        ("file_reader_Kang2.yml", 0.8841888808490465),
+        ("file_reader_kang.yml", 2.050293870015362),
+        ("file_reader_kang2.yml", 0.8841888808490465),
+        # Optimization tests (SO = Single Objective, MO = Multi Objective)
+        ("SO1.yml", 0.799, 0.002) if enable_all_tests else None,
+        ("SO2.yml", 0.799, 0.002) if enable_all_tests else None,
+        ("SO3.yml", 0.799, 0.002) if enable_all_tests else None,
+        ("SO4.yml", 0.798, 0.002) if enable_all_tests else None,
+        ("SO5.yml", 0.615, 0.002) if enable_all_tests else None,
+        ("SO6.yml", 0.870, 0.002) if enable_all_tests else None,
+        ("SO7.yml", 0.813, 0.002) if enable_all_tests else None,
+        ("MO1.yml", 0.806, 0.002) if enable_all_tests else None,
+        ("MO2.yml", 0.814, 0.002) if enable_all_tests else None,
+        ("MO3.yml", 0.797, 0.002) if enable_all_tests else None,
+        # flexible_DF_opt_valves.yml is sufficiently similar that this can be skipped
+        ("flexible_SF_opt_valve.yml", 0.6672682394033819, 0.001)
+            if enable_all_tests else None,
+        ("flexible_DF_opt_valves.yml", 0.5781967722329104, 0.002)
+            if enable_all_tests else None,
+        ("flexible_CPG_hot_opt.yml", 0.3874588709391597, 0.001)
+            if enable_all_tests else None,
     ]
 
-    filepaths = [Path(EXAMPLES_DIR) / fv[0] for fv in filenames_and_vals]
-    vals = [fv[1] for fv in filenames_and_vals]
-
-    return [(filepath, val) for (filepath, val) in zip(filepaths, vals)]
+    result = []
+    for fv in filenames_and_vals:
+        if fv is None:
+            continue
+        filepath = Path(EXAMPLES_DIR) / fv[0]
+        val = fv[1]
+        tol = fv[2] if len(fv) > 2 else 1e-6  # default tolerance
+        result.append((filepath, val, tol))
+    return result
 
 
 @pytest.mark.parametrize(
@@ -79,16 +108,17 @@ def files_and_values() -> list[tuple[Path, float]]:
     files_and_values(),
     ids=[fv[0].name for fv in files_and_values()],
 )
-def test_examples(file_and_value: tuple[Path, float], tmp_path: Path):
+def test_examples(file_and_value: tuple[Path, float, float], tmp_path: Path):
     """Test that examples produce expected LCOE value
 
     Arguments:
-    file_and_value (tuple[Path, float]): path to example file and expected value
+    file_and_value (tuple[Path, float, float]): path to example file, expected value, and tolerance
     tmp_path (Path): temporary directory created by pytest
 
     """
     input_file = file_and_value[0]
     value = file_and_value[1]
+    tol = file_and_value[2]
 
     runner = Runner(input_file, save_dir=tmp_path)
     runner.start()
@@ -97,7 +127,7 @@ def test_examples(file_and_value: tuple[Path, float], tmp_path: Path):
     lcoe = df["LCOE"].iloc[0]
 
     # TODO: make sure that lcoe is the same in the file and the live runner
-    assert lcoe == pytest.approx(value), f"LCOE calulated: {lcoe}, LCOE expected: {value}"
+    assert lcoe == pytest.approx(value, abs=tol), f"LCOE calulated: {lcoe}, LCOE expected: {value}"
 
 
 def files_and_err_types_failing() -> list[tuple[Path, type]]:
