@@ -1,7 +1,16 @@
-from tango.core.abstracts.unit import *
+import numpy as np
+from abc import abstractmethod
+from pathlib import Path
+
+from tango.core.abstracts.unit import Unit, SimplePressureDrop
+from tango.core.errors import (
+    CoolPropError,
+    TESPyCoolPropError,
+    Validator,
+)
 
 
-class SurfaceUnitNative(Unit):
+class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
     r"""
     Represents the surface power plant unit based on Adams et al. (2015).
 
@@ -33,7 +42,8 @@ class SurfaceUnitNative(Unit):
         self.diagram_states = {}
         self.diagram_connections = {}
         self.thermal_power = 0.0
-
+        self.system_external: bool = False
+        self._fluid_name: str = ""  # Set by subclasses
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:
@@ -43,11 +53,25 @@ class SurfaceUnitNative(Unit):
         This function processes the stream to compute outlet properties based on inlet conditions
         and displays the inlet and outlet fluid states.
         """
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.mass_rate = mass_rate
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
-        self.P = self.outlet_fluid.P
-        self.H = self.outlet_fluid.H
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+            self.mass_rate = mass_rate
+            self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+            self.P = self.outlet_fluid.P
+            self.H = self.outlet_fluid.H
+        except CoolPropError as cpe:
+            # Direct CoolProp error - reraise with context
+            raise type(cpe)(
+                f"Surface `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        except TESPyCoolPropError as tes_err:
+            raise type(tes_err)(
+                f"Surface `stream_interface` failed\n\t{tes_err}"
+            ) from tes_err
+        except Exception as err:
+            raise type(err)(
+                f"Surface `stream_interface` failed\n\t{err}"
+            ) from err
 
     def update_inlet_state(self) -> None:
         r"""
@@ -71,6 +95,29 @@ class SurfaceUnitNative(Unit):
         except:
             self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
 
+    @abstractmethod
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
+        effects
+        """
+        pass  # to be implemented in child classes
+
+    @abstractmethod
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        pass
+
+    @abstractmethod
+    def process_stream(self) -> tuple[float, float, float]:
+
+        pass  # to be implemented in child classes
+
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _set_mult(self) -> None:
@@ -84,7 +131,7 @@ class SurfaceUnitNative(Unit):
             - 4.0 for '5SPOT' or 'INVERTED_5SPOT'.
             - 1.0 for other patterns.
         """
-        self._m_dot_mult = 4.0 if self.specs.well_pattern in ['5SPOT', 'INVERTED_5SPOT'] else 1.0
+        self._m_dot_mult = 4.0 if self.specs.well_pattern in ["5SPOT", "INVERTED_5SPOT"] else 1.0
 
     def _set_constants(self) -> None:
         """
@@ -95,10 +142,10 @@ class SurfaceUnitNative(Unit):
         Raises:
             ValueError: If the specified cooling mode is not supported.
         """
-        if self.specs.cooling_mode == 'WET':
+        if self.specs.cooling_mode == "WET":
             self._coeffs_cooling = [1.2, 0.0, -3.79e-3, 1.95e-2]
             self._coeffs_condensing = [1.65, -6.24e-6, -5.03e-3, 0.0]
-        elif self.specs.cooling_mode == 'DRY':
+        elif self.specs.cooling_mode == "DRY":
             self._coeffs_cooling = [7.65e-1, 0.0, 0.0, 1.28e-1]
             self._coeffs_condensing = [0.619, 0.0, 0.0, 0.0]
         else:
@@ -128,7 +175,8 @@ class SurfaceUnitNative(Unit):
         T_ambient = self.specs.surface_temperature
         dT_approach = self.specs.approach_temperature
         dT_range = self._condensation_temperature_range
-        return a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        pwr_parasitic: float = a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        return pwr_parasitic
 
     def _get_parasitic_power_fraction_cooling(self):
         """

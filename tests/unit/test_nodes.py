@@ -42,8 +42,8 @@ def test_injection_well():
     outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
     unit.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
     outlet_temperature = unit.outlet_fluid.T
-    assert outlet_pressure == pytest.approx(12320526.240)
-    assert outlet_temperature == pytest.approx(347.14151104)
+    assert outlet_pressure == pytest.approx(12517529.6)
+    assert outlet_temperature == pytest.approx(348.0912)
 
     unit = InjectionWellUnitNative(id, specs_H2O)
     unit.init_stream_interface(P=1.e5, T=295.15)

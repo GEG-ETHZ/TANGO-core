@@ -58,7 +58,7 @@ class CMGWorkflow(Workflow):
         - This method is currently a placeholder and requires implementation.
         """
         self.economic = None
-        # TODO: Implement
+        raise NotADirectoryError()
 
     def stream_interface(self) -> None:
         """
@@ -76,3 +76,6 @@ class CMGWorkflow(Workflow):
         if self.economic is not None:
             pass  # Placeholder for economic unit integration.
 
+    def execute(self):
+        """Not implemented yet"""
+        raise NotImplementedError()

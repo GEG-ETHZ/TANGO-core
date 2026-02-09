@@ -1,6 +1,8 @@
 import copy
-from tango.utils import *
-from tango.core.stream import *
+import logging
+from tango.utils import get_unit_class, MULTIPLE_UNIT_NODE_OPTIONS 
+from tango.core.stream import Stream
+from tango.core.errors import CoolPropError
 from abc import ABC
 import networkx as nx
 
@@ -22,6 +24,7 @@ class Unit:
             name (str): The name of the unit.
         """
         setattr(self, name, unit)
+
 
 class UnitManager(ABC):
     r"""
@@ -117,7 +120,7 @@ class UnitManager(ABC):
         """
         for unit_name in required_units:
             if getattr(self.unit, unit_name, None) is None:
-                raise RuntimeError(f"Required unit: {unit_name} is not found.")
+                raise AttributeError(f"Required unit: {unit_name} is not found.")
 
     def _graph_check(self) -> None:
         """
@@ -131,16 +134,16 @@ class UnitManager(ABC):
                 for _, d2 in self.graph.adj[d1['target']].items():
                     if d2['source'] != self.root_node_id and d2['target'] == d1['target']:
                         raise RuntimeError("Multiple nodes at root node level is not supported.")
-        for id in self.graph.nodes:
-            if len(self.graph.nodes[id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[id]['unit'].outlet_streams) == 0:
-                logging.warning(f"Connections are not defined for node: '{id}'")
+        for node_id in self.graph.nodes:
+            if len(self.graph.nodes[node_id]['unit'].inlet_streams) == 0 and len(self.graph.nodes[node_id]['unit'].outlet_streams) == 0:
+                logging.warning(f"Connections are not defined for node: '{node_id}'")
 
     def _reset(self) -> None:
         """
         Resets the visited status of all nodes in the graph.
         """
-        for id in self.graph.nodes:
-            self.graph.nodes[id]['visited'] = False
+        for node_id in self.graph.nodes:
+            self.graph.nodes[node_id]['visited'] = False
 
     def _update_node(self, node) -> None:
         """
@@ -148,16 +151,41 @@ class UnitManager(ABC):
 
         Args:
             node (dict): Node object to update.
+            src_unit_id (str): Source unit (i.e. component) id, used for error message generation
+            nxt_unit_id (str | None): Next unit (i.e. component) id, used for error message generation
         """
-        if node['visited']:
+
+        if node["visited"]:
             return
         if node != self.root_node:
-            for id in self._source_nodes(node):
-                self._update_node(self.graph.nodes[id])
-        node['unit'].update_inlet_state()
-        node['unit'].stream_interface()
-        node['unit'].update_outlet_streams()
-        node['visited'] = True
+            for src_id in self._source_nodes(node):
+                try:
+                    self._update_node(self.graph.nodes[src_id])
+                except CoolPropError as cpe:
+                    new_err = CoolPropError(
+                        f"\n\tunit: {node['id']}\n\t{cpe}"
+                    )
+                    raise new_err from cpe
+                except Exception as err:
+                    raise type(err)(
+                        f"\n\tunit: {node['id']}"
+                    ) from err
+        try:
+            node["unit"].update_inlet_state()
+            node["unit"].stream_interface()
+            node["unit"].update_outlet_streams()
+        except CoolPropError as cpe:
+            new_err = type(cpe)(
+                f"\n\tunit: {node['id']}\n\t{cpe}"
+            )
+            raise new_err from cpe
+        except Exception as err:
+            # Include original error message so it appears in the final traceback
+            raise type(err)(
+                f"{err}"
+            )
+
+        node["visited"] = True
 
     def _source_nodes(self, node) -> list:
         """
@@ -200,6 +228,7 @@ class UnitManager(ABC):
         current_node = self.root_node
         self._update_node(current_node)
         while not self._is_terminal():
-            for id in self._next_nodes(current_node):
-                self._update_node(self.graph.nodes[id])
-            current_node = self.graph.nodes[id]
+            for next_unit_id in self._next_nodes(current_node):
+                self._update_node(self.graph.nodes[next_unit_id])
+            current_node = self.graph.nodes[next_unit_id]
+

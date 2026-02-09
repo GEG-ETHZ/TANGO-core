@@ -1,8 +1,9 @@
-from abc import ABC
+from enum import Enum, auto
+from abc import ABC, abstractmethod
+
 from tango.core import FluidState
+from tango.core.errors import CoolPropError
 
-
-from abc import ABC
 
 class UnitSpecs(ABC):
     """
@@ -72,8 +73,7 @@ class Unit(ABC):
         self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
     def update_inlet_state(self) -> None:
-        r"""
-        Updates the inlet fluid state based on mass flow rate weighted averages of inlet streams.
+        r"""Update the inlet fluid state based on mass flow rate weighted averages of inlet streams.
 
         Formula:
             .. math::
@@ -95,8 +95,11 @@ class Unit(ABC):
         self.mass_rate = total_mass_rate
         try:
             self.inlet_fluid.updateHP(H=H_ave, P=P_ave)
-        except:
-            self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+        except CoolPropError as cpe:
+            try:
+                self.inlet_fluid.updatePT(P=P_ave, T=T_ave)
+            except CoolPropError as cpe_inner:
+                raise cpe_inner from cpe
 
     def update_outlet_streams(self) -> None:
         r"""
@@ -130,3 +133,28 @@ class Unit(ABC):
         """
         raise NotImplementedError("Implement 'stream_interface' method in your derived Unit class.")
 
+
+class SimplePressureDrop(ABC):
+    """Provides interface for simple, approximate pressure delta calculation"""
+
+    @abstractmethod
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa], accounting for gravitational effects, if applicable
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        pass
+
+    @abstractmethod
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        pass

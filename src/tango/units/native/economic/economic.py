@@ -583,7 +583,8 @@ class EconomicUnitNative(Unit):
         CF = self.specs.capacity_factor
         F_OM = self.specs.OPEX_cost_fraction - bi_product / 1000 * 8760 * price / CAPEX
         CRF = d * (1. + d) ** t / ((1. + d) ** t - 1.0)  # Capital recovery factor
-        return CAPEX * (CRF + F_OM) / (main_product * W_TO_KW * CF * YEAR_TO_HOUR)
+        LCOE: float = CAPEX * (CRF + F_OM) / (main_product * W_TO_KW * CF * YEAR_TO_HOUR)
+        return LCOE
 
 
     def _get_specific_capital_cost(self, W: float) -> float:

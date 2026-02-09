@@ -4,11 +4,11 @@ import copy
 import logging
 import inspect
 
-from tango.core.config import *
-from tango.core.constants import *
-from tango.core.stream import *
-from tango.core.abstracts.orchestrator import *
-from tango.utils import *
+from tango.core.config import CONVERGENCE_CRITERIA
+from tango.core.constants import MIN_INJ_TEMPERATURE
+from tango.core.abstracts.orchestrator import UnitManager
+from tango.utils import newton
+from tango.core.errors import CoolPropError
 
 
 class SystemNative(UnitManager):
@@ -114,7 +114,8 @@ class SystemCPGNative(SystemNative):
         elif self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
             self.dP_reservoir = 10000000
 
-        return np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR
+        is_balanced: bool = np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR
+        return is_balanced
 
     def update(self) -> None:
         """
@@ -135,8 +136,18 @@ class SystemCPGNative(SystemNative):
         elif self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
             raise NotImplementedError(f"injection_well_bottom checkpoint is not supperted in native workflow!")
 
-        outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
-        self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
+            self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}"
+            ) from cpe
+        except Exception as err:
+            raise type(err)(
+                "Surface `process_stream` or `outlet_fluid.updatePT` failed"
+            ) from err
+        
 
     def update_time_dependent_vars(self) -> None:
         """
@@ -221,23 +232,32 @@ class SystemORCNative(SystemNative):
         count = 0
 
         while np.abs(dP_reservoir) > self._CONVERGENCE_CRIT_DP_RESERVOIR:
-            if self.max_itr_reached(count):
-                break
-            x_lst.append(copy.deepcopy(self.unit.injection_well.inlet_fluid.P))
-            y_lst.append(dP_reservoir)
-            if len(x_lst) == 1:
-                root = x_lst[0] + dP_reservoir
-            else:
-                root = newton(x_lst, y_lst)
-                x_lst.pop(0), y_lst.pop(0)
-            self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
-            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.injection_well.process_stream()
-            self.unit.injection_well.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
-            self.unit.reservoir.update_inlet_state()
-            self.unit.reservoir.stream_interface()
-            self.unit.reservoir.update_outlet_streams()
-            dP_reservoir = self.unit.reservoir.get_del_pressure()
-            count += 1
+            try:
+                if self.max_itr_reached(count):
+                    break
+                x_lst.append(copy.deepcopy(self.unit.injection_well.inlet_fluid.P))
+                y_lst.append(dP_reservoir)
+                if len(x_lst) == 1:
+                    root = x_lst[0] + dP_reservoir
+                else:
+                    root = newton(x_lst, y_lst)
+                    x_lst.pop(0), y_lst.pop(0)
+                self.unit.injection_well.update_inlet_fluid_state_PT(P=root)
+                outlet_enthalpy, outlet_pressure, mass_rate = self.unit.injection_well.process_stream()
+                self.unit.injection_well.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+                self.unit.reservoir.update_inlet_state()
+                self.unit.reservoir.stream_interface()
+                self.unit.reservoir.update_outlet_streams()
+                dP_reservoir = self.unit.reservoir.get_del_pressure()
+                count += 1
+            except CoolPropError as cpe:
+                raise type(cpe)(
+                    f"`_update_injection_well_inlet_P` failed on iteration {count}\n\t{cpe}"
+                ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    f"`_update_injection_well_inlet_P` failed on iteration {count}"
+                ) from err
 
     def _compute_dP_surface(self) -> float:
         """
@@ -249,9 +269,10 @@ class SystemORCNative(SystemNative):
         Returns:
             float: Surface pressure difference.
         """
-        return self.unit.production_well_pump.outlet_fluid.P \
+        dp_surface: float = self.unit.production_well_pump.outlet_fluid.P \
              - self.unit.injection_well.inlet_fluid.P \
              - self.unit.surface.dP_pipe
+        return dp_surface
 
     def _update_production_well(self) -> None:
         """
@@ -263,13 +284,69 @@ class SystemORCNative(SystemNative):
         - Updates the outlet streams and dependent states.
         - Calls `_update_production_well_pump` for further adjustments.
         """
-        self.unit.production_well.update_inlet_state()
-        self.unit.production_well.stream_interface()
-        self.unit.production_well.update_outlet_streams()
-        self.unit.production_well_pump.update_inlet_state()
-        self.unit.production_well_pump.stream_interface()
-        self.unit.production_well_pump.update_outlet_streams()
-        self._update_production_well_pump()
+        try:
+            self.unit.production_well.update_inlet_state()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.update_inlet_state` failed"
+            ) from err
+        try:
+            self.unit.production_well.stream_interface()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.stream_interface` failed"
+            ) from err
+        try:
+            self.unit.production_well.update_outlet_streams()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well.update_outlet_streams` failed"
+            ) from err
+        try:
+            self.unit.production_well_pump.update_inlet_state()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well_pump.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.update_inlet_state` failed"
+            ) from err
+        try:
+            self.unit.production_well_pump.stream_interface()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well_pump.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.stream_interface` failed"
+            ) from err
+        try:
+            self.unit.production_well_pump.update_outlet_streams()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.production_well_pump.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.production_well_pump.update_outlet_streams` failed"
+            ) from err
+        try:
+            self._update_production_well_pump()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self._update_production_well_pump` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self._update_production_well_pump` failed"
+            ) from err
 
     def _update_production_well_pump(self) -> None:
         """
@@ -305,10 +382,20 @@ class SystemORCNative(SystemNative):
             else:
                 root = newton(x_lst, y_lst)
                 x_lst.pop(0), y_lst.pop(0)
-            self.unit.production_well_pump.set_dP_pump(root)
-            self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
-            outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
-            self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+            try:
+                self.unit.production_well_pump.set_dP_pump(root)
+                self.unit.production_well_pump.update_inlet_fluid_state_with_pump()
+                outlet_enthalpy, outlet_pressure, mass_rate = self.unit.production_well_pump.process_stream()
+                self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
+            except CoolPropError as cpe:
+                raise type(cpe)(
+                    f"`_update_production_well_pump` failed on iteration {count}\n\t{cpe}"
+                ) from cpe
+            except Exception as err:
+                raise type(err)(
+                    f"`_update_production_well_pump` failed on iteration {count}"
+                ) from err
+            
             self.unit.surface.update_inlet_state()
             self.unit.surface.overwrite_state_pipe()
             dP_pump = self.unit.production_well_pump.get_dP_pump()
@@ -325,14 +412,41 @@ class SystemORCNative(SystemNative):
         - Updates the inlet and outlet states of the surface system.
         - Integrates with the injection well to ensure consistency in states.
         """
-        self.unit.surface.update_inlet_state()
-        self.unit.surface.stream_interface()
-        self.unit.surface.update_outlet_streams()
-        self.unit.injection_well.update_inlet_state()
+        try:
+            self.unit.surface.update_inlet_state()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_inlet_state` failed"
+            ) from err
+        try:
+            self.unit.surface.stream_interface()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.stream_interface` failed"
+            ) from err
+        try:
+            self.unit.surface.update_outlet_streams()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_outlet_streams` failed"
+            ) from err
+        try:
+            self.unit.injection_well.update_inlet_state()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.injection_well.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.injection_well.update_inlet_state` failed"
+            ) from err
 
     def _update_injection_well_inlet_T(self) -> None:
-        """
-        Performs local iterations to update the injection well inlet temperature.
+        """Perform local iterations to update the injection well inlet temperature.
 
         Logic:
         - Updates the inlet temperature of the injection well to minimize the surface temperature difference.
@@ -348,11 +462,37 @@ class SystemORCNative(SystemNative):
 
         Raises:
             RuntimeError: If Newton-Raphson fails and no valid root is found.
+
         """
-        self.unit.surface.update_inlet_state()
-        self.unit.surface.stream_interface()
-        self.unit.surface.update_outlet_streams()
-        dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.outlet_fluid.T)
+        try:
+            self.unit.surface.update_inlet_state()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_inlet_state` failed"
+            ) from err
+        try:
+            self.unit.surface.stream_interface()
+        except CoolPropError as cpe:
+            raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.stream_interface` failed"
+            ) from err
+        try:
+            self.unit.surface.update_outlet_streams()
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+        except Exception as err:
+            raise type(err)(
+                "`self.unit.surface.update_outlet_streams` failed"
+            ) from err
+
+        dT_surface = self.unit.injection_well.get_del_temperature(
+            T=self.unit.surface.outlet_fluid.T
+        )
         self.x_lst.append(copy.deepcopy(self.unit.injection_well.get_inlet_temperature_tmp()))
         self.y_lst.append(dT_surface)
 
@@ -361,7 +501,7 @@ class SystemORCNative(SystemNative):
         else:
             try:
                 root = newton(self.x_lst, self.y_lst)
-            except:
+            except Exception:
                 root = -1.0  # Dummy value
             root = max(root, MIN_INJ_TEMPERATURE)
             self.x_lst.pop(0)
@@ -387,11 +527,12 @@ class SystemORCNative(SystemNative):
         dP_surface = self._compute_dP_surface()
         dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.outlet_fluid.T)
 
-        return (
-            np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR and
-            np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE and
-            np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE
+        is_balanced: bool = (
+            (np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR) and
+            (np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE) and
+            (np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE)
         )
+        return is_balanced
 
     def update(self) -> None:
         """

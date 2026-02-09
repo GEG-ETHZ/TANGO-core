@@ -17,7 +17,7 @@ class InjectionWellUnitNative(WellUnitNative):
         scaling_factor (float): Factor used to scale mass flow rate.
     """
 
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the InjectionWellUnitNative class.
 
@@ -28,7 +28,7 @@ class InjectionWellUnitNative(WellUnitNative):
         Raises:
             RuntimeError: If required specifications are missing or invalid.
         """
-        WellUnitNative.__init__(self, id, specs=self._process_specs(specs))
+        WellUnitNative.__init__(self, unit_id, specs=self._process_specs(specs))
         self._specs_post_processor_iw()
         self.init_stream_interface()
         self._initialize_attributes_hw()

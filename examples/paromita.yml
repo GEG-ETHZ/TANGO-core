@@ -67,8 +67,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 25000000
   over_pressure_percentage: 20
-  inlet_state: '/Users/morteza/Documents/projects/TANGO/examples/representer.csv'
-  outlet_state: '/Users/morteza/Documents/projects/TANGO/examples/representer2.csv'
+  inlet_state: 'examples/representer.csv'
+  outlet_state: 'examples/representer2.csv'
 
 injection_well:
   well_length: 2500. # m
@@ -98,7 +98,7 @@ schedule:
   num_tsteps: 5 # number of time steps
   dt: 1.0  # time step increment (year)
   flow_rate_from_csv: 'yes'
-  flow_rate_file: '/Users/morteza/Documents/projects/TANGO/examples/mass_rate2.csv'
+  flow_rate_file: 'examples/mass_rate2.csv'
 
 economic:
   type: 'native'

@@ -55,7 +55,7 @@ surface:
   surface_pressure: 100_000  # Pa
   pipe_diameter: 0.41 # m
   approach_temperature: 7.0  # K
-  pp_design_file: '/Users/morteza/Documents/projects/TANGO/examples/testi3.yml'
+  pp_design_file: 'examples/testi3.yml'
 #  condensation_pressure_offset: 50_000.0  # Pa
 #  eta_turbine: 0.78  # (-)
 
@@ -137,12 +137,12 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states_test2.json'
-    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections_test2.json'
+    states_file: 'src/tango/states_test2.json'
+    connections_file: 'src/tango/connections_test2.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: '/Users/morteza/Documents/projects/TANGO/src/tango/aaaa.csv'
+    results_file: 'src/tango/aaaa.csv'
 
 power_plant_graph:
   nodes:

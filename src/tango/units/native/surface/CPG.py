@@ -1,8 +1,9 @@
 import logging
 
 from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import *
+from tango.units.native.surface.base import SurfaceUnitNative
 from dataclasses import dataclass
+from tango.core.fluidstate import FluidState
 
 import csv
 import os
@@ -91,7 +92,7 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
         self.outlet_fluid_pump = FluidState.withPT(self._fluid_name, self.condensation_pressure, self._condensation_temperature)
         self.outlet_fluid = FluidState.copy(self.outlet_fluid_pump)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the stream by updating turbine, condenser, and pump states,
         and computes the net system performance.
@@ -116,6 +117,29 @@ class SurfaceUnitCPGNative(SurfaceUnitNative):
             return self.P_out, self.T_out, self.mass_rate
         else:
             return self.P_out, self.T_out, self.specs.mass_flow_rate
+
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
+        effects
+
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
+
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
 
     def _read_csv_file(self):
         """

@@ -48,7 +48,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         self.mass_rate = self.specs.mass_flow_rate
         self.outlet_fluid = FluidState.copy(self.inlet_fluid)
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Simulates the surface unit operations by interfacing with external scripts and updates states.
 

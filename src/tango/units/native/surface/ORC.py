@@ -1,7 +1,8 @@
-from tango.core.constants import *
-from tango.core.config import *
+from tango.core.constants import K_TO_C, C_TO_K
+from tango.core.config import MAP_ORC_OPTNAME_TO_TABLE_NAME
 from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import *
+from tango.units.native.surface.base import SurfaceUnitNative
+from tango.core.fluidstate import FluidState
 from tango import utils
 from dataclasses import dataclass
 
@@ -108,7 +109,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         if self.specs.flow_rate_from_csv == 'yes':
             self.csv_data = self._read_csv_file()
 
-    def init_stream_interface(self, P: float=None, T: float=None) -> None:
+    def init_stream_interface(self, P: float | None=None, T: float | None=None) -> None:
         """
         Initializes the fluid stream interface.
 
@@ -122,7 +123,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
-    def process_stream(self) -> None:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the fluid stream and updates state variables.
 
@@ -155,6 +156,29 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         Updates the state of the pipe.
         """
         self._update_state_pipe()
+
+    def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate flow pressure delta [Pa], accounting for gravitational
+        effects
+
+        This approximates the flow resistance based on fluid properties evaluated at the well inlet.
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
+
+    def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
+        r"""Return approximate pressure delta [Pa] per unit length, accounting only for dissipative losses,
+
+        # Arguments
+        - `te`: estimated temperature [K] for property evaluations
+        - `p`: estimated pressure [Pa] for property evaluations
+        - `mdot`: mass flow rate [kg/s]
+        """
+        raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
 
     def _read_csv_file(self):
         """

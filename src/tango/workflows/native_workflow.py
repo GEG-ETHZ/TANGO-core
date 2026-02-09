@@ -1,27 +1,29 @@
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
+from datetime import datetime  # noqa: I001
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 from tqdm import tqdm
 import numpy as np
 import sys
 import logging
 import importlib
 import os
-import csv
 from copy import deepcopy
-
 from .arangodb_manager import ArangoDBManager
-from tango.core.abstracts.workflow import *
-from tango.core.constants import *
-from tango.core.config import *
+
+from tango.workflows.native_workflow_utils import handle_convergence_err
+from tango.core.abstracts.workflow import Workflow
+from tango.orchestrators.external import SystemExternal  # noqa: F401
+from tango.orchestrators import SystemCPGNative, SystemNative, SystemORCNative  # noqa: F401
+from tango.core.errors import (
+    CoolPropError,
+    TESPyError,
+)
+from tango.core.config import SYSTEM_OPTIONS, DATETIME_FMT
 from tango import utils
-from tango.orchestrators.native import *
-from tango.orchestrators.external import *
-from tabulate import tabulate
-from termcolor import colored
-from itertools import cycle
+from tango.utils import get_unit_class
+from tango.core.constants import YEAR_TO_MONTH
 from tango.function_evaluator import FunctionEvaluator
 from tango.parameter_mappings import TARGET_PARAMETER_MAPPING, VARIABLE_PARAMETER_MAPPING
-from tango.units.dataclasses import *
+
 
 def get_system_class(type_: str) -> object:
     """
@@ -62,7 +64,7 @@ class NativeWorkflow(Workflow):
         diagram_specs (DiagramSpecs): Diagram specifications for plotting.
     """
 
-    def __init__(self, specs: dict, input_file: str, user_id: str = None, run_id: str = None, run_dir: str = None):
+    def __init__(self, specs: dict, input_file: str, user_id: str | None = None, run_id: str = None, run_dir: str = None):
         """
         Initializes the NativeWorkflow object.
 
@@ -117,6 +119,8 @@ class NativeWorkflow(Workflow):
             except Exception as e:
                 logging.error(f"Failed to initialize ArangoDB manager: {e}")
                 self.arango_manager = None
+
+    handle_convergence_err = handle_convergence_err
 
     def write_to_arangodb(self, step_index: int, table_type: str = "main_graph", data_type: str = "timestep"):
         """
@@ -267,9 +271,7 @@ class NativeWorkflow(Workflow):
         Balances the system and advances by one time step using native computations.
         """
         count = 0
-        while True:
-            if self.orchestrator.max_itr_reached(count):
-                break
+        while not self.orchestrator.max_itr_reached(count):
             count += 1
             self.orchestrator.execute()  # Run compute nodes
             if self.orchestrator.balanced():
@@ -726,72 +728,77 @@ class NativeWorkflow(Workflow):
         - Balances and advances the system state.
         - Saves results and performs post-processing tasks.
         """
-        self._generate_power_plant_mappings()
+        try:
+            self._generate_power_plant_mappings()
         
-        if 'functions' in self.specs and self.specs['functions']:
-            self.function_evaluator.evaluate_functions(self.specs['functions'])
-        current_date = self._start_date
-        for i in tqdm(range(len(self.specs["schedule"]['dt_list'])), desc="Progress: ", ncols=100, file=sys.stdout):
-            self._dt_months = np.round(self.specs['schedule']['dt_list'][i] * YEAR_TO_MONTH)
-            if (type(self.orchestrator).__name__ != 'SystemExternal' and
-                    self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
-                self._native_system_iteration()
+            if 'functions' in self.specs and self.specs['functions']:
+                self.function_evaluator.evaluate_functions(self.specs['functions'])
+            current_date = self._start_date
+            for i in tqdm(range(len(self.specs["schedule"]['dt_list'])), desc="Progress: ", ncols=100, file=sys.stdout):
+                self._dt_months = np.round(self.specs['schedule']['dt_list'][i] * YEAR_TO_MONTH)
+                if (type(self.orchestrator).__name__ != 'SystemExternal' and
+                        self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom'):
+                    self._native_system_iteration()
+                else:
+                    self._external_system_iteration(self.function_evaluator.evaluated_functions)
+
+                self._save_results(current_date)
+                current_date += relativedelta(months=self._dt_months)
+                write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
+                if getattr(self.orchestrator.unit.surface.specs, 'output_table', 'no') == 'yes':
+                    logging.info(f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})")
+                    self.generate_output_table(step_index=i, table_type="main_graph", write_csv=write_csv, print_table=True)
+
+                if (getattr(self.orchestrator.unit.surface.specs, 'power_plant_table', 'no') == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
+                    if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
+                        logging.info(f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})")
+                        self.generate_power_plant_output_table(step_index=i, write_csv=write_csv, print_table=True)
+
+                self._write_timestep_files(i)
+
+            if 'functions' in self.specs and self.specs['functions']:
+                self.function_evaluator.evaluate_functions(self.specs['functions'])
+
+            if (self.orchestrator.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
+                self.dt_list = self.orchestrator.unit.injection_well.MOOSE_dt_list
+
+            if self.economic:
+                self.economic.execute(self._results, self.function_evaluator.evaluated_functions, self.dt_list)
+                self.write_to_arangodb(0, "economic", "economic")
+        
+            self.write_to_arangodb(0, "physics", "physics")
+
+            for addon_name, addon_instance in self.addons.items():
+                addon_specs = getattr(self, f"{addon_name}_specs")
+
+                if addon_specs.active.lower() == "yes":
+                    logging.info(f"Running post_process for addon: {addon_name}")
+                    addon_instance.post_process(addon_specs)
+
+                if addon_specs.execute.lower() == "yes":
+                    logging.info(f"Running execute for addon: {addon_name}")
+                    addon_instance.execute()
+        
+            if 'batch_runner' in self.specs:
+                self.process_batch_runner_outputs()
             else:
-                self._external_system_iteration(self.function_evaluator.evaluated_functions)
+                self._post_processing()
 
-            self._save_results(current_date)
-            current_date += relativedelta(months=self._dt_months)
-            write_csv = getattr(self.orchestrator.unit.surface.specs, 'table_to_csv', 'no') == 'yes'
-            if getattr(self.orchestrator.unit.surface.specs, 'output_table', 'no') == 'yes':
-                logging.info(f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})")
-                self.generate_output_table(step_index=i, table_type="main_graph", write_csv=write_csv, print_table=True)
-
-            if (getattr(self.orchestrator.unit.surface.specs, 'power_plant_table', 'no') == 'yes' and self.orchestrator.unit.surface.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
-                if hasattr(self.orchestrator.unit.surface, 'power_plant') and hasattr(self.orchestrator.unit.surface.power_plant, 'generate_output_table'):
-                    logging.info(f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})")
-                    self.generate_power_plant_output_table(step_index=i, write_csv=write_csv, print_table=True)
-
-            self._write_timestep_files(i)
-
-        if 'functions' in self.specs and self.specs['functions']:
-            self.function_evaluator.evaluate_functions(self.specs['functions'])
-
-        if (self.orchestrator.unit.injection_well.__class__.__name__ == 'WellUnitMOOSE'):
-            self.dt_list = self.orchestrator.unit.injection_well.MOOSE_dt_list
-
-        if self.economic:
-            self.economic.execute(self._results, self.function_evaluator.evaluated_functions, self.dt_list)
-            self.write_to_arangodb(0, "economic", "economic")
-        
-        self.write_to_arangodb(0, "physics", "physics")
-
-        for addon_name, addon_instance in self.addons.items():
-            addon_specs = getattr(self, f"{addon_name}_specs")
-
-            if addon_specs.active.lower() == "yes":
-                logging.info(f"Running post_process for addon: {addon_name}")
-                addon_instance.post_process(addon_specs)
-
-            if addon_specs.execute.lower() == "yes":
-                logging.info(f"Running execute for addon: {addon_name}")
-                addon_instance.execute()
-        
-        if 'batch_runner' in self.specs:
-            self.process_batch_runner_outputs()
-        else:
-            self._post_processing()
-
-        if hasattr(self, 'arango_manager') and self.arango_manager:
-            status = self.arango_manager.check_status()
-            summary = self.arango_manager.get_data_summary()
-            logging.info(f"ArangoDB Final Status: {summary}")
-            print(f"\n[ARANGODB] {summary}")
+            if hasattr(self, 'arango_manager') and self.arango_manager:
+                status = self.arango_manager.check_status()
+                summary = self.arango_manager.get_data_summary()
+                logging.info(f"ArangoDB Final Status: {summary}")
+                print(f"\n[ARANGODB] {summary}")
             
-            if hasattr(self, '_current_simulation_id') and self._current_simulation_id:
-                print(f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully")
+                if hasattr(self, '_current_simulation_id') and self._current_simulation_id:
+                    print(f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully")
 
-        if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
-            self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
+            if 'district_heating' in self.specs and self.specs.get('district_heating', {}).get('run_district_heating_simulator', '').lower() == 'yes':
+                self.orchestrator.hotmapsdispatch_runner(self.economic._results, self._results, self.economic.specs.dt_list)
+        except TESPyError as tpe:
+            raise tpe
+        except CoolPropError as cpe:
+            self.handle_convergence_err(cpe)
 
     def generate_output_table(self, step_index: int = -1, table_type: str = "main_graph", write_csv: bool = False, print_table: bool = True):
         """
@@ -1121,3 +1128,6 @@ class NativeWorkflow(Workflow):
                     print(f"  Input value for {input_param}: {self.specs[input_param]}")
                 else:
                     print(f"  Warning: {input_param} not found in specs")
+
+
+

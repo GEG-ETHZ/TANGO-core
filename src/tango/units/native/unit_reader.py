@@ -1,13 +1,16 @@
 import numpy as np
 from math import erfc
 from math import e as exp
-
-from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import *
-from tango.units.dataclasses import ReservoirSpecsNative
 import csv
 import os
 import logging
+
+
+from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
+from tango.core.abstracts.unit import *
+from tango.core.errors import CoolPropError
+from tango.units.dataclasses import ReservoirSpecsNative
+
 
 class ReservoirFileReaderUnit(Unit):
     """
@@ -62,10 +65,19 @@ class ReservoirFileReaderUnit(Unit):
         This method retrieves the pressure, temperature, and mass rate from the current row and updates
         the outlet fluid properties.
         """
-        outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
-        self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        try:
+            outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
+            self.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
+        except CoolPropError as cpe:
+            raise type(cpe)(
+                f"ReservoirFileReaderUnit `stream_interface` failed\n\t{cpe}"
+            ) from cpe
+        except Exception as err:
+            raise type(err)(
+                "ReservoirFileReaderUnit `stream_interface` failed"
+            ) from err
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         """
         Processes the current row of inlet and outlet data to extract pressure, temperature, and mass rate.
 

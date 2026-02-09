@@ -1,9 +1,7 @@
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.units.dataclasses import ReservoirSpecsPorousflow
-from tango.units.external.MOOSE.base import *
-from tango.core.constants import GRAVITY_ACCELERATION
-from tango.units.dataclasses import ReservoirSpecsPorousflow
-from tango.units.external.MOOSE.base import *
+from tango.core.fluidstate import FluidState
+from tango.units.external.MOOSE.base import MOOSERunner, TangoMooseInterface
 
 
 class ReservoirUnitPorousflow(MOOSERunner):
@@ -31,7 +29,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         _compute_initial_pressure: Calculates the initial pressure of the reservoir.
         _initialize_mdot_mult: Initializes the mass flow rate multiplier based on the well pattern.
     """
-    def __init__(self, id: str, specs: dict) -> None:
+    def __init__(self, unit_id: str, specs: dict) -> None:
         """
         Initializes a new instance of the ReservoirUnitPorousflow class.
 
@@ -39,7 +37,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
             id (str): Identifier for the reservoir unit.
             specs (dict): Specifications for the reservoir simulation.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
         self.specs = ReservoirSpecsPorousflow.from_dict(self._process_specs(specs))
         self._specs_post_processor()
         self.init_stream_interface()
@@ -59,7 +57,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.inlet_fluid = FluidState.withPT(self.fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
-    def process_stream(self) -> tuple:
+    def process_stream(self) -> tuple[float, float, float]:
         r"""
         Updates the reservoir state given the inlet state.
 

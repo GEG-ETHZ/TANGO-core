@@ -41,11 +41,11 @@ injection_well:
   well_length: 4000. # m
   diameter: 0.22 # m
   epsilon: 1.e-4
-  yaml_file_path: "/Users/morteza/Documents/projects/TANGO/examples/cever1-10.yml"
-  template_file_path: "/Users/morteza/Documents/projects/TANGO/examples/cever1.i"
+  yaml_file_path: "examples/cever1-10.yml"
+  template_file_path: "examples/cever1.i"
   output_file_name: "cever1.i"
   moose_input_path: '/Users/morteza/Documents/projects/moskito2/cever1.i' #
-  post_processor_path: '/Users/morteza/Documents/projects/TANGO/src/tango/1_out.csv' #
+  post_processor_path: 'src/tango/1_out.csv' #
   bc_columns:
     pressure_column_index: 2
     temperature_column_index: 6
