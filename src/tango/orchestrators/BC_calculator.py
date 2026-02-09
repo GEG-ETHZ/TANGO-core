@@ -2,6 +2,7 @@ import logging
 import math
 import pandas as pd
 from dataclasses import dataclass, field
+import logging
 
 from tango.core.errors import P_SAT_ERR_TEST, CoolPropError, SaturationPressureError, ProPumpInletFlashError
 from tango.core.constants import GRAVITY_ACCELERATION
@@ -394,12 +395,12 @@ class FlowRateCalculator:
                 ) from err
 
             # Update production well
-            logging.debug(
+            logging.info(
                 "Updating production well to satisfy BCs\n"
-                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},\n"
-                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},\n"
-                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},\n"
-                f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}",
+                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate}\n"
+                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P}\n"
+                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T}\n"
+                f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}\n",
             )
             self.pro_well.mass_rate = self.reservoir.mass_rate
             try:
