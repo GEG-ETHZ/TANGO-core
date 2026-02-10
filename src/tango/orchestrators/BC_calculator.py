@@ -394,15 +394,14 @@ class FlowRateCalculator:
                 ) from err
 
             # Update production well
-            logging.info(
-                "Updating production well to satisfy BCs",
-                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},",
-                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},",
-                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},",
-                f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}",
-                sep="\n",
-            )
             self.pro_well.mass_rate = self.reservoir.mass_rate
+            logging.info(
+                "Updating production well to satisfy BCs\n"
+                f"\tself.reservoir.mass_rate: {self.reservoir.mass_rate},\n"
+                f"\tself.reservoir.outlet_fluid.P: {self.reservoir.outlet_fluid.P},\n"
+                f"\tself.reservoir.outlet_fluid.T: {self.reservoir.outlet_fluid.T},\n"
+                f"\tself.reservoir.outlet_fluid.H: {self.reservoir.outlet_fluid.H}",
+            )
             try:
                 self.pro_well.inlet_fluid.updatePT(
                     P=self.reservoir.outlet_fluid.P,
