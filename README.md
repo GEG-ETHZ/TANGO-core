@@ -1,5 +1,4 @@
-# tango
-
+# Techno-economic ANalysis of Geoenergy Operations (TANGO)
 ![Tango Logo](./tango-logo.svg)
 
 ## General users
