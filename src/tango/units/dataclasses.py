@@ -4,6 +4,8 @@ from pathlib import Path
 
 from tango.core.config import WELL_PATTERN_OPTIONS
 
+import os
+from typing import List, Dict, Union, Optional
 
 @dataclass
 class BcIteration:
@@ -104,9 +106,9 @@ class CommonSpecs:
     injection_pressure: float = 2_000_000
     output_table: str = "yes"
     power_plant_table: str = "yes"
-    table_to_csv: str = "no"
     bypass_file_generation: str = "no"
     min_thermal_power: float = 0.005  # (MW)
+    table_to_csv: str = "yes" if os.environ.get("TABLE_TO_CSV", "").lower() == "true" else "no"
 
     def __post_init__(self):
         if self.well_pattern not in WELL_PATTERN_OPTIONS:
@@ -289,11 +291,20 @@ class ThermaGraphSpecs:
     connections_file: str
     active: str = "no"
     execute: str = "yes"
-    per_timestep: str = "no"
     fluid_name: str = "H2O"
-    auto_save_svg: str = "no"  # 'yes' to auto-save SVG, 'no' to show UI
-    svg_filename: str = "output"  # SVG filename to use if auto_save_svg is yes
     output_dir: Path | None = None  # Injected by workflow from run_dir/save_dir
+    per_timestep: str = "yes" if os.environ.get("THERMAGRAPH_PER_TIMESTEP", "").lower() == "true" else "no"
+    # 'yes' to auto-save SVG, 'no' to show UI
+    auto_save_svg: str = "yes" if os.environ.get("AUTO_SAVE_THERMAGRAPH_SVG", "").lower() == "true" else "no"
+
+    def __post_init__(self):
+        import logging
+        logging.debug(
+            f"ThermaGraphSpecs initialized: per_timestep={self.per_timestep}, auto_save_svg={self.auto_save_svg}"
+        )
+        logging.debug(
+            f"Environment vars: THERMAGRAPH_PER_TIMESTEP={os.environ.get('THERMAGRAPH_PER_TIMESTEP', 'NOT SET')}, AUTO_SAVE_THERMAGRAPH_SVG={os.environ.get('AUTO_SAVE_THERMAGRAPH_SVG', 'NOT SET')}"
+        )
 
     @classmethod
     def from_dict(cls, env):  # ignore extra arguments passed to a dataclass
