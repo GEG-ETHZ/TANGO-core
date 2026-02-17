@@ -734,12 +734,14 @@ class ArangoDBManager:
         try:
             physics_results = {}
             
-            if hasattr(workflow_instance, '_results') and workflow_instance._results:
-                for key, value in workflow_instance._results.items():
+            if hasattr(workflow_instance, 'results') and workflow_instance.results:
+                for key, value in workflow_instance.results.items():
                     if isinstance(value, list):
                         physics_results[f"result_{key}"] = value
                     else:
                         physics_results[f"result_{key}"] = value
+            else:
+                 logging.warning("Workflow results are empty or missing. Physics data might be incomplete.")
             
             if (hasattr(workflow_instance.orchestrator, 'unit') and
                 hasattr(workflow_instance.orchestrator.unit, 'surface') and
