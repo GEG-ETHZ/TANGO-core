@@ -36,8 +36,8 @@
 ## Artifact Locations
 - [ ] make it so that the *_log (e.g. CPG_hot_opt_log) and *.png (e.g.
     CPG_hot_opt_log) files get saved in a user-specified location
-- [x] make sure users have control over where output and artifact files end up
-    and that it's never under `src/tango/`.  Additionally, it should be possible
+- [ ] make sure users have control over where output and artifact files end up
+- [ ] and that it's never under `src/tango/`.  Additionally, it should be possible
     for the user to not save any files at all.  This is important because full
     factorial HPC runs will generate a ton of files (storage usage!) if this is
     not fixed.
