@@ -171,39 +171,37 @@ class ArangoDBManager:
         """Create indexes for efficient querying."""
         try:
             main_graph = self.db.collection('main_graph_data')
-            if not main_graph.has_index(['user_id', 'simulation_id', 'timestep']):
-                main_graph.ensure_index(['user_id', 'simulation_id', 'timestep'], 
-                                      name='idx_main_graph_user_sim_timestep')
-            
-            power_plant = self.db.collection('power_plant_data')
-            if not power_plant.has_index(['user_id', 'simulation_id', 'timestep']):
-                power_plant.ensure_index(['user_id', 'simulation_id', 'timestep'], 
-                                       name='idx_power_plant_user_sim_timestep')
-            
-            economic = self.db.collection('economic_data')
-            if not economic.has_index(['user_id', 'simulation_id']):
-                economic.ensure_index(['user_id', 'simulation_id'], 
-                                    name='idx_economic_user_sim')
-            
-            physics = self.db.collection('physics_data')
-            if not physics.has_index(['user_id', 'simulation_id']):
-                physics.ensure_index(['user_id', 'simulation_id'], 
-                                   name='idx_physics_user_sim')
-            
-            phase_diagram = self.db.collection('phase_diagram')
-            if not phase_diagram.has_index(['user_id', 'simulation_id', 'timestep']):
-                phase_diagram.ensure_index(['user_id', 'simulation_id', 'timestep'], 
-                                         name='idx_phase_diagram_user_sim_timestep')
-            
-            users = self.db.collection('users')
-            if not users.has_index(['email']):
-                users.ensure_index(['email'], name='idx_users_email')
-            
-            simulations = self.db.collection('simulations')
-            if not simulations.has_index(['user_id']):
-                simulations.ensure_index(['user_id'], name='idx_simulations_user')
-            
-            logging.info("ArangoDB indexes created successfully")
+            # Create indexes using standard python-arango methods
+            # add_hash_index is idempotent (returns existing if present)
+            try:
+                main_graph.add_hash_index(['user_id', 'simulation_id', 'timestep'], 
+                                       name='idx_main_graph_user_sim_timestep')
+                
+                power_plant = self.db.collection('power_plant_data')
+                power_plant.add_hash_index(['user_id', 'simulation_id', 'timestep'], 
+                                         name='idx_power_plant_user_sim_timestep')
+                
+                economic = self.db.collection('economic_data')
+                economic.add_hash_index(['user_id', 'simulation_id'], 
+                                      name='idx_economic_user_sim')
+                
+                physics = self.db.collection('physics_data')
+                physics.add_hash_index(['user_id', 'simulation_id'], 
+                                     name='idx_physics_user_sim')
+                
+                phase_diagram = self.db.collection('phase_diagram')
+                phase_diagram.add_hash_index(['user_id', 'simulation_id', 'timestep'], 
+                                           name='idx_phase_diagram_user_sim_timestep')
+                
+                users = self.db.collection('users')
+                users.add_hash_index(['email'], name='idx_users_email')
+                
+                simulations = self.db.collection('simulations')
+                simulations.add_hash_index(['user_id'], name='idx_simulations_user')
+                
+                logging.info("ArangoDB indexes verified/created successfully")
+            except Exception as e:
+                logging.warning(f"Index creation warning (non-critical): {e}")
             
         except Exception as e:
             logging.error(f"Failed to create indexes: {e}")
@@ -323,9 +321,13 @@ class ArangoDBManager:
             try:
                 yaml_data = yaml.safe_load(yaml_content)
                 yaml_content_json = yaml_data
-            except yaml.YAMLError:
+                logging.info("Successfully parsed YAML content for simulation record")
+            except yaml.YAMLError as ye:
                 yaml_content_json = None
-                logging.warning("Failed to parse YAML content")
+                logging.warning(f"Failed to parse YAML content: {ye}")
+            except Exception as e:
+                yaml_content_json = None
+                logging.warning(f"Unexpected error parsing YAML content: {e}")
             
             fluid_name = None
             if yaml_data:
@@ -340,6 +342,7 @@ class ArangoDBManager:
                 'created_at': datetime.now().isoformat()
             }
             
+            logging.info(f"Attempting to insert simulation doc for user {user_id}")
             result = simulations_collection.insert(simulation_doc)
             simulation_id = result['_key']
             
@@ -348,6 +351,8 @@ class ArangoDBManager:
             
         except Exception as e:
             logging.error(f"Failed to create simulation record: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
             return None
     
     def get_current_user_and_simulation(self, workflow_instance, modified_specs=None) -> Tuple[str, str]:
@@ -372,21 +377,33 @@ class ArangoDBManager:
             try:
                 import yaml
                 yaml_content = yaml.dump(modified_specs, default_flow_style=False, sort_keys=False)
-                simulation_id = self.create_simulation_record(user_id, yaml_content, workflow_instance._input_file)
+                # Use input_file attribute (no underscore)
+                input_file_path = getattr(workflow_instance, 'input_file', 'unknown_input.yml')
+                if hasattr(input_file_path, 'name'):  # Handle if it's a Path object
+                     input_file_path = str(input_file_path)
+                
+                simulation_id = self.create_simulation_record(user_id, yaml_content, str(input_file_path))
             except Exception as e:
                 logging.error(f"Failed to create YAML from modified specs: {e}")
-        elif hasattr(workflow_instance, '_input_file'):
+        elif hasattr(workflow_instance, 'input_file'):
             # Fallback to reading original file if no modified specs provided
             try:
-                with open(workflow_instance._input_file, 'r') as f:
-                    yaml_content = f.read()
-                simulation_id = self.create_simulation_record(user_id, yaml_content, workflow_instance._input_file)
+                # input_file might be a Path object
+                input_file_path = workflow_instance.input_file
+                if hasattr(input_file_path, 'read_text'): # It's a Path
+                     yaml_content = input_file_path.read_text()
+                else: 
+                     with open(str(input_file_path), 'r') as f:
+                        yaml_content = f.read()
+                
+                simulation_id = self.create_simulation_record(user_id, yaml_content, str(input_file_path))
             except Exception as e:
                 logging.error(f"Failed to read YAML file for simulation record: {e}")
         
         self._current_user_id = user_id
         self._current_simulation_id = simulation_id
         
+        logging.info(f"ArangoDBManager initialized with User ID: {user_id}, Simulation ID: {simulation_id}")
         return user_id, simulation_id
     
     def write_timestep_data(self, step_index: int, table_type: str, 
@@ -400,8 +417,30 @@ class ArangoDBManager:
             data_type (str): Type of data to write
             workflow_instance: Reference to the workflow instance for data access
         """
-        if not self.db or not self._current_user_id or not self._current_simulation_id:
+        if not self.db:
+            logging.warning("ArangoDB write skipped: Database connection not initialized")
             return
+
+        if not self._current_user_id:
+             logging.warning("ArangoDB write skipped: User ID is missing")
+             return
+
+        if not self._current_simulation_id:
+            logging.error("ArangoDB write warning: Simulation ID is missing! Using fallback for debugging.")
+            self._current_simulation_id = f"fallback-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            
+            # Try to create a dummy simulation record
+            try:
+                if self.db and self.db.has_collection('simulations'):
+                     self.db.collection('simulations').insert({
+                         '_key': self._current_simulation_id,
+                         'user_id': self._current_user_id,
+                         'note': 'Fallback simulation record created by debug logic',
+                         'created_at': datetime.now().isoformat()
+                     })
+                     logging.info(f"Created fallback simulation record: {self._current_simulation_id}")
+            except Exception as e:
+                logging.error(f"Failed to create fallback simulation record: {e}")
             
         try:
             if data_type == "main_graph":
@@ -586,21 +625,46 @@ class ArangoDBManager:
             # Look for the ThermaGraph SVG file generated for this timestep
             # Try to find the SVG file in the workflow's run directory
             svg_filename = None
-            if hasattr(workflow_instance, '_run_dir') and hasattr(workflow_instance, '_run_id'):
-                svg_filename = os.path.join(workflow_instance._run_dir, f"{workflow_instance._run_id}_thermagraph_output_{step_index}.svg")
+            if hasattr(workflow_instance, 'run_dir') and hasattr(workflow_instance, 'run_id'):
+                svg_filename = os.path.join(str(workflow_instance.run_dir), f"{workflow_instance.run_id}_thermagraph_output_{step_index}.svg")
             else:
                 svg_filename = f"thermagraph_output_{step_index}.svg"
             
             if not os.path.exists(svg_filename):
                 logging.warning(f"Phase diagram SVG file not found: {svg_filename}")
+                # Try to list files in the directory to see what IS there
+                try:
+                    dirname = os.path.dirname(svg_filename)
+                    if os.path.exists(dirname):
+                        files = os.listdir(dirname)
+                        logging.info(f"Files in {dirname}: {files}")
+                    else:
+                        logging.warning(f"Directory {dirname} does not exist.")
+                except Exception as listing_err:
+                    logging.error(f"Error listing files: {listing_err}")
                 return
             
             # Read the SVG file content
+            logging.info(f"Reading SVG file: {svg_filename}")
             with open(svg_filename, 'r', encoding='utf-8') as f:
                 svg_content = f.read()
+                
+            logging.info(f"SVG content read, length: {len(svg_content)} bytes")
             
             # Encode SVG content as base64 for efficient storage (optional)
             svg_base64 = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+            
+            fluid_name = getattr(workflow_instance, 'fluid_name', None)
+            if not fluid_name:
+                 # Try other places
+                 try:
+                     fluid_name = workflow_instance.specs.get('fluid_name')
+                     if not fluid_name:
+                         fluid_name = workflow_instance.specs.get('props', {}).get('fluid_name')
+                     if not fluid_name:
+                         fluid_name = workflow_instance.specs.get('common', {}).get('fluid_name')
+                 except:
+                     pass
             
             phase_diagram_doc = {
                 'user_id': self._current_user_id,
@@ -612,20 +676,21 @@ class ArangoDBManager:
                 'svg_content': svg_content,  # Store raw SVG for easy viewing
                 'svg_base64': svg_base64,    # Store base64 encoded for efficient transfer
                 'file_size_bytes': len(svg_content),
-                'fluid_name': getattr(workflow_instance, 'fluid_name', None) or 
-                             workflow_instance.specs.get('fluid_name') or
-                             workflow_instance.specs.get('props', {}).get('fluid_name') or
-                             workflow_instance.specs.get('common', {}).get('fluid_name')
+                'fluid_name': fluid_name
             }
             
+            logging.info(f"Inserting document into 'phase_diagram' collection for user {self._current_user_id}...")
             collection = self.db.collection('phase_diagram')
             result = collection.insert(phase_diagram_doc)
             
             logging.info(f"Successfully wrote phase diagram SVG for timestep {step_index} to ArangoDB, document ID: {result['_key']}")
+            logging.info(f"Full Insert Result: {result}")
             
         except Exception as e:
             logging.error(f"Failed to write phase diagram data to ArangoDB: {e}")
             logging.error(f"Exception details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logging.error(traceback.format_exc())
     
     def write_economic_data(self, workflow_instance) -> None:
         """Write economic data at the end of simulation."""
@@ -762,7 +827,7 @@ class ArangoDBManager:
             }
             
             for collection_name in ['users', 'simulations', 'main_graph_data', 
-                                  'power_plant_data', 'economic_data', 'physics_data']:
+                                  'power_plant_data', 'economic_data', 'physics_data', 'phase_diagram']:
                 if self.db.has_collection(collection_name):
                     collection = self.db.collection(collection_name)
                     status['collections'][collection_name] = {

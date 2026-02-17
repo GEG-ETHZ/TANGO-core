@@ -45,6 +45,21 @@ class ThermaGraph_addon(TangoAddon):
 
     def post_process(self, specs):
         self.fluid_name = getattr(specs, "fluid_name", "CO2")
+    
+        # CRITICAL FIX: Copy execution parameters from specs to self so execute() can use them
+        # Handle specs being either an object or a dictionary
+        print(f"DEBUG: ThermaGraph post_process called with specs type: {type(specs)}")
+        if isinstance(specs, dict):
+            print(f"DEBUG: Specs keys: {specs.keys()}")
+            self.svg_filename = specs.get("svg_filename", "")
+            self.auto_save_svg = specs.get("auto_save_svg", "no")
+        else:
+            print(f"DEBUG: Specs dict: {specs.__dict__ if hasattr(specs, '__dict__') else 'no __dict__'}")
+            self.svg_filename = getattr(specs, "svg_filename", "")
+            self.auto_save_svg = getattr(specs, "auto_save_svg", "no")
+
+        print(f"DEBUG: ThermaGraph configured - auto_save_svg={self.auto_save_svg}, svg_filename={self.svg_filename}")
+            
         if self.graph.get(
             "power_plant_graph", {}
         ):  # Check if `power_plant_graph` exists and is not empty
@@ -321,11 +336,23 @@ class ThermaGraph_addon(TangoAddon):
         This method directly imports and calls the Frame module rather than
         spawning a subprocess, which is cleaner and avoids environment issues.
         """
+        # Handle headless execution for batch mode EARLY, before any imports
+        # that might initialize Qt (like matplotlib.backends.backend_qt5agg)
+        auto_save_svg = getattr(self, "auto_save_svg", "no")
+        print(f"DEBUG EXECUTE: auto_save_svg={auto_save_svg}")
+        if auto_save_svg == "yes":
+            # If no display is available, force offscreen platform
+            if sys.platform != "win32" and not os.environ.get("DISPLAY"):
+                os.environ["QT_QPA_PLATFORM"] = "offscreen"
+                print(f"ThermaGraph: Headless mode detected. Set QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}")
+            elif os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+                 print(f"ThermaGraph: QT_QPA_PLATFORM already set to 'offscreen'")
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
         fluid_name = getattr(self, "fluid_name", "CO2")
         auto_save_svg = getattr(self, "auto_save_svg", "no")
         svg_filename = getattr(self, "svg_filename", "")
+        print(f"DEBUG EXECUTE: fluid={fluid_name}, svg_filename={svg_filename}")
 
         if not os.path.exists(components_file):
             print(f"Error: Components file does not exist: {components_file}")
@@ -342,19 +369,28 @@ class ThermaGraph_addon(TangoAddon):
         from tango.addons.ThermaGraph.Frame import MainWindow
         from PyQt5.QtWidgets import QApplication
 
-        app = QApplication(sys.argv)
-        window = MainWindow(default_fluid=fluid_name)
-        window.load_files(components_file, connections_file)
+        # Reuse existing QApplication if possible (singleton)
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+
+        # Helper to prevent GC
+        self.window = MainWindow(default_fluid=fluid_name)
+        self.window.load_files(components_file, connections_file)
 
         if auto_save_svg == "yes" and svg_filename:
             try:
                 os.makedirs(os.path.dirname(svg_filename), exist_ok=True)
-                window.canvas.figure.savefig(svg_filename, format="svg")
+                self.window.canvas.figure.savefig(svg_filename, format="svg")
                 print(f"SVG successfully saved to: {svg_filename}")
             except Exception as e:
                 print(f"Error saving SVG: {e}")
             return  # Exit without showing UI in batch mode
 
         # Interactive mode - show UI
-        window.show()
-        app.exec_()
+        # Interactive mode - show UI only if NOT headless
+        if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+            self.window.show()
+            app.exec_()
+        else:
+            print("ThermaGraph: Headless mode detected, skipping UI execution (app.exec_()).")

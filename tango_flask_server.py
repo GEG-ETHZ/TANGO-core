@@ -12,6 +12,34 @@ import time
 from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Configure logging
+# Default to WARNING to reduce noise, unless TANGO_DEBUG is set
+log_level = logging.INFO if os.environ.get("TANGO_DEBUG") else logging.WARNING
+
+# Create formatters and handlers
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+# File handler with rotation (max 5MB, 1 backup)
+file_handler = RotatingFileHandler("tango_server.log", maxBytes=5*1024*1024, backupCount=1)
+file_handler.setFormatter(formatter)
+file_handler.setLevel(log_level)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.setLevel(log_level)
+
+# Apply to root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(log_level)
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
+
+# Specific logger for this module
+logger = logging.getLogger(__name__)
 
 # TODO: after setting up flask to use pixi, remove this because pixi properly
 # adds TANGO as module in the environment
@@ -39,75 +67,66 @@ def run_tango_simulation(
     try:
         # Status is already set in the /run endpoint
 
-        # Build the command using pixi run -e tango-app (needed for PyQt5/GUI dependencies)
-        cmd = [
-            "pixi",
-            "run",
-            "-e",
-            "tango-app",
-            "python",
-            "tango_cli.py",
-            "-f",
-            config_file,
-        ]
-
         # Add parameter overrides if provided
+        overrides_list = []
         if parameter_overrides:
             for key, value in parameter_overrides.items():
-                cmd.extend(["--param", f"{key}={value}"])
+                overrides_list.append(f"{key}={value}")
 
         if user_id:
-            cmd.extend(["--user-id", str(user_id)])
             print(f"👤 Running simulation for user: {user_id}")
 
-        print(f"🚀 Running TANGO command: {' '.join(cmd)}")
+        print(f"🚀 Running TANGO in-process via Runner")
+        
+        # Import Runner here to avoid circular dependencies or early init issues
+        from tango.runner import Runner
 
         # Change to the tango directory (same as manual execution)
         tango_dir = TANGO_SRC / "tango"
-        os.chdir(tango_dir)
-
-        # Run the simulation (same as manual execution)
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=tango_dir,
-        )
-
+        
+        # Capture stdout/stderr? 
+        # For debugging, we prefer allowing it to stream to the main server logs.
+        # But we can assume success if no exception is raised.
+        
         # Update progress
         simulation_statuses[user_id]["progress"] = 25
         simulation_statuses[user_id]["message"] = "TANGO simulation in progress..."
 
-        # Wait for completion
-        stdout, stderr = process.communicate()
+        # Initialize Runner
+        # We pass save_dir explicitly to avoid relying on CWD
+        runner = Runner(
+            input_file=config_file,
+            save_dir=tango_dir,
+            parameter_overrides=overrides_list,
+            user_id=user_id,
+            log_level=logging.getLevelName(log_level) # Pass the configured level name (WARNING or INFO)
+        )
+        
+        # Execute
+        runner.start()
 
-        if process.returncode == 0:
-            simulation_statuses[user_id]["progress"] = 100
-            simulation_statuses[user_id]["message"] = (
-                "TANGO simulation completed successfully!"
-            )
-            simulation_statuses[user_id]["results"] = {
-                "stdout": stdout,
-                "stderr": stderr,
-                "return_code": process.returncode,
-            }
-            print(f"✅ TANGO simulation completed successfully for user {user_id}")
-        else:
-            error_details = (
-                stderr.strip()
-                if stderr.strip()
-                else f"Simulation failed with return code {process.returncode}"
-            )
-            simulation_statuses[user_id]["error"] = error_details
-            simulation_statuses[user_id]["message"] = "TANGO simulation failed"
-            print(f"❌ TANGO simulation failed for user {user_id}: {error_details}")
+        # Success handling
+        simulation_statuses[user_id]["progress"] = 100
+        simulation_statuses[user_id]["message"] = (
+            "TANGO simulation completed successfully!"
+        )
+        # We don't have captured stdout/stderr strings anymore, but the logs are in the server console
+        simulation_statuses[user_id]["results"] = {
+            "stdout": "Check server logs for output",
+            "stderr": "",
+            "return_code": 0,
+        }
+        print(f"✅ TANGO simulation completed successfully for user {user_id}")
 
     except Exception as e:
-        simulation_statuses[user_id]["error"] = str(e)
-        simulation_statuses[user_id]["message"] = f"Error: {str(e)}"
+        error_details = str(e)
+        simulation_statuses[user_id]["error"] = error_details
+        simulation_statuses[user_id]["message"] = "TANGO simulation failed"
         simulation_statuses[user_id]["running"] = False
         print(f"❌ Error running TANGO simulation for user {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        
     finally:
         # Ensure running is always set to False when simulation ends
         if user_id in simulation_statuses:

@@ -122,7 +122,18 @@ class Analyzer_addon(TangoAddon):
         analyzer = SimulationAnalyzerSeaborn(data.to_dict(orient="list"))
 
         # Launch interactive UI
-        app = QApplication(sys.argv)
+        # Reuse existing QApplication if possible (singleton)
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
         window = InteractiveAnalyzerUI(analyzer, preselected_file=results_file)
-        window.show()
-        app.exec_()
+        # Interactive mode - show UI only if NOT headless
+        if sys.platform != "win32" and not os.environ.get("DISPLAY"):
+             os.environ["QT_QPA_PLATFORM"] = "offscreen"
+             print(f"Analyzer: Headless mode detected. Set QT_QPA_PLATFORM=offscreen")
+
+        if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+            window.show()
+            app.exec_()
+        else:
+            print("Analyzer: Headless mode detected, skipping UI execution (app.exec_()).")
