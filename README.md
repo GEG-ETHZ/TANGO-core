@@ -27,4 +27,4 @@ automatically create an environment, install all the dependencies, and run
 `pytest` within the environment with developer dependencies installed.
 
 ### Branching Strategy
-See [CONTRIBUTING](CONTRIBUTING.md)
+See [CONTRIBUTING](./CONTRIBUTING.md)
