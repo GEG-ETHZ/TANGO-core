@@ -11,8 +11,8 @@
 
 All merges into `main` should be peer reviewed and merged via gitlab
 Merge Request.  Short term work should generally be done in [Topic
-Branches](#Topic-Branches) peer reviewed and merged either into `develop` or
+Branches](#Topic-Branches) and peer reviewed and merged either into `develop` or
 directly into `main` via gitlab Merge Request, depending on guidance from TANGO
-lead developer (Chad Baker). In some cases, per case-specific guidance from
-TANGO lead developer (Chad Baker), work can be done directly in teh `develop`
+lead developer (Chad Baker). If there is case-specific guidance from the
+TANGO lead developer (Chad Baker), work can be done directly in the `develop`
 branch.
