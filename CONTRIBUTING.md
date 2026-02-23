@@ -16,3 +16,12 @@ directly into `main` via gitlab Merge Request, depending on guidance from TANGO
 lead developer (Chad Baker). If there is case-specific guidance from the
 TANGO lead developer (Chad Baker), work can be done directly in the `develop`
 branch.
+
+## Setup
+
+After cloning, enable the git hooks:
+```bash
+git config core.hooksPath .githooks
+```
+
+This enforces branch naming conventions and prevents accidental direct pushes to `main`.
