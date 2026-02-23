@@ -19,11 +19,19 @@ from logging.handlers import RotatingFileHandler
 # Default to WARNING to reduce noise, unless TANGO_DEBUG is set
 log_level = logging.INFO if os.environ.get("TANGO_DEBUG") else logging.WARNING
 
+# All runtime artifacts live under a single server_output/ directory.
+# Runner internally appends "gen_files/" to save_dir, so passing _APP_DIR
+# produces:  server_output/gen_files/run_<id>/  (no double-nesting)
+_APP_DIR = Path(__file__).parent / "server_output"
+LOG_DIR = _APP_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True, parents=True)
+_APP_DIR.mkdir(exist_ok=True)  # Runner creates gen_files/ inside here
+
 # Create formatters and handlers
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 # File handler with rotation (max 5MB, 1 backup)
-file_handler = RotatingFileHandler("tango_server.log", maxBytes=5*1024*1024, backupCount=1)
+file_handler = RotatingFileHandler(LOG_DIR / "tango_server.log", maxBytes=5*1024*1024, backupCount=1)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(log_level)
 
@@ -81,22 +89,15 @@ def run_tango_simulation(
         # Import Runner here to avoid circular dependencies or early init issues
         from tango.runner import Runner
 
-        # Change to the tango directory (same as manual execution)
-        tango_dir = TANGO_SRC / "tango"
-        
-        # Capture stdout/stderr? 
-        # For debugging, we prefer allowing it to stream to the main server logs.
-        # But we can assume success if no exception is raised.
-        
         # Update progress
         simulation_statuses[user_id]["progress"] = 25
         simulation_statuses[user_id]["message"] = "TANGO simulation in progress..."
 
         # Initialize Runner
-        # We pass save_dir explicitly to avoid relying on CWD
+        # save_dir=_APP_DIR → Runner appends gen_files/ → tango_app/gen_files/run_<id>/
         runner = Runner(
             input_file=config_file,
-            save_dir=tango_dir,
+            save_dir=_APP_DIR,
             parameter_overrides=overrides_list,
             user_id=user_id,
             log_level=logging.getLevelName(log_level) # Pass the configured level name (WARNING or INFO)
