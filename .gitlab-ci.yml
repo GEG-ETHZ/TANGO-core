@@ -1,4 +1,6 @@
-# # image: ubuntu:latest
+default:
+  tags:
+    - laptop
 
 workflow:
   auto_cancel:
@@ -19,6 +21,11 @@ before_script:
 #       echo "Pixi already installed"
 #     fi
 #   - export PATH="$HOME/.pixi/bin:$PATH"
+
+  # if there are no uncommented commands between `before_script` and here, this
+  # assumes that gitlab is set up to run on user laptop and that pixi is already
+  # installed
+  # print pixi version to aid troubleshooting in case of failure
   - pixi --version
 
 stages:
