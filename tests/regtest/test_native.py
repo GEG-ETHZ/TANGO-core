@@ -11,10 +11,10 @@ import pandas as pd
 import pytest
 
 from tango.core.errors import (
-     ComponentError,
-     SubzeroPressureError,
-     TESPyExcessSMolarError,
-     ValidationError,
+    ComponentError,
+    SubzeroPressureError,
+    TESPyExcessSMolarError,
+    ValidationError,
 )
 from tango.runner import Runner
 
@@ -28,9 +28,9 @@ def files_and_values() -> list[tuple[Path, float, float]]:
     """Return list of tuples of (path, reference_value, tolerance)"""
 
     # To enable tests gated by this boolean, run
-    # `ENABLE_ALL_TESTS=true pixi run -e dev pytest -v`
+    # `ENABLE_ALL_TESTS=true uv run pytest -v`
     enable_all_tests = os.environ.get("ENABLE_ALL_TESTS", "false").lower() == "true"
-    
+
     filenames_and_vals = [
         ("testcase1.yml", 1.0476074181749977),
         ("testcase2.yml", 1.5316080111875296),
@@ -84,12 +84,9 @@ def files_and_values() -> list[tuple[Path, float, float]]:
         ("MO2.yml", 0.814, 0.002) if enable_all_tests else None,
         ("MO3.yml", 0.797, 0.002) if enable_all_tests else None,
         # flexible_DF_opt_valves.yml is sufficiently similar that this can be skipped
-        ("flexible_SF_opt_valve.yml", 0.6672682394033819, 0.001)
-            if enable_all_tests else None,
-        ("flexible_DF_opt_valves.yml", 0.5781967722329104, 0.002)
-            if enable_all_tests else None,
-        ("flexible_CPG_hot_opt.yml", 0.3874588709391597, 0.001)
-            if enable_all_tests else None,
+        ("flexible_SF_opt_valve.yml", 0.6672682394033819, 0.001) if enable_all_tests else None,
+        ("flexible_DF_opt_valves.yml", 0.5781967722329104, 0.002) if enable_all_tests else None,
+        ("flexible_CPG_hot_opt.yml", 0.3874588709391597, 0.001) if enable_all_tests else None,
     ]
 
     result = []

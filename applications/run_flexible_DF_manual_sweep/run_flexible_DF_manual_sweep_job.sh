@@ -47,11 +47,11 @@ echo ""
 
 N_WORKERS=$((SLURM_CPUS_PER_TASK - 3))
 # Quick test run (small sample size matching workers)
-# pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
+# uv run ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
 #   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
 
 # Production run (10k samples)
-pixi run python ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval $N_WORKERS \
+uv run ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval $N_WORKERS \
   --sweep-dir ./ --n-workers $N_WORKERS --n-samples 10000
 
 echo ""

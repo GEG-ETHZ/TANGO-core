@@ -1,1 +1,2 @@
-builds
+.mypy_cache
+.venv

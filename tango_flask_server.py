@@ -31,7 +31,7 @@ _APP_DIR.mkdir(exist_ok=True)  # Runner creates gen_files/ inside here
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 # File handler with rotation (max 5MB, 1 backup)
-file_handler = RotatingFileHandler(LOG_DIR / "tango_server.log", maxBytes=5*1024*1024, backupCount=1)
+file_handler = RotatingFileHandler(LOG_DIR / "tango_server.log", maxBytes=5 * 1024 * 1024, backupCount=1)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(log_level)
 
@@ -48,12 +48,6 @@ root_logger.addHandler(console_handler)
 
 # Specific logger for this module
 logger = logging.getLogger(__name__)
-
-# TODO: after setting up flask to use pixi, remove this because pixi properly
-# adds TANGO as module in the environment
-# Add TANGO source to path
-TANGO_SRC = Path(__file__).parent / "src"
-sys.path.append(str(TANGO_SRC))
 
 app = Flask(__name__)
 CORS(app, origins=["https://tango.app.local"], supports_credentials=True)
@@ -85,7 +79,7 @@ def run_tango_simulation(
             print(f"👤 Running simulation for user: {user_id}")
 
         print(f"🚀 Running TANGO in-process via Runner")
-        
+
         # Import Runner here to avoid circular dependencies or early init issues
         from tango.runner import Runner
 
@@ -100,17 +94,15 @@ def run_tango_simulation(
             save_dir=_APP_DIR,
             parameter_overrides=overrides_list,
             user_id=user_id,
-            log_level=logging.getLevelName(log_level) # Pass the configured level name (WARNING or INFO)
+            log_level=logging.getLevelName(log_level),  # Pass the configured level name (WARNING or INFO)
         )
-        
+
         # Execute
         runner.start()
 
         # Success handling
         simulation_statuses[user_id]["progress"] = 100
-        simulation_statuses[user_id]["message"] = (
-            "TANGO simulation completed successfully!"
-        )
+        simulation_statuses[user_id]["message"] = "TANGO simulation completed successfully!"
         # We don't have captured stdout/stderr strings anymore, but the logs are in the server console
         simulation_statuses[user_id]["results"] = {
             "stdout": "Check server logs for output",
@@ -126,8 +118,9 @@ def run_tango_simulation(
         simulation_statuses[user_id]["running"] = False
         print(f"❌ Error running TANGO simulation for user {user_id}: {e}")
         import traceback
+
         traceback.print_exc()
-        
+
     finally:
         # Ensure running is always set to False when simulation ends
         if user_id in simulation_statuses:
@@ -141,9 +134,7 @@ def get_simulation_status():
     user_id = request.args.get("user_id")
 
     if not user_id:
-        return jsonify(
-            {"success": False, "error": "user_id parameter is required"}
-        ), 400
+        return jsonify({"success": False, "error": "user_id parameter is required"}), 400
 
     # Return user-specific status or default if user doesn't exist
     status = simulation_statuses.get(
@@ -251,9 +242,7 @@ def run_simulation():
         print(f"✅ User {user_id} simulation status set to running")
 
         # Default configuration file (same as manual execution)
-        config_file = data.get(
-            "config_file", "/home/TANGO/examples/flexible_SF_cogeneration_e.yml"
-        )
+        config_file = data.get("config_file", "/home/TANGO/examples/flexible_SF_cogeneration_e.yml")
 
         # Parameter overrides from the request
         parameter_overrides = data.get("parameter_overrides", {})
@@ -289,9 +278,7 @@ def run_simulation():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
-    return jsonify(
-        {"status": "healthy", "service": "TANGO Flask Server", "timestamp": time.time()}
-    )
+    return jsonify({"status": "healthy", "service": "TANGO Flask Server", "timestamp": time.time()})
 
 
 if __name__ == "__main__":

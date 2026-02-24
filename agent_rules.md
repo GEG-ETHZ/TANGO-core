@@ -32,9 +32,9 @@ Agent must follow when working on this repository.
 
 ## Running Things
 
-- Run tests with `pixi run -e dev pytest -v`
-- Run python stuff with `pixi run -e dev ...`
-- Run the CLI with `pixi run -e dev tango_cli -f <input.yml>`
+- Run tests with `uv run pytest -v`
+- Run python stuff with `uv run ...`
+- Run the CLI with `uv run tango_cli -f <input.yml>`
 
 ---
 

@@ -6,27 +6,9 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
 
-# cache:
-#   paths:
-#     - .pixi/
-#     - ~/.pixi/
-
 before_script:
-#   - apt-get update && apt-get install -y curl
-#   - |
-#     if ! command -v pixi &> /dev/null; then
-#       echo "Installing pixi..."
-#       curl -fsSL https://pixi.sh/install.sh | bash
-#     else
-#       echo "Pixi already installed"
-#     fi
-#   - export PATH="$HOME/.pixi/bin:$PATH"
-
-  # if there are no uncommented commands between `before_script` and here, this
-  # assumes that gitlab is set up to run on user laptop and that pixi is already
-  # installed
-  # print pixi version to aid troubleshooting in case of failure
-  - pixi --version
+  # print uv version to aid troubleshooting in case of failure
+  - uv --version
 
 stages:
   - test
@@ -35,7 +17,7 @@ test:
   stage: test
   interruptible: true
   script:
-    - pixi run -e dev pytest
+    - uv run pytest
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
