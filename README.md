@@ -45,4 +45,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md)
 1. You should already be logged into Euler at this point, and run `cd ~/tango-core/`
 1. Run `git checkout develop`
 1. Run `cd /cluster/scratch/<username>`
-1. Run ``
+1. Run `curl -LsSf https://astral.sh/uv/install.sh | sh` to
+    [install `uv`](https://docs.astral.sh/uv/getting-started/installation/) for your Euler
+    user account
+1. 
