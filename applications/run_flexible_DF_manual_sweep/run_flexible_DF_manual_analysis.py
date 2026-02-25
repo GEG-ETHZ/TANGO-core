@@ -16,7 +16,7 @@ from pathlib import Path
 import polars as pl
 
 # Paths (same defaults as sweep script)
-DEFAULT_SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
+DEFAULT_SWEEP_DIR = Path(__file__).parent
 
 
 def load_results(results_dir: Path) -> list[dict]:
