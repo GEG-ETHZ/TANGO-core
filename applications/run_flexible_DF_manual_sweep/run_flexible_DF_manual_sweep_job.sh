@@ -85,7 +85,7 @@ echo ""
 #   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
 
 # Production run
-uv run --project ~/tango-core/ ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval "$N_WORKERS" \
+uv run --project ~/tango-core/ run_flexible_DF_manual_sweep.py --regenerate --progress-interval "$N_WORKERS" \
   --sweep-dir ./ --n-workers "$N_WORKERS" --n-samples "$N_SAMPLES"
 
 echo ""
