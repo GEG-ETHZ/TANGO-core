@@ -18,6 +18,7 @@ from pathlib import Path
 import polars as pl
 from scipy.stats import qmc  # type: ignore[import-untyped]
 
+import tango
 from tango.runner import Runner
 from tango.utils import print_datetime
 
@@ -96,7 +97,7 @@ DEFAULT_LOG_LEVEL = "NONE"
 
 # Paths
 DEFAULT_SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
-INPUT_FILE = Path(__file__).parent / "flexible_DF_manual.yml"
+INPUT_FILE = Path(tango.__file__).parents[2] / "examples/flexible_DF_manual.yml"
 
 
 def get_nested_value(d: dict, path: str):
@@ -189,12 +190,8 @@ def run_single_simulation(args: tuple) -> None:
 
         # Sync injection well length
         prod_len = get_nested_value(runner.tango.specs, "production_well.well_length")
-        pump_len = get_nested_value(
-            runner.tango.specs, "production_well_pump.well_length"
-        )
-        set_nested_value(
-            runner.tango.specs, "injection_well.well_length", prod_len + pump_len
-        )
+        pump_len = get_nested_value(runner.tango.specs, "production_well_pump.well_length")
+        set_nested_value(runner.tango.specs, "injection_well.well_length", prod_len + pump_len)
 
         # Sync _seq params
         seq_mappings = [
@@ -259,9 +256,7 @@ def run_sweep(
         return
 
     # Prepare args for each worker (includes log_level and quiet)
-    worker_args = [
-        (idx, design_matrix_file, results_dir, log_level, quiet) for idx in pending
-    ]
+    worker_args = [(idx, design_matrix_file, results_dir, log_level, quiet) for idx in pending]
 
     # Progress interval defaults to n_workers if not specified
     interval = progress_interval if progress_interval is not None else n_workers
