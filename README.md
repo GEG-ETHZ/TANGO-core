@@ -30,6 +30,19 @@ automatically create an environment, install all the dependencies, and run
 See [CONTRIBUTING](./CONTRIBUTING.md)
 
 ### Running on Euler
-1. [Setup ssh](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/HPC#setting-up-passwordless-ssh-access-to-euler-from-your-laptop)
-1. 
-
+1. [Setup ssh to connect to gitlab](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
+1. [Setup ssh to connect to Euler](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/HPC#setting-up-passwordless-ssh-access-to-euler-from-your-laptop)
+1. Get TANGO onto Euler:
+    - Option 1: Clone `tango-core` locally and then use rsync to move it to Euler (Mac or linux only)
+        1. Starting on your own laptop, run `ls ~/git/projects/` to check if this directory exists
+        1. if `ls ~/git/projects/`, exists, run `cd ~/git/projects/`, and if not, first run `mkdir -p ~/git/projects/` and then `cd ~/git/projects/`
+        1. Clone this repo: `git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`
+        1. run `rsync -ahPv --exclude .pixi --exclude .mypy_cache --exclude .venv ~/git/projects/tango-core/ euler:~/tango-core/`
+        1. Log into euler: `ssh euler`
+    - Option 2: Setup git on Euler (this option is a bit more setup but a bit easier long term)
+        1. While logged into Euler, [Setup ssh to connect to gitlab](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
+        1. Clone this repo: `git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`
+1. You should already be logged into Euler at this point, and run `cd ~/tango-core/`
+1. Run `git checkout develop`
+1. Run `cd /cluster/scratch/<username>`
+1. Run ``
