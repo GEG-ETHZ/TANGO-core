@@ -28,3 +28,8 @@ automatically create an environment, install all the dependencies, and run
 
 ### Branching Strategy
 See [CONTRIBUTING](./CONTRIBUTING.md)
+
+### Running on Euler
+1. [Setup ssh](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/HPC#setting-up-passwordless-ssh-access-to-euler-from-your-laptop)
+1. 
+
