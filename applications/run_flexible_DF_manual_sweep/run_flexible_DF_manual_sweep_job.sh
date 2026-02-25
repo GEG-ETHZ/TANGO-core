@@ -10,33 +10,28 @@
 #SBATCH --error=run_flexible_DF_manual_sweep_%j.err
 
 # ---------------------------------------------------------------------------
-# Configurable parameters — three-tier override (lowest → highest priority):
-#   1. Hardcoded defaults below
-#   2. Environment variables:  SWEEP_CPUS, SWEEP_N_SAMPLES
-#   3. CLI flags:              --cpus <N>  --n-samples <N>
+# Configurable parameters:
+#   CPUS:      always from #SBATCH --cpus-per-task / SLURM_CPUS_PER_TASK (default: 48)
+#   N_SAMPLES: env var SWEEP_N_SAMPLES or CLI flag --n-samples (default: 10000)
 #
 # Examples:
-#   # Use env vars (useful in SLURM job arrays or CI):
 #   SWEEP_N_SAMPLES=500 sbatch run_flexible_DF_manual_sweep_job.sh
-#
-#   # Use CLI flags (highest priority, overrides env vars):
-#   bash run_flexible_DF_manual_sweep_job.sh --cpus 16 --n-samples 200
+#   sbatch --cpus-per-task=16 run_flexible_DF_manual_sweep_job.sh --n-samples 200
 # ---------------------------------------------------------------------------
 
-# --- Defaults (override via env vars or CLI flags) ---
-CPUS="${SWEEP_CPUS:-${SLURM_CPUS_PER_TASK:-48}}"
+# --- Defaults ---
+CPUS="${SLURM_CPUS_PER_TASK:-48}"
 N_SAMPLES="${SWEEP_N_SAMPLES:-10000}"
 
 # --- CLI argument parsing ---
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --cpus)       CPUS="$2";      shift 2 ;;
     --n-samples)  N_SAMPLES="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 [--cpus <N>] [--n-samples <N>]"
+      echo "Usage: $0 [--n-samples <N>]"
       echo ""
-      echo "  --cpus      Number of CPUs / workers+3  (env: SWEEP_CPUS,      default: 48)"
-      echo "  --n-samples Number of LHS samples       (env: SWEEP_N_SAMPLES, default: 10000)"
+      echo "  --n-samples  Number of LHS samples (env: SWEEP_N_SAMPLES, default: 10000)"
+      echo "  CPUs are always taken from SLURM_CPUS_PER_TASK (#SBATCH --cpus-per-task)"
       exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac

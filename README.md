@@ -44,8 +44,10 @@ See [CONTRIBUTING](./CONTRIBUTING.md)
         1. Clone this repo: `git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`
 1. You should already be logged into Euler at this point, and run `cd ~/tango-core/`
 1. Run `git checkout develop`
-1. Run `cd /cluster/scratch/<username>`
 1. Run `curl -LsSf https://astral.sh/uv/install.sh | sh` to
     [install `uv`](https://docs.astral.sh/uv/getting-started/installation/) for your Euler
     user account
-1. 
+1. Run `rsync -ahPv ~/tango-core/applications/ /cluster/scratch/<username>/tango-applications/` to get the demo files into your working directory
+1. Run `cd /cluster/scratch/<username>/tango-applications/`
+1. Run `sbatch run_flexible_DF_manual_sweep_job.sh --cpus 16 --n-samples 32` to kick off a slurm job on 16 CPUs with 32 design evaluations
+1. Run `myjobs` to check status
