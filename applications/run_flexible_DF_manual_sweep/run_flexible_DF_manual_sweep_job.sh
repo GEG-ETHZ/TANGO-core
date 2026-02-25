@@ -9,12 +9,47 @@
 #SBATCH --output=run_flexible_DF_manual_sweep_%j.out
 #SBATCH --error=run_flexible_DF_manual_sweep_%j.err
 
+# ---------------------------------------------------------------------------
+# Configurable parameters — three-tier override (lowest → highest priority):
+#   1. Hardcoded defaults below
+#   2. Environment variables:  SWEEP_CPUS, SWEEP_N_SAMPLES
+#   3. CLI flags:              --cpus <N>  --n-samples <N>
+#
+# Examples:
+#   # Use env vars (useful in SLURM job arrays or CI):
+#   SWEEP_N_SAMPLES=500 sbatch run_flexible_DF_manual_sweep_job.sh
+#
+#   # Use CLI flags (highest priority, overrides env vars):
+#   bash run_flexible_DF_manual_sweep_job.sh --cpus 16 --n-samples 200
+# ---------------------------------------------------------------------------
+
+# --- Defaults (override via env vars or CLI flags) ---
+CPUS="${SWEEP_CPUS:-${SLURM_CPUS_PER_TASK:-48}}"
+N_SAMPLES="${SWEEP_N_SAMPLES:-10000}"
+
+# --- CLI argument parsing ---
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --cpus)       CPUS="$2";      shift 2 ;;
+    --n-samples)  N_SAMPLES="$2"; shift 2 ;;
+    -h|--help)
+      echo "Usage: $0 [--cpus <N>] [--n-samples <N>]"
+      echo ""
+      echo "  --cpus      Number of CPUs / workers+3  (env: SWEEP_CPUS,      default: 48)"
+      echo "  --n-samples Number of LHS samples       (env: SWEEP_N_SAMPLES, default: 10000)"
+      exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+N_WORKERS=$(( CPUS - 3 ))
+
 # Print job information
 echo "=========================================="
 echo "Job started on: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Running on node: $SLURMD_NODENAME"
-echo "Number of CPUs: $SLURM_CPUS_PER_TASK"
+echo "CPUs: $CPUS  |  workers: $N_WORKERS  |  n-samples: $N_SAMPLES"
 echo "Working directory: $PWD"
 echo "=========================================="
 
@@ -45,14 +80,13 @@ echo ""
 #   --sweep-dir SWEEP_DIR
 #                         Directory for sweep outputs (default: ../examples/run_flexible_DF_manual_sweep)
 
-N_WORKERS=$((SLURM_CPUS_PER_TASK - 3))
 # Quick test run (small sample size matching workers)
 # uv run ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
 #   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
 
-# Production run (10k samples)
-uv run ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval $N_WORKERS \
-  --sweep-dir ./ --n-workers $N_WORKERS --n-samples 10000
+# Production run
+uv run --project ~/tango-core/ ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval "$N_WORKERS" \
+  --sweep-dir ./ --n-workers "$N_WORKERS" --n-samples "$N_SAMPLES"
 
 echo ""
 echo "=========================================="
