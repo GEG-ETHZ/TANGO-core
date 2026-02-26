@@ -136,9 +136,12 @@
 ## Foundational Improvements for TANGO Long Term Objectives
 - [ ] ability to copy and run standalone any submodule within an existing tango
     simulation (would enable much richer error context and troubleshooting steps)
-- [ ] make it so that edits in live, interactive TANGO instance have effect on
+- [x] make it so that edits in live, interactive TANGO instance have effect on
     result (show demo of code where this does not happen as expected).  This
-    would enable easier ad hoc parameter sweeps in python scripts.
+    would enable easier ad hoc parameter sweeps in python scripts. --
+    See [example](./applications/run_flexible_DF_manual_sweep)
+    - [ ] make this approach part of the pipeline for Morteza's sweeps that
+        are defined in config files
 
 # Idea for making graph network more human readable
 Consider doing this
