@@ -53,9 +53,13 @@ This release consolidates a large set of improvements spanning code quality, HPC
   `importlib` imports with explicit module paths.
 - **Add-on output paths** — `output_dir` field added to `ThermaGraphSpecs` and `AnalyzerSpecs`; `run_dir` is now wired
   from `NativeWorkflow` to add-on specs so that `--save-dir` is respected; all 116 YAML example files updated to use
-  clean relative paths (e.g. `thermagraph_states.json` ), removing all hardcoded `/Users/morteza/...` paths.
+  clean relative paths (e.g. `thermagraph_states.json`), removing all hardcoded `/Users/morteza/...` paths —
+  [path resolution utility](src/tango/addons/utils.py),
+  [ThermaGraph wiring](src/tango/addons/ThermaGraph/ThermaGraph_interface.py),
+  [Analyzer wiring](src/tango/addons/Analyzer/Analyzer_interface.py).
 - **Saving is now opt-in** — output files are no longer written automatically; the user controls whether and where files
-  are saved.
+  are saved — [CLI flags (`--save-dir`, `--no-save`)](src/tango/utils.py),
+  [runner integration](src/tango/runner.py).
 - **`MULTIPLE_UNIT_NODE_OPTIONS` import cleanup** — removed unused import from `utils.py`; now imported directly from
   `config.py` where needed.
 - **Auto-formatting** — `ruff` applied across the codebase; additional `ruff` ignore rules added.
@@ -64,7 +68,7 @@ This release consolidates a large set of improvements spanning code quality, HPC
 
 ### 🐛 Bug Fixes
 
-- **Flask server runtime artifacts** — redirected out of the source tree (`fix(flask-server)`).
+- **Flask server runtime artifacts** — redirected out of the source tree — [flask server](tango_flask_server.py).
 - **Phase diagrams and ArangoDB sync** — resolved missing phase diagram generation and ArangoDB synchronisation issues
   in `native_workflow.py` and `arangodb_manager.py`.
 - **Public/private variable conflation** — fixed conflation between public and private runner state, and corrected a
