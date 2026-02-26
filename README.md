@@ -48,7 +48,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md)
     [install `uv`](https://docs.astral.sh/uv/getting-started/installation/) for your Euler
     user account
 1. Run `rsync -ahPv ~/tango-core/applications/ /cluster/scratch/<username>/tango-applications/` to get the demo files into your working directory
-1. Run `cd /cluster/scratch/<username>/tango-applications/run_flexible_DF_manual_sweep_job`
+1. Run `cd /cluster/scratch/<username>/tango-applications/run_flexible_DF_manual_sweep`
 1. Run `sbatch --cpus-per-task=16 run_flexible_DF_manual_sweep_job.sh --n-samples 39` to kick off a slurm job with 16 CPUs, 13 workers, and 39 design evaluations
     Note: by using fewer than 48 CPUs, we're able to avoid having this count against our Euler quota
 1. Run `myjobs` to check status
