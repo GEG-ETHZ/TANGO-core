@@ -59,8 +59,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 25000000
   over_pressure_percentage: 10
-  inlet_state: '/home/TANGO/examples/inlettt.csv'
-  outlet_state:  '/home/TANGO/examples/outlettt.csv'
+  inlet_state: '../inlettt.csv'
+  outlet_state:  '../outlettt.csv'
 
 injection_well:
   well_length: 2500. # m

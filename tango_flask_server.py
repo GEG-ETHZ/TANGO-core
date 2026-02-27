@@ -56,8 +56,28 @@ CORS(app, origins=["https://tango.app.local"], supports_credentials=True)
 simulation_statuses = {}
 
 
+def _get_tango_root() -> Path:
+    """Return the tango-core root directory.
+
+    Derives the path from the installed tango package so it is robust
+    against the server script being moved or symlinked:
+      tango.__file__ → .../tango-core/src/tango/__init__.py
+      .parents[2]    → .../tango-core/
+    Falls back to Path(__file__).parent if tango is not yet importable.
+    """
+    try:
+        import tango as _tango_pkg  # noqa: PLC0415
+        return Path(_tango_pkg.__file__).parents[2]
+    except Exception:
+        return Path(__file__).parent
+
+
+_TANGO_ROOT = _get_tango_root()
+_DEFAULT_CONFIG = str(_TANGO_ROOT / "examples" / "flexible_SF_cogeneration_e.yml")
+
+
 def run_tango_simulation(
-    config_file="/home/TANGO/examples/flexible_SF_cogeneration_e.yml",
+    config_file=_DEFAULT_CONFIG,
     parameter_overrides=None,
     user_id=None,
 ):
@@ -80,6 +100,11 @@ def run_tango_simulation(
 
         print(f"🚀 Running TANGO in-process via Runner")
 
+        # Resolve config_file relative to the TANGO package root if not absolute
+        resolved_config = Path(config_file)
+        if not resolved_config.is_absolute():
+            resolved_config = _TANGO_ROOT / resolved_config
+
         # Import Runner here to avoid circular dependencies or early init issues
         from tango.runner import Runner
 
@@ -90,7 +115,7 @@ def run_tango_simulation(
         # Initialize Runner
         # save_dir=_APP_DIR → Runner appends gen_files/ → tango_app/gen_files/run_<id>/
         runner = Runner(
-            input_file=config_file,
+            input_file=str(resolved_config),
             save_dir=_APP_DIR,
             parameter_overrides=overrides_list,
             user_id=user_id,
@@ -242,7 +267,7 @@ def run_simulation():
         print(f"✅ User {user_id} simulation status set to running")
 
         # Default configuration file (same as manual execution)
-        config_file = data.get("config_file", "/home/TANGO/examples/flexible_SF_cogeneration_e.yml")
+        config_file = data.get("config_file", _DEFAULT_CONFIG)
 
         # Parameter overrides from the request
         parameter_overrides = data.get("parameter_overrides", {})
