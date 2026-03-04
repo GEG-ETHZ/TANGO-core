@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased] — MR !48: Refactor, HPC Sweep Support & Quality Improvements
+All notable changes to TANGO are documented here.
+TANGO does not yet follow [Semantic Versioning](https://semver.org/) — everything is
+pre-release. Once the first public release (`1.0.0`) is cut, the project will
+adopt SemVer strictly.
+
+## [Unreleased]
 
 This release consolidates a large set of improvements spanning code quality, HPC-friendly parameter sweeps, addon path
   robustness, dependency management, and developer tooling.
@@ -106,3 +111,7 @@ This release consolidates a large set of improvements spanning code quality, HPC
 - **`examples/failing/readme.md`** — updated; deprecated standalone Python runner scripts in `examples/failing/` removed
   (now driven by YAML configs).
 
+---
+
+<!-- Version comparison links — verify and update when cutting a release -->
+[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/commits/main

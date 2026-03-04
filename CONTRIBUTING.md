@@ -86,3 +86,86 @@ git config core.hooksPath .githooks
 ```
 
 This enforces branch naming conventions and prevents accidental direct pushes to `main`.
+
+## Changelog
+
+[`CHANGELOG.md`](CHANGELOG.md) is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+but uses project-specific sub-section names rather than the six standard KaC
+types (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`).
+The custom categories are preferred because they reflect how TANGO developers
+actually think about changes — distinguishing a refactor from a bug fix, or
+DevOps work from user-visible features, more clearly than the generic KaC
+vocabulary:
+
+| TANGO category | Closest KaC type | When to use |
+|---|---|---|
+| `✨ New Features` | `Added` | New user-visible functionality |
+| `♻️ Refactoring` | `Changed` | Internal restructuring, no behaviour change |
+| `🐛 Bug Fixes` | `Fixed` | Defect corrections |
+| `🏗️ DevOps & Tooling` | `Changed` | CI, packaging, hooks, build system |
+| `📚 Documentation & Examples` | `Changed` | Docs, examples, comments |
+
+Entries live under an `## [Unreleased]` heading at the top of the file until a
+release is cut. Each `[Unreleased]` block may optionally note the associated
+MR number in the **body** (not the heading) for traceability.
+
+### When to add an entry
+
+| Project phase | Merges into `develop` | Merges into `main` | Releases |
+|---|---|---|---|
+| **Pre-1.0** (current) | Optional | **Required** | **Required** |
+| **Post-1.0** | Optional | Optional | **Required** |
+
+**Pre-1.0 rationale**: Before the first release the changelog is the primary
+record of what TANGO is becoming. Every merge into `main` represents a
+meaningful, reviewable change that an end-user or future contributor will want
+to understand, so an entry is expected.
+
+**Post-1.0 rationale**: Once releases are the primary communication mechanism,
+individual merges need not be documented — but every release *must* have a
+complete entry so that upgrading users know exactly what changed.
+
+### Format
+
+Add entries under the appropriate sub-section of `## [Unreleased]`:
+
+```markdown
+## [Unreleased] — MR !<N>: <short title>
+
+### ✨ New Features
+- **<Thing>** — description.
+
+### 🐛 Bug Fixes
+- **<Thing>** — description.
+```
+
+When cutting a release, rename `[Unreleased]` to `[x.y.z] — YYYY-MM-DD` and
+open a fresh `## [Unreleased]` section above it. Update the [footer comparison
+links](#tagging-deleted-branches) at the bottom of `CHANGELOG.md` at the same time.
+
+### Tagging deleted branches
+
+GitLab prunes branch refs when branches are deleted, which would break
+`CHANGELOG.md` comparison links. To preserve a permanent pointer to where a
+branch landed, **create a lightweight git tag immediately before deleting the
+branch**:
+
+```bash
+git tag fix/some-bug          # lightweight tag, same name as branch
+git push origin fix/some-bug  # push the tag
+git push origin --delete fix/some-bug  # now safe to delete the branch
+```
+
+This is a well-established practice — tags are permanent and never move, so
+the commit remains reachable even after the branch ref disappears.
+
+> **Convention**: prefix *release* tags with `v` (e.g. `v1.2.0`) to
+> distinguish them from branch-preservation tags (e.g. `fix/some-bug`).
+
+The `CHANGELOG.md` footer will then look like:
+
+```markdown
+[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.2.0...HEAD
+[1.2.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.1.0...v1.2.0
+[1.1.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/releases/tag/v1.1.0
+```
