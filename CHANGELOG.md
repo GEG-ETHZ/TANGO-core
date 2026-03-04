@@ -5,9 +5,9 @@ TANGO does not yet follow [Semantic Versioning](https://semver.org/) — everyth
 pre-release. Once the first public release (`1.0.0`) is cut, the project will
 adopt SemVer strictly.
 
-## [Unreleased]
+## [In Development] — MR !48: Refactor, HPC Sweep Support & Quality Improvements
 
-This release consolidates a large set of improvements spanning code quality, HPC-friendly parameter sweeps, addon path
+This MR consolidates a large set of improvements spanning code quality, HPC-friendly parameter sweeps, addon path
   robustness, dependency management, and developer tooling.
 
 [Link to MR !48](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/48)

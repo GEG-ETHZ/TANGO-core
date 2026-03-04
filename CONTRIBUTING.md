@@ -127,10 +127,21 @@ complete entry so that upgrading users know exactly what changed.
 
 ### Format
 
-Add entries under the appropriate sub-section of `## [Unreleased]`:
+The changelog is structured around **merge requests into `main`**, not releases.
+Keep a `## [In Development]` stub at the very top for ongoing work. Right before a MR
+is merged into `main`, convert it into a named section:
 
 ```markdown
-## [Unreleased] — MR !<N>: <short title>
+## [In Development]
+
+*(Nothing yet.)*
+
+---
+
+## MR !<N> — YYYY-MM-DD: <short title>
+
+Optional summary paragraph.
+[Link to MR !<N>](<gitlab MR URL>)
 
 ### ✨ New Features
 - **<Thing>** — description.
@@ -139,9 +150,9 @@ Add entries under the appropriate sub-section of `## [Unreleased]`:
 - **<Thing>** — description.
 ```
 
-When cutting a release, rename `[Unreleased]` to `[x.y.z] — YYYY-MM-DD` and
-open a fresh `## [Unreleased]` section above it. Update the [footer comparison
-links](#tagging-deleted-branches) at the bottom of `CHANGELOG.md` at the same time.
+When the first public release is cut, group the relevant MR sections under a
+`## [1.0.0] — YYYY-MM-DD` heading and update the [footer comparison
+links](#tagging-deleted-branches) at the bottom of `CHANGELOG.md`.
 
 ### Tagging deleted branches
 
