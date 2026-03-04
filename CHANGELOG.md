@@ -14,7 +14,7 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 
 ---
 
-### ✨ New Features
+### Added
 
 - **Latin Hypercube Sampling (LHS) parameter sweep** — new `applications/run_flexible_DF_manual_sweep/` application with
   a SLURM job script (`run_flexible_DF_manual_sweep_job.sh`) that runs parallelized LHS sweeps on Euler HPC; SLURM
@@ -36,9 +36,7 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 - **Data leakage regression test** — `tests/regtest/test_data_leakage.py` added to guard against cross-run data leakage.
 - **Add-on unit tests** — `tests/unit/test_addons.py` added with 13 tests covering path resolution and module loading.
 
----
-
-### ♻️ Refactoring
+### Changed
 
 - **Removed `eval` from unit loading** — replaced with dynamic imports and `getattr`; wildcard (`*`) imports removed
   throughout `config.py`, `utils.py`, `orchestrator.py`, and unit modules.
@@ -71,7 +69,7 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 
 ---
 
-### 🐛 Bug Fixes
+### Fixed
 
 - **Flask server runtime artifacts** — redirected out of the source tree — [flask server](tango_flask_server.py).
 - **Phase diagrams and ArangoDB sync** — resolved missing phase diagram generation and ArangoDB synchronisation issues
@@ -83,10 +81,6 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 - **Data leakage** — restricted data leakage pathways between simulation runs.
 - **Regression tests no longer create `./gen_files`** — test artefacts are now written to `pytest`'s `tmp_path`.
 
----
-
-### 🏗️ DevOps & Tooling
-
 - **Migrated to `uv`** — `uv.lock` generated; `start_flask_server.sh` and `.gitlab-ci.yml` updated to use `uv`; both
   `pixi run -e dev pytest -v` and `uv run pytest -v` confirmed working.
 - **GitLab CI optimised** — pipeline restructured for faster feedback.
@@ -97,9 +91,6 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 - **Branching strategy documented** — added to `CONTRIBUTING.md`.
 - **Agent rules** — `.antigravity/rules.md` added with repo- and Python-specific conventions.
 
----
-
-### 📚 Documentation & Examples
 
 - **`README.md`** — TANGO logo added; Euler HPC setup and `rsync`-based deployment instructions expanded; `pytest`
   command clarified.

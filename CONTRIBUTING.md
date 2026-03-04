@@ -89,25 +89,27 @@ This enforces branch naming conventions and prevents accidental direct pushes to
 
 ## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-but uses project-specific sub-section names rather than the six standard KaC
-types (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`).
-The custom categories are preferred because they reflect how TANGO developers
-actually think about changes — distinguishing a refactor from a bug fix, or
-DevOps work from user-visible features, more clearly than the generic KaC
-vocabulary:
+[`CHANGELOG.md`](CHANGELOG.md) follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+convention, using the standard KaC entry types:
 
-| TANGO category | Closest KaC type | When to use |
-|---|---|---|
-| `✨ New Features` | `Added` | New user-visible functionality |
-| `♻️ Refactoring` | `Changed` | Internal restructuring, no behaviour change |
-| `🐛 Bug Fixes` | `Fixed` | Defect corrections |
-| `🏗️ DevOps & Tooling` | `Changed` | CI, packaging, hooks, build system |
-| `📚 Documentation & Examples` | `Changed` | Docs, examples, comments |
+| Category | When to use |
+|---|---|
+| `Added` | New user-visible functionality |
+| `Changed` | Internal restructuring or behaviour change |
+| `Deprecated` | Features that will be removed in a future version |
+| `Removed` | Features removed in this version |
+| `Fixed` | Defect corrections |
+| `Security` | Security-related fixes |
 
-Entries live under an `## [Unreleased]` heading at the top of the file until a
-release is cut. Each `[Unreleased]` block may optionally note the associated
+Entries live under a `## [In Development]` heading at the top of the file
+until a MR is merged. Each block may optionally note the associated
 MR number in the **body** (not the heading) for traceability.
+
+> **Public release note**: if/when this project is released publicly and adopts
+> [Semantic Versioning](https://semver.org/), rename the `[In Development]`
+> heading to `[Unreleased]` and update the footer link label to match. This
+> aligns with the standard KaC convention and is expected by most changelog
+> tooling (e.g. `git-cliff`, `standard-changelog`).
 
 ### When to add an entry
 
