@@ -164,9 +164,10 @@ branch landed, **create a lightweight git tag immediately before deleting the
 branch**:
 
 ```bash
-git tag fix/some-bug          # lightweight tag, same name as branch
-git push origin fix/some-bug  # push the tag
-git push origin --delete fix/some-bug  # now safe to delete the branch
+git tag fix/some-bug                              # lightweight tag, same name as branch
+git push origin fix/some-bug                      # push the tag
+git push origin --delete refs/heads/fix/some-bug  # delete branch explicitly
+# (using refs/heads/ avoids ambiguity since tag and branch now share the name)
 ```
 
 This is a well-established practice — tags are permanent and never move, so
