@@ -1,6 +1,6 @@
 # Contributing
 
-## Branch Naming Conventions
+## Branching Strategy
 
 ### Persistent Branches
 - `main` — production-ready code
@@ -49,22 +49,21 @@ gitGraph LR:
 
    branch exp/prototype
    checkout exp/prototype
-   commit id: "exp: try it"
-   commit id: "exp: dead end"
+   commit id: "e1"
+   commit id: "e2"
 
    checkout develop
-   commit id: "integrate"
    merge main id: "sync from main"
 
    checkout main
-   merge develop id: "MR: develop → main (release)"
+   merge develop id: "release MR"
 
    checkout develop
    branch fix/hotfix
    checkout fix/hotfix
    commit id: "hotfix"
    checkout main
-   merge fix/hotfix id: "MR: hotfix → main (direct)"
+   merge fix/hotfix id: "hotfix MR (direct)"
 ```
 
 **Key rules encoded in the diagram:**
