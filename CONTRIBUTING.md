@@ -35,7 +35,7 @@ gitGraph LR:
 
    branch dev/my-feature
    checkout dev/my-feature
-   commit id: "feat: wip"
+   commit id: "feat: init"
    commit id: "feat: done"
 
    checkout develop
