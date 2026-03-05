@@ -41,6 +41,17 @@ gitGraph LR:
    checkout develop
    merge dev/my-feature id: "MR: feature → develop"
 
+   checkout main
+   branch fix/hotfix
+   checkout fix/hotfix
+   commit id: "hotfix"
+   checkout main
+   merge fix/hotfix id: "hotfix MR (direct)"
+
+   checkout develop
+   merge main id: "sync from main"
+
+   checkout develop
    branch fix/some-bug
    checkout fix/some-bug
    commit id: "fix: bug"
@@ -52,18 +63,8 @@ gitGraph LR:
    commit id: "e1"
    commit id: "e2"
 
-   checkout develop
-   merge main id: "sync from main"
-
    checkout main
    merge develop id: "release MR"
-
-   checkout develop
-   branch fix/hotfix
-   checkout fix/hotfix
-   commit id: "hotfix"
-   checkout main
-   merge fix/hotfix id: "hotfix MR (direct)"
 ```
 
 **Key rules encoded in the diagram:**
@@ -164,13 +165,14 @@ branch**:
 
 ```bash
 git tag fix/some-bug                              # lightweight tag, same name as branch
-git push origin fix/some-bug                      # push the tag
+git push origin refs/tags/fix/some-bug            # push the tag explicitly
 git push origin --delete refs/heads/fix/some-bug  # delete branch explicitly
-# (using refs/heads/ avoids ambiguity since tag and branch now share the name)
+# (using refs/tags/ and refs/heads/ avoids ambiguity since tag and branch share the name)
 ```
 
-This is a well-established practice — tags are permanent and never move, so
-the commit remains reachable even after the branch ref disappears.
+This is a well-established practice — unlike branches, tags are static pointers
+to a specific commit. This ensures the commit remains reachable even after the
+branch ref disappears.
 
 > **Convention**: prefix *release* tags with `v` (e.g. `v1.2.0`) to
 > distinguish them from branch-preservation tags (e.g. `fix/some-bug`).
