@@ -78,6 +78,15 @@ gitGraph LR:
 
 \* Direct merge to `main` requires lead-developer approval.
 
+### Merge Requirements
+
+All branches **must be up to date** with their target branch before they can be merged. This ensures that integration conflicts are resolved locally by the author before the code lands in a persistent branch.
+
+To enforce this centrally, project maintainers should configure GitLab:
+1. Go to **Settings** > **Merge requests**.
+2. Under **Merge method**, select **Fast-forward merge** (or **Merge commit with semi-linear history**). This structurally prevents merging if the source branch is behind the target branch.
+*(Alternatively, check "Merge requests must be up to date before merging" under **Merge checks**, depending on your GitLab version).*
+
 ## Setup
 
 After cloning, enable the git hooks:
