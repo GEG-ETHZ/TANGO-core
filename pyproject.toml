@@ -66,7 +66,7 @@ dev = [
     "pylsp-rope>=0.1.17", # provides linting tools
     "ruff>=0.11.9", # provides additional linting tools
     "pytest~=8.3", # for functional and unit testing
-    "python-lsp-server~=1.10", # server 
+    "python-lsp-server~=1.10", # server
     "ipython >=8.37.0,<10", # handy for quick interpreter
     "pandas-stubs >=2.3.2.250926,<3", # stub files to provide pandas interface typing
     "types-pyyaml >=6.0.12.20250915,<7", # stub files to provide pyyaml interface typing
@@ -89,7 +89,7 @@ zip-safe = false
 
 [tool.setuptools.packages.find]
 include = [
-    "src/tango/", 
+    "src/tango/",
 ] # package names should match these glob patterns (["*"] by default)
 namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 
@@ -176,7 +176,7 @@ ignore = [
     "D400", # first-line-should-end-with-a-period
     "D415", # first-line-should-end-with-a-period
     "E266", # Too many leading `#`
-    "SIM108", 
+    "SIM108",
     "SIM118",  # allow `.keys()`
     "D205", # blank line after summary
     "C901", # name is too complex
@@ -221,6 +221,6 @@ exclude = [
 module = [
     "pymoo.*",
     "tango.*", # TODO: fix tango and remove this line
-    "CoolProp", 
+    "CoolProp",
 ]
 ignore_missing_imports = true

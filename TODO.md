@@ -21,7 +21,7 @@ more robust for long-term maintainability and extensibility.
       `tango.specs` to a yaml file.  Right now, merged defaults would be expanded (the
       common dict gets merged with unit-specific dicts), and it may be worth trying to
       change the way this works so that specs doesn't have any preprocessing relative
-      to what comes in for the original file 
+      to what comes in for the original file
 - [ ] cleanup how `addons_manager` works.
     - [ ] make it ok with arbitrary tango directory names other than just `TANGO`
     - [ ] make it import as a subpackage
@@ -35,7 +35,7 @@ more robust for long-term maintainability and extensibility.
   - [ ] make sure all paths are relative
 - [ ] figure out how to get the optimizer tests fast enough to run for MRs
 - [ ] build out more/better unit tests
-- [ ] reduce number of routine tests of examples by gating with environment variables after more robust unit testing is implemented 
+- [ ] reduce number of routine tests of examples by gating with environment variables after more robust unit testing is implemented
 - [x] make tests to cover `optimizerr.py`
 - [ ] build out unit tests for individual components -- this enables easier
     debugging when tests fail
@@ -133,7 +133,7 @@ more robust for long-term maintainability and extensibility.
     - [ ] set up TANGO runs based on user description
     - [ ] interpret results of successful TANGO runs
     - [ ] troubleshoot failed TANGO runs
-      
+
 ## Readability/Maintainability/Usability Improvements
 - [ ] lots of places where there are hardcoded values (e.g. `100_000` for the
     bar to Pa conversion, `1_000_000` for MPa to Pa conversion) without any
