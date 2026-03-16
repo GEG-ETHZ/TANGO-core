@@ -80,24 +80,39 @@ gitGraph LR:
 
 ### Merge Requirements
 
-All branches **must be up to date** with their target branch before they can be merged. This ensures that integration conflicts are resolved locally by the author before the code lands in a persistent branch.
-
 **Tests must pass** before any Merge Request can be merged into `main` or `develop`.
+
+All branches **must be up to date** with their target branch before they can be merged. This ensures that integration conflicts are resolved locally by the author.
+
+#### Merging strategies
+Depending on the target branch, use the following merge strategies:
+
+- **Merging a topic branch (`dev/*`, `fix/*`) into `develop` or `main`**:
+  - *Note: This must **always** be merged via a GitLab Merge Request.*
+  1. Important: **Create a lightweight git tag** of the branch *before* merging (see [Tagging deleted branches](#tagging-deleted-branches)).
+  2. Perform a **Squash merge**.
+  3. Delete the source branch.
+- **Merging `develop` into `main`**:
+  - *Note: This must **always** be merged via a GitLab Merge Request.*
+  1. Perform a **Standard merge** (often called "Merge commit" or "Create a merge commit") to preserve the squashed history of the individual features.
 
 To enforce these rules centrally, project maintainers should configure GitLab:
 1. Go to **Settings** > **Merge requests**.
-2. Under **Merge method**, select **Fast-forward merge** (or **Merge commit with semi-linear history**). This structurally prevents merging if the source branch is behind the target branch.
-*(Alternatively, check "Merge requests must be up to date before merging" under **Merge checks**, depending on your GitLab version).*
-3. Under **Merge checks**, check **Pipelines must succeed**.
+2. Under **Merge method**, select **Merge commit with semi-linear history**. This structurally prevents merging if the source branch is behind the target branch, while still allowing the creation of a standard merge commit when merging `develop` to `main`.
+3. Under **Merge options**, you can optionally enforce squashing for specific MRs.
+4. Under **Merge checks**, check **Pipelines must succeed**.
 
 ## Setup
 
-After cloning, enable the git hooks:
+After cloning, install the git hooks using `pre-commit`:
 ```bash
-git config core.hooksPath .githooks
+uv run pre-commit install
+uv run pre-commit install --hook-type pre-push
 ```
 
-This enforces branch naming conventions and prevents accidental direct pushes to `main`.
+This enforces code quality and prevents accidental direct commits or pushes to `main` and `develop`. We split these checks to keep your development fast:
+- **`pre-commit` (auto-format as you type):** Runs fast linting and formatting (Ruff).
+- **`pre-push` (test before you share):** Runs heavier validation (Mypy type checking, Pytest) only when sharing code with the remote.
 
 ## Changelog
 
@@ -114,8 +129,8 @@ convention, using the standard KaC entry types:
 | `Security` | Security-related fixes |
 
 Entries live under a `## [In Development]` heading at the top of the file
-until a MR is merged. Each block may optionally note the associated
-MR number in the **body** (not the heading) for traceability.
+until a release is cut. Each `[In Development]` block may optionally note the
+associated MR number in the **body** (not the heading) for traceability.
 
 > **Public release note**: if/when this project is released publicly and adopts
 > [Semantic Versioning](https://semver.org/), rename the `[In Development]`
@@ -157,10 +172,10 @@ is merged into `main`, convert it into a named section:
 Optional summary paragraph.
 [Link to MR !<N>](<gitlab MR URL>)
 
-### ✨ New Features
+### Added
 - **<Thing>** — description.
 
-### 🐛 Bug Fixes
+### Fixed
 - **<Thing>** — description.
 ```
 

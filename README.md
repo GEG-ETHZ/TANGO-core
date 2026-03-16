@@ -1,15 +1,48 @@
 # Techno-economic ANalysis of Geoenergy Operations (TANGO)
 ![Tango Logo](./tango-logo.svg)
 
+## Prerequisites
+
+Before using or developing TANGO, you need to have Python and `uv` installed.
+
+1.  **Install Python**: You need Python >= 3.11 installed on your system.
+    -   **macOS**: `brew install python@3.11` (or latest available)
+    -   **Linux (Ubuntu/Debian)**: `sudo apt update && sudo apt install python3 python3-pip python3-venv`
+    -   **Windows**: Download the official installer from [python.org](https://www.python.org/downloads/windows/) or install via the Microsoft Store.
+2.  **Install `uv`**: Follow the [official uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+    -   For macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+    -   For Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
 ## General users
 
 ### Installation
 
-If you have not previously done so, install `uv`: https://docs.astral.sh/uv/getting-started/installation/.
+1.  Clone the repository or download the source code.
+2.  Run `uv sync` to install dependencies.
 
 ### Examples
 
-You can run anything in the `./examples/` folder with, e.g. `uv run tango_cli -f examples/flexible_SF_manual.yml`. A future update will also provide run scripts.
+You can run anything in the `./examples/` folder with, e.g. `uv run tango_cli -f examples/flexible_SF_manual.yml`.
+
+## Project Structure
+
+```text
+└── tango-core
+    ├── README.md
+    ├── pyproject.toml
+    ├── .gitignore
+    ├── .python-version
+    ├── examples/    # Example TANGO configurations and scripts
+    ├── scripts/     # Utility scripts
+    ├── src/         # Installable Python package source code
+    │   └── tango
+    │       └── ...
+    ├── tests/       # Unit and regression tests
+    └── uv.lock
+```
+
+**Tip:** To regenerate this tree, run:
+`tree -I '__pycache__|.venv|*.egg-info|.git'`
 
 ## Developers and Internal Users
 
@@ -17,19 +50,21 @@ Note that these instructions have been verified to work on Euler.
 
 ### Installation
 
-If you have not previously done so, install `uv`: https://docs.astral.sh/uv/getting-started/installation/.
+1.  [install uv](https://docs.astral.sh/uv/getting-started/installation/)
+2.  run `uv sync` to install dependencies (including developer dependencies).
 
-### Testing
-
-Run `uv run pytest -v` in the root directory
-(i.e. the same directory as this file) to verify everything works. This will
-automatically create an environment, install all the dependencies, and run
-`pytest` within the environment with developer dependencies installed.
+### Running Checks
+-   **Tests:** `uv run pytest -v` -- to be run from the root directory
+-   **Linting:** `uv run ruff check .`
+-   **Formatting:** `uv run ruff format .` (use `--check` to verify without modifying)
+-   **Type checking:** `uv run mypy src/`
 
 ### Branching Strategy
-See [CONTRIBUTING](./CONTRIBUTING.md)
+Explained in [CONTRIBUTING.md](./CONTRIBUTING.md#branching-strategy).
 
 ### Running on Euler
+Note that these instructions have been verified to work on Euler.
+
 1. [Setup ssh to connect to gitlab](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
 1. [Setup ssh to connect to Euler](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/HPC#setting-up-passwordless-ssh-access-to-euler-from-your-laptop)
 1. Get TANGO onto Euler:
