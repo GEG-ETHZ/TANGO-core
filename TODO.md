@@ -9,6 +9,9 @@ more robust for long-term maintainability and extensibility.
     - [ ] strong congruence between code objects and module structure
     - [ ] strong congruence with actual physical system
     - [ ] [Graph Network Architecture](#graph-network-architecture)
+- Code Quality
+    - [ ] Implement [.gitlab-ci.yml](
+        https://gitlab.ethz.ch/geg/templates/python-template/-/blob/main/%7B%7Bcookiecutter.project_slug%7D%7D/.gitlab-ci.yml?ref_type=heads)
 
 ## Misc.
 - [ ] fix and beef up license manager.  See https://gitlab.ethz.ch/geg/computing-guide/-/wikis/Understanding-Software-Licenses
