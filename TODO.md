@@ -1,4 +1,16 @@
 # TODO Items
+
+## Refactor
+This section provides a high level overview of Chad's vision for making TANGO
+more robust for long-term maintainability and extensibility.
+- [State Management](#state-management)
+- Architecture -- the following concepts will make it easier to understand the code structure and flow
+    - [ ] perfect congruence between input files and code objects
+    - [ ] strong congruence between code objects and module structure
+    - [ ] strong congruence with actual physical system
+    - [ ] [Graph Network Architecture](#graph-network-architecture)
+
+## Misc.
 - [ ] fix and beef up license manager.  See https://gitlab.ethz.ch/geg/computing-guide/-/wikis/Understanding-Software-Licenses
 - [ ] restore and update [GUIDELINES.md](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md?ref_type=heads)
 - [ ] `SimplePressureDrop` looks more like a mixin interface than a core unit abstraction. Consider moving it to a separate file for clarity.
@@ -95,13 +107,15 @@
 
 ## State Management
 - [ ] make state variables lockable so it's easier to trace where they get updated
-- [ ] make atttributes/classes to:
+- [ ] make atttributes/classes:
     - [ ] `state` to track all state variables
     - [ ] optionally store state variables in `history` attributes at
         user-specified interval of time steps
     - [ ] optionally store state variables in `iter_history` attributes, which
         represent history of solver iterations at user-specified interval of
         time steps
+    - [ ] ensure that each variable is updated once and only once per time step,
+        with optional (discouraged!) override
 
 ## Error handling and solver robustness
 - [ ] Run massive Latin Hypercube Sampling (LHS) paramater sweeps on Euler for
@@ -156,10 +170,11 @@
     - [ ] make this approach part of the pipeline for Morteza's sweeps that
         are defined in config files
 
-# Idea for making graph network more human readable
-Consider doing this
+## Graph Network Architecture
+Graph network should define node connections _and_ contain node parameter data,
+rather than having this information stored in completely separate locations.
 
-## Compact Format
+### Compact Format
 
 Instead of separate `nodes`, `edges`, and per-component sections:
 
@@ -184,7 +199,7 @@ Benefits:
 - Eliminates redundant per-component sections
 - Multi-port components use dict for `connects_to`
 
-## Implementation
+### Implementation
 
 Add two static methods to `PowerPlant` or `SurfaceUnitFlexiblePP`:
 
