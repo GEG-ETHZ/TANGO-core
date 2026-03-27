@@ -36,6 +36,7 @@
 - [ ] verify that results match original configuration using [baseline results](#establish-baseline-before-refractoring)
 - [ ] compare performance against baselines captured before refactoring
   - [ ] if results diverge, check for bugs in both the original and new code
+- [ ] make it so that lines and other graphics shown in tango web app are stored as annotations in tango run file
 
 ### Scale out to all other TANGO input files
 - [ ] on-board Janna or other employee who can help
