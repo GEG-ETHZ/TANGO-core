@@ -47,6 +47,7 @@ more robust for long-term maintainability and extensibility.
     debugging way easier.
 - [x] setup gitlab pipelines or github actions to automate testing --
     [done](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/jobs/1369333)
+- [ ] make a link in CONTRIBUTING.md to the [GEG GitLab runner setup instructions](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-a-gitlab-runner-on-user-laptop)
 
 
 ## Artifact Locations

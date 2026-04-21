@@ -16,15 +16,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-```mermaid
-flowchart TD
-    T1["🟢 Tier 1 — Community / Academic (free)\nOpen-source Python package\nStudents, researchers, national labs, small companies"]
-    T2["🟣 Tier 2 — Consulting & Project Work (primary near-term revenue)\nGEG delivers case-specific analysis projects\nClients pay per engagement\nClosed-source advanced modules not included in open release"]
-    T3["🟡 Tier 3 — Licensed On-Prem Binary\nDownloadable binary + Python API\nPaid license; GPU-parallel capable\nAI-augmented scenario modules included"]
-    T4["🔴 Tier 4 — SaaS\nWeb API + GUI; no-code scenario builder\nMassive parallel / GPU compute, metered pricing\nCompute costs passed through to large operators"]
-
-    T1 --> T2 --> T3 --> T4
-```
+*Diagram: [Four-Tier Access Model](diagrams/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ### Tier 1 — Community / Academic (free or very low cost)
 
@@ -124,46 +116,7 @@ they represent all tell the same story.
 
 ### Refactor Phases
 
-```mermaid
-flowchart TD
-    subgraph P0["Phase 0 — establish baseline"]
-        P0A["Characterization tests\nCapture current outputs as ground truth"]
-        P0B["Performance baselines\nRuntime & memory on representative inputs"]
-    end
-
-    G0[ ]:::gate
-
-    subgraph P1["Phase 1 — restructure input & modules"]
-        P1A["New input file schema\nHierarchy mirrors physical system\nNo root-level data; graph links in-object"]
-        P1B["Parallel module tree\nmypy --strict + ruff must pass from day one"]
-        P1C["Format converter\nOld ↔ new input compatibility shim"]
-    end
-
-    G1[ ]:::gate
-
-    subgraph P2["Phase 2 — code objects & state management"]
-        P2A["Pydantic BaseModel\nAll classes: dataclass or pydantic model"]
-        P2B["State / LockedState\nOne write per timestep + optional history"]
-        P2C["Serialization\nto_file / from_file — JSON, YAML, msgpack"]
-    end
-
-    G2[ ]:::gate
-
-    subgraph P3["Phase 3 — modularity, verification & scale-out"]
-        P3A["Component solve()\nAny component runnable standalone"]
-        P3B["Regression verification\nResults match baseline; performance tracked"]
-        P3C["Scale to all inputs\nOne input file at a time; onboard support"]
-    end
-
-    DONE["✅ Clean, testable, extensible TANGO\nFoundation for AI augmentation, SaaS, parallel compute"]
-
-    P0 --> G0 --> P1
-    P1 --> G1 --> P2
-    P2 --> G2 --> P3
-    P3 --> DONE
-
-    classDef gate fill:none,stroke:none,width:0px,height:0px
-```
+*Diagram: [Refactor Phases](diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ---
 
