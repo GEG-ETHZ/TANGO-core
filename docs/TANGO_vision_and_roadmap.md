@@ -16,9 +16,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-![Four-Tier Access Model](diagrams/four_tier_access_model.svg)
-
-*Source: [four_tier_access_model.drawio](diagrams/src/four_tier_access_model.drawio)*
+*Diagram: [Four-Tier Access Model](diagrams/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ### Tier 1 — Community / Academic (free or very low cost)
 
@@ -118,9 +116,7 @@ they represent all tell the same story.
 
 ### Refactor Phases
 
-![Refactor Phases](diagrams/refactor_phases.svg)
-
-*Source: [refactor_phases.drawio](diagrams/src/refactor_phases.drawio)*
+*Diagram: [Refactor Phases](diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ---
 
