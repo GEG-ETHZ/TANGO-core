@@ -16,7 +16,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-![Four-Tier Access Model](diagrams/src/four_tier_access_model.svg)
+![Four-Tier Access Model](diagrams/four_tier_access_model.svg)
 
 *Source: [four_tier_access_model.drawio](diagrams/src/four_tier_access_model.drawio)*
 
@@ -118,7 +118,7 @@ they represent all tell the same story.
 
 ### Refactor Phases
 
-![Refactor Phases](diagrams/src/refactor_phases.svg)
+![Refactor Phases](diagrams/refactor_phases.svg)
 
 *Source: [refactor_phases.drawio](diagrams/src/refactor_phases.drawio)*
 
