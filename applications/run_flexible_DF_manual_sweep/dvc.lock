@@ -1,0 +1,68 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python run_flexible_DF_manual_sweep.py --stage generate
+    deps:
+    - path: ../../examples/flexible_DF_manual.yml
+      hash: md5
+      md5: 8949520746cda1b963dd2c48d8ddf3e0
+      size: 5719
+    - path: run_flexible_DF_manual_sweep.py
+      hash: md5
+      md5: a25cb9dcce02e22c193de9959ebe57b8
+      size: 17440
+    params:
+      params.yaml:
+        n_samples: 100
+        seed: 42
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: e65a0d17a25917070697e9166f1500ab
+      size: 44079
+  sweep:
+    cmd: python run_flexible_DF_manual_sweep.py --stage sweep
+    deps:
+    - path: ../../examples/flexible_DF_manual.yml
+      hash: md5
+      md5: 8949520746cda1b963dd2c48d8ddf3e0
+      size: 5719
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: e65a0d17a25917070697e9166f1500ab
+      size: 44079
+    - path: run_flexible_DF_manual_sweep.py
+      hash: md5
+      md5: a25cb9dcce02e22c193de9959ebe57b8
+      size: 17440
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 8
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: 5c75d79353a4561c46c5e8b6e588fb1f.dir
+      size: 379164
+      nfiles: 100
+  summarize:
+    cmd: python run_flexible_DF_manual_sweep.py --stage summarize
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: 5c75d79353a4561c46c5e8b6e588fb1f.dir
+      size: 379164
+      nfiles: 100
+    - path: run_flexible_DF_manual_sweep.py
+      hash: md5
+      md5: a25cb9dcce02e22c193de9959ebe57b8
+      size: 17440
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 480ce6598e8f9da7c161c9d1b4f0a2ab
+      size: 47617
+    - path: outputs/summary.yaml
+      hash: md5
+      md5: afc1ebdf3391f629958cfd5881e908e1
+      size: 175

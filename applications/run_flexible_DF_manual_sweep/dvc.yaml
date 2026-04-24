@@ -1,0 +1,42 @@
+stages:
+
+  # Stage 1: generate the design matrix (sampling algorithm lives here).
+  # Swap out the script's internals to change from LHS to any other DOE method
+  # without touching the sweep or summarize stages.
+  generate:
+    cmd: python run_flexible_DF_manual_sweep.py --stage generate
+    deps:
+      - run_flexible_DF_manual_sweep.py
+      - ../../examples/flexible_DF_manual.yml
+    params:
+      - params.yaml:
+          - n_samples
+          - seed
+    outs:
+      - outputs/design_matrix.parquet
+
+  # Stage 2: run all simulations in parallel (checkpoint/resume built in).
+  sweep:
+    cmd: python run_flexible_DF_manual_sweep.py --stage sweep
+    deps:
+      - run_flexible_DF_manual_sweep.py
+      - ../../examples/flexible_DF_manual.yml
+      - outputs/design_matrix.parquet
+    params:
+      - params.yaml:
+          - n_workers
+          - log_level
+    outs:
+      - outputs/results
+
+  # Stage 3: aggregate JSONs → parquet, compute summary metrics.
+  summarize:
+    cmd: python run_flexible_DF_manual_sweep.py --stage summarize
+    deps:
+      - run_flexible_DF_manual_sweep.py
+      - outputs/results
+    outs:
+      - outputs/results.parquet
+    metrics:
+      - outputs/summary.yaml:
+          cache: true
