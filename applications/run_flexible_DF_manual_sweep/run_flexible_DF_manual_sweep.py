@@ -89,15 +89,25 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
 # Derived: list of parameter names for iteration
 PARAMETERS = list(PARAMETER_BOUNDS.keys())
 
-# Defaults
+# Defaults (overridden by params.yaml if present)
 DEFAULT_N_SAMPLES = 100
 DEFAULT_N_WORKERS = 8
 DEFAULT_SEED = 42
 DEFAULT_LOG_LEVEL = "NONE"
 
 # Paths
-DEFAULT_SWEEP_DIR = Path(__file__).parent / "run_flexible_DF_manual_sweep"
+DEFAULT_SWEEP_DIR = Path(__file__).parent / "outputs"
+PARAMS_FILE = Path(__file__).parent / "params.yaml"
 INPUT_FILE = Path(tango.__file__).parents[2] / "examples/flexible_DF_manual.yml"
+
+
+def load_params() -> dict:
+    """Load parameters from params.yaml if it exists alongside the script."""
+    if PARAMS_FILE.exists():
+        import yaml
+
+        return yaml.safe_load(PARAMS_FILE.read_text()) or {}
+    return {}
 
 
 def get_nested_value(d: dict, path: str):
@@ -123,12 +133,6 @@ def generate_design_matrix(
 ) -> pl.DataFrame:
     """Generate LHS design matrix with per-parameter bounds and save to parquet."""
     output_file.parent.mkdir(exist_ok=True, parents=True)
-
-    # Create .gitignore to exclude sweep outputs from version control
-    gitignore_file = output_file.parent / ".gitignore"
-    if not gitignore_file.exists():
-        with open(gitignore_file, "w") as f:
-            f.write("*\n")
 
     # Generate LHS samples (0-1 range)
     sampler = qmc.LatinHypercube(d=len(PARAMETERS), seed=seed)
@@ -300,40 +304,75 @@ def aggregate_results(results_dir: Path) -> pl.DataFrame:
     return pl.DataFrame(results)
 
 
+def write_summary(results_df: pl.DataFrame, output_file: Path) -> None:
+    """Write LCOE summary statistics to YAML for DVC metrics tracking."""
+    import yaml
+
+    lcoe = results_df.filter(pl.col("LCOE").is_not_null())["LCOE"]
+    n_success = len(lcoe)
+    summary: dict = {
+        "n_samples": len(results_df),
+        "n_success": n_success,
+        "n_failed": len(results_df) - n_success,
+    }
+    if n_success > 0:
+        summary.update(
+            {
+                "lcoe_mean": float(lcoe.mean()),  # type: ignore[arg-type]
+                "lcoe_std": float(lcoe.std()),  # type: ignore[arg-type]
+                "lcoe_p25": float(lcoe.quantile(0.25)),  # type: ignore[arg-type]
+                "lcoe_p50": float(lcoe.quantile(0.50)),  # type: ignore[arg-type]
+                "lcoe_p75": float(lcoe.quantile(0.75)),  # type: ignore[arg-type]
+                "lcoe_p95": float(lcoe.quantile(0.95)),  # type: ignore[arg-type]
+            },
+        )
+    output_file.parent.mkdir(exist_ok=True, parents=True)
+    with open(output_file, "w") as f:
+        yaml.dump(summary, f, default_flow_style=False, sort_keys=False)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
+    params = load_params()
     parser = argparse.ArgumentParser(
         description="LHS Parameter Sweep for TANGO simulations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
+        "--stage",
+        type=str,
+        default="all",
+        choices=["generate", "sweep", "summarize", "all"],
+        help="Pipeline stage to run (default: all). DVC calls individual stages.",
+    )
+    parser.add_argument(
         "--n-samples",
         type=int,
-        default=DEFAULT_N_SAMPLES,
-        help="Number of LHS samples to generate",
+        default=params.get("n_samples", DEFAULT_N_SAMPLES),
+        help="Number of samples to generate (design matrix rows)",
     )
     parser.add_argument(
         "--n-workers",
         type=int,
-        default=DEFAULT_N_WORKERS,
+        default=params.get("n_workers", DEFAULT_N_WORKERS),
         help="Number of parallel workers",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=DEFAULT_SEED,
+        default=params.get("seed", DEFAULT_SEED),
         help="Random seed for reproducibility",
     )
     parser.add_argument(
         "--regenerate",
         action="store_true",
-        help="Regenerate design matrix even if it exists",
+        help="Regenerate design matrix even if it exists (generate stage only)",
     )
     parser.add_argument(
         "--log-level",
         type=str,
-        default=DEFAULT_LOG_LEVEL,
+        default=params.get("log_level", DEFAULT_LOG_LEVEL),
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "NONE"],
         help="Log level for TANGO simulations",
     )
@@ -359,6 +398,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main(
+    stage: str = "all",
     n_samples: int = DEFAULT_N_SAMPLES,
     n_workers: int = DEFAULT_N_WORKERS,
     seed: int = DEFAULT_SEED,
@@ -368,59 +408,51 @@ def main(
     progress_interval: int | None = None,
     sweep_dir: Path | None = None,
 ) -> None:
-    """Run the full LHS sweep pipeline.
+    """Run the sweep pipeline, or a single stage when called by DVC.
 
-    Can be called programmatically or via CLI.
+    Stages: generate → sweep → summarize. Use stage="all" to run end-to-end
+    (default, for manual use). DVC calls each stage independently.
     """
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     design_matrix_file = sweep_dir / "design_matrix.parquet"
     results_dir = sweep_dir / "results"
-
-    if not quiet:
-        print(f"Parameters: {len(PARAMETERS)} (per-parameter bounds)")
-        print(f"Samples: {n_samples}")
-        print(f"Workers: {n_workers}")
-        print(f"Seed: {seed}")
-
-    # Task 1: Generate design matrix (and clear results if regenerating)
-    if regenerate or not design_matrix_file.exists():
-        # Clear old results when regenerating
-        if regenerate and results_dir.exists():
-            import shutil
-
-            shutil.rmtree(results_dir)
-            if not quiet:
-                print(f"Cleared old results: {results_dir}")
-        generate_design_matrix(
-            n_samples=n_samples,
-            seed=seed,
-            output_file=design_matrix_file,
-        )
-    elif not quiet:
-        print(f"Design matrix exists: {design_matrix_file}")
-
-    # Task 2: Run simulations
-    run_sweep(
-        design_matrix_file,
-        results_dir,
-        n_workers,
-        log_level,
-        quiet,
-        progress_interval,
-    )
-
-    # Aggregate results
-    results_df = aggregate_results(results_dir)
     results_file = sweep_dir / "results.parquet"
-    results_df.write_parquet(results_file)
-    if not quiet:
-        print(f"Results saved: {results_file}")
+    summary_file = sweep_dir / "summary.yaml"
 
-    # Summary
-    n_success = results_df.filter(pl.col("LCOE").is_not_null()).height
-    n_failed = results_df.filter(pl.col("error").is_not_null()).height
-    if not quiet:
-        print(f"\nSummary: {n_success} succeeded, {n_failed} failed")
+    if stage in ("generate", "all"):
+        if not quiet:
+            print(f"Parameters: {len(PARAMETERS)} (per-parameter bounds)")
+            print(f"Samples: {n_samples}, seed: {seed}")
+        if regenerate or not design_matrix_file.exists():
+            if regenerate and results_dir.exists():
+                import shutil
+
+                shutil.rmtree(results_dir)
+                if not quiet:
+                    print(f"Cleared old results: {results_dir}")
+            generate_design_matrix(n_samples=n_samples, seed=seed, output_file=design_matrix_file)
+        elif not quiet:
+            print(f"Design matrix exists: {design_matrix_file}")
+        if stage == "generate":
+            return
+
+    if stage in ("sweep", "all"):
+        if not quiet:
+            print(f"Workers: {n_workers}")
+        run_sweep(design_matrix_file, results_dir, n_workers, log_level, quiet, progress_interval)
+        if stage == "sweep":
+            return
+
+    if stage in ("summarize", "all"):
+        results_df = aggregate_results(results_dir)
+        results_df.write_parquet(results_file)
+        if not quiet:
+            print(f"Results saved: {results_file}")
+        write_summary(results_df, summary_file)
+        if not quiet:
+            n_success = results_df.filter(pl.col("LCOE").is_not_null()).height
+            n_failed = results_df.filter(pl.col("error").is_not_null()).height
+            print(f"Summary: {n_success} succeeded, {n_failed} failed → {summary_file}")
 
 
 if __name__ == "__main__":
@@ -428,6 +460,7 @@ if __name__ == "__main__":
     if args.quiet and args.progress_interval is not None:
         raise ValueError("--quiet and --progress-interval are mutually exclusive")
     main(
+        stage=args.stage,
         n_samples=args.n_samples,
         n_workers=args.n_workers,
         seed=args.seed,
