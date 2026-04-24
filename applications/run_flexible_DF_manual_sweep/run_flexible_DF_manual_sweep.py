@@ -16,6 +16,7 @@ import traceback
 from pathlib import Path
 
 import polars as pl
+import yaml
 from scipy.stats import qmc  # type: ignore[import-untyped]
 
 import tango
@@ -104,8 +105,6 @@ INPUT_FILE = Path(tango.__file__).parents[2] / "examples/flexible_DF_manual.yml"
 def load_params() -> dict:
     """Load parameters from params.yaml if it exists alongside the script."""
     if PARAMS_FILE.exists():
-        import yaml
-
         return yaml.safe_load(PARAMS_FILE.read_text()) or {}
     return {}
 
@@ -306,8 +305,6 @@ def aggregate_results(results_dir: Path) -> pl.DataFrame:
 
 def write_summary(results_df: pl.DataFrame, output_file: Path) -> None:
     """Write LCOE summary statistics to YAML for DVC metrics tracking."""
-    import yaml
-
     lcoe = results_df.filter(pl.col("LCOE").is_not_null())["LCOE"]
     n_success = len(lcoe)
     summary: dict = {
