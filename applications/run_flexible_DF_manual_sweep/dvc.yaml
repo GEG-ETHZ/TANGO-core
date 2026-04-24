@@ -22,10 +22,6 @@ stages:
       - run_flexible_DF_manual_sweep.py
       - ../../examples/flexible_DF_manual.yml
       - outputs/design_matrix.parquet
-    params:
-      - params.yaml:
-          - n_workers
-          - log_level
     outs:
       - outputs/results
 
