@@ -28,7 +28,7 @@ more robust for long-term maintainability and extensibility.
 - [ ] cleanup how `addons_manager` works.
     - [ ] make it ok with arbitrary tango directory names other than just `TANGO`
     - [ ] make it import as a subpackage
-
+- [ ] test applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep_job.sh on Euler
 - [ ] make it so that `TANGO` can store all state variables and results in ArangoDB,
       along with specs and specs_hash
 

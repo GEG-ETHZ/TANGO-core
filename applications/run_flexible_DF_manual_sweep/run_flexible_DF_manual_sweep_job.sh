@@ -10,14 +10,18 @@
 #SBATCH --error=run_flexible_DF_manual_sweep_%j.err
 
 # ---------------------------------------------------------------------------
-# Configurable parameters:
-#   CPUS:      always from #SBATCH --cpus-per-task / SLURM_CPUS_PER_TASK (default: 48)
-#   N_SAMPLES: env var SWEEP_N_SAMPLES or CLI flag --n-samples (default: 10000)
+# Runs the DVC pipeline for the flexible_DF_manual parameter sweep.
+# n_workers is computed from the SLURM CPU allocation; n_samples can be
+# overridden via env var or CLI flag. Both are written into params.yaml
+# before calling dvc repro so DVC tracks them correctly.
 #
 # Examples:
 #   SWEEP_N_SAMPLES=500 sbatch run_flexible_DF_manual_sweep_job.sh
 #   sbatch --cpus-per-task=16 run_flexible_DF_manual_sweep_job.sh --n-samples 200
 # ---------------------------------------------------------------------------
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+PARAMS_FILE="$(dirname "$0")/params.yaml"
 
 # --- Defaults ---
 CPUS="${SLURM_CPUS_PER_TASK:-48}"
@@ -29,8 +33,7 @@ while [[ $# -gt 0 ]]; do
     --n-samples)  N_SAMPLES="$2"; shift 2 ;;
     -h|--help)
       echo "Usage: $0 [--n-samples <N>]"
-      echo ""
-      echo "  --n-samples  Number of LHS samples (env: SWEEP_N_SAMPLES, default: 10000)"
+      echo "  --n-samples  Number of samples (env: SWEEP_N_SAMPLES, default: 10000)"
       echo "  CPUs are always taken from SLURM_CPUS_PER_TASK (#SBATCH --cpus-per-task)"
       exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
@@ -39,7 +42,18 @@ done
 
 N_WORKERS=$(( CPUS - 3 ))
 
-# Print job information
+# --- Write params.yaml so DVC picks up the right values ---
+# n_workers is not tracked by DVC for staleness (runtime-only), but the
+# script reads it from params.yaml, so we still update it here.
+uv run --project "$REPO_ROOT" python - <<EOF
+import yaml, pathlib
+p = pathlib.Path("$PARAMS_FILE")
+params = yaml.safe_load(p.read_text())
+params["n_samples"] = $N_SAMPLES
+params["n_workers"] = $N_WORKERS
+p.write_text(yaml.dump(params, default_flow_style=False, sort_keys=False))
+EOF
+
 echo "=========================================="
 echo "Job started on: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -47,8 +61,6 @@ echo "Running on node: $SLURMD_NODENAME"
 echo "CPUs: $CPUS  |  workers: $N_WORKERS  |  n-samples: $N_SAMPLES"
 echo "Working directory: $PWD"
 echo "=========================================="
-
-# Print system information
 echo "System information:"
 echo "Hostname: $(hostname)"
 echo "Operating System: $(uname -a)"
@@ -56,32 +68,8 @@ echo "CPU info: $(lscpu | grep 'Model name' | head -1)"
 echo "Memory info: $(free -h | grep 'Mem:')"
 echo ""
 
-# LHS Parameter Sweep for TANGO simulations
-# Parameter bounds are defined per-parameter in PARAMETER_BOUNDS dict.
-
-# options:
-#   -h, --help            show this help message and exit
-#   --n-samples N_SAMPLES
-#                         Number of LHS samples to generate (default: 100)
-#   --n-workers N_WORKERS
-#                         Number of parallel workers (default: 8)
-#   --seed SEED           Random seed for reproducibility (default: 42)
-#   --regenerate          Regenerate design matrix even if it exists (default: False)
-#   --log-level {DEBUG,INFO,WARNING,ERROR,NONE}
-#                         Log level for TANGO simulations (default: NONE)
-#   --quiet, -q           Suppress progress output (default: False)
-#   --progress-interval PROGRESS_INTERVAL
-#                         Print progress every N completions (default: n_workers)
-#   --sweep-dir SWEEP_DIR
-#                         Directory for sweep outputs (default: ../examples/run_flexible_DF_manual_sweep)
-
-# Quick test run (small sample size matching workers)
-# uv run ../../examples/run_flexible_DF_manual_sweep.py --regenerate --progress-interval 8 \
-#   --sweep-dir ./ --n-workers $N_WORKERS --n-samples $N_WORKERS
-
-# Production run
-uv run --project ~/tango-core/ run_flexible_DF_manual_sweep.py --regenerate --progress-interval "$N_WORKERS" \
-  --sweep-dir ./ --n-workers "$N_WORKERS" --n-samples "$N_SAMPLES"
+cd "$REPO_ROOT"
+uv run dvc repro applications/run_flexible_DF_manual_sweep/dvc.yaml
 
 echo ""
 echo "=========================================="
