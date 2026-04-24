@@ -12,6 +12,7 @@ Parameter bounds are defined per-parameter in PARAMETER_BOUNDS dict.
 import argparse
 import json
 import multiprocessing
+import tempfile
 import traceback
 from pathlib import Path
 
@@ -223,10 +224,15 @@ def run_single_simulation(args: tuple) -> None:
             "traceback": traceback.format_exc(),
         }
 
-    # Save result
+    # Save result atomically so a mid-write crash doesn't leave a corrupt file
+    # that the resume logic would mistake for a completed run. dir=results_dir
+    # keeps the tmp file on the same filesystem, which is required for rename
+    # to be atomic on POSIX.
     results_dir.mkdir(exist_ok=True, parents=True)
-    with open(result_file, "w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", dir=results_dir, delete=False, suffix=".tmp") as f:
         json.dump(result, f, indent=2)
+        tmp_path = Path(f.name)
+    tmp_path.rename(result_file)
 
 
 def run_sweep(

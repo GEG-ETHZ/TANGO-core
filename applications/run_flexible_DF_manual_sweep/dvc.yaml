@@ -25,6 +25,14 @@ stages:
     outs:
       - outputs/results
 
+  # Clean up any leftover .tmp files from atomic writes interrupted mid-run.
+  # No outs — pure side-effect. Runs after sweep completes because it deps on
+  # outputs/results; DVC considers it stale after every successful sweep repro.
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+      - outputs/results
+
   # Stage 3: aggregate JSONs → parquet, compute summary metrics.
   summarize:
     cmd: python run_flexible_DF_manual_sweep.py --stage summarize
