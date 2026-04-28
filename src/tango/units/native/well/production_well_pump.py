@@ -1,6 +1,6 @@
 from tango.core import FluidState
 from tango.core.constants import MAX_PRD_PUMP_DP
-from tango.units.native.well import *
+from tango.units.native.well import ProductionWellUnitNative
 from tango.core.errors import CoolPropError
 
 
@@ -19,7 +19,7 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         scaling_factor (float): Factor used to scale mass flow rate based on the well pattern.
     """
 
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the ProductionWellPumpUnitNative class.
 
@@ -31,14 +31,14 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
             RuntimeError: If the production well is not specified in the configuration.
             ValueError: If the pump well length is greater than the production well length.
         """
-        ProductionWellUnitNative.__init__(self, id, specs)
+        ProductionWellUnitNative.__init__(self, unit_id, specs)
         self._initialize_attributes_p()
         self.init_stream_interface()
         self.scaling_factor = 1.0 / 4.0 if self._specs.well_pattern == 'INVERTED_5SPOT' else 1.0
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def init_stream_interface(self) -> None:
+    def init_stream_interface(self, _P: float | None = None, _T: float | None = None) -> None:
         """
         Initializes the stream interface for the production well pump.
 
@@ -168,14 +168,17 @@ class ProductionWellPumpUnitNative(ProductionWellUnitNative):
         """
         if 'production_well' not in specs:
             raise RuntimeError(f"Required unit when using unit: 'production_well' is not found.")
-        if specs['production_well_pump']['well_length'] > specs['production_well']['well_length']:
+        pump_well_length = specs['production_well_pump']['well_length']
+        pro_well_bottom_length = specs['production_well']['well_length']
+        if pump_well_length > pro_well_bottom_length:
             raise ValueError(
                 "Unrealistic value found:" +
-                    "\n\t`well_length` of `production_well_pump` is greater than `production_well`" +
-                    " `well_length`."
+                    f"\n\t`production_well_pump` `well_length` ({pump_well_length:.3g} m) is greater than "
+                    + f"`production_well` `well_length`({pro_well_bottom_length:.3g} m)."
                     "\n\tThis means that the pump is more than halfway down the total depth."
             )
-        return specs['common'] | specs['production_well_pump']
+        specs_dict: dict = specs['common'] | specs['production_well_pump']
+        return specs_dict
 
     def _update_w_pump(self) -> None:
         """

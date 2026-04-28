@@ -6,8 +6,8 @@ import os
 import logging
 
 
-from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import *
+from tango.core.abstracts.unit import Unit
+from tango.core.fluidstate import FluidState
 from tango.core.errors import CoolPropError
 from tango.units.dataclasses import ReservoirSpecsNative
 
@@ -29,7 +29,7 @@ class ReservoirFileReaderUnit(Unit):
         outlet_data (list): Data read from the outlet state CSV file.
     """
 
-    def __init__(self, id: str, specs: dict) -> None:
+    def __init__(self, unit_id: str, specs: dict) -> None:
         """
         Initializes a new instance of the ReservoirFileReaderUnit class.
 
@@ -40,14 +40,14 @@ class ReservoirFileReaderUnit(Unit):
         Raises:
             FileNotFoundError: If the specified CSV file does not exist.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
         self.specs = ReservoirSpecsNative.from_dict(self._process_specs(specs))
         self.init_stream_interface()
         self.outlet_data = self._read_csv_file(self.specs.outlet_state)
         self.inlet_data = self._read_csv_file(self.specs.inlet_state)
         self.current_row = 0
 
-    def init_stream_interface(self, P: float = None, T: float = None) -> None:
+    def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
         """
         Initializes the fluid interface for the reservoir.
 
@@ -55,8 +55,8 @@ class ReservoirFileReaderUnit(Unit):
             P (float, optional): Initial pressure in Pascals. Defaults to a pre-defined pressure value.
             T (float, optional): Initial temperature in Kelvin. Defaults to a pre-defined temperature value.
         """
-        self.inlet_fluid = FluidState.withPT(self.specs.fluid_name, 30000000, 323.25)
-        self.outlet_fluid = FluidState.withPT(self.specs.fluid_name, 30000000, 323.25)
+        self.inlet_fluid = FluidState.withPT(self.specs.fluid_name, 30_000_000, 323.25)
+        self.outlet_fluid = FluidState.withPT(self.specs.fluid_name, 30_000_000, 323.25)
 
     def stream_interface(self) -> None:
         """

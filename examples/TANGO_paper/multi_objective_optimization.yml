@@ -121,8 +121,8 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: '/Users/morteza/Documents/projects/TANGO/src/tango/states2.json'
-    connections_file: '/Users/morteza/Documents/projects/TANGO/src/tango/connections2.json'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
   Analyzer:
     active: 'no'
     execute: 'no'

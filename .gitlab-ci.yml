@@ -1,43 +1,23 @@
-# # image: ubuntu:latest
+default:
+  tags:
+    - laptop
 
-# variables:
-#   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-
-# cache:
-#   paths:
-#     - .pixi/
-#     - .cache/pip
-
-# before_script:
-#   # - apt-get update && apt-get install -y curl
-#   # - curl -fsSL https://pixi.sh/install.sh | bash
-#   # - export PATH="$HOME/.pixi/bin:$PATH"
-#   - pixi --version  # For debugging
-
-# stages:
-#   - test
-
-# test:
-#   stage: test
-#   script:
-#     - pixi run -e dev pytest -v
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-#     - if: $CI_PIPELINE_SOURCE == "web"
-
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
 
 before_script:
-  - pixi --version
-  # - pixi install -e dev
+  # print uv version to aid troubleshooting in case of failure
+  - uv --version
 
 stages:
   - test
 
 test:
   stage: test
+  interruptible: true
   script:
-    - pixi run -e dev pytest -v
+    - uv run pytest
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

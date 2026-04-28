@@ -1,6 +1,6 @@
 graph:
   nodes:
-    injection_wellbore: # root node
+    injection_well: # root node
       type: 'injection_well'
       unit: 'native'
     reservoir:
@@ -18,9 +18,9 @@ graph:
   edges:
     1:
       source: 'surface'
-      target: 'injection_wellbore'
+      target: 'injection_well'
     2:
-      source: 'injection_wellbore'
+      source: 'injection_well'
       target: 'reservoir'
     3:
       source: 'reservoir'
@@ -118,8 +118,8 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: 'src/tango/states_test2.json'
-    connections_file: 'src/tango/connections_test2.json'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
   Analyzer:
     active: 'no'
     execute: 'no'

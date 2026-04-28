@@ -19,7 +19,7 @@ class SurfaceSpecsAGSNative(CommonSpecs):
     Attributes:
         place_holder (float): Placeholder value for custom specifications (in meters).
     """
-    place_holder: float = None  # (m)
+    place_holder: float | None = None  # (m)
 
 
 class SurfaceStateAGSNative(SurfaceState):

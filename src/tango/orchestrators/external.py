@@ -14,17 +14,18 @@ class SystemExternal(UnitManager):
         flow_rate_calculator (FlowRateCalculator): An instance of the FlowRateCalculator for handling flow rate calculations.
         unit (object): The unit containing injection well, production well, reservoir, surface, and optional production well pump.
     """
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes a new instance of the SystemExternal class.
 
         Args:
             specs (dict): Specifications for the system, including schedule and unit configurations.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
 
         Notes:
             - If the production well pump is not specified, it is set to `None`.
         """
-        super().__init__(specs)
+        super().__init__(specs, unit_options)
 
         if 'district_heating' in specs:
             self.specs2 = DistrictHeatingSpecs.from_dict(self._process_specs2(specs))

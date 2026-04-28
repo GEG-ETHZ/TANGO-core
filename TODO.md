@@ -1,16 +1,44 @@
 # TODO Items
+
+## Refactor
+This section provides a high level overview of Chad's vision for making TANGO
+more robust for long-term maintainability and extensibility.
+- [State Management](#state-management)
+- Architecture -- the following concepts will make it easier to understand the code structure and flow
+    - [ ] perfect congruence between input files and code objects
+    - [ ] strong congruence between code objects and module structure
+    - [ ] strong congruence with actual physical system
+    - [ ] [Graph Network Architecture](#graph-network-architecture)
+- Code Quality
+    - [ ] Implement [.gitlab-ci.yml](
+        https://gitlab.ethz.ch/geg/templates/python-template/-/blob/main/%7B%7Bcookiecutter.project_slug%7D%7D/.gitlab-ci.yml?ref_type=heads)
+
+## Misc.
+- [ ] fix and beef up license manager.  See https://gitlab.ethz.ch/geg/computing-guide/-/wikis/Understanding-Software-Licenses
 - [ ] restore and update [GUIDELINES.md](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md?ref_type=heads)
 - [ ] `SimplePressureDrop` looks more like a mixin interface than a core unit abstraction. Consider moving it to a separate file for clarity.
 - [ ] src/tango/runner.py has 3 class definitions that aren't consistent and needs some architectural tweaking
 - [ ] Clean up src/tango/units/native/surface/flexible_pp.py::get_surface_diagnostics to better address separation of concerns
 - [ ] get_dp_simple, get_flow_res_per_dx and some other methods have overlapping logic, you might want to refactor to avoid repetition.
+- [ ] Investigate what it would take to have round trip symmetry in writing
+      `tango.specs` to a yaml file.  Right now, merged defaults would be expanded (the
+      common dict gets merged with unit-specific dicts), and it may be worth trying to
+      change the way this works so that specs doesn't have any preprocessing relative
+      to what comes in for the original file
+- [ ] cleanup how `addons_manager` works.
+    - [ ] make it ok with arbitrary tango directory names other than just `TANGO`
+    - [ ] make it import as a subpackage
+
+- [ ] make it so that `TANGO` can store all state variables and results in ArangoDB,
+      along with specs and specs_hash
+
 
 ## Testing
 - [x] get the pytest tests working on all relevant platforms
   - [ ] make sure all paths are relative
 - [ ] figure out how to get the optimizer tests fast enough to run for MRs
 - [ ] build out more/better unit tests
-- [ ] reduce number of routine tests of examples by gating with environment variables after more robust unit testing is implemented 
+- [ ] reduce number of routine tests of examples by gating with environment variables after more robust unit testing is implemented
 - [x] make tests to cover `optimizerr.py`
 - [ ] build out unit tests for individual components -- this enables easier
     debugging when tests fail
@@ -22,10 +50,10 @@
 
 
 ## Artifact Locations
-- [ ] make it so that the *_log (e.g. CPG_hot_opt_log) and *.png (e.g.
+- [x] make it so that the *_log (e.g. CPG_hot_opt_log) and *.png (e.g.
     CPG_hot_opt_log) files get saved in a user-specified location
 - [x] make sure users have control over where output and artifact files end up
-    and that it's never under `src/tango/`.  Additionally, it should be possible
+- [x] and that it's never under `src/tango/`.  Additionally, it should be possible
     for the user to not save any files at all.  This is important because full
     factorial HPC runs will generate a ton of files (storage usage!) if this is
     not fixed.
@@ -34,6 +62,15 @@
 - [ ] eliminate dueling parameters, e.g. `specs`, `parameter_overrides`, and
     `params_json` in src/tango/utils.py.  It's really easy to accidentally and
     silently set conflicting parameters without any awareness.
+    This is partially complete, but the following still needs attention:
+    ```py
+    if specs is None:
+        self.specs = load_from_yaml_with_overrides(input_file, parameter_overrides)
+    else:
+        from tango.utils import apply_parameter_overrides
+
+        self.specs = apply_parameter_overrides(specs, parameter_overrides)
+    ```
 - [ ] `specs` and `_specs` (inconsistent naming!) attributes should
     contain only specs for the containing object.  Currently, they carry
     around unrelated specs for some objects -- e.g. `production_well`
@@ -62,7 +99,7 @@
     also create security risks.
 - [x] get rid of circular imports masked by `eval` functions by creating
     registry modules
-- [ ] remove star imports.  The [official style
+- [ ] remove all star imports.  The [official style
     guide](https://peps.python.org/pep-0008/#imports) recommends against using them,
     and the do things like masking where objects actually come from. For example,
     `dataclass` in `flexible_pp.py` was coming from the `tango.dataclasses` module,
@@ -73,22 +110,33 @@
 
 ## State Management
 - [ ] make state variables lockable so it's easier to trace where they get updated
-- [ ] make atttributes/classes to:
+- [ ] make atttributes/classes:
     - [ ] `state` to track all state variables
     - [ ] optionally store state variables in `history` attributes at
         user-specified interval of time steps
     - [ ] optionally store state variables in `iter_history` attributes, which
         represent history of solver iterations at user-specified interval of
         time steps
+    - [ ] ensure that each variable is updated once and only once per time step,
+        with optional (discouraged!) override
 
 ## Error handling and solver robustness
-- [ ] Run massive Latin Hypercube Sampling (LHS) run for various tango
-    simulations to better understand:
+- [ ] Run massive Latin Hypercube Sampling (LHS) paramater sweeps on Euler for
+    various tango simulations to better understand:
     - [ ] parameter sets that cause expected errors and implement more robust
         error handling
     - [ ] parameter sets that cause errors related to problems with solvers that
         should be addressed
-      
+- [ ] use these sweeps to enhance error handling and/or fix simulations that the
+    solver should actually be able to handle
+
+## Agentic TANGO
+- [ ] Run massive Latin Hypercube Sampling (LHS) paramater sweeps on Euler for
+    various tango simulations to train AI LLM agent to:
+    - [ ] set up TANGO runs based on user description
+    - [ ] interpret results of successful TANGO runs
+    - [ ] troubleshoot failed TANGO runs
+
 ## Readability/Maintainability/Usability Improvements
 - [ ] lots of places where there are hardcoded values (e.g. `100_000` for the
     bar to Pa conversion, `1_000_000` for MPa to Pa conversion) without any
@@ -103,8 +151,10 @@
 - [ ] change all the `_private_vars` to `public_vars` or `__private_vars`,
     depending on rationale.  In python, preceding `_` has no real effect and should
     not be used without an explanation (which is not provided anywhere in TANGO)
-- [ ] remove all hardcoded absolute paths
-- [ ] make options to change verbosity: no prints, some prints, extensive prints, ...
+- [ ] remove _**all**_ hardcoded absolute paths
+- [x] make options to change verbosity: no prints, some prints, extensive prints, ... —
+    [implementation (`set_logger` / `--log-level`)](src/tango/utils.py),
+    [example script usage (`log_level="NONE"`)](examples/run_flexible_SF_manual.py)
 - [x] make sure TANGO is runnable via script and interactively, not just via
     CLI app
 
@@ -116,14 +166,18 @@
 ## Foundational Improvements for TANGO Long Term Objectives
 - [ ] ability to copy and run standalone any submodule within an existing tango
     simulation (would enable much richer error context and troubleshooting steps)
-- [ ] make it so that edits in live, interactive TANGO instance have effect on
+- [x] make it so that edits in live, interactive TANGO instance have effect on
     result (show demo of code where this does not happen as expected).  This
-    would enable easier ad hoc parameter sweeps in python scripts.
+    would enable easier ad hoc parameter sweeps in python scripts. --
+    See [example](./applications/run_flexible_DF_manual_sweep)
+    - [ ] make this approach part of the pipeline for Morteza's sweeps that
+        are defined in config files
 
-# Idea for making graph network more human readable
-Consider doing this
+## Graph Network Architecture
+Graph network should define node connections _and_ contain node parameter data,
+rather than having this information stored in completely separate locations.
 
-## Compact Format
+### Compact Format
 
 Instead of separate `nodes`, `edges`, and per-component sections:
 
@@ -148,7 +202,7 @@ Benefits:
 - Eliminates redundant per-component sections
 - Multi-port components use dict for `connects_to`
 
-## Implementation
+### Implementation
 
 Add two static methods to `PowerPlant` or `SurfaceUnitFlexiblePP`:
 

@@ -1,5 +1,10 @@
 import copy
-from tango.units.native.well.base import *
+import numpy as np
+import logging
+
+from tango.units.native.well.base import WellUnitNative
+from tango.core.constants import GRAVITY_ACCELERATION
+from tango.core.fluidstate import FluidState
 
 
 class HorizontalWellUnitNative(WellUnitNative):
@@ -93,7 +98,8 @@ class HorizontalWellUnitNative(WellUnitNative):
             raise RuntimeError(f"Required parameter 'wellhead_depth' is not found in specs")
         if np.abs(specs['common']['well_spacing'] - specs['horizontal_well']['well_length']) < 1e-5:
             logging.warning("Inconsistent well_spacing and horizontal_well length found.")
-        return specs['common'] | specs['horizontal_well']
+        specs_dict: dict = specs['common'] | specs['horizontal_well']
+        return specs_dict
 
     def _set_well_length(self) -> float:
         """
@@ -108,7 +114,8 @@ class HorizontalWellUnitNative(WellUnitNative):
         if self._specs.well_length is None:
             raise RuntimeError(f"Required parameter 'well_length' is not found in specs.")
         else:
-            return self._specs.well_length
+            well_length: float = self._specs.well_length
+            return well_length
 
     def _initialize_farfield_temperature(self) -> None:
         """

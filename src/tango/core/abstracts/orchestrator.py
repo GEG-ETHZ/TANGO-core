@@ -1,6 +1,7 @@
 import copy
 import logging
-from tango.utils import get_unit_class, MULTIPLE_UNIT_NODE_OPTIONS 
+from tango.utils import get_unit_class
+from tango.core.config import MULTIPLE_UNIT_NODE_OPTIONS
 from tango.core.stream import Stream
 from tango.core.errors import CoolPropError
 from abc import ABC
@@ -41,14 +42,16 @@ class UnitManager(ABC):
         root_node (dict): The root node object.
     """
 
-    def __init__(self, specs):
+    def __init__(self, specs, unit_options):
         """
         Initializes a new instance of the UnitManager class.
 
         Args:
             specs (dict): Specifications for the system.
+            unit_options (dict): Dictionary mapping unit types and names to classes.
         """
         self.specs = specs
+        self.unit_options = unit_options
         self.unit = Unit()
         self._build_graph()
         self._init_nodes()
@@ -69,11 +72,12 @@ class UnitManager(ABC):
         Initializes all nodes in the graph by instantiating their associated units.
         """
         self._process_specs()
-        for id in self.graph.nodes:
-            node = self.graph.nodes[id]
-            Unit = get_unit_class(node['type'], node['unit'])
-            node['unit'] = Unit(id, self.specs)
-            node['id'] = id
+        for node_id in self.graph.nodes:
+            node = self.graph.nodes[node_id]
+            Unit = get_unit_class(type_=node['type'], unit_name=node['unit'], unit_options=self.unit_options)
+            node['unit'] = Unit(node_id, specs=self.specs)
+            self.unit.add_unit(node['unit'], node_id)
+            node['id'] = node_id
             self._set_node_object(node)
         self.root_node_id = list(self.graph.nodes)[0]
         self.root_node = self.graph.nodes[self.root_node_id]
@@ -84,7 +88,7 @@ class UnitManager(ABC):
         """
         for u, v, d in self.graph.edges(data=True):
             source, target = d['source'], d['target']
-            stream = Stream(id=d['id'], state=self.graph.nodes[source]['unit'])
+            stream = Stream(unit_id=d['id'], state=self.graph.nodes[source]['unit'])
             self.graph.nodes[source]['unit'].set_outlet_stream(stream.state)
             self.graph.nodes[target]['unit'].set_inlet_stream(stream.state)
             self.graph.nodes[target]['unit'].init_inlet_state(self.graph.nodes[source]['unit'])
@@ -94,7 +98,13 @@ class UnitManager(ABC):
         """
         Processes and combines common specifications for units.
         """
-        self.specs['common'] = self.specs['props'] | self.specs['schedule'] | self.specs['surface']
+        from tango.units.dataclasses import CommonSpecs
+        import inspect
+        
+        common_keys = set(inspect.signature(CommonSpecs).parameters.keys())
+        surface_common = {k: v for k, v in self.specs.get('surface', {}).items() if k in common_keys}
+        
+        self.specs['common'] = self.specs['props'] | self.specs['schedule'] | surface_common
 
     def _set_node_object(self, node) -> None:
         """
@@ -103,7 +113,10 @@ class UnitManager(ABC):
         Args:
             node (dict): Node object containing unit information.
         """
-        if getattr(self.unit, f"{node['type']}", None) is not None:
+        existing_unit = getattr(self.unit, node['type'], None)
+        if existing_unit is not None:
+            if existing_unit is node['unit']:
+                return
             if node['type'] not in MULTIPLE_UNIT_NODE_OPTIONS:
                 raise ValueError(f"Multiple node type: {node['type']} is not supported.")
         self.unit.add_unit(node['unit'], node['type'])

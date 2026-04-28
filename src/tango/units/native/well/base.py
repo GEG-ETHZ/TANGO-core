@@ -28,6 +28,9 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         _u (ndarray): Array of flow velocity values (in meters per second).
     """
 
+    fluid_state_init: FluidState
+    fluid_state_tmp: FluidState
+
     def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the WellUnitNative class.
@@ -44,7 +47,6 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         self._specs = WellSpecsNative.from_dict(specs)
         self._specs_post_processor()
         self._initialize_attributes()
-        self.validate()
         self.current_row = 0
 
         if self._specs.flow_rate_from_csv == "yes":

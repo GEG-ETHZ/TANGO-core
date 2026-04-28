@@ -43,7 +43,7 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         self.diagram_connections = {}
         self.thermal_power = 0.0
         self.system_external: bool = False
-        self._fluid_name: str = ""  # Set by subclasses
+
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:

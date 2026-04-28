@@ -28,7 +28,7 @@ class Stream:
         id (str): A unique identifier for the stream.
         state (StreamState): The state of the stream, including mass rate and fluid properties.
     """
-    def __init__(self, id: str, state) -> None:
+    def __init__(self, unit_id: str, state) -> None:
         """
         Initializes a new instance of the Stream class.
 
@@ -46,7 +46,7 @@ class Stream:
                 initial_state = SomeStateObject(mass_rate=1.5, outlet_fluid=fluid_state)
                 stream = Stream(id="Stream_01", state=initial_state)
         """
-        self.id = id
+        self.id = unit_id
         self.state = StreamState()
         self.state.mass_rate = state.mass_rate
         self.state.fluid_state = state.outlet_fluid

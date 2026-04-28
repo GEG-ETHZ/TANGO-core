@@ -4,7 +4,7 @@
 
 graph:
   nodes:
-    injection_wellbore: # root node
+    injection_well: # root node
       type: 'injection_well'
       unit: 'native'
     reservoir:
@@ -22,9 +22,9 @@ graph:
   edges:
     1:
       source: 'surface'
-      target: 'injection_wellbore'
+      target: 'injection_well'
     2:
-      source: 'injection_wellbore'
+      source: 'injection_well'
       target: 'reservoir'
     3:
       source: 'reservoir'
@@ -66,8 +66,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 50000000
   over_pressure_percentage: 10
-  inlet_state: '/home/TANGO/examples/injection_well.csv'
-  outlet_state:  '/home/TANGO/examples/production_well.csv'
+  inlet_state: 'injection_well.csv'
+  outlet_state:  'production_well.csv'
 
 injection_well:
   well_length: 5000. # m
@@ -128,9 +128,9 @@ addons:
   ThermaGraph:
     active: 'no'
     execute: 'no'
-    states_file: 'src/tango/states_test2.json'
-    connections_file: 'src/tango/connections_test2.json'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
   Analyzer:
     active: 'no'
     execute: 'no'
-    results_file: 'src/tango/aaaa.csv'
+    results_file: 'analyzer_results.csv'

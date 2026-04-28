@@ -1,1 +1,3 @@
-builds
+.mypy_cache
+.venv
+.pixi

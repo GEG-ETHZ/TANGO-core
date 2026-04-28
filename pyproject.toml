@@ -1,4 +1,6 @@
-# [build-system]
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "tango"
@@ -17,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "pandas>=2.1,<3.0",
+    "polars>=1.0,<2.0",
     "matplotlib",
     "scipy",
     # "scikit-learn>=1.6,<2.0", # not being used anywhere
@@ -49,9 +52,6 @@ dependencies = [
     "tespy==0.7.1.post1",
     "fluprodia>=3.5.1,<4",
     "pymoo==0.6.1.3",
-    "flask==3.0.0",
-    "flask-cors==4.0.0",
-    "gunicorn",
 ]
 
 [project.urls]
@@ -66,23 +66,30 @@ dev = [
     "pylsp-rope>=0.1.17", # provides linting tools
     "ruff>=0.11.9", # provides additional linting tools
     "pytest~=8.3", # for functional and unit testing
-    "python-lsp-server~=1.10", # server 
+    "python-lsp-server~=1.10", # server
     "ipython >=8.37.0,<10", # handy for quick interpreter
     "pandas-stubs >=2.3.2.250926,<3", # stub files to provide pandas interface typing
     "types-pyyaml >=6.0.12.20250915,<7", # stub files to provide pyyaml interface typing
     "types-networkx >=3.5.0.20251104,<4", # stub files to provide networkx interface typing
     "ipykernel ~= 7.0",
+    "pre-commit~=4.1", # git hook management
+]
+tango-app = [
+    "flask==3.0.0",
+    "flask-cors==4.0.0",
+    "gunicorn",
 ]
 
 [dependency-groups]
 dev = ["tango[dev]"]
+tango-app = ["tango[tango-app]"]
 
 [tool.setuptools]
 zip-safe = false
 
 [tool.setuptools.packages.find]
 include = [
-    "src/tango/", 
+    "src/tango/",
 ] # package names should match these glob patterns (["*"] by default)
 namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 
@@ -90,13 +97,13 @@ namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 channels = ["conda-forge"]
 platforms = ["osx-64", "osx-arm64", "win-64", "linux-64", "linux-aarch64"]
 
-[tool.pixi.pypi-dependencies]
-tango = { path = ".", editable = true }
-
 [tool.pixi.environments]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 tango-app = { features = ["tango-app"], solve-group = "default" }
+
+[tool.pixi.pypi-dependencies]
+tango = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 test = { cmd = "pixi run -e dev pytest" }
@@ -109,6 +116,17 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.pixi.feature.tango-app.dependencies]
 pyqt = "*"
+
+[tool.uv]
+# Common uv commands:
+#   uv sync                          -- install base dependencies (editable)
+#   uv sync --group dev              -- install + dev tools
+#   uv sync --group tango-app        -- install + PyQt5 for GUI addons
+#   uv run pytest        -- run tests
+#   uv run --group tango-app python tango_flask_server.py
+#   uv run ruff format .             -- format code
+#   uv run ruff check .              -- lint code
+# note that uv runs with `--group dev` implicitly
 
 [tool.ruff]
 # Specify Python version
@@ -131,38 +149,44 @@ indent-style = "space"
 [tool.ruff.lint]
 preview = true
 select = [
-  "A", # flake8-builtins
-  "ARG", # flake8-unused-arguments
-  # "B", # flake8-bugbear
-  "C", # Pylint: Convention
-  "C4", # flake8-comprehensions
-  "C90", # mccabe
-  "COM", # flake8-commas
-  "D", # pydocstyle
-  "E", # Error
-  "F", # Pyflakes
-  "G", # flake8-logging-format
-  "I", # isort
-  "LOG", # flake8-logging
-  "N", # pep8-naming
-  "NPY", # numpy-specific
-  "PERF", # Perflint
-  # "PL", # Pylint
-  "Q", # flake8-quotes
-  "SIM", # flake8-simplify
-  # "TID", # flake8-tidy-imports (absolute imports)
-  "UP", # pyupgrade
-  "W" # Warning
+    "A", # flake8-builtins
+    "ARG", # flake8-unused-arguments
+    # "B", # flake8-bugbear
+    "C", # Pylint: Convention
+    "C4", # flake8-comprehensions
+    "C90", # mccabe
+    "COM", # flake8-commas
+    "D", # pydocstyle
+    "E", # Error
+    "F", # Pyflakes
+    "G", # flake8-logging-format
+    "I", # isort
+    "LOG", # flake8-logging
+    "N", # pep8-naming
+    "NPY", # numpy-specific
+    "PERF", # Perflint
+    # "PL", # Pylint
+    "Q", # flake8-quotes
+    "SIM", # flake8-simplify
+    # "TID", # flake8-tidy-imports (absolute imports)
+    "UP", # pyupgrade
+    "W" # Warning
 ]
 ignore = [
-  "D400", # first-line-should-end-with-a-period
-  "D415", # first-line-should-end-with-a-period
-  "E266", # Too many leading `#`
-  "SIM108", 
-  "SIM118",  # allow `.keys()`
-  "D205", # blank line after summary
-  "G003", # logging uses `+`
-  "N807",
+    "D400", # first-line-should-end-with-a-period
+    "D415", # first-line-should-end-with-a-period
+    "E266", # Too many leading `#`
+    "SIM108",
+    "SIM118",  # allow `.keys()`
+    "D205", # blank line after summary
+    "C901", # name is too complex
+    "PERF401", # Use `list.extend` to transform list
+    "LOG015", # `info()` call on root logger
+    "N807",
+    "G004", # log statement uses f-string
+    "N803", # allow upper case variable names
+    "G003", # logging uses `+`
+    "N807",
 ]
 
 # [tool.ruff.lint.pydocstyle]
@@ -197,6 +221,6 @@ exclude = [
 module = [
     "pymoo.*",
     "tango.*", # TODO: fix tango and remove this line
-    "CoolProp", 
+    "CoolProp",
 ]
 ignore_missing_imports = true

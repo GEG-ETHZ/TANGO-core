@@ -1,32 +1,48 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
+
+@dataclass
 class Workflow(ABC):
-    r"""
-    Abstract Base Workflow Class for process orchestration.
+    r"""Abstract Base Workflow Class for process orchestration.
 
     Represents a high-level workflow that manages the execution of physical systems
     and their associated economic computations..
 
     Attributes:
-        specs (dict): Specifications for the workflow, including configurations for system and economic units. ..
+        specs (dict): Specifications for the workflow, including configurations for system and economic
+        units.
+        input_file (Path): Path to the input file.
+        run_dir (str, optional): Directory for run-specific output files.
+        unit_options (dict, optional): Dictionary of unit options.
+        user_id (str, optional): User ID for database operations.
+        run_id (str, optional): Unique run ID for file naming.
+
     """
 
-    # TODO: figure out what this line was intended to do 
-    orchestrator, economic_unit = 2 * [None]
+    # user inputs
+    specs: dict
+    input_file: Path
+    run_dir: Path | None
+    unit_options: dict
+    user_id: str | None = None
+    run_id: str = "default"
+
+    # attributes that get generated automatically
+    results: dict = field(init=False, default_factory=dict)
+    orchestrator: Any = field(init=False, default=None)
+    economic_unit: Any = field(init=False, default=None)
+
+    def __post_init__(self):
+        """Complete initialization of Workflow"""
+        self.init_system()
+        self.init_econ_unit()
 
     @abstractmethod
-    def __init__(self, specs: dict):
-        """
-        Initializes a new instance of the Workflow class.
-
-        Args:
-            specs (dict): Specifications for the workflow.
-        """
-        self.specs = specs
-
-    def _init_system(self) -> None:
-        r"""
-        Abstract method to initialize the physical system.
+    def init_system(self) -> None:
+        r"""Abstract method to initialize the physical system.
 
         The physical system consists of a collection of computational nodes (units)
         and their connections. This method handles the "techno (physics)" part
@@ -34,28 +50,30 @@ class Workflow(ABC):
 
         Raises:
             NotImplementedError: Must be implemented in derived classes.
+
         """
         raise NotImplementedError("Implement '_init_system' method in child Workflow class.")
 
-    def _init_econ_unit(self) -> None:
-        r"""
-        Abstract method to initialize the economic unit.
+    @abstractmethod
+    def init_econ_unit(self) -> None:
+        r"""Abstract method to initialize the economic unit.
 
         The economic unit handles financial computations and analyses.
 
         Raises:
             NotImplementedError: Must be implemented in derived classes.
+
         """
         raise NotImplementedError("Implement '_init_econ_unit' method in child Workflow class.")
 
     @abstractmethod
     def execute(self) -> None:
-        r"""
-        Abstract method to execute the workflow.
+        r"""Abstract method to execute the workflow.
 
         The workflow encompasses the system computations and economic analyses.
 
         Raises:
             NotImplementedError: Must be implemented in derived classes.
+
         """
         raise NotImplementedError("Implement 'execute' method in child Workflow class.")
