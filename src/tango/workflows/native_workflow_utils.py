@@ -3,6 +3,8 @@ Error methods/functions for use in src/tango/workflows/native_workflow.py
 """
 
 from dataclasses import dataclass
+from typing import cast
+
 import numpy as np
 import re
 
@@ -16,6 +18,8 @@ from tango.core.errors import (
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.abstracts.unit import SimplePressureDrop
 from tango.core.fluidstate import FluidState
+from tango.units.native.well import WellUnitNative
+from tango.units.native.surface import SurfaceUnitNative
 
 # define strings for frequently used dict keys to reduce likelihood of typos
 injection_well = "injection_well"
@@ -23,6 +27,7 @@ reservoir = "reservoir"
 production_well = "production_well"
 production_well_pump = "production_well_pump"
 production_well_upper = "production_well_upper"
+production_well_lower = "production_well_lower"
 surface = "surface"
 ordered_subsurf_outlets = [
     injection_well,
@@ -162,7 +167,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well:
+        elif k in (production_well, production_well_lower):
             # NOTE: assumes that production well bottom is always at same depth as injection
             # well bottom
             depth_for_temp = p_simple_inst_dict['injection_well']._well_length
@@ -211,7 +216,7 @@ def get_dp_and_flow_res(
                 )
             except Exception as err:
                 act_inlet_bcs[k] = None
-        elif k == production_well_pump:
+        elif k in (production_well_pump, production_well_upper):
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
             # temperature, which will overestimate the actual temperature, and it's a good
             # idea to revisit the assumption in the future
@@ -300,22 +305,26 @@ def handle_convergence_err(self, cpe: CoolPropError):
     # dictionary of module names and corresponding instances that inhherit `SimplePressureDrop`
     p_simple_inst_dict: dict[str, SimplePressureDrop] = {
         k: v for (k, v) in unit.__dict__.items()
-            if isinstance(v, SimplePressureDrop)
+        if isinstance(v, SimplePressureDrop)
     }
 
     # NOTE: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
     # `self.specs['schedule']['mass_rate']['type']` is not "manual"
-    mdot = self.specs['schedule']['mass_flow_rate']
+    mdot = self.specs["schedule"]["mass_flow_rate"]
 
     # fractional margin above saturation pressure at which error is triggered
     # NOTE: this should eventually be configurable
     p_sat_frac_margin = 1.0
 
     # state for ad hoc calculations
-    state_ad_hoc = FluidState.copy(p_simple_inst_dict[injection_well].fluid_state_init)
+    state_ad_hoc = FluidState.copy(
+        p_simple_inst_dict[injection_well].fluid_state_init,
+    )
     if not state_ad_hoc.rho > 0.0:
         # should not be reachable
-        raise ValueError("`state_ad_hoc` should have been updated.  Report this error to TANGO team.")
+        raise ValueError(
+            "`state_ad_hoc` should have been updated.  Report this error to TANGO team.",
+        )
 
     check_complex_err(
         unit,
@@ -343,7 +352,6 @@ def check_complex_err(
     # - `mdot`: mass flow rate [kg/s]
 
     """
-
     if not isinstance(cpe, SaturationPressureError) and P_SAT_ERR_TEST.search(str(cpe)) is not None:
         # Convert CoolPropError to SaturationPressureError while preserving context
         try:
@@ -353,15 +361,20 @@ def check_complex_err(
 
     # module names and corresponding pipe diameters
     diameters: dict[str, float] = {}
-    for (k, v) in p_simple_inst_dict.items():
+    for k, v in p_simple_inst_dict.items():
         if k == injection_well:
-            diameters[k] = v._specs.__dict__["diameter"]
-        elif k == reservoir: continue
-        elif k in (production_well, production_well_pump):
-            diameters[k] = v._specs.__dict__["diameter"]
+            diameters[k] = cast(WellUnitNative, v)._specs.diameter
+        elif k == reservoir:
+            continue
+        elif k in (
+            production_well,
+            production_well_pump,
+            production_well_upper,
+            production_well_lower,
+        ):
+            diameters[k] = cast(WellUnitNative, v)._specs.diameter
         elif k == surface:
-            # TODO resolve the discrepancy between `_specs` and `specs` in surface and wellbores
-            diameters[k] = v.specs.__dict__["pipe_diameter"]
+            diameters[k] = cast(SurfaceUnitNative, v).specs.pipe_diameter
         else:
             # should be unreachable
             raise ValueError(f"Unexpected key: {k}. Report this to the TANGO team")
@@ -371,7 +384,9 @@ def check_complex_err(
     # determine component in which CoolProp error occurred
     if f"unit: {injection_well}" in str(cpe):
         cp_err_inlet = injection_well
-    elif f"unit: {production_well_pump}" in str(cpe) or f"unit: {production_well_upper}" in str(cpe):
+    elif f"unit: {production_well_pump}" in str(
+        cpe,
+    ) or f"unit: {production_well_upper}" in str(cpe):
         # must be checked before "production_well"
         cp_err_inlet = production_well_pump
     elif f"unit: {production_well}" in str(cpe):
@@ -383,10 +398,12 @@ def check_complex_err(
     elif f"unit: {surface}" in str(cpe):
         cp_err_inlet = surface
     else:
-        raise type(cpe)("Unable to determine location of failure from previous errors") from cpe
+        raise type(cpe)(
+            "Unable to determine location of failure from previous errors",
+        ) from cpe
 
     if cp_err_inlet in ordered_subsurf_outlets:
-        # subset of ordered_subsurface to check
+        # subset of ordered_subsurf_outlets to check
         mod_subset = ordered_subsurf_outlets
     elif cp_err_inlet in ordered_surface_outlets:
         # subset of all modules in which error can be found
@@ -416,8 +433,9 @@ def check_complex_err(
     # find any models with resistance greater than `res_threshold_coeff` times the threshold resistance
     res_threshold_coeff = 5.0
     mods_with_outlier_res = {
-        k: v for (k, v) in flow_res_dict.items()
-            if v > res_threshold_coeff * flow_res_threshold and k in mod_subset
+        k: v
+        for (k, v) in flow_res_dict.items()
+        if v > res_threshold_coeff * flow_res_threshold and k in mod_subset
     }
 
     if len(mods_with_outlier_res) == 1:
@@ -461,3 +479,4 @@ def check_complex_err(
             + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe
+

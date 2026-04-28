@@ -16,11 +16,10 @@ import yaml
 from pathlib import Path
 sys.path.append(os.path.join(str(Path(__file__).parent.parent.parent),'src'))
 
-from tango.core.config import *
-from tango.units.native import *
-from tango.units.native.well import *
-from tango.units.native.surface import *
-from tango.utils import *
+from tango.units.native import ReservoirUnitNative
+from tango.units.native.well import InjectionWellUnitNative, ProductionWellUnitNative
+from tango.units.native.surface import SurfaceUnitCPGNative, SurfaceUnitORCNative
+from tango.utils import load_from_yaml
 
 
 def get_specs(casename: str) -> None:

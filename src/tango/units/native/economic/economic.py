@@ -1,19 +1,22 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from scipy.interpolate import interp1d
 from datetime import datetime
-from enum import Enum
 import logging
-import os
-import pandas as pd
 import numpy as np
 
-from tango.core.config import *
-from tango.core.constants import *
-from tango.core.abstracts.unit import *
+from tango.core.config import UNIT_OPTIONS_FOR_ECONUNIT, DATETIME_FMT
+from tango.core.constants import W_TO_KW, YEAR_TO_HOUR
+from tango.core.abstracts.unit import Unit
 from tango.units.dataclasses import CommonSpecs, field
-from tango.units.native.economic import *
+from tango.units.native.economic import (
+    EconUnitWells,
+    EconUnitPermitting,
+    EconUnitExploration,
+    EconUnitSurfacePipes,
+    EconUnitSurfacePowerPlant,
+)
+from tango.core.fluidstate import FluidState
 from tango import utils
-from dataclasses import dataclass
 
 
 def get_unit_obj(d, name) -> object:
@@ -79,11 +82,12 @@ class EconomicSpecsNative(CommonSpecs):
     """
     Specifications for the economic model in TANGO.
     """
+
     costs: dict = field(default_factory=dict)
-    project_maturity: str = None
-    type: str = ''
-    PPI_table: str = 'PPI_Table.xlsx'
-    cost_multiplier_table: str = 'cost_multiplier_table.xlsx'
+    project_maturity: str | None = None
+    type: str = ""
+    PPI_table: str = "PPI_Table.xlsx"
+    cost_multiplier_table: str = "cost_multiplier_table.xlsx"
     OPEX_cost_fraction: float = 0.045
     discount_rate: float = 0.096
     capacity_factor: float = 0.9
@@ -91,9 +95,9 @@ class EconomicSpecsNative(CommonSpecs):
     monitoring_well_probability_of_success: float = 1.0
     num_characterization_wells: int = 2
     horizontal_well_cost_multiplier: float = 1.15
-    well_cost_model: str = 'gengeo'
-    wellbore_solver: str = 'external'
-    main_product: str = 'electricity'
+    well_cost_model: str = "gengeo"
+    well_solver: str = "external"
+    main_product: str = "electricity"
     electricity_price: float = 0.25
     heat_price: float = 0.05
 
@@ -105,7 +109,7 @@ class EconomicSpecsNative(CommonSpecs):
             RuntimeError: If required fields are missing.
             ValueError: If well pattern dimensions are invalid or unsupported.
         """
-        required_fields = ['project_maturity', 'type']
+        required_fields = ["project_maturity", "type"]
         for s in required_fields:
             if getattr(self, s, None) is None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
@@ -113,7 +117,7 @@ class EconomicSpecsNative(CommonSpecs):
             raise ValueError("Invalid data type for 'well_pattern_dimens'. Must be a list of two integers.")
         if len(self.well_pattern_dimens) != 2:
             raise ValueError("Invalid 'well_pattern_dimens'. Must contain exactly two integers.")
-        if self.well_pattern in ['DOUBLET', 'AGS']:
+        if self.well_pattern in ["DOUBLET", "AGS"]:
             if self.well_pattern_dimens[0] > 1 and self.well_pattern_dimens[1] > 1:
                 raise ValueError(f"Multiple well_pattern: {self.well_pattern} is not supported.")
 
@@ -128,15 +132,15 @@ class EconomicSpecsNative(CommonSpecs):
             self.costs = {}
 
         for cost_name, config in self.costs.items():
-            model_type = config.get('type', 'default')
+            model_type = config.get("type", "default")
 
-            if model_type not in ['default', 'custom', 'custom_entire_pp', 'custom_cost_breakdown']:
+            if model_type not in ["default", "custom", "custom_entire_pp", "custom_cost_breakdown"]:
                 raise ValueError(
                     f"Invalid cost model type '{model_type}' for '{cost_name}'. "
                     f"Allowed types are 'default' or 'custom'."
                 )
 
-            if model_type == 'custom' and 'function' not in config:
+            if model_type == "custom" and "function" not in config:
                 raise ValueError(
                     f"Cost model for '{cost_name}' is set to 'custom', but no 'function' is specified."
                 )
@@ -179,7 +183,7 @@ class EconomicUnitNative(Unit):
             specs (dict): Specifications for the economic unit.
             nodes (dict): Nodes representing units in the system.
         """
-        super().__init__('econ', specs)
+        super().__init__("econ", specs)
         self._compatibility_check()
         self._process_specs(nodes)
         self._set_unit_dict(nodes)
@@ -187,17 +191,17 @@ class EconomicUnitNative(Unit):
         self._initialize_units()
         self._results = dict()
 
-    def _compatibility_check(self) -> dict:
+    def _compatibility_check(self) -> None:
         """
         Checks compatibility of units with the economic model.
 
         Raises:
             ValueError: If an unsupported unit type is encountered.
         """
-        for key in self.specs['graph']['nodes'].keys():
-            unit_name = self.specs['graph']['nodes'][key]['unit']
-            unit_type = self.specs['graph']['nodes'][key]['type']
-            if unit_name.lower() not in UNIT_OPTIONS_FOR_ECONUNIT['native'][unit_type]:
+        for key in self.specs["graph"]["nodes"].keys():
+            unit_name = self.specs["graph"]["nodes"][key]["unit"]
+            unit_type = self.specs["graph"]["nodes"][key]["type"]
+            if unit_name.lower() not in UNIT_OPTIONS_FOR_ECONUNIT["native"][unit_type]:
                 raise ValueError(f"Unit type: {unit_name} (node_id='{key}') is not supported.")
 
     def _process_specs(self, nodes) -> None:
@@ -207,33 +211,41 @@ class EconomicUnitNative(Unit):
         Args:
             nodes (dict): Nodes representing units in the system.
         """
-        combined_specs = self.specs['common'] | self.specs['economic'] | {'costs': self.specs.get('costs', {})}
+        combined_specs = (
+            self.specs["common"] | self.specs["economic"] | {"costs": self.specs.get("costs", {})}
+        )
 
-        costs = combined_specs.get('costs', {})
+        costs = combined_specs.get("costs", {})
         for cost_name, cost_config in costs.items():
-            if ((cost_config.get('type') == 'custom_entire_pp') or cost_config.get('type') == 'custom'):
-                function_name = cost_config.get('function')
+            if (cost_config.get("type") == "custom_entire_pp") or cost_config.get("type") == "custom":
+                function_name = cost_config.get("function")
                 if not function_name:
-                    raise ValueError(f"Cost model for '{cost_name}' is 'custom / custom_entire_pp' but no function is specified.")
+                    raise ValueError(
+                        f"Cost model for '{cost_name}' is 'custom / custom_entire_pp' but no function is specified."
+                    )
 
-                function_def = self.specs.get('functions', {}).get(function_name)
+                function_def = self.specs.get("functions", {}).get(function_name)
                 if not function_def:
-                    raise ValueError(f"Function '{function_name}' for '{cost_name}' is not defined in the 'functions' block.")
+                    raise ValueError(
+                        f"Function '{function_name}' for '{cost_name}' is not defined in the 'functions' block."
+                    )
 
-                cost_config['function_def'] = function_def
+                cost_config["function_def"] = function_def
 
-            elif (cost_config.get('type') == 'custom_cost_breakdown'):
-
-                if 'breakdown' in cost_config:
-                    for sub_cost, sub_function in cost_config['breakdown'].items():
-                        sub_function_def = self.specs.get('functions', {}).get(sub_function)
+            elif cost_config.get("type") == "custom_cost_breakdown":
+                if "breakdown" in cost_config:
+                    for sub_cost, sub_function in cost_config["breakdown"].items():
+                        sub_function_def = self.specs.get("functions", {}).get(sub_function)
                         if not sub_function_def:
                             raise ValueError(
                                 f"Function '{sub_function}' for breakdown '{sub_cost}' in '{cost_name}' is not defined in the 'functions' block."
                             )
-                        cost_config['breakdown'][sub_cost] = {'function': sub_function, 'function_def': sub_function_def}
+                        cost_config["breakdown"][sub_cost] = {
+                            "function": sub_function,
+                            "function_def": sub_function_def,
+                        }
 
-        combined_specs['costs'] = costs
+        combined_specs["costs"] = costs
         self.specs = EconomicSpecsNative.from_dict(combined_specs)
 
     def _set_unit_dict(self, nodes) -> None:
@@ -246,11 +258,11 @@ class EconomicUnitNative(Unit):
         self.unit_dict = dict()
         self.state_dict = dict()
         for id in nodes:
-            self.unit_dict[nodes[id]['type']] = []
-            self.state_dict[nodes[id]['type']] = []
+            self.unit_dict[nodes[id]["type"]] = []
+            self.state_dict[nodes[id]["type"]] = []
         for id in nodes:
-            self.unit_dict[nodes[id]['type']].append(nodes[id]['unit'])
-            self.state_dict[nodes[id]['type']].append(nodes[id]['unit'])
+            self.unit_dict[nodes[id]["type"]].append(nodes[id]["unit"])
+            self.state_dict[nodes[id]["type"]].append(nodes[id]["unit"])
 
     def _initialize_units(self) -> None:
         """
@@ -269,8 +281,7 @@ class EconomicUnitNative(Unit):
         Combines specifications with cost multipliers and PPI values.
         """
         specs = merge_object_dict(
-            self.specs,
-            dict={'PPI': self._PPI['O&G'], 'multipliers': self._cost_mult['wells']}
+            self.specs, dict={"PPI": self._PPI["O&G"], "multipliers": self._cost_mult["wells"]}
         )
         self._well_unit = EconUnitWells(specs=specs, unit_dict=self.unit_dict)
 
@@ -285,11 +296,14 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._instantiate_permitting_unit()
         """
-        specs = merge_object_dict(self.specs, dict={
-            'PPI_permitting': self._PPI['permitting'],
-            'PPI_OnGs': self._PPI['O&G-s'],
-            'multipliers': self._cost_mult['wellfield']
-        })
+        specs = merge_object_dict(
+            self.specs,
+            dict={
+                "PPI_permitting": self._PPI["permitting"],
+                "PPI_OnGs": self._PPI["O&G-s"],
+                "multipliers": self._cost_mult["wellfield"],
+            },
+        )
         self._permitting_unit = EconUnitPermitting(specs=specs, well_econ_unit=self._well_unit)
 
     def _instantiate_exploration_unit(self) -> None:
@@ -303,10 +317,9 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._instantiate_exploration_unit()
         """
-        specs = merge_object_dict(self.specs, dict={
-            'PPI': self._PPI['O&G-s'],
-            'multipliers': self._cost_mult['exploration']
-        })
+        specs = merge_object_dict(
+            self.specs, dict={"PPI": self._PPI["O&G-s"], "multipliers": self._cost_mult["exploration"]}
+        )
         self._exploration_unit = EconUnitExploration(specs=specs, well_econ_unit=self._well_unit)
 
     def _instantiate_surface_pipe_unit(self) -> None:
@@ -322,13 +335,12 @@ class EconomicUnitNative(Unit):
             >>> self._instantiate_surface_pipe_unit()
         """
         self.surface_unit, self.surface_state = None, None
-        if 'surface' in self.unit_dict.keys():
-            self.surface_unit = self.unit_dict['surface'][0]
-            self.surface_state = self.state_dict['surface'][0]
-        specs = merge_object_dict(self.specs, dict={
-            'PPI': self._PPI['pipes'],
-            'multipliers': self._cost_mult['pipes']
-        })
+        if "surface" in self.unit_dict.keys():
+            self.surface_unit = self.unit_dict["surface"][0]
+            self.surface_state = self.state_dict["surface"][0]
+        specs = merge_object_dict(
+            self.specs, dict={"PPI": self._PPI["pipes"], "multipliers": self._cost_mult["pipes"]}
+        )
         self._surface_pipe_unit = EconUnitSurfacePipes(specs=specs, unit=self.surface_unit)
 
     def _instantiate_surface_power_plant_unit(self) -> None:
@@ -342,13 +354,16 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._instantiate_surface_power_plant_unit()
         """
-        specs = merge_object_dict(self.specs, dict={
-            'PPI_PE': self._PPI['PE'],
-            'PPI_pump': self._PPI['pump'],
-            'PPI_TG': self._PPI['T-G'],
-            'PPI_HX': self._PPI['HX'],
-            'multipliers': self._cost_mult['plant']
-        })
+        specs = merge_object_dict(
+            self.specs,
+            dict={
+                "PPI_PE": self._PPI["PE"],
+                "PPI_pump": self._PPI["pump"],
+                "PPI_TG": self._PPI["T-G"],
+                "PPI_HX": self._PPI["HX"],
+                "multipliers": self._cost_mult["plant"],
+            },
+        )
         self._surface_power_plant_unit = EconUnitSurfacePowerPlant(specs=specs, unit=self.surface_unit)
 
     def _initialize_constants(self) -> None:
@@ -367,21 +382,21 @@ class EconomicUnitNative(Unit):
         self._cost_mult_table = utils.get_table(self.specs.cost_multiplier_table)
 
         self._PPI = dict()  # Producer Price Index (PPI)
-        self._PPI['O&G'] = self.get_PPI_value(col_name="PPI_O&G")
-        self._PPI['O&G-s'] = self.get_PPI_value(col_name="PPI_O&G-s")
-        self._PPI['permitting'] = self.get_PPI_value(col_name="PPI_Permit")
-        self._PPI['pipes'] = self.get_PPI_value(col_name="PPI_Pipe")
-        self._PPI['T-G'] = self.get_PPI_value(col_name="PPI_T-G")
-        self._PPI['pump'] = self.get_PPI_value(col_name="PPI_Pump")
-        self._PPI['PE'] = self.get_PPI_value(col_name="PPI_PE")
-        self._PPI['HX'] = self.get_PPI_value(col_name="PPI_HX")
+        self._PPI["O&G"] = self.get_PPI_value(col_name="PPI_O&G")
+        self._PPI["O&G-s"] = self.get_PPI_value(col_name="PPI_O&G-s")
+        self._PPI["permitting"] = self.get_PPI_value(col_name="PPI_Permit")
+        self._PPI["pipes"] = self.get_PPI_value(col_name="PPI_Pipe")
+        self._PPI["T-G"] = self.get_PPI_value(col_name="PPI_T-G")
+        self._PPI["pump"] = self.get_PPI_value(col_name="PPI_Pump")
+        self._PPI["PE"] = self.get_PPI_value(col_name="PPI_PE")
+        self._PPI["HX"] = self.get_PPI_value(col_name="PPI_HX")
 
         self._cost_mult = dict()  # Cost multipliers
-        self._cost_mult['wells'] = self._get_multiplier_values(component="Wells")
-        self._cost_mult['wellfield'] = self._get_multiplier_values(component="Well_field")
-        self._cost_mult['pipes'] = self._get_multiplier_values(component="Surface_pipes")
-        self._cost_mult['plant'] = self._get_multiplier_values(component="Surface_plant")
-        self._cost_mult['exploration'] = self._get_multiplier_values(component="Exploration")
+        self._cost_mult["wells"] = self._get_multiplier_values(component="Wells")
+        self._cost_mult["wellfield"] = self._get_multiplier_values(component="Well_field")
+        self._cost_mult["pipes"] = self._get_multiplier_values(component="Surface_pipes")
+        self._cost_mult["plant"] = self._get_multiplier_values(component="Surface_plant")
+        self._cost_mult["exploration"] = self._get_multiplier_values(component="Exploration")
 
         self.specs.project_maturity = self.get_project_maturity()
         self.specs.active_monitoring_area = self.get_active_monitoring_area()
@@ -418,13 +433,13 @@ class EconomicUnitNative(Unit):
         Example:
             >>> area = self.get_active_monitoring_area()
         """
-        if self.specs.fluid_name != 'CO2' or self.specs.well_pattern == 'AGS':
+        if self.specs.fluid_name != "CO2" or self.specs.well_pattern == "AGS":
             return 0.0
         NX, NY = self.specs.well_pattern_dimens
-        if self.specs.well_pattern == 'DOUBLET':
+        if self.specs.well_pattern == "DOUBLET":
             L_pattern = self.specs.well_spacing
             NY = 0
-        elif '5SPOT' in self.specs.well_pattern:
+        elif "5SPOT" in self.specs.well_pattern:
             L_pattern = self.specs.well_spacing * np.sqrt(2.0)
         return (1600.0 + NX * L_pattern) * (1600.0 + NY * L_pattern)
 
@@ -446,10 +461,16 @@ class EconomicUnitNative(Unit):
         """
         df = self._PPI_table
         year = self._cost_year
-        val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind='linear')(year))
+        val = float(interp1d(df.Year, df[col_name], bounds_error=False, kind="linear")(year))
         if np.isnan(val):
-            logging.warning(f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}.")
-            return float(interp1d(df.Year, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(year))
+            logging.warning(
+                f"A value {year} is outside the interpolation range in PPI_table. Extrapolating a value for {col_name}."
+            )
+            return float(
+                interp1d(df.Year, df[col_name], bounds_error=False, fill_value="extrapolate", kind="linear")(
+                    year
+                )
+            )
         return val
 
     def _get_multiplier_values(self, component: str) -> list:
@@ -466,8 +487,8 @@ class EconomicUnitNative(Unit):
             >>> multipliers = self._get_multiplier_values("Wells")
         """
         df = self._cost_mult_table
-        idx = df.index[df['Component'] == component]
-        return df['X_IC'].iloc[idx].iloc[0], df['X_PC'].iloc[idx].iloc[0]
+        idx = df.index[df["Component"] == component]
+        return df["X_IC"].iloc[idx].iloc[0], df["X_PC"].iloc[idx].iloc[0]
 
     def _compute_annual_results(self, d, time_step_list) -> None:
         """
@@ -486,13 +507,31 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._compute_annual_results(results_dict)
         """
-        if (time_step_list != None):
+        if time_step_list != None:
             self.specs.dt_list = np.array(time_step_list) / 31536000.0
         self.total_time = sum(self.specs.dt_list)
-        var_names = ['thermal_power', 'dP_pump', 'dT_LMTD_boiler', 'dT_LMTD_preheater', 'dT_LMTD_recuperator',
-                     'dT_range', 'dT_range_CT', 'q_boiler', 'q_condenser', 'q_cooler', 'q_desuperheater',
-                     'q_preheater', 'q_recuparator', 'q_recuperator', 'w_condenser', 'w_cooler',
-                     'w_downhole_pump', 'w_net', 'w_pump', 'w_turbine']
+        var_names = [
+            "thermal_power",
+            "dP_pump",
+            "dT_LMTD_boiler",
+            "dT_LMTD_preheater",
+            "dT_LMTD_recuperator",
+            "dT_range",
+            "dT_range_CT",
+            "q_boiler",
+            "q_condenser",
+            "q_cooler",
+            "q_desuperheater",
+            "q_preheater",
+            "q_recuparator",
+            "q_recuperator",
+            "w_condenser",
+            "w_cooler",
+            "w_downhole_pump",
+            "w_net",
+            "w_pump",
+            "w_turbine",
+        ]
         for name in var_names:
             key = f"surface_{name}"
             if key in d:
@@ -518,20 +557,29 @@ class EconomicUnitNative(Unit):
         Example:
             >>> self._compute_capex()
         """
-        self._results['CAPEX_well'] = self._well_unit.execute(evaluated_funcs)
-        self._results['CAPEX_permitting'] = self._permitting_unit.execute(evaluated_funcs)
-        self._results['CAPEX_exploration'] = self._exploration_unit.execute(evaluated_funcs)
-        self._results['CAPEX_surface_gathering_system'] = self._surface_pipe_unit.execute(evaluated_funcs)
+        self._results["CAPEX_well"] = self._well_unit.execute(evaluated_funcs)
+        self._results["CAPEX_permitting"] = self._permitting_unit.execute(evaluated_funcs)
+        self._results["CAPEX_exploration"] = self._exploration_unit.execute(evaluated_funcs)
+        self._results["CAPEX_surface_gathering_system"] = self._surface_pipe_unit.execute(evaluated_funcs)
         self.calculate_and_set_average(results)
-        if (self._surface_power_plant_unit._surface_unit.__class__.__name__ == 'SurfaceUnitFlexiblePP'):
-            self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs, self.average_fp_result)
+        if self._surface_power_plant_unit._surface_unit.__class__.__name__ == "SurfaceUnitFlexiblePP":
+            self._results["CAPEX_surface_plant"] = self._surface_power_plant_unit.execute(
+                self.surface_state, evaluated_funcs, self.average_fp_result
+            )
         else:
-            self._results['CAPEX_surface_plant'] = self._surface_power_plant_unit.execute(self.surface_state, evaluated_funcs)
+            self._results["CAPEX_surface_plant"] = self._surface_power_plant_unit.execute(
+                self.surface_state, evaluated_funcs
+            )
 
-        self._results['CAPEX_total'] =  self._results['CAPEX_well'] + self._results['CAPEX_permitting'] + self._results['CAPEX_exploration'] + self._results['CAPEX_surface_gathering_system'] + self._results['CAPEX_surface_plant']
+        self._results["CAPEX_total"] = (
+            self._results["CAPEX_well"]
+            + self._results["CAPEX_permitting"]
+            + self._results["CAPEX_exploration"]
+            + self._results["CAPEX_surface_gathering_system"]
+            + self._results["CAPEX_surface_plant"]
+        )
 
     def calculate_and_set_average(self, results):
-
         self.average_fp_result = {}
         for key in results.keys():
             if isinstance(results[key], list) and all(isinstance(x, (int, float)) for x in results[key]):
@@ -566,26 +614,25 @@ class EconomicUnitNative(Unit):
         Example:
             >>> lcoe = self._get_LCOE(1e6, 1e3)
         """
-        if (self.specs.main_product == 'electricity'):
+        if self.specs.main_product == "electricity":
             main_product = w
             bi_product = w2
             price = self.specs.heat_price
-        elif (self.specs.main_product == 'heat'):
+        elif self.specs.main_product == "heat":
             main_product = w2
             bi_product = w
             price = self.specs.electricity_price
 
-        CAPEX = self._results['CAPEX_total']
+        CAPEX = self._results["CAPEX_total"]
         if CAPEX <= 0:
             return np.nan
         d = self.specs.discount_rate
         t = self.total_time
         CF = self.specs.capacity_factor
         F_OM = self.specs.OPEX_cost_fraction - bi_product / 1000 * 8760 * price / CAPEX
-        CRF = d * (1. + d) ** t / ((1. + d) ** t - 1.0)  # Capital recovery factor
+        CRF = d * (1.0 + d) ** t / ((1.0 + d) ** t - 1.0)  # Capital recovery factor
         LCOE: float = CAPEX * (CRF + F_OM) / (main_product * W_TO_KW * CF * YEAR_TO_HOUR)
         return LCOE
-
 
     def _get_specific_capital_cost(self, W: float) -> float:
         """
@@ -603,7 +650,7 @@ class EconomicUnitNative(Unit):
         Example:
             >>> spcc = self._get_specific_capital_cost(1e6)
         """
-        CAPEX = self._results['CAPEX_total']
+        CAPEX = self._results["CAPEX_total"]
         if CAPEX <= 0 or W <= 0:
             return np.nan
         return CAPEX / (W * W_TO_KW)
@@ -623,10 +670,10 @@ class EconomicUnitNative(Unit):
         """
         W_net_total = self._surface_power_plant_unit.get_net_W_total()
         W_net_thermal = self._surface_power_plant_unit.get_net_W_thermal()
-        self._results['Net_Electricity_Generated_kWe'] = W_TO_KW * W_net_total
-        self._results['Net_thermal_power_Generated_kWe'] = W_TO_KW * W_net_thermal
-        self._results['LCOE'] = self._get_LCOE(W_net_total, W_net_thermal)
-        self._results['SpCC'] = self._get_specific_capital_cost(W_net_total)
+        self._results["Net_Electricity_Generated_kWe"] = W_TO_KW * W_net_total
+        self._results["Net_thermal_power_Generated_kWe"] = W_TO_KW * W_net_thermal
+        self._results["LCOE"] = self._get_LCOE(W_net_total, W_net_thermal)
+        self._results["SpCC"] = self._get_specific_capital_cost(W_net_total)
 
     def get_results(self) -> dict:
         """

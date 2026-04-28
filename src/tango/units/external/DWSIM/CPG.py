@@ -20,7 +20,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
         _remote_username (str): Username for SSH connection.
         w_net (float): Net power output (W).
     """
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the SurfaceUnitCPGDWSIM class.
 
@@ -28,7 +28,7 @@ class SurfaceUnitCPGDWSIM(SurfaceUnitNative):
             id (str): Identifier for the surface unit.
             specs (dict): Specifications for the surface power plant.
         """
-        SurfaceUnitNative.__init__(self, id, specs)
+        SurfaceUnitNative.__init__(self, unit_id, specs)
         self.specs = SurfaceSpecsCPGDWSIM.from_dict(self._process_specs(specs))
         self._specs_post_processor()
         self._initialize_attributes()

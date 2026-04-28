@@ -23,7 +23,7 @@ class MOOSERunner(Unit):
         _generate_moose_input: Generates a MOOSE input file from a YAML file and template.
     """
 
-    def __init__(self, id: str, specs: dict):
+    def __init__(self, unit_id: str, specs: dict):
         """
         Initializes a new instance of the MOOSERunner class.
 
@@ -31,7 +31,7 @@ class MOOSERunner(Unit):
             id (str): Identifier for the unit.
             specs (dict): Specifications for the unit.
         """
-        super().__init__(id, specs)
+        super().__init__(unit_id, specs)
         self.specs = specs
 
     def _interface_instance(self,

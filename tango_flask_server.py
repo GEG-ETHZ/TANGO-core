@@ -12,12 +12,42 @@ import time
 from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import logging
+from logging.handlers import RotatingFileHandler
 
-# TODO: after setting up flask to use pixi, remove this because pixi properly
-# adds TANGO as module in the environment
-# Add TANGO source to path
-TANGO_SRC = Path(__file__).parent / "src"
-sys.path.append(str(TANGO_SRC))
+# Configure logging
+# Default to WARNING to reduce noise, unless TANGO_DEBUG is set
+log_level = logging.INFO if os.environ.get("TANGO_DEBUG") else logging.WARNING
+
+# All runtime artifacts live under a single server_output/ directory.
+# Runner internally appends "gen_files/" to save_dir, so passing _APP_DIR
+# produces:  server_output/gen_files/run_<id>/  (no double-nesting)
+_APP_DIR = Path(__file__).parent / "server_output"
+LOG_DIR = _APP_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True, parents=True)
+_APP_DIR.mkdir(exist_ok=True)  # Runner creates gen_files/ inside here
+
+# Create formatters and handlers
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+# File handler with rotation (max 5MB, 1 backup)
+file_handler = RotatingFileHandler(LOG_DIR / "tango_server.log", maxBytes=5 * 1024 * 1024, backupCount=1)
+file_handler.setFormatter(formatter)
+file_handler.setLevel(log_level)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.setLevel(log_level)
+
+# Apply to root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(log_level)
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
+
+# Specific logger for this module
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=["https://tango.app.local"], supports_credentials=True)
@@ -26,8 +56,28 @@ CORS(app, origins=["https://tango.app.local"], supports_credentials=True)
 simulation_statuses = {}
 
 
+def _get_tango_root() -> Path:
+    """Return the tango-core root directory.
+
+    Derives the path from the installed tango package so it is robust
+    against the server script being moved or symlinked:
+      tango.__file__ → .../tango-core/src/tango/__init__.py
+      .parents[2]    → .../tango-core/
+    Falls back to Path(__file__).parent if tango is not yet importable.
+    """
+    try:
+        import tango as _tango_pkg  # noqa: PLC0415
+        return Path(_tango_pkg.__file__).parents[2]
+    except Exception:
+        return Path(__file__).parent
+
+
+_TANGO_ROOT = _get_tango_root()
+_DEFAULT_CONFIG = str(_TANGO_ROOT / "examples" / "flexible_SF_cogeneration_e.yml")
+
+
 def run_tango_simulation(
-    config_file="/home/TANGO/examples/flexible_SF_cogeneration_e.yml",
+    config_file=_DEFAULT_CONFIG,
     parameter_overrides=None,
     user_id=None,
 ):
@@ -39,75 +89,63 @@ def run_tango_simulation(
     try:
         # Status is already set in the /run endpoint
 
-        # Build the command using pixi run -e tango-app (needed for PyQt5/GUI dependencies)
-        cmd = [
-            "pixi",
-            "run",
-            "-e",
-            "tango-app",
-            "python",
-            "tango_cli.py",
-            "-f",
-            config_file,
-        ]
-
         # Add parameter overrides if provided
+        overrides_list = []
         if parameter_overrides:
             for key, value in parameter_overrides.items():
-                cmd.extend(["--param", f"{key}={value}"])
+                overrides_list.append(f"{key}={value}")
 
         if user_id:
-            cmd.extend(["--user-id", str(user_id)])
             print(f"👤 Running simulation for user: {user_id}")
 
-        print(f"🚀 Running TANGO command: {' '.join(cmd)}")
+        print(f"🚀 Running TANGO in-process via Runner")
 
-        # Change to the tango directory (same as manual execution)
-        tango_dir = TANGO_SRC / "tango"
-        os.chdir(tango_dir)
+        # Resolve config_file relative to the TANGO package root if not absolute
+        resolved_config = Path(config_file)
+        if not resolved_config.is_absolute():
+            resolved_config = _TANGO_ROOT / resolved_config
 
-        # Run the simulation (same as manual execution)
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=tango_dir,
-        )
+        # Import Runner here to avoid circular dependencies or early init issues
+        from tango.runner import Runner
 
         # Update progress
         simulation_statuses[user_id]["progress"] = 25
         simulation_statuses[user_id]["message"] = "TANGO simulation in progress..."
 
-        # Wait for completion
-        stdout, stderr = process.communicate()
+        # Initialize Runner
+        # save_dir=_APP_DIR → Runner appends gen_files/ → tango_app/gen_files/run_<id>/
+        runner = Runner(
+            input_file=str(resolved_config),
+            save_dir=_APP_DIR,
+            parameter_overrides=overrides_list,
+            user_id=user_id,
+            log_level=logging.getLevelName(log_level),  # Pass the configured level name (WARNING or INFO)
+        )
 
-        if process.returncode == 0:
-            simulation_statuses[user_id]["progress"] = 100
-            simulation_statuses[user_id]["message"] = (
-                "TANGO simulation completed successfully!"
-            )
-            simulation_statuses[user_id]["results"] = {
-                "stdout": stdout,
-                "stderr": stderr,
-                "return_code": process.returncode,
-            }
-            print(f"✅ TANGO simulation completed successfully for user {user_id}")
-        else:
-            error_details = (
-                stderr.strip()
-                if stderr.strip()
-                else f"Simulation failed with return code {process.returncode}"
-            )
-            simulation_statuses[user_id]["error"] = error_details
-            simulation_statuses[user_id]["message"] = "TANGO simulation failed"
-            print(f"❌ TANGO simulation failed for user {user_id}: {error_details}")
+        # Execute
+        runner.start()
+
+        # Success handling
+        simulation_statuses[user_id]["progress"] = 100
+        simulation_statuses[user_id]["message"] = "TANGO simulation completed successfully!"
+        # We don't have captured stdout/stderr strings anymore, but the logs are in the server console
+        simulation_statuses[user_id]["results"] = {
+            "stdout": "Check server logs for output",
+            "stderr": "",
+            "return_code": 0,
+        }
+        print(f"✅ TANGO simulation completed successfully for user {user_id}")
 
     except Exception as e:
-        simulation_statuses[user_id]["error"] = str(e)
-        simulation_statuses[user_id]["message"] = f"Error: {str(e)}"
+        error_details = str(e)
+        simulation_statuses[user_id]["error"] = error_details
+        simulation_statuses[user_id]["message"] = "TANGO simulation failed"
         simulation_statuses[user_id]["running"] = False
         print(f"❌ Error running TANGO simulation for user {user_id}: {e}")
+        import traceback
+
+        traceback.print_exc()
+
     finally:
         # Ensure running is always set to False when simulation ends
         if user_id in simulation_statuses:
@@ -121,9 +159,7 @@ def get_simulation_status():
     user_id = request.args.get("user_id")
 
     if not user_id:
-        return jsonify(
-            {"success": False, "error": "user_id parameter is required"}
-        ), 400
+        return jsonify({"success": False, "error": "user_id parameter is required"}), 400
 
     # Return user-specific status or default if user doesn't exist
     status = simulation_statuses.get(
@@ -231,9 +267,7 @@ def run_simulation():
         print(f"✅ User {user_id} simulation status set to running")
 
         # Default configuration file (same as manual execution)
-        config_file = data.get(
-            "config_file", "/home/TANGO/examples/flexible_SF_cogeneration_e.yml"
-        )
+        config_file = data.get("config_file", _DEFAULT_CONFIG)
 
         # Parameter overrides from the request
         parameter_overrides = data.get("parameter_overrides", {})
@@ -269,9 +303,7 @@ def run_simulation():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
-    return jsonify(
-        {"status": "healthy", "service": "TANGO Flask Server", "timestamp": time.time()}
-    )
+    return jsonify({"status": "healthy", "service": "TANGO Flask Server", "timestamp": time.time()})
 
 
 if __name__ == "__main__":

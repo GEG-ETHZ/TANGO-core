@@ -1,5 +1,6 @@
-from tango.core.constants import *
-from tango.units.native.well.base import *
+from tango.units.native.well.base import WellUnitNative
+from tango.core.fluidstate import FluidState
+from tango.core.constants import ATMOSPHERIC_PRESSURE, MIN_INJ_TEMPERATURE
 
 
 class InjectionWellUnitNative(WellUnitNative):
@@ -35,7 +36,7 @@ class InjectionWellUnitNative(WellUnitNative):
 
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
-    def init_stream_interface(self, P: float = None, T: float = None) -> None:
+    def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
         """
         Initializes the stream interface for the injection well.
 
@@ -64,7 +65,7 @@ class InjectionWellUnitNative(WellUnitNative):
         """
         return self._injection_temperature_tmp - T
 
-    def update_inlet_fluid_state_PT(self, P: float = None, T: float = None) -> None:
+    def update_inlet_fluid_state_PT(self, P: float | None = None, T: float | None = None) -> None:
         """
         Updates the fluid state at the inlet based on pressure and temperature.
 
@@ -135,7 +136,8 @@ class InjectionWellUnitNative(WellUnitNative):
         Returns:
             dict: The processed specifications for the injection well.
         """
-        return specs['common'] | specs['injection_well']
+        specs_dict: dict = specs['common'] | specs['injection_well']
+        return specs_dict
 
     def _set_mult(self) -> None:
         """

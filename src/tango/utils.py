@@ -1,4 +1,5 @@
 """TANGO utilities"""
+
 import argparse
 import csv
 import json
@@ -12,24 +13,22 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from tango.core.config import *
-from tango.core.constants import *
+from tango.core.config import (
+    REPORT_SETTINGS,
+    SKIP_REPORT_ATTRIBUTES,
+)
 from tango.time_stepper import LinearInterpolation
-from tango.units.cmg.coflow import *
-from tango.units.cmg.gem import *
-from tango.units.cmg.imex import *
-from tango.units.external.DWSIM.CPG import *
-from tango.units.external.MOOSE.reservoir.reservoir import *
-from tango.units.external.MOOSE.well.well import *
-from tango.units.native import *
-from tango.units.native.surface import *
-from tango.units.native.surface.flexible_pp import *
-from tango.units.native.unit_reader import *
-from tango.units.native.well import *
 
 
-def parse_args(args) -> argparse.Namespace:
-    """Parses command-line arguments for the TANGO application.
+def print_datetime() -> None:
+    """Print the current datetime (YYYY-MM-DD HH:MM:SS) on its own line."""
+    from datetime import datetime
+
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+def parse_tango_args(args) -> argparse.Namespace:
+    """Parse command-line arguments for the TANGO application.
 
     Args:
         args (list): List of command-line arguments.
@@ -37,56 +36,76 @@ def parse_args(args) -> argparse.Namespace:
     Returns:
         argparse.Namespace: Parsed arguments with the following attributes:
             - `input_file` (str): Path to the input YAML file.
-            - `debug` (bool): Whether to enable debug logging.
+            - `save_dir` (str): Path to directory in which results are saved
+            - `no_save` (bool): If True, no results files are saved
+            - `debug` (bool): Whether to enable debug logging, defaults to False.
             - `parameter_overrides` (list): List of parameter override strings.
-            - `params_json` (str): JSON string with multiple parameter overrides.
+            - `user_id` (str): user id
 
     Example:
-        >>> args = parse_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
+        >>> args = parse_tango_args(['-f', 'input.yml', '--debug', '--param', 'schedule.mass_flow_rate=0.2'])
 
     """
-    parser = argparse.ArgumentParser(description="TANGO - Techno-economic ANalysis of GeOthermal power simulator")
-    parser.add_argument("-f",
-                        "--file",
-                        dest="input_file",
-                        help="Input file (.yml)",
-                        required=True)
-    parser.add_argument("-d",
-                        "--debug",
-                        dest="debug",
-                        help="Set log level to DEBUG",
-                        required=False,
-                        default=False,
-                        action=argparse.BooleanOptionalAction)
+    parser = argparse.ArgumentParser(
+        description="TANGO - Techno-economic ANalysis of GeOthermal power simulator",
+    )
+    parser.add_argument("-f", "--file", dest="input_file", help="Input file (.yml)", required=True)
+    parser.add_argument(
+        "-s",
+        "--save-dir",
+        dest="save_dir",
+        help="Directory in which results are saved",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "--no-save",
+        dest="no_save",
+        help="If `--no-save` is passed, no results are saved",
+        required=False,
+        default=False,
+    )
+    parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        help=(
+            "Set logging verbosity. "
+            "DEBUG: detailed diagnostic info. "
+            "INFO: general operational messages (default). "
+            "WARNING: unexpected but non-critical issues. "
+            "ERROR: serious problems. "
+            "CRITICAL: severe errors. "
+            "NONE: suppress all logging output."
+        ),
+        required=False,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NONE"],
+    )
 
-    parser.add_argument("--param",
-                       action="append",
-                       dest="parameter_overrides",
-                       help="Override YAML parameters (format: section.parameter=value)")
-    parser.add_argument("--params-json",
-                       dest="params_json",
-                       help="JSON string with multiple parameter overrides")
+    parser.add_argument(
+        "--param",
+        action="append",
+        dest="parameter_overrides",
+        help="Override YAML parameters (format: section.parameter=value)",
+    )
 
-    parser.add_argument("--user-id",
-                       dest="user_id",
-                       help="User ID for database operations",
-                       required=False)
+    parser.add_argument("--user-id", dest="user_id", help="User ID for database operations", required=False)
 
     return parser.parse_args(args)
 
 
 def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
     """Parse parameter override string like "schedule.mass_flow_rate=0.2"
-    
+
     Args:
         param_string (str): Parameter override string in format "path.to.parameter=value"
-        
+
     Returns:
         Tuple[List[str], Any]: (path_list, value) where path_list is the nested path and value is the parsed value
-        
+
     Raises:
         ValueError: If the parameter string format is invalid
-        
+
     Example:
         >>> path, value = parse_parameter_override("schedule.mass_flow_rate=0.2")
         >>> print(path)  # ['schedule', 'mass_flow_rate']
@@ -94,7 +113,9 @@ def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
 
     """
     if "=" not in param_string:
-        raise ValueError(f"Invalid parameter format: {param_string}. Expected format: section.parameter=value")
+        raise ValueError(
+            f"Invalid parameter format: {param_string}. Expected format: section.parameter=value",
+        )
 
     path_str, value_str = param_string.split("=", 1)
     path_list = path_str.split(".")
@@ -106,13 +127,13 @@ def parse_parameter_override(param_string: str) -> tuple[list[str], Any]:
 
 def parse_value(value_str: str) -> Any:
     """Convert string value to appropriate Python type
-    
+
     Args:
         value_str (str): String representation of the value
-        
+
     Returns:
         Any: Parsed value with appropriate type (int, float, bool, str, list, dict)
-        
+
     Example:
         >>> parse_value("0.2")  # 0.2 (float)
         >>> parse_value("true")  # True (bool)
@@ -134,17 +155,17 @@ def parse_value(value_str: str) -> Any:
     elif re.match(r"^-?\d*\.?\d+([eE][-+]?\d+)?$", value_str):
         return float(value_str)
     else:
-        return value_str.strip('"\'')
+        return value_str.strip("\"'")
 
 
 def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None:
     """Set nested dictionary value using path list
-    
+
     Args:
         dictionary (dict): The dictionary to modify
         path_list (List[str]): List of keys representing the nested path
         value (Any): Value to set at the specified path
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> set_nested_value(specs, ['schedule', 'mass_flow_rate'], 0.2)
@@ -162,36 +183,22 @@ def set_nested_value(dictionary: dict, path_list: list[str], value: Any) -> None
 def apply_parameter_overrides(
     specs: dict[str, Any],
     parameter_overrides: list[str] | None = None,
-    params_json: str | None = None
 ) -> dict[str, Any]:
     """Apply parameter overrides to the specifications dictionary
-    
+
     Args:
         specs (Dict[str, Any]): Original specifications dictionary
         parameter_overrides (List[str], optional): List of parameter override strings
-        params_json (str, optional): JSON string with multiple parameter overrides
-        
+
     Returns:
         Dict[str, Any]: Modified specifications dictionary
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> overrides = ['schedule.mass_flow_rate=0.2', 'reservoir.permeability=1e-14']
         >>> modified_specs = apply_parameter_overrides(specs, parameter_overrides=overrides)
 
     """
-
-    # TODO: what happens if both `parameter_overrides` and `params_json` are passed?
-    # Seems like this needs attention because these might be competing
-    if params_json is not None:
-        try:
-            json_overrides = json.loads(params_json)
-            for param_path, value in json_overrides.items():
-                path_list = param_path.split(".")
-                set_nested_value(specs, path_list, value)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format in --params-json: {e}")
-
     if parameter_overrides:
         for param_override in parameter_overrides:
             try:
@@ -206,26 +213,24 @@ def apply_parameter_overrides(
 def load_from_yaml_with_overrides(
     filename: str,
     parameter_overrides: list[str] | None = None,
-    params_json: str | None = None,
- ) -> dict[str, Any]:
+) -> dict[str, Any]:
     """Load YAML file and apply parameter overrides
 
     Args:
         filename (str): Path to the YAML file
         parameter_overrides (List[str], optional): List of parameter override strings
-        params_json (str, optional): JSON string with multiple parameter overrides
 
     Returns:
         Dict[str, Any]: Specifications dictionary with applied overrides
 
     Example:
-        >>> specs = load_from_yaml_with_overrides("input.yml", 
+        >>> specs = load_from_yaml_with_overrides("input.yml",
         ...                                      parameter_overrides=["schedule.mass_flow_rate=0.2"])
 
     """
     specs = load_from_yaml(filename)
 
-    specs = apply_parameter_overrides(specs, parameter_overrides, params_json)
+    specs = apply_parameter_overrides(specs, parameter_overrides)
 
     try:
         time_config = specs["schedule"].get("time", {})
@@ -247,14 +252,14 @@ def load_from_yaml_with_overrides(
 
 def stringify_parameters(specs: dict[str, Any], prefix: str = "") -> list[str]:
     """Convert specifications dictionary to list of parameter strings
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         prefix (str): Current path prefix for nested parameters
-        
+
     Returns:
         List[str]: List of parameter strings in format "path.to.parameter=value"
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> params = stringify_parameters(specs)
@@ -283,14 +288,14 @@ def stringify_parameters(specs: dict[str, Any], prefix: str = "") -> list[str]:
 
 def validate_parameter_path(specs: dict[str, Any], path_list: list[str]) -> bool:
     """Validate if a parameter path exists in the specifications
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         path_list (List[str]): List of keys representing the nested path
-        
+
     Returns:
         bool: True if path exists, False otherwise
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> validate_parameter_path(specs, ['schedule', 'mass_flow_rate'])  # True
@@ -307,17 +312,17 @@ def validate_parameter_path(specs: dict[str, Any], path_list: list[str]) -> bool
 
 def get_parameter_value(specs: dict[str, Any], path_list: list[str]) -> Any:
     """Get parameter value from specifications using path list
-    
+
     Args:
         specs (Dict[str, Any]): Specifications dictionary
         path_list (List[str]): List of keys representing the nested path
-        
+
     Returns:
         Any: Value at the specified path
-        
+
     Raises:
         KeyError: If the path doesn't exist
-        
+
     Example:
         >>> specs = {'schedule': {'mass_flow_rate': 0.1}}
         >>> value = get_parameter_value(specs, ['schedule', 'mass_flow_rate'])  # 0.1
@@ -333,13 +338,13 @@ def get_parameter_value(specs: dict[str, Any], path_list: list[str]) -> Any:
 
 def generate_parameter_strings(form_data: dict[str, str]) -> list[str]:
     """Convert web form data to parameter strings for TANGO CLI
-    
+
     Args:
         form_data (Dict[str, str]): Dictionary of form field names and values
-        
+
     Returns:
         List[str]: List of parameter strings in format "section.parameter=value"
-        
+
     Example:
         >>> form_data = {
         ...     'schedule_mass_flow_rate': '0.2',
@@ -361,13 +366,13 @@ def generate_parameter_strings(form_data: dict[str, str]) -> list[str]:
 
 def generate_json_overrides(form_data: dict[str, str]) -> str:
     """Convert web form data to JSON parameter overrides
-    
+
     Args:
         form_data (Dict[str, str]): Dictionary of form field names and values
-        
+
     Returns:
         str: JSON string with parameter overrides
-        
+
     Example:
         >>> form_data = {
         ...     'schedule_mass_flow_rate': '0.2',
@@ -387,36 +392,70 @@ def generate_json_overrides(form_data: dict[str, str]) -> str:
     return json.dumps(overrides)
 
 
-def set_logger(args):
-    """Sets up logging for the TANGO application.
+def set_logger(log_level: str, input_file: str | Path) -> None:
+    """Configure logging for the TANGO application.
+
+    Sets up both file and console logging handlers with the specified verbosity level.
+    The log file is created in the same directory as the input file, with the same
+    base name but a `.log` extension.
 
     Args:
-        args (argparse.Namespace): Parsed arguments containing:
-            - `input_file` (str): Path to the input YAML file.
-            - `debug` (bool): Whether to enable debug logging.
+        log_level: Logging verbosity level. Valid values are:
+            - "DEBUG": Detailed diagnostic information for debugging.
+            - "INFO": General operational messages (default).
+            - "WARNING": Unexpected but non-critical issues.
+            - "ERROR": Serious problems that need attention.
+            - "CRITICAL": Severe errors that may cause failure.
+            - "NONE": Suppress all logging output.
+        input_file: Path to the input YAML file. Used to determine
+            the log file name (e.g., "config.yml" -> "config.log").
 
     Raises:
-        FileNotFoundError: If the input file specified in `args` does not exist.
+        FileNotFoundError: If the input file does not exist.
+        ValueError: If an invalid log_level is provided.
 
-    Behavior:
-        - Logs messages to a log file named after the input file (with `.log` extension).
-        - Logs messages to the console.
-        - Adjusts log level based on the `debug` flag.
+    Example:
+        >>> set_logger("DEBUG", "examples/config.yml")
+        >>> set_logger("NONE", Path("examples/config.yml"))
 
     """
-    input_file = args.input_file
-    debug = args.debug
-    if not os.path.isfile(input_file):
+    input_path = Path(input_file)
+    if not input_path.exists():
         raise FileNotFoundError(f"{input_file} not found")
-    level = logging.INFO
-    if debug:
-        level = logging.DEBUG
+
+    # Handle NONE level - suppress all logging
+    if log_level.upper() == "NONE":
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        # Also silence TESPy's logger
+        tespy_logger = logging.getLogger("TESPyLogger")
+        tespy_logger.setLevel(logging.CRITICAL + 1)
+        tespy_logger.handlers = []
+        tespy_logger.propagate = False
+        return
+
+    # Map string to logging level
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    level = level_map.get(log_level.upper())
+    if level is None:
+        raise ValueError(
+            f"Invalid log_level '{log_level}'. "
+            f"Valid options: DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE"
+        )
+
     logging.getLogger().setLevel(level)
-    logging.basicConfig(filename=os.path.splitext(input_file)[0] + ".log",
-                        filemode="w",
-                        format="%(asctime)s, %(levelname)s %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S",
-                        level=level)
+    logging.basicConfig(
+        filename=str(input_path.with_suffix(".log")),
+        filemode="w",
+        format="%(asctime)s, %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=level,
+    )
     console = logging.StreamHandler()
     console.setLevel(level)
     logging.getLogger("").addHandler(console)
@@ -671,7 +710,7 @@ def _read_csv_single_column(csv_file: str) -> list:
     return dt_list
 
 
-def _read_csv_time_dt(csv_file: str) -> (list, list):
+def _read_csv_time_dt(csv_file: str) -> tuple[list, list]:
     """Reads time and `dt` values from a two-column CSV file.
 
     Args:
@@ -824,7 +863,10 @@ def system_name(specs) -> str:
         sys_name = node["unit"].strip().split("_")[0]
         if node["type"] == "surface":
             sys_name = node["unit"]
-        if "reservoir" in specs["graph"]["nodes"] and specs["graph"]["nodes"]["reservoir"].get("unit") == "filereader":
+        if (
+            "reservoir" in specs["graph"]["nodes"]
+            and specs["graph"]["nodes"]["reservoir"].get("unit") == "filereader"
+        ):
             sys_name = "external"
         if specs["schedule"]["bc_iteration_checkpoint"] == "injection_well_bottom":
             sys_name = "external"
@@ -834,12 +876,13 @@ def system_name(specs) -> str:
     return sys_name
 
 
-def get_unit_class(type_: str, unit_name: str) -> object:
+def get_unit_class(type_: str, unit_name: str, unit_options: dict[str, Any]) -> object:
     """Retrieves the unit class based on the type and unit name.
 
     Args:
         type_ (str): The type of the unit.
         unit_name (str): The name of the unit.
+        unit_options (dict): Dictionary mapping unit types and names to classes.
 
     Returns:
         object: The class object corresponding to the unit.
@@ -848,14 +891,21 @@ def get_unit_class(type_: str, unit_name: str) -> object:
         ValueError: If the type or unit name is unsupported.
 
     Example:
-        >>> get_unit_class("surface", "turbine")
+        >>> get_unit_class("surface", "turbine", unit_options)
 
     """
-    # TODO: get rid of this use of `eval` and otherwise clean things up
     try:
-        return eval(UNIT_OPTIONS[type_.lower()][unit_name.lower()])
-    except:
+        unit_class = unit_options[type_.lower()][unit_name.lower()]
+    except KeyError:
         raise ValueError(f"unit type: {type_} is not supported in unit: {unit_name.lower()}.")
+
+    if isinstance(unit_class, str):
+        raise ValueError(
+            f"Legacy string path found for {type_}/{unit_name}: '{unit_class}'. "
+            "This usage is deprecated. Report this to the TANGO dev team.",
+        )
+
+    return unit_class
 
 
 def newton(x_lst: list, y_lst: list) -> float:
@@ -874,7 +924,8 @@ def newton(x_lst: list, y_lst: list) -> float:
 
     """
     dydx = (y_lst[1] - y_lst[0]) / (x_lst[1] - x_lst[0])
-    return x_lst[0] - y_lst[0] / dydx
+    out: float = x_lst[0] - y_lst[0] / dydx
+    return out
 
 
 def get_table(fname: str, header: int = 0) -> pd.DataFrame:
@@ -916,7 +967,7 @@ def get_table(fname: str, header: int = 0) -> pd.DataFrame:
         raise RuntimeError(f"Failed to read {path}.")
 
 
-def parse_results(d: dict, nodes, current_date: str) -> dict:
+def parse_results(d: dict, nodes, current_date: str) -> None:
     """Parses and updates results for the given nodes.
 
     This function adds the current date to the dictionary `d` under the key 'date'.
@@ -938,9 +989,9 @@ def parse_results(d: dict, nodes, current_date: str) -> dict:
         d[name] = [current_date]
     else:
         d[name].append(current_date)
-    for id in nodes:
-        state = nodes[id]["unit"]
-        unit_name = nodes[id]["type"]
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
+        unit_name = nodes[node_id]["type"]
         if unit_name in REPORT_SETTINGS.keys():
             if REPORT_SETTINGS[unit_name]:
                 state = getattr(state, REPORT_SETTINGS[unit_name])
@@ -1097,9 +1148,9 @@ def calculate_and_set_average(d: dict, nodes: dict):
         if isinstance(d[key], list) and all(isinstance(x, (int, float)) for x in d[key]):
             average_value = sum(d[key]) / len(d[key]) if d[key] else 0
 
-            for id in nodes:
-                state = nodes[id]["unit"]
-                unit_name = nodes[id]["type"]
+            for node_id in nodes:
+                state = nodes[node_id]["unit"]
+                unit_name = nodes[node_id]["type"]
 
                 if unit_name == "surface":
                     for component_name, component in state.power_plant.nodes.items():
@@ -1112,18 +1163,22 @@ def calculate_and_set_average(d: dict, nodes: dict):
                                     inlet_index = int(location[-1]) - 1
                                     if 0 <= inlet_index < len(component.inl):
                                         setattr(component.inl[inlet_index], attribute, average_value)
-                                        print(f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}")
+                                        print(
+                                            f"Set {component_name} inlet{inlet_index + 1} {attribute} to {average_value}",
+                                        )
                                 elif location.startswith("outlet") and hasattr(component, "outl"):
                                     outlet_index = int(location[-1]) - 1
                                     if 0 <= outlet_index < len(component.outl):
                                         setattr(component.outl[outlet_index], attribute, average_value)
-                                        print(f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}")
+                                        print(
+                                            f"Set {component_name} outlet{outlet_index + 1} {attribute} to {average_value}",
+                                        )
 
             s[key] = [average_value]
     print("Available nodes and connections:")
-    for id in nodes:
-        state = nodes[id]["unit"]
-        print(f"Node ID: {id}, Unit Type: {nodes[id]['type']}")
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
+        print(f"Node ID: {node_id}, Unit Type: {nodes[node_id]['type']}")
         if hasattr(state, "power_plant"):
             print("Components:")
             for component_name, component in state.power_plant.nodes.items():
@@ -1133,8 +1188,8 @@ def calculate_and_set_average(d: dict, nodes: dict):
                 if hasattr(component, "outl"):
                     print(f"    Outlets: {len(component.outl)}")
 
-    for id in nodes:
-        state = nodes[id]["unit"]
+    for node_id in nodes:
+        state = nodes[node_id]["unit"]
         if hasattr(state, "power_plant"):
             for component_name, component in state.power_plant.nodes.items():
                 if hasattr(component, "P") and hasattr(component.P, "val"):
@@ -1235,11 +1290,12 @@ def create_connections(pp_inclusion, graph_edges, state):
     return combined
 
 
-def write_results(input_file: str, results: tuple) -> None:
-    """Writes the simulation results to CSV files.
+def write_results(save_dir: Path | None, input_file: Path | str, results: tuple) -> None:
+    """Write the simulation results to CSV files.
 
     Args:
-        input_file (str): Path to the input file used for the simulation.
+        save_dir (Path | None): Path to directory in which to save the results
+        input_file (Path): Path to the input file used for the simulation.
         results (tuple): A tuple containing:
             - `physics_results` (dict): Results from physics-based units.
             - `econ_results` (dict): Results from economic-based units.
@@ -1253,22 +1309,27 @@ def write_results(input_file: str, results: tuple) -> None:
         >>> write_results("input.yml", (physics_results, econ_results))
 
     """
+    if save_dir is None:
+        return
+    save_dir = Path(save_dir)
+    input_file = Path(input_file)
+
     physics_results, econ_results = results
 
-    fname = os.path.splitext(input_file)[0] + ".smry.csv"
-    logging.info("Saving output summary of physics-based units > %s", fname)
+    fname_smry = save_dir / (input_file.stem + ".smry.csv")
+    logging.info("Saving output summary of physics-based units > %s", fname_smry)
     physics_results.pop("surface__condensation_temperature_range", None)
     physics_results.pop("DH_heat_transfer_T", None)
     df = pd.DataFrame(physics_results)
-    df.to_csv(fname, index=False)
+    df.to_csv(fname_smry, index=False)
 
     if econ_results is None:
         return
 
-    fname = os.path.splitext(input_file)[0] + ".econ.csv"
-    logging.info("Saving output summary of economic units > %s", fname)
-    d = dict()
+    fname_econ = save_dir / (input_file.stem + ".econ.csv")
+    logging.info("Saving output summary of economic units > %s", fname_econ)
+    d = {}
     for key in econ_results.keys():
         d[key] = [econ_results[key]]
     df = pd.DataFrame(d)
-    df.to_csv(fname, index=False)
+    df.to_csv(fname_econ, index=False)

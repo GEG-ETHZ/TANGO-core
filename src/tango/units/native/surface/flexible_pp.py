@@ -51,44 +51,15 @@ class SurfaceSpecsFlexiblePP(CommonSpecs):
 
 
 class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
-    def __init__(self, id: str, specs: dict):
-        SurfaceUnitNative.__init__(self, id, specs)
+    def __init__(self, unit_id: str, specs: dict):
+        self.raw_specs = specs
+        specs_obj = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
+        self._fluid_name = specs_obj.fluid_name
+        SurfaceUnitNative.__init__(self, unit_id, specs)
+        self.specs = specs_obj
         Validator.__init__(self, Path(__file__).resolve().parent / "validation.yaml")
-        self.specs = SurfaceSpecsFlexiblePP.from_dict(self._process_specs(specs))
         self.specs.new_config = self._filter_power_plant_graph(specs)
         self.specs.org = specs
-        self._fluid_name = self.specs.fluid_name
-        # estimated temperature of fluid entering powerplant
-        te_pp_in_est = (
-            specs['surface']['surface_temperature']
-                + specs['reservoir']['reservoir_depth'] * specs['props']['thermal_gradient']
-        )
-        try:
-            p_sat: float = CP.CoolProp.PropsSI('P', 'T', te_pp_in_est, 'Q', 0, self._fluid_name)
-            # warn if target_extraction is below this threshold
-            p_sat_warn = p_sat * 1.01
-            # err if target_extraction is below this threshold
-            p_sat_err = p_sat
-        except ValueError as err:
-            if "Temperature to QT_flash" in str(err):
-                p_sat: None = None  # type: ignore[no-redef]
-                # warn if target_extraction is below this threshold
-                p_sat_warn = None
-                # err if target_extraction is below this threshold
-                p_sat_err = None
-        # warn if target extraction pressure exceeds 35 MPa, which is typical for a superheated coal-fired
-        # plant and would be absurdly high pressure for a geothermal plant
-        p_max_warn = 35e6
-        # error if target extraction pressure exceeds 50 MPa, which is higher than a superheated coal-fired
-        # plant and would be ludicrously high pressure for a geothermal plant
-        p_max_err = 50e6
-        # target extraction pressure
-        if "target_extraction_pressure_warn" not in self.val_dict:
-            self.val_dict["target_extraction_pressure_warn"] = [p_sat_warn, p_max_warn]
-        # target extraction pressure
-        if "target_extraction_pressure_err" not in self.val_dict:
-            self.val_dict["target_extraction_pressure_err"] = [p_sat_err, p_max_err]
-        self.validate()
 
         self._m_dot_mult = 1
         self.current_row = 0
@@ -96,6 +67,46 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         self.init_stream_interface()
         self.validate_pressure_monotonicity(specs)
         self.power_plant = PowerPlant(self.specs)
+
+    def validate_custom(self):
+        """Add boundaries so that target extration pressure is above saturation pressure and below a
+        reasonable max
+        """
+        # estimated temperature of fluid entering powerplant
+        specs = self.raw_specs
+        te_pp_in_est = (
+            specs['surface']['surface_temperature']
+                + specs['reservoir']['reservoir_depth'] * specs['props']['thermal_gradient']
+        )
+        try:
+            p_sat = CP.CoolProp.PropsSI('P', 'T', te_pp_in_est, 'Q', 0, self._fluid_name)
+            # warn if target_extraction is below this threshold
+            p_sat_warn = p_sat * 1.01
+            # err if target_extraction is below this threshold
+            p_sat_err = p_sat
+        except ValueError as err:
+            if "Temperature to QT_flash" in str(err):
+                p_sat = None  # type: ignore[no-redef]
+                # warn if target_extraction is below this threshold
+                p_sat_warn = None
+                # err if target_extraction is below this threshold
+                p_sat_err = None
+            else:
+                raise err
+        # warn if target extraction pressure exceeds 35 MPa, which is typical for a superheated coal-fired
+        # plant and would be absurdly high pressure for a geothermal plant
+        p_max_warn = 35e6
+        # error if target extraction pressure exceeds 50 MPa, which is higher than a superheated coal-fired
+        # plant and would be ludicrously high pressure for a geothermal plant
+        p_max_err = 50e6
+        # target extraction pressure if not provided via config file
+        if "target_extraction_pressure_warn" not in self.val_dict:
+            self.val_dict["target_extraction_pressure_warn"] = [p_sat_warn, p_max_warn]
+        # target extraction pressure if not provided via config file
+        if "target_extraction_pressure_err" not in self.val_dict:
+            self.val_dict["target_extraction_pressure_err"] = [p_sat_err, p_max_err]
+
+        self.validate_pressure_monotonicity(specs)
 
     def _filter_power_plant_graph(self, specs: dict):
         """Filters and retains only the power_plant_graph, including nodes, edges, and their specifications."""
