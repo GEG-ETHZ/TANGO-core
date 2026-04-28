@@ -1,2 +1,6 @@
 [core]
     autostage = true
+    remote = polybox
+['remote "polybox"']
+    url = webdavs://polybox.ethz.ch/remote.php/dav/files/cbaker/tango-dvc/
+    user = cbaker
