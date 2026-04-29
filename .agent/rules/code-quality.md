@@ -5,6 +5,6 @@
   - Fenced code blocks have language specified
   - Emphasis uses asterisks (`*text*`) not underscores (`_text_`)
   - Headers follow proper hierarchy
-  - Links are properly formatted
+  - Links are properly formatted. Example: `[content](link)`
 - For code files, follow language-specific linting rules
 - Use `read_lints` tool or IDE linter integration to check for issues

@@ -20,6 +20,8 @@ lcoe = runner.tango.workflow.economic._results["LCOE"]
 
 runner2 = runner_base.clone()
 # Modify specs directly and update parameters (regenerate run ID)
+# 1.1 multiplier is an arbitrary choice for the purpose of demonstrating
+# sensitivity
 runner2.tango.specs["injection_well"]["diameter"] *= 1.1
 runner2.update_parameters()
 runner2.start()

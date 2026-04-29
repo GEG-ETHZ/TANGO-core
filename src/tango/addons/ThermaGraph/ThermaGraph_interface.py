@@ -13,10 +13,12 @@ IMPORTANT DESIGN NOTES:
   `xvfb-run -a python -c "from ThermaGraph_interface import ..."`
 """
 
-from tango.addons.base import TangoAddon
-import os
 import json
+import os
 import sys
+
+from tango.addons.base import TangoAddon
+from tango.addons.utils import resolve_addon_output_path
 
 
 class ThermaGraph_addon(TangoAddon):
@@ -38,6 +40,7 @@ class ThermaGraph_addon(TangoAddon):
         states_file: Path to JSON file with state point data
         connections_file: Path to JSON file with connection data
         fluid_name: Working fluid (default: CO2)
+
     """
 
     def __init__(self, graph, results):
@@ -45,7 +48,7 @@ class ThermaGraph_addon(TangoAddon):
 
     def post_process(self, specs):
         self.fluid_name = getattr(specs, "fluid_name", "CO2")
-    
+
         # CRITICAL FIX: Copy execution parameters from specs to self so execute() can use them
         # Handle specs being either an object or a dictionary
         print(f"DEBUG: ThermaGraph post_process called with specs type: {type(specs)}")
@@ -58,26 +61,27 @@ class ThermaGraph_addon(TangoAddon):
             self.svg_filename = getattr(specs, "svg_filename", "")
             self.auto_save_svg = getattr(specs, "auto_save_svg", "no")
 
-        print(f"DEBUG: ThermaGraph configured - auto_save_svg={self.auto_save_svg}, svg_filename={self.svg_filename}")
-            
+        print(
+            f"DEBUG: ThermaGraph configured - auto_save_svg={self.auto_save_svg}, svg_filename={self.svg_filename}",
+        )
+
         if self.graph.get(
-            "power_plant_graph", {}
+            "power_plant_graph",
+            {},
         ):  # Check if `power_plant_graph` exists and is not empty
             self.post_process2(specs)
         else:
             self.post_process1(specs)
 
     def post_process1(self, specs):
-        """
-        Generate two JSON files based on the graph and results.
-        """
-        from tango.addons.utils import resolve_addon_output_path
-
+        """Generate two JSON files based on the graph and results."""
         # Use output_dir from specs if provided (injected by workflow), else default
         output_dir = getattr(specs, "output_dir", None) or "output"
 
         self.states_file = resolve_addon_output_path(
-            getattr(specs, "states_file", None), "thermagraph_states.json", output_dir
+            getattr(specs, "states_file", None),
+            "thermagraph_states.json",
+            output_dir,
         )
         self.connections_file = resolve_addon_output_path(
             getattr(specs, "connections_file", None),
@@ -98,16 +102,10 @@ class ThermaGraph_addon(TangoAddon):
             enthalpy_key = f"{node_type}_H"
 
             if pressure_key in self.results and enthalpy_key in self.results:
-                pressures = [
-                    round(p / 1e5, 2) for p in self.results[pressure_key]
-                ]  # Convert to bar
-                enthalpies = [
-                    round(h / 1e3, 2) for h in self.results[enthalpy_key]
-                ]  # Convert to kJ/kg
+                pressures = [round(p / 1e5, 2) for p in self.results[pressure_key]]  # Convert to bar
+                enthalpies = [round(h / 1e3, 2) for h in self.results[enthalpy_key]]  # Convert to kJ/kg
 
-                components[node_name] = [
-                    [pressures[i], enthalpies[i]] for i in range(num_points)
-                ]
+                components[node_name] = [[pressures[i], enthalpies[i]] for i in range(num_points)]
 
         connections = []
         for edge_id, edge_data in edges.items():
@@ -127,19 +125,17 @@ class ThermaGraph_addon(TangoAddon):
         print("JSON files generated.")
 
     def post_process2(self, specs):
-        """
-        Generate two JSON files based on the combined graph and results.
+        """Generate two JSON files based on the combined graph and results.
         Handles both `main_graph` and `power_plant_graph` by merging them and adjusting connections
         according to the specified logic.
         """
-        import json
-        from tango.addons.utils import resolve_addon_output_path
-
         # Use output_dir from specs if provided (injected by workflow), else default
         output_dir = getattr(specs, "output_dir", None) or "output"
 
         self.states_file = resolve_addon_output_path(
-            getattr(specs, "states_file", None), "thermagraph_states.json", output_dir
+            getattr(specs, "states_file", None),
+            "thermagraph_states.json",
+            output_dir,
         )
         self.connections_file = resolve_addon_output_path(
             getattr(specs, "connections_file", None),
@@ -207,31 +203,19 @@ class ThermaGraph_addon(TangoAddon):
             multi_outlet_nodes[source].add(source_port)
 
         for node_name, node_data in combined_nodes.items():
-            if (
-                node_name in multi_outlet_nodes
-                and len(multi_outlet_nodes[node_name]) > 1
-            ):
+            if node_name in multi_outlet_nodes and len(multi_outlet_nodes[node_name]) > 1:
                 for outlet_suffix in ["out1", "out2"]:
                     new_node_name = f"{node_name}_{outlet_suffix}"
                     pressure_key = f"{node_name}_outlet{outlet_suffix[-1]}_pressure"
                     enthalpy_key = f"{node_name}_outlet{outlet_suffix[-1]}_enthalpy"
 
-                    if (
-                        pressure_key not in self.results
-                        or enthalpy_key not in self.results
-                    ):
+                    if pressure_key not in self.results or enthalpy_key not in self.results:
                         continue
 
-                    pressures = [
-                        round(p / 1e5, 2) for p in self.results[pressure_key]
-                    ]  # Convert to bar
-                    enthalpies = [
-                        round(h / 1e3, 2) for h in self.results[enthalpy_key]
-                    ]  # Convert to kJ/kg
+                    pressures = [round(p / 1e5, 2) for p in self.results[pressure_key]]  # Convert to bar
+                    enthalpies = [round(h / 1e3, 2) for h in self.results[enthalpy_key]]  # Convert to kJ/kg
 
-                    components[new_node_name] = [
-                        [pressures[i], enthalpies[i]] for i in range(num_points)
-                    ]
+                    components[new_node_name] = [[pressures[i], enthalpies[i]] for i in range(num_points)]
             else:
                 node_type = node_data["type"]
                 pressure_key = f"{node_type}_P"
@@ -244,15 +228,9 @@ class ThermaGraph_addon(TangoAddon):
                 if pressure_key not in self.results or enthalpy_key not in self.results:
                     continue
 
-                pressures = [
-                    round(p / 1e5, 2) for p in self.results[pressure_key]
-                ]  # Convert to bar
-                enthalpies = [
-                    round(h / 1e3, 2) for h in self.results[enthalpy_key]
-                ]  # Convert to kJ/kg
-                components[node_name] = [
-                    [pressures[i], enthalpies[i]] for i in range(num_points)
-                ]
+                pressures = [round(p / 1e5, 2) for p in self.results[pressure_key]]  # Convert to bar
+                enthalpies = [round(h / 1e3, 2) for h in self.results[enthalpy_key]]  # Convert to kJ/kg
+                components[node_name] = [[pressures[i], enthalpies[i]] for i in range(num_points)]
 
         modified_edges = {}
 
@@ -287,7 +265,7 @@ class ThermaGraph_addon(TangoAddon):
 
             if target in multi_outlet_nodes and len(multi_outlet_nodes[target]) > 1:
                 num_outlets = len(
-                    multi_outlet_nodes[target]
+                    multi_outlet_nodes[target],
                 )  # Count the number of unique outlet ports
                 for i in range(1, num_outlets + 1):
                     new_edge = {
@@ -330,8 +308,7 @@ class ThermaGraph_addon(TangoAddon):
         print("JSON files generated.")
 
     def execute(self, step_index=None):
-        """
-        Execute the add-on by launching the PyQt interactive diagram plotter.
+        """Execute the add-on by launching the PyQt interactive diagram plotter.
 
         This method directly imports and calls the Frame module rather than
         spawning a subprocess, which is cleaner and avoids environment issues.
@@ -344,9 +321,11 @@ class ThermaGraph_addon(TangoAddon):
             # If no display is available, force offscreen platform
             if sys.platform != "win32" and not os.environ.get("DISPLAY"):
                 os.environ["QT_QPA_PLATFORM"] = "offscreen"
-                print(f"ThermaGraph: Headless mode detected. Set QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}")
+                print(
+                    f"ThermaGraph: Headless mode detected. Set QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}",
+                )
             elif os.environ.get("QT_QPA_PLATFORM") == "offscreen":
-                 print(f"ThermaGraph: QT_QPA_PLATFORM already set to 'offscreen'")
+                print("ThermaGraph: QT_QPA_PLATFORM already set to 'offscreen'")
         components_file = os.path.abspath(self.states_file)
         connections_file = os.path.abspath(self.connections_file)
         fluid_name = getattr(self, "fluid_name", "CO2")
@@ -366,8 +345,9 @@ class ThermaGraph_addon(TangoAddon):
         if thermagraph_dir not in sys.path:
             sys.path.insert(0, thermagraph_dir)
 
-        from tango.addons.ThermaGraph.Frame import MainWindow
         from PyQt5.QtWidgets import QApplication
+
+        from tango.addons.ThermaGraph.Frame import MainWindow
 
         # Reuse existing QApplication if possible (singleton)
         app = QApplication.instance()

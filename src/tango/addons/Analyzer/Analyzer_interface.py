@@ -11,9 +11,12 @@ IMPORTANT DESIGN NOTES:
   (no headless/batch mode support, unlike ThermaGraph)
 """
 
-from tango.addons.base import TangoAddon
-import os
 import csv
+import os
+
+import pandas as pd
+
+from tango.addons.base import TangoAddon
 
 
 class Analyzer_addon(TangoAddon):
@@ -28,6 +31,7 @@ class Analyzer_addon(TangoAddon):
         graph: The merged graph structure from the simulation
         results: Dictionary of simulation results (keyed by variable name)
         results_file: Path to output CSV file (set during post_process)
+
     """
 
     def __init__(self, graph, results):
@@ -42,6 +46,7 @@ class Analyzer_addon(TangoAddon):
 
         Returns:
             A new dictionary with replaced keywords.
+
         """
         updated_data = {}
         for key, value in data.items():
@@ -58,6 +63,7 @@ class Analyzer_addon(TangoAddon):
 
         Args:
             specs: AnalyzerSpecs dataclass with configuration including results_file path
+
         """
         from tango.addons.utils import resolve_addon_output_path
 
@@ -65,7 +71,9 @@ class Analyzer_addon(TangoAddon):
         output_dir = getattr(specs, "output_dir", None) or "output"
 
         self.results_file = resolve_addon_output_path(
-            getattr(specs, "results_file", None), "analyzer_results.csv", output_dir
+            getattr(specs, "results_file", None),
+            "analyzer_results.csv",
+            output_dir,
         )
 
         # Define replacements for renaming columns (customize as needed)
@@ -95,21 +103,23 @@ class Analyzer_addon(TangoAddon):
         This opens a visual interface for exploring simulation results with
         various plot types (correlation heatmaps, regression plots, etc.).
 
-        NOTES:
+        Notes:
         - Requires a display (will not work on headless servers)
         - Imports PyQt5 dependencies at runtime to avoid loading them
           when only CSV export is needed
         - Uses direct module import rather than subprocess for cleaner
           code and better error handling
         - This is for LOCAL use only - tango-app gets data from ArangoDB
+
         """
-        import pandas as pd
-        from tango.addons.Analyzer.results_analysis import (
-            SimulationAnalyzerSeaborn,
-            InteractiveAnalyzerUI,
-        )
-        from PyQt5.QtWidgets import QApplication
         import sys
+
+        from PyQt5.QtWidgets import QApplication
+
+        from tango.addons.Analyzer.results_analysis import (
+            InteractiveAnalyzerUI,
+            SimulationAnalyzerSeaborn,
+        )
 
         results_file = os.path.abspath(self.results_file)
 
@@ -129,8 +139,8 @@ class Analyzer_addon(TangoAddon):
         window = InteractiveAnalyzerUI(analyzer, preselected_file=results_file)
         # Interactive mode - show UI only if NOT headless
         if sys.platform != "win32" and not os.environ.get("DISPLAY"):
-             os.environ["QT_QPA_PLATFORM"] = "offscreen"
-             print(f"Analyzer: Headless mode detected. Set QT_QPA_PLATFORM=offscreen")
+            os.environ["QT_QPA_PLATFORM"] = "offscreen"
+            print("Analyzer: Headless mode detected. Set QT_QPA_PLATFORM=offscreen")
 
         if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
             window.show()
