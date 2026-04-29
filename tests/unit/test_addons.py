@@ -8,7 +8,8 @@ import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
-import pytest
+
+from tango.addons.utils import resolve_addon_output_path
 
 
 class TestAnalyzerAddon:
@@ -44,7 +45,7 @@ class TestAnalyzerAddon:
             # Verify file was created and has correct content
             assert os.path.exists(temp_csv_path)
 
-            with open(temp_csv_path, "r") as f:
+            with open(temp_csv_path) as f:
                 content = f.read()
 
             # Check headers
@@ -130,51 +131,39 @@ class TestPathResolver:
 
     def test_none_returns_default(self):
         """Test that None path returns output/default_filename."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path(None, "states.json")
         assert result == Path("output/states.json")
 
     def test_empty_string_returns_default(self):
         """Test that empty string returns output/default_filename."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path("", "states.json")
         assert result == Path("output/states.json")
 
     def test_relative_path_gets_output_prefix(self):
         """Test that relative path gets output/ prefix."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path("my_states.json", "states.json")
         assert result == Path("output/my_states.json")
 
     def test_explicit_output_path_unchanged(self):
         """Test that output/... paths are returned as-is."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path("output/custom.json", "states.json")
         assert result == Path("output/custom.json")
 
     def test_absolute_path_unchanged(self):
         """Test that absolute paths are returned as-is."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path("/tmp/states.json", "states.json")
         assert result == Path("/tmp/states.json")
 
     def test_custom_output_dir(self):
         """Test that custom output_dir is used instead of default."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path(
-            "states.json", "default.json", "/custom/path"
+            "states.json",
+            "default.json",
+            "/custom/path",
         )
         assert result == Path("/custom/path/states.json")
 
     def test_path_object_input(self):
         """Test that Path objects work as input."""
-        from tango.addons.utils import resolve_addon_output_path
-
         result = resolve_addon_output_path(Path("my_states.json"), "states.json")
         assert result == Path("output/my_states.json")
