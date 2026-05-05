@@ -175,10 +175,11 @@ more robust for long-term maintainability and extensibility.
         are defined in config files
 
 ## Graph Network Architecture
-Graph network should define node connections _and_ contain node parameter data,
+- [ ] Graph network should define node connections _and_ contain node parameter data,
 rather than having this information stored in completely separate locations.
 
 ### Compact Format
+Here's one idea to implement:
 
 Instead of separate `nodes`, `edges`, and per-component sections:
 
@@ -203,11 +204,4 @@ Benefits:
 - Eliminates redundant per-component sections
 - Multi-port components use dict for `connects_to`
 
-### Implementation
-
-Add two static methods to `PowerPlant` or `SurfaceUnitFlexiblePP`:
-
-1. **`from_compact_format(specs)`** - Transpose compact format → internal format
-2. **`to_compact_format(specs)`** - Convert internal → compact (for export/debug)
-
-This keeps existing parsing code unchanged while offering cleaner YAML.
+Another means of achieving self-contained graph network is demonstrated in [ALTRIOS's rail network representation](https://github.com/NatLabRockies/altrios/blob/main/python/altrios/resources/networks/Taconite.yaml)
