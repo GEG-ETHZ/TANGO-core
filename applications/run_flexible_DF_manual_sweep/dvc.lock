@@ -1,16 +1,20 @@
 schema: '2.0'
 stages:
   generate:
-    cmd: python run_flexible_DF_manual_sweep.py --stage generate
+    cmd: python generate.py
     deps:
     - path: ../../examples/flexible_DF_manual.yml
       hash: md5
       md5: 8949520746cda1b963dd2c48d8ddf3e0
       size: 5719
-    - path: run_flexible_DF_manual_sweep.py
+    - path: common.py
       hash: md5
-      md5: a25cb9dcce02e22c193de9959ebe57b8
-      size: 17440
+      md5: 5207ae4282ebaa0bd29d442e1005fc6c
+      size: 4951
+    - path: generate.py
+      hash: md5
+      md5: 5ede0c67cfdc72aeee33ee253a7dc7eb
+      size: 3382
     params:
       params.yaml:
         n_samples: 12
@@ -21,44 +25,61 @@ stages:
       md5: 1fda6f86ef7024140fafdac1e73ef2e8
       size: 18280
   sweep:
-    cmd: python run_flexible_DF_manual_sweep.py --stage sweep
+    cmd: python sweep.py
     deps:
     - path: ../../examples/flexible_DF_manual.yml
       hash: md5
       md5: 8949520746cda1b963dd2c48d8ddf3e0
       size: 5719
+    - path: common.py
+      hash: md5
+      md5: 5207ae4282ebaa0bd29d442e1005fc6c
+      size: 4951
     - path: outputs/design_matrix.parquet
       hash: md5
       md5: 1fda6f86ef7024140fafdac1e73ef2e8
       size: 18280
-    - path: run_flexible_DF_manual_sweep.py
+    - path: sweep.py
       hash: md5
-      md5: a25cb9dcce02e22c193de9959ebe57b8
-      size: 17440
+      md5: c6ea16cde84a7c89bce336c07f1b1a04
+      size: 7092
     outs:
     - path: outputs/results
       hash: md5
-      md5: 47a7c7e1e43ce2fad2480530efb8ebab.dir
-      size: 48350
+      md5: d435be1662592538a8c117ff8dde67cf.dir
+      size: 48062
       nfiles: 12
   summarize:
-    cmd: python run_flexible_DF_manual_sweep.py --stage summarize
+    cmd: python summarize.py
     deps:
+    - path: common.py
+      hash: md5
+      md5: 5207ae4282ebaa0bd29d442e1005fc6c
+      size: 4951
     - path: outputs/results
       hash: md5
-      md5: 47a7c7e1e43ce2fad2480530efb8ebab.dir
-      size: 48350
+      md5: d435be1662592538a8c117ff8dde67cf.dir
+      size: 48062
       nfiles: 12
-    - path: run_flexible_DF_manual_sweep.py
+    - path: summarize.py
       hash: md5
-      md5: a25cb9dcce02e22c193de9959ebe57b8
-      size: 17440
+      md5: 1eda6a661b06c61653dfb0cfc76bfea6
+      size: 3141
     outs:
     - path: outputs/results.parquet
       hash: md5
-      md5: e7721194908f6fdeee9be8722b183b43
-      size: 28232
+      md5: 699d32aba7feab87e0c8daddd16ef46c
+      size: 28034
     - path: outputs/summary.yaml
       hash: md5
       md5: fd094aabd77d765c607ef2129448c92e
       size: 40
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: d435be1662592538a8c117ff8dde67cf.dir
+      size: 48062
+      nfiles: 12

@@ -4,10 +4,15 @@ stages:
   # Swap out the script's internals to change from LHS to any other DOE method
   # without touching the sweep or summarize stages.
   generate:
-    cmd: python run_flexible_DF_manual_sweep.py --stage generate
+    cmd: python generate.py
     deps:
-      - run_flexible_DF_manual_sweep.py
+      - generate.py
+      - common.py
       - ../../examples/flexible_DF_manual.yml
+      # NOTE: ../../src/tango is technically a dep but would be burdensome to hash every time and thus is not tracked here.  However, longer term, when TANGO itself is used as a dependency, downstream projects should track the tango entry via:
+      #   params:
+      #     - pyproject.toml:
+      #         - project.dependencies
     params:
       - params.yaml:
           - n_samples
@@ -17,9 +22,10 @@ stages:
 
   # Stage 2: run all simulations in parallel (checkpoint/resume built in).
   sweep:
-    cmd: python run_flexible_DF_manual_sweep.py --stage sweep
+    cmd: python sweep.py
     deps:
-      - run_flexible_DF_manual_sweep.py
+      - sweep.py
+      - common.py
       - ../../examples/flexible_DF_manual.yml
       - outputs/design_matrix.parquet
     outs:
@@ -35,9 +41,10 @@ stages:
 
   # Stage 3: aggregate JSONs → parquet, compute summary metrics.
   summarize:
-    cmd: python run_flexible_DF_manual_sweep.py --stage summarize
+    cmd: python summarize.py
     deps:
-      - run_flexible_DF_manual_sweep.py
+      - summarize.py
+      - common.py
       - outputs/results
     outs:
       - outputs/results.parquet
