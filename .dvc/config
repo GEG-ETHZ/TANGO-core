@@ -1,6 +1,7 @@
 [core]
     autostage = true
-    remote = polybox
-['remote "polybox"']
-    url = webdavs://polybox.ethz.ch/remote.php/dav/files/cbaker/tango-dvc/
-    user = cbaker
+    remote = gcs
+['remote "gcs"']
+    url = gs://geg-core-dev-dvc-remote/tango-core
+['remote "registry"']
+    url = gs://geg-core-dev-dvc-remote/registry
