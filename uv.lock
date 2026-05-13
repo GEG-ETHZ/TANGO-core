@@ -3465,6 +3465,7 @@ tango-app = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "prek" },
     { name = "tango", extra = ["dev"] },
 ]
 tango-app = [
@@ -3528,7 +3529,10 @@ requires-dist = [
 provides-extras = ["dev", "tango-app"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "tango", extras = ["dev"] }]
+dev = [
+    { name = "prek", specifier = ">=0.3.13" },
+    { name = "tango", extras = ["dev"] },
+]
 tango-app = [{ name = "tango", extras = ["tango-app"] }]
 
 [[package]]

@@ -85,7 +85,10 @@ tango-app = [
 ]
 
 [dependency-groups]
-dev = ["tango[dev]"]
+dev = [
+    "prek>=0.3.13",
+    "tango[dev]",
+]
 tango-app = ["tango[tango-app]"]
 
 [tool.setuptools]
