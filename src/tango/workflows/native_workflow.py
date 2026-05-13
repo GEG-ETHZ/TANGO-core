@@ -396,7 +396,7 @@ class NativeWorkflow(Workflow):
 
         # ThermaGraph addon
         thermagraph_config = addon_config.get("ThermaGraph", {})
-        if thermagraph_config and thermagraph_config.get("active", "no") == "yes":
+        if thermagraph_config:
             try:
                 from tango.addons.ThermaGraph.ThermaGraph_interface import (
                     ThermaGraph_addon,
@@ -415,7 +415,7 @@ class NativeWorkflow(Workflow):
 
         # Analyzer addon
         analyzer_config = addon_config.get("Analyzer", {})
-        if analyzer_config and analyzer_config.get("active", "no") == "yes":
+        if analyzer_config:
             try:
                 from tango.addons.Analyzer.Analyzer_interface import Analyzer_addon
                 from tango.units.dataclasses import AnalyzerSpecs
