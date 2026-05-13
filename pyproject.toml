@@ -75,7 +75,6 @@ dev = [
     "types-pyyaml >=6.0.12.20250915,<7", # stub files to provide pyyaml interface typing
     "types-networkx >=3.5.0.20251104,<4", # stub files to provide networkx interface typing
     "ipykernel ~= 7.0",
-    "prek", # git hook management
     "dvc>=3.0,<4.0", # pipeline + experiment tracking
 ]
 tango-app = [
@@ -85,7 +84,10 @@ tango-app = [
 ]
 
 [dependency-groups]
-dev = ["tango[dev]"]
+dev = [
+    "prek>=0.3.13", # git hook management
+    "tango[dev]",
+]
 tango-app = ["tango[tango-app]"]
 
 [tool.setuptools]
