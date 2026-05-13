@@ -1,0 +1,85 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: ../../examples/flexible_DF_manual.yml
+      hash: md5
+      md5: 8949520746cda1b963dd2c48d8ddf3e0
+      size: 5719
+    - path: common.py
+      hash: md5
+      md5: 5816b58d2b4c2f344c11e2291c7a013f
+      size: 4952
+    - path: generate.py
+      hash: md5
+      md5: 647491720c767907d54f44f5fe172c9a
+      size: 3381
+    params:
+      params.yaml:
+        n_samples: 12
+        seed: 42
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 1fda6f86ef7024140fafdac1e73ef2e8
+      size: 18280
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: ../../examples/flexible_DF_manual.yml
+      hash: md5
+      md5: 8949520746cda1b963dd2c48d8ddf3e0
+      size: 5719
+    - path: common.py
+      hash: md5
+      md5: 5816b58d2b4c2f344c11e2291c7a013f
+      size: 4952
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 1fda6f86ef7024140fafdac1e73ef2e8
+      size: 18280
+    - path: sweep.py
+      hash: md5
+      md5: 93fa6cf5553e6a3827616149fe2aea62
+      size: 7091
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: f1440b39aafe8c5545c44a466ff307a1.dir
+      size: 48062
+      nfiles: 12
+  summarize:
+    cmd: python summarize.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 5816b58d2b4c2f344c11e2291c7a013f
+      size: 4952
+    - path: outputs/results
+      hash: md5
+      md5: f1440b39aafe8c5545c44a466ff307a1.dir
+      size: 48062
+      nfiles: 12
+    - path: summarize.py
+      hash: md5
+      md5: cc915efa0babe55b5f9c5887d2da14d4
+      size: 3127
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: d94cea092a27ca69aea7a638a7ab1dc7
+      size: 28033
+    - path: outputs/summary.yaml
+      hash: md5
+      md5: fd094aabd77d765c607ef2129448c92e
+      size: 40
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: f1440b39aafe8c5545c44a466ff307a1.dir
+      size: 48062
+      nfiles: 12
