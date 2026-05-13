@@ -1,6 +1,7 @@
 default:
   tags:
-    - laptop
+    - gcp-runner
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm
 
 workflow:
   auto_cancel:
