@@ -28,7 +28,7 @@ more robust for long-term maintainability and extensibility.
 - [ ] cleanup how `addons_manager` works.
     - [ ] make it ok with arbitrary tango directory names other than just `TANGO`
     - [ ] make it import as a subpackage
-
+- [ ] test applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep_job.sh on Euler
 - [ ] make it so that `TANGO` can store all state variables and results in ArangoDB,
       along with specs and specs_hash
 
@@ -47,6 +47,7 @@ more robust for long-term maintainability and extensibility.
     debugging way easier.
 - [x] setup gitlab pipelines or github actions to automate testing --
     [done](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/jobs/1369333)
+- [ ] make a link in CONTRIBUTING.md to the [GEG GitLab runner setup instructions](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-a-gitlab-runner-on-user-laptop)
 
 
 ## Artifact Locations
@@ -174,10 +175,11 @@ more robust for long-term maintainability and extensibility.
         are defined in config files
 
 ## Graph Network Architecture
-Graph network should define node connections _and_ contain node parameter data,
+- [ ] Graph network should define node connections _and_ contain node parameter data,
 rather than having this information stored in completely separate locations.
 
 ### Compact Format
+Here's one idea to implement:
 
 Instead of separate `nodes`, `edges`, and per-component sections:
 
@@ -202,11 +204,4 @@ Benefits:
 - Eliminates redundant per-component sections
 - Multi-port components use dict for `connects_to`
 
-### Implementation
-
-Add two static methods to `PowerPlant` or `SurfaceUnitFlexiblePP`:
-
-1. **`from_compact_format(specs)`** - Transpose compact format → internal format
-2. **`to_compact_format(specs)`** - Convert internal → compact (for export/debug)
-
-This keeps existing parsing code unchanged while offering cleaner YAML.
+Another means of achieving self-contained graph network is demonstrated in [ALTRIOS's rail network representation](https://github.com/NatLabRockies/altrios/blob/main/python/altrios/resources/networks/Taconite.yaml)

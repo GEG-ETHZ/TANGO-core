@@ -53,6 +53,15 @@ Note that these instructions have been verified to work on Euler.
 1.  [install uv](https://docs.astral.sh/uv/getting-started/installation/)
 2.  run `uv sync` to install dependencies (including developer dependencies).
 
+### direnv (optional but recommended)
+
+[direnv](https://direnv.net) automatically activates the project's venv and keeps dependencies in sync whenever you `cd` into the repo — no manual `source .venv/bin/activate` needed.
+
+1. [Install direnv](https://direnv.net/docs/installation.html) and hook it into your shell.
+2. Run `direnv allow .` once in the repo root to approve the `.envrc` file.
+
+After that, entering the directory runs `uv sync` and activates the venv automatically.
+
 ### Running Checks
 -   **Tests:** `uv run pytest -v` -- to be run from the root directory
 -   **Linting:** `uv run ruff check .`

@@ -104,10 +104,10 @@ To enforce these rules centrally, project maintainers should configure GitLab:
 
 ## Setup
 
-After cloning, install the git hooks using `pre-commit`:
+After cloning, install the git hooks using `just setup` (or run the `prek` command directly):
 ```bash
-uv run pre-commit install
-uv run pre-commit install --hook-type pre-push
+just setup
+# or: uv run prek install --hook-type pre-commit --hook-type pre-push --overwrite
 ```
 
 This enforces code quality and prevents accidental direct commits or pushes to `main` and `develop`. We split these checks to keep your development fast:

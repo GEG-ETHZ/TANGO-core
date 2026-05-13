@@ -1,0 +1,7 @@
+[core]
+    autostage = true
+    remote = gcs
+['remote "gcs"']
+    url = gs://geg-core-dev-dvc-remote/tango-core
+['remote "registry"']
+    url = gs://geg-core-dev-dvc-remote/registry
