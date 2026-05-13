@@ -91,7 +91,8 @@ class NativeWorkflow(Workflow):
         Workflow.__post_init__(self)
 
         self.start_date = datetime.strptime(
-            self.specs["schedule"]["start_date"], DATETIME_FMT,
+            self.specs["schedule"]["start_date"],
+            DATETIME_FMT,
         )
         self.dt_list = None
         self.addons_manager()
@@ -121,7 +122,8 @@ class NativeWorkflow(Workflow):
                 # Pass the modified specs (with parameter overrides) to store in database
                 self._current_user_id, self._current_simulation_id = (
                     self.arango_manager.get_current_user_and_simulation(
-                        self, self.specs,
+                        self,
+                        self.specs,
                     )
                 )
                 if self._current_user_id and self._current_simulation_id:
@@ -164,15 +166,24 @@ class NativeWorkflow(Workflow):
 
             if data_type == "main_graph":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "main_graph", self,
+                    step_index,
+                    table_type,
+                    "main_graph",
+                    self,
                 )
             elif data_type == "power_plant":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "power_plant", self,
+                    step_index,
+                    table_type,
+                    "power_plant",
+                    self,
                 )
             elif data_type == "phase_diagram":
                 self.arango_manager.write_timestep_data(
-                    step_index, table_type, "phase_diagram", self,
+                    step_index,
+                    table_type,
+                    "phase_diagram",
+                    self,
                 )
             elif data_type == "economic":
                 self.arango_manager.write_economic_data(self)
@@ -209,11 +220,7 @@ class NativeWorkflow(Workflow):
             else:
                 config = None
 
-            if (
-                config
-                and "power_plant_graph" in config
-                and "nodes" in config["power_plant_graph"]
-            ):
+            if config and "power_plant_graph" in config and "nodes" in config["power_plant_graph"]:
                 if not hasattr(self.function_evaluator, "variable_mapping"):
                     self.function_evaluator.variable_mapping = {}
                 if not self.function_evaluator.variable_mapping:
@@ -226,20 +233,16 @@ class NativeWorkflow(Workflow):
                         if component_name in config:
                             component_config = config[component_name]
 
-                            for attr_name, attr_value in component_config.items():
+                            for attr_name in component_config.keys():
                                 mapping_key = f"{component_name}_{attr_name}"
                                 mapping_value = f'self.orchestrator.unit.surface.specs.new_config["{component_name}"]["{attr_name}"]'
-                                self.function_evaluator.variable_mapping[
-                                    mapping_key
-                                ] = mapping_value
+                                self.function_evaluator.variable_mapping[mapping_key] = mapping_value
                         else:
-                            for attr_name, attr_value in component_data.items():
+                            for attr_name in component_data.keys():
                                 if attr_name != "type":
                                     mapping_key = f"{component_name}_{attr_name}"
                                     mapping_value = f'self.orchestrator.unit.surface.specs.new_config["power_plant_graph"]["nodes"]["{component_name}"]["{attr_name}"]'
-                                    self.function_evaluator.variable_mapping[
-                                        mapping_key
-                                    ] = mapping_value
+                                    self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
                 tespy_output_mappings = {
                     "P": 'self.orchestrator.unit.surface.power_plant.nodes["{component}"].P.val',  # Power
@@ -260,18 +263,14 @@ class NativeWorkflow(Workflow):
                             mapping_value = tespy_output_mappings["P"].format(
                                 component=component_name,
                             )
-                            self.function_evaluator.variable_mapping[mapping_key] = (
-                                mapping_value
-                            )
+                            self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
                         elif component_type in ["SimpleHeatExchanger", "HeatExchanger"]:
                             mapping_key = f"{component_name}_Q"
                             mapping_value = tespy_output_mappings["Q"].format(
                                 component=component_name,
                             )
-                            self.function_evaluator.variable_mapping[mapping_key] = (
-                                mapping_value
-                            )
+                            self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
                         for (
                             output_attr,
@@ -282,9 +281,7 @@ class NativeWorkflow(Workflow):
                                 mapping_value = mapping_template.format(
                                     component=component_name,
                                 )
-                                self.function_evaluator.variable_mapping[
-                                    mapping_key
-                                ] = mapping_value
+                                self.function_evaluator.variable_mapping[mapping_key] = mapping_value
 
     def _process_specs(self, specs) -> dict:
         """Extracts and processes phase diagram specifications.
@@ -341,7 +338,9 @@ class NativeWorkflow(Workflow):
             self.orchestrator.update()
         self.orchestrator.update_time_dependent_vars()
         self.economic.execute(
-            self.results, self.function_evaluator.evaluated_functions, self.dt_list,
+            self.results,
+            self.function_evaluator.evaluated_functions,
+            self.dt_list,
         )
 
     def _save_results(self, current_date: datetime) -> None:
@@ -397,7 +396,7 @@ class NativeWorkflow(Workflow):
 
         # ThermaGraph addon
         thermagraph_config = addon_config.get("ThermaGraph", {})
-        if thermagraph_config:
+        if thermagraph_config and thermagraph_config.get("active", "no") == "yes":
             try:
                 from tango.addons.ThermaGraph.ThermaGraph_interface import (
                     ThermaGraph_addon,
@@ -407,7 +406,8 @@ class NativeWorkflow(Workflow):
                 thermagraph_specs = ThermaGraphSpecs.from_dict(thermagraph_config)
                 setattr(self, "ThermaGraph_specs", thermagraph_specs)
                 self.addons["ThermaGraph"] = ThermaGraph_addon(
-                    merged_graph, self.results,
+                    merged_graph,
+                    self.results,
                 )
                 logging.info("Addon 'ThermaGraph' initialized successfully.")
             except Exception as e:
@@ -415,7 +415,7 @@ class NativeWorkflow(Workflow):
 
         # Analyzer addon
         analyzer_config = addon_config.get("Analyzer", {})
-        if analyzer_config:
+        if analyzer_config and analyzer_config.get("active", "no") == "yes":
             try:
                 from tango.addons.Analyzer.Analyzer_interface import Analyzer_addon
                 from tango.units.dataclasses import AnalyzerSpecs
@@ -436,26 +436,18 @@ class NativeWorkflow(Workflow):
             step_index (int): The time step index for file naming.
 
         """
-        write_csv = (
-            getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
-        )
-        output_table_enabled = (
-            self.orchestrator.unit.surface.specs.output_table == "yes"
-        )
+        write_csv = getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == "yes"
         power_plant_table_enabled = (
             hasattr(self.orchestrator.unit.surface.specs, "power_plant_table")
             and self.orchestrator.unit.surface.specs.power_plant_table == "yes"
-            and self.orchestrator.unit.surface.__class__.__name__
-            == "SurfaceUnitFlexiblePP"
+            and self.orchestrator.unit.surface.__class__.__name__ == "SurfaceUnitFlexiblePP"
         )
 
         thermagraph_svg_enabled = False
         if "ThermaGraph" in self.addons:
             thermagraph_specs = getattr(self, "ThermaGraph_specs", None)
-            if (
-                thermagraph_specs
-                and getattr(thermagraph_specs, "per_timestep", "no") == "yes"
-            ):
+            if thermagraph_specs and getattr(thermagraph_specs, "per_timestep", "no") == "yes":
                 auto_save_svg_val = (
                     self.specs.get("addons", {})
                     .get("ThermaGraph", {})
@@ -536,9 +528,7 @@ class NativeWorkflow(Workflow):
                     self.run_dir,
                     f"{self.run_id}_thermagraph_output_{step_index}.svg",
                 )
-                self.addons[
-                    "ThermaGraph"
-                ].auto_save_svg = thermagraph_specs.auto_save_svg
+                self.addons["ThermaGraph"].auto_save_svg = thermagraph_specs.auto_save_svg
                 self.addons["ThermaGraph"].svg_filename = thermagraph_specs.svg_filename
                 self.addons["ThermaGraph"].post_process(thermagraph_specs)
                 self.addons["ThermaGraph"].execute(step_index=step_index)
@@ -603,7 +593,8 @@ class NativeWorkflow(Workflow):
         if power_plant_table_enabled and write_csv:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                    self.run_dir,
+                    f"{self.run_id}_power_plant_{step_index}.csv",
                 ),
             )
 
@@ -646,14 +637,16 @@ class NativeWorkflow(Workflow):
         if output_table_enabled and write_csv:
             files_to_cleanup.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv",
+                    self.run_dir,
+                    f"{self.run_id}_main_graph_{step_index}.csv",
                 ),
             )
 
         if power_plant_table_enabled and write_csv:
             files_to_cleanup.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                    self.run_dir,
+                    f"{self.run_id}_power_plant_{step_index}.csv",
                 ),
             )
 
@@ -679,26 +672,18 @@ class NativeWorkflow(Workflow):
 
         """
         expected_files = []
-        write_csv = (
-            getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
-        )
-        output_table_enabled = (
-            self.orchestrator.unit.surface.specs.output_table == "yes"
-        )
+        write_csv = getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == "yes"
         power_plant_table_enabled = (
             hasattr(self.orchestrator.unit.surface.specs, "power_plant_table")
             and self.orchestrator.unit.surface.specs.power_plant_table == "yes"
-            and self.orchestrator.unit.surface.__class__.__name__
-            == "SurfaceUnitFlexiblePP"
+            and self.orchestrator.unit.surface.__class__.__name__ == "SurfaceUnitFlexiblePP"
         )
 
         thermagraph_svg_enabled = False
         if "ThermaGraph" in self.addons:
             thermagraph_specs = getattr(self, "ThermaGraph_specs", None)
-            if (
-                thermagraph_specs
-                and getattr(thermagraph_specs, "per_timestep", "no") == "yes"
-            ):
+            if thermagraph_specs and getattr(thermagraph_specs, "per_timestep", "no") == "yes":
                 auto_save_svg_val = (
                     self.specs.get("addons", {})
                     .get("ThermaGraph", {})
@@ -717,14 +702,16 @@ class NativeWorkflow(Workflow):
         if power_plant_table_enabled and write_csv:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                    self.run_dir,
+                    f"{self.run_id}_power_plant_{step_index}.csv",
                 ),
             )
 
         if thermagraph_svg_enabled:
             expected_files.append(
                 os.path.join(
-                    self.run_dir, f"{self.run_id}_thermagraph_output_{step_index}.svg",
+                    self.run_dir,
+                    f"{self.run_id}_thermagraph_output_{step_index}.svg",
                 ),
             )
 
@@ -749,16 +736,13 @@ class NativeWorkflow(Workflow):
             return True
 
         # Check if main CSV file exists (this should always be written if output_table is enabled)
-        write_csv = (
-            getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
-        )
-        output_table_enabled = (
-            self.orchestrator.unit.surface.specs.output_table == "yes"
-        )
+        write_csv = getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
+        output_table_enabled = self.orchestrator.unit.surface.specs.output_table == "yes"
 
         if output_table_enabled and write_csv:
             main_csv_path = os.path.join(
-                self.run_dir, f"{self.run_id}_main_graph_{step_index}.csv",
+                self.run_dir,
+                f"{self.run_id}_main_graph_{step_index}.csv",
             )
             main_csv_exists = os.path.exists(main_csv_path)
             if not main_csv_exists:
@@ -773,7 +757,7 @@ class NativeWorkflow(Workflow):
                 missing_files.append(filename)
             else:
                 try:
-                    with open(filename) as f:
+                    with open(filename):
                         pass
                 except Exception as e:
                     logging.warning(
@@ -816,7 +800,7 @@ class NativeWorkflow(Workflow):
 
             if file_exists:
                 try:
-                    with open(filename) as f:
+                    with open(filename):
                         file_closed = True
                 except Exception:
                     file_closed = False
@@ -925,8 +909,7 @@ class NativeWorkflow(Workflow):
                 )
                 if (
                     type(self.orchestrator).__name__ != "SystemExternal"
-                    and self.specs["schedule"]["bc_iteration_checkpoint"]
-                    == "production_well_bottom"
+                    and self.specs["schedule"]["bc_iteration_checkpoint"] == "production_well_bottom"
                 ):
                     self._native_system_iteration()
                 else:
@@ -936,14 +919,8 @@ class NativeWorkflow(Workflow):
 
                 self._save_results(current_date)
                 current_date += relativedelta(months=self._dt_months)
-                write_csv = (
-                    getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no")
-                    == "yes"
-                )
-                if (
-                    getattr(self.orchestrator.unit.surface.specs, "output_table", "no")
-                    == "yes"
-                ):
+                write_csv = getattr(self.orchestrator.unit.surface.specs, "table_to_csv", "no") == "yes"
+                if getattr(self.orchestrator.unit.surface.specs, "output_table", "no") == "yes":
                     logging.info(
                         f"[TANGO] Printing main graph table for timestep {i} (write_csv={write_csv})",
                     )
@@ -951,43 +928,43 @@ class NativeWorkflow(Workflow):
                         step_index=i,
                         table_type="main_graph",
                         write_csv=write_csv,
-                        print_table=logging.getLogger().getEffectiveLevel()
-                        <= logging.INFO,
+                        print_table=logging.getLogger().getEffectiveLevel() <= logging.INFO,
                     )
 
                 if (
-                    getattr(
-                        self.orchestrator.unit.surface.specs, "power_plant_table", "no",
+                    (
+                        getattr(
+                            self.orchestrator.unit.surface.specs,
+                            "power_plant_table",
+                            "no",
+                        )
+                        == "yes"
+                        and self.orchestrator.unit.surface.__class__.__name__ == "SurfaceUnitFlexiblePP"
                     )
-                    == "yes"
-                    and self.orchestrator.unit.surface.__class__.__name__
-                    == "SurfaceUnitFlexiblePP"
-                ):
-                    if hasattr(
-                        self.orchestrator.unit.surface, "power_plant",
-                    ) and hasattr(
+                    and hasattr(
+                        self.orchestrator.unit.surface,
+                        "power_plant",
+                    )
+                    and hasattr(
                         self.orchestrator.unit.surface.power_plant,
                         "generate_output_table",
-                    ):
-                        logging.info(
-                            f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})",
-                        )
-                        self.generate_power_plant_output_table(
-                            step_index=i,
-                            write_csv=write_csv,
-                            print_table=logging.getLogger().getEffectiveLevel()
-                            <= logging.INFO,
-                        )
+                    )
+                ):
+                    logging.info(
+                        f"[TANGO] Printing power plant table for timestep {i} (write_csv={write_csv})",
+                    )
+                    self.generate_power_plant_output_table(
+                        step_index=i,
+                        write_csv=write_csv,
+                        print_table=logging.getLogger().getEffectiveLevel() <= logging.INFO,
+                    )
 
                 self._write_timestep_files(i)
 
             if "functions" in self.specs and self.specs["functions"]:
                 self.function_evaluator.evaluate_functions(self.specs["functions"])
 
-            if (
-                self.orchestrator.unit.injection_well.__class__.__name__
-                == "WellUnitMOOSE"
-            ):
+            if self.orchestrator.unit.injection_well.__class__.__name__ == "WellUnitMOOSE":
                 self.dt_list = self.orchestrator.unit.injection_well.MOOSE_dt_list
 
             if self.economic:
@@ -1021,24 +998,19 @@ class NativeWorkflow(Workflow):
                 self._post_processing()
 
             if hasattr(self, "arango_manager") and self.arango_manager:
-                status = self.arango_manager.check_status()
+                self.arango_manager.check_status()
                 summary = self.arango_manager.get_data_summary()
                 logging.info(f"ArangoDB Final Status: {summary}")
                 print(f"\n[ARANGODB] {summary}")
 
-                if (
-                    hasattr(self, "_current_simulation_id")
-                    and self._current_simulation_id
-                ):
+                if hasattr(self, "_current_simulation_id") and self._current_simulation_id:
                     print(
                         f"[ARANGODB] Simulation {self._current_simulation_id} completed successfully",
                     )
 
             if (
                 "district_heating" in self.specs
-                and self.specs.get("district_heating", {})
-                .get("run_district_heating_simulator", "")
-                .lower()
+                and self.specs.get("district_heating", {}).get("run_district_heating_simulator", "").lower()
                 == "yes"
             ):
                 self.orchestrator.hotmapsdispatch_runner(
@@ -1100,21 +1072,9 @@ class NativeWorkflow(Workflow):
                     outlet_P = getattr(outlet_fluid, "P", "N/A")
                     outlet_T = getattr(outlet_fluid, "T", "N/A")
                     outlet_H = getattr(outlet_fluid, "H", "N/A")
-                    outlet_P = (
-                        outlet_P / 1000000.0
-                        if isinstance(outlet_P, (int, float))
-                        else outlet_P
-                    )
-                    outlet_T = (
-                        outlet_T - 273.15
-                        if isinstance(outlet_T, (int, float))
-                        else outlet_T
-                    )
-                    outlet_H = (
-                        outlet_H / 1000.0
-                        if isinstance(outlet_H, (int, float))
-                        else outlet_H
-                    )
+                    outlet_P = outlet_P / 1000000.0 if isinstance(outlet_P, (int, float)) else outlet_P
+                    outlet_T = outlet_T - 273.15 if isinstance(outlet_T, (int, float)) else outlet_T
+                    outlet_H = outlet_H / 1000.0 if isinstance(outlet_H, (int, float)) else outlet_H
                     table_data.append(
                         [source, "Outlet", outlet_P, outlet_T, outlet_H, mass_rate],
                     )
@@ -1128,21 +1088,9 @@ class NativeWorkflow(Workflow):
                     inlet_P = getattr(inlet_fluid, "P", "N/A")
                     inlet_T = getattr(inlet_fluid, "T", "N/A")
                     inlet_H = getattr(inlet_fluid, "H", "N/A")
-                    inlet_P = (
-                        inlet_P / 1000000.0
-                        if isinstance(inlet_P, (int, float))
-                        else inlet_P
-                    )
-                    inlet_T = (
-                        inlet_T - 273.15
-                        if isinstance(inlet_T, (int, float))
-                        else inlet_T
-                    )
-                    inlet_H = (
-                        inlet_H / 1000.0
-                        if isinstance(inlet_H, (int, float))
-                        else inlet_H
-                    )
+                    inlet_P = inlet_P / 1000000.0 if isinstance(inlet_P, (int, float)) else inlet_P
+                    inlet_T = inlet_T - 273.15 if isinstance(inlet_T, (int, float)) else inlet_T
+                    inlet_H = inlet_H / 1000.0 if isinstance(inlet_H, (int, float)) else inlet_H
                     table_data.append(
                         [target, "Inlet", inlet_P, inlet_T, inlet_H, mass_rate],
                     )
@@ -1156,7 +1104,8 @@ class NativeWorkflow(Workflow):
         # Write to CSV file if requested
         if write_csv and step_index >= 0:
             csv_filename = os.path.join(
-                self.run_dir, f"{self.run_id}_{table_type}_{step_index}.csv",
+                self.run_dir,
+                f"{self.run_id}_{table_type}_{step_index}.csv",
             )
             try:
                 with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
@@ -1177,17 +1126,13 @@ class NativeWorkflow(Workflow):
                 "magenta",
                 "white",
             ]
-            unit_names = list({node for node in self.orchestrator.graph._node})
-            color_map = {
-                unit: color for unit, color in zip(unit_names, cycle(available_colors))
-            }
+            unit_names = list(set(self.orchestrator.graph._node))
+            color_map = dict(zip(unit_names, cycle(available_colors)))
 
             colored_table_data = []
             for row in table_data:
                 unit_color = color_map.get(row[0], "white")
-                colored_row = [
-                    colored(str(cell), unit_color, attrs=["bold"]) for cell in row
-                ]
+                colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
                 colored_table_data.append(colored_row)
 
             top_border = (
@@ -1241,7 +1186,8 @@ class NativeWorkflow(Workflow):
         if not (
             hasattr(self.orchestrator.unit.surface, "power_plant")
             and hasattr(
-                self.orchestrator.unit.surface.power_plant, "generate_output_table",
+                self.orchestrator.unit.surface.power_plant,
+                "generate_output_table",
             )
         ):
             return
@@ -1279,11 +1225,7 @@ class NativeWorkflow(Workflow):
                 if port_key not in processed_ports:
                     processed_ports.add(port_key)
                     x_attr = getattr(outlet, "x", None)
-                    x_val = (
-                        x_attr.val
-                        if x_attr is not None and hasattr(x_attr, "val")
-                        else "N/A"
-                    )
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, "val") else "N/A"
                     table_data.append(
                         [
                             source,
@@ -1301,11 +1243,7 @@ class NativeWorkflow(Workflow):
                 if port_key not in processed_ports:
                     processed_ports.add(port_key)
                     x_attr = getattr(inlet, "x", None)
-                    x_val = (
-                        x_attr.val
-                        if x_attr is not None and hasattr(x_attr, "val")
-                        else "N/A"
-                    )
+                    x_val = x_attr.val if x_attr is not None and hasattr(x_attr, "val") else "N/A"
                     table_data.append(
                         [
                             target,
@@ -1326,7 +1264,8 @@ class NativeWorkflow(Workflow):
         # Write to CSV file if requested
         if write_csv and step_index >= 0:
             csv_filename = os.path.join(
-                self.run_dir, f"{self.run_id}_power_plant_{step_index}.csv",
+                self.run_dir,
+                f"{self.run_id}_power_plant_{step_index}.csv",
             )
             try:
                 with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
@@ -1348,16 +1287,12 @@ class NativeWorkflow(Workflow):
                 "white",
             ]
             unit_names = list({row[0] for row in table_data})
-            color_map = {
-                unit: color for unit, color in zip(unit_names, cycle(available_colors))
-            }
+            color_map = dict(zip(unit_names, cycle(available_colors)))
 
             colored_table_data = []
             for row in table_data:
                 unit_color = color_map.get(row[0], "white")
-                colored_row = [
-                    colored(str(cell), unit_color, attrs=["bold"]) for cell in row
-                ]
+                colored_row = [colored(str(cell), unit_color, attrs=["bold"]) for cell in row]
                 colored_table_data.append(colored_row)
 
             top_border = (
@@ -1409,7 +1344,8 @@ class NativeWorkflow(Workflow):
         inputs_list = batch_config.get("inputs_list", [])
         time_steps = batch_config.get("time_steps", [])
         output_file_name = batch_config.get(
-            "output_file_name", "batch_runner_output.csv",
+            "output_file_name",
+            "batch_runner_output.csv",
         )
 
         economic_outputs = [
@@ -1454,15 +1390,9 @@ class NativeWorkflow(Workflow):
         output_values = {}
         for output_component in outputs_list:
             if output_component in economic_outputs:
-                if (
-                    hasattr(self, "economic")
-                    and self.economic
-                    and hasattr(self.economic, "_results")
-                ):
+                if hasattr(self, "economic") and self.economic and hasattr(self.economic, "_results"):
                     if output_component in self.economic._results:
-                        output_values[output_component] = self.economic._results[
-                            output_component
-                        ]
+                        output_values[output_component] = self.economic._results[output_component]
                     else:
                         output_values[output_component] = None
                 else:
@@ -1479,9 +1409,7 @@ class NativeWorkflow(Workflow):
                             continue
                         idx = ts_idx - 1 if ts_idx > 0 else ts_idx
                         if -len(values) <= idx < len(values):
-                            output_values[f"{output_component}_{time_step}"] = values[
-                                idx
-                            ]
+                            output_values[f"{output_component}_{time_step}"] = values[idx]
                         else:
                             output_values[f"{output_component}_{time_step}"] = None
                 else:

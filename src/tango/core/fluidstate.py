@@ -2,19 +2,18 @@ import CoolProp
 
 from tango.core.errors import (
     CoolPropError,
-    SubzeroStateVarError,
+    InvalidEnthalpyError,
+    InvalidEntropyError,
+    InvalidPandHError,
+    InvalidPandSError,
     SubzeroPandTError,
     SubzeroPressureError,
+    SubzeroStateVarError,
     SubzeroTempError,
-    InvalidEnthalpyError,
-    InvalidPandHError,
-    InvalidEntropyError,
-    InvalidPandSError,
     check_feas_enthalpy,
     check_feas_entropy,
     check_feas_press,
     check_feas_temp,
-    P_SAT_ERR_TEST,
 )
 
 
@@ -374,7 +373,7 @@ class FluidState:
         except ValueError as cp_err:
             if P < 0.0:
                 raise SubzeroPressureError(
-                  "Absolute pressure must be greater than or equal to 0.0 Pa",
+                    "Absolute pressure must be greater than or equal to 0.0 Pa",
                 ) from cp_err
 
     def updateQT(self, Q: float, T: float):
@@ -406,7 +405,7 @@ class FluidState:
         except ValueError as cp_err:
             if T < 0.0:
                 raise CoolPropError(
-                  "Temperature must be greater than or equal to 0.0 K",
+                    "Temperature must be greater than or equal to 0.0 K",
                 ) from cp_err
 
     # Properties

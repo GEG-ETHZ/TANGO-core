@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-"""
-TANGO Flask Server for React Flow Integration
+"""TANGO Flask Server for React Flow Integration
 Runs TANGO simulations when triggered from the React app
 """
 
-import os
-import sys
-import subprocess
-import json
-import time
-from pathlib import Path
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import logging
+import os
+import time
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 # Configure logging
 # Default to WARNING to reduce noise, unless TANGO_DEBUG is set
@@ -67,6 +64,7 @@ def _get_tango_root() -> Path:
     """
     try:
         import tango as _tango_pkg  # noqa: PLC0415
+
         return Path(_tango_pkg.__file__).parents[2]
     except Exception:
         return Path(__file__).parent
@@ -81,9 +79,7 @@ def run_tango_simulation(
     parameter_overrides=None,
     user_id=None,
 ):
-    """
-    Run TANGO simulation using the existing CLI
-    """
+    """Run TANGO simulation using the existing CLI"""
     global simulation_statuses
 
     try:
@@ -98,7 +94,7 @@ def run_tango_simulation(
         if user_id:
             print(f"👤 Running simulation for user: {user_id}")
 
-        print(f"🚀 Running TANGO in-process via Runner")
+        print("🚀 Running TANGO in-process via Runner")
 
         # Resolve config_file relative to the TANGO package root if not absolute
         resolved_config = Path(config_file)
@@ -201,14 +197,14 @@ def reset_simulation():
                 {
                     "success": True,
                     "message": f"Simulation status reset for user {user_id}",
-                }
+                },
             )
         else:
             return jsonify(
                 {
                     "success": True,
                     "message": f"No simulation status found for user {user_id}",
-                }
+                },
             )
 
     except Exception as e:
@@ -235,7 +231,7 @@ def run_simulation():
                 {
                     "success": False,
                     "message": f"Simulation already running for user {user_id}",
-                }
+                },
             ), 400
 
         # Check if user recently completed a simulation (prevent rapid successive requests)
@@ -292,7 +288,7 @@ def run_simulation():
                 "message": "TANGO simulation started",
                 "config_file": config_file,
                 "parameter_overrides": parameter_overrides,
-            }
+            },
         )
 
     except Exception as e:

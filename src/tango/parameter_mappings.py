@@ -1,5 +1,4 @@
-"""
-Module for managing parameter translation mappings.
+"""Module for managing parameter translation mappings.
 
 Provides centralized access to translation mappings for parameter names, translating human-readable names to corresponding paths in the TANGO system.
 """
@@ -8,13 +7,22 @@ BASE_PATHS = {
     "target": "self.tango_instance.workflow.orchestrator.unit.surface.",
     "economic": "self.tango_instance.workflow.economic.get_results()['{key}']",
     "results": "self.tango_instance.workflow._results['{key}'][-1]",
-    "specs": "self.tango_instance.specs"
+    "specs": "self.tango_instance.specs",
 }
 
 TARGET_KEYS = {
-    "W_NET", "W_COOLER", "W_CONDENSER", "W_TURBINE", "W_PUMP", "W_DOWNHOLE_PUMP",
-    "Q_PREHEATER", "Q_BOILER", "Q_DESUPERHEATER", "Q_COOLER", "Q_CONDENSER",
-    "DT_LMTD_RECUPERATOR"
+    "W_NET",
+    "W_COOLER",
+    "W_CONDENSER",
+    "W_TURBINE",
+    "W_PUMP",
+    "W_DOWNHOLE_PUMP",
+    "Q_PREHEATER",
+    "Q_BOILER",
+    "Q_DESUPERHEATER",
+    "Q_COOLER",
+    "Q_CONDENSER",
+    "DT_LMTD_RECUPERATOR",
 }
 
 ECONOMIC_KEYS = {
@@ -27,7 +35,7 @@ ECONOMIC_KEYS = {
     "CAPEX_permitting": "CAPEX_PERMITTING",
     "CAPEX_exploration": "CAPEX_EXPLORATION",
     "CAPEX_surface_gathering_system": "CAPEX_SURFACE_GATHERING_SYSTEM",
-    "CAPEX_surface_plant": "CAPEX_SURFACE_PLANT"
+    "CAPEX_surface_plant": "CAPEX_SURFACE_PLANT",
 }
 
 RESULT_KEYS = {
@@ -38,27 +46,44 @@ RESULT_KEYS = {
     "injection_well_P": "INJECTION_WELL_OUTLET_P_MIN",
     "production_well_P": "PRODUCTION_WELL_OUTLET_P_MIN",
     "reservoir_P": "RESERVOIR_OUTLET_P_MIN",
-    "surface_P_out": "SURFACE_OUTLET_P_MIN"
+    "surface_P_out": "SURFACE_OUTLET_P_MIN",
 }
 
-TARGET_PARAMETER_MAPPING = {
-    key: f"{BASE_PATHS['target']}{key.lower()}" for key in TARGET_KEYS
-}
-TARGET_PARAMETER_MAPPING.update({
-    val: BASE_PATHS['economic'].format(key=key) for key, val in ECONOMIC_KEYS.items()
-})
-TARGET_PARAMETER_MAPPING.update({
-    val: BASE_PATHS['results'].format(key=key) for key, val in RESULT_KEYS.items()
-})
+TARGET_PARAMETER_MAPPING = {key: f"{BASE_PATHS['target']}{key.lower()}" for key in TARGET_KEYS}
+TARGET_PARAMETER_MAPPING.update(
+    {val: BASE_PATHS["economic"].format(key=key) for key, val in ECONOMIC_KEYS.items()},
+)
+TARGET_PARAMETER_MAPPING.update(
+    {val: BASE_PATHS["results"].format(key=key) for key, val in RESULT_KEYS.items()},
+)
 
 VARIABLE_CATEGORIES = {
     "schedule": ["mass_flow_rate", "well_spacing"],
     "props": ["rock_density", "rock_cp", "rock_k", "thermal_gradient", "brine_density", "num_pp"],
     "surface": [
-        "surface_temperature", "surface_pressure", "eta_pump", "pipe_diameter",
-        "temperature_range", "total_pipe_length", "eta_turbine", "approach_temperature",
-        "condensation_pressure_offset"],
-    "reservoir": ["porosity", "permeability", "initial_pressure", "initial_temperature", "reservoir_depth", "over_pressure_percentage", "thickness", "area", "net_to_gross_ratio", "well_eff_diameter", "hydro_static_pressure"],
+        "surface_temperature",
+        "surface_pressure",
+        "eta_pump",
+        "pipe_diameter",
+        "temperature_range",
+        "total_pipe_length",
+        "eta_turbine",
+        "approach_temperature",
+        "condensation_pressure_offset",
+    ],
+    "reservoir": [
+        "porosity",
+        "permeability",
+        "initial_pressure",
+        "initial_temperature",
+        "reservoir_depth",
+        "over_pressure_percentage",
+        "thickness",
+        "area",
+        "net_to_gross_ratio",
+        "well_eff_diameter",
+        "hydro_static_pressure",
+    ],
     "injection_well": {
         "diameter": "injection_well_diameter",
         "well_length": "injection_well_well_length",
@@ -75,7 +100,7 @@ VARIABLE_CATEGORIES = {
         "wellhead_depth": "production_well_wellhead_depth",
         "num_cells": "production_well_num_cells",
     },
-    "economic": ["discount_rate"]
+    "economic": ["discount_rate"],
 }
 
 VARIABLE_PARAMETER_MAPPING = {}
@@ -88,16 +113,17 @@ for category, parameters in VARIABLE_CATEGORIES.items():
         for param in parameters:
             VARIABLE_PARAMETER_MAPPING[param] = f"{BASE_PATHS['specs']}['{category}']['{param}']"
 
-VARIABLE_PARAMETER_MAPPING.update({
-    "mass_rate": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
-    "mass_rate_value": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
-    "mass_rate_type": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['type']",
-})
+VARIABLE_PARAMETER_MAPPING.update(
+    {
+        "mass_rate": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
+        "mass_rate_value": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['value']",
+        "mass_rate_type": f"{BASE_PATHS['specs']}['schedule']['mass_rate']['type']",
+    },
+)
 
 
 def get_target_translation(parameter_name: str) -> str:
-    """
-    Retrieve the mapped TANGO system path for a given parameter.
+    """Retrieve the mapped TANGO system path for a given parameter.
 
     Parameters
     ----------
@@ -113,6 +139,7 @@ def get_target_translation(parameter_name: str) -> str:
     ------
     KeyError
         If the parameter is not found in the mapping.
+
     """
     if parameter_name in TARGET_PARAMETER_MAPPING:
         return TARGET_PARAMETER_MAPPING[parameter_name]
@@ -121,18 +148,18 @@ def get_target_translation(parameter_name: str) -> str:
     if "_" in parameter_name:
         component, attr = parameter_name.rsplit("_", 1)
         tespy_attr_map = {
-            "P": ".P.val",   # Power (for Turbine/Compressor)
-            "Q": ".Q.val",   # Heat duty (for HeatExchanger)
-            "T": ".T.val",   # Temperature
-            "p": ".p.val",   # Pressure
-            "h": ".h.val",   # Enthalpy
-            "m": ".m.val",   # Mass flow
-            "eta": ".eta.val" # Efficiency
+            "P": ".P.val",  # Power (for Turbine/Compressor)
+            "Q": ".Q.val",  # Heat duty (for HeatExchanger)
+            "T": ".T.val",  # Temperature
+            "p": ".p.val",  # Pressure
+            "h": ".h.val",  # Enthalpy
+            "m": ".m.val",  # Mass flow
+            "eta": ".eta.val",  # Efficiency
         }
         if attr in tespy_attr_map:
             return (
-                "self.tango_instance.workflow.orchestrator.unit.surface.power_plant.nodes[" 
-                f"'{component}'" 
+                "self.tango_instance.workflow.orchestrator.unit.surface.power_plant.nodes["
+                f"'{component}'"
                 "]" + tespy_attr_map[attr]
             )
 

@@ -1,26 +1,23 @@
-from tango.core.constants import K_TO_C, C_TO_K
-from tango.core.config import MAP_ORC_OPTNAME_TO_TABLE_NAME
-from tango.units.dataclasses import CommonSpecs
-from tango.units.native.surface.base import SurfaceUnitNative
-from tango.core.fluidstate import FluidState
-from tango import utils
-from dataclasses import dataclass
-
+import csv
 import logging
 import math
+import os
+from dataclasses import dataclass
+
 import numpy as np
 from scipy.interpolate import interp1d
 
-import csv
-import os
+from tango import utils
+from tango.core.config import MAP_ORC_OPTNAME_TO_TABLE_NAME
+from tango.core.constants import C_TO_K, K_TO_C
+from tango.core.fluidstate import FluidState
+from tango.units.dataclasses import CommonSpecs
+from tango.units.native.surface.base import SurfaceUnitNative
 
-
-from dataclasses import dataclass
 
 @dataclass
 class SurfaceSpecsORCNative(CommonSpecs):
-    """
-    Surface specifications for Organic Rankine Cycle (ORC) systems.
+    """Surface specifications for Organic Rankine Cycle (ORC) systems.
 
     Attributes:
         # pipe_diameter (float): Diameter of the pipe (m).
@@ -42,6 +39,7 @@ class SurfaceSpecsORCNative(CommonSpecs):
     Raises:
         RuntimeError: If required fields are not provided during initialization.
         ValueError: If an unsupported refrigerant is provided.
+
     """
 
     pipe_diameter: float = None
@@ -52,46 +50,52 @@ class SurfaceSpecsORCNative(CommonSpecs):
     temperature_range: float = 0.0
     eta_pump: float = 0.90
     total_pipe_length: float = None
-    epsilon: float = 55.e-6
+    epsilon: float = 55.0e-6
     eta_turbine: float = 0.78
-    cooling_tower_design: str = 'CLOSED'
-    cooling_mode: str = 'WET'
+    cooling_tower_design: str = "CLOSED"
+    cooling_mode: str = "WET"
     initial_outlet_pressure: float = 1.2e6
     initial_outlet_temperature: float = 333.15
-    ORC_opt_mode: str = 'min_cost'
+    ORC_opt_mode: str = "min_cost"
     pressure_constraint: float = 2000000.0
 
     def __post_init__(self):
-        """
-        Validates the required fields and refrigerant options after initialization.
-        """
-        required_fields = ['pipe_diameter', 'approach_temperature', 'condensation_pressure_offset', 'refrigerant']
+        """Validates the required fields and refrigerant options after initialization."""
+        required_fields = [
+            "pipe_diameter",
+            "approach_temperature",
+            "condensation_pressure_offset",
+            "refrigerant",
+        ]
         for s in required_fields:
             if getattr(self, s, None) is None:
                 raise RuntimeError(f"Required parameter: {s} is not found.")
 
-        refrigerant_options = ['R600a', 'R245fa']
+        refrigerant_options = ["R600a", "R245fa"]
         if self.refrigerant not in refrigerant_options:
-            raise ValueError(f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}")
+            raise ValueError(
+                f"refrigerant: {self.refrigerant} is not supported. Available options: {refrigerant_options}",
+            )
+
 
 class SurfaceUnitORCNative(SurfaceUnitNative):
-    """
-    Represents a power plant unit based on Organic Rankine Cycle (ORC) principles.
+    """Represents a power plant unit based on Organic Rankine Cycle (ORC) principles.
 
     Inherits from `SurfaceUnitNative`.
 
     Attributes:
         id (str): Unique identifier for the unit.
         specs (SurfaceSpecsORCNative): Specifications for the ORC system.
+
     """
 
     def __init__(self, id: str, specs: dict):
-        """
-        Initializes the SurfaceUnitORCNative object.
+        """Initializes the SurfaceUnitORCNative object.
 
         Args:
             id (str): Unique identifier for the unit.
             specs (dict): Dictionary containing the specifications for the ORC unit.
+
         """
         SurfaceUnitNative.__init__(self, id, specs)
         self.specs = SurfaceSpecsORCNative.from_dict(self._process_specs(specs))
@@ -106,55 +110,67 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.system_external = False
         self.P_out_constraint = False
 
-        if self.specs.flow_rate_from_csv == 'yes':
+        if self.specs.flow_rate_from_csv == "yes":
             self.csv_data = self._read_csv_file()
 
-    def init_stream_interface(self, P: float | None=None, T: float | None=None) -> None:
-        """
-        Initializes the fluid stream interface.
+    def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
+        """Initializes the fluid stream interface.
 
         Args:
             P (float, optional): Initial pressure for the fluid (default: specs.initial_outlet_pressure).
             T (float, optional): Initial temperature for the fluid (default: specs.initial_outlet_temperature).
+
         """
         P = self.specs.initial_outlet_pressure if P is None else P
         T = self.specs.initial_outlet_temperature if T is None else T
-        self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
+        self.mass_rate = (
+            self.specs.mass_flow_rate
+            * self.specs.well_pattern_dimens[0]
+            * self.specs.well_pattern_dimens[1]
+            / self.specs.num_pp
+        )
         self.inlet_fluid = FluidState.withPT(self._fluid_name, P, T)
         self.outlet_fluid = FluidState.withPT(self._fluid_name, P, T)
 
     def process_stream(self) -> tuple[float, float, float]:
-        """
-        Processes the fluid stream and updates state variables.
+        """Processes the fluid stream and updates state variables.
 
         If flow rate data is provided via a CSV file, updates the mass rate based on the current row.
         Also updates the diagram states and connections.
 
         Returns:
             tuple: Outlet pressure, outlet temperature, and mass rate.
-        """
-        if (self.specs.bc_iteration != None):
-            self.mass_rate = self.mass_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
-        else:
-            self.mass_rate = self.specs.mass_flow_rate * self.specs.well_pattern_dimens[0] * self.specs.well_pattern_dimens[1] / self.specs.num_pp
 
-        if self.specs.flow_rate_from_csv == 'yes':
-            if self.current_row < len(self.csv_data):
-                row = self.csv_data[self.current_row]
-                self.mass_rate = float(row[1])
+        """
+        if self.specs.bc_iteration is not None:
+            self.mass_rate = (
+                self.mass_rate
+                * self.specs.well_pattern_dimens[0]
+                * self.specs.well_pattern_dimens[1]
+                / self.specs.num_pp
+            )
+        else:
+            self.mass_rate = (
+                self.specs.mass_flow_rate
+                * self.specs.well_pattern_dimens[0]
+                * self.specs.well_pattern_dimens[1]
+                / self.specs.num_pp
+            )
+
+        if self.specs.flow_rate_from_csv == "yes" and self.current_row < len(self.csv_data):
+            row = self.csv_data[self.current_row]
+            self.mass_rate = float(row[1])
 
         self._update_state_pipe()
         self._update_state_fluid()
 
-        if (self.system_external):
+        if self.system_external:
             return self.P_out, self.T_out, self.mass_rate
         else:
             return self.P_out, self.T_out, self.specs.mass_flow_rate
 
     def overwrite_state_pipe(self) -> None:
-        """
-        Updates the state of the pipe.
-        """
+        """Updates the state of the pipe."""
         self._update_state_pipe()
 
     def get_dp_simple(self, te: float, p: float, mdot: float) -> float:
@@ -181,27 +197,26 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         raise NotImplementedError("TODO: implement this similarly to `SurfaceUnitFlexiblePP`")
 
     def _read_csv_file(self):
-        """
-        Reads flow rate data from a CSV file specified in the specifications.
+        """Reads flow rate data from a CSV file specified in the specifications.
 
         Returns:
             list: List of rows from the CSV file.
 
         Raises:
             FileNotFoundError: If the specified file does not exist.
+
         """
         file_path = self.specs.flow_rate_file
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 
-        with open(file_path, 'r') as file:
+        with open(file_path) as file:
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
 
     def _specs_post_processor(self) -> float:
-        r"""
-        Processes the specifications for the ORC system and computes derived attributes.
+        r"""Processes the specifications for the ORC system and computes derived attributes.
 
         Derived attributes include:
 
@@ -222,10 +237,11 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             float: Placeholder return type.
+
         """
         self._fluid_name = self.specs.fluid_name
         self._refrigerant_name = self.specs.refrigerant
-        self._cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter ** 2
+        self._cross_sectional_area = 0.25 * np.pi * self.specs.pipe_diameter**2
         self._condensation_temperature = self.specs.surface_temperature + self.specs.approach_temperature
         self._set_mult()
         self._set_constants()
@@ -233,8 +249,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self._set_lookup_tables()
 
     def _initialize_attributes(self) -> float:
-        """
-        Initializes essential attributes for calculations.
+        """Initializes essential attributes for calculations.
 
         Attributes initialized:
         - `dT_LMTD_recuperator` (float): Log mean temperature difference for the recuperator.
@@ -243,26 +258,26 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             float: Placeholder return type.
+
         """
         self.dT_LMTD_recuperator: float = 0.0
         self.w_downhole_pump: float = 0.0
         self.q_cooler: float = 0.0
 
     def _process_specs(self, specs) -> dict:
-        """
-        Combines common and surface-specific specifications.
+        """Combines common and surface-specific specifications.
 
         Args:
             specs (dict): Input specifications.
 
         Returns:
             dict: Merged dictionary of specifications.
+
         """
-        return self.specs['common'] | self.specs['surface']
+        return self.specs["common"] | self.specs["surface"]
 
     def _set_max_boiling_temperature(self) -> None:
-        """
-        Computes the maximum boiling temperature of the organic fluid.
+        """Computes the maximum boiling temperature of the organic fluid.
 
         The temperature is determined at the pressure corresponding to the maximum saturated vapor entropy.
         Steps:
@@ -271,11 +286,12 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             None
+
         """
         self._ORC_fluid_state = FluidState.withPT(
             self._refrigerant_name,
             P=self.specs.initial_outlet_pressure,
-            T=self.specs.initial_outlet_temperature
+            T=self.specs.initial_outlet_temperature,
         )
         ORC_fluid_Pcrit = self._ORC_fluid_state.Pcrit
         P_min = FluidState.withQT(self._refrigerant_name, Q=1.0, T=273.15).P
@@ -287,24 +303,22 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         S_max = np.max(S_arr)
         P_max = P_arr[np.argmax(S_arr)]
-        self._max_boiling_temperature = FluidState.withPS(
-            self._refrigerant_name, P=P_max, S=S_max).T
+        self._max_boiling_temperature = FluidState.withPS(self._refrigerant_name, P=P_max, S=S_max).T
 
     def _set_lookup_tables(self) -> None:
-        """
-        Sets up lookup tables for the ORC boiling point optimization.
+        """Sets up lookup tables for the ORC boiling point optimization.
 
         The table filename is determined based on the optimization mode and refrigerant.
 
         Returns:
             None
+
         """
         fname = f"ORC_Tboil_optimum_{MAP_ORC_OPTNAME_TO_TABLE_NAME[self.specs.ORC_opt_mode]}_{self._refrigerant_name}.csv"
         self._ORC_Tboil_optimum_table = utils.get_table(fname)
 
     def _get_value_from_table(self, x: float, col_name: str) -> float:
-        """
-        Retrieves interpolated or extrapolated values from the lookup table.
+        """Retrieves interpolated or extrapolated values from the lookup table.
 
         Args:
             x (float): Temperature in Kelvin.
@@ -315,22 +329,25 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Warnings:
             If `x` is outside the interpolation range, a warning is logged, and extrapolation is performed.
+
         """
         x += K_TO_C
         df = self._ORC_Tboil_optimum_table
-        val = float(interp1d(df.T_C, df[col_name], bounds_error=False, kind='linear')(x))
+        val = float(interp1d(df.T_C, df[col_name], bounds_error=False, kind="linear")(x))
         if np.isnan(val):
             logging.warning(
                 f"A value {x} is outside the interpolation range in ORC_Tboil_optimum_table. "
-                f"Extrapolating a value for {col_name}."
+                f"Extrapolating a value for {col_name}.",
             )
             return float(
-                interp1d(df.T_C, df[col_name], bounds_error=False, fill_value='extrapolate', kind='linear')(x))
+                interp1d(df.T_C, df[col_name], bounds_error=False, fill_value="extrapolate", kind="linear")(
+                    x,
+                ),
+            )
         return val
 
     def _compute_friction_factor(self, rho: float, mu: float, u: float) -> float:
-        r"""
-        Computes the friction factor using the Haaland equation (1983).
+        r"""Computes the friction factor using the Haaland equation (1983).
 
         Equation:
 
@@ -345,6 +362,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             float: Friction factor (-).
+
         """
         d = self.specs.pipe_diameter
         epsilon = self.specs.epsilon
@@ -353,8 +371,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         return (-1.8 * np.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
 
     def _get_pipe_pressure_drop(self, rho: float, u: float, ff: float) -> float:
-        r"""
-        Computes the pressure drop across the pipe.
+        r"""Computes the pressure drop across the pipe.
 
         Equation:
 
@@ -369,14 +386,14 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             float: Pressure drop (Pa).
+
         """
         d = self.specs.pipe_diameter
         L = self.specs.well_spacing
-        return 0.5 * ff * L * rho * u ** 2 / d
+        return 0.5 * ff * L * rho * u**2 / d
 
     def _update_state_pipe(self) -> None:
-        r"""
-        Updates the state of the fluid in the surface pipe, accounting for pressure drops.
+        r"""Updates the state of the fluid in the surface pipe, accounting for pressure drops.
 
         The pressure drop is computed based on the pipe's cross-sectional area, fluid density,
         viscosity, flow velocity, and friction factor.
@@ -404,6 +421,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             None
+
         """
         rho = self.inlet_fluid.rho
         mu = self.inlet_fluid.mu
@@ -414,8 +432,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.inlet_fluid.updatePT(P=self.inlet_fluid.P - self.dP_pipe, T=self.inlet_fluid.T)
 
     def _get_values_from_table(self, T_inlet: float) -> tuple:
-        """
-        Retrieves boiling temperature and pinch temperature difference from the lookup table.
+        """Retrieves boiling temperature and pinch temperature difference from the lookup table.
 
         Args:
             T_inlet (float): Inlet temperature in Kelvin.
@@ -428,9 +445,10 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
                 - Boiling temperature or pinch temperature difference is NaN.
                 - Boiling temperature exceeds the critical temperature.
                 - Pinch temperature difference is negative.
+
         """
-        T_boiling = self._get_value_from_table(x=T_inlet, col_name='T_boil_C') + C_TO_K
-        dT_pinch = self._get_value_from_table(x=T_inlet, col_name='dT_pinch_C')
+        T_boiling = self._get_value_from_table(x=T_inlet, col_name="T_boil_C") + C_TO_K
+        dT_pinch = self._get_value_from_table(x=T_inlet, col_name="dT_pinch_C")
         if np.isnan(T_boiling):
             raise ValueError("Nan ORC T_boiling found.")
         if np.isnan(dT_pinch):
@@ -442,8 +460,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         return T_boiling, dT_pinch
 
     def _update_state_fluid(self) -> None:
-        r"""
-        Updates the thermodynamic states of the working fluid and water throughout the ORC cycle.
+        r"""Updates the thermodynamic states of the working fluid and water throughout the ORC cycle.
 
         Key steps and calculations:
 
@@ -483,16 +500,25 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
 
         Returns:
             None
+
         """
         T_inlet = self.inlet_fluid.T
         T_boiling, dT_pinch = self._get_values_from_table(T_inlet)
 
         # State 1 (Condenser -> Pump)
-        fluid_state_pump_inlet = FluidState.withQT(self._refrigerant_name, Q=0.0, T=self._condensation_temperature)
+        fluid_state_pump_inlet = FluidState.withQT(
+            self._refrigerant_name,
+            Q=0.0,
+            T=self._condensation_temperature,
+        )
         self.condenser = fluid_state_pump_inlet
 
         # State 6 (Cooler -> Condenser)
-        fluid_state_condenser_inlet = FluidState.withQT(self._refrigerant_name, Q=1.0, T=fluid_state_pump_inlet.T)
+        fluid_state_condenser_inlet = FluidState.withQT(
+            self._refrigerant_name,
+            Q=1.0,
+            T=fluid_state_pump_inlet.T,
+        )
         self.cooler = fluid_state_condenser_inlet
 
         # State 3 (Preheater -> Boiler)
@@ -500,21 +526,45 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         self.pre_heater = fluid_state_boiler_inlet
 
         # State 4 (Boiler -> Turbine)
-        fluid_state_turbine_inlet = FluidState.withQT(self._refrigerant_name, Q=1.0, T=fluid_state_boiler_inlet.T)
+        fluid_state_turbine_inlet = FluidState.withQT(
+            self._refrigerant_name,
+            Q=1.0,
+            T=fluid_state_boiler_inlet.T,
+        )
         self.boiler = fluid_state_turbine_inlet
 
         # State 5 (Turbine -> Cooler)
-        fluid_state_cooler_inlet = FluidState.withPS(self._refrigerant_name, P=fluid_state_pump_inlet.P, S=fluid_state_turbine_inlet.S)
+        fluid_state_cooler_inlet = FluidState.withPS(
+            self._refrigerant_name,
+            P=fluid_state_pump_inlet.P,
+            S=fluid_state_turbine_inlet.S,
+        )
         hs_cooler_inlet = fluid_state_cooler_inlet.H
-        h_cooler_inlet = fluid_state_turbine_inlet.H - self.specs.eta_turbine * (fluid_state_turbine_inlet.H - hs_cooler_inlet)
-        fluid_state_cooler = FluidState.withHP(self._refrigerant_name, H=h_cooler_inlet, P=fluid_state_pump_inlet.P)
+        h_cooler_inlet = fluid_state_turbine_inlet.H - self.specs.eta_turbine * (
+            fluid_state_turbine_inlet.H - hs_cooler_inlet
+        )
+        fluid_state_cooler = FluidState.withHP(
+            self._refrigerant_name,
+            H=h_cooler_inlet,
+            P=fluid_state_pump_inlet.P,
+        )
         self.turbine = fluid_state_cooler
 
         # State 2 (Pump -> Preheater)
-        fluid_state_preheater_inlet = FluidState.withPS(self._refrigerant_name, P=fluid_state_boiler_inlet.P, S=fluid_state_pump_inlet.S)
+        fluid_state_preheater_inlet = FluidState.withPS(
+            self._refrigerant_name,
+            P=fluid_state_boiler_inlet.P,
+            S=fluid_state_pump_inlet.S,
+        )
         hs_preheater_inlet = fluid_state_preheater_inlet.H
-        h_preheater = fluid_state_pump_inlet.H - ((fluid_state_pump_inlet.H - hs_preheater_inlet) / self.specs.eta_pump)
-        fluid_state_preheater = FluidState.withHP(self._refrigerant_name, H=h_preheater, P=fluid_state_boiler_inlet.P)
+        h_preheater = fluid_state_pump_inlet.H - (
+            (fluid_state_pump_inlet.H - hs_preheater_inlet) / self.specs.eta_pump
+        )
+        fluid_state_preheater = FluidState.withHP(
+            self._refrigerant_name,
+            H=h_preheater,
+            P=fluid_state_boiler_inlet.P,
+        )
         self.pump = fluid_state_preheater
 
         # Auxiliary heat/work
@@ -534,20 +584,18 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         # ... Water (assume pressure 100 kPa above saturation)
         #
 
-        fluid_state_water = FluidState.withQT(self._fluid_name, Q=0., T=T_inlet)
-        Psat_water = fluid_state_water.P
+        fluid_state_water = FluidState.withQT(self._fluid_name, Q=0.0, T=T_inlet)
         cp_water = fluid_state_water.cp
 
         # Water state 11, inlet, 12, mid, 13 exit
         fluid_state_water = FluidState.withQT(self._fluid_name, Q=0.0, T=T_inlet)
-        Psat_water = fluid_state_water.P
         cp_water = fluid_state_water.cp
         T_11 = T_inlet
         T_12 = T_boiling + dT_pinch
         mdot_ratio = cp_water * (T_11 - T_12) / self.aux_q_boiler
         T_13 = T_12 - mdot_ratio * self.aux_q_preheater / cp_water
 
-        if T_13 < (fluid_state_preheater.T + dT_pinch):
+        if (fluid_state_preheater.T + dT_pinch) > T_13:
             T_13 = fluid_state_preheater.T + dT_pinch
             R = self.aux_q_boiler / (self.aux_q_boiler + self.aux_q_preheater)
             T_12 = T_11 - (T_11 - T_13) * R
@@ -575,7 +623,7 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
         if dT_A_p == dT_B_p:
             self.dT_LMTD_preheater = dT_A_p
         else:
-            div = dT_A_p/dT_B_p
+            div = dT_A_p / dT_B_p
             self.dT_LMTD_preheater = (dT_A_p - dT_B_p) / (math.log(abs(div)) * np.sign(div))
 
         dT_A_b = T_12 - fluid_state_boiler_inlet.T
@@ -587,17 +635,17 @@ class SurfaceUnitORCNative(SurfaceUnitNative):
             div = dT_A_b / dT_B_b
             self.dT_LMTD_boiler = (dT_A_b - dT_B_b) / (math.log(abs(div)) * np.sign(div))
 
-        if self.specs.bc_iteration != None:
-            if self.reservoir_file_reader and self.specs.injection_condition_back_calculation == 'yes':
+        if self.specs.bc_iteration is not None:
+            if self.reservoir_file_reader and self.specs.injection_condition_back_calculation == "yes":
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = self.iterative_inj_temperature
             else:
                 self.P_out = self.iterative_inj_pressure
                 self.T_out = T_13
         else:
-            if (self.P_out_constraint):
+            if self.P_out_constraint:
                 self.T_out = T_13
-                if (self.inlet_fluid.P > self.specs.pressure_constraint):
+                if self.specs.pressure_constraint < self.inlet_fluid.P:
                     self.P_out = self.specs.pressure_constraint
                 else:
                     self.P_out = self.inlet_fluid.P
