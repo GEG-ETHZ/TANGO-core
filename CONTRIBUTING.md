@@ -114,6 +114,12 @@ This enforces code quality and prevents accidental direct commits or pushes to `
 - **`pre-commit` (auto-format as you type):** Runs fast linting and formatting (Ruff).
 - **`pre-push` (test before you share):** Runs heavier validation (Mypy type checking, Pytest) only when sharing code with the remote.
 
+To skip a specific hook for one push, set the `SKIP` environment variable to the hook's `id` (not its display name):
+```bash
+SKIP=pytest git push
+```
+This skips the "Run test suite" hook while still running Mypy. Use sparingly — bypassing tests before sharing code is rarely a good idea.
+
 ## Changelog
 
 [`CHANGELOG.md`](CHANGELOG.md) follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
