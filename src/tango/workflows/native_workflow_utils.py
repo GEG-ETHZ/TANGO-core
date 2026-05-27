@@ -1,25 +1,23 @@
-"""
-Error methods/functions for use in src/tango/workflows/native_workflow.py
-"""
+"""Error methods/functions for use in src/tango/workflows/native_workflow.py"""
 
+import re
 from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
-import re
 
+from tango.core.abstracts.unit import SimplePressureDrop
+from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.errors import (
-    CoolPropError,
+    P_SAT_ERR_TEST,
     ComponentError,
+    CoolPropError,
     ProPumpInletFlashError,
     SaturationPressureError,
-    P_SAT_ERR_TEST,
 )
-from tango.core.constants import GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import SimplePressureDrop
 from tango.core.fluidstate import FluidState
-from tango.units.native.well import WellUnitNative
 from tango.units.native.surface import SurfaceUnitNative
+from tango.units.native.well import WellUnitNative
 
 # define strings for frequently used dict keys to reduce likelihood of typos
 injection_well = "injection_well"
@@ -57,7 +55,7 @@ def get_dp_and_flow_res(
     unit,
     p_simple_inst_dict: dict[str, SimplePressureDrop],
     mdot: float,
-    state_ad_hoc: FluidState
+    state_ad_hoc: FluidState,
 ) -> tuple[dict[str, float], dict[str, float], dict[str, InletBCs], dict[str, InletBCs | None]]:
     """Get module-wise estimated pressure drop for a given mass flow rate
 
@@ -88,10 +86,7 @@ def get_dp_and_flow_res(
         if k == injection_well:
             te = v.fluid_state_init.T
             # averaged over inlet and outlet for property calculations
-            p = 0.5 * (
-                v.fluid_state_init.P
-                    + unit.reservoir.specs.hydro_static_pressure
-            )
+            p = 0.5 * (v.fluid_state_init.P + unit.reservoir.specs.hydro_static_pressure)
             dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
@@ -107,7 +102,7 @@ def get_dp_and_flow_res(
                 # this gets updated after an iteration, but if it fails before one iteration is
                 # complete, then there's not a clear best choice for assuming an optimum inlet
                 # pressure here
-                p=v.fluid_state_init.P
+                p=v.fluid_state_init.P,
             )
             del te, p
             try:
@@ -116,7 +111,7 @@ def get_dp_and_flow_res(
                     # this gets updated after an iteration, but if it fails before one iteration is
                     # complete, then there's not a clear best choice for assuming an optimum inlet
                     # pressure here
-                    p=v.inlet_fluid.P
+                    p=v.inlet_fluid.P,
                 )
             except Exception as _err:
                 act_inlet_bcs[k] = None
@@ -128,9 +123,8 @@ def get_dp_and_flow_res(
             depth_for_temp = p_simple_inst_dict[k].specs.reservoir_depth
             # this overestimates temperature for pressure drop calculation but is
             # reasonable for saturation pressure calclulation
-            te = (
-                p_simple_inst_dict[surface].specs.surface_temperature
-                    + (p_simple_inst_dict[k].specs.thermal_gradient * depth_for_temp)
+            te = p_simple_inst_dict[surface].specs.surface_temperature + (
+                p_simple_inst_dict[k].specs.thermal_gradient * depth_for_temp
             )
             # NOTE: This assumes minimal pressure drop in the injection well.
             # This assumption is reasonable for calculating fluid properties
@@ -152,9 +146,8 @@ def get_dp_and_flow_res(
                 te=te,
                 # this assumes the injection well head pressure and resistances are high enough and
                 # low enough, respectively, to feed the reservoir its maximum allowed inlet pressure
-                p=unit.reservoir.specs.hydro_static_pressure * (
-                    1.0 + unit.reservoir.specs.over_pressure_percentage
-                )
+                p=unit.reservoir.specs.hydro_static_pressure
+                * (1.0 + unit.reservoir.specs.over_pressure_percentage),
             )
             del te, p
             try:
@@ -163,19 +156,18 @@ def get_dp_and_flow_res(
                     # this gets updated after an iteration, but if it fails before one iteration is
                     # complete, then there's not a clear best choice for assuming an optimum inlet
                     # pressure here
-                    p=v.inlet_fluid.P
+                    p=v.inlet_fluid.P,
                 )
-            except Exception as err:
+            except Exception:
                 act_inlet_bcs[k] = None
         elif k in (production_well, production_well_lower):
             # NOTE: assumes that production well bottom is always at same depth as injection
             # well bottom
-            depth_for_temp = p_simple_inst_dict['injection_well']._well_length
+            depth_for_temp = p_simple_inst_dict["injection_well"]._well_length
             # NOTE: this assumes fluid temperature is equilibrated with reservoir and that
             # reservoir temperature has not decreased over time
-            te = (
-                p_simple_inst_dict[surface].specs.surface_temperature
-                    + (p_simple_inst_dict['production_well']._specs.thermal_gradient * depth_for_temp)
+            te = p_simple_inst_dict[surface].specs.surface_temperature + (
+                p_simple_inst_dict["production_well"]._specs.thermal_gradient * depth_for_temp
             )
             # NOTE: This assumes no pressure drop in the injection well or reservoir, which
             # will overestimate the pressure. This assumption is reasonable for hydrothermal
@@ -184,8 +176,9 @@ def get_dp_and_flow_res(
             # calculation
             p = 0.5 * (
                 unit.reservoir.specs.hydro_static_pressure
-                    + p_simple_inst_dict['production_well_pump']._well_length * GRAVITY_ACCELERATION
-                        * state_ad_hoc.rho
+                + p_simple_inst_dict["production_well_pump"]._well_length
+                * GRAVITY_ACCELERATION
+                * state_ad_hoc.rho
             )
             dp_dict[k] = v.get_dp_simple(
                 te=te,
@@ -201,9 +194,8 @@ def get_dp_and_flow_res(
                 te=te,
                 # this assumes the injection well head pressure and resistances are high enough and
                 # low enough, respectively, to feed the reservoir its maximum allowed inlet pressure
-                p=unit.reservoir.specs.hydro_static_pressure * (
-                    1.0 + unit.reservoir.specs.over_pressure_percentage
-                )
+                p=unit.reservoir.specs.hydro_static_pressure
+                * (1.0 + unit.reservoir.specs.over_pressure_percentage),
             )
             del te, p
             try:
@@ -212,9 +204,9 @@ def get_dp_and_flow_res(
                     # this gets updated after an iteration, but if it fails before one iteration is
                     # complete, then there's not a clear best choice for assuming an optimum inlet
                     # pressure here
-                    p=v.inlet_fluid.P
+                    p=v.inlet_fluid.P,
                 )
-            except Exception as err:
+            except Exception:
                 act_inlet_bcs[k] = None
         elif k in (production_well_pump, production_well_upper):
             # NOTE: this assumes no temperature decrease has occurred from the reservoir
@@ -222,15 +214,12 @@ def get_dp_and_flow_res(
             # idea to revisit the assumption in the future
             # This also assumes that injection well length and reservoir length are the same, which is
             # usually the case but may need future revision
-            depth_for_temp = p_simple_inst_dict['injection_well']._well_length
-            te = (
-                p_simple_inst_dict[surface].specs.surface_temperature
-                    + (p_simple_inst_dict['production_well_pump']._specs.thermal_gradient * depth_for_temp)
+            depth_for_temp = p_simple_inst_dict["injection_well"]._well_length
+            te = p_simple_inst_dict[surface].specs.surface_temperature + (
+                p_simple_inst_dict["production_well_pump"]._specs.thermal_gradient * depth_for_temp
             )
             # averaged over inlet (production_well_pump length) and outlet (surface)
-            p = 0.5 * (
-                unit.reservoir.specs.hydro_static_pressure
-            )
+            p = 0.5 * (unit.reservoir.specs.hydro_static_pressure)
             dp_dict[k] = v.get_dp_simple(
                 te=te,
                 p=p,
@@ -242,10 +231,10 @@ def get_dp_and_flow_res(
                 mdot=mdot,
             )
             opt_inlet_bcs[k] = InletBCs(
-                p=unit.reservoir.specs.hydro_static_pressure - (
-                    unit.production_well.specs['well_length']
-                        - unit.production_well_pump.specs['well_length']
-                ) * GRAVITY_ACCELERATION * state_ad_hoc.rho,
+                p=unit.reservoir.specs.hydro_static_pressure
+                - (unit.production_well.specs["well_length"] - unit.production_well_pump.specs["well_length"])
+                * GRAVITY_ACCELERATION
+                * state_ad_hoc.rho,
                 te=te,
             )
             del te, p
@@ -255,7 +244,7 @@ def get_dp_and_flow_res(
                     # this gets updated after an iteration, but if it fails before one iteration is
                     # complete, then there's not a clear best choice for assuming an optimum inlet
                     # pressure here
-                    p=v.inlet_fluid.P
+                    p=v.inlet_fluid.P,
                 )
             except Exception as _err:
                 act_inlet_bcs[k] = None
@@ -264,9 +253,8 @@ def get_dp_and_flow_res(
             # temperature, which will overestimate the actual temperature, and it's a good
             # idea to revisit the assumption in the future
             depth = p_simple_inst_dict[production_well_pump]._well_length
-            te = (
-                p_simple_inst_dict[surface].specs.surface_temperature
-                    + (p_simple_inst_dict[reservoir].specs.thermal_gradient * depth)
+            te = p_simple_inst_dict[surface].specs.surface_temperature + (
+                p_simple_inst_dict[reservoir].specs.thermal_gradient * depth
             )
             p = unit.reservoir.specs.hydro_static_pressure
             p_out_pro_well_pump = unit.production_well_pump.specs["target_extraction_pressure"]
@@ -288,7 +276,7 @@ def get_dp_and_flow_res(
                     # this gets updated after an iteration, but if it fails before one iteration is
                     # complete, then there's not a clear best choice for assuming an optimum inlet
                     # pressure here
-                    p=v.inlet_fluid.P
+                    p=v.inlet_fluid.P,
                 )
             except Exception as _err:
                 act_inlet_bcs[k] = None
@@ -304,8 +292,7 @@ def handle_convergence_err(self, cpe: CoolPropError):
     unit = self.orchestrator.unit
     # dictionary of module names and corresponding instances that inhherit `SimplePressureDrop`
     p_simple_inst_dict: dict[str, SimplePressureDrop] = {
-        k: v for (k, v) in unit.__dict__.items()
-        if isinstance(v, SimplePressureDrop)
+        k: v for (k, v) in unit.__dict__.items() if isinstance(v, SimplePressureDrop)
     }
 
     # NOTE: check if `self.specs['schedule']['mass_flow_rate']` will work for a case where
@@ -479,4 +466,3 @@ def check_complex_err(
             + "\n\t- changing (e.g. increasing) `hydro_static_pressure` in `reservoir`"
             + "\n\t- reducing the mass flow rate (this will reduce power output and should be avoided)",
         ) from cpe
-

@@ -1,13 +1,11 @@
 import copy
-import itertools
 import hashlib
+import itertools
 import json
 import logging
-import os
-import shutil
 import time
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from tqdm import tqdm
@@ -88,7 +86,7 @@ class BatchSimulation:
                     f"Error converting parameter {param_path}: {e}\n"
                     f"  min_val: {min_val} (type: {type(min_val)})\n"
                     f"  max_val: {max_val} (type: {type(max_val)})\n"
-                    f"  points: {points} (type: {type(points)})"
+                    f"  points: {points} (type: {type(points)})",
                 ) from e
 
             if points == 1:
@@ -180,7 +178,7 @@ class BatchSimulation:
 
         disable_progress = logging.getLogger().getEffectiveLevel() > logging.INFO
         for i, param_combo in enumerate(
-            tqdm(combinations, desc="Batch Simulation Progress", disable=disable_progress)
+            tqdm(combinations, desc="Batch Simulation Progress", disable=disable_progress),
         ):
             logging.info(f"\n--- Running Simulation {i + 1}/{total_simulations} ---")
             logging.debug(f"Parameters: {param_combo}")
@@ -317,6 +315,7 @@ class Tango:
     -------
     >>> tango = Tango("input.yaml")
     >>> tango.execute()
+
     """
 
     # TODO: update `Attributes` in the doc string above
@@ -402,7 +401,12 @@ class Tango:
 
         workflow_class = WORKFLOW_MAP[self.specs["runspec"]["workflow"].lower()]
         self.workflow: Workflow = workflow_class(
-            self.specs, self.input_file, self.run_dir, UNIT_OPTIONS, self.user_id, self.run_id,
+            self.specs,
+            self.input_file,
+            self.run_dir,
+            UNIT_OPTIONS,
+            self.user_id,
+            self.run_id,
         )
 
     def execute(self) -> None:
@@ -524,7 +528,8 @@ class Runner:
             logging.info("Optimization detected. Executing optimizer...")
             self._optimizer.execute()
         elif "batch_simulation" in self.tango.specs and self.tango.specs["batch_simulation"].get(
-            "enabled", False,
+            "enabled",
+            False,
         ):
             logging.info("Batch simulation detected. Executing batch simulation...")
             self.tango.execute_batch_simulation()

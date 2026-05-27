@@ -228,14 +228,13 @@ P_SAT_ERR_TEST = re.compile(
 #           with guess value -17369.7 with error: The molar density of -17369.665904 mol/m3
 #           is below the minimum of 0.000000 mol/m3"
 SUBZERO_DNSTY_ERR_TEST = re.compile(
-    r"solver_rho_Tp was unable to find a solution.*"
-    + r"is below the minimum of 0\.0+ mol/m3",
+    r"solver_rho_Tp was unable to find a solution.*" + r"is below the minimum of 0\.0+ mol/m3",
 )
 
 EXCESS_SMOLAR_TEST = re.compile(
-    "unable to solve 1phase PY flash with Tmin=\\d+\\.\\d*, Tmax=\\d+(\\.\\d*){0,1} due to error: " +
-        "HSU_P_flash_singlephase_Brent could not find a solution because Smolar \\[\\d+\\.\\d* J/mol/K] " +
-        "is above the maximum value of \\d+\\.\\d* J/mol/K",
+    "unable to solve 1phase PY flash with Tmin=\\d+\\.\\d*, Tmax=\\d+(\\.\\d*){0,1} due to error: "
+    + "HSU_P_flash_singlephase_Brent could not find a solution because Smolar \\[\\d+\\.\\d* J/mol/K] "
+    + "is above the maximum value of \\d+\\.\\d* J/mol/K",
 )
 
 
@@ -319,7 +318,7 @@ class Validator(ABC):
         if len(self.val_dict) != len(used_dict):
             raise NameError(
                 f"\nInvalid variables in {self.val_file}:\n"
-                    + f"{set(self.val_dict.keys()) - set(used_dict.keys())}",
+                + f"{set(self.val_dict.keys()) - set(used_dict.keys())}",
             )
 
         if len(errors) > 0:

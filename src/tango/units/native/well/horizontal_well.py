@@ -1,15 +1,15 @@
 import copy
-import numpy as np
 import logging
 
-from tango.units.native.well.base import WellUnitNative
+import numpy as np
+
 from tango.core.constants import GRAVITY_ACCELERATION
 from tango.core.fluidstate import FluidState
+from tango.units.native.well.base import WellUnitNative
 
 
 class HorizontalWellUnitNative(WellUnitNative):
-    """
-    Represents a horizontal well unit for simulating fluid flow, extending the WellUnitNative class.
+    """Represents a horizontal well unit for simulating fluid flow, extending the WellUnitNative class.
 
     This class provides methods to simulate fluid flow in horizontal wellbores, taking into account
     the unique specifications and geometry of horizontal wells. It handles dynamic changes in wellbore
@@ -20,11 +20,11 @@ class HorizontalWellUnitNative(WellUnitNative):
         _f_dir (float): Flow direction coefficient.
         length_list (list): List of well lengths along the horizontal well.
         diameter_list (list): List of well diameters along the horizontal well.
+
     """
 
     def __init__(self, id: str, specs: dict):
-        """
-        Initializes a new instance of the HorizontalWellUnitNative class.
+        """Initializes a new instance of the HorizontalWellUnitNative class.
 
         Args:
             id (str): A unique identifier for the horizontal well unit.
@@ -32,6 +32,7 @@ class HorizontalWellUnitNative(WellUnitNative):
 
         Raises:
             RuntimeError: If the horizontal well specifications cannot be read for the given id.
+
         """
         WellUnitNative.__init__(self, id, specs=self._process_specs(id, specs))
         self._specs_post_processor_hw()
@@ -40,8 +41,7 @@ class HorizontalWellUnitNative(WellUnitNative):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def init_stream_interface(self) -> None:
-        """
-        Initializes the stream interface for the horizontal well.
+        """Initializes the stream interface for the horizontal well.
 
         This method sets up the initial fluid properties at the wellhead, including the pressure and
         temperature, based on the wellhead depth, thermal gradient, and surface temperature.
@@ -58,8 +58,7 @@ class HorizontalWellUnitNative(WellUnitNative):
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _specs_post_processor_hw(self) -> None:
-        """
-        Processes the horizontal well specifications and initializes attributes.
+        """Processes the horizontal well specifications and initializes attributes.
 
         This method sets the mass flow rate, flow direction, segment length, and well diameter and length sequences.
         It adjusts for the horizontal well's specific geometry, such as the discretization of the well along its length.
@@ -72,8 +71,7 @@ class HorizontalWellUnitNative(WellUnitNative):
         self.diameter_list = self._specs.well_diameter_seq
 
     def _process_specs(self, id: str, specs: dict) -> dict:
-        """
-        Processes the specifications for the horizontal well and validates them.
+        """Processes the specifications for the horizontal well and validates them.
 
         Args:
             id (str): The unique identifier for the horizontal well.
@@ -84,42 +82,42 @@ class HorizontalWellUnitNative(WellUnitNative):
 
         Raises:
             RuntimeError: If horizontal well specifications cannot be found for the given id, or if the wellhead depth is missing.
+
         """
-        if isinstance(specs['horizontal_well'], list):
+        if isinstance(specs["horizontal_well"], list):
             specs_tmp = copy.deepcopy(specs)
-            specs = {'common': specs_tmp['common'], 'horizontal_well': None}
-            for d in specs_tmp['horizontal_well']:
+            specs = {"common": specs_tmp["common"], "horizontal_well": None}
+            for d in specs_tmp["horizontal_well"]:
                 if id in d.keys():
-                    specs['horizontal_well'] = d[id]
+                    specs["horizontal_well"] = d[id]
                     break
-            if specs['horizontal_well'] is None:
+            if specs["horizontal_well"] is None:
                 raise RuntimeError(f"Failed to read horizontal_well specs for id: {id}")
-        if 'wellhead_depth' not in specs['horizontal_well']:
-            raise RuntimeError(f"Required parameter 'wellhead_depth' is not found in specs")
-        if np.abs(specs['common']['well_spacing'] - specs['horizontal_well']['well_length']) < 1e-5:
+        if "wellhead_depth" not in specs["horizontal_well"]:
+            raise RuntimeError("Required parameter 'wellhead_depth' is not found in specs")
+        if np.abs(specs["common"]["well_spacing"] - specs["horizontal_well"]["well_length"]) < 1e-5:
             logging.warning("Inconsistent well_spacing and horizontal_well length found.")
-        specs_dict: dict = specs['common'] | specs['horizontal_well']
+        specs_dict: dict = specs["common"] | specs["horizontal_well"]
         return specs_dict
 
     def _set_well_length(self) -> float:
-        """
-        Sets the well length based on the horizontal well specifications.
+        """Sets the well length based on the horizontal well specifications.
 
         Returns:
             float: The well length (in meters).
 
         Raises:
             RuntimeError: If the well length is not defined in the specifications.
+
         """
         if self._specs.well_length is None:
-            raise RuntimeError(f"Required parameter 'well_length' is not found in specs.")
+            raise RuntimeError("Required parameter 'well_length' is not found in specs.")
         else:
             well_length: float = self._specs.well_length
             return well_length
 
     def _initialize_farfield_temperature(self) -> None:
-        """
-        Initializes the far-field temperature profile along the horizontal well.
+        """Initializes the far-field temperature profile along the horizontal well.
 
         This method calculates the temperature of the surrounding rock based on the well geometry
         and the thermal gradient. It checks for the vertical deviation of the well to ensure correct
@@ -127,11 +125,14 @@ class HorizontalWellUnitNative(WellUnitNative):
 
         Raises:
             ValueError: If the vertical deviation is not found or is non-positive.
+
         """
         if self._specs.vertical_deviation is None:
-            raise ValueError(f"Required parameter: 'vertical_deviation' is not found.")
+            raise ValueError("Required parameter: 'vertical_deviation' is not found.")
         if self._specs.vertical_deviation <= 0:
-            raise ValueError(f"Invalid parameter value found in 'vertical_deviation'. Please use a positive value.")
+            raise ValueError(
+                "Invalid parameter value found in 'vertical_deviation'. Please use a positive value.",
+            )
         self._dZ = self._well_length * np.tan(np.deg2rad(90.0 - self._specs.vertical_deviation))
         Z0 = self._specs.wellhead_depth
         zspace = np.linspace(Z0, Z0 + self._dZ, self._num_cells + 1)

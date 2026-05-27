@@ -1,61 +1,66 @@
-import sys
 import os
-import pandas as pd
-import seaborn as sns
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QWidget, QLabel, QLineEdit, QPushButton, QComboBox, QSpinBox,
-    QFileDialog
+    QApplication,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtCore import Qt
 
 
 class SimulationAnalyzerSeaborn:
     def __init__(self, results):
-        """
-        Initialize the analyzer with simulation results.
+        """Initialize the analyzer with simulation results.
 
         Args:
             results (dict): Simulation results dictionary.
+
         """
         self.df = self._convert_to_dataframe(results)
 
     def _convert_to_dataframe(self, results):
-        """
-        Converts the results dictionary into a Pandas DataFrame.
+        """Converts the results dictionary into a Pandas DataFrame.
 
         Args:
             results (dict): Simulation results dictionary.
 
         Returns:
             pd.DataFrame: Converted DataFrame with 'date' as a column.
+
         """
         df = pd.DataFrame(results)
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
 
         return df
 
     def launch_interactive_ui(self):
-        """
-        Launch a PyQt5-based interactive UI for plotting and analysis.
-        """
+        """Launch a PyQt5-based interactive UI for plotting and analysis."""
         app = QApplication(sys.argv)
         window = InteractiveAnalyzerUI(self)
         window.show()
         sys.exit(app.exec_())
 
     def basic_statistics(self, output_file=None):
-        """
-        Compute and print basic statistics for numeric columns.
+        """Compute and print basic statistics for numeric columns.
 
         Args:
             output_file (str): File path to save the statistics. If None, does not save.
 
         Returns:
             pd.DataFrame: Summary statistics for numeric data.
+
         """
         stats = self.df.describe()
         if output_file:
@@ -65,49 +70,49 @@ class SimulationAnalyzerSeaborn:
         return stats
 
     def correlation_heatmap(self, variables=None):
-        """
-        Generate a heatmap for correlation between numeric variables.
+        """Generate a heatmap for correlation between numeric variables.
 
         Args:
             variables (list): List of variable names to include in the heatmap.
+
         """
         if variables is None:
-            variables = self.df.select_dtypes(include=['float64', 'int64']).columns
+            variables = self.df.select_dtypes(include=["float64", "int64"]).columns
         numeric_df = self.df[variables]
 
         plt.figure(figsize=(12, 8))
-        sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', fmt=".2f")
+        sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm", fmt=".2f")
         plt.title("Correlation Heatmap")
         sns.set_theme(style="ticks", palette="pastel")
         plt.show()
 
     def pairplot(self, variables=None, hue=None):
-        """
-        Generate a pairplot for relationships between variables.
+        """Generate a pairplot for relationships between variables.
 
         Args:
             variables (list): List of variable names to include.
             hue (str): Column name for color-coding.
+
         """
         if variables is None:
-            variables = self.df.select_dtypes(include=['float64', 'int64']).columns
+            variables = self.df.select_dtypes(include=["float64", "int64"]).columns
 
         if hue and hue not in self.df.columns:
             print(f"Warning: Hue '{hue}' not found in the DataFrame.")
             hue = None
 
-        sns.pairplot(self.df, vars=variables, hue=hue, diag_kind='kde', height=2.5)
+        sns.pairplot(self.df, vars=variables, hue=hue, diag_kind="kde", height=2.5)
         plt.suptitle("Pairplot of Selected Variables", y=1.02)
         plt.show()
 
-    def distribution_plot(self, keys, color='green', linewidth=2):
-        """
-        Plot the Kernel Density Estimation (KDE) of selected variables in the same figure.
+    def distribution_plot(self, keys, color="green", linewidth=2):
+        """Plot the Kernel Density Estimation (KDE) of selected variables in the same figure.
 
         Args:
             keys (list): The variables to analyze.
             color (str): Color of the KDE curve.
             linewidth (int): Line thickness of the KDE curve.
+
         """
         sns.set_theme(style="whitegrid", palette="deep")
         if not isinstance(keys, list):
@@ -128,13 +133,13 @@ class SimulationAnalyzerSeaborn:
         plt.show()
 
     def boxplot_parameters(self, keys=None):
-        """
-        Create a boxplot for one or more numerical parameters.
+        """Create a boxplot for one or more numerical parameters.
 
         Args:
             keys (list): List of parameters to plot as boxplots. If None, defaults to all numeric columns.
+
         """
-        numeric_columns = self.df.select_dtypes(include=['float64', 'int64']).columns
+        numeric_columns = self.df.select_dtypes(include=["float64", "int64"]).columns
 
         if keys is None:
             keys = numeric_columns
@@ -155,10 +160,10 @@ class SimulationAnalyzerSeaborn:
             data=data_to_plot,
             linewidth=1.5,
             palette="pastel",
-            boxprops=dict(edgecolor="black", facecolor="white"),
-            whiskerprops=dict(color="black"),
-            capprops=dict(color="black"),
-            medianprops=dict(color="red", linewidth=2)
+            boxprops={"edgecolor": "black", "facecolor": "white"},
+            whiskerprops={"color": "black"},
+            capprops={"color": "black"},
+            medianprops={"color": "red", "linewidth": 2},
         )
         plt.title("Boxplot of Selected Parameters", fontsize=16, weight="bold")
         plt.xlabel("Parameters", fontsize=14)
@@ -169,13 +174,13 @@ class SimulationAnalyzerSeaborn:
         plt.show()
 
     def plot_over_time(self, keys, title="Parameter(s) Over Time", save_path=None):
-        """
-        Plot selected parameters over time.
+        """Plot selected parameters over time.
 
         Args:
             keys (list): List of parameters to plot.
             title (str): Title of the plot.
             save_path (str): Path to save the plot as an image. If None, does not save.
+
         """
         missing_keys = [key for key in keys if key not in self.df.columns]
 
@@ -191,7 +196,7 @@ class SimulationAnalyzerSeaborn:
         plt.figure(figsize=(12, 6))
 
         for key in keys:
-            plt.plot(self.df['date'], self.df[key], marker='o', label=key)
+            plt.plot(self.df["date"], self.df[key], marker="o", label=key)
 
         plt.title(title, fontsize=16)
         plt.xlabel("Time", fontsize=14)
@@ -205,14 +210,14 @@ class SimulationAnalyzerSeaborn:
 
         plt.show()
 
-    def cumulative_distribution_plot(self, keys, color='blue', linewidth=2):
-        """
-        Plot the Cumulative Distribution Function (CDF) for selected parameters in the same figure.
+    def cumulative_distribution_plot(self, keys, color="blue", linewidth=2):
+        """Plot the Cumulative Distribution Function (CDF) for selected parameters in the same figure.
 
         Args:
             keys (list): The variables to analyze.
             color (str): Base color for the CDF lines (colors will vary for each key).
             linewidth (int): Line thickness of the CDF lines.
+
         """
         if not isinstance(keys, list):
             keys = [keys]
@@ -236,13 +241,13 @@ class SimulationAnalyzerSeaborn:
         plt.show()
 
     def regression_plot(self, x, y, hue=None):
-        """
-        Create a regression plot to analyze trends between two variables.
+        """Create a regression plot to analyze trends between two variables.
 
         Args:
             x (str): Independent variable.
             y (str): Dependent variable.
             hue (str): Variable for color grouping.
+
         """
         sns.set_theme(style="whitegrid", palette="deep")
 
@@ -255,14 +260,14 @@ class SimulationAnalyzerSeaborn:
             print(f"Columns '{x}' or '{y}' not found in the results.")
 
     def detect_outliers(self, key):
-        """
-        Detect outliers in the specified parameter using the IQR method.
+        """Detect outliers in the specified parameter using the IQR method.
 
         Args:
             key (str): The parameter to analyze for outliers.
 
         Returns:
             list: List of outlier values.
+
         """
         if key in self.df.columns:
             data = self.df[key].dropna()
@@ -278,15 +283,15 @@ class SimulationAnalyzerSeaborn:
             print(f"Key '{key}' not found in the results.")
             return []
 
-    def histogram_with_kde(self, key, bins=30, color='purple', alpha=0.6):
-        """
-        Plot a histogram with a KDE curve overlay for a selected parameter.
+    def histogram_with_kde(self, key, bins=30, color="purple", alpha=0.6):
+        """Plot a histogram with a KDE curve overlay for a selected parameter.
 
         Args:
             key (str): The variable to analyze.
             bins (int): Number of bins for the histogram.
             color (str): Color of the histogram and KDE curve.
             alpha (float): Transparency of the histogram bars.
+
         """
         if key in self.df.columns:
             plt.figure(figsize=(10, 6))
@@ -301,22 +306,28 @@ class SimulationAnalyzerSeaborn:
             print(f"Key '{key}' not found in the results.")
 
     def rolling_mean_plot(self, key, window=3):
-        """
-        Plot the rolling mean (moving average) for a selected parameter.
+        """Plot the rolling mean (moving average) for a selected parameter.
 
         Args:
             key (str): The parameter to analyze.
             window (int): The size of the moving average window.
+
         """
         sns.set_theme(style="whitegrid", palette="deep")
 
-        if 'date' in self.df.columns and key in self.df.columns:
-            data = self.df[['date', key]].dropna()
-            data['rolling_mean'] = data[key].rolling(window=window).mean()
+        if "date" in self.df.columns and key in self.df.columns:
+            data = self.df[["date", key]].dropna()
+            data["rolling_mean"] = data[key].rolling(window=window).mean()
 
             plt.figure(figsize=(12, 6))
-            plt.plot(data['date'], data[key], label=key, marker='o', linestyle='--', alpha=0.5)
-            plt.plot(data['date'], data['rolling_mean'], label=f"Rolling Mean (window={window})", color='red', linewidth=2)
+            plt.plot(data["date"], data[key], label=key, marker="o", linestyle="--", alpha=0.5)
+            plt.plot(
+                data["date"],
+                data["rolling_mean"],
+                label=f"Rolling Mean (window={window})",
+                color="red",
+                linewidth=2,
+            )
 
             plt.title(f"Rolling Mean of {key} (Window = {window})", fontsize=16)
             plt.xlabel("Time", fontsize=14)
@@ -328,13 +339,13 @@ class SimulationAnalyzerSeaborn:
             print(f"Key '{key}' not found or 'date' column is missing in the results.")
 
     def violin_plot(self, keys=None):
-        """
-        Create violin plots for selected numerical parameters.
+        """Create violin plots for selected numerical parameters.
 
         Args:
             keys (list): List of parameters to plot. If None, plots all numeric columns.
+
         """
-        numeric_columns = self.df.select_dtypes(include=['float64', 'int64']).columns
+        numeric_columns = self.df.select_dtypes(include=["float64", "int64"]).columns
 
         if keys is None:
             keys = numeric_columns
@@ -356,11 +367,11 @@ class SimulationAnalyzerSeaborn:
         plt.show()
 
     def generate_summary_report(self, output_file=None):
-        """
-        Generate a summary report of the DataFrame, including statistics, correlations, and missing values.
+        """Generate a summary report of the DataFrame, including statistics, correlations, and missing values.
 
         Args:
             output_file (str): File path to save the report. If None, prints the report.
+
         """
         report = []
         report.append("### Basic Statistics ###")
@@ -373,7 +384,7 @@ class SimulationAnalyzerSeaborn:
         full_report = "\n".join(report)
 
         if output_file:
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 f.write(full_report)
             print(f"Summary report saved to {output_file}")
         else:
@@ -381,8 +392,7 @@ class SimulationAnalyzerSeaborn:
 
 
 class InteractiveAnalyzerUI(QMainWindow):
-    """
-    A GUI application for interactively visualizing and analyzing data using various plot types.
+    """A GUI application for interactively visualizing and analyzing data using various plot types.
     The application is built using PyQt5 and leverages an analyzer object to perform data analysis.
 
     Attributes:
@@ -399,14 +409,16 @@ class InteractiveAnalyzerUI(QMainWindow):
     Args:
         analyzer (SimulationAnalyzerSeaborn): An optional analysis engine instance. Defaults to a new SimulationAnalyzerSeaborn object with empty configuration.
         preselected_file (str, optional): Path to a preselected data file. Defaults to None.
+
     """
+
     def __init__(self, analyzer, preselected_file=None):
-        """
-        Initialize the InteractiveAnalyzerUI.
+        """Initialize the InteractiveAnalyzerUI.
 
         Args:
             analyzer (SimulationAnalyzerSeaborn): The data analysis engine.
             preselected_file (str, optional): The path to a preselected data file. Defaults to None.
+
         """
         super().__init__()
         self.analyzer = analyzer if analyzer else SimulationAnalyzerSeaborn({})
@@ -423,8 +435,7 @@ class InteractiveAnalyzerUI(QMainWindow):
             self.load_file(self.file_path)
 
     def create_controls(self):
-        """
-        Create the GUI controls for the application, including file selector, plot type dropdown,
+        """Create the GUI controls for the application, including file selector, plot type dropdown,
         and dynamic input fields.
         """
         controls_layout = QVBoxLayout()
@@ -436,19 +447,21 @@ class InteractiveAnalyzerUI(QMainWindow):
         file_selector_layout.addWidget(self.file_select_button)
         controls_layout.addLayout(file_selector_layout)
         self.plot_type_combo = QComboBox()
-        self.plot_type_combo.addItems([
-            "Correlation Heatmap",
-            "Pairplot",
-            "Boxplot Parameters",
-            "Distribution Plot",
-            "Plot Over Time",
-            "Cumulative Distribution Plot",
-            "Regression Plot",
-            "Detect Outliers",
-            "Histogram with KDE",
-            "Rolling Mean Plot",
-            "Violin Plot"
-        ])
+        self.plot_type_combo.addItems(
+            [
+                "Correlation Heatmap",
+                "Pairplot",
+                "Boxplot Parameters",
+                "Distribution Plot",
+                "Plot Over Time",
+                "Cumulative Distribution Plot",
+                "Regression Plot",
+                "Detect Outliers",
+                "Histogram with KDE",
+                "Rolling Mean Plot",
+                "Violin Plot",
+            ],
+        )
         controls_layout.addWidget(QLabel("Select Plot Type:"))
         controls_layout.addWidget(self.plot_type_combo)
         self.dynamic_controls = QVBoxLayout()
@@ -461,21 +474,25 @@ class InteractiveAnalyzerUI(QMainWindow):
         self.update_dynamic_controls()
 
     def select_file(self):
-        """
-        Open a file dialog to allow the user to select a CSV file. The selected file is loaded
+        """Open a file dialog to allow the user to select a CSV file. The selected file is loaded
         and displayed in the application.
         """
         file_dialog = QFileDialog()
-        file_path, _ = file_dialog.getOpenFileName(self, "Select Data File", "", "CSV Files (*.csv);;All Files (*)")
+        file_path, _ = file_dialog.getOpenFileName(
+            self,
+            "Select Data File",
+            "",
+            "CSV Files (*.csv);;All Files (*)",
+        )
         if file_path:
             self.load_file(file_path)
 
     def load_file(self, file_path):
-        """
-        Load data from the specified file and update the analyzer's data.
+        """Load data from the specified file and update the analyzer's data.
 
         Args:
             file_path (str): The path to the data file.
+
         """
         self.file_path = file_path
         self.file_path_label.setText(self.file_path)
@@ -484,8 +501,7 @@ class InteractiveAnalyzerUI(QMainWindow):
         print(f"Loaded data from {self.file_path}")
 
     def update_dynamic_controls(self):
-        """
-        Dynamically update the input fields based on the selected plot type.
+        """Dynamically update the input fields based on the selected plot type.
 
         This method clears the current dynamic controls and adds new ones based on the
         requirements of the selected plot type. Supported plot types determine the input
@@ -501,39 +517,43 @@ class InteractiveAnalyzerUI(QMainWindow):
         self.inputs = {}
 
         if plot_type in ["Correlation Heatmap", "Pairplot", "Boxplot Parameters", "Violin Plot"]:
-            self.inputs['variables'] = QLineEdit()
+            self.inputs["variables"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Variables (comma-separated, optional):"))
-            self.dynamic_controls.addWidget(self.inputs['variables'])
+            self.dynamic_controls.addWidget(self.inputs["variables"])
 
-        if plot_type in ["Distribution Plot", "Cumulative Distribution Plot", "Detect Outliers", "Histogram with KDE"]:
-            self.inputs['key'] = QLineEdit()
+        if plot_type in [
+            "Distribution Plot",
+            "Cumulative Distribution Plot",
+            "Detect Outliers",
+            "Histogram with KDE",
+        ]:
+            self.inputs["key"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Key (required):"))
-            self.dynamic_controls.addWidget(self.inputs['key'])
+            self.dynamic_controls.addWidget(self.inputs["key"])
 
         if plot_type == "Regression Plot":
-            self.inputs['variables'] = QLineEdit()
+            self.inputs["variables"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Variables (independent, dependent):"))
-            self.dynamic_controls.addWidget(self.inputs['variables'])
-            self.inputs['additional'] = QLineEdit()
+            self.dynamic_controls.addWidget(self.inputs["variables"])
+            self.inputs["additional"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Hue (optional):"))
-            self.dynamic_controls.addWidget(self.inputs['additional'])
+            self.dynamic_controls.addWidget(self.inputs["additional"])
 
         if plot_type == "Rolling Mean Plot":
-            self.inputs['key'] = QLineEdit()
+            self.inputs["key"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Key (required):"))
-            self.dynamic_controls.addWidget(self.inputs['key'])
-            self.inputs['window'] = QLineEdit()
+            self.dynamic_controls.addWidget(self.inputs["key"])
+            self.inputs["window"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Window size (integer):"))
-            self.dynamic_controls.addWidget(self.inputs['window'])
+            self.dynamic_controls.addWidget(self.inputs["window"])
 
         if plot_type == "Plot Over Time":
-            self.inputs['variables'] = QLineEdit()
+            self.inputs["variables"] = QLineEdit()
             self.dynamic_controls.addWidget(QLabel("Variables (comma-separated, required):"))
-            self.dynamic_controls.addWidget(self.inputs['variables'])
+            self.dynamic_controls.addWidget(self.inputs["variables"])
 
     def generate_plot(self):
-        """
-        Generate a plot based on the selected plot type and input parameters.
+        """Generate a plot based on the selected plot type and input parameters.
 
         This method retrieves the user inputs, validates them, and triggers the corresponding
         plot generation function from the analyzer. Handles errors and ensures appropriate
@@ -548,6 +568,7 @@ class InteractiveAnalyzerUI(QMainWindow):
 
         Raises:
             Exception: Captures and prints any errors encountered during plot generation.
+
         """
         if not self.file_path:
             print("Please select a file before generating plots.")
@@ -559,15 +580,15 @@ class InteractiveAnalyzerUI(QMainWindow):
         additional_param = None
         window = None
 
-        if 'variables' in self.inputs and self.inputs['variables'].text():
-            variables = [v.strip() for v in self.inputs['variables'].text().split(",") if v.strip()]
-        if 'key' in self.inputs and self.inputs['key'].text():
-            key = self.inputs['key'].text().strip()
+        if "variables" in self.inputs and self.inputs["variables"].text():
+            variables = [v.strip() for v in self.inputs["variables"].text().split(",") if v.strip()]
+        if "key" in self.inputs and self.inputs["key"].text():
+            key = self.inputs["key"].text().strip()
             variables = [v.strip() for v in key.split(",") if v.strip()]
-        if 'additional' in self.inputs and self.inputs['additional'].text():
-            additional_param = self.inputs['additional'].text().strip()
-        if 'window' in self.inputs and self.inputs['window'].text():
-            window = self.inputs['window'].text().strip()
+        if "additional" in self.inputs and self.inputs["additional"].text():
+            additional_param = self.inputs["additional"].text().strip()
+        if "window" in self.inputs and self.inputs["window"].text():
+            window = self.inputs["window"].text().strip()
 
         try:
             if plot_type == "Correlation Heatmap":
@@ -617,6 +638,7 @@ class InteractiveAnalyzerUI(QMainWindow):
                 print("Invalid plot type selected.")
         except Exception as e:
             print(f"An error occurred while generating the plot: {e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:

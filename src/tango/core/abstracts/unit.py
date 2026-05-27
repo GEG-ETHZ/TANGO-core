@@ -1,4 +1,3 @@
-from enum import Enum, auto
 from abc import ABC, abstractmethod
 
 from tango.core import FluidState
@@ -6,15 +5,15 @@ from tango.core.errors import CoolPropError
 
 
 class UnitSpecs(ABC):
-    """
-    Abstract base class for unit specifications.
+    """Abstract base class for unit specifications.
     Extend this class to define specific specifications for different units.
     """
+
     pass
 
+
 class Unit(ABC):
-    r"""
-    Abstract Base Unit for process simulations.
+    r"""Abstract Base Unit for process simulations.
 
     Represents a unit operation in a process flow, handling mass and energy balances
     between inlet and outlet streams.
@@ -27,15 +26,16 @@ class Unit(ABC):
         mass_rate (float): Total mass flow rate through the unit (kg/s).
         inlet_fluid (FluidState): Fluid state of the inlet.
         outlet_fluid (FluidState): Fluid state of the outlet.
+
     """
 
     def __init__(self, id, specs) -> None:
-        """
-        Initializes a new instance of the Unit class.
+        """Initializes a new instance of the Unit class.
 
         Args:
             id (str): Unique identifier for the unit.
             specs (dict): Specifications for the unit.
+
         """
         self.id = id
         self.specs = specs
@@ -46,29 +46,29 @@ class Unit(ABC):
         self.outlet_fluid: FluidState
 
     def set_inlet_stream(self, sl) -> None:
-        """
-        Adds an inlet stream to the unit.
+        """Adds an inlet stream to the unit.
 
         Args:
             sl: Stream to be added as an inlet.
+
         """
         self.inlet_streams.append(sl)
 
     def set_outlet_stream(self, sl) -> None:
-        """
-        Adds an outlet stream to the unit.
+        """Adds an outlet stream to the unit.
 
         Args:
             sl: Stream to be added as an outlet.
+
         """
         self.outlet_streams.append(sl)
 
     def init_inlet_state(self, inlet_state) -> None:
-        """
-        Initializes the inlet fluid state by copying the outlet state of the previous unit.
+        """Initializes the inlet fluid state by copying the outlet state of the previous unit.
 
         Args:
             inlet_state: The previous unit's outlet fluid state.
+
         """
         self.inlet_fluid = FluidState.copy(inlet_state.outlet_fluid)
 
@@ -102,8 +102,7 @@ class Unit(ABC):
                 raise cpe_inner from cpe
 
     def update_outlet_streams(self) -> None:
-        r"""
-        Updates the outlet streams based on the outlet fluid state, assuming uniform distribution.
+        r"""Updates the outlet streams based on the outlet fluid state, assuming uniform distribution.
 
         Each outlet stream receives an equal share of the mass flow rate and the same
         fluid state properties.
@@ -116,20 +115,20 @@ class Unit(ABC):
                 sl.fluid_state.updatePT(P=self.outlet_fluid.P, T=self.outlet_fluid.T)
 
     def init_state(self) -> None:
-        """
-        Abstract method to initialize the unit state.
+        """Abstract method to initialize the unit state.
 
         Raises:
             NotImplementedError: This method must be implemented in derived classes.
+
         """
         raise NotImplementedError("Implement 'init_state' method in your derived Unit class.")
 
     def stream_interface(self) -> None:
-        """
-        Abstract method to execute the unit operation.
+        """Abstract method to execute the unit operation.
 
         Raises:
             NotImplementedError: This method must be implemented in derived classes.
+
         """
         raise NotImplementedError("Implement 'stream_interface' method in your derived Unit class.")
 

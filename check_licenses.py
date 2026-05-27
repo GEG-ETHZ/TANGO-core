@@ -3,9 +3,19 @@ import sys
 
 # Define normalized allowed licenses
 ALLOWED_LICENSES = {
-    "mit", "apache-2.0", "bsd-2-clause", "bsd-3-clause", "bsd",
-    "isc", "mpl-2.0", "psf", "python software foundation",
-    "python software foundation license", "unlicense", "python license", "hpnd"
+    "mit",
+    "apache-2.0",
+    "bsd-2-clause",
+    "bsd-3-clause",
+    "bsd",
+    "isc",
+    "mpl-2.0",
+    "psf",
+    "python software foundation",
+    "python software foundation license",
+    "unlicense",
+    "python license",
+    "hpnd",
 }
 # License aliases to normalize inconsistencies
 LICENSE_ALIASES = {
@@ -20,10 +30,11 @@ LICENSE_ALIASES = {
     "gnu general public license v3 (gplv3)": "gplv3",
     "lgpl": "lgpl",
     "agpl": "agpl",
-    "other/proprietary license": "proprietary"
+    "other/proprietary license": "proprietary",
 }
 
 import re
+
 
 def normalize_license(license_str):
     license_str = license_str.lower().strip()
@@ -41,7 +52,11 @@ def normalize_license(license_str):
     # Additional fixes for common variations
     if "apache" in license_str:
         return "apache-2.0"
-    if "python software foundation" in license_str or "psf" in license_str or "python foundation" in license_str:
+    if (
+        "python software foundation" in license_str
+        or "psf" in license_str
+        or "python foundation" in license_str
+    ):
         return "psf"
     if "isc" in license_str:
         return "isc"
@@ -65,7 +80,7 @@ def normalize_license(license_str):
 
 
 # Load the licenses.json file
-with open("licenses.json", "r") as f:
+with open("licenses.json") as f:
     data = json.load(f)
 
 # Debug: Print all unique normalized licenses before checking violations
@@ -77,7 +92,6 @@ violations = []
 for pkg in data:
     pkg_name = pkg.get("Name", "UNKNOWN")
     pkg_license = pkg.get("License", "UNKNOWN")
-
 
     # Normalize and split multiple licenses
     pkg_licenses = {normalize_license(lic.strip()) for lic in pkg_license.replace(";", ",").split(",")}

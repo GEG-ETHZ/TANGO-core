@@ -1,12 +1,11 @@
 from tango.core.constants import GRAVITY_ACCELERATION
-from tango.units.dataclasses import ReservoirSpecsPorousflow
 from tango.core.fluidstate import FluidState
+from tango.units.dataclasses import ReservoirSpecsPorousflow
 from tango.units.external.MOOSE.base import MOOSERunner, TangoMooseInterface
 
 
 class ReservoirUnitPorousflow(MOOSERunner):
-    r"""
-    MOOSE Reservoir Unit for simulating porous flow in reservoirs.
+    r"""MOOSE Reservoir Unit for simulating porous flow in reservoirs.
 
     This class interfaces with a MOOSE-based application to simulate reservoir behavior
     based on specified inlet conditions, fluid properties, and reservoir characteristics.
@@ -28,14 +27,16 @@ class ReservoirUnitPorousflow(MOOSERunner):
         _compute_initial_temperature: Calculates the initial temperature of the reservoir.
         _compute_initial_pressure: Calculates the initial pressure of the reservoir.
         _initialize_mdot_mult: Initializes the mass flow rate multiplier based on the well pattern.
+
     """
+
     def __init__(self, unit_id: str, specs: dict) -> None:
-        """
-        Initializes a new instance of the ReservoirUnitPorousflow class.
+        """Initializes a new instance of the ReservoirUnitPorousflow class.
 
         Args:
             id (str): Identifier for the reservoir unit.
             specs (dict): Specifications for the reservoir simulation.
+
         """
         super().__init__(unit_id, specs)
         self.specs = ReservoirSpecsPorousflow.from_dict(self._process_specs(specs))
@@ -45,12 +46,12 @@ class ReservoirUnitPorousflow(MOOSERunner):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def init_stream_interface(self, P: float = None, T: float = None) -> None:
-        """
-        Initializes the stream interface with specified or default pressure and temperature.
+        """Initializes the stream interface with specified or default pressure and temperature.
 
         Args:
             P (float, optional): Initial pressure for the reservoir (Pa).
             T (float, optional): Initial temperature for the reservoir (°C).
+
         """
         P = self.initial_pressure if P is None else P
         T = self.initial_temperature if T is None else T
@@ -58,14 +59,14 @@ class ReservoirUnitPorousflow(MOOSERunner):
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
     def process_stream(self) -> tuple[float, float, float]:
-        r"""
-        Updates the reservoir state given the inlet state.
+        r"""Updates the reservoir state given the inlet state.
 
         This function simulates the reservoir's response based on the inlet fluid state
         and updates the outlet fluid state using MOOSE.
 
         Returns:
             tuple: Updated outlet pressure (Pa), temperature (°C), and mass rate (kg/s).
+
         """
         self.m_dot = self.m_dot_mult * self.mass_rate
         self._interface.pressure_from_TANGO = self.inlet_fluid.P
@@ -79,9 +80,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _specs_post_processor(self) -> None:
-        """
-        Processes the specifications to initialize reservoir properties.
-        """
+        """Processes the specifications to initialize reservoir properties."""
         self.fluid_name = self.specs.fluid_name
         self.well_pattern = self.specs.well_pattern.upper()
         self.initial_temperature = self._compute_initial_temperature()
@@ -93,32 +92,32 @@ class ReservoirUnitPorousflow(MOOSERunner):
             self.specs.moose_input_path,
             self.specs.pressure_bc_file,
             self.specs.flowrate_bc_file,
-            self.specs.temperature_bc_file)
+            self.specs.temperature_bc_file,
+        )
 
     def _process_specs(self, specs) -> dict:
-        """
-        Combines common and reservoir-specific specifications.
+        """Combines common and reservoir-specific specifications.
 
         Args:
             specs (dict): Input specifications.
 
         Returns:
             dict: Merged specifications.
+
         """
-        return specs['common'] | specs['reservoir']
+        return specs["common"] | specs["reservoir"]
 
     def _compute_area(self) -> float:
-        """
-        Computes the reservoir area.
+        """Computes the reservoir area.
 
         Returns:
             float: Computed reservoir area (m²).
+
         """
-        return 0.5 * (self.specs.well_spacing ** 2) if self.specs.area is None else self.specs.area
+        return 0.5 * (self.specs.well_spacing**2) if self.specs.area is None else self.specs.area
 
     def _compute_initial_temperature(self) -> float:
-        r"""
-        Computes the initial reservoir temperature.
+        r"""Computes the initial reservoir temperature.
 
         Formula:
             .. math::
@@ -131,6 +130,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
 
         Returns:
             float: Initial temperature (°C).
+
         """
         if self.specs.initial_temperature is not None:
             return self.specs.initial_temperature
@@ -139,8 +139,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
         return T0 + h * dTdz
 
     def _compute_initial_pressure(self) -> float:
-        r"""
-        Computes the initial reservoir pressure.
+        r"""Computes the initial reservoir pressure.
 
         Formula:
             .. math::
@@ -153,6 +152,7 @@ class ReservoirUnitPorousflow(MOOSERunner):
 
         Returns:
             float: Initial pressure (Pa).
+
         """
         if self.specs.initial_pressure is not None:
             return self.specs.initial_pressure
@@ -160,11 +160,10 @@ class ReservoirUnitPorousflow(MOOSERunner):
         return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
     def _initialize_mdot_mult(self) -> None:
-        """
-        Initializes the mass flow rate multiplier based on the well pattern.
+        """Initializes the mass flow rate multiplier based on the well pattern.
 
         Multiplier Values:
             - 0.25 for 'INVERTED_5SPOT'.
             - 1.0 for other patterns.
         """
-        self.m_dot_mult = 0.25 if self.well_pattern == 'INVERTED_5SPOT' else 1.0
+        self.m_dot_mult = 0.25 if self.well_pattern == "INVERTED_5SPOT" else 1.0
