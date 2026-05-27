@@ -42,6 +42,6 @@ repos:
         name: Run test suite
         entry: uv run pytest -v
         language: system
-        types: [python]
+        files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false
         stages: [pre-push]
