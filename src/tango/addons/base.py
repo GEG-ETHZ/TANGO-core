@@ -4,13 +4,9 @@ class TangoAddon:
         self.graph = graph
 
     def post_process(self):
-        """
-        Post Process the result.
-        """
+        """Post Process the result."""
         raise NotImplementedError("post_process method should be implemented by the add-on.")
 
     def execute(self):
-        """
-        Execute the add-on.
-        """
+        """Execute the add-on."""
         raise NotImplementedError("execute method should be implemented by the add-on.")

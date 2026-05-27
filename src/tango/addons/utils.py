@@ -38,6 +38,7 @@ def resolve_addon_output_path(
         PosixPath('output/custom.json')
         >>> resolve_addon_output_path("/tmp/states.json", "states.json")
         PosixPath('/tmp/states.json')
+
     """
     output_dir = Path(output_dir)
 

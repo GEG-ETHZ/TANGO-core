@@ -1,19 +1,18 @@
-import networkx as nx
-import numpy as np
 import copy
-import logging
 import inspect
+import logging
 
+import numpy as np
+
+from tango.core.abstracts.orchestrator import UnitManager
 from tango.core.config import CONVERGENCE_CRITERIA
 from tango.core.constants import MIN_INJ_TEMPERATURE
-from tango.core.abstracts.orchestrator import UnitManager
-from tango.utils import newton
 from tango.core.errors import CoolPropError
+from tango.utils import newton
 
 
 class SystemNative(UnitManager):
-    """
-    Base class for managing native systems in TANGO.
+    """Base class for managing native systems in TANGO.
 
     This class provides the framework for system iterations, convergence checks, and time-dependent variable updates.
 
@@ -21,55 +20,57 @@ class SystemNative(UnitManager):
         x_lst (list): List of x-values for root-finding or iterative calculations.
         y_lst (list): List of y-values corresponding to `x_lst`.
         MAX_NUM_ITR (int): Maximum number of iterations allowed for convergence.
+
     """
+
     def __init__(self, specs, unit_options):
-        """
-        Initializes the SystemNative object.
+        """Initializes the SystemNative object.
 
         Args:
             specs (dict): The specifications for the system.
             unit_options (dict): Dictionary mapping unit types and names to classes.
+
         """
         super().__init__(specs, unit_options)
         self.x_lst, self.y_lst = [], []
-        self.MAX_NUM_ITR = CONVERGENCE_CRITERIA['max_num_itr']
+        self.MAX_NUM_ITR = CONVERGENCE_CRITERIA["max_num_itr"]
 
     def max_itr_reached(self, count) -> bool:
-        """
-        Checks if the maximum number of iterations has been reached.
+        """Checks if the maximum number of iterations has been reached.
 
         Args:
             count (int): Current iteration count.
 
         Returns:
             bool: True if the maximum number of iterations is reached, False otherwise.
+
         """
         if count > self.MAX_NUM_ITR:
-            logging.warning(f"Max number of iteration (={count}) has reached in '{inspect.stack()[1][3]}'. Exiting iteration.")
+            logging.warning(
+                f"Max number of iteration (={count}) has reached in '{inspect.stack()[1][3]}'. Exiting iteration.",
+            )
             return True
 
         return False
 
     def balanced(self) -> bool:
-        """
-        Determines if the system is balanced.
+        """Determines if the system is balanced.
 
         Returns:
             bool: True (default implementation always returns True).
+
         """
         return True
 
     def update_time_dependent_vars(self) -> None:
-        """
-        Updates variables that depend on time.
+        """Updates variables that depend on time.
 
         Placeholder in this base class.
         """
         pass
 
     def update(self) -> None:
-        """
-        Updates unknowns to balance the system.
+        """Updates unknowns to balance the system.
 
         Placeholder in this base class.
         """
@@ -77,55 +78,53 @@ class SystemNative(UnitManager):
 
 
 class SystemCPGNative(SystemNative):
-    """
-    Class for managing native systems in TANGO with CPG (Conventional Petroleum Geothermal) integration.
+    """Class for managing native systems in TANGO with CPG (Conventional Petroleum Geothermal) integration.
 
     This class extends `SystemNative` to include specific convergence criteria and balancing logic.
 
     Attributes:
         _CONVERGENCE_CRIT_DP_RESERVOIR (float): Convergence criterion for reservoir pressure difference.
         stop (bool): Indicates if the system should stop iterations.
+
     """
+
     def __init__(self, specs, unit_options):
-        """
-        Initializes the SystemCPGNative object.
+        """Initializes the SystemCPGNative object.
 
         Args:
             specs (dict): The specifications for the system.
             unit_options (dict): Dictionary mapping unit types and names to classes.
+
         """
         super().__init__(specs, unit_options)
         self._set_convergence_criteria()
         self.stop = False
 
     def _set_convergence_criteria(self) -> None:
-        """
-        Sets the convergence criteria for the system.
-        """
-        self._CONVERGENCE_CRIT_DP_RESERVOIR = CONVERGENCE_CRITERIA['dP_reservoir']
+        """Sets the convergence criteria for the system."""
+        self._CONVERGENCE_CRIT_DP_RESERVOIR = CONVERGENCE_CRITERIA["dP_reservoir"]
 
     def balanced(self) -> bool:
-        """
-        Determines if the system is balanced based on reservoir pressure.
+        """Determines if the system is balanced based on reservoir pressure.
 
         Returns:
             bool: True if the system is balanced, False otherwise.
+
         """
-        if self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom':
+        if self.specs["schedule"]["bc_iteration_checkpoint"] == "production_well_bottom":
             self.dP_reservoir = self.unit.reservoir.get_del_pressure()
-        elif self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
+        elif self.specs["schedule"]["bc_iteration_checkpoint"] == "injection_well_bottom":
             self.dP_reservoir = 10000000
 
         is_balanced: bool = np.abs(self.dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR
         return is_balanced
 
     def update(self) -> None:
-        """
-        Updates unknown variables to balance the system.
+        """Updates unknown variables to balance the system.
 
         Handles pressure adjustments for production and injection wells.
         """
-        if self.specs['schedule']['bc_iteration_checkpoint'] == 'production_well_bottom':
+        if self.specs["schedule"]["bc_iteration_checkpoint"] == "production_well_bottom":
             self.x_lst.append(self.unit.surface.get_dP_pump())
             self.y_lst.append(self.dP_reservoir)
             if len(self.x_lst) == 1:  # First iteration
@@ -135,25 +134,21 @@ class SystemCPGNative(SystemNative):
                 self.x_lst.pop(0)
                 self.y_lst.pop(0)
             self.unit.surface.update_dP_pump(root)
-        elif self.specs['schedule']['bc_iteration_checkpoint'] == 'injection_well_bottom':
-            raise NotImplementedError(f"injection_well_bottom checkpoint is not supperted in native workflow!")
+        elif self.specs["schedule"]["bc_iteration_checkpoint"] == "injection_well_bottom":
+            raise NotImplementedError(
+                "injection_well_bottom checkpoint is not supperted in native workflow!",
+            )
 
         try:
             outlet_pressure, outlet_temperature, mass_rate = self.unit.surface.process_stream()
             self.unit.surface.outlet_fluid.updatePT(outlet_pressure, outlet_temperature)
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}"
-            ) from cpe
+            raise type(cpe)(f"Surface `process_stream` or `outlet_fluid.updatePT` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "Surface `process_stream` or `outlet_fluid.updatePT` failed"
-            ) from err
-        
+            raise type(err)("Surface `process_stream` or `outlet_fluid.updatePT` failed") from err
 
     def update_time_dependent_vars(self) -> None:
-        """
-        Updates time-dependent variables for all units in the system.
+        """Updates time-dependent variables for all units in the system.
 
         Handles dimensionless time updates and increments row indices for time steps.
         """
@@ -170,8 +165,7 @@ class SystemCPGNative(SystemNative):
 
 
 class SystemORCNative(SystemNative):
-    """
-    Class for managing native systems in TANGO with ORC (Organic Rankine Cycle) integration.
+    """Class for managing native systems in TANGO with ORC (Organic Rankine Cycle) integration.
 
     This class extends `SystemNative` to include input checks specific to ORC systems.
 
@@ -180,22 +174,25 @@ class SystemORCNative(SystemNative):
 
     Methods:
         None specific to this class beyond the inherited methods.
+
     """
+
     def __init__(self, state, unit_options):
-        """
-        Initializes the SystemORCNative object.
+        """Initializes the SystemORCNative object.
 
         Args:
             state (dict): The state for the system.
             unit_options (dict): Dictionary mapping unit types and names to classes.
+
         """
         super().__init__(state, unit_options)
-        self._input_check(['injection_well', 'reservoir', 'production_well', 'production_well_pump', 'surface'])
+        self._input_check(
+            ["injection_well", "reservoir", "production_well", "production_well_pump", "surface"],
+        )
         self._set_convergence_criteria()
 
     def _set_convergence_criteria(self) -> None:
-        """
-        Sets the convergence criteria for the system.
+        """Sets the convergence criteria for the system.
 
         Convergence criteria include:
         - Reservoir pressure difference (`dP_reservoir`).
@@ -207,13 +204,12 @@ class SystemORCNative(SystemNative):
             - `self._CONVERGENCE_CRIT_DP_SURFACE`
             - `self._CONVERGENCE_CRIT_DT_SURFACE`
         """
-        self._CONVERGENCE_CRIT_DP_RESERVOIR: float = CONVERGENCE_CRITERIA['dP_reservoir']
-        self._CONVERGENCE_CRIT_DP_SURFACE: float = CONVERGENCE_CRITERIA['dP_surface']
-        self._CONVERGENCE_CRIT_DT_SURFACE: float = CONVERGENCE_CRITERIA['dT_surface']
+        self._CONVERGENCE_CRIT_DP_RESERVOIR: float = CONVERGENCE_CRITERIA["dP_reservoir"]
+        self._CONVERGENCE_CRIT_DP_SURFACE: float = CONVERGENCE_CRITERIA["dP_surface"]
+        self._CONVERGENCE_CRIT_DT_SURFACE: float = CONVERGENCE_CRITERIA["dT_surface"]
 
     def _update_injection_well_inlet_P(self) -> None:
-        """
-        Performs local iterations to update the injection well inlet pressure.
+        """Performs local iterations to update the injection well inlet pressure.
 
         Logic:
 
@@ -228,6 +224,7 @@ class SystemORCNative(SystemNative):
 
         Raises:
             RuntimeError: If the maximum number of iterations is reached.
+
         """
         self.unit.injection_well.update_inlet_state()
         dP_reservoir = self.unit.reservoir.get_del_pressure()
@@ -255,31 +252,30 @@ class SystemORCNative(SystemNative):
                 count += 1
             except CoolPropError as cpe:
                 raise type(cpe)(
-                    f"`_update_injection_well_inlet_P` failed on iteration {count}\n\t{cpe}"
+                    f"`_update_injection_well_inlet_P` failed on iteration {count}\n\t{cpe}",
                 ) from cpe
             except Exception as err:
-                raise type(err)(
-                    f"`_update_injection_well_inlet_P` failed on iteration {count}"
-                ) from err
+                raise type(err)(f"`_update_injection_well_inlet_P` failed on iteration {count}") from err
 
     def _compute_dP_surface(self) -> float:
-        """
-        Computes the surface pressure difference (`dP_surface`).
+        """Computes the surface pressure difference (`dP_surface`).
 
         Formula:
             dP_surface = P_outlet_production_pump - P_inlet_injection_well - dP_pipe
 
         Returns:
             float: Surface pressure difference.
+
         """
-        dp_surface: float = self.unit.production_well_pump.outlet_fluid.P \
-             - self.unit.injection_well.inlet_fluid.P \
-             - self.unit.surface.dP_pipe
+        dp_surface: float = (
+            self.unit.production_well_pump.outlet_fluid.P
+            - self.unit.injection_well.inlet_fluid.P
+            - self.unit.surface.dP_pipe
+        )
         return dp_surface
 
     def _update_production_well(self) -> None:
-        """
-        Updates the production well states.
+        """Updates the production well states.
 
         Steps:
         - Updates the inlet state of the production well.
@@ -290,70 +286,50 @@ class SystemORCNative(SystemNative):
         try:
             self.unit.production_well.update_inlet_state()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.production_well.update_inlet_state` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.production_well.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well.update_inlet_state` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well.update_inlet_state` failed") from err
         try:
             self.unit.production_well.stream_interface()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.production_well.stream_interface` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.production_well.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well.stream_interface` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well.stream_interface` failed") from err
         try:
             self.unit.production_well.update_outlet_streams()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.production_well.update_outlet_streams` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.production_well.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well.update_outlet_streams` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well.update_outlet_streams` failed") from err
         try:
             self.unit.production_well_pump.update_inlet_state()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.production_well_pump.update_inlet_state` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.production_well_pump.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well_pump.update_inlet_state` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well_pump.update_inlet_state` failed") from err
         try:
             self.unit.production_well_pump.stream_interface()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.production_well_pump.stream_interface` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.production_well_pump.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well_pump.stream_interface` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well_pump.stream_interface` failed") from err
         try:
             self.unit.production_well_pump.update_outlet_streams()
         except CoolPropError as cpe:
             raise type(cpe)(
-                f"`self.unit.production_well_pump.update_outlet_streams` failed\n\t{cpe}") from cpe
+                f"`self.unit.production_well_pump.update_outlet_streams` failed\n\t{cpe}",
+            ) from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.production_well_pump.update_outlet_streams` failed"
-            ) from err
+            raise type(err)("`self.unit.production_well_pump.update_outlet_streams` failed") from err
         try:
             self._update_production_well_pump()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self._update_production_well_pump` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self._update_production_well_pump` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self._update_production_well_pump` failed"
-            ) from err
+            raise type(err)("`self._update_production_well_pump` failed") from err
 
     def _update_production_well_pump(self) -> None:
-        """
-        Performs local iterations to update `dP_pump` for the production well pump.
+        """Performs local iterations to update `dP_pump` for the production well pump.
 
         Logic:
         - Iteratively adjusts the pump pressure difference (`dP_pump`) to minimize the surface pressure difference.
@@ -365,11 +341,12 @@ class SystemORCNative(SystemNative):
 
         Raises:
             RuntimeError: If the maximum number of iterations is reached.
+
         """
         dP_pump = self.unit.production_well_pump.get_dP_pump()
         dP_surface = self._compute_dP_surface()
 
-        if dP_pump == 0. and dP_surface >= 0:
+        if dP_pump == 0.0 and dP_surface >= 0:
             return  # No pumping needed
 
         x_lst, y_lst = [], []
@@ -392,13 +369,11 @@ class SystemORCNative(SystemNative):
                 self.unit.production_well_pump.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
             except CoolPropError as cpe:
                 raise type(cpe)(
-                    f"`_update_production_well_pump` failed on iteration {count}\n\t{cpe}"
+                    f"`_update_production_well_pump` failed on iteration {count}\n\t{cpe}",
                 ) from cpe
             except Exception as err:
-                raise type(err)(
-                    f"`_update_production_well_pump` failed on iteration {count}"
-                ) from err
-            
+                raise type(err)(f"`_update_production_well_pump` failed on iteration {count}") from err
+
             self.unit.surface.update_inlet_state()
             self.unit.surface.overwrite_state_pipe()
             dP_pump = self.unit.production_well_pump.get_dP_pump()
@@ -408,8 +383,7 @@ class SystemORCNative(SystemNative):
         self.unit.surface.w_downhole_pump = self.unit.production_well_pump.get_w_pump()
 
     def _update_surface(self) -> None:
-        """
-        Updates the surface system states.
+        """Updates the surface system states.
 
         Steps:
         - Updates the inlet and outlet states of the surface system.
@@ -420,33 +394,25 @@ class SystemORCNative(SystemNative):
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.update_inlet_state` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.update_inlet_state` failed") from err
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.stream_interface` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.stream_interface` failed") from err
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.update_outlet_streams` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.update_outlet_streams` failed") from err
         try:
             self.unit.injection_well.update_inlet_state()
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.injection_well.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.injection_well.update_inlet_state` failed"
-            ) from err
+            raise type(err)("`self.unit.injection_well.update_inlet_state` failed") from err
 
     def _update_injection_well_inlet_T(self) -> None:
         """Perform local iterations to update the injection well inlet temperature.
@@ -472,30 +438,21 @@ class SystemORCNative(SystemNative):
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.surface.update_inlet_state` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.update_inlet_state` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.update_inlet_state` failed") from err
         try:
             self.unit.surface.stream_interface()
         except CoolPropError as cpe:
             raise type(cpe)(f"`self.unit.surface.stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.stream_interface` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.stream_interface` failed") from err
         try:
             self.unit.surface.update_outlet_streams()
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
+            raise type(cpe)(f"`self.unit.surface.update_outlet_streams` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "`self.unit.surface.update_outlet_streams` failed"
-            ) from err
+            raise type(err)("`self.unit.surface.update_outlet_streams` failed") from err
 
-        dT_surface = self.unit.injection_well.get_del_temperature(
-            T=self.unit.surface.outlet_fluid.T
-        )
+        dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.outlet_fluid.T)
         self.x_lst.append(copy.deepcopy(self.unit.injection_well.get_inlet_temperature_tmp()))
         self.y_lst.append(dT_surface)
 
@@ -514,8 +471,7 @@ class SystemORCNative(SystemNative):
         self.unit.injection_well.update_inlet_temperature_tmp()
 
     def balanced(self) -> bool:
-        """
-        Checks if the system is balanced.
+        """Checks if the system is balanced.
 
         Logic:
             The system is balanced if:
@@ -525,21 +481,21 @@ class SystemORCNative(SystemNative):
 
         Returns:
             bool: True if the system is balanced, False otherwise.
+
         """
         dP_reservoir = self.unit.reservoir.get_del_pressure()
         dP_surface = self._compute_dP_surface()
         dT_surface = self.unit.injection_well.get_del_temperature(T=self.unit.surface.outlet_fluid.T)
 
         is_balanced: bool = (
-            (np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR) and
-            (np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE) and
-            (np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE)
+            (np.abs(dP_reservoir) < self._CONVERGENCE_CRIT_DP_RESERVOIR)
+            and (np.abs(dP_surface) < self._CONVERGENCE_CRIT_DP_SURFACE)
+            and (np.abs(dT_surface) < self._CONVERGENCE_CRIT_DT_SURFACE)
         )
         return is_balanced
 
     def update(self) -> None:
-        """
-        Updates unknown variables to balance the system.
+        """Updates unknown variables to balance the system.
 
         Logic:
             Iteratively calls methods to update pressure, temperature, and production well states
@@ -552,6 +508,7 @@ class SystemORCNative(SystemNative):
 
         Raises:
             RuntimeError: If the maximum number of iterations is reached without balancing.
+
         """
         count = 0
 
@@ -564,8 +521,7 @@ class SystemORCNative(SystemNative):
             count += 1
 
     def update_time_dependent_vars(self) -> None:
-        """
-        Updates time-dependent variables for all system units.
+        """Updates time-dependent variables for all system units.
 
         Logic:
             Clears historical lists of x and y values used in root-finding.

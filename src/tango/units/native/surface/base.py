@@ -1,8 +1,6 @@
-import numpy as np
 from abc import abstractmethod
-from pathlib import Path
 
-from tango.core.abstracts.unit import Unit, SimplePressureDrop
+from tango.core.abstracts.unit import SimplePressureDrop, Unit
 from tango.core.errors import (
     CoolPropError,
     TESPyCoolPropError,
@@ -11,8 +9,7 @@ from tango.core.errors import (
 
 
 class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
-    r"""
-    Represents the surface power plant unit based on Adams et al. (2015).
+    r"""Represents the surface power plant unit based on Adams et al. (2015).
 
     This class models the thermal and operational behavior of a power plant unit,
     including its interactions with inlet and outlet streams, cooling, condensing,
@@ -28,15 +25,16 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         _m_dot_mult (float): Multiplier for converting well-pair level mass flow rate to pattern level.
         _coeffs_cooling (list): Coefficients for cooling parasitic power calculation.
         _coeffs_condensing (list): Coefficients for condensing parasitic power calculation.
+
     """
 
     def __init__(self, id, specs):
-        """
-        Initializes a new instance of the SurfaceUnitNative class.
+        """Initializes a new instance of the SurfaceUnitNative class.
 
         Args:
             id (str): Identifier for the unit.
             specs (object): Specifications for the unit's operation and performance.
+
         """
         super().__init__(id, specs)
         self.diagram_states = {}
@@ -47,8 +45,7 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
     # ----------------------------------------- Public Functions ----------------------------------------- #
 
     def stream_interface(self) -> None:
-        """
-        Interfaces with the streams to update mass flow rate and fluid states.
+        """Interfaces with the streams to update mass flow rate and fluid states.
 
         This function processes the stream to compute outlet properties based on inlet conditions
         and displays the inlet and outlet fluid states.
@@ -61,21 +58,14 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
             self.H = self.outlet_fluid.H
         except CoolPropError as cpe:
             # Direct CoolProp error - reraise with context
-            raise type(cpe)(
-                f"Surface `stream_interface` failed\n\t{cpe}"
-            ) from cpe
+            raise type(cpe)(f"Surface `stream_interface` failed\n\t{cpe}") from cpe
         except TESPyCoolPropError as tes_err:
-            raise type(tes_err)(
-                f"Surface `stream_interface` failed\n\t{tes_err}"
-            ) from tes_err
+            raise type(tes_err)(f"Surface `stream_interface` failed\n\t{tes_err}") from tes_err
         except Exception as err:
-            raise type(err)(
-                f"Surface `stream_interface` failed\n\t{err}"
-            ) from err
+            raise type(err)(f"Surface `stream_interface` failed\n\t{err}") from err
 
     def update_inlet_state(self) -> None:
-        r"""
-        Updates the inlet fluid state based on mass flow rate weighted averages of inlet streams.
+        r"""Updates the inlet fluid state based on mass flow rate weighted averages of inlet streams.
 
         This method calculates average temperature (T), pressure (P), and enthalpy (H) from all
         incoming streams, then updates the state of the inlet fluid.
@@ -121,8 +111,7 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _set_mult(self) -> None:
-        r"""
-        Sets the mass flow rate multiplier based on the well pattern.
+        r"""Sets the mass flow rate multiplier based on the well pattern.
 
         This multiplier converts the well-pair level mass flow rate at a producer to the pattern-level
         injection mass flow rate.
@@ -134,13 +123,13 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         self._m_dot_mult = 4.0 if self.specs.well_pattern in ["5SPOT", "INVERTED_5SPOT"] else 1.0
 
     def _set_constants(self) -> None:
-        """
-        Sets coefficients for cooling and condensing parasitic power calculations based on cooling mode.
+        """Sets coefficients for cooling and condensing parasitic power calculations based on cooling mode.
 
         Coefficients are derived from Baltimore Aircoil (BAC) regression models.
 
         Raises:
             ValueError: If the specified cooling mode is not supported.
+
         """
         if self.specs.cooling_mode == "WET":
             self._coeffs_cooling = [1.2, 0.0, -3.79e-3, 1.95e-2]
@@ -152,8 +141,7 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
             raise ValueError(f"surface_cooling_tower_mode: {self.specs.cooling_mode} is not supported")
 
     def _BAC_regression_model(self, coeffs: list) -> float:
-        r"""
-        Computes the parasitic power fraction using a BAC regression model.
+        r"""Computes the parasitic power fraction using a BAC regression model.
 
         Args:
             coeffs (list): Coefficients for the regression model.
@@ -170,28 +158,31 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
             - \( T_{\text{ambient}} \): Ambient temperature (\(^\circ\text{C}\)).
             - \( \Delta T_{\text{approach}} \): Approach temperature difference (\(^\circ\text{C}\)).
             - \( \Delta T_{\text{range}} \): Condensation temperature range (\(^\circ\text{C}\)).
+
         """
         a, b, c, d = coeffs
         T_ambient = self.specs.surface_temperature
         dT_approach = self.specs.approach_temperature
         dT_range = self._condensation_temperature_range
-        pwr_parasitic: float = a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        pwr_parasitic: float = (
+            a / dT_approach + b * T_ambient + c * T_ambient / dT_approach + d / (dT_approach + dT_range)
+        )
         return pwr_parasitic
 
     def _get_parasitic_power_fraction_cooling(self):
-        """
-        Computes the parasitic power fraction for cooling.
+        """Computes the parasitic power fraction for cooling.
 
         Returns:
             float: Cooling parasitic power fraction.
+
         """
         return self._BAC_regression_model(coeffs=self._coeffs_cooling)
 
     def _get_parasitic_power_fraction_condensing(self):
-        """
-        Computes the parasitic power fraction for condensing.
+        """Computes the parasitic power fraction for condensing.
 
         Returns:
             float: Condensing parasitic power fraction.
+
         """
         return self._BAC_regression_model(coeffs=self._coeffs_condensing)

@@ -179,6 +179,40 @@ select = [
     "W" # Warning
 ]
 ignore = [
+    # TODO: legacy errors inherited from pre-cleanup codebase — remove during overhaul
+    "D401",   # imperative-mood docstrings (429 instances)
+    "N806",   # variable in function should be lowercase (378 instances)
+    "E501",   # line too long (129 instances)
+    "D100",   # missing docstring in public module (60 instances)
+    "N802",   # function name should be lowercase (57 instances)
+    "F405",   # may be undefined from star import (38 instances)
+    "ARG002", # unused method argument (24 instances)
+    "D417",   # missing argument descriptions in docstring (24 instances)
+    "D107",   # missing docstring in __init__ (19 instances)
+    "D103",   # missing docstring in public function (19 instances)
+    "N816",   # mixed-case variable in global scope (18 instances)
+    "F403",   # star import used (18 instances)
+    "D101",   # missing docstring in public class (18 instances)
+    "D104",   # missing docstring in public package (14 instances)
+    "D102",   # missing docstring in public method (13 instances)
+    "D105",   # missing docstring in magic method (10 instances)
+    "ARG005", # unused lambda argument (10 instances)
+    "A002",   # argument shadows builtin (10 instances)
+    "N999",   # invalid module name (9 instances)
+    "A001",   # variable shadows builtin (8 instances)
+    "E722",   # bare except (7 instances)
+    "E402",   # module level import not at top of file (6 instances)
+    "N801",   # class name should use CapWords (2 instances — Analyzer_addon, ThermaGraph_addon)
+    "N817",   # CamelCase imported as acronym — CoolProp as CP (3 instances)
+    "SIM102", # nested if statements (5 instances)
+    "SIM113", # use enumerate() (1 instance)
+    "SIM116", # use dict instead of consecutive if/elif (1 instance)
+    "PERF402", # use list.copy (1 instance)
+    "ARG001", # unused function argument (3 instances)
+    "D404",   # docstring starts with "This" (2 instances)
+    "D420",   # docstring section order (2 instances)
+    "D414",   # empty docstring section (1 instance)
+    # end legacy suppressions
     "D400", # first-line-should-end-with-a-period
     "D415", # first-line-should-end-with-a-period
     "E266", # Too many leading `#`

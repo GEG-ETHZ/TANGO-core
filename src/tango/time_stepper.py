@@ -1,18 +1,18 @@
 import numpy as np
 
+
 class LinearInterpolation:
-    """
-    A class for performing linear interpolation and optional extrapolation.
+    """A class for performing linear interpolation and optional extrapolation.
 
     Attributes:
         _x (numpy.ndarray): Independent variable values (must be strictly increasing).
         _y (numpy.ndarray): Dependent variable values.
         _extrapolate (bool): Whether to allow extrapolation beyond the range of `_x`.
+
     """
 
     def __init__(self, x, y, extrapolate=False):
-        """
-        Initializes the LinearInterpolation class.
+        """Initializes the LinearInterpolation class.
 
         Args:
             x (list): Independent variable values (e.g., time points). Must be strictly increasing.
@@ -25,6 +25,7 @@ class LinearInterpolation:
 
         Example:
             >>> interpolator = LinearInterpolation([1, 2, 3], [2, 4, 6])
+
         """
         if len(x) != len(y):
             raise ValueError("x and y must be of the same length")
@@ -36,8 +37,7 @@ class LinearInterpolation:
         self._extrapolate = extrapolate
 
     def sample(self, x):
-        """
-        Interpolates or extrapolates the value of `_y` at a given `_x`.
+        """Interpolates or extrapolates the value of `_y` at a given `_x`.
 
         Args:
             x (float): The x value at which to sample the interpolated or extrapolated value.
@@ -57,6 +57,7 @@ class LinearInterpolation:
             >>> interpolator = LinearInterpolation([1, 2, 3], [2, 4, 6])
             >>> interpolator.sample(2.5)
             5.0
+
         """
         if x < self._x[0]:
             if self._extrapolate:
@@ -65,7 +66,9 @@ class LinearInterpolation:
                 return self._y[0]
         elif x > self._x[-1]:
             if self._extrapolate:
-                return self._y[-1] + (x - self._x[-1]) / (self._x[-2] - self._x[-1]) * (self._y[-2] - self._y[-1])
+                return self._y[-1] + (x - self._x[-1]) / (self._x[-2] - self._x[-1]) * (
+                    self._y[-2] - self._y[-1]
+                )
             else:
                 return self._y[-1]
         else:
@@ -73,4 +76,3 @@ class LinearInterpolation:
             x0, x1 = self._x[idx], self._x[idx + 1]
             y0, y1 = self._y[idx], self._y[idx + 1]
             return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
-
