@@ -110,7 +110,9 @@ just setup
 # or: uv run prek install --hook-type pre-commit --hook-type pre-push --overwrite
 ```
 
-This enforces code quality and prevents accidental direct commits or pushes to `main` and `develop`. We split these checks to keep your development fast:
+## Git Hooks
+
+Git hooks are scripts that run automatically at key points in your Git workflow (e.g. before a commit or push). We use [`prek`](https://prek.j178.dev) to manage them, providing a consistent set of checks across all contributors. This enforces code quality and prevents accidental direct commits or pushes to `main` and `develop`. We split these checks to keep your development fast:
 - **`pre-commit` (auto-format as you type):** Runs fast linting and formatting (Ruff).
 - **`pre-push` (test before you share):** Runs heavier validation (Mypy type checking, Pytest) only when sharing code with the remote.
 
