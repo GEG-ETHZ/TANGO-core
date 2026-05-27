@@ -26,7 +26,6 @@ EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
 def files_and_values() -> list[tuple[Path, float, float]]:
     """Return list of tuples of (path, reference_value, tolerance)"""
-
     # To enable tests gated by this boolean, run
     # `ENABLE_ALL_TESTS=true uv run pytest -v`
     enable_all_tests = os.environ.get("ENABLE_ALL_TESTS", "false").lower() == "true"

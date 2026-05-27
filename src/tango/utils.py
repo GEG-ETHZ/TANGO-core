@@ -444,8 +444,7 @@ def set_logger(log_level: str, input_file: str | Path) -> None:
     level = level_map.get(log_level.upper())
     if level is None:
         raise ValueError(
-            f"Invalid log_level '{log_level}'. "
-            f"Valid options: DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE"
+            f"Invalid log_level '{log_level}'. Valid options: DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE",
         )
 
     logging.getLogger().setLevel(level)

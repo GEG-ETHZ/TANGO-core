@@ -41,11 +41,7 @@ def generate_result_type_table(results: list[dict]) -> pl.DataFrame:
         if r["LCOE"] is not None and r["error"] is None:
             type_counts["Success"] += 1
         elif r["error"] is not None:
-            error_type = (
-                r["error"].get("type", "Unknown")
-                if isinstance(r["error"], dict)
-                else "Unknown"
-            )
+            error_type = r["error"].get("type", "Unknown") if isinstance(r["error"], dict) else "Unknown"
             type_counts[error_type] += 1
         else:
             type_counts["Unknown"] += 1
@@ -77,9 +73,7 @@ def generate_lcoe_statistics(results: list[dict]) -> pl.DataFrame:
     lcoe_values = [
         float(r["LCOE"])
         for r in results
-        if r["LCOE"] is not None
-        and not math.isnan(float(r["LCOE"]))
-        and not math.isinf(float(r["LCOE"]))
+        if r["LCOE"] is not None and not math.isnan(float(r["LCOE"])) and not math.isinf(float(r["LCOE"]))
     ]
 
     if not lcoe_values:
@@ -96,9 +90,7 @@ def generate_lcoe_statistics(results: list[dict]) -> pl.DataFrame:
     if len(lcoe_values) > 1:
         stats["Std Dev"] = float(np.std(lcoe_values))
 
-    return pl.DataFrame(
-        {"Statistic": list(stats.keys()), "Value": list(stats.values())}
-    )
+    return pl.DataFrame({"Statistic": list(stats.keys()), "Value": list(stats.values())})
 
 
 def generate_error_module_breakdown(results: list[dict]) -> pl.DataFrame:
@@ -122,10 +114,7 @@ def generate_error_module_breakdown(results: list[dict]) -> pl.DataFrame:
     if not module_counts:
         return pl.DataFrame({"Module": [], "Error Count": []})
 
-    rows = [
-        {"Module": module, "Error Count": count}
-        for module, count in module_counts.most_common()
-    ]
+    rows = [{"Module": module, "Error Count": count} for module, count in module_counts.most_common()]
 
     return pl.DataFrame(rows)
 
@@ -170,7 +159,7 @@ def analyze_sweep(sweep_dir: Path) -> str:
                 "## Errors by Module",
                 "",
                 str(error_module_df),
-            ]
+            ],
         )
 
     return "\n".join(sections)

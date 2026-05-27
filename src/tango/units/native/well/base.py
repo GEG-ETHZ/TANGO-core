@@ -1,18 +1,17 @@
-import logging
-import numpy as np
 import csv
 import os
 from pathlib import Path
 
-from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
+import numpy as np
+
+from tango.core.abstracts.unit import FluidState, SimplePressureDrop, Unit
+from tango.core.constants import GRAVITY_ACCELERATION, YEAR_TO_SECOND
 from tango.core.errors import CoolPropError, Validator
-from tango.core.abstracts.unit import Unit, FluidState, SimplePressureDrop
 from tango.units.dataclasses import WellSpecsNative
 
 
 class WellUnitNative(Unit, SimplePressureDrop, Validator):
-    """
-    Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
+    """Represents a native well unit based on Adams et al. (2015) for simulating fluid flow in wellbores.
 
     This class provides methods to process fluid flow through wellbores, accounting for various factors
     such as pressure, temperature, and fluid properties. It is designed to handle dynamic changes in wellbore
@@ -26,14 +25,14 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         _mu (ndarray): Array of fluid dynamic viscosity values (in Pa·s).
         _T_f (ndarray): Array of fluid temperature values (in Kelvin).
         _u (ndarray): Array of flow velocity values (in meters per second).
+
     """
 
     fluid_state_init: FluidState
     fluid_state_tmp: FluidState
 
     def __init__(self, unit_id: str, specs: dict):
-        """
-        Initializes a new instance of the WellUnitNative class.
+        """Initializes a new instance of the WellUnitNative class.
 
         Args:
             id (str): A unique identifier for the well unit.
@@ -41,6 +40,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
 
         Raises:
             FileNotFoundError: If the CSV file specified in `specs` does not exist.
+
         """
         super().__init__(unit_id, specs)
         Validator.__init__(self, Path(__file__).parent / "validation.yaml")
@@ -99,8 +99,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         return dp_per_dx
 
     def stream_interface(self) -> None:
-        """
-        Interface for processing the stream within the well unit.
+        """Interface for processing the stream within the well unit.
 
         Processes the fluid stream to update enthalpy, pressure, and mass rate, and prints
         the inlet and outlet fluid properties.
@@ -110,17 +109,12 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
             self.mass_rate = mass_rate
             self.outlet_fluid.updateHP(outlet_enthalpy, outlet_pressure)
         except CoolPropError as cpe:
-            raise type(cpe)(
-                f"Well `stream_interface` failed\n\t{cpe}"
-            ) from cpe
+            raise type(cpe)(f"Well `stream_interface` failed\n\t{cpe}") from cpe
         except Exception as err:
-            raise type(err)(
-                "Well `stream_interface` failed"
-            ) from err
+            raise type(err)("Well `stream_interface` failed") from err
 
     def process_stream(self) -> tuple[float, float, float]:
-        r"""
-        Updates dynamic variables along the wellbore.
+        r"""Updates dynamic variables along the wellbore.
 
         This method calculates fluid properties at each step along the wellbore by accounting
         for pressure loss, heat exchange, and friction, updating the state accordingly.
@@ -152,6 +146,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
                 - :math:`k_{rock}` is the thermal conductivity of the surrounding rock (W/(m·K)),
                 - :math:`\beta` is a dimensionless coefficient based on dimensionless time,
                 - :math:`\Delta T` is the temperature difference between the rock and the fluid (K).
+
         """
         if self._specs.flow_rate_from_csv == "yes" and self.current_row < len(self.csv_data):
             row = self.csv_data[self.current_row]
@@ -182,9 +177,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
                         self._T_f[i] = 300.0
                     self.fluid_state_tmp.updatePT(self._P[i], self._T_f[i])
                 except CoolPropError as inner_err:
-                    raise type(inner_err)(
-                        f"cell: {i} of {self._num_cells}\n\t{inner_err}"
-                    ) from outer_err
+                    raise type(inner_err)(f"cell: {i} of {self._num_cells}\n\t{inner_err}") from outer_err
 
             self._rho[i] = self.fluid_state_tmp.rho
             self._mu[i] = self.fluid_state_tmp.mu
@@ -200,73 +193,70 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
     # and the economic inputs will need to be provided manually.
 
     def get_well_length(self) -> float:
-        """
-        Returns the length of the well.
+        """Returns the length of the well.
 
         Returns:
             float: The well length (in meters).
+
         """
         # TODO: figure out if this method is really needed
         return self._well_length
 
     def get_diameter(self) -> float:
-        """
-        Returns the diameter of the wellbore.
+        """Returns the diameter of the wellbore.
 
         Returns:
             float: The diameter of the wellbore (in meters).
+
         """
         return self._diameter
 
     def get_probability_of_success(self) -> float:
-        """
-        Returns the probability of success for the well operation.
+        """Returns the probability of success for the well operation.
 
         Returns:
             float: The probability of success.
+
         """
         return self._specs.probability_of_success
 
     def update_dimensionless_time_old(self) -> None:
-        """
-        Updates the old dimensionless time with the current time.
-        """
+        """Updates the old dimensionless time with the current time."""
         self._t_d_old = self._t_d
         self.time_step += 1
 
     def update_dimensionless_time(self, del_t) -> None:
-        """
-        Updates the dimensionless time based on the time step provided.
+        """Updates the dimensionless time based on the time step provided.
 
         Args:
             del_t (float): The time step increment.
+
         """
         self._t_d = self._t_d_old + del_t
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self):
-        """
-        Reads flow rate data from a specified CSV file.
+        """Reads flow rate data from a specified CSV file.
 
         Returns:
             list: The data read from the CSV file, excluding the header row.
 
         Raises:
             FileNotFoundError: If the specified CSV file does not exist.
+
         """
         file_path = self._specs.flow_rate_file
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 
-        with open(file_path, "r") as file:
+        with open(file_path) as file:
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
 
     def _specs_post_processor(self):
-        r"""
-        Processes and sets various well specifications after initialization.
+        r"""Processes and sets various well specifications after initialization.
 
         This method initializes several key attributes of the well based on the specifications
         provided, such as the diameter, relative roughness, and cross-sectional area. It also sets up
@@ -329,8 +319,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         self._t_scaling_factor = self._compute_time_scaling_factor()
 
     def _initialize_attributes(self) -> float:
-        """
-        Initializes time-related attributes for the well unit.
+        """Initializes time-related attributes for the well unit.
 
         This method sets up dimensionless time variables used for simulating processes
         within the well. These attributes are essential for tracking the progression of
@@ -339,14 +328,14 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         Attributes:
             _t_d (float): Dimensionless time at the current time step.
             _t_d_old (float): Dimensionless time at the previous time step.
+
         """
         self._t_d = 0.0  # dimensionless time at the current time step
         self._t_d_old = 0.0  # dimensionless time at the previous time step
         self.time_step = 0
 
     def _set_well_length(self) -> float:
-        """
-        Sets the well length based on the specifications.
+        """Sets the well length based on the specifications.
 
         This method retrieves the well length from the provided specifications. It checks
         if the length is defined, and if not, raises an error to indicate that the necessary
@@ -357,15 +346,15 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
 
         Raises:
             RuntimeError: If the 'well_length' parameter is not found in the specifications.
+
         """
         if self._specs.well_length is None:
-            raise RuntimeError(f"Required parameter 'well_length' is not found in specs.")
+            raise RuntimeError("Required parameter 'well_length' is not found in specs.")
         else:
             return self._specs.well_length
 
     def _initialize_farfield_temperature(self) -> None:
-        """
-        Initializes the far-field temperature profile along the wellbore.
+        """Initializes the far-field temperature profile along the wellbore.
 
         This method sets up the temperature distribution of the surrounding rock along the well,
         based on the thermal gradient and surface temperature. It uses the specifications to
@@ -374,10 +363,11 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
 
         Raises:
             ValueError: If 'vertical_deviation' is specified, as it is not supported.
+
         """
         if self._specs.vertical_deviation is not None:
             raise ValueError(
-                f"'vertical_deviation' is not supported in vertical well classes. Please use horizontal well."
+                "'vertical_deviation' is not supported in vertical well classes. Please use horizontal well.",
             )
 
         zspace = np.linspace(self._specs.wellhead_depth, self._well_length, self._num_cells + 1)
@@ -387,8 +377,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         self._T_r = T0 + zspace * dTdz  # rock temperature (K)
 
     def _initialize_discretized_vars(self) -> None:
-        """
-        Initializes discretized variables for simulation along the wellbore.
+        """Initializes discretized variables for simulation along the wellbore.
 
         This method sets up arrays for various physical properties that will be used in discretized calculations
         along the wellbore. It also calculates the segment length for each cell in the simulation.
@@ -412,20 +401,19 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         self._u = np.zeros(num_cells)  # flow velocity (m/s)
 
     def _set_gravity_multiplier(self) -> None:
-        """
-        Configures the gravity multiplier for use in calculations.
+        """Configures the gravity multiplier for use in calculations.
 
         This method sets the gravity acceleration multiplier based on the specified scaling factor,
         allowing for modifications to gravitational effects in the simulation.
 
         Attributes:
             _g (float): The adjusted gravity acceleration (in meters per second squared).
+
         """
         self._g = GRAVITY_ACCELERATION * self._specs.gravity_scale_factor
 
     def _compute_time_scaling_factor(self) -> float:
-        r"""
-        Computes the time scaling factor for dimensionless time calculations.
+        r"""Computes the time scaling factor for dimensionless time calculations.
 
         The time scaling factor is derived from the properties of the surrounding rock, following
         principles from Carslaw and Jaeger (1959). It is used to adjust time scales in the simulation
@@ -444,16 +432,12 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
                 - :math:`\rho_{rock}` is the density of the rock (kg/m³),
                 - :math:`c_{p,rock}` is the specific heat capacity of the rock (J/kg·K),
                 - :math:`D` is the wellbore diameter (m).
+
         """
-        return (
-            4.0
-            * self._specs.rock_k
-            / (self._specs.rock_density * self._specs.rock_cp * self._diameter**2)
-        )
+        return 4.0 * self._specs.rock_k / (self._specs.rock_density * self._specs.rock_cp * self._diameter**2)
 
     def _initialize_state(self) -> None:
-        """
-        Initializes the fluid state and related properties at the start of the simulation.
+        """Initializes the fluid state and related properties at the start of the simulation.
 
         This method sets up the initial fluid properties (pressure, enthalpy, density, viscosity, etc.)
         and calculates initial conditions based on the fluid state at the well inlet. It uses the initial
@@ -468,7 +452,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
             - `_u[0]`: Initial flow velocity (in meters per second).
         """
         self.update_dimensionless_time(
-            del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND
+            del_t=self._t_scaling_factor * self._specs.dt_list[self.time_step] * YEAR_TO_SECOND,
         )
         # NOTE:
         # These values in `self.fluid_state_init` will likely be overwritten in
@@ -486,8 +470,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         self.fluid_state_tmp = FluidState.copy(self.inlet_fluid)
 
     def _compute_Q_loss(self, delta_T: float, t_d: float) -> float:
-        r"""
-        Computes heat loss based on temperature differences and dimensionless time.
+        r"""Computes heat loss based on temperature differences and dimensionless time.
 
         Args:
             delta_T (float): Temperature difference between the far-field and fluid (K).
@@ -504,6 +487,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
                     (\pi t_d)^{-0.5} + 0.5 - 0.25 (t_d / \pi)^{0.5} + 0.125 t_d, & t_d \leq 2.8 \\
                     \frac{2.0}{\ln(4.0 t_d) - 1.16} - \frac{1.16}{(\ln(4.0 t_d) - 1.16)^2}, & t_d > 2.8
                 \end{cases}
+
         """
         if t_d <= 2.8:
             beta = (np.pi * t_d) ** -0.5 + 0.5 - 0.25 * (t_d / np.pi) ** 0.5 + 0.125 * t_d
@@ -513,8 +497,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
         return 2.0 * self._dL * np.pi * self._specs.rock_k * beta * delta_T
 
     def _compute_delta_P_loss(self, ff: float, rho: float, u: float) -> float:
-        r"""
-        Computes pressure loss using the Darcy-Weisbach equation.
+        r"""Computes pressure loss using the Darcy-Weisbach equation.
 
         Args:
             ff (float): Friction factor.
@@ -536,12 +519,12 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
                 - :math:`\rho` is the fluid density (kg/m³),
                 - :math:`u` is the flow velocity (m/s),
                 - :math:`D` is the diameter of the wellbore (meters).
+
         """
         return 0.5 * ff * self._dL * rho * u**2 / self._diameter
 
     def _compute_friction_factor(self, rho, mu, u) -> float:
-        r"""
-        Computes friction factor using the Haaland equation.
+        r"""Computes friction factor using the Haaland equation.
 
         Args:
             rho (float): Fluid density (kg/m³).
@@ -562,6 +545,7 @@ class WellUnitNative(Unit, SimplePressureDrop, Validator):
 
                 .. math::
                     Re = \frac{\rho u D}{\mu}
+
         """
         Re = rho * u * self._diameter / mu  # Reynolds number
         r = self._relative_roughness  # relative roughness
