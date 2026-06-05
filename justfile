@@ -36,6 +36,25 @@ _setup-direnv:
 _setup-direnv:
     @echo "Note: direnv is not available on Windows — skipping."
 
+# Format Python code with ruff
+fmt:
+    uv run ruff format .
+
+# Lint Python code with ruff
+lint:
+    uv run ruff check .
+
+# Type-check with mypy
+typecheck:
+    uv run mypy .
+
+# Run test suite
+test:
+    uv run pytest -v
+
+# Run all quality checks in CI order: format → lint → typecheck → test
+check: fmt lint typecheck test
+
 # Configure GitLab project settings: pipeline must succeed before merge, delete branch after merge, squash on by default
 configure-gitlab remote:
     #!/usr/bin/env sh
