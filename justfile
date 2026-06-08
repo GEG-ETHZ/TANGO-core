@@ -36,27 +36,21 @@ _setup-direnv:
 _setup-direnv:
     @echo "Note: direnv is not available on Windows — skipping."
 
-# Configure GitLab project settings: pipeline must succeed before merge, delete branch after merge, squash on by default
-configure-gitlab remote:
-    #!/usr/bin/env sh
-    set -eu
-    if ! command -v glab >/dev/null 2>&1; then
-        echo "Error: glab not found. Install with: brew install glab && glab auth login"
-        exit 1
-    fi
-    REMOTE_URL=$(git remote get-url {{remote}})
-    REMOTE_URL="${REMOTE_URL%.git}"
-    case "$REMOTE_URL" in
-        http://*|https://*)
-            PROJECT=$(echo "$REMOTE_URL" | cut -d/ -f4-)
-            ;;
-        *)
-            PROJECT=$(echo "$REMOTE_URL" | cut -d: -f2)
-            ;;
-    esac
-    ENCODED=$(printf '%s' "$PROJECT" | sed 's|/|%2F|g')
-    glab api "projects/$ENCODED" --method PUT \
-        --field only_allow_merge_if_pipeline_succeeds=true \
-        --field remove_source_branch_after_merge=true \
-        --field squash_option=default_on > /dev/null
-    echo "Done: GitLab settings updated for $PROJECT"
+# Format Python code with ruff
+fmt:
+    uv run ruff format .
+
+# Lint Python code with ruff
+lint:
+    uv run ruff check .
+
+# Type-check with mypy
+typecheck:
+    uv run mypy .
+
+# Run test suite
+test:
+    uv run pytest -v
+
+# Run all quality checks in CI order: format → lint → typecheck → test
+check: fmt lint typecheck test
