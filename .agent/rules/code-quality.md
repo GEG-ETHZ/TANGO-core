@@ -12,7 +12,7 @@
 ## Python
 
 - **Avoid `_` prefixes on module-level helpers.** A single leading underscore is
-  a convention signalling "internal", but it has no enforcement effect — it only
+  a convention signaling "internal", but it has no enforcement effect — it only
   suppresses `from module import *` export, which is irrelevant in scripts. Do
   not add it unless there is a concrete reason worth explaining.
 
