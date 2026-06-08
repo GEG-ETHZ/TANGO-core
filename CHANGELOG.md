@@ -38,6 +38,9 @@ This MR consolidates a large set of improvements spanning code quality, HPC-frie
 
 ### Changed
 
+- **Template sync from [`python-template@e0679dc`](https://gitlab.ethz.ch/geg/templates/python-template/-/commit/e0679dc)** —
+  added `fmt`, `lint`, `typecheck`, `test`, and `check` justfile recipes; `.agent/rules/code-quality.md`
+  extended with Python naming conventions (`_` prefix, `**kwargs`, `__` name mangling).
 - **Removed `eval` from unit loading** — replaced with dynamic imports and `getattr`; wildcard (`*`) imports removed
   throughout `config.py`, `utils.py`, `orchestrator.py`, and unit modules.
 - **Dependency injection for circular imports** — circular imports previously hidden by `eval` are now resolved via
