@@ -129,11 +129,21 @@ they represent all tell the same story.
 - Capture **performance baselines** (runtime, memory consumption) on those same inputs
 - These baselines are the regression test suite — any future change that breaks them is
   immediately visible
+- **Diagrams** -- need to build out diagrams to communicate to management how
+  things are currently structured
 
 **Tasks:**
-- [ ] Write characterization tests that run current TANGO on representative input files and capture reference outputs as fixtures
+- [ ] Diagrams
+    - [ ] structure of input files (use ./examples/flexible_SF_manual.yml as an initial example and this may be sufficient)
+    - [ ] structure of instantiated code object corresonding to the input file
+    - [ ] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
+- [ ] Write characterization tests that run current TANGO on representative
+    input files and capture reference outputs as fixtures (NOTE: Chad thinks the
+    regression tests are already good enough to serve this purpose, especially since
+    we're not sure the existing baseline should be interpreted as ground truth)
 - [ ] Capture performance baselines (runtime, memory) on those same inputs
-
+    (NOTE: this could be added to existing regression tests, as long as it can be
+    done without having much impact on duration of tests)
 
 ---
 
@@ -142,18 +152,32 @@ they represent all tell the same story.
 **Goal:** Make the input files, the module structure, and the physical system hierarchy
 all congruent with each other.
 
-- **New input file schema:** Each component (e.g. `injection_wellbore`) stores all its own
-  attributes, its graph link index, and its previous/next link indices. No data at root level.
-  Link indices are assigned somewhat arbitrarily but increment consistently from a fixed
-  starting point. Hierarchy of data approximately matches hierarchy of physical systems.
+- **New input file schema:** Each component (e.g. `injection_wellbore`) stores
+  all its own attributes, its graph link index, and its previous/next link
+  indices. No data at root level. Component indices are assigned somewhat
+  arbitrarily but increment consistently from a fixed starting point (probably
+  a good idea to have the orchestrator's BC checkpoint correspond to component
+  index 0). Hierarchy of data approximately matches hierarchy of physical
+  systems.
 - **Parallel module tree:** New code structure built alongside (not replacing) the old one
   until verified. `mypy --strict` and `ruff` pass from the first commit.
 - **Format converter:** One-way migration tool from old to new input format.
+- **Diagrams** -- need to build out diagrams to communicate to management
+  how things should be structured and why the new structure addresses the
+  shortcomings of the old structure
 
 **Tasks:**
-- [ ] Consolidate code object data and graph connections so that each component (e.g. `injection_wellbore`) stores all its own attributes, a link index, and previous/next link indices
+- [ ] create temporary space for new structure
+- [ ] Consolidate code object data and graph connections so that each component
+    (e.g. `injection_wellbore`) stores all its own attributes, a link index, and
+    previous/next link indices
 - [ ] Ensure no data is stored at root level
 - [ ] Make hierarchy of data approximately match hierarchy of physical systems
+- [ ] Diagrams of new structure
+    - [ ] desired dstructure of input files (use new version of
+        ./examples/flexible_SF_manual.yml as an initial example) and code
+        objects (which are identical to input files in the new structure)
+    - [ ] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
 - [ ] Build a one-way migration tool from old to new input format
 - [ ] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
@@ -174,6 +198,11 @@ all congruent with each other.
   output) for performance-critical runs.
 - **Serialization:** Every TANGO code object gets `to_file` / `from_file` / `to_str` /
   `from_str` methods. Format-agnostic (JSON, YAML, MessagePack, pickle).
+- most of these points have examples in https://github.com/NatLabRockies/fastsim
+  (~/git/nrel/fastsim as of 2026-06-08 on Chad's computer). In fastsim,
+  `TrackedState` is the analog for `LockedState`, but since we're (at least
+  initially) doing this in Python, we may need to account for the slower
+  attribute accessing and use slots or similar.
 
 **Tasks:**
 - [ ] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass`
