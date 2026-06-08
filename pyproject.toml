@@ -20,31 +20,20 @@ classifiers = [
 dependencies = [
     "pandas>=2.1,<3.0",
     "polars>=1.0,<2.0",
-    "matplotlib",
-    "scipy",
+    "matplotlib>=3.10,<4.0",
+    "scipy>=1.15,<2.0",
     # "scikit-learn>=1.6,<2.0", # not being used anywhere
-    "seaborn",
+    "seaborn>=0.13,<1.0",
     "openpyxl>=3.1,<4.0",
     "pyyaml>=6.0,<7.0", # needed for (de)serialization
-    "sphinx>=7.4,<8.0",
     "joblib>=1.4,<2.0",
     "networkx>=3.1,<4.0",
     "jinja2>=3.1,<4.0",
     "pip>=23.2,<24.0",
     "tqdm>=4.66,<5.0",
-    "furo>=2024.8,<2025.0",
     "oyaml>=1.0,<2.0",
     "tabulate>=0.8,<1.0",
     "termcolor>=2.5,<3.0",
-    "sphinx-basic-ng>=1.0.0b2,<2.0",
-    "sphinx-rtd-theme>=3.0,<4.0",
-    "sphinxcontrib-applehelp>=2.0,<3.0",
-    "sphinxcontrib-devhelp>=2.0,<3.0",
-    "sphinxcontrib-htmlhelp>=2.1,<3.0",
-    "sphinxcontrib-jquery>=4.1,<5.0",
-    "sphinxcontrib-jsmath>=1.0,<2.0",
-    "sphinxcontrib-qthelp>=2.0,<3.0",
-    "sphinxcontrib-serializinghtml>=1.1,<2.0",
     "pexpect>=4.0,<5.0",
     "python-arango",
     "types-tqdm>=4.67.0.20250809,<5",
@@ -52,6 +41,9 @@ dependencies = [
     "tespy==0.7.1.post1",
     "fluprodia>=3.5.1,<4",
     "pymoo==0.6.1.3",
+    "types-pyyaml>=6.0.12.20250915",
+    "dvc-webdav>=3.0.1",
+    "dvc-gs>=3.0.2",
 ]
 
 [project.urls]
@@ -72,7 +64,8 @@ dev = [
     "types-pyyaml >=6.0.12.20250915,<7", # stub files to provide pyyaml interface typing
     "types-networkx >=3.5.0.20251104,<4", # stub files to provide networkx interface typing
     "ipykernel ~= 7.0",
-    "pre-commit~=4.1", # git hook management
+    "dvc>=3.0,<4.0", # pipeline + experiment tracking
+    "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
 ]
 tango-app = [
     "flask==3.0.0",
@@ -81,7 +74,10 @@ tango-app = [
 ]
 
 [dependency-groups]
-dev = ["tango[dev]"]
+dev = [
+    "prek>=0.3.13", # git hook management
+    "tango[dev]",
+]
 tango-app = ["tango[tango-app]"]
 
 [tool.setuptools]
@@ -173,6 +169,40 @@ select = [
     "W" # Warning
 ]
 ignore = [
+    # TODO: legacy errors inherited from pre-cleanup codebase — remove during overhaul
+    "D401",   # imperative-mood docstrings (429 instances)
+    "N806",   # variable in function should be lowercase (378 instances)
+    "E501",   # line too long (129 instances)
+    "D100",   # missing docstring in public module (60 instances)
+    "N802",   # function name should be lowercase (57 instances)
+    "F405",   # may be undefined from star import (38 instances)
+    "ARG002", # unused method argument (24 instances)
+    "D417",   # missing argument descriptions in docstring (24 instances)
+    "D107",   # missing docstring in __init__ (19 instances)
+    "D103",   # missing docstring in public function (19 instances)
+    "N816",   # mixed-case variable in global scope (18 instances)
+    "F403",   # star import used (18 instances)
+    "D101",   # missing docstring in public class (18 instances)
+    "D104",   # missing docstring in public package (14 instances)
+    "D102",   # missing docstring in public method (13 instances)
+    "D105",   # missing docstring in magic method (10 instances)
+    "ARG005", # unused lambda argument (10 instances)
+    "A002",   # argument shadows builtin (10 instances)
+    "N999",   # invalid module name (9 instances)
+    "A001",   # variable shadows builtin (8 instances)
+    "E722",   # bare except (7 instances)
+    "E402",   # module level import not at top of file (6 instances)
+    "N801",   # class name should use CapWords (2 instances — Analyzer_addon, ThermaGraph_addon)
+    "N817",   # CamelCase imported as acronym — CoolProp as CP (3 instances)
+    "SIM102", # nested if statements (5 instances)
+    "SIM113", # use enumerate() (1 instance)
+    "SIM116", # use dict instead of consecutive if/elif (1 instance)
+    "PERF402", # use list.copy (1 instance)
+    "ARG001", # unused function argument (3 instances)
+    "D404",   # docstring starts with "This" (2 instances)
+    "D420",   # docstring section order (2 instances)
+    "D414",   # empty docstring section (1 instance)
+    # end legacy suppressions
     "D400", # first-line-should-end-with-a-period
     "D415", # first-line-should-end-with-a-period
     "E266", # Too many leading `#`

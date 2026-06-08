@@ -38,7 +38,7 @@ UNIT_OPTIONS_FOR_ECONUNIT = {
         "production_well_pump": ["native"],
         "horizontal_well": ["native"],
         "reservoir": ["native", "moose", "filereader"],
-    }
+    },
 }
 
 

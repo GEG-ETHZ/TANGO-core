@@ -1,10 +1,12 @@
-import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-import yaml
-import sys
+import contextlib
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
+
+import openpyxl
+import yaml
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 ELECTRICITY_PRICE_SCALE = 3.0
 SALE_ELECTRICITY_PRICE_SCALE = 3.0
@@ -16,8 +18,9 @@ SHEET_COLORS = {
     "Heat Generators": "DAEEF3",
     "Heat Storage": "FCE4D6",
     "Data": "FFF2CC",
-    "Energy Carrier": "DDEBF7"
+    "Energy Carrier": "DDEBF7",
 }
+
 
 class ExcelGenerator:
     def __init__(self, yaml_file, results=None, specs=None, thermal_power=None):
@@ -25,7 +28,7 @@ class ExcelGenerator:
         self.config = self._load_yaml() if yaml_file else {}
         self.wb = openpyxl.Workbook()
         self.wb.properties.creator = "YAML Excel Generator"
-        self.wb.properties.title = os.path.basename(yaml_file).split('.')[0] if yaml_file else "Generated"
+        self.wb.properties.title = os.path.basename(yaml_file).split(".")[0] if yaml_file else "Generated"
         self.wb.properties.created = datetime.now()
         self.results = results
         self.specs = specs
@@ -35,19 +38,19 @@ class ExcelGenerator:
         if not self.yaml_file:
             return {}
         try:
-            with open(self.yaml_file, 'r', encoding='utf-8') as file:
+            with open(self.yaml_file, encoding="utf-8") as file:
                 content = file.read()
                 # Validate YAML format before loading
                 self._validate_yaml_format(content)
                 config = yaml.safe_load(content)
 
                 # Additional validation: ensure all 'values' are lists or convert None to []
-                if config and 'modules' in config:
-                    for module in config['modules']:
-                        if 'fields' in module:
-                            for field in module['fields']:
-                                if 'values' in field and field['values'] is None:
-                                    field['values'] = []
+                if config and "modules" in config:
+                    for module in config["modules"]:
+                        if "fields" in module:
+                            for field in module["fields"]:
+                                if "values" in field and field["values"] is None:
+                                    field["values"] = []
 
                 return config
         except Exception as e:
@@ -56,26 +59,26 @@ class ExcelGenerator:
 
     def _validate_yaml_format(self, content):
         """Validate YAML content and detect common formatting errors"""
-        lines = content.split('\n')
+        lines = content.split("\n")
         for i, line in enumerate(lines):
             if line.strip().count("values:") > 1:
-                print(f"Warning: Line {i+1} contains multiple 'values:' entries.")
+                print(f"Warning: Line {i + 1} contains multiple 'values:' entries.")
                 print(f"Problematic line: {line}")
-                raise ValueError(f"Invalid YAML: Line {i+1} contains multiple 'values:' entries.")
+                raise ValueError(f"Invalid YAML: Line {i + 1} contains multiple 'values:' entries.")
 
             if i > 0 and line.strip().startswith("- key:") and not line.startswith(" "):
-                print(f"Warning: Line {i+1} contains a 'key:' entry without proper indentation.")
+                print(f"Warning: Line {i + 1} contains a 'key:' entry without proper indentation.")
                 print(f"Problematic line: {line}")
-                raise ValueError(f"Invalid YAML: Line {i+1} 'key:' entry needs proper indentation.")
+                raise ValueError(f"Invalid YAML: Line {i + 1} 'key:' entry needs proper indentation.")
 
     def create_excel(self):
         if self.wb.active:
             self.wb.remove(self.wb.active)
 
-        original_output_file = getattr(self.specs, 'output_file', 'output.xlsx')
+        original_output_file = getattr(self.specs, "output_file", "output.xlsx")
         shared_output_file = os.path.join(SHARED_FOLDER, os.path.basename(original_output_file))
 
-        for module_config in self.config.get('modules', []):
+        for module_config in self.config.get("modules", []):
             self._create_sheet(module_config)
 
         if len(self.wb.worksheets) == 0:
@@ -95,14 +98,14 @@ class ExcelGenerator:
             sys.exit(1)
 
     def _create_sheet(self, module_config):
-        sheet_name = module_config.get('label', 'Sheet')
+        sheet_name = module_config.get("label", "Sheet")
         sheet = self.wb.create_sheet(sheet_name)
-        fields = module_config.get('fields', [])
+        fields = module_config.get("fields", [])
 
         max_rows = 0
         if fields:
             for field in fields:
-                values = field.get('values', [])
+                values = field.get("values", [])
                 if values is None:
                     values = []
                 max_rows = max(max_rows, len(values))
@@ -118,15 +121,15 @@ class ExcelGenerator:
         self._style_header(cell, sheet.title)
 
         for row_idx in range(max_rows):
-            cell = sheet.cell(row=row_idx+2, column=1)
+            cell = sheet.cell(row=row_idx + 2, column=1)
             cell.value = row_idx
             self._style_data(cell)
 
     def _create_columns(self, sheet, fields, sheet_name, max_rows):
         col_idx = 2
         for field in fields:
-            key = field.get('key')
-            values = field.get('values', [])
+            key = field.get("key")
+            values = field.get("values", [])
             if values is None:
                 values = []
 
@@ -178,10 +181,8 @@ class ExcelGenerator:
 
             for cell in column:
                 if cell.value:
-                    try:
+                    with contextlib.suppress(BaseException):
                         max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
 
             adjusted_width = max(max_length + 2, 10)
             sheet.column_dimensions[column_letter].width = adjusted_width
@@ -202,9 +203,11 @@ class ExcelGenerator:
             print(f"WARNING: {sheet_keyword} sheet not found. Custom row not added.")
             return
 
-        header_to_col = {sheet.cell(row=1, column=col).value: col
-                        for col in range(1, sheet.max_column + 1)
-                        if sheet.cell(row=1, column=col).value}
+        header_to_col = {
+            sheet.cell(row=1, column=col).value: col
+            for col in range(1, sheet.max_column + 1)
+            if sheet.cell(row=1, column=col).value
+        }
 
         has_data_rows = False
         for row in range(2, sheet.max_row + 1):
@@ -237,18 +240,19 @@ class ExcelGenerator:
             print(f"ERROR: Failed to add any values to the custom row in {sheet_keyword} sheet")
 
     def _get_heat_generator_values(self, next_row):
-        net_elec_mw = self.results.get('Net_Electricity_Generated_kWe') / 1000
-        net_thermal_mw = self.results.get('Net_thermal_power_Generated_kWe') / 1000
-        CAPEX = self.results.get('CAPEX_total') / net_thermal_mw
+        self.results.get("Net_Electricity_Generated_kWe") / 1000
+        net_thermal_mw = self.results.get("Net_thermal_power_Generated_kWe") / 1000
+        CAPEX = self.results.get("CAPEX_total") / net_thermal_mw
 
         return {
             "ID": 0,  # Always start with ID 0 for the first/only entry
             "name": "Geothermal Heat Generator",
-            "installed capacity (MW_th)": -self.thermal_power/1000000.0, # 6,  # net_thermal_mw,  # net_thermal_mw + net_elec_mw,
+            "installed capacity (MW_th)": -self.thermal_power
+            / 1000000.0,  # 6,  # net_thermal_mw,  # net_thermal_mw + net_elec_mw,
             "efficiency th": self.specs.efficiency_thermal,
             "efficiency el": self.specs.efficiency_electric,
-            "investment costs (EUR/MW_th)": CAPEX/net_thermal_mw,  # 200000, # CAPEX/100.0,
-            "OPEX fix (EUR/MWa)": CAPEX*0.045/net_thermal_mw/25,  # 1000,  # CAPEX*0.045/100,
+            "investment costs (EUR/MW_th)": CAPEX / net_thermal_mw,  # 200000, # CAPEX/100.0,
+            "OPEX fix (EUR/MWa)": CAPEX * 0.045 / net_thermal_mw / 25,  # 1000,  # CAPEX*0.045/100,
             "OPEX var (EUR/MWh)": 0.0,  # 0.8,
             "Coldstart Costs (EUR/Start)": self.specs.coldstart_cost,
             "life time": self.specs.feeding_time,
@@ -278,8 +282,9 @@ class ExcelGenerator:
         return {
             "ID": 0,  # Always start with ID 0 for the first/only entry
             "name": "Geothermal Heat Generator",
-            "carrier": "natural gas"
+            "carrier": "natural gas",
         }
+
 
 def add_row_to_excel(excel_file_path, results=None, specs=None, thermal_power=None):
     """Add row to both Heat Generators and Energy Carrier sheets"""
@@ -291,14 +296,18 @@ def add_row_to_excel(excel_file_path, results=None, specs=None, thermal_power=No
 
         for sheet_name, value_getter in [
             ("Heat Generators", gen._get_heat_generator_values),
-            ("Energy Carrier", gen._get_energy_carrier_values)
+            ("Energy Carrier", gen._get_energy_carrier_values),
         ]:
             sheet = next((ws for ws in wb.worksheets if sheet_name in ws.title), None)
             if sheet:
                 next_row = max(2, sheet.max_row + 1) if sheet.max_row > 1 else 2
 
                 values = value_getter(next_row)
-                header_to_col = {sheet.cell(1, col).value: col for col in range(1, sheet.max_column + 1) if sheet.cell(1, col).value}
+                header_to_col = {
+                    sheet.cell(1, col).value: col
+                    for col in range(1, sheet.max_column + 1)
+                    if sheet.cell(1, col).value
+                }
 
                 for header, value in values.items():
                     if header in header_to_col:
@@ -316,6 +325,7 @@ def add_row_to_excel(excel_file_path, results=None, specs=None, thermal_power=No
     except Exception as e:
         print(f"ERROR adding rows to Excel file: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -329,7 +339,7 @@ def create_hotmaps_batch():
         f.write("@echo off\n")
         f.write("echo Starting Hotmaps Dispatch runner...\n")
         f.write(f"cd /d {WINDOWS_APP_DIRECTORY}\n")
-        f.write("call \"C:\\Users\\morteza\\miniconda3\\Scripts\\activate.bat\" hotmapsdispatch\n")
+        f.write('call "C:\\Users\\morteza\\miniconda3\\Scripts\\activate.bat" hotmapsdispatch\n')
 
     # Create the price setting script
     script_path = os.path.join(SHARED_FOLDER, "set_prices.py")
@@ -380,7 +390,7 @@ except Exception as e:
     # Continue with the batch file
     with open(batch_file, "a") as f:
         f.write("echo Running HotmapsDispatch application...\n")
-        f.write(f"python -m app --openbrowser True\n")
+        f.write("python -m app --openbrowser True\n")
         f.write("echo Application is running. Press any key to close this window...\n")
         f.write("pause > nul\n")
 
@@ -407,16 +417,19 @@ def setup_hotmaps_dispatch():
 
     return batch_file, trigger_file
 
-def calculate_annual_averages(values, time_steps):
-    """
-    Calculate the time-weighted average value for each year.
 
-    Parameters:
+def calculate_annual_averages(values, time_steps):
+    """Calculate the time-weighted average value for each year.
+
+    Parameters
+    ----------
     values (list): List of values at each time step
     time_steps (list): List of time step durations (in years)
 
-    Returns:
+    Returns
+    -------
     dict: Dictionary with year as key and average value as value
+
     """
     if len(values) != len(time_steps):
         raise ValueError("Values and time_steps must have the same length")
@@ -440,27 +453,27 @@ def calculate_annual_averages(values, time_steps):
         year = int(start_time_rounded)
 
         if year not in annual_data:
-            annual_data[year] = {'weighted_sum': 0, 'total_time': 0}
+            annual_data[year] = {"weighted_sum": 0, "total_time": 0}
 
-        annual_data[year]['weighted_sum'] += value * dt
-        annual_data[year]['total_time'] += dt
+        annual_data[year]["weighted_sum"] += value * dt
+        annual_data[year]["total_time"] += dt
 
     annual_averages = {}
     for year, data in annual_data.items():
-        annual_averages[year] = data['weighted_sum'] / data['total_time']
+        annual_averages[year] = data["weighted_sum"] / data["total_time"]
 
     return annual_averages
 
 
 def process_yaml_and_setup_hotmaps(yaml_file_path, results, specs, results_over_time, dt_list):
     """Main function that processes YAML and sets up Hotmaps Dispatch"""
-    print('inf', results)
-    print('inf', specs)
-    print('results_over_time', results_over_time.get('DH_heat_transfer_real'))
-    print('dt_list', dt_list)
+    print("inf", results)
+    print("inf", specs)
+    print("results_over_time", results_over_time.get("DH_heat_transfer_real"))
+    print("dt_list", dt_list)
 
-    annual_thermal_power = calculate_annual_averages(results_over_time.get('DH_heat_transfer_real'), dt_list)
-    print('annual_thermal_power', annual_thermal_power)
+    annual_thermal_power = calculate_annual_averages(results_over_time.get("DH_heat_transfer_real"), dt_list)
+    print("annual_thermal_power", annual_thermal_power)
     print(specs.operation_year)
     thermal_power = annual_thermal_power[specs.operation_year - 1]
     print(thermal_power)
@@ -477,7 +490,7 @@ def process_yaml_and_setup_hotmaps(yaml_file_path, results, specs, results_over_
             "status": "success",
             "excel_file": excel_file,
             "batch_file": batch_file,
-            "trigger_file": str(trigger_file)
+            "trigger_file": str(trigger_file),
         }
     except Exception as e:
         print(f"Error processing YAML and setting up Hotmaps: {e}")

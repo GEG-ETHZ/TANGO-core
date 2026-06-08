@@ -1,23 +1,20 @@
-import numpy as np
-from math import erfc
-from math import e as exp
-from collections.abc import Callable
-from pathlib import Path
+import csv
 import logging
+import os
+from math import erfc
+from pathlib import Path
 
-from tango.core.constants import YEAR_TO_SECOND, GRAVITY_ACCELERATION
-from tango.core.abstracts.unit import Unit, SimplePressureDrop
+import numpy as np
+
+from tango.core.abstracts.unit import SimplePressureDrop, Unit
+from tango.core.constants import GRAVITY_ACCELERATION, YEAR_TO_SECOND
+from tango.core.errors import CoolPropError, Validator
 from tango.core.fluidstate import FluidState
 from tango.units.dataclasses import ReservoirSpecsNative
-from tango.core.errors import CoolPropError, Validator
-
-import csv
-import os
 
 
 class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
-    """
-    Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
+    """Represents a 1-D reservoir unit (well-pair) based on Adams et al. (2015).
 
     This class simulates fluid flow and thermal dynamics within a reservoir,
     managing fluid properties, mass rates, and fracking conditions. It supports
@@ -31,15 +28,16 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         fracing_mass_rate (float): Maximum mass rate before fracking occurs (in kg/s).
         current_row (int): Current row index for CSV data processing.
         csv_data (list): Data read from the CSV file, if applicable.
+
     """
 
     def __init__(self, unit_id: str, specs: dict) -> None:
-        """
-        Initializes a new instance of the ReservoirUnitNative class.
+        """Initializes a new instance of the ReservoirUnitNative class.
 
         Args:
             id (str): Unique identifier for the reservoir unit.
             specs (dict): Specifications of the reservoir unit.
+
         """
         super().__init__(unit_id, specs)
         Validator.__init__(self, Path(__file__).resolve().parent / "reservoir_validation.yaml")
@@ -50,23 +48,23 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         thickness_warn = self.val_dict["thickness_warn"]
         if not (float(thickness_warn[0]) <= self.specs.thickness <= float(thickness_warn[-1])):
             logging.warning(
-                f"Thickness ({self.specs.thicness:.3g} m) is outside expected range ({thickness_warn})"
+                f"Thickness ({self.specs.thicness:.3g} m) is outside expected range ({thickness_warn})",
             )
             logging.warning(f"This is ok if permeability ({self.permeability} m^2 is high")
         self.init_stream_interface()
-        if self.specs.bc_iteration == None:
+        if self.specs.bc_iteration is None:
             self._thermal_depletion()
         self.current_row = 0
         if self.specs.flow_rate_from_csv == "yes":
             self.csv_data = self._read_csv_file()
 
     def init_stream_interface(self, P: float | None = None, T: float | None = None) -> None:
-        """
-        Initializes the fluid interface for the reservoir.
+        """Initializes the fluid interface for the reservoir.
 
         Args:
             P (float, optional): Initial pressure (in Pascals). Defaults to `initial_pressure`.
             T (float, optional): Initial temperature (in Kelvin). Defaults to `initial_temperature`.
+
         """
         P = self.initial_pressure if P is None else P
         T = self.initial_temperature if T is None else T
@@ -74,8 +72,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self.outlet_fluid = FluidState.withPT(self.fluid_name, P, T)
 
     def stream_interface(self) -> None:
-        r"""
-        Manages the reservoir stream processing, updating fluid properties and checking fracking conditions.
+        r"""Manages the reservoir stream processing, updating fluid properties and checking fracking conditions.
 
         This method processes the fluid stream and calculates the fracking mass rate using:
 
@@ -96,6 +93,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         Warnings:
             If the mass rate exceeds the fracking mass rate, the user is prompted to select an action.
+
         """
         try:
             outlet_pressure, outlet_temperature, mass_rate = self.process_stream()
@@ -107,8 +105,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             raise type(err)("Reservoir `stream_interface` failed") from err
 
     def process_stream(self) -> tuple[float, float, float]:
-        r"""
-        Updates the reservoir state given the inlet state (outlet fluid state of the injection well).
+        r"""Updates the reservoir state given the inlet state (outlet fluid state of the injection well).
 
         This method updates the reservoir's pressure, temperature, and mass flow rate by
         considering fluid properties, impedance, and energy dynamics. It supports reading
@@ -162,11 +159,11 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         Notes:
             The energy dynamics are updated to account for reservoir depletion over time.
+
         """
-        if self.specs.flow_rate_from_csv == "yes":
-            if self.current_row < len(self.csv_data):
-                row = self.csv_data[self.current_row]
-                self.mass_rate = float(row[1])
+        if self.specs.flow_rate_from_csv == "yes" and self.current_row < len(self.csv_data):
+            row = self.csv_data[self.current_row]
+            self.mass_rate = float(row[1])
 
         self.m_dot = self.m_dot_mult * self.mass_rate
 
@@ -197,24 +194,20 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
     # -------------------------------------- Data Storing Functions -------------------------------------- #
 
     def get_del_pressure(self) -> float:
-        """
-        Retrieves the pressure drop between the previous and current time steps.
+        """Retrieves the pressure drop between the previous and current time steps.
 
         Returns:
             float: The pressure drop (Pa).
+
         """
         return self._pressure_old - self.outlet_fluid.P
 
     def update_pressure_old(self) -> None:
-        """
-        Updates the previous pressure value with the current outlet pressure.
-        """
+        """Updates the previous pressure value with the current outlet pressure."""
         self._pressure_old = self.outlet_fluid.P
 
     def update_energy_extracted_old(self) -> None:
-        """
-        Updates the previous energy extracted value with the current energy value and increments the time step.
-        """
+        """Updates the previous energy extracted value with the current energy value and increments the time step."""
         self._energy_extracted_old = self._energy_extracted
         self.time_step += 1
 
@@ -260,27 +253,26 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
     # ----------------------------------------- Private Functions ---------------------------------------- #
 
     def _read_csv_file(self) -> list:
-        """
-        Reads flow rate data from a specified CSV file.
+        """Reads flow rate data from a specified CSV file.
 
         Returns:
             list: The data read from the CSV file, excluding the header row.
 
         Raises:
             FileNotFoundError: If the specified CSV file does not exist.
+
         """
         file_path = self.specs.flow_rate_file
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"The CSV file does not exist at {file_path}")
 
-        with open(file_path, "r") as file:
+        with open(file_path) as file:
             reader = csv.reader(file)
             next(reader)  # Skip the header row
             return list(reader)
 
     def _specs_post_processor(self):
-        """
-        Processes reservoir specifications and initializes key attributes.
+        """Processes reservoir specifications and initializes key attributes.
 
         Steps:
             - Computes reservoir area, volume, and porosity.
@@ -305,14 +297,14 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self._set_pressure_old(self.initial_pressure)
 
     def _initialize_attributes(self) -> None:
-        """
-        Initializes reservoir state variables for simulation.
+        """Initializes reservoir state variables for simulation.
 
         Attributes:
             - `_pressure_old`: Reservoir pressure from the previous time step (Pa).
             - `_energy_extracted`: Total energy extracted from the reservoir (J).
             - `_energy_extracted_old`: Energy extracted in the previous time step (J).
             - `time_step`: Current simulation time step.
+
         """
         self._pressure_old = 0.0
         self._energy_extracted = 0.0
@@ -320,8 +312,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self.time_step = 0
 
     def _process_specs(self, specs) -> dict:
-        """
-        Processes the reservoir specifications and computes derived parameters.
+        """Processes the reservoir specifications and computes derived parameters.
 
         This method ensures the effective well diameter is computed if not already specified,
         and merges common and reservoir-specific specifications.
@@ -337,21 +328,19 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
                 - Use the diameter of the injection and production wells to compute an effective diameter.
                 - Defaults to 0.41 m if no values are provided.
             - Merge common and reservoir-specific specs.
+
         """
         if "well_eff_diameter" not in specs["reservoir"]:
             val = 0.41
-            if "injection_well" in specs:
-                if "diameter" in specs["injection_well"]:
-                    val = specs["injection_well"]["diameter"]
-            if "production_well" in specs:
-                if "diameter" in specs["production_well"]:
-                    val = 0.5 * (val + specs["production_well"]["diameter"])
+            if "injection_well" in specs and "diameter" in specs["injection_well"]:
+                val = specs["injection_well"]["diameter"]
+            if "production_well" in specs and "diameter" in specs["production_well"]:
+                val = 0.5 * (val + specs["production_well"]["diameter"])
             specs["reservoir"]["well_eff_diameter"] = val
         return specs["common"] | specs["reservoir"]
 
     def _compute_area(self) -> float:
-        r"""
-        Computes the reservoir area.
+        r"""Computes the reservoir area.
 
         Returns:
             float: The computed area (m²).
@@ -362,12 +351,12 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
             Where:
                 - \( S \): Well spacing (m).
+
         """
         return 0.5 * (self.specs.well_spacing**2) if self.specs.area is None else self.specs.area
 
     def _compute_initial_temperature(self) -> float:
-        r"""
-        Computes the initial reservoir temperature.
+        r"""Computes the initial reservoir temperature.
 
         Returns:
             float: The initial temperature (°C).
@@ -380,6 +369,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
                 - \( T_0 \): Surface temperature (°C).
                 - \( h \): Reservoir depth (m).
                 - \( \frac{dT}{dz} \): Thermal gradient (°C/m).
+
         """
         if self.specs.initial_temperature is not None:
             return self.specs.initial_temperature
@@ -391,8 +381,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         return T0 + h * dTdz
 
     def _compute_initial_pressure(self) -> float:
-        r"""
-        Computes the initial reservoir pressure.
+        r"""Computes the initial reservoir pressure.
 
         Returns:
             float: The initial pressure (Pa).
@@ -405,14 +394,14 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
                 - \( \rho_{\text{brine}} \): Brine density (kg/m³).
                 - \( g \): Gravitational acceleration (m/s²).
                 - \( h \): Reservoir depth (m).
+
         """
         if self.specs.initial_pressure is not None:
             return self.specs.initial_pressure
         return self.specs.brine_density * GRAVITY_ACCELERATION * self.specs.reservoir_depth
 
     def _initialize_mdot_mult(self) -> None:
-        """
-        Initializes the multiplier for converting injection flow rate to mass flow rate.
+        """Initializes the multiplier for converting injection flow rate to mass flow rate.
 
         Process:
             - Sets multiplier to 0.25 for 'INVERTED_5SPOT' well pattern.
@@ -421,24 +410,25 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         self.m_dot_mult = 0.25 if self.well_pattern == "INVERTED_5SPOT" else 1.0
 
     def _set_impedance_func(self) -> None:
-        """
-        Configures the impedance function based on the well pattern.
+        """Configures the impedance function based on the well pattern.
 
         Raises:
             ValueError: If the well pattern is not supported.
+
         """
         # TODO: use `match` statement to control which impedance function gets used so it's
         # more obvious what options are possible here
         self.impedance_func = getattr(
-            self, f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}", None
+            self,
+            f"_impedance_func_{self.well_pattern.lower().split('_')[-1]}",
+            None,
         )
         if self.impedance_func is None:
             raise ValueError(f"well_pattern: {self.well_pattern} is not supported in native reservoir unit.")
 
     @staticmethod
     def _impedance_func_5spot(mu, rho, k, b, L, D) -> float:
-        r"""
-        Computes impedance for a 5-spot well pattern.
+        r"""Computes impedance for a 5-spot well pattern.
 
         Formula:
             .. math::
@@ -454,13 +444,13 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         Returns:
             float: Impedance (Pa·s/kg).
+
         """
         return mu * np.log(4.0 * L / (np.pi * D)) / (rho * k * b)
 
     @staticmethod
     def _impedance_func_doublet(mu, rho, k, b, L, D) -> float:
-        r"""
-        Computes impedance for a doublet well pattern.
+        r"""Computes impedance for a doublet well pattern.
 
         Formula:
             .. math::
@@ -476,6 +466,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         Returns:
             float: Impedance (Pa·s/kg).
+
         """
         impedance: float = (
             mu  # (Pa * s)
@@ -485,8 +476,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         return impedance
 
     def _compute_depletion_curve_coeffs(self) -> list:
-        r"""
-        Computes coefficients for the thermal depletion curve.
+        r"""Computes coefficients for the thermal depletion curve.
 
         Returns:
             list: Depletion curve coefficients [p1, p2, p3].
@@ -494,8 +484,9 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         Process:
             1. Compute coefficients based on reservoir and fluid properties.
             2. \( p1 \), \( p2 \), and \( p3 \) are used in the depletion curve function.
+
         """
-        if self.specs.bc_iteration != None:
+        if self.specs.bc_iteration is not None:
             m_dot = self.mass_rate / 4.0 if self.well_pattern == "INVERTED_5SPOT" else self.mass_rate
         else:
             m_dot = (
@@ -556,6 +547,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
                 - \( L \): Well spacing (m).
                 - \( D \): Well diameter (m).
                 - \( Z \): Impedance (Pa·s/kg).
+
         """
         k, b, NTG = float(self.specs.permeability), self.specs.thickness, self.specs.net_to_gross_ratio
         L, D = self.specs.well_spacing, self.specs.well_diameter
@@ -565,8 +557,7 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
         return impedance
 
     def _depletion_curve(self, psi: float) -> float:
-        r"""
-        Computes the depletion curve factor based on energy extraction.
+        r"""Computes the depletion curve factor based on energy extraction.
 
         Args:
             psi (float): Fraction of energy extracted from the reservoir (dimensionless).
@@ -592,8 +583,9 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
 
         Notes:
             - The depletion curve models how energy extraction affects reservoir temperature dynamics.
+
         """
-        if self.specs.bc_iteration != None:
+        if self.specs.bc_iteration is not None:
             self._thermal_depletion()
 
         p1, p2, p3 = self.p1, self.p2, self.p3
@@ -604,26 +596,25 @@ class ReservoirUnitNative(Unit, SimplePressureDrop, Validator):
             return 1 - (1 - p3) * (1 - 0.5 * np.exp(-C * (p2 * psi + p1)))
 
     def _get_energy_extracted(self) -> float:
-        """
-        Retrieves the total energy extracted from the reservoir.
+        """Retrieves the total energy extracted from the reservoir.
 
         Returns:
             float: Total energy extracted (J).
+
         """
         return self._energy_extracted
 
     def _set_pressure_old(self, val: float) -> None:
-        """
-        Sets the previous reservoir pressure to the specified value.
+        """Sets the previous reservoir pressure to the specified value.
 
         Args:
             val (float): Pressure value to set (Pa).
+
         """
         self._pressure_old = val
 
     def _thermal_depletion(self) -> None:
-        r"""
-        Initializes the thermal depletion curve coefficients.
+        r"""Initializes the thermal depletion curve coefficients.
 
         Process:
             - Calls the `_compute_depletion_curve_coeffs` method to compute coefficients \( p1, p2, p3 \).

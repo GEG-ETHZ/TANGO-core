@@ -130,6 +130,11 @@ they represent all tell the same story.
 - These baselines are the regression test suite — any future change that breaks them is
   immediately visible
 
+**Tasks:**
+- [ ] Write characterization tests that run current TANGO on representative input files and capture reference outputs as fixtures
+- [ ] Capture performance baselines (runtime, memory) on those same inputs
+
+
 ---
 
 ### Phase 1 — Restructure Input Format & Module Layout
@@ -138,12 +143,20 @@ they represent all tell the same story.
 all congruent with each other.
 
 - **New input file schema:** Each component (e.g. `injection_wellbore`) stores all its own
-  attributes, its graph link index, and its previous/next link IDs. No data at root level.
-  Hierarchy of data approximately matches hierarchy of physical systems.
+  attributes, its graph link index, and its previous/next link indices. No data at root level.
+  Link indices are assigned somewhat arbitrarily but increment consistently from a fixed
+  starting point. Hierarchy of data approximately matches hierarchy of physical systems.
 - **Parallel module tree:** New code structure built alongside (not replacing) the old one
   until verified. `mypy --strict` and `ruff` pass from the first commit.
-- **Format converter:** Bidirectional tool to convert between old and new input format,
-  preserving compatibility while migration is in progress.
+- **Format converter:** One-way migration tool from old to new input format.
+
+**Tasks:**
+- [ ] Consolidate code object data and graph connections so that each component (e.g. `injection_wellbore`) stores all its own attributes, a link index, and previous/next link indices
+- [ ] Ensure no data is stored at root level
+- [ ] Make hierarchy of data approximately match hierarchy of physical systems
+- [ ] Build a one-way migration tool from old to new input format
+- [ ] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
+- [ ] Bring in classes, methods, and functions to make the new structure functional
 
 ---
 
@@ -162,6 +175,14 @@ all congruent with each other.
 - **Serialization:** Every TANGO code object gets `to_file` / `from_file` / `to_str` /
   `from_str` methods. Format-agnostic (JSON, YAML, MessagePack, pickle).
 
+**Tasks:**
+- [ ] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass`
+- [ ] Add a component-specific `state` object to each class; move all transient state variables into it
+- [ ] Implement `LockedState` — enforces each state variable is updated once and only once per timestep
+- [ ] Implement `history` object — saves state at user-specified intervals, with `None` supported for no temporal output
+- [ ] Add `to_file` / `from_file` / `to_str` / `from_str` methods to all TANGO code objects (format-agnostic)
+
+
 ---
 
 ### Phase 3 — Modularity, Verification & Scale-Out
@@ -177,6 +198,16 @@ baseline; the refactor is applied to all input configurations.
   old and new code.
 - **Scale-out:** Work through all TANGO input file configurations one at a time. Onboard
   Janna or additional support to accelerate this phase.
+
+**Tasks:**
+- [ ] Add `solve()` method to each physical component so it can run independently via a test harness
+- [ ] Run the refactored system against all baseline input files and verify results match within tolerance
+- [ ] Where results diverge, investigate bugs in both the old and new code
+- [ ] Compare performance against pre-refactor baselines; investigate regressions
+- [ ] Store web app lines and graphics as annotations in the TANGO run file
+- [ ] Onboard Janna or additional support
+- [ ] Work through all remaining TANGO input file configurations one at a time
+
 
 ---
 

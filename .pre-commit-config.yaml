@@ -27,6 +27,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: "dvc\\.lock"
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
@@ -41,6 +42,6 @@ repos:
         name: Run test suite
         entry: uv run pytest -v
         language: system
-        types: [python]
+        files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false
         stages: [pre-push]

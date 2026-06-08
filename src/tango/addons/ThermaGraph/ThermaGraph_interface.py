@@ -108,7 +108,7 @@ class ThermaGraph_addon(TangoAddon):
                 components[node_name] = [[pressures[i], enthalpies[i]] for i in range(num_points)]
 
         connections = []
-        for edge_id, edge_data in edges.items():
+        for edge_data in edges.values():
             source = edge_data["source"]
             target = edge_data["target"]
             connections.append([source, target, "non-isentropic"])
