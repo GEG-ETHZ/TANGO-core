@@ -96,11 +96,23 @@ Depending on the target branch, use the following merge strategies:
   - *Note: This must **always** be merged via a GitLab Merge Request.*
   1. Perform a **Standard merge** (often called "Merge commit" or "Create a merge commit") to preserve the squashed history of the individual features.
 
-To enforce these rules centrally, project maintainers should configure GitLab:
-1. Go to **Settings** > **Merge requests**.
-2. Under **Merge method**, select **Merge commit with semi-linear history**. This structurally prevents merging if the source branch is behind the target branch, while still allowing the creation of a standard merge commit when merging `develop` to `main`.
-3. Under **Merge options**, you can optionally enforce squashing for specific MRs.
-4. Under **Merge checks**, check **Pipelines must succeed**.
+To enforce these rules centrally, a project **Maintainer** should apply these settings once after creating the repository. They cannot be set by Developers and should not be automated by scripts or agents.
+
+**Settings → General → Merge requests:**
+
+| Setting | Value |
+|---|---|
+| Merge method | Merge commit |
+| Squash commits | Encourage |
+| ☑ Pipelines must succeed | checked |
+| ☑ Delete source branch | checked |
+
+**Settings → Repository → Protected branches** — add each branch:
+
+| Branch | Allowed to merge | Allowed to push and force push |
+|---|---|---|
+| `main` | Maintainers | No one |
+| `develop` | Maintainers | Developers + Maintainers |
 
 ## Setup
 
