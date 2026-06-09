@@ -132,11 +132,15 @@ they represent all tell the same story.
 - **Diagrams** -- need to build out diagrams to communicate to management how
   things are currently structured
 
+*Diagram: [Input File Structure](diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [Runtime Code Objects](diagrams/src/phase0_code_objects.drawio)*
+*Diagram: [Module Structure](diagrams/src/phase0_module_structure.drawio)*
+
 **Tasks:**
 - [ ] Diagrams
-    - [ ] structure of input files (use ./examples/flexible_SF_manual.yml as an initial example and this may be sufficient)
-    - [ ] structure of instantiated code object corresonding to the input file
-    - [ ] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
+    - [x] structure of input files (use ./examples/flexible_SF_manual.yml as an initial example and this may be sufficient)
+    - [x] structure of instantiated code object corresonding to the input file
+    - [x] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
 - [ ] Write characterization tests that run current TANGO on representative
     input files and capture reference outputs as fixtures (NOTE: Chad thinks the
     regression tests are already good enough to serve this purpose, especially since
@@ -166,6 +170,9 @@ all congruent with each other.
   how things should be structured and why the new structure addresses the
   shortcomings of the old structure
 
+*Diagram: [New Input File Structure](diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [New Module Structure](diagrams/src/phase1_new_module_structure.drawio)*
+
 **Tasks:**
 - [ ] create temporary space for new structure
 - [ ] Consolidate code object data and graph connections so that each component
@@ -174,10 +181,10 @@ all congruent with each other.
 - [ ] Ensure no data is stored at root level
 - [ ] Make hierarchy of data approximately match hierarchy of physical systems
 - [ ] Diagrams of new structure
-    - [ ] desired dstructure of input files (use new version of
+    - [x] desired structure of input files (use new version of
         ./examples/flexible_SF_manual.yml as an initial example) and code
         objects (which are identical to input files in the new structure)
-    - [ ] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
+    - [x] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
 - [ ] Build a one-way migration tool from old to new input format
 - [ ] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
