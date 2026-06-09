@@ -114,6 +114,66 @@ they represent all tell the same story.
 
 ---
 
+### Design Issues to Resolve
+
+#### The `native` vs. `external` naming problem
+
+The current codebase distinguishes `SystemNative` from `SystemExternal`, but this distinction
+is misleading. `SystemExternal` is not primarily about external simulators — it is used
+whenever `bc_iteration` is present in the schedule, including for runs that use only native
+TANGO code and no external tools at all (e.g. `flexible_SF_manual.yml`). The actual split is:
+
+- `SystemNative`: simple timestep execution, no boundary-condition iteration
+- `SystemExternal`: bc_iteration convergence loop — finds the injection pressure/mass flow
+  that balances the system — plus optional hooks for external simulators (CMG, MOOSE, DWSIM)
+
+Conflating these two things under the "external" label obscures what the code actually does
+and makes it harder to reason about which path a given config will take. The refactor should
+rename these to reflect their actual behavior — `SystemDirect` / `SystemBCIteration` — with
+external simulator support as a separate, composable concern.
+
+Orchestrator selection in `tango_next` is automatic: if `schedule.bc_iteration` is present,
+`SystemBCIteration` is used; otherwise `SystemDirect`. No `workflow` key is needed in
+a top-level key. A future implicit solver is selected via
+`schedule.bc_iteration.solver: implicit` — keeping the signal inside the part of the config
+that governs solver behavior.
+
+The native reservoir model assumes mass conservation: injection rate equals production rate
+at every timestep (1D Darcy flow, incompressible fluid). Full reservoir simulators (CMG,
+MOOSE) do not make this assumption — they model pressure transients and compressibility,
+so inlet and outlet flow rates can differ during transients. This may require a different
+solver strategy when a transient reservoir component is used, and is another reason to
+resolve the external-tool socket question (see below) before that integration work begins.
+
+#### Where to provision sockets for external tools (open question)
+
+CMG, MOOSE, DWSIM and similar external simulators need to be integrated at some point. The
+current code treats this as an orchestrator-level concern (`SystemExternal`). An alternative
+view is that these are best modeled as **reservoir components** (or surface components, for
+DWSIM) — they implement the same interface as any other component, but delegate computation
+to an external process. Under this model, the orchestrator stays clean and the external
+coupling is entirely encapsulated in the component adapter.
+
+This question — whether external tools are orchestrator add-ons or component adapters (or
+both) — needs careful thought before the integration work begins. The architecture decision
+should drive the socket design, not the other way around. Leave this as an explicit open
+question until there is a concrete use case to design against.
+
+#### Web app config fragmentation (tango-super ecosystem)
+
+The vibe-coded web app in the broader `tango-super` ecosystem stores geothermal system
+configuration data separately from the YAML input files. Worse, the graphics annotations
+(the arrows and lines connecting components in the UI) live somewhere entirely separate from
+the graph network data that defines those connections in the input files. This is the same
+root problem as the scattered YAML structure — data about one logical thing is split across
+multiple stores.
+
+The new input schema (Phase 1) should be treated as the single source of truth for both the
+simulation configuration and the graph topology. The web app should read from and write to
+that schema, not maintain its own parallel representation.
+
+---
+
 ### Refactor Phases
 
 *Diagram: [Refactor Phases](diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
@@ -135,6 +195,7 @@ they represent all tell the same story.
 *Diagram: [Input File Structure](diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
 *Diagram: [Runtime Code Objects](diagrams/src/phase0_code_objects.drawio)*
 *Diagram: [Module Structure](diagrams/src/phase0_module_structure.drawio)*
+*Diagram: [Execution Flow](diagrams/src/phase0_execution_flow.drawio)*
 
 **Tasks:**
 - [ ] Diagrams
@@ -157,11 +218,10 @@ they represent all tell the same story.
 all congruent with each other.
 
 - **New input file schema:** Each component (e.g. `injection_wellbore`) stores
-  all its own attributes, its graph link index, and its previous/next link
-  indices. No data at root level. Component indices are assigned somewhat
+  all its own attributes, its `component_idx`, and its previous/next
+  `component_idx` values. No data at root level. Indices are assigned somewhat
   arbitrarily but increment consistently from a fixed starting point (probably
-  a good idea to have the orchestrator's BC checkpoint correspond to component
-  index 0). Hierarchy of data approximately matches hierarchy of physical
+  a good idea to have the orchestrator's BC checkpoint correspond to index 0). Hierarchy of data approximately matches hierarchy of physical
   systems.
 - **Parallel module tree:** New code structure built alongside (not replacing) the old one
   until verified. `mypy --strict` and `ruff` pass from the first commit.
@@ -172,12 +232,13 @@ all congruent with each other.
 
 *Diagram: [New Input File Structure](diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
 *Diagram: [New Module Structure](diagrams/src/phase1_new_module_structure.drawio)*
+*Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio)*
 
 **Tasks:**
 - [ ] create temporary space for new structure
 - [ ] Consolidate code object data and graph connections so that each component
-    (e.g. `injection_wellbore`) stores all its own attributes, a link index, and
-    previous/next link indices
+    (e.g. `injection_wellbore`) stores all its own attributes, a `component_idx`,
+    and previous/next `component_idx` values
 - [ ] Ensure no data is stored at root level
 - [ ] Make hierarchy of data approximately match hierarchy of physical systems
 - [ ] Diagrams of new structure
@@ -185,6 +246,10 @@ all congruent with each other.
         ./examples/flexible_SF_manual.yml as an initial example) and code
         objects (which are identical to input files in the new structure)
     - [x] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
+- [ ] Design and migrate `addons` (ThermaGraph, Analyzer): the old implementation was a
+    stringly-typed activation flag, never cleanly realized as separate installable dependencies.
+    In `tango_next`, addons should be first-class composable components with a defined ABC.
+    Needs a design decision before the migration tool handles them.
 - [ ] Build a one-way migration tool from old to new input format
 - [ ] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
@@ -215,9 +280,21 @@ all congruent with each other.
 - [ ] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass`
 - [ ] Add a component-specific `state` object to each class; move all transient state variables into it
 - [ ] Implement `LockedState` — enforces each state variable is updated once and only once per timestep
-- [ ] Implement `history` object — saves state at user-specified intervals, with `None` supported for no temporal output
-- [ ] Add `to_file` / `from_file` / `to_str` / `from_str` methods to all TANGO code objects (format-agnostic)
-
+- [ ] Implement `history` object — saves state at user-specified intervals, with
+    `None` supported for no temporal output
+- [ ] Implement `iter_history` object that saves the state for each solver
+    iteration at user-specified timestep intervals
+- [ ] Add a `SerdeAPI` mixin to `core/` (modeled on the fastsim Rust trait at
+    `fastsim-core/src/traits/serde_api.rs`). The mixin provides `to_file` /
+    `from_file` / `to_str` / `from_str` with format dispatch (YAML, JSON,
+    MessagePack) and calls `self.init()` after deserialization. Any class that
+    inherits `SerdeAPI` and implements `Init` gets the full serialization API
+    for free.
+- [ ] Make sure that all parameters and state variables have comments (or doc
+    strings if there's a way to do this, like in Rust) explaining what they are
+    and the unit of measure (e.g. watts).  For any variables with non-standard
+    SI units (e.g. MPa), the variable name should include `_<unit_type>` (e.g.
+    `_megapascals`)
 
 ---
 
@@ -244,6 +321,40 @@ baseline; the refactor is applied to all input configurations.
 - [ ] Onboard Janna or additional support
 - [ ] Work through all remaining TANGO input file configurations one at a time
 
+
+---
+
+### Future Direction — Geospatial Viability Analysis with LLM Augmentation
+
+An envisioned future capability: a module that combines TANGO with large language models and
+publicly available geospatial datasets to automatically identify economically viable geothermal
+sites — transforming TANGO from a simulation tool for known sites into a discovery tool for
+unknown ones.
+
+**What it would do:**
+- Ingest publicly available geologic and geophysical data (heat flow maps, seismic profiles,
+  geologic surveys)
+- Retrieve and interpret local regulatory context: drilling permits, fracking regulations,
+  environmental constraints, renewable energy subsidies
+- Run TANGO sweeps (or a trained surrogate model) over human-designable parameters: well
+  geometry (depth, separation), power plant type (Single-Flash, Double-Flash, ORC, CPG),
+  working fluid, number of wells
+- Rank candidate sites by economic viability (NPV, LCOE) under local regulatory and geologic
+  constraints
+
+**Geographic scope:** Switzerland, Europe, or global — wherever public datasets are available.
+
+**Why this is interesting:** The LLM layer handles unstructured regulatory and geologic data
+ingestion; TANGO provides the rigorous thermodynamic and economic evaluation. Neither does the
+full job alone.
+
+**Prerequisite:** TANGO must be fast enough (Phase 3 optimization, GPU acceleration) and the
+input/output interfaces clean enough (Phase 2 serialization) to support batch runs at the
+scale required for a regional or global sweep.
+
+**Task:** Design the data ingestion pipeline, TANGO sweep configuration, and ranking/visualization
+outputs as a future project scope item. Consider how TANGO's Tier 2–4 access model intersects
+with this capability — a geospatial discovery tool is a strong differentiator for Tier 3/4.
 
 ---
 
