@@ -45,8 +45,9 @@ lint:
     uv run ruff check .
 
 # Type-check with mypy
+# TODO: expand to `uv run mypy .` once src/tango/ and tests/ are clean
 typecheck:
-    uv run mypy .
+    uv run mypy src/tango_next/
 
 # Run test suite
 test:

@@ -235,8 +235,7 @@ warn_return_any = true
 warn_unused_configs = true
 allow_redefinition = true
 exclude = [
-    # '^file1\.py$',  # TOML literal string (single-quotes, no escaping necessary)
-    # "^file2\\.py$",  # TOML basic string (double-quotes, backslash and other characters need escaping)
+    "src/tango/",  # legacy codebase — not yet typed; remove when tango is clean
 ]
 
 # mypy per-module options:

@@ -198,7 +198,7 @@ that schema, not maintain its own parallel representation.
 *Diagram: [Execution Flow](diagrams/src/phase0_execution_flow.drawio)*
 
 **Tasks:**
-- [ ] Diagrams
+- [x] Diagrams
     - [x] structure of input files (use ./examples/flexible_SF_manual.yml as an initial example and this may be sufficient)
     - [x] structure of instantiated code object corresonding to the input file
     - [x] package/module/class structure, highlighting paths touched by ./examples/flexible_SF_manual.yml
@@ -235,7 +235,7 @@ all congruent with each other.
 *Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio)*
 
 **Tasks:**
-- [ ] create temporary space for new structure
+- [x] create temporary space for new structure
 - [ ] Consolidate code object data and graph connections so that each component
     (e.g. `injection_wellbore`) stores all its own attributes, a `component_idx`,
     and previous/next `component_idx` values
@@ -251,7 +251,7 @@ all congruent with each other.
     In `tango_next`, addons should be first-class composable components with a defined ABC.
     Needs a design decision before the migration tool handles them.
 - [ ] Build a one-way migration tool from old to new input format
-- [ ] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
+- [x] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
 
 ---

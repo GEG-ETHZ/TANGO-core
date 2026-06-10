@@ -15,6 +15,17 @@ stages:
   - test
   - tag
 
+lint:
+  stage: test
+  interruptible: true
+  script:
+    - uv run ruff check .
+    - uv run mypy src/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 test:
   stage: test
   interruptible: true
