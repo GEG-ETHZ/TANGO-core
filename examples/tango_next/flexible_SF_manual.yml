@@ -1,0 +1,206 @@
+# tango_next format — flexible Single-Flash system, manual mass flow rate
+#
+# Structural changes from the old format:
+#   - No top-level graph: section; topology is encoded per component as
+#     component_idx / prev / next
+#   - props: renamed to common:
+#   - All component parameters live inside components.<name>.*
+#   - surface contains a nested power_plant: block
+#   - component_idx 0 is reserved for the orchestrator BC checkpoint (surface)
+#
+# Component circuit (main loop):
+#   surface(0) →[1]→ injection_well(1) →[2]→ reservoir(2)
+#               →[3]→ production_well_lower(3) →[4]→ production_well_upper(4) →[5]→ surface(0)
+
+title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
+# Orchestrator is selected automatically:
+#   schedule.bc_iteration present  →  SystemBCIteration
+#   schedule.bc_iteration absent   →  SystemDirect
+# External tool type (e.g. CMG) is indicated by the reservoir component's type field.
+
+common:  # shared physical properties (previously props:)
+  fluid_name: H2O
+  brine_density: 1000        # kg/m3
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg·K)
+  rock_k: 2.1                # W/(m·K)
+  thermal_gradient: 0.035    # K/m
+
+schedule:
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+  start_date: '2019-01-01'
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 20
+    dt_years: 1.0            # years
+  bc_iteration:
+    solver: explicit  # explicit (default) or implicit — selects SystemBCIteration solver algorithm
+    check_fracing: yes
+    max_mass_rate: 150
+  mass_rate:
+    type: manual
+    value: 50
+
+economic:
+  type: native
+  project_maturity: green_field  # green_field or brown_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    unit: flexible
+    component_idx: 0          # 0 = BC checkpoint
+    prev: 4
+    next: 1
+    surface_temperature: 288  # K
+    injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
+    surface_pressure: 100_000       # Pa
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    target_extraction_pressure: 7_000_000  # Pa
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Single-Flash power plant sub-graph.
+      # component_idx values are local to this sub-graph.
+      # Branching components use next_<port> instead of a single next.
+      #
+      # NOTE: p_out_megapascals uses the _<unit> suffix convention (Phase 2).
+      # If the underlying library (e.g. TESPy) expects the bare name `p_out`,
+      # the framework must map the suffixed name to the library param and apply
+      # the unit conversion. If that proves impractical, revert to the bare name
+      # on those specific components and document the exception here.
+
+      inlet:
+        type: Source
+        unit: native
+        component_idx: 0
+        next: 1
+
+      valve:
+        type: Valve
+        unit: native
+        component_idx: 1
+        prev: 0
+        next: 2
+        p_out_megapascals: 0.5           # MPa
+
+      droplet_separator:
+        type: DropletSeparator
+        unit: native
+        component_idx: 2
+        prev: 1
+        next_vapor: 4          # vapor stream → turbine
+        next_liquid: 3         # liquid stream → pump2
+
+      pump2:
+        type: Compressor
+        unit: native
+        component_idx: 3
+        prev: 2
+        next: 7
+        efficiency: 1.0
+
+      turbine:
+        type: Turbine
+        unit: native
+        component_idx: 4
+        prev: 2
+        next: 5
+        efficiency: 1.0
+        p_out_megapascals: 0.05          # MPa
+
+      condenser:
+        type: SimpleHeatExchanger
+        unit: native
+        component_idx: 5
+        prev: 4
+        next: 6
+        subtype: condenser
+        design: closed
+        cooling_tower_mode: WET
+        set_number: 1
+        p_out_megapascals: 0.05          # MPa
+        vapor_mass_fraction_out: 0
+
+      pump:
+        type: Compressor
+        unit: native
+        component_idx: 6
+        prev: 5
+        next: 7
+        efficiency: 1.0
+
+      mixer:
+        type: Merge
+        unit: native
+        component_idx: 7
+        prev_1: 6              # from pump (condensate)
+        prev_2: 3              # from pump2 (liquid separator stream)
+        next: 8
+
+      pp_outlet:
+        type: Sink
+        unit: native
+        component_idx: 8
+        prev: 7
+
+  injection_well:
+    type: injection_well
+    unit: native
+    component_idx: 1
+    prev: 0
+    next: 2
+    well_length: 5000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    well_length_seq: [5000.0]
+    well_diameter_seq: [0.410]
+
+  reservoir:
+    type: reservoir
+    unit: native
+    component_idx: 2
+    prev: 1
+    next: 3
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    hydro_static_pressure: 50_000_000  # Pa
+    over_pressure_percentage: 10
+
+  production_well_lower:
+    type: production_well
+    unit: native
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 4000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    well_length_seq: [5000.0]
+    well_diameter_seq: [0.410]
+
+  production_well_upper:
+    type: production_well_pump
+    unit: native
+    component_idx: 4
+    prev: 3
+    next: 0
+    well_length: 1000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+# TODO: migrate addons section
+# The old format had a top-level addons: block (ThermaGraph, Analyzer) that activated
+# optional post-processing tools. The original intent was for these to be separate
+# installable dependencies with a declared interface. That design was never cleanly
+# implemented. In tango_next, addons should be first-class composable components with
+# a defined ABC — not a stringly-typed activation flag. Needs a design decision before
+# migrating.
