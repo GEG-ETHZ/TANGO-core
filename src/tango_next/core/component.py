@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, ConfigDict
 
+from tango_next.core.stream import Stream
+
 
 class ComponentSpec(BaseModel):
     """Base specification for all tango_next components.
@@ -25,7 +27,15 @@ class Component(ABC):
 
     Each component owns its typed spec and implements solve() to compute
     outlet state from inlet state. Stream wiring is the orchestrator's job.
+
+    The orchestrator sets ``inlet`` before calling ``solve()``;
+    ``solve()`` reads ``inlet`` and writes ``outlet``.
     """
+
+    def __init__(self) -> None:
+        """Initialise inlet and outlet streams to default (zero) state."""
+        self.inlet: Stream = Stream()
+        self.outlet: Stream = Stream()
 
     @property
     @abstractmethod

@@ -231,3 +231,41 @@ The `CHANGELOG.md` footer will then look like:
 [1.2.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.1.0...v1.2.0
 [1.1.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/releases/tag/v1.1.0
 ```
+
+---
+
+## YAML Style
+
+### Booleans: always `True` / `False`, never `yes` / `no`
+
+**Always write `True` or `False`** (Python-style capitalisation) for boolean values
+in all TANGO YAML files, including examples, tests, and config fixtures.
+
+```yaml
+# Wrong
+check_fracing: yes
+enabled: no
+
+# Correct
+check_fracing: True
+enabled: False
+```
+
+**Why this matters — two separate failure modes:**
+
+1. **`src/tango/` string-comparison trap**: several fields in `src/tango/` (e.g.
+   `controlled_power_generation`, `bypass_processing`) check their value with
+   `== "yes"` rather than a truthy test.  This means writing `True` in the YAML
+   silently disables the feature — PyYAML parses `True` as a Python boolean, and
+   `True == "yes"` is `False`.  You must write `yes` (as a string) for those
+   specific `src/tango/` fields to work.  **Do not repeat this pattern in
+   `tango_next`** — all boolean fields must use proper boolean types, checked
+   with `if value:`, not `if value == "yes":`.
+
+2. **YAML 1.2 forward compatibility**: YAML 1.1 (PyYAML) treats `yes`, `no`,
+   `on`, `off` as booleans; YAML 1.2 (ruamel.yaml and newer parsers) does not —
+   those become plain strings, causing silent mismatches if the parser is ever
+   switched.
+
+This rule applies to any file loaded by `tango_next`, including `examples/`,
+`tests/`, and any input configs committed to the repo.

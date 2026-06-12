@@ -14,10 +14,12 @@ class SystemDirect(Orchestrator):
     """Single-pass orchestrator: one solve() per component per timestep."""
 
     def __init__(self, components: dict[str, Component]) -> None:
+        """Initialise with the named component dict."""
         self._components = components
 
     @property
     def components(self) -> dict[str, Component]:
+        """Return the named component dict."""
         return self._components
 
     def run_timestep(self, t: int) -> None:

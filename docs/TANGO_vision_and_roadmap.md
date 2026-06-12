@@ -145,6 +145,118 @@ so inlet and outlet flow rates can differ during transients. This may require a 
 solver strategy when a transient reservoir component is used, and is another reason to
 resolve the external-tool socket question (see below) before that integration work begins.
 
+#### BC iteration mode — `InjectionPolicy` (replaces `check_fracing` / `manual` / `automatic`)
+
+The current `src/tango/` code controls BC iteration behavior through three separate,
+poorly documented fields:
+
+- `mass_rate.type: "manual"` — mass flow rate is user-prescribed
+- `mass_rate.type: "automatic"` — mass flow rate is computed from the Darcy fracing limit
+- `bc_iteration.check_fracing` — a boolean flag with undocumented scope
+- `bc_iteration.max_mass_rate` — a global cap applied after all other rate logic
+
+These fields interact in ways that are not documented anywhere and that are easy to
+misread. Worse, they conflate two physically distinct fracing mechanisms.
+
+**Two distinct fracing mechanisms**
+
+1. **Flow-induced fracing** — mass flow rate is high enough that, by Darcy's law, the
+   reservoir inlet pressure exceeds the fracing threshold. The `fracing_flow()` function
+   computes the maximum sustainable mass rate at which the threshold is exactly reached:
+
+   ```
+   fracing_flow = 2πhk × (overpressure% / 100 × hydrostatic_P) / (μ × ln(re / rw))
+   ```
+
+   Because µ and ρ depend on injection-side fluid conditions, `fracing_flow()` changes
+   as `test_p` changes — making mass rate and injection pressure coupled variables when
+   this mechanism is active.
+
+2. **Pressure-induced fracing** — injection wellhead pressure (`test_p`) is set high
+   enough that, after hydrostatic head and friction losses in the injection well, the
+   reservoir inlet pressure `inj_well.outlet.P` exceeds
+   `hydrostatic_P × (1 + overpressure% / 100)`.
+
+These two mechanisms are checked via separate code paths in `src/tango/` but neither is
+clearly labeled. `check_fracing` guards only the flow-rate cap; the injection pressure
+adjustment (`test_p` update) runs regardless of the flag.
+
+**`InjectionPolicy` — the clean replacement**
+
+In `tango_next`, both concerns are unified into a single enum that makes every operating
+mode self-documenting. The YAML field is `schedule.bc_iteration.mode`.
+
+```python
+class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
+    """Controls how mass flow rate and injection wellhead pressure are determined."""
+
+    MANUAL = "manual"
+    """Both mass flow rate and injection wellhead pressure are user-specified.
+    No fracing check is performed. Single solver pass per timestep."""
+
+    MANUAL_FRACING_CHECK = "manual-fracing-check"
+    """Both user-specified. Both fracing directions are checked; any violation
+    raises an error. Injection pressure is reduced if the initial value would
+    cause pressure-induced fracing; rate is capped if it would cause
+    flow-induced fracing. Single solver pass per timestep."""
+
+    AUTO_PRESSURE = "auto-pressure"
+    """Mass flow rate is user-specified. Injection wellhead pressure is iterated
+    until the reservoir inlet pressure converges to the fracing threshold
+    (Newton step: test_p += target_reservoir_P - inj_well.outlet.P).
+    If the converged state would also cause flow-induced fracing, an error
+    is raised."""
+
+    AUTO_FLOW = "auto-flow"
+    """Injection wellhead pressure is user-specified. Mass flow rate is iterated
+    to the Darcy-law fracing limit (fracing_flow()) each pass. Because fracing_flow()
+    depends on injection-side fluid properties, the rate co-evolves with pressure
+    until both stabilize. If the converged state would cause pressure-induced fracing,
+    an error is raised."""
+
+    AUTO_BOTH = "auto-both"
+    """Both are iterated simultaneously. If no feasible injection pressure exists
+    at the target flow rate, the flow rate is reduced until a feasible pressure
+    can be achieved. This is the most robust mode for high-flow or
+    low-permeability reservoirs."""
+```
+
+`max_mass_rate` is preserved as a separate optional hard cap that applies after
+mode-based rate computation, regardless of mode. It is meaningful for `AUTO_FLOW` and
+`AUTO_BOTH` (to bound runaway rate growth) but has no effect in `MANUAL` or
+`MANUAL_FRACING_CHECK` if the specified rate is already below the cap.
+
+**Approximate mapping from `src/tango/` configurations**
+
+| `src/tango/` configuration | `InjectionPolicy` equivalent |
+|---|---|
+| `type: manual, check_fracing: False` | `MANUAL` |
+| `type: manual, check_fracing: True` | `MANUAL_FRACING_CHECK` |
+| `type: automatic` (standard, non-Hotmaps) | `AUTO_BOTH` (test_p and mass_rate co-evolve each iteration) |
+
+In HotmapsDispatch mode, `type: automatic` has more complex behavior: early timesteps
+use a specified rate with an optional fracing cap (similar to `MANUAL_FRACING_CHECK`),
+while later timesteps either use `fracing_flow()` or iterate mass flow rate to hit a
+target thermal power output (`controlled_power_generation: yes` — note that `src/tango/`
+checks this with a `== "yes"` string comparison, so `True` silently does nothing there).
+This is a distinct operating mode not yet represented in `InjectionPolicy` and should be
+designed as its own variant when the Hotmaps feature is migrated to `tango_next`.
+
+**Planned future variants**
+
+`InjectionPolicy` is intentionally scoped to injection control rather than just fracing
+prevention, leaving room for variants that optimise operating objectives:
+
+- `MAX_NET_POWER` — iterate mass flow rate and injection pressure to maximise
+  `gross_power − pump_parasitic_load`, subject to the fracing limit as a hard constraint.
+- `MIN_LCOE` — similar, but objective is levelised cost of energy over the project lifetime.
+
+These require the Phase 2 Newton-step solver infrastructure and the pump electricity
+accounting fix to be in place before they can be meaningfully implemented.
+
+*Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — shows
+current modes and which trigger the outer convergence loop.*
+
 #### Where to provision sockets for external tools (open question)
 
 CMG, MOOSE, DWSIM and similar external simulators need to be integrated at some point. The
@@ -159,6 +271,42 @@ both) — needs careful thought before the integration work begins. The architec
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
 
+#### Pump electricity accounting — known inconsistencies (needs HIL verification)
+
+**⚠ Human-in-the-loop (HIL) verification required before relying on net power or LCOE
+outputs from `src/tango/`.  The summary below is based on static code analysis and may
+contain errors — the original codebase is complex enough that misreading a sign convention
+or a code path is easy.**
+
+Current best understanding of pump accounting per surface plant type:
+
+| Pump | FlexiblePP | ORC | CPG |
+|---|---|---|---|
+| Injection pump(s) | ✓ tracked — TESPy `Compressor` nodes summed in `_compute_total_pump_work()` | n/a (no injection pump in cycle) | ✓ tracked — computed explicitly in `_update_pump_state()` |
+| Production downhole pump | ✓ via `prod_pump_w_list` → `PowerPlantCost.compute_net_power()` at econ layer; **not** in `surface.w_net` directly | ✓ via `w_downhole_pump` at econ layer; **not** in `surface.w_net` directly | ✗ likely untracked — `prod_pump_w_list` accumulates it but CPG never uses it |
+| Working fluid / ORC pump | n/a | ✓ in `w_net` directly | n/a |
+| Cooling / condensing parasitic | ✓ | ✓ | ✓ |
+
+Known inconsistency: for FlexiblePP and ORC, `surface.w_net` (the physics-layer value) does
+**not** include the production downhole pump — it is only added at the economic calculation
+layer.  Code that reads `surface.w_net` directly (e.g. logging, plotting) will undercount
+parasitic loads.
+
+For a high-permeability reservoir injection pump loads are small (≈ 2–6% of gross power).
+For a low-permeability reservoir the required injection pressure is much higher and pump load
+can reach 15–20% of gross — large enough to determine whether a site is economically viable.
+Getting this right matters most exactly where the resource is marginal.
+
+In `tango_next` Phase 1, no pump electricity is wired to an `EconomicComponent` yet —
+placeholders with `TODO (Phase 2)` notes throughout.
+
+Phase 2 should:
+- Verify the table above with HIL testing on representative configs
+- Fix the CPG production downhole pump gap in `src/tango/`
+- Reconcile `surface.w_net` with the economic-layer value so there is one authoritative
+  net-power number per timestep (see cascading calculation principle below in Phase 2)
+- Wire `pump_power_watts` from all tango_next wellbore components into the economic component
+
 #### Web app config fragmentation (tango-super ecosystem)
 
 The vibe-coded web app in the broader `tango-super` ecosystem stores geothermal system
@@ -171,6 +319,13 @@ multiple stores.
 The new input schema (Phase 1) should be treated as the single source of truth for both the
 simulation configuration and the graph topology. The web app should read from and write to
 that schema, not maintain its own parallel representation.
+
+#### Miscellaneous
+
+All unit conversions should be handled via constants imported from a
+module defining unit conversion constants and physical constansts, e.g.
+`p_out_kilopascals = p_out_megapascals * 1_000` should be
+`p_out_kilopascals = pascals * MEGA_TO_KILO`
 
 ---
 
@@ -209,6 +364,15 @@ that schema, not maintain its own parallel representation.
 - [ ] Capture performance baselines (runtime, memory) on those same inputs
     (NOTE: this could be added to existing regression tests, as long as it can be
     done without having much impact on duration of tests)
+- [ ] When comparing `tango_next` against original `src/tango/`, first wire
+    `tango_next` to use the **same formulas as the original** (Haaland friction
+    factor, radial Dupuit-Thiem reservoir flow, full TESPy surface cycle) and
+    verify that results match — or identify and explain any discrepancies.
+    Only after that baseline is confirmed should the alternative formulas
+    already implemented in `tango_next` (Swamee-Jain, linear 1-D Darcy,
+    lumped-efficiency surface) be run, to evaluate where they land relative
+    to the verified baseline.  Both sets of formulas should remain as
+    selectable variants — do not replace the originals.
 
 ---
 
@@ -233,6 +397,7 @@ all congruent with each other.
 *Diagram: [New Input File Structure](diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
 *Diagram: [New Module Structure](diagrams/src/phase1_new_module_structure.drawio)*
 *Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio)*
+*Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
 
 **Tasks:**
 - [x] create temporary space for new structure
@@ -267,7 +432,22 @@ all congruent with each other.
 - **`LockedState`** — enforces that each state variable can be updated once and only once per
   timestep. Catches a whole class of subtle simulation bugs.
 - **`history` object** — saves state at user-specified intervals; supports `None` (no temporal
-  output) for performance-critical runs.
+  output) for performance-critical runs.  A spatially-distributed state variable (e.g.
+  temperature profile along a wellbore axis) is still **one** state variable — its spatial
+  dimension is part of the variable itself, not a separate variable per cell.  History therefore
+  has shape `[timestep][spatial_cell]` (in Rust terms: `Vec<Vec<f64>>`).  For a lumped
+  (0-D) component the inner vec has length 1, so lumped and numerical models share the same
+  history structure with no special-casing.
+- **Cascading calculations** — computations should propagate down the component hierarchy,
+  not be assembled piecemeal at higher levels.  The model is fastsim's
+  `SimDrive::solve_step` → `Vehicle::solve_powertrain` → `PowertrainType::solve` → …
+  where each level owns its own state and delegates to children; the parent only reads
+  child state after the child has solved.  In TANGO terms: `Orchestrator.run_timestep`
+  calls `component.solve()`; `SurfacePlant.solve()` calls `PowerPlant.solve()`, which
+  calls `Turbine.solve()`, `Pump.solve()`, etc.  Net power is then read upward from
+  the fully-solved hierarchy — not assembled by passing lists (`prod_pump_w_list`) or
+  adding corrections at a separate economic layer.  This is the fix for the
+  `surface.w_net` ≠ economic-layer inconsistency described above.
 - **Serialization:** Every TANGO code object gets `to_file` / `from_file` / `to_str` /
   `from_str` methods. Format-agnostic (JSON, YAML, MessagePack, pickle).
 - most of these points have examples in https://github.com/NatLabRockies/fastsim
@@ -355,6 +535,67 @@ scale required for a regional or global sweep.
 **Task:** Design the data ingestion pipeline, TANGO sweep configuration, and ranking/visualization
 outputs as a future project scope item. Consider how TANGO's Tier 2–4 access model intersects
 with this capability — a geospatial discovery tool is a strong differentiator for Tier 3/4.
+
+---
+
+### Future Direction — AI-Assisted Error Interpretation
+
+Simulation errors in TANGO are often opaque: a CoolProp lookup fails because the
+requested state is in a two-phase region, a `ConvergenceError` fires after 200 BC
+iterations with no explanation of why, a negative outlet pressure appears mid-run
+with no pointer to which component produced it. End users — especially those without
+a deep background in thermodynamics or numerical methods — are left staring at a
+Python traceback with no actionable guidance.
+
+The idea: wrap `tango_next_cli run` in a top-level exception handler that, on any
+unhandled error, packages the context and sends it to an LLM agent for interpretation.
+
+**What the agent receives:**
+- The full input YAML (the system configuration the user submitted)
+- The Python traceback and exception message
+- The last-known component states (serialized via SerdeAPI) — what each component
+  computed before the failure
+
+**What the agent returns:**
+- A plain-English explanation of what went wrong and why
+- A concrete suggestion for how to fix it (e.g. "your injection pressure of 45 MPa
+  exceeds the fracing threshold of 38 MPa for this reservoir depth — try reducing
+  `injection_pressure` in the surface spec, or switch to `mode: auto-pressure` to
+  let the solver find a safe value automatically")
+- If appropriate, a corrected or adjusted input snippet the user can paste in
+
+**Why this is particularly well-suited to LLM assistance:** The error messages TANGO
+produces (and the ones CoolProp and TESPy produce underneath it) are correct but
+written for developers, not operators. The mapping from "what the physics failed on"
+to "what the user should do about it" is well-defined enough to be reliably produced
+by an LLM that has been given the component context — but tedious and error-prone to
+hard-code as static error messages.
+
+**Implementation sketch:**
+
+```python
+# tango_next_cli.py — outer try/except in the `run` subcommand
+try:
+    Workflow.from_file(path).run()
+except Exception as exc:
+    if ai_interpretation_enabled():
+        agent_explain(exc, config=raw_yaml, component_states=last_states)
+    else:
+        raise
+```
+
+The `agent_explain` function can be a thin wrapper around the Claude API (or any
+capable model) with a system prompt that describes the TANGO component model and
+the most common failure modes. It should be opt-in (controlled by a CLI flag or
+config setting) so that users who prefer raw tracebacks or who are working offline
+are not affected.
+
+**Prerequisites:** Phase 2 SerdeAPI (so component states can be serialized at the
+point of failure) and a stable set of error types (`ConvergenceError`,
+`FracingError`, `SaturationError`, etc.) with enough context attached to be useful.
+
+*Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio) — shows the
+AI error agent as a future hook on the right side of the simulation loop.*
 
 ---
 

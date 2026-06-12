@@ -1,0 +1,150 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Phase 0 Execution Flow" id="phase0-exec-flow">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="700" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Phase 0 — TANGO Execution Flow" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="10" width="640" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="(flexible_SF_manual.yml — SystemExternal / bc_iteration path)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="30" y="32" width="640" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- Loop backgrounds (placed first so they render behind) -->
+        <mxCell id="time_bg" value="" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#888888;dashed=1;strokeWidth=2;opacity=60;" vertex="1" parent="1">
+          <mxGeometry x="35" y="262" width="630" height="368" as="geometry" />
+        </mxCell>
+        <mxCell id="time_lbl" value="TIME LOOP  (t = 0 … n_tsteps-1)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=1;fontColor=#555555;align=left;" vertex="1" parent="1">
+          <mxGeometry x="44" y="265" width="320" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc_bg" value="" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;strokeWidth=1.5;opacity=40;" vertex="1" parent="1">
+          <mxGeometry x="58" y="289" width="584" height="202" as="geometry" />
+        </mxCell>
+        <mxCell id="bc_lbl" value="BC ITERATION LOOP  (SystemExternal — iterate injection_pressure until mass flow balances)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=1;fontColor=#7a4e9a;align=left;" vertex="1" parent="1">
+          <mxGeometry x="64" y="292" width="570" height="15" as="geometry" />
+        </mxCell>
+
+        <!-- START -->
+        <mxCell id="start" value="START" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="275" y="42" width="150" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- FILE INGESTION -->
+        <mxCell id="s1" value="FILE INGESTION&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;tango_cli.py → Runner · Read YAML → specs dict&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="97" width="380" height="52" as="geometry" />
+        </mxCell>
+
+        <!-- INITIALIZATION -->
+        <mxCell id="s2" value="INITIALIZATION&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;NativeWorkflow · build NetworkX DiGraph&lt;br&gt;instantiate Units in topological order · EconomicUnit&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="168" width="380" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- BC1: Set pressure guess -->
+        <mxCell id="bc1" value="Set injection_pressure guess&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;(initial value from surface specs)&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="195" y="312" width="310" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- BC2: Single loop solve -->
+        <mxCell id="bc2" value="SOLVE SINGLE LOOP (topological order)&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;surface → injection_well → reservoir&lt;br&gt;→ production_well_lower → production_well_upper&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="365" width="380" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Decision: mass flow balanced? -->
+        <mxCell id="bc_d" value="Mass flow&lt;br&gt;balanced?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="215" y="434" width="270" height="52" as="geometry" />
+        </mxCell>
+
+        <!-- Record timestep results -->
+        <mxCell id="tr" value="Record timestep results&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;&lt;i&gt;(ad-hoc subset — not all state variables are captured)&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="195" y="505" width="310" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Decision: more timesteps? -->
+        <mxCell id="t_d" value="t &lt; n_tsteps-1?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="215" y="555" width="270" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ECONOMICS -->
+        <mxCell id="s4" value="ECONOMICS&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;EconomicUnit.run()&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="642" width="380" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- OUTPUT -->
+        <mxCell id="s5" value="OUTPUT&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;return results dict&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="700" width="380" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- END -->
+        <mxCell id="end" value="END" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="275" y="761" width="150" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- EDGES: main straight flow -->
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="start" target="s1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s1" target="s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s2" target="bc1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="bc1" target="bc2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="bc2" target="bc_d" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- bc_d → tr (balanced, exit bottom) -->
+        <mxCell id="e6" value="balanced" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="bc_d" target="tr" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- bc_d → bc1 (not balanced, loop back left) -->
+        <mxCell id="e7" value="not balanced" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="bc_d" target="bc1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="105" y="460" />
+              <mxPoint x="105" y="332" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="tr" target="t_d" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- t_d → s4 (done, no more timesteps) -->
+        <mxCell id="e9" value="done" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="t_d" target="s4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- t_d → bc1 (next timestep, loop back left) -->
+        <mxCell id="e10" value="next t" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="t_d" target="bc1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="580" />
+              <mxPoint x="80" y="332" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s4" target="s5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s5" target="end" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FILE INGESTION pain-point annotation -->
+        <mxCell id="s1_warn" value="⚠ no schema validation · scattered root-level params · components linked by naming convention only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=left;" vertex="1" parent="1">
+          <mxGeometry x="548" y="97" width="142" height="52" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,35 @@
+"""Component registry for tango_next.
+
+Maps (type, unit) string pairs from the input YAML to concrete Component
+classes.  Workflow.from_file() uses this to instantiate components without
+hard-coding class names.
+
+To add a new component type:
+  1. Implement the Component subclass with a ``from_config(config: dict)``
+     classmethod.
+  2. Add a ``(type_str, unit_str): ClassName`` entry here.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from tango_next.components.reservoir.lumped import LumpedReservoir
+from tango_next.components.surface.single_flash import SingleFlashSurface
+from tango_next.components.well.lumped import (
+    LumpedInjectionWell,
+    LumpedProductionWell,
+    LumpedProductionWellPump,
+)
+
+if TYPE_CHECKING:
+    from tango_next.core.component import Component
+
+# (component_type, unit) → concrete class with a from_config() classmethod
+COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
+    ("injection_well", "native"): LumpedInjectionWell,
+    ("reservoir", "native"): LumpedReservoir,
+    ("production_well", "native"): LumpedProductionWell,
+    ("production_well_pump", "native"): LumpedProductionWellPump,
+    ("surface", "single_flash"): SingleFlashSurface,
+}

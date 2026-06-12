@@ -38,10 +38,8 @@ schedule:
     dt_years: 1.0            # years
   bc_iteration:
     solver: explicit  # explicit (default) or implicit — selects SystemBCIteration solver algorithm
-    check_fracing: yes
-    max_mass_rate: 150
+    mode: manual      # InjectionPolicy variants: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
   mass_rate:
-    type: manual
     value: 50
 
 economic:
@@ -53,7 +51,7 @@ components:
 
   surface:
     type: surface
-    unit: flexible
+    unit: single_flash
     component_idx: 0          # 0 = BC checkpoint
     prev: 4
     next: 1
