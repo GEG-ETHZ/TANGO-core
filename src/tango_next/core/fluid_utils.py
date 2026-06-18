@@ -73,8 +73,8 @@ def friction_factor_darcy(Re: float, diameter: float, roughness: float) -> float
     """Darcy–Weisbach friction factor via Swamee–Jain explicit approximation.
 
     Laminar   (Re < 2300)       : f = 64 / Re
+    Transition (2300 ≤ Re < 4000): laminar value used conservatively
     Turbulent (Re ≥ 4000)       : Swamee–Jain (explicit Colebrook–White)
-    Transition (2300 ≤ Re < 4000): laminar value used conservatively.
 
     References:
     ----------
@@ -109,6 +109,32 @@ def friction_factor_darcy(Re: float, diameter: float, roughness: float) -> float
     # Turbulent: Swamee–Jain explicit approximation to Colebrook–White
     rel_rough = roughness / diameter
     return 0.25 / (math.log10(rel_rough / 3.7 + 5.74 / Re**0.9)) ** 2
+
+
+def friction_factor_haaland(Re: float, diameter: float, roughness: float) -> float:
+    """Darcy–Weisbach friction factor via the Haaland explicit approximation.
+
+    1/sqrt(f) = -1.8 log10[ (r/3.7)^1.11 + 6.9/Re ],  r = roughness / diameter
+
+    This matches ``src/tango/units/native/well/base.py::WellUnitNative._compute_friction_factor``
+    exactly (same formula, same inputs) — use this (not ``friction_factor_darcy``'s
+    Swamee–Jain approximation) wherever parity with the original implementation matters,
+    e.g. the discretized wellbore models.
+
+    Reference:
+    ---------
+    Haaland, S.E. (1983). Simple and explicit formulas for the friction factor in
+    turbulent pipe flow. J. Fluids Engineering, 105(1), 89-90.
+    https://doi.org/10.1115/1.3240948
+
+    Args:
+        Re: Reynolds number (dimensionless).
+        diameter: Pipe inner diameter (m).
+        roughness: Absolute pipe-wall roughness (m).
+
+    """
+    r = roughness / diameter
+    return (-1.8 * math.log10((r / 3.7) ** 1.11 + 6.9 / Re)) ** -2.0
 
 
 def pressure_drop_friction(
@@ -147,6 +173,41 @@ def hydrostatic_pressure(rho: float, delta_depth: float) -> float:
 
     """
     return rho * GRAVITY * delta_depth
+
+
+def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -> float:
+    r"""Adams et al. (2015) transient conductive heat loss for one wellbore cell (W).
+
+    Q_loss = 2π · dL · k_rock · β(t_d) · ΔT
+
+    where β is a dimensionless coefficient based on dimensionless time t_d:
+
+        β = (π·t_d)^-0.5 + 0.5 - 0.25·(t_d/π)^0.5 + 0.125·t_d,   t_d ≤ 2.8
+        β = 2 / (ln(4·t_d) - 1.16) - 1.16 / (ln(4·t_d) - 1.16)²,  t_d > 2.8
+
+    Matches ``src/tango/units/native/well/base.py::WellUnitNative._compute_Q_loss``
+    exactly (same beta correlation, same formula).
+
+    Reference:
+    ---------
+    Adams, B.M. et al. (2015). A comparison of electric power output of CO2
+    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
+    conditions. Applied Energy, 140, 365-377.
+    https://doi.org/10.1016/j.apenergy.2014.11.043
+
+    Args:
+        dL: Axial cell length (m).
+        rock_k: Surrounding rock thermal conductivity (W/(m·K)).
+        t_d: Dimensionless time (dimensionless).
+        delta_T: Temperature difference, fluid minus far-field rock (K).
+
+    """
+    if t_d <= 2.8:
+        beta = (math.pi * t_d) ** -0.5 + 0.5 - 0.25 * (t_d / math.pi) ** 0.5 + 0.125 * t_d
+    else:
+        ln_term = math.log(4.0 * t_d) - 1.16
+        beta = 2.0 / ln_term - 1.16 / ln_term**2
+    return 2.0 * dL * math.pi * rock_k * beta * delta_T
 
 
 # ---------------------------------------------------------------------------

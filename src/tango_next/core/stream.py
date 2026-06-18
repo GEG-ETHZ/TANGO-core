@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from pydantic import BaseModel
 
 
-@dataclass
-class Stream:
+class Stream(BaseModel):
     """Carries thermodynamic state and mass flow rate between components.
 
     SI units throughout: pressures in Pa, temperatures in K,
@@ -23,5 +22,5 @@ class Stream:
     rho: float = 0.0
     mu: float = 0.0
     fluid_name: str = ""
-    port: str = field(default="")
+    port: str = ""
     """Port label: 'inlet', 'outlet', 'vapor_outlet', 'liquid_outlet', etc."""

@@ -32,6 +32,10 @@ from __future__ import annotations
 GRAVITY: float = 9.80665
 """Standard gravitational acceleration (m/s²).  NIST / ISO 80000-3."""
 
+YEAR_TO_SECOND: float = 31_536_000.0
+"""Seconds per (365-day) year.  Matches src/tango/core/constants.py exactly,
+for parity in dimensionless-time calculations (e.g. wellbore heat-loss models)."""
+
 # ---------------------------------------------------------------------------
 # SI prefix multipliers
 # ---------------------------------------------------------------------------

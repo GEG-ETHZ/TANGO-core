@@ -11,8 +11,9 @@ class Orchestrator(ABC):
     """Abstract base for all tango_next orchestrators.
 
     Owns the component graph and executes components in the correct order
-    within each timestep.  Concrete subclasses: SystemDirect (single-pass)
-    and SystemBCIteration (convergence loop for injection pressure).
+    within each timestep.  Concrete subclasses: SystemDirect (single-pass,
+    no BC concept) and SystemBCIteration (subclasses SystemDirect, adding
+    injection-pressure/mass-rate BC iteration governed by InjectionPolicy).
     """
 
     @property

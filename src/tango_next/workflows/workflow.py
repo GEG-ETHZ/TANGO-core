@@ -22,8 +22,8 @@ class Workflow:
     """Parses a tango_next input file and drives the simulation.
 
     Orchestrator is selected automatically from the input file:
-      schedule.bc_iteration present  →  SystemBCIteration
-      schedule.bc_iteration absent   →  SystemDirect
+      sim_config.bc_iteration present  →  SystemBCIteration
+      sim_config.bc_iteration absent   →  SystemDirect
 
     Usage::
 
@@ -35,19 +35,26 @@ class Workflow:
         """Build the orchestrator and components from a parsed config dict."""
         self._config = config
         common: dict[str, Any] = config.get("common", {})
-        schedule: dict[str, Any] = config.get("schedule", {})
+        layout: dict[str, Any] = config.get("layout", {})
+        sim_config: dict[str, Any] = config.get("sim_config", {})
 
-        components = _build_components(config["components"], common, schedule)
-
-        n_tsteps: int = schedule["time"]["num_tsteps"]
-        dt_years: float = float(schedule["time"]["dt_years"])
+        n_tsteps: int = sim_config["time"]["num_tsteps"]
+        dt_years: float = float(sim_config["time"]["dt_years"])
         fluid_name: str = common.get("fluid_name", "Water")
 
-        if "bc_iteration" in schedule:
-            mass_rate: float = float(schedule["mass_rate"]["value"])
+        components = _build_components(config["components"], common, layout, dt_years)
+
+        if "bc_iteration" in sim_config:
             policy = InjectionPolicy(
-                schedule["bc_iteration"].get("mode", InjectionPolicy.MANUAL),
+                sim_config["bc_iteration"].get("mode", InjectionPolicy.MANUAL),
             )
+            # AUTO_FLOW / AUTO_BOTH compute mass_rate from fracing_flow() each
+            # pass — the YAML mass_rate value is only meaningful (and required)
+            # for policies where flow rate is user-prescribed.
+            if policy in (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH):
+                mass_rate: float = 0.0
+            else:
+                mass_rate = float(sim_config["mass_rate"]["value"])
             self._orchestrator: SystemBCIteration | SystemDirect = SystemBCIteration(
                 components,
                 n_tsteps=n_tsteps,
@@ -57,7 +64,7 @@ class Workflow:
                 policy=policy,
             )
         else:
-            self._orchestrator = SystemDirect(components)
+            self._orchestrator = SystemDirect(components, n_tsteps=n_tsteps)
 
     @classmethod
     def from_file(cls, path: Path | str) -> Workflow:
@@ -94,31 +101,35 @@ class Workflow:
 def _build_components(
     components_block: dict[str, Any],
     common: dict[str, Any],
-    schedule: dict[str, Any],
+    layout: dict[str, Any],
+    dt_years: float,
 ) -> dict[str, Component]:
     """Instantiate all components from the ``components:`` YAML block.
 
-    Each component dict is merged with ``common:`` (lowest priority) and
-    any schedule fields required by the component (e.g. ``well_spacing``
-    for the reservoir Darcy model).  Component-specific keys take precedence
-    over common keys.
+    Each component dict is merged with ``common:`` (lowest priority), layout
+    fields some components need at construction time, and ``dt_years`` (e.g.
+    for components that track dimensionless time across timesteps, such as
+    ``NumericalInjectionWell``).  Component-specific keys take precedence
+    over all of these.
 
     Args:
         components_block: Parsed ``components:`` mapping from the input file.
-        common: Parsed ``common:`` mapping (shared fluid/rock properties).
-        schedule: Parsed ``schedule:`` mapping (needed for e.g. well_spacing).
+        common: Parsed ``common:`` mapping (shared fluid/rock parameters).
+        layout: Parsed ``layout:`` mapping (well-field geometry, e.g. well_spacing).
+        dt_years: Simulation timestep duration (years), from ``sim_config.time.dt_years``.
 
     Returns:
         Dict of instantiated components keyed by their YAML name.
 
     """
-    # Pull schedule fields that some components need at spec construction time
-    schedule_extras: dict[str, Any] = {
-        "well_spacing": schedule.get("well_spacing", 707.0),
+    # Pull layout/sim_config fields that some components need at spec construction time
+    layout_extras: dict[str, Any] = {
+        "well_spacing": layout.get("well_spacing", 707.0),
         "surface_temperature": common.get(
             "surface_temperature",
             components_block.get("surface", {}).get("surface_temperature", 288.0),
         ),
+        "dt_years": dt_years,
     }
 
     built: dict[str, Component] = {}
@@ -137,8 +148,8 @@ def _build_components(
             )
             continue
 
-        # Merge: common < schedule_extras < component-specific (highest priority)
-        merged: dict[str, Any] = {**common, **schedule_extras, **comp_cfg}
+        # Merge: common < layout_extras < component-specific (highest priority)
+        merged: dict[str, Any] = {**common, **layout_extras, **comp_cfg}
 
         try:
             component = cls.from_config(merged)  # type: ignore[attr-defined]

@@ -120,7 +120,7 @@ they represent all tell the same story.
 
 The current codebase distinguishes `SystemNative` from `SystemExternal`, but this distinction
 is misleading. `SystemExternal` is not primarily about external simulators — it is used
-whenever `bc_iteration` is present in the schedule, including for runs that use only native
+whenever `bc_iteration` is present in `sim_config`, including for runs that use only native
 TANGO code and no external tools at all (e.g. `flexible_SF_manual.yml`). The actual split is:
 
 - `SystemNative`: simple timestep execution, no boundary-condition iteration
@@ -132,11 +132,31 @@ and makes it harder to reason about which path a given config will take. The ref
 rename these to reflect their actual behavior — `SystemDirect` / `SystemBCIteration` — with
 external simulator support as a separate, composable concern.
 
-Orchestrator selection in `tango_next` is automatic: if `schedule.bc_iteration` is present,
+Orchestrator selection in `tango_next` is automatic: if `sim_config.bc_iteration` is present,
 `SystemBCIteration` is used; otherwise `SystemDirect`. No `workflow` key is needed in
 a top-level key. A future implicit solver is selected via
-`schedule.bc_iteration.solver: implicit` — keeping the signal inside the part of the config
+`sim_config.bc_iteration.solver: implicit` — keeping the signal inside the part of the config
 that governs solver behavior.
+
+**This selection is a topology question, not a second encoding of `InjectionPolicy`.**
+Early on, `SystemBCIteration` re-implemented the entire single-pass solve loop itself, so
+`InjectionPolicy.MANUAL` (one pass per timestep, no correction) ended up functionally
+identical to what `SystemDirect` already did — two code paths doing the same thing, picked by
+whether a YAML key happened to be present. The fix: `SystemBCIteration` now subclasses
+`SystemDirect` and reuses its single-circuit-pass `run_timestep` (one call per pass for
+`MANUAL`/`MANUAL_FRACING_CHECK`, repeated calls inside a Newton loop for `AUTO_*` once Phase 2
+lands) instead of duplicating it. `SystemDirect` owns the only implementation of "one circuit
+pass" and "loop over timesteps"; `InjectionPolicy` is the sole authority over how many passes
+a timestep takes, and never determines which orchestrator *class* is used. Orchestrator choice
+remains a topology question — does this graph declare a circuit with a BC variable to solve
+for at all (e.g. a bare wellbore test fixture has none and uses `SystemDirect` directly).
+
+The top-level YAML config is split by concern: `common` holds shared physical *parameters*
+(fluid, rock properties — not physical constants like Planck's constant), `layout` holds
+well-field geometry (`well_spacing`, `well_pattern`), and `sim_config` holds time stepping
+and solver/injection control (`time`, `bc_iteration`, `mass_rate`). This replaced an earlier
+single `schedule` block that mixed all three concerns under a name that only really fit the
+time-stepping piece.
 
 The native reservoir model assumes mass conservation: injection rate equals production rate
 at every timestep (1D Darcy flow, incompressible fluid). Full reservoir simulators (CMG,
@@ -184,7 +204,10 @@ adjustment (`test_p` update) runs regardless of the flag.
 **`InjectionPolicy` — the clean replacement**
 
 In `tango_next`, both concerns are unified into a single enum that makes every operating
-mode self-documenting. The YAML field is `schedule.bc_iteration.mode`.
+mode self-documenting. The YAML field is `sim_config.bc_iteration.mode`. Note that
+`mass_rate` is only meaningful for policies where flow rate is user-prescribed (`MANUAL`,
+`MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is computed
+from `fracing_flow()` each pass, so the YAML field may be omitted entirely under those modes.
 
 ```python
 class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
@@ -226,6 +249,32 @@ mode-based rate computation, regardless of mode. It is meaningful for `AUTO_FLOW
 `AUTO_BOTH` (to bound runaway rate growth) but has no effect in `MANUAL` or
 `MANUAL_FRACING_CHECK` if the specified rate is already below the cap.
 
+**Current implementation status (confirmed 2026-06-16):** only `MANUAL` is implemented in
+`tango_next` today — a single circuit pass, no correction of any kind. `MANUAL_FRACING_CHECK`,
+`AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH` all raise `NotImplementedError` from
+`SystemBCIteration.run_timestep` (Phase 2 work). In particular, `AUTO_BOTH` — which jointly
+manipulates both mass flow rate and injection pressure — is confirmed to raise
+`NotImplementedError` rather than silently doing something wrong; this should hold until the
+joint Newton update rule described above is actually implemented.
+
+**Future direction — whole-horizon optimization (`MIN_LCOE` and friends):** `AUTO_PRESSURE` /
+`AUTO_FLOW` / `AUTO_BOTH` solve a *per-timestep* physical constraint (find the BC variable(s)
+that keep the system at the fracing threshold *this timestep*). A `MIN_LCOE` variant is a
+different kind of problem: LCOE is a whole-horizon objective — it depends on cumulative energy
+output and cost across every timestep in the simulation, not on any single timestep in
+isolation. Minimizing it means searching over decision variables (e.g. constant `mass_rate`
+and/or `test_p` setpoints, or eventually time-varying schedules) and re-running the *entire*
+multi-timestep simulation as the inner evaluation of an outer constrained optimizer — much
+closer in shape to the existing `optimizerr.py` / `pymoo` machinery in `src/tango/` than to the
+per-timestep Newton loop in `SystemBCIteration`. Constraints would be the same fracing limits
+checked at every timestep along the way. This means `MIN_LCOE` (and any other whole-horizon
+objective — e.g. `MAX_NET_POWER` over the full horizon rather than per-timestep) likely cannot
+just be another `InjectionPolicy` value handled inside `SystemBCIteration.run_timestep`; it is
+architecturally an outer loop wrapping `Workflow.run()` itself. `InjectionPolicy` should leave
+room for this distinction — e.g. a separate enum or a flag distinguishing per-timestep BC
+policies from whole-horizon optimization objectives — rather than assuming every future variant
+fits the same per-timestep mechanism as `AUTO_PRESSURE`/`AUTO_FLOW`/`AUTO_BOTH`.
+
 **Approximate mapping from `src/tango/` configurations**
 
 | `src/tango/` configuration | `InjectionPolicy` equivalent |
@@ -250,12 +299,60 @@ prevention, leaving room for variants that optimise operating objectives:
 - `MAX_NET_POWER` — iterate mass flow rate and injection pressure to maximise
   `gross_power − pump_parasitic_load`, subject to the fracing limit as a hard constraint.
 - `MIN_LCOE` — similar, but objective is levelised cost of energy over the project lifetime.
+  Note: the decision-variable vector for `MIN_LCOE` isn't necessarily limited to
+  `InjectionPolicy`'s own variables (`mass_rate`, `test_p`) — see "Extraction pressure as
+  an independent policy axis" below, which argues `target_extraction_pressure` is a third,
+  independent variable a whole-horizon optimizer may also need to search over.
 
 These require the Phase 2 Newton-step solver infrastructure and the pump electricity
 accounting fix to be in place before they can be meaningfully implemented.
 
 *Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — shows
 current modes and which trigger the outer convergence loop.*
+
+#### Extraction pressure as an independent policy axis (naming TODO: split `bc_iteration`)
+
+`sim_config.bc_iteration` currently houses `InjectionPolicy` (`mode`) and `mass_rate` —
+both about finding the injection-side BC variable(s) needed to prevent fracing. But
+`SystemBCIteration`'s own module docstring already documents a second, independent
+sub-problem under "Two independent sub-problems — do not conflate": the production-pump
+inner loop that finds `dP_pump` needed to hit `target_extraction_pressure` at the surface
+inlet. Today `target_extraction_pressure` is just a fixed value on the surface component
+spec, and the pump-loop physics that would seek it isn't implemented yet
+(`SingleFlashSurface.solve()` is still a Phase 1 placeholder) — but the config naming
+already implies these two concerns are one thing (`bc_iteration`) when the code's own
+docstring says they are not.
+
+**Proposed split (naming TODO, not finalized):** rename `bc_iteration` to something scoped
+specifically to the injection side — e.g. `injection_control` (housing `mode` /
+`InjectionPolicy` / `mass_rate`) — and introduce a sibling `extraction_control` block
+housing `target_extraction_pressure` and a parallel `ExtractionPolicy` enum. Both
+`injection_control` and `extraction_control` are "boundary condition" concerns in the
+literal sense — one BC at the injection wellhead, one BC at the surface inlet from
+production — so "BC" as an umbrella term stays accurate; a single flat `bc_iteration` key
+just incorrectly implies there is only one such concern.
+
+**`ExtractionPolicy` sketch (future, not implemented):**
+
+- `FIXED` — current/default behavior: `target_extraction_pressure` is user-specified; the
+  production-pump inner loop (Phase 2) solves for `dP_pump` to hit it exactly, as already
+  described in `SystemBCIteration`'s docstring.
+- `MIN_LCOE` (and room for other future variants) — `target_extraction_pressure` itself
+  becomes a decision variable in the same whole-horizon outer optimizer sketched above
+  under `InjectionPolicy`'s "Future direction" note — not a new solver mechanism, just a
+  wider decision-variable vector for the existing future mechanism.
+
+**Independence, not isolation:** `InjectionPolicy` and `ExtractionPolicy` should be two
+independently selectable enums — `InjectionPolicy.AUTO_BOTH` alongside
+`ExtractionPolicy.FIXED` should be just as valid as `InjectionPolicy.MANUAL` alongside a
+future `ExtractionPolicy.MIN_LCOE`. When both axes are set to whole-horizon optimization
+simultaneously, the outer optimizer's decision-variable vector simply spans both (mass
+rate and/or injection pressure *and* target extraction pressure) — it is still one outer
+optimizer, just searching a larger space.
+
+This is an open design question for Phase 2+, not an action item now: `InjectionPolicy.AUTO_*`
+itself isn't implemented yet, so building `ExtractionPolicy` scaffolding ahead of that
+would be premature.
 
 #### Where to provision sockets for external tools (open question)
 
@@ -320,6 +417,54 @@ The new input schema (Phase 1) should be treated as the single source of truth f
 simulation configuration and the graph topology. The web app should read from and write to
 that schema, not maintain its own parallel representation.
 
+#### Grouped subsystems (composite components)
+
+The `surface` component in `tango_next` already has a nested `power_plant:` block with
+its own local `prev`/`next` graph — it is a grouped subsystem in everything but name.
+The goal is to make this a first-class, general mechanism rather than a hardcoded special
+case.
+
+**The design:** Any component whose spec contains a nested `components:` block is a
+`GroupedComponent`. Internally it owns a full inner graph (nodes linked by `prev`/`next`),
+and the framework selects the inner orchestrator by the same DAG-vs-loop detection used for
+the outer graph — no special-casing needed. The outer orchestrator treats a `GroupedComponent`
+as a black box with a defined inlet stream and outlet stream, identical to any other
+component.
+
+**How boundary conditions are expressed:** `Source` and `Sink` terminal nodes already encode
+this naturally. A `Source` node in the inner graph — a node with no `prev` — signals "I need
+a boundary condition from outside." A `Sink` node — no `next` — signals "I produce an output
+for the outer graph." When the inner graph is open on both ends (Source on one side, Sink on
+the other), it cannot self-close; the outer loop must provide the inlet BC. This is exactly
+the same topology check that determines whether the outer system needs BC iteration or can run
+as a direct-solve DAG.
+
+**Why this matters:** It allows arbitrary grouping — an injection well + reservoir +
+production well stack could become a `SubsurfaceGroup`; a multi-stage surface plant could be
+a `SurfacePlantGroup` — without requiring the orchestrator to know anything about the
+internals. The sub-system can be developed, tested, and solved independently (since it can
+be given synthetic BCs at its Source nodes), and then dropped into any outer graph as a
+single node.
+
+**Recursive traversal:** A `GroupedComponent`'s inner graph can itself contain another
+`GroupedComponent` — the same Source/Sink-driven DAG-vs-loop detection and orchestrator
+selection applies at every level. The solver should not assume a fixed nesting depth of one
+(outer graph → power plant sub-graph); it should walk the component tree recursively,
+instantiating an `Orchestrator` for each level that contains a nested `components:` block,
+however deep that goes.
+
+**Current gap:** `component_idx: 0` is currently treated as a special "BC checkpoint" by
+`SystemBCIteration` — it happens to be the surface in `flexible_SF_manual.yml`, but there is
+nothing inherently BC-related about the surface component itself. That label is a hardcoded
+artifact of the current single-level implementation, not a real property of any component.
+Once the `GroupedComponent` mechanism above is in place, the entry point into a circuit is
+just "wherever component_idx 0 happens to land" — the actual BC behavior comes from the
+Source/Sink topology, not from a magic index tied to a specific component type. The power
+plant sub-graph parsing is also bespoke rather than going through a generalized
+`GroupedComponent` path. Closing both gaps is a Phase 3 task.
+
+---
+
 #### Miscellaneous
 
 All unit conversions should be handled via constants imported from a
@@ -374,6 +519,61 @@ module defining unit conversion constants and physical constansts, e.g.
     to the verified baseline.  Both sets of formulas should remain as
     selectable variants — do not replace the originals.
 
+    **Status (2026-06-16) — injection well done, rest still open:**
+    `NumericalInjectionWell` (`src/tango_next/components/well/numerical.py`,
+    registered as `unit: numerical`) now replicates
+    `src/tango/units/native/well/base.py::WellUnitNative.process_stream()`
+    exactly: 100-cell axial discretization, Haaland friction factor
+    (`core/fluid_utils.py::friction_factor_haaland`), Adams et al. (2015)
+    transient conductive heat loss, and real CoolProp property lookups via a
+    new thin wrapper (`core/fluid_state.py::FluidState`, parity with
+    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`unit: native`) is
+    kept as the permanent fast/simple variant per its module docstring — not
+    replaced.
+
+    Validated against `src/tango/` on `examples/flexible_SF_manual.yml` /
+    `examples/tango_next/flexible_SF_manual.yml`: feeding the *same* inlet
+    conditions and running the same 20 sequential timesteps, dimensionless
+    time (`t_d`) matches **bit-for-bit** (11893.298014434364 both sides),
+    outlet temperature matches to ~5 significant figures (354.5490 K vs.
+    354.5498 K), outlet pressure to ~3-4 (49.7357 MPa vs. 49.7522 MPa, ~0.03%
+    relative). The residual ~0.03% pressure difference is not yet root-caused
+    — likely floating-point order-of-operations across 100 cells × 20
+    timesteps rather than a formula error, but not confirmed. **A true
+    end-to-end run-the-whole-example comparison still does not match**,
+    because the upstream `SingleFlashSurface` is still a Phase 1 placeholder
+    (`outlet.P = self._injection_pressure`, no real TESPy cycle) — so the
+    injection well's *inlet* conditions differ between the two full runs even
+    though the well's own integration is now correct in isolation.
+
+    **Remaining gaps for whoever picks this up next** (intended hand-off
+    point — Chad's plan is to get this set of two example files into good
+    shape, then hand continuation to an intern):
+    - Root-cause the residual ~0.03% pressure discrepancy in the isolated
+      well-only comparison above.
+    - `LumpedProductionWell` / `LumpedProductionWellPump` still use the
+      simplified closed-form model (no discretization, no heat loss at all —
+      `T_outlet = T_inlet`). A `NumericalProductionWell` following the same
+      pattern as `NumericalInjectionWell` is the natural next step — note
+      `src/tango/`'s `ProductionWellUnitNative` shares the *same*
+      `WellUnitNative.process_stream()` base class, just with `_f_dir = 1.0`
+      (upward flow) instead of `-1.0`.
+    - `LumpedReservoir` is still linear 1-D Darcy vs. the original's radial
+      Dupuit-Thiem model (`BC_calculator.py`).
+    - `SingleFlashSurface` is still a Phase 1 placeholder, not a real TESPy
+      power cycle — this is also what blocks a true end-to-end comparison
+      (see above).
+    - Dimensionless-time tracking in `NumericalInjectionWell` only advances
+      correctly because exactly one `solve()` call happens per timestep today
+      (`InjectionPolicy.MANUAL`). Once `AUTO_*` policies add a multi-pass
+      outer convergence loop (Phase 2), this needs the old-tango split between
+      a per-pass `t_d` recompute and a once-per-timestep `t_d_old` advance —
+      flagged in detail in the component's module docstring.
+    - No automated test pins any of these numbers down yet (ties into the
+      "zero test coverage for `tango_next`" gap noted under Phase 1 tasks
+      below) — the comparison above was done by hand in a throwaway script,
+      not as a regression test.
+
 ---
 
 ### Phase 1 — Restructure Input Format & Module Layout
@@ -384,9 +584,11 @@ all congruent with each other.
 - **New input file schema:** Each component (e.g. `injection_wellbore`) stores
   all its own attributes, its `component_idx`, and its previous/next
   `component_idx` values. No data at root level. Indices are assigned somewhat
-  arbitrarily but increment consistently from a fixed starting point (probably
-  a good idea to have the orchestrator's BC checkpoint correspond to index 0). Hierarchy of data approximately matches hierarchy of physical
-  systems.
+  arbitrarily but increment consistently from a fixed starting point — `component_idx: 0`
+  is just the first component solved each pass; it carries no special BC semantics (see
+  "Grouped subsystems (composite components)" below for why the BC role belongs to graph
+  topology, not a hardcoded index). Hierarchy of data approximately matches hierarchy of
+  physical systems.
 - **Parallel module tree:** New code structure built alongside (not replacing) the old one
   until verified. `mypy --strict` and `ruff` pass from the first commit.
 - **Format converter:** One-way migration tool from old to new input format.
@@ -418,6 +620,10 @@ all congruent with each other.
 - [ ] Build a one-way migration tool from old to new input format
 - [x] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
+- [ ] Add test coverage for `tango_next` (currently zero — confirmed no `tests/` files reference
+    `tango_next` at all). The CLI, orchestrators, and components are functional enough to run
+    `flexible_SF_manual.yml` end-to-end under `InjectionPolicy.MANUAL`, but none of it has unit
+    tests yet; this should land before more Phase 1/2 functionality is layered on top.
 
 ---
 
@@ -450,6 +656,15 @@ all congruent with each other.
   `surface.w_net` ≠ economic-layer inconsistency described above.
 - **Serialization:** Every TANGO code object gets `to_file` / `from_file` / `to_str` /
   `from_str` methods. Format-agnostic (JSON, YAML, MessagePack, pickle).
+- **Round-trip verification (TODO):** `SerdeAPI` is currently a Phase 1 stub
+  (`src/tango_next/core/serde.py` — all four methods raise `NotImplementedError`). Once
+  it has a real implementation, verify lossless round-trip serialization across every
+  supported format pair: deserialize a representative YAML input to an object, serialize
+  to each other format (JSON, MessagePack), deserialize back, and assert equality against
+  the original parsed object at *every* hop — not just start-to-end, so a lossy
+  intermediate format can't hide behind a lucky cancellation. No existing test covers
+  this (confirmed: no `round_trip` / `roundtrip` / `serde` references anywhere under
+  `tests/`) — needs new test coverage once `SerdeAPI` is implemented.
 - most of these points have examples in https://github.com/NatLabRockies/fastsim
   (~/git/nrel/fastsim as of 2026-06-08 on Chad's computer). In fastsim,
   `TrackedState` is the analog for `LockedState`, but since we're (at least
@@ -590,9 +805,27 @@ the most common failure modes. It should be opt-in (controlled by a CLI flag or
 config setting) so that users who prefer raw tracebacks or who are working offline
 are not affected.
 
+**Error taxonomy prerequisite:** For the agent to produce useful output — and for
+human debugging — TANGO needs a stable, identifiable set of exception types. The
+design follows the same philosophy as Rust's `thiserror` + `anyhow` crates:
+typed, catchable errors at library boundaries (`thiserror`-style), with rich
+context chained in as they propagate up (`anyhow`-style via Python's
+`raise TangoError(...) from exc`).
+
+Concretely: every CoolProp call must be wrapped so that low-level property-lookup
+failures surface as a `CoolPropError` (a TANGO-owned subclass of `TangoError`),
+not as a raw `ValueError` or `CoolProp.CoolProp.CoolPropError` buried three frames
+deep. The same applies to TESPy, which throws its own mix of solver-convergence and
+bad-state-point errors: these become `TESPyError` at the TANGO boundary. With this
+in place, callers at any layer of the stack can `except CoolPropError` or
+`except TESPyError` (or the broader `TangoError`) and know immediately what kind of
+failure they are handling — without parsing traceback strings or catching overly
+broad base types like `ValueError`.
+
 **Prerequisites:** Phase 2 SerdeAPI (so component states can be serialized at the
 point of failure) and a stable set of error types (`ConvergenceError`,
-`FracingError`, `SaturationError`, etc.) with enough context attached to be useful.
+`FracingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
+context attached to be useful.
 
 *Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio) — shows the
 AI error agent as a future hook on the right side of the simulation loop.*

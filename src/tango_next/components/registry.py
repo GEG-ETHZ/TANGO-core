@@ -21,6 +21,7 @@ from tango_next.components.well.lumped import (
     LumpedProductionWell,
     LumpedProductionWellPump,
 )
+from tango_next.components.well.numerical import NumericalInjectionWell, NumericalProductionWell
 
 if TYPE_CHECKING:
     from tango_next.core.component import Component
@@ -28,8 +29,10 @@ if TYPE_CHECKING:
 # (component_type, unit) → concrete class with a from_config() classmethod
 COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("injection_well", "native"): LumpedInjectionWell,
+    ("injection_well", "numerical"): NumericalInjectionWell,
     ("reservoir", "native"): LumpedReservoir,
     ("production_well", "native"): LumpedProductionWell,
+    ("production_well", "numerical"): NumericalProductionWell,
     ("production_well_pump", "native"): LumpedProductionWellPump,
     ("surface", "single_flash"): SingleFlashSurface,
 }

@@ -1,6 +1,6 @@
 """SystemBCIteration — convergence-loop orchestrator for tango_next.
 
-Auto-selected when schedule.bc_iteration is present in the input file.
+Auto-selected when sim_config.bc_iteration is present in the input file.
 
 ━━━ What this solver is doing ━━━
 
@@ -87,12 +87,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from tango_next.core.component import Component
-from tango_next.core.orchestrator import Orchestrator
 from tango_next.core.policies import InjectionPolicy
+from tango_next.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
     from tango_next.components.surface.single_flash import SingleFlashSurface
+    from tango_next.core.component import Component
 
 logger = logging.getLogger(__name__)
 
@@ -100,14 +100,18 @@ DEFAULT_MAX_ITERATIONS: int = 200
 DEFAULT_TOLERANCE: float = 1e-4
 
 
-class SystemBCIteration(Orchestrator):
+class SystemBCIteration(SystemDirect):
     """Convergence-loop orchestrator for injection-pressure BC iteration.
 
-    Behaviour per timestep is governed by ``InjectionPolicy`` (see
-    ``tango_next.core.policies``).  Single-pass policies (``MANUAL``,
-    ``MANUAL_FRACING_CHECK``) call ``_solve_once`` and return.  Iterative
-    policies (``AUTO_*``) drive an outer Newton-step convergence loop —
-    not yet implemented (Phase 2).
+    Subclasses ``SystemDirect``, reusing its single-circuit-pass
+    ``run_timestep`` (inherited, then called via ``super()``) as the building
+    block: single-pass policies (``MANUAL``, ``MANUAL_FRACING_CHECK``) call it
+    once per timestep; iterative policies (``AUTO_*``) will call it repeatedly
+    inside an outer Newton-step loop (Phase 2 — not yet implemented).
+    ``InjectionPolicy`` is the sole authority over how many passes a timestep
+    takes; the choice between ``SystemDirect`` and ``SystemBCIteration`` is a
+    topology question (does this graph declare a circuit with a BC variable to
+    solve for at all), not a duplicate encoding of policy.
 
     Components are executed in ascending ``component_idx`` order each pass.
     The surface component (idx 0) is solved first; the circuit continues
@@ -117,7 +121,9 @@ class SystemBCIteration(Orchestrator):
         components: Named components keyed by YAML name.
         n_tsteps: Total number of simulation timesteps.
         dt_years: Duration of each timestep (years).
-        mass_rate: Mass flow rate (kg/s) — from ``schedule.mass_rate.value``.
+        mass_rate: Mass flow rate (kg/s) — from ``sim_config.mass_rate.value``.
+            Ignored (pass ``0.0``) for ``AUTO_FLOW`` / ``AUTO_BOTH``, where the
+            solver computes mass rate from ``fracing_flow()`` each pass.
         fluid_name: CoolProp fluid name (e.g. ``"Water"``).
         policy: Injection control policy (default ``MANUAL``).
         max_iterations: Maximum BC iterations per timestep (AUTO_* modes only).
@@ -136,58 +142,14 @@ class SystemBCIteration(Orchestrator):
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         tolerance: float = DEFAULT_TOLERANCE,
     ) -> None:
-        """Initialise and sort components by component_idx for circuit order."""
-        self._components = components
-        self.n_tsteps = n_tsteps
+        """Initialise the base single-pass engine, then BC-specific state."""
+        super().__init__(components, n_tsteps=n_tsteps)
         self.dt_years = dt_years
         self.mass_rate = mass_rate
         self.fluid_name = fluid_name
         self.policy = policy
         self.max_iterations = max_iterations
         self.tolerance = tolerance
-
-        # Sort components by component_idx for deterministic solve order.
-        # component_idx 0 (surface) is first; others follow in circuit order.
-        self._ordered: list[Component] = sorted(
-            components.values(),
-            key=lambda c: c.component_idx,
-        )
-        # Build idx → component lookup for stream wiring
-        self._by_idx: dict[int, Component] = {c.component_idx: c for c in self._ordered}
-
-    @property
-    def components(self) -> dict[str, Component]:
-        """Return the named component dict."""
-        return self._components
-
-    # ------------------------------------------------------------------
-    # Stream wiring helpers
-    # ------------------------------------------------------------------
-
-    def _wire_one_stream(self, component: Component) -> None:
-        """Copy ``component.outlet`` to its immediate downstream component's inlet.
-
-        Called once per component immediately after its ``solve()``, so that
-        each component in the circuit receives fresh upstream state within the
-        same BC iteration pass.  Contrast with a batch wire-all-at-end approach,
-        which would leave components 1–N reading stale (default-zero) inlet
-        state on the first pass of each iteration.
-
-        Components without a ``next`` field in their spec (e.g. EconomicComponent)
-        are silently skipped — they receive no downstream wiring.
-        """
-        next_idx: int | None = getattr(component.spec, "next", None)
-        if next_idx is None or next_idx not in self._by_idx:
-            return
-        downstream = self._by_idx[next_idx]
-        src = component.outlet
-        dst = downstream.inlet
-        dst.T = src.T
-        dst.P = src.P
-        dst.mass_rate = src.mass_rate
-        dst.rho = src.rho
-        dst.mu = src.mu
-        dst.fluid_name = src.fluid_name
 
     def _seed_surface_inlet(self) -> None:
         """Seed the surface component inlet from the current production state.
@@ -205,32 +167,11 @@ class SystemBCIteration(Orchestrator):
             from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
 
             if isinstance(surface, SingleFlashSurface):
-                # Cold start: seed inlet from surface spec values
-                surface.inlet.T = surface.spec.surface_temperature
-                surface.inlet.P = surface.spec.surface_pressure
+                # Cold start: seed inlet from surface field values
+                surface.inlet.T = surface.surface_temperature
+                surface.inlet.P = surface.surface_pressure
             surface.inlet.mass_rate = self.mass_rate
             surface.inlet.fluid_name = self.fluid_name
-
-    # ------------------------------------------------------------------
-    # Timestep execution
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # Circuit pass
-    # ------------------------------------------------------------------
-
-    def _solve_once(self, surface: SingleFlashSurface | None) -> None:
-        """Execute one full circuit pass: solve each component in order and wire streams.
-
-        Called by ``run_timestep`` for every policy.  Single-pass policies call it
-        once and return; iterative policies (Phase 2) call it inside a convergence loop.
-        """
-        if surface is not None:
-            surface.inlet.mass_rate = self.mass_rate
-            surface.inlet.fluid_name = self.fluid_name
-        for component in self._ordered:
-            component.solve()
-            self._wire_one_stream(component)
 
     # ------------------------------------------------------------------
     # Timestep execution
@@ -249,9 +190,12 @@ class SystemBCIteration(Orchestrator):
         """
         self._seed_surface_inlet()
         surface: SingleFlashSurface | None = self._by_idx.get(0)  # type: ignore[assignment]
+        if surface is not None:
+            surface.inlet.mass_rate = self.mass_rate
+            surface.inlet.fluid_name = self.fluid_name
 
         if self.policy == InjectionPolicy.MANUAL:
-            self._solve_once(surface)
+            super().run_timestep(t)  # one circuit pass — inherited from SystemDirect
             if surface is not None:
                 logger.info(
                     "t=%3d  MANUAL single pass  P_inj=%.4g Pa",
@@ -271,33 +215,43 @@ class SystemBCIteration(Orchestrator):
         # Sketch of the intended structure:
         #
         #   for bc_iter in range(self.max_iterations):
-        #       self._solve_once(surface)
+        #       super().run_timestep(t)  # one circuit pass, inherited from SystemDirect
         #       test_p_new = test_p_old + (target_reservoir_P - inj_well.outlet.P)
         #       if converged: break
         #   else:
         #       raise ConvergenceError(...)
         #
         # AUTO_FLOW and AUTO_BOTH also update mass_rate = fracing_flow() each pass.
+        # AUTO_BOTH additionally co-iterates test_p and mass_rate jointly — confirmed
+        # (2026-06-16) to raise NotImplementedError below like the other AUTO_* modes
+        # until that joint update rule is implemented.
         raise NotImplementedError(
             f"InjectionPolicy.{self.policy.name} requires Phase 2 BC iteration "
             "(Newton-step pressure/flow-rate updates not yet implemented).",
         )
 
+    def _after_timestep(self, t: int) -> None:
+        """Log a one-line per-timestep summary; called by the inherited ``run()`` loop."""
+        self._log_timestep_summary(t)
+
     def run(self) -> None:
         """Execute the full simulation (all timesteps).
 
-        Logs a one-line summary per timestep: timestep index, gross power,
-        and converged injection pressure.
+        Logs a startup line, then delegates the timestep loop to
+        ``SystemDirect.run()`` (inherited), which calls ``_after_timestep``
+        for the per-timestep summary.
         """
+        auto_flow_modes = (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH)
+        mass_rate_repr = (
+            "auto (fracing_flow())" if self.policy in auto_flow_modes else f"{self.mass_rate:.1f} kg/s"
+        )
         logger.info(
-            "SystemBCIteration: %d timesteps × %.2g yr, mass_rate=%.1f kg/s",
+            "SystemBCIteration: %d timesteps × %.2g yr, mass_rate=%s",
             self.n_tsteps,
             self.dt_years,
-            self.mass_rate,
+            mass_rate_repr,
         )
-        for t in range(self.n_tsteps):
-            self.run_timestep(t)
-            self._log_timestep_summary(t)
+        super().run()
 
     def _log_timestep_summary(self, t: int) -> None:
         """Emit a one-line INFO summary for a completed timestep."""

@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 
 from tango_next import __version__
@@ -127,13 +128,15 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
         logger.error("Configuration error: %s", exc)
         return 1
 
+    t_start = time.time()
     try:
         wf.run()
     except TangoNextError as exc:
         logger.error("Simulation error: %s", exc)
         return 2
 
-    logger.info("Simulation complete.")
+    elapsed = time.time() - t_start
+    print(f"Simulation finished normally. Elapsed time: {elapsed:.3g} seconds.")
     return 0
 
 

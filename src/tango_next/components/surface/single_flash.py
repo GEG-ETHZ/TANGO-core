@@ -20,9 +20,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pydantic import ConfigDict
+from pydantic import Field
 
-from tango_next.components.surface.base import SurfaceComponent, SurfaceSpec
+from tango_next.components.surface.base import SurfaceComponent
 from tango_next.core.fluid_utils import water_density, water_viscosity
 
 # Specific heat capacity of liquid water (J/(kg·K)) — simplified constant.
@@ -76,22 +76,29 @@ class SingleFlashSurfaceState:
 
 
 # ---------------------------------------------------------------------------
-# Spec
+# History dataclass
 # ---------------------------------------------------------------------------
 
 
-class SingleFlashSurfaceSpec(SurfaceSpec):
-    """Specification for the simplified Single-Flash surface."""
+@dataclass
+class SingleFlashSurfaceHistory:
+    """Per-timestep history of surface-plant scalar state."""
 
-    model_config = ConfigDict(frozen=True, extra="ignore")
+    T_inlet: list[float] = field(default_factory=list)
+    """Production fluid temperature at surface inlet (K)."""
+    T_outlet: list[float] = field(default_factory=list)
+    """Injection fluid temperature leaving the surface (K)."""
+    P_outlet: list[float] = field(default_factory=list)
+    """Injection pressure BC variable (Pa)."""
+    gross_power_watts: list[float] = field(default_factory=list)
+    """Gross thermal power extracted from brine (W)."""
 
-    cycle_efficiency: float = 0.10
-    """Fraction of brine enthalpy drop converted to gross electricity.
-    Typical Single-Flash range: 0.08–0.12.  Does NOT account for pump or
-    fan parasitic loads — those must be subtracted separately for net power.
-    TODO (Phase 2): replace with TESPy cycle model; split into gross and
-    parasitic components so net power is computed explicitly.
-    """
+    def record(self, state: SingleFlashSurfaceState) -> None:
+        """Append a snapshot of ``state`` as one timestep entry."""
+        self.T_inlet.append(state.T_inlet)
+        self.T_outlet.append(state.T_outlet)
+        self.P_outlet.append(state.P_outlet)
+        self.gross_power_watts.append(state.gross_power_watts)
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +111,7 @@ class SingleFlashSurface(SurfaceComponent):
 
     The BC variable is ``injection_pressure``, which SystemBCIteration
     updates each iteration via ``set_injection_pressure()``.  The component
-    exposes it explicitly so the orchestrator never has to mutate a frozen spec.
+    exposes it explicitly so the orchestrator never has to reach into internals.
 
     Simplified physics:
         gross_power = mass_rate · Cp · (T_inlet − T_rejection) · cycle_efficiency
@@ -129,22 +136,17 @@ class SingleFlashSurface(SurfaceComponent):
     TODO (Phase 2): track power time-series for LCOE calculation.
     """
 
-    def __init__(self, spec: SingleFlashSurfaceSpec) -> None:
-        """Initialise surface plant with frozen spec and blank state."""
-        super().__init__()
-        self._spec = spec
-        self._injection_pressure: float = spec.injection_pressure
-        self.state = SingleFlashSurfaceState()
+    cycle_efficiency: float = 0.10
+    """Fraction of brine enthalpy drop converted to gross electricity.
+    Typical Single-Flash range: 0.08–0.12.  Does NOT account for pump or
+    fan parasitic loads — those must be subtracted separately for net power.
+    TODO (Phase 2): replace with TESPy cycle model; split into gross and
+    parasitic components so net power is computed explicitly.
+    """
 
-    @classmethod
-    def from_config(cls, config: dict) -> SingleFlashSurface:
-        """Build from a merged component + common config dict."""
-        return cls(SingleFlashSurfaceSpec(**config))
-
-    @property
-    def spec(self) -> SingleFlashSurfaceSpec:
-        """Return the frozen surface specification."""
-        return self._spec
+    # ---- Runtime state / history ----
+    state: SingleFlashSurfaceState = Field(default_factory=SingleFlashSurfaceState)
+    history: SingleFlashSurfaceHistory = Field(default_factory=SingleFlashSurfaceHistory)
 
     # ------------------------------------------------------------------
     # BC variable accessor — SystemBCIteration calls this each iteration
@@ -152,15 +154,22 @@ class SingleFlashSurface(SurfaceComponent):
 
     def set_injection_pressure(self, P: float) -> None:
         """Update the injection pressure BC variable (Pa)."""
-        self._injection_pressure = P
+        self.injection_pressure = P
 
     def get_injection_pressure(self) -> float:
         """Return the current injection pressure BC variable (Pa)."""
-        return self._injection_pressure
+        return self.injection_pressure
 
     # ------------------------------------------------------------------
-    # solve()
+    # record / solve
     # ------------------------------------------------------------------
+
+    def record(self, timestep: int) -> None:
+        """Append state to history if save_interval permits."""
+        if self.save_interval is None:
+            return
+        if timestep % self.save_interval == 0:
+            self.history.record(self.state)
 
     def solve(self) -> None:
         """Compute gross power and injection stream from production fluid inlet."""
@@ -170,16 +179,16 @@ class SingleFlashSurface(SurfaceComponent):
         s.mass_rate = self.inlet.mass_rate
 
         # Heat rejection temperature: surface + approach temperature
-        s.T_rejection = self._spec.surface_temperature + self._spec.approach_temperature
+        s.T_rejection = self.surface_temperature + self.approach_temperature
 
         # Gross power from brine enthalpy drop — simplified Cp model
         # TODO (Phase 2): delta_h_brine = CoolProp.H(T_inlet, P_inlet) − CoolProp.H(T_rejection, P_cond)
         s.delta_h_brine = _CP_WATER * (s.T_inlet - s.T_rejection)
-        s.gross_power_watts = s.mass_rate * s.delta_h_brine * self._spec.cycle_efficiency
+        s.gross_power_watts = s.mass_rate * s.delta_h_brine * self.cycle_efficiency
 
         # Injection conditions: cool brine reinjected at surface temperature + approach
         s.T_outlet = s.T_rejection
-        s.P_outlet = self._injection_pressure
+        s.P_outlet = self.injection_pressure
 
         # Fluid properties for injection stream
         s.rho = water_density(s.T_outlet, s.P_outlet)

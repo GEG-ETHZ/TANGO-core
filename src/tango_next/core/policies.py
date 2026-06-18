@@ -27,13 +27,23 @@ class InjectionPolicy(enum.StrEnum):
     threshold would be exceeded.
 
     The policy is scoped to *injection control*, not just fracing prevention.
-    Future variants may optimise net power, LCOE, or other operating objectives
-    subject to fracing constraints, without requiring a different solver mechanism.
-    For example, a ``MAX_NET_POWER`` variant could iterate mass flow rate and
-    injection pressure jointly to maximise ``gross_power - pump_parasitic_load``,
+    A per-timestep ``MAX_NET_POWER`` variant fits the same per-timestep Newton-step
+    mechanism as ``AUTO_*`` above: iterate mass flow rate and injection pressure
+    jointly to maximise ``gross_power - pump_parasitic_load`` *at this timestep*,
     stopping at the fracing limit only if it would otherwise be exceeded.
 
-    **YAML field:** ``schedule.bc_iteration.mode`` (kebab-case string, e.g.
+    A whole-horizon objective like ``MIN_LCOE`` is a different shape of problem and
+    likely needs a different solver mechanism: LCOE depends on cumulative energy
+    output and cost across every timestep, not on any single timestep in isolation,
+    so minimising it means wrapping the *entire* multi-timestep run in an outer
+    constrained optimizer (closer to ``optimizerr.py`` / ``pymoo`` in ``src/tango/``
+    than to this enum's per-timestep Newton loop) — see vision doc §BC iteration mode
+    for the "Future direction — whole-horizon optimization" note. Do not assume every
+    future variant fits inside ``SystemBCIteration.run_timestep`` the way ``AUTO_*``
+    does; per-timestep and whole-horizon objectives should be distinguished, not
+    folded into one enum that implies a single solver shape.
+
+    **YAML field:** ``sim_config.bc_iteration.mode`` (kebab-case string, e.g.
     ``mode: auto-pressure``).
 
     **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACING_CHECK`` execute
@@ -91,7 +101,7 @@ class InjectionPolicy(enum.StrEnum):
     )
     AUTO_BOTH = (
         "auto-both",
-        "Both iterated simultaneously. If no feasible injection pressure exists at "
+        "Both flow rate and pressure are iterated simultaneously. If no feasible injection pressure exists at "
         "the target flow rate, the flow rate is reduced until a feasible pressure "
         "can be achieved. Most robust mode for high-flow or low-permeability reservoirs.",
     )

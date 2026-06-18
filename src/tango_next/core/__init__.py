@@ -1,6 +1,6 @@
 """Core abstractions for tango_next."""
 
-from tango_next.core.component import Component, ComponentSpec
+from tango_next.core.component import Component
 from tango_next.core.errors import (
     ComponentSolveError,
     ConfigError,
@@ -15,7 +15,6 @@ from tango_next.core.stream import Stream
 
 __all__ = [
     "Component",
-    "ComponentSpec",
     "ComponentSolveError",
     "ConfigError",
     "ConvergenceError",

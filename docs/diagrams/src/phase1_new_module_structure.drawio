@@ -1,141 +1,129 @@
-<mxfile host="app.diagrams.net">
+<mxfile host="Electron">
   <diagram name="New Module Structure" id="phase1-module-structure-new">
-    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="900" pageHeight="680" math="0" shadow="0">
+    <mxGraphModel dx="1414" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="900" pageHeight="680" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-
-        <mxCell id="title" value="Phase 1 — tango_next Package Structure" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="30" y="10" width="840" height="24" as="geometry" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" value="Phase 1 — tango_next Package Structure" vertex="1">
+          <mxGeometry height="24" width="840" x="30" y="10" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="Built alongside src/tango/ (frozen)  ·  mypy --strict + ruff pass from first commit" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="30" y="34" width="840" height="17" as="geometry" />
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=2;" value="Built alongside src/tango/ (frozen)  ·  mypy --strict + ruff pass from first commit" vertex="1">
+          <mxGeometry height="17" width="840" x="30" y="34" as="geometry" />
         </mxCell>
-
-        <!-- ENTRY LAYER -->
-        <mxCell id="entry" value="entry" style="swimlane;startSize=22;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="60" width="820" height="55" as="geometry" />
+        <mxCell id="entry" parent="1" style="swimlane;startSize=22;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" value="entry" vertex="1">
+          <mxGeometry height="55" width="820" x="40" y="60" as="geometry" />
         </mxCell>
-        <mxCell id="cli" value="tango_cli.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="entry">
-          <mxGeometry x="10" y="25" width="140" height="22" as="geometry" />
+        <mxCell id="cli" parent="entry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" value="tango_next_cli.py" vertex="1">
+          <mxGeometry height="22" width="180" x="10" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="runner" value="runner.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="entry">
-          <mxGeometry x="160" y="25" width="130" height="22" as="geometry" />
+        <mxCell id="entry_note" parent="entry" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=left;verticalAlign=middle;" value="No separate runner.py — the CLI calls Workflow.from_file() directly (see workflows/ below)." vertex="1">
+          <mxGeometry height="17" width="600" x="200" y="28" as="geometry" />
         </mxCell>
-
-        <!-- WORKFLOWS LAYER -->
-        <mxCell id="wf_layer" value="workflows/" style="swimlane;startSize=22;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="125" width="820" height="55" as="geometry" />
+        <mxCell id="wf_layer" parent="1" style="swimlane;startSize=22;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" value="workflows/" vertex="1">
+          <mxGeometry height="78" width="820" x="40" y="125" as="geometry" />
         </mxCell>
-        <mxCell id="workflow" value="Workflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="wf_layer">
-          <mxGeometry x="10" y="25" width="140" height="22" as="geometry" />
+        <mxCell id="workflow" parent="wf_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="Workflow" vertex="1">
+          <mxGeometry height="22" width="140" x="10" y="25" as="geometry" />
         </mxCell>
-
-        <!-- ORCHESTRATORS LAYER -->
-        <mxCell id="orch_layer" value="orchestrators/" style="swimlane;startSize=22;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="190" width="820" height="55" as="geometry" />
+        <mxCell id="wf_note" parent="wf_layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=left;verticalAlign=top;" value="Top-level entry point: parses the YAML input file, builds the component graph, and selects the orchestrator — SystemDirect vs SystemBCIteration — &lt;br&gt;based on whether sim_config.bc_iteration is present. Contains: Workflow." vertex="1">
+          <mxGeometry height="44" width="640" x="160" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="sys_direct" value="SystemDirect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="orch_layer">
-          <mxGeometry x="10" y="25" width="155" height="22" as="geometry" />
+        <mxCell id="orch_layer" parent="1" style="swimlane;startSize=22;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" value="orchestrators/" vertex="1">
+          <mxGeometry height="135" width="820" x="40" y="213" as="geometry" />
         </mxCell>
-        <mxCell id="sys_bciter" value="SystemBCIteration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="orch_layer">
-          <mxGeometry x="175" y="25" width="180" height="22" as="geometry" />
+        <mxCell id="sys_direct" parent="orch_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="SystemDirect" vertex="1">
+          <mxGeometry height="22" width="155" x="10" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="orch_note" value="external simulator hooks are composable add-ons — socket placement TBD (see vision doc)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=left;" vertex="1" parent="orch_layer">
-          <mxGeometry x="365" y="28" width="445" height="17" as="geometry" />
+        <mxCell id="sys_bciter" parent="orch_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="SystemBCIteration" vertex="1">
+          <mxGeometry height="22" width="180" x="175" y="25" as="geometry" />
         </mxCell>
-
-        <!-- COMPONENTS LAYER -->
-        <mxCell id="comp_layer" value="components/" style="swimlane;startSize=22;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="255" width="820" height="205" as="geometry" />
+        <mxCell id="orch_note" parent="orch_layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=left;verticalAlign=top;" value="Drives the per-timestep solve loop over the instantiated component graph. SystemDirect owns the only&lt;br&gt;implementation of &quot;one circuit pass&quot; and &quot;loop over timesteps&quot; — no BC search. SystemBCIteration subclasses&lt;br&gt;SystemDirect and reuses both via inheritance, adding BC seeding and an outer convergence loop governed by&lt;br&gt;InjectionPolicy (Newton-step iteration, convergence + max-iteration checks). Choosing SystemDirect vs&lt;br&gt;SystemBCIteration is a topology question (does the graph declare a BC-iteration circuit at all) — InjectionPolicy&lt;br&gt;never affects which class is picked, only how many passes a timestep takes. External simulator hooks (CMG,&lt;br&gt;MOOSE) are composable add-ons — socket placement TBD (see vision doc). Future: a GroupedComponent&#39;s&lt;br&gt;inner graph recursively selects its own orchestrator (Direct vs BCIteration) by the same topology check." vertex="1">
+          <mxGeometry height="100" width="445" x="365" y="25" as="geometry" />
         </mxCell>
-
-        <!-- well/ sub-group -->
-        <mxCell id="well_grp" value="well/" style="swimlane;startSize=20;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="comp_layer">
-          <mxGeometry x="10" y="26" width="190" height="140" as="geometry" />
+        <mxCell id="comp_layer" parent="1" style="swimlane;startSize=22;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" value="components/" vertex="1">
+          <mxGeometry height="205" width="820" x="40" y="358" as="geometry" />
         </mxCell>
-        <mxCell id="inj_well" value="InjectionWell" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
-          <mxGeometry x="8" y="24" width="174" height="22" as="geometry" />
+        <mxCell id="well_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="well/" vertex="1">
+          <mxGeometry height="140" width="195" x="10" y="26" as="geometry" />
         </mxCell>
-        <mxCell id="prod_well" value="ProductionWell" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
-          <mxGeometry x="8" y="52" width="174" height="22" as="geometry" />
+        <mxCell id="inj_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedInjectionWell" vertex="1">
+          <mxGeometry height="22" width="179" x="8" y="24" as="geometry" />
         </mxCell>
-        <mxCell id="prod_pump" value="ProductionWellPump" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
-          <mxGeometry x="8" y="80" width="174" height="22" as="geometry" />
+        <mxCell id="prod_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWell" vertex="1">
+          <mxGeometry height="22" width="179" x="8" y="52" as="geometry" />
         </mxCell>
-
-        <!-- reservoir/ sub-group -->
-        <mxCell id="res_grp" value="reservoir/" style="swimlane;startSize=20;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" vertex="1" parent="comp_layer">
-          <mxGeometry x="210" y="26" width="160" height="140" as="geometry" />
+        <mxCell id="prod_pump" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWellPump" vertex="1">
+          <mxGeometry height="22" width="179" x="8" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="res_native" value="Native" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="res_grp">
-          <mxGeometry x="8" y="24" width="144" height="22" as="geometry" />
+        <mxCell id="well_note" parent="well_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="all three classes in well/lumped.py" vertex="1">
+          <mxGeometry height="14" width="179" x="8" y="108" as="geometry" />
         </mxCell>
-        <mxCell id="res_adapter_note" value="external adapters (CMG, MOOSE)&lt;br&gt;implement ReservoirComponent" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" vertex="1" parent="res_grp">
-          <mxGeometry x="4" y="52" width="152" height="32" as="geometry" />
+        <mxCell id="res_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" value="reservoir/" vertex="1">
+          <mxGeometry height="140" width="160" x="215" y="26" as="geometry" />
         </mxCell>
-
-        <!-- surface/ sub-group -->
-        <mxCell id="surf_grp" value="surface/" style="swimlane;startSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" vertex="1" parent="comp_layer">
-          <mxGeometry x="380" y="26" width="195" height="140" as="geometry" />
+        <mxCell id="res_native" parent="res_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="LumpedReservoir" vertex="1">
+          <mxGeometry height="22" width="144" x="8" y="24" as="geometry" />
         </mxCell>
-        <mxCell id="flex_pp" value="FlexiblePP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="surf_grp">
-          <mxGeometry x="8" y="24" width="179" height="22" as="geometry" />
+        <mxCell id="res_adapter_note" parent="res_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="(reservoir/lumped.py). External&lt;br&gt;adapters (CMG, MOOSE) would&lt;br&gt;implement ReservoirComponent" vertex="1">
+          <mxGeometry height="46" width="152" x="4" y="52" as="geometry" />
         </mxCell>
-        <mxCell id="orc" value="ORC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="surf_grp">
-          <mxGeometry x="8" y="52" width="179" height="22" as="geometry" />
+        <mxCell id="surf_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" value="surface/" vertex="1">
+          <mxGeometry height="140" width="195" x="385" y="26" as="geometry" />
         </mxCell>
-        <mxCell id="cpg" value="CPG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="surf_grp">
-          <mxGeometry x="8" y="80" width="179" height="22" as="geometry" />
+        <mxCell id="flex_pp" parent="surf_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="SingleFlashSurface" vertex="1">
+          <mxGeometry height="22" width="179" x="8" y="24" as="geometry" />
         </mxCell>
-
-        <!-- economic/ sub-group -->
-        <mxCell id="econ_grp" value="economic/" style="swimlane;startSize=20;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;fontStyle=1;" vertex="1" parent="comp_layer">
-          <mxGeometry x="585" y="26" width="195" height="70" as="geometry" />
+        <mxCell id="surf_note" parent="surf_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="(surface/single_flash.py) — only surface&lt;br&gt;unit implemented so far. A graph-driven&lt;br&gt;TESPy power-plant and ORC variant&lt;br&gt;(ported from src/tango/) are Phase 2." vertex="1">
+          <mxGeometry height="60" width="187" x="4" y="52" as="geometry" />
         </mxCell>
-        <mxCell id="econ_unit" value="EconomicUnit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" vertex="1" parent="econ_grp">
-          <mxGeometry x="8" y="24" width="179" height="22" as="geometry" />
+        <mxCell id="econ_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;fontStyle=1;" value="economic/" vertex="1">
+          <mxGeometry height="95" width="195" x="595" y="26" as="geometry" />
         </mxCell>
-
-        <!-- Composable note at bottom of comp_layer -->
-        <mxCell id="comp_note" value="each sub-group defines an ABC; external adapters implement it when needed — no upfront integration infrastructure required" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=center;" vertex="1" parent="comp_layer">
-          <mxGeometry x="10" y="175" width="800" height="17" as="geometry" />
+        <mxCell id="econ_unit" parent="econ_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" value="EconomicComponent" vertex="1">
+          <mxGeometry height="22" width="179" x="8" y="24" as="geometry" />
         </mxCell>
-
-        <!-- CORE LAYER -->
-        <mxCell id="core_layer" value="core/" style="swimlane;startSize=22;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="470" width="820" height="55" as="geometry" />
+        <mxCell id="econ_note" parent="econ_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="(economic/base.py) — ABC only;&lt;br&gt;no concrete subclass registered&lt;br&gt;in COMPONENT_REGISTRY yet" vertex="1">
+          <mxGeometry height="46" width="179" x="8" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="fluidstate" value="FluidState" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="10" y="25" width="110" height="22" as="geometry" />
+        <mxCell id="comp_note" parent="comp_layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=center;" value="each sub-group defines an ABC; external adapters implement it when needed — no upfront integration infrastructure required" vertex="1">
+          <mxGeometry height="17" width="800" x="10" y="175" as="geometry" />
         </mxCell>
-        <mxCell id="stream" value="Stream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="130" y="25" width="100" height="22" as="geometry" />
+        <mxCell id="core_layer" parent="1" style="swimlane;startSize=22;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" value="core/" vertex="1">
+          <mxGeometry height="85" width="820" x="40" y="573" as="geometry" />
         </mxCell>
-        <mxCell id="comp_abc" value="Component (ABC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="240" y="25" width="160" height="22" as="geometry" />
+        <mxCell id="fluid_utils_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="fluid_utils (functions)" vertex="1">
+          <mxGeometry height="22" width="170" x="10" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="orch_abc" value="Orchestrator (ABC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="410" y="25" width="175" height="22" as="geometry" />
+        <mxCell id="stream" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Stream" vertex="1">
+          <mxGeometry height="22" width="90" x="190" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="serde_mixin" value="SerdeAPI (Mixin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="595" y="25" width="155" height="22" as="geometry" />
+        <mxCell id="comp_abc" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Component (ABC)" vertex="1">
+          <mxGeometry height="22" width="150" x="290" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="init_proto" value="Init (Protocol)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="core_layer">
-          <mxGeometry x="760" y="25" width="50" height="22" as="geometry" />
+        <mxCell id="orch_abc" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Orchestrator (ABC)" vertex="1">
+          <mxGeometry height="22" width="170" x="450" y="25" as="geometry" />
         </mxCell>
-
-        <!-- Vertical flow arrow -->
-        <mxCell id="flow_label" value="execution&lt;br&gt;flow" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#aaaaaa;align=center;" vertex="1" parent="1">
-          <mxGeometry x="876" y="135" width="50" height="290" as="geometry" />
+        <mxCell id="injection_policy_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="InjectionPolicy (enum)" vertex="1">
+          <mxGeometry height="22" width="160" x="10" y="53" as="geometry" />
         </mxCell>
-        <mxCell id="flow_line" value="" style="endArrow=block;endFill=1;html=1;strokeColor=#aaaaaa;strokeWidth=2;" edge="1" parent="1">
+        <mxCell id="errors_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="TangoNextError (+4 subclasses)" vertex="1">
+          <mxGeometry height="22" width="210" x="180" y="53" as="geometry" />
+        </mxCell>
+        <mxCell id="serde_mixin" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="SerdeAPI (Mixin)" vertex="1">
+          <mxGeometry height="22" width="150" x="400" y="53" as="geometry" />
+        </mxCell>
+        <mxCell id="init_proto" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Init (Protocol)" vertex="1">
+          <mxGeometry height="22" width="110" x="560" y="53" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_label" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#aaaaaa;align=center;" value="execution&lt;br&gt;flow" vertex="1">
+          <mxGeometry height="438" width="50" x="876" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_line" edge="1" parent="1" style="endArrow=block;endFill=1;html=1;strokeColor=#aaaaaa;strokeWidth=2;" value="">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="896" y="125" as="sourcePoint" />
-            <mxPoint x="896" y="470" as="targetPoint" />
+            <mxPoint x="896" y="573" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-
       </root>
     </mxGraphModel>
   </diagram>

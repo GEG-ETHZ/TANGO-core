@@ -6,7 +6,9 @@
 #   - props: renamed to common:
 #   - All component parameters live inside components.<name>.*
 #   - surface contains a nested power_plant: block
-#   - component_idx 0 is reserved for the orchestrator BC checkpoint (surface)
+#   - component_idx 0 is just the first component solved each pass — it has
+#     no special BC semantics; it happens to be the surface in this example
+#     because that's where the circuit was cut to start the solve order.
 #
 # Component circuit (main loop):
 #   surface(0) →[1]→ injection_well(1) →[2]→ reservoir(2)
@@ -14,11 +16,11 @@
 
 title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
 # Orchestrator is selected automatically:
-#   schedule.bc_iteration present  →  SystemBCIteration
-#   schedule.bc_iteration absent   →  SystemDirect
+#   sim_config.bc_iteration present  →  SystemBCIteration
+#   sim_config.bc_iteration absent   →  SystemDirect
 # External tool type (e.g. CMG) is indicated by the reservoir component's type field.
 
-common:  # shared physical properties (previously props:)
+common:  # shared physical parameters (previously props:)
   fluid_name: H2O
   brine_density: 1000        # kg/m3
   rock_density: 2650.0       # kg/m3
@@ -26,10 +28,12 @@ common:  # shared physical properties (previously props:)
   rock_k: 2.1                # W/(m·K)
   thermal_gradient: 0.035    # K/m
 
-schedule:
+layout:  # well-field geometry
   well_spacing: 707.0        # m
   well_pattern: DOUBLET
   well_pattern_dimens: [1, 1]
+
+sim_config:  # time stepping + solver/injection control
   start_date: '2019-01-01'
   num_pp: 1
   time:
@@ -40,7 +44,9 @@ schedule:
     solver: explicit  # explicit (default) or implicit — selects SystemBCIteration solver algorithm
     mode: manual      # InjectionPolicy variants: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
   mass_rate:
-    value: 50
+    value: 50          # kg/s — only used by MANUAL / MANUAL_FRACING_CHECK / AUTO_PRESSURE.
+                        # AUTO_FLOW and AUTO_BOTH compute mass_rate from fracing_flow()
+                        # each pass and ignore this value; it may be omitted entirely.
 
 economic:
   type: native
@@ -52,7 +58,7 @@ components:
   surface:
     type: surface
     unit: single_flash
-    component_idx: 0          # 0 = BC checkpoint
+    component_idx: 0          # first component solved each pass (no special BC role)
     prev: 4
     next: 1
     surface_temperature: 288  # K
@@ -150,13 +156,14 @@ components:
 
   injection_well:
     type: injection_well
-    unit: native
+    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedInjectionWell (single closed-form calc)
     component_idx: 1
     prev: 0
     next: 2
     well_length: 5000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
     well_length_seq: [5000.0]
     well_diameter_seq: [0.410]
 
@@ -175,15 +182,14 @@ components:
 
   production_well_lower:
     type: production_well
-    unit: native
+    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedProductionWell (single closed-form calc)
     component_idx: 3
     prev: 2
     next: 4
     well_length: 4000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    well_length_seq: [5000.0]
-    well_diameter_seq: [0.410]
+    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
 
   production_well_upper:
     type: production_well_pump
