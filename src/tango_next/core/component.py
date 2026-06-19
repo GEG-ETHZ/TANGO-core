@@ -62,7 +62,7 @@ class Component(BaseModel, ABC):
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        extra="ignore",  # silently drop type/unit/prev/next overloads not declared here
+        extra="forbid",
         populate_by_name=True,
     )
 

@@ -43,8 +43,8 @@ class InjectionPolicy(enum.StrEnum):
     does; per-timestep and whole-horizon objectives should be distinguished, not
     folded into one enum that implies a single solver shape.
 
-    **YAML field:** ``sim_config.bc_iteration.mode`` (kebab-case string, e.g.
-    ``mode: auto-pressure``).
+    **YAML field:** ``sim_config.injection_mode`` (kebab-case string, e.g.
+    ``injection_mode: auto-pressure``).
 
     **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACING_CHECK`` execute
     one circuit pass per timestep and return.  ``AUTO_*`` variants drive an outer

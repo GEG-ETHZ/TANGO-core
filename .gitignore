@@ -72,3 +72,4 @@ gen_files/
 # Images
 *.png
 *.svg
+.aider*

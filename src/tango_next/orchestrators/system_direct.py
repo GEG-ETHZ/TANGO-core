@@ -1,6 +1,6 @@
 """SystemDirect — single-pass orchestrator for tango_next.
 
-Auto-selected when sim_config.bc_iteration is absent — i.e. the input graph
+Auto-selected when sim_config.injection_mode is absent — i.e. the input graph
 declares no boundary-condition variable to solve for (e.g. a bare wellbore
 test fixture). Executes each component exactly once per timestep, in
 component_idx order, wiring each component's outlet into its downstream

@@ -311,13 +311,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--no-show",
+        "--show",
         action="store_true",
-        help="Write SVGs to examples/tango_next/ instead of opening interactive windows.",
+        help="Open interactive plot windows instead of saving SVGs.",
     )
     args = parser.parse_args()
 
-    if args.no_show:
+    if not args.show:
         matplotlib.use("Agg")
 
     wf = run_simulation()
@@ -326,14 +326,14 @@ def main() -> None:
     print("Generating figures...")
 
     def _sp(name: str) -> Path | None:
-        return SAVE_DIR / name if args.no_show else None
+        return None if args.show else SAVE_DIR / name
 
     fig1_well_temperature_profiles(d, _sp("fig1_well_temperature_profiles.svg"))
     fig2_reservoir_temperature(d, _sp("fig2_reservoir_temperature.svg"))
     fig3_power_vs_time(d, _sp("fig3_power_vs_time.svg"))
     fig4_cumulative_energy(d, _sp("fig4_cumulative_energy.svg"))
 
-    if not args.no_show:
+    if args.show:
         plt.show()
     print("Done.")
 

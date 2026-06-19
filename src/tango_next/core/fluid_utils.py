@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import math
 
+import CoolProp
+
 from tango_next.core.constants import GRAVITY
 
 # ---------------------------------------------------------------------------
@@ -211,32 +213,55 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
 
 
 # ---------------------------------------------------------------------------
-# Simplified fluid property stubs
-# Replace each with CoolProp lookups in Phase 2.
+# Fluid properties via CoolProp (Water)
 # ---------------------------------------------------------------------------
 
-
-def water_density(T: float, P: float) -> float:  # noqa: ARG001
-    """Liquid water density (kg/m³) — simplified constant.
-
-    TODO (Phase 2): CoolProp.PropsSI("D", "T", T, "P", P, "Water")
-
-    Args:
-        T: Temperature (K).
-        P: Pressure (Pa).
-
-    """
-    return 1000.0
+_WATER_STATE = CoolProp.AbstractState("HEOS", "Water")
 
 
-def water_viscosity(T: float, P: float) -> float:  # noqa: ARG001
-    """Liquid water dynamic viscosity (Pa·s) — simplified constant.
-
-    TODO (Phase 2): CoolProp.PropsSI("V", "T", T, "P", P, "Water")
+def water_density(T: float, P: float) -> float:
+    """Liquid water density (kg/m³) via CoolProp.
 
     Args:
         T: Temperature (K).
         P: Pressure (Pa).
 
     """
-    return 1.0e-3
+    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
+    return _WATER_STATE.rhomass()
+
+
+def water_viscosity(T: float, P: float) -> float:
+    """Liquid water dynamic viscosity (Pa·s) via CoolProp.
+
+    Args:
+        T: Temperature (K).
+        P: Pressure (Pa).
+
+    """
+    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
+    return _WATER_STATE.viscosity()
+
+
+def water_enthalpy(T: float, P: float) -> float:
+    """Liquid water specific enthalpy (J/kg) via CoolProp.
+
+    Args:
+        T: Temperature (K).
+        P: Pressure (Pa).
+
+    """
+    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
+    return _WATER_STATE.hmass()
+
+
+def water_cp(T: float, P: float) -> float:
+    """Liquid water isobaric specific heat capacity (J/(kg·K)) via CoolProp.
+
+    Args:
+        T: Temperature (K).
+        P: Pressure (Pa).
+
+    """
+    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
+    return _WATER_STATE.cpmass()

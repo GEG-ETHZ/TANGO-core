@@ -147,9 +147,14 @@ def test_injection_well_spatial_history_shape() -> None:
             assert len(arr) == num_cells, f"history.{attr}[{t}] len {len(arr)}, expected {num_cells}"
 
 
-def test_injection_well_spatial_history_monotone_T() -> None:
-    """T_cells increases monotonically with depth at every timestep:
-    hot rock heats cold injected fluid as it descends.
+def test_injection_well_spatial_history_deepest_cell_hotter() -> None:
+    """Deepest cell is hotter than the shallowest cell at every timestep.
+
+    T_cells need not be strictly monotone: when injection T exceeds the
+    shallow-rock temperature, the fluid loses heat near the surface before
+    gaining it from hotter deep rock.  The invariant that must hold is that
+    T[-1] > T[0] (deep end is hottest), since the reservoir at 5 km is
+    well above any plausible injection temperature.
     """
     wf = _run_tango_next(NEW_SF_MANUAL)
     well = _components(wf)["injection_well"]
@@ -157,10 +162,9 @@ def test_injection_well_spatial_history_monotone_T() -> None:
     assert history is not None
 
     for t, T_vec in enumerate(history.T_cells):
-        diffs = np.diff(T_vec)
-        assert np.all(diffs >= 0), (
-            f"T_cells at timestep {t} is not non-decreasing with depth. "
-            f"Min diff = {diffs.min():.4f} K at cell {diffs.argmin()}"
+        assert T_vec[-1] > T_vec[0], (
+            f"T_cells at timestep {t}: deepest T ({T_vec[-1]:.2f} K) should exceed "
+            f"shallowest T ({T_vec[0]:.2f} K)"
         )
 
 
@@ -199,13 +203,19 @@ def test_injection_well_t_d_advances() -> None:
 
 
 def test_reservoir_thermal_equilibration() -> None:
-    """LumpedReservoir outlet equals the geothermal temperature at reservoir depth."""
+    """LumpedReservoir outlet T is bounded between injection inlet T and initial reservoir T.
+
+    Thermal depletion causes T_outlet to fall below T_initial over time; it can
+    never drop below the injection temperature or exceed the un-depleted geothermal T.
+    """
     wf = _run_tango_next(NEW_SF_MANUAL)
     res = _components(wf)["reservoir"]
 
-    # T_reservoir = surface_T + gradient × depth = 288 + 0.035 × 5000 = 463 K
-    expected_T = 288.0 + 0.035 * 5000.0
-    assert res.state.T_outlet == pytest.approx(expected_T, abs=0.1)
+    T_initial = 288.0 + 0.035 * 5000.0  # 463 K
+    T_inj = res.state.T_inlet
+    assert T_inj <= res.state.T_outlet <= T_initial, (
+        f"T_outlet={res.state.T_outlet:.1f} K not in [{T_inj:.1f}, {T_initial:.1f}] K"
+    )
 
 
 def test_reservoir_pressure_drop() -> None:

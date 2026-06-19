@@ -78,6 +78,8 @@ class NumericalWellState:
     u_cells: list[float] = field(default_factory=list)
     T_outlet: float = field(default=float("nan"))
     P_outlet: float = field(default=float("nan"))
+    pump_power_watts: float = field(default=0.0)
+    """Pump shaft power (W). Non-zero only for pump-equipped well components."""
 
 
 # Back-compat aliases so existing code that references the old specific names works.
@@ -103,6 +105,8 @@ class NumericalWellHistory:
     u_cells: list[list[float]] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
     P_outlet: list[float] = field(default_factory=list)
+    pump_power_watts: list[float] = field(default_factory=list)
+    """Pump shaft power per timestep (W). Zero for non-pump components."""
 
     def record(self, state: NumericalWellState) -> None:
         """Append a copy of ``state`` as one timestep entry."""
@@ -115,6 +119,7 @@ class NumericalWellHistory:
         self.u_cells.append(list(state.u_cells))
         self.T_outlet.append(state.T_outlet)
         self.P_outlet.append(state.P_outlet)
+        self.pump_power_watts.append(state.pump_power_watts)
 
 
 NumericalInjectionWellHistory = NumericalWellHistory
@@ -471,3 +476,44 @@ class NumericalProductionWell(WellComponent):
         self.outlet.rho = rho[-1]
         self.outlet.mu = mu[-1]
         self.outlet.fluid_name = self.fluid_name
+
+
+# ---------------------------------------------------------------------------
+# NumericalProductionWellPump
+# ---------------------------------------------------------------------------
+
+
+class NumericalProductionWellPump(NumericalProductionWell):
+    """Upper production wellbore with numerical heat loss and an optional pump.
+
+    Inherits the full Adams 2015 marching heat-loss model from
+    ``NumericalProductionWell``.  After the wellbore solve, a pump boost is
+    applied to ``P_outlet`` if ``pump_target_pressure_megapascals`` exceeds the
+    wellbore outlet pressure.
+
+    Use this for the upper production well segment in a split (lower/upper)
+    production wellbore configuration.
+    """
+
+    pump_efficiency: float = 0.75
+    """Pump isentropic efficiency (dimensionless)."""
+    pump_target_pressure_megapascals: float = 0.0
+    """Target outlet pressure after pump boost (MPa). 0 = no active pump."""
+
+    def solve(self) -> None:
+        """March wellbore heat loss, then apply pump pressure boost."""
+        super().solve()
+
+        s = self.state
+        target_Pa = self.pump_target_pressure_megapascals * 1e6
+        if target_Pa > s.P_outlet:
+            pump_delta_p = target_Pa - s.P_outlet
+            rho_out = self.outlet.rho  # kg/m³ — set by super().solve() via CoolProp
+            if rho_out > 0.0:
+                s.pump_power_watts = s.mass_rate * pump_delta_p / rho_out / self.pump_efficiency
+            s.P_outlet = target_Pa
+            self.outlet.P = s.P_outlet
+        else:
+            s.pump_power_watts = 0.0
+        # T_outlet is unchanged — isentropic enthalpy rise is negligible for
+        # liquid water at these pressures (~0.05 K per 10 MPa boost).

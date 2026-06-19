@@ -22,8 +22,8 @@ class Workflow:
     """Parses a tango_next input file and drives the simulation.
 
     Orchestrator is selected automatically from the input file:
-      sim_config.bc_iteration present  →  SystemBCIteration
-      sim_config.bc_iteration absent   →  SystemDirect
+      sim_config.injection_mode present  →  SystemBCIteration
+      sim_config.injection_mode absent   →  SystemDirect
 
     Usage::
 
@@ -38,23 +38,22 @@ class Workflow:
         layout: dict[str, Any] = config.get("layout", {})
         sim_config: dict[str, Any] = config.get("sim_config", {})
 
-        n_tsteps: int = sim_config["time"]["num_tsteps"]
-        dt_years: float = float(sim_config["time"]["dt_years"])
+        n_tsteps: int = sim_config["num_tsteps"]
+        dt_years: float = float(sim_config["dt_years"])
         fluid_name: str = common.get("fluid_name", "Water")
 
         components = _build_components(config["components"], common, layout, dt_years)
 
-        if "bc_iteration" in sim_config:
+        if "injection_mode" in sim_config:
             policy = InjectionPolicy(
-                sim_config["bc_iteration"].get("mode", InjectionPolicy.MANUAL),
+                sim_config.get("injection_mode", InjectionPolicy.MANUAL),
             )
             # AUTO_FLOW / AUTO_BOTH compute mass_rate from fracing_flow() each
-            # pass — the YAML mass_rate value is only meaningful (and required)
-            # for policies where flow rate is user-prescribed.
+            # pass — mass_rate is not prescribed and may be omitted from the YAML.
             if policy in (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH):
                 mass_rate: float = 0.0
             else:
-                mass_rate = float(sim_config["mass_rate"]["value"])
+                mass_rate = float(sim_config["mass_rate"])
             self._orchestrator: SystemBCIteration | SystemDirect = SystemBCIteration(
                 components,
                 n_tsteps=n_tsteps,
@@ -106,17 +105,17 @@ def _build_components(
 ) -> dict[str, Component]:
     """Instantiate all components from the ``components:`` YAML block.
 
-    Each component dict is merged with ``common:`` (lowest priority), layout
-    fields some components need at construction time, and ``dt_years`` (e.g.
-    for components that track dimensionless time across timesteps, such as
-    ``NumericalInjectionWell``).  Component-specific keys take precedence
-    over all of these.
+    Each component receives: (a) whichever ``common:`` / layout fields it
+    explicitly declares as Pydantic fields, and (b) all keys from its own
+    YAML block (minus the routing-only ``type`` and ``unit`` keys).
+    Component-specific keys take precedence over shared ones.
+    Unknown keys in a component's own block raise a Pydantic ``ValidationError``.
 
     Args:
         components_block: Parsed ``components:`` mapping from the input file.
         common: Parsed ``common:`` mapping (shared fluid/rock parameters).
         layout: Parsed ``layout:`` mapping (well-field geometry, e.g. well_spacing).
-        dt_years: Simulation timestep duration (years), from ``sim_config.time.dt_years``.
+        dt_years: Simulation timestep duration (years), from ``sim_config.dt_years``.
 
     Returns:
         Dict of instantiated components keyed by their YAML name.
@@ -148,8 +147,15 @@ def _build_components(
             )
             continue
 
-        # Merge: common < layout_extras < component-specific (highest priority)
-        merged: dict[str, Any] = {**common, **layout_extras, **comp_cfg}
+        # Build merged dict for this component:
+        # - From common/layout_extras: only fields the component actually declares
+        #   (avoids flooding every component with irrelevant shared parameters)
+        # - From comp_cfg: all keys except routing-only "type" and "unit"
+        #   (Pydantic extra="forbid" will catch any unknown keys here)
+        declared = set(cls.model_fields.keys())
+        shared = {k: v for k, v in {**common, **layout_extras}.items() if k in declared}
+        own = {k: v for k, v in comp_cfg.items() if k not in ("type", "unit")}
+        merged: dict[str, Any] = {**shared, **own}
 
         try:
             component = cls.from_config(merged)  # type: ignore[attr-defined]

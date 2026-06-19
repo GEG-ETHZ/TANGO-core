@@ -100,13 +100,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _configure_logging(level: str) -> None:
-    """Configure root logger with a timestamped format."""
+    """Configure root logger and third-party loggers with a timestamped format."""
+    numeric_level = getattr(logging, level.upper())
     logging.basicConfig(
-        level=getattr(logging, level.upper()),
+        level=numeric_level,
         format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
         datefmt="%H:%M:%S",
         stream=sys.stdout,
     )
+    # TESPy manages its own logger ("TESPyLogger") with a hardcoded level; sync it.
+    logging.getLogger("TESPyLogger").setLevel(numeric_level)
 
 
 def _cmd_run(args: argparse.Namespace, log_level: str) -> int:

@@ -21,7 +21,11 @@ from tango_next.components.well.lumped import (
     LumpedProductionWell,
     LumpedProductionWellPump,
 )
-from tango_next.components.well.numerical import NumericalInjectionWell, NumericalProductionWell
+from tango_next.components.well.numerical import (
+    NumericalInjectionWell,
+    NumericalProductionWell,
+    NumericalProductionWellPump,
+)
 
 if TYPE_CHECKING:
     from tango_next.core.component import Component
@@ -34,5 +38,6 @@ COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("production_well", "native"): LumpedProductionWell,
     ("production_well", "numerical"): NumericalProductionWell,
     ("production_well_pump", "native"): LumpedProductionWellPump,
+    ("production_well_pump", "numerical"): NumericalProductionWellPump,
     ("surface", "single_flash"): SingleFlashSurface,
 }

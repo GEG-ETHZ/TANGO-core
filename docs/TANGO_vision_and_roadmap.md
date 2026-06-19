@@ -132,11 +132,9 @@ and makes it harder to reason about which path a given config will take. The ref
 rename these to reflect their actual behavior — `SystemDirect` / `SystemBCIteration` — with
 external simulator support as a separate, composable concern.
 
-Orchestrator selection in `tango_next` is automatic: if `sim_config.bc_iteration` is present,
-`SystemBCIteration` is used; otherwise `SystemDirect`. No `workflow` key is needed in
-a top-level key. A future implicit solver is selected via
-`sim_config.bc_iteration.solver: implicit` — keeping the signal inside the part of the config
-that governs solver behavior.
+Orchestrator selection in `tango_next` is automatic: if `sim_config.injection_mode` is present,
+`SystemBCIteration` is used; otherwise `SystemDirect`. No `workflow` key is needed at the
+top level.
 
 **This selection is a topology question, not a second encoding of `InjectionPolicy`.**
 Early on, `SystemBCIteration` re-implemented the entire single-pass solve loop itself, so
@@ -154,7 +152,7 @@ for at all (e.g. a bare wellbore test fixture has none and uses `SystemDirect` d
 The top-level YAML config is split by concern: `common` holds shared physical *parameters*
 (fluid, rock properties — not physical constants like Planck's constant), `layout` holds
 well-field geometry (`well_spacing`, `well_pattern`), and `sim_config` holds time stepping
-and solver/injection control (`time`, `bc_iteration`, `mass_rate`). This replaced an earlier
+and solver/injection control (`num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`). This replaced an earlier
 single `schedule` block that mixed all three concerns under a name that only really fit the
 time-stepping piece.
 
@@ -204,10 +202,10 @@ adjustment (`test_p` update) runs regardless of the flag.
 **`InjectionPolicy` — the clean replacement**
 
 In `tango_next`, both concerns are unified into a single enum that makes every operating
-mode self-documenting. The YAML field is `sim_config.bc_iteration.mode`. Note that
-`mass_rate` is only meaningful for policies where flow rate is user-prescribed (`MANUAL`,
-`MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is computed
-from `fracing_flow()` each pass, so the YAML field may be omitted entirely under those modes.
+mode self-documenting. The YAML field is `sim_config.injection_mode`. Note that
+`sim_config.mass_rate` is only meaningful for policies where flow rate is user-prescribed
+(`MANUAL`, `MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is
+computed from `fracing_flow()` each pass, so the field may be omitted entirely under those modes.
 
 ```python
 class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
@@ -310,27 +308,22 @@ accounting fix to be in place before they can be meaningfully implemented.
 *Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — shows
 current modes and which trigger the outer convergence loop.*
 
-#### Extraction pressure as an independent policy axis (naming TODO: split `bc_iteration`)
+#### Extraction pressure as an independent policy axis
 
-`sim_config.bc_iteration` currently houses `InjectionPolicy` (`mode`) and `mass_rate` —
-both about finding the injection-side BC variable(s) needed to prevent fracing. But
-`SystemBCIteration`'s own module docstring already documents a second, independent
-sub-problem under "Two independent sub-problems — do not conflate": the production-pump
-inner loop that finds `dP_pump` needed to hit `target_extraction_pressure` at the surface
-inlet. Today `target_extraction_pressure` is just a fixed value on the surface component
-spec, and the pump-loop physics that would seek it isn't implemented yet
-(`SingleFlashSurface.solve()` is still a Phase 1 placeholder) — but the config naming
-already implies these two concerns are one thing (`bc_iteration`) when the code's own
-docstring says they are not.
+`sim_config.injection_mode` and `sim_config.mass_rate` govern the injection-side BC:
+finding the flow rate and/or injection wellhead pressure needed to prevent fracing.
+But `SystemBCIteration`'s own module docstring documents a second, independent
+sub-problem: the production-pump inner loop that finds `dP_pump` needed to hit
+`target_extraction_pressure` at the surface inlet. Today `target_extraction_pressure`
+is a fixed value on the surface component spec and the pump-loop physics is not yet
+implemented — but these two concerns (injection control, extraction control) should
+be independently configurable rather than folded into a single key.
 
-**Proposed split (naming TODO, not finalized):** rename `bc_iteration` to something scoped
-specifically to the injection side — e.g. `injection_control` (housing `mode` /
-`InjectionPolicy` / `mass_rate`) — and introduce a sibling `extraction_control` block
-housing `target_extraction_pressure` and a parallel `ExtractionPolicy` enum. Both
-`injection_control` and `extraction_control` are "boundary condition" concerns in the
-literal sense — one BC at the injection wellhead, one BC at the surface inlet from
-production — so "BC" as an umbrella term stays accurate; a single flat `bc_iteration` key
-just incorrectly implies there is only one such concern.
+**Proposed design (Phase 2+):** introduce a sibling `extraction_control` block in
+`sim_config` housing `target_extraction_pressure` and a parallel `ExtractionPolicy` enum.
+Both `injection_mode`/`mass_rate` and `extraction_control` are boundary-condition concerns
+— one at the injection wellhead, one at the surface inlet from production — and should be
+independently selectable.
 
 **`ExtractionPolicy` sketch (future, not implemented):**
 
@@ -624,6 +617,60 @@ all congruent with each other.
     `tango_next` at all). The CLI, orchestrators, and components are functional enough to run
     `flexible_SF_manual.yml` end-to-end under `InjectionPolicy.MANUAL`, but none of it has unit
     tests yet; this should land before more Phase 1/2 functionality is layered on top.
+
+---
+
+### TESPy Dependency Assessment
+
+`tango_next` uses [TESPy](https://github.com/oemof/tespy) to model the single-flash power
+plant cycle (valve → droplet separator → turbine/condenser/pump branches → mixer). TESPy
+was chosen for Phase 1 to achieve numerical parity with `src/tango/`, which also relies on
+it. The dependency is appropriate for that goal but carries several rough edges that should
+be weighed for Phase 2+.
+
+**TESPy shortcomings observed during Phase 1 implementation:**
+
+- **Silent unit inconsistency.** `h_unit="kJ/kg"` only controls display formatting;
+  `component.P.val` and `component.Q.val` are always stored in **Watts** (SI), not kW.
+  This caused a 1,000× power error during implementation — TESPy gives no warning.
+- **Stringly-typed API.** `connection.set_attr(fluid={"Water": 1}, T=..., p=...)` — wrong
+  key names fail silently at construction time and only error (confusingly) at solve time.
+- **No warm-start between solves.** Each call to `network.solve("design")` re-initializes
+  from scratch; there is no way to hand TESPy a prior solution as an initial guess. This
+  is a significant performance penalty for time-step simulations where the state changes
+  slowly between steps.
+- **Noisy convergence output.** TESPy emits solver-convergence messages via its own
+  `"TESPyLogger"` with a hardcoded level that must be overridden explicitly; standard
+  Python `logging.basicConfig` does not suppress it.
+- **Opaque solver failures.** Convergence errors surface as bare exceptions with
+  internal TESPy tracebacks, not as structured errors with state-point context. Difficult
+  to distinguish "physically infeasible state" from "solver failed to converge on a valid
+  state."
+- **Limited to steady-state.** TESPy solves one steady-state operating point per call;
+  transient effects in the surface plant are not modeled. This is acceptable for the
+  current timestep-averaged approach but limits future fidelity.
+
+**Case for migrating to a direct CoolProp implementation (Phase 2+):**
+
+A direct CoolProp implementation of the single-flash cycle would:
+- Eliminate solver overhead (explicit enthalpy/entropy calculations, no Newton loop over
+  the cycle graph).
+- Remove the warm-start limitation — each timestep can start from the previous solution
+  with no extra overhead.
+- Produce clean, structured errors via `CoolPropError` already in the `tango_next` error
+  taxonomy.
+- Reduce the dependency surface: CoolProp is already required; TESPy would no longer be.
+- Make the cycle physics fully transparent and testable at the unit level.
+
+The trade-off is implementation effort: TESPy encapsulates cycle topology and constraint
+propagation that would need to be re-derived explicitly. For a single-flash plant the
+physics is simple enough that a direct implementation is tractable; for more complex cycles
+(double-flash, ORC with recuperator) the trade-off is less clear.
+
+**Recommendation:** Retain TESPy for Phase 1 (parity target). Evaluate replacing it with
+a direct CoolProp implementation in Phase 2, scoped to the single-flash plant first.
+The decision should be made when the Phase 2 optimization/LCOE work begins — that is where
+the no-warm-start penalty will be most visible.
 
 ---
 
