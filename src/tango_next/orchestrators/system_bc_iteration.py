@@ -215,7 +215,7 @@ class SystemBCIteration(SystemDirect):
             # each inner-loop well solve advances t_d by exactly one del_t (not
             # multiple times).  Must capture the pre-pass values here.
             t_d_old_saved: dict[int, float] = {
-                c.component_idx: c.t_d_old for c in self._ordered if hasattr(c, "t_d_old")
+                c.component_idx: getattr(c, "t_d_old") for c in self._ordered if hasattr(c, "t_d_old")
             }
 
             # Save reservoir energy_extracted BEFORE the main pass.  The main pass
@@ -226,7 +226,7 @@ class SystemBCIteration(SystemDirect):
                 (c for c in self._ordered if hasattr(c, "energy_extracted")),
                 None,
             )
-            energy_before = reservoir.energy_extracted if reservoir is not None else 0.0
+            energy_before = getattr(reservoir, "energy_extracted", 0.0) if reservoir is not None else 0.0
 
             super().run_timestep(t)  # first full circuit pass
 
@@ -350,7 +350,7 @@ class SystemBCIteration(SystemDirect):
                 # Restore t_d_old so heat-loss time advances only once per outer
                 # timestep, not once per inner iteration.
                 if component.component_idx in t_d_old_saved:
-                    component.t_d_old = t_d_old_saved[component.component_idx]
+                    setattr(component, "t_d_old", t_d_old_saved[component.component_idx])
 
                 component.solve()
                 self._wire_one_stream(component)
@@ -383,7 +383,7 @@ class SystemBCIteration(SystemDirect):
         # call's delta is kept).  Then re-run the downstream components once
         # so the final recorded state is self-consistent with the corrected
         # reservoir outlet T.
-        reservoir.energy_extracted = energy_before
+        setattr(reservoir, "energy_extracted", energy_before)
         reservoir.solve()
         self._wire_one_stream(reservoir)
 
@@ -391,7 +391,7 @@ class SystemBCIteration(SystemDirect):
             if component.component_idx <= reservoir.component_idx:
                 continue  # injection_well and reservoir already done
             if component.component_idx in t_d_old_saved:
-                component.t_d_old = t_d_old_saved[component.component_idx]
+                setattr(component, "t_d_old", t_d_old_saved[component.component_idx])
             component.solve()
             self._wire_one_stream(component)
 

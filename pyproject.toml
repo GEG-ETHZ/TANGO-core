@@ -252,6 +252,7 @@ module = [
     "pymoo.*",
     "tango.*", # TODO: fix tango and remove this line
     "CoolProp",
+    "tespy.*",
 ]
 ignore_missing_imports = true
 
