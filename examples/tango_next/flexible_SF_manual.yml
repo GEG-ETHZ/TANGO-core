@@ -11,8 +11,8 @@
 #     because that's where the circuit was cut to start the solve order.
 #
 # Component circuit (main loop):
-#   surface(0) →[1]→ injection_well(1) →[2]→ reservoir(2)
-#               →[3]→ production_well_lower(3) →[4]→ production_well_upper(4) →[5]→ surface(0)
+#   injection_well(0) →[1]→ reservoir(1) →[2]→ production_well_lower(2)
+#                     →[3]→ production_well_upper(3) →[4]→ surface(4) →[0]→ injection_well(0)
 
 title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
 # Orchestrator is selected automatically:
@@ -49,9 +49,9 @@ components:
   surface:
     type: surface
     unit: single_flash
-    component_idx: 0          # first component solved each pass (no special BC role)
-    prev: 4
-    next: 1
+    component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
+    prev: 3
+    next: 0
     surface_temperature: 288  # K
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
     surface_pressure: 100_000       # Pa
@@ -148,9 +148,9 @@ components:
   injection_well:
     type: injection_well
     unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedInjectionWell (single closed-form calc)
-    component_idx: 1
-    prev: 0
-    next: 2
+    component_idx: 0          # first component solved each pass — circuit cut here (matches old tango solve order)
+    prev: 4
+    next: 1
     well_length: 5000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
@@ -159,9 +159,9 @@ components:
   reservoir:
     type: reservoir
     unit: native
-    component_idx: 2
-    prev: 1
-    next: 3
+    component_idx: 1
+    prev: 0
+    next: 2
     reservoir_depth: 5000.0       # m
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
@@ -173,9 +173,9 @@ components:
   production_well_lower:
     type: production_well
     unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedProductionWell (single closed-form calc)
-    component_idx: 3
-    prev: 2
-    next: 4
+    component_idx: 2
+    prev: 1
+    next: 3
     well_length: 4000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
@@ -185,9 +185,9 @@ components:
   production_well_upper:
     type: production_well_pump
     unit: numerical
-    component_idx: 4
-    prev: 3
-    next: 0
+    component_idx: 3
+    prev: 2
+    next: 4
     well_length: 1000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness

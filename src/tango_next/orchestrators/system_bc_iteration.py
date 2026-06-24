@@ -119,8 +119,8 @@ class SystemBCIteration(SystemDirect):
     solve for at all), not a duplicate encoding of policy.
 
     Components are executed in ascending ``component_idx`` order each pass.
-    The surface component (idx 0) is solved first; the circuit continues
-    through injection well → reservoir → production wells → back to surface.
+    The injection well (idx 0) is solved first; the circuit continues
+    through reservoir → production wells → surface → back to injection well.
 
     Args:
         components: Named components keyed by YAML name.
@@ -156,45 +156,37 @@ class SystemBCIteration(SystemDirect):
         self.max_iterations = max_iterations
         self.tolerance = tolerance
 
-    def _seed_surface_inlet(self) -> None:
-        """Seed the surface component inlet from the current production state.
+    def _find_surface(self) -> SingleFlashSurface | None:
+        """Return the SingleFlashSurface component, or None if absent."""
+        from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
 
-        On the very first iteration of timestep 0 there is no prior production
-        outlet.  Use the reservoir's un-depleted initial temperature as the warm
-        seed — this matches what old tango does (it pre-runs the full circuit
-        with T_initial before the surface ever solves).  Ambient temperature
-        (surface.surface_temperature) is far too cold and causes TESPy to
-        receive a subcooled inlet that produces a garbage steam fraction,
-        which then corrupts the t=0 reservoir energy extraction and cascades
-        through every subsequent timestep.
+        return next(
+            (c for c in self._ordered if isinstance(c, SingleFlashSurface)),
+            None,
+        )
+
+    def _seed_circuit_inlet(self) -> None:
+        """Seed the circuit-first component's inlet on the very first timestep.
+
+        The circuit is cut at the injection well (component_idx=0), which reads
+        from the previous timestep's surface outlet.  On the very first pass
+        there is no prior surface outlet, so we pre-populate the injection well
+        inlet with cold injection conditions derived from the surface config.
+
+        This matches old tango's behaviour: injection well is solved first, and
+        on timestep 0 the surface outlet has not yet been computed, so the cold
+        initial guess is used.
         """
-        surface = self._by_idx.get(0)
-        if surface is None:
-            # No component at idx 0 — valid for wellbore-only test fixtures or
-            # sub-systems without a surface plant.  Nothing to seed; the BC
-            # iteration loop will also skip convergence checking in this case.
+        inj_well = self._by_idx.get(0)
+        if inj_well is None:
             return
-        if surface.inlet.mass_rate == 0.0:
-            from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
-
-            if isinstance(surface, SingleFlashSurface):
-                # Warm start: use reservoir T_initial (un-depleted geothermal T)
-                # as the best available estimate of what the production well will
-                # deliver on the very first pass.  Fall back to ambient only if no
-                # reservoir is present (e.g. standalone wellbore test fixtures).
-                T_seed = next(
-                    (
-                        c.T_initial
-                        for c in self.components.values()
-                        if hasattr(c, "T_initial") and c.T_initial > 0
-                    ),
-                    surface.surface_temperature,
-                )
-                P_seed = getattr(surface, "target_extraction_pressure", surface.surface_pressure)
-                surface.inlet.T = T_seed
-                surface.inlet.P = P_seed
-            surface.inlet.mass_rate = self.mass_rate
-            surface.inlet.fluid_name = self.fluid_name
+        if inj_well.inlet.mass_rate == 0.0:
+            surface = self._find_surface()
+            if surface is not None:
+                inj_well.inlet.T = surface.surface_temperature
+                inj_well.inlet.P = getattr(surface, "injection_pressure", surface.surface_pressure)
+            inj_well.inlet.mass_rate = self.mass_rate
+            inj_well.inlet.fluid_name = self.fluid_name
 
     # ------------------------------------------------------------------
     # Timestep execution
@@ -211,11 +203,12 @@ class SystemBCIteration(SystemDirect):
             ConvergenceError: (AUTO_* modes, Phase 2) if convergence is not reached.
 
         """
-        self._seed_surface_inlet()
-        surface: SingleFlashSurface | None = self._by_idx.get(0)  # type: ignore[assignment]
-        if surface is not None:
-            surface.inlet.mass_rate = self.mass_rate
-            surface.inlet.fluid_name = self.fluid_name
+        self._seed_circuit_inlet()
+        surface: SingleFlashSurface | None = self._find_surface()
+        inj_well = self._by_idx.get(0)
+        if inj_well is not None:
+            inj_well.inlet.mass_rate = self.mass_rate
+            inj_well.inlet.fluid_name = self.fluid_name
 
         if self.policy == InjectionPolicy.MANUAL:
             # Save t_d_old for all numerical wells BEFORE the first pass so that
@@ -224,6 +217,16 @@ class SystemBCIteration(SystemDirect):
             t_d_old_saved: dict[int, float] = {
                 c.component_idx: c.t_d_old for c in self._ordered if hasattr(c, "t_d_old")
             }
+
+            # Save reservoir energy_extracted BEFORE the main pass.  The main pass
+            # runs the reservoir with the cold circuit-seed injection T (288 K), which
+            # over-extracts energy.  After T-convergence we re-run the reservoir with
+            # the converged injection T starting from this saved baseline.
+            reservoir = next(
+                (c for c in self._ordered if hasattr(c, "energy_extracted")),
+                None,
+            )
+            energy_before = reservoir.energy_extracted if reservoir is not None else 0.0
 
             super().run_timestep(t)  # first full circuit pass
 
@@ -234,12 +237,13 @@ class SystemBCIteration(SystemDirect):
                     surface.outlet.P,
                 )
 
-            # Inner injection-temperature convergence loop.
+            # Inner injection-temperature convergence loop (Phase 1).
             # Mirrors old tango's update() which iterates injection_well →
-            # production_wells → surface until dT_surface < 0.5 K, WITHOUT
-            # re-solving the reservoir (which accumulates energy each call).
+            # production_wells → surface until dT_surface < 0.5 K.  The
+            # reservoir is skipped inside the inner loop; it is re-run once
+            # after convergence in Phase 2 with the corrected injection T.
             if surface is not None:
-                self._converge_injection_T(surface, t_d_old_saved)
+                self._converge_injection_T(surface, t_d_old_saved, reservoir, energy_before)
 
             return
 
@@ -273,32 +277,43 @@ class SystemBCIteration(SystemDirect):
         self,
         surface: Component,
         t_d_old_saved: dict[int, float],
+        reservoir: Component | None,
+        energy_before: float,
     ) -> None:
-        """Converge injection temperature with reservoir output held fixed.
+        """Converge injection temperature then correct reservoir energy extraction.
 
-        Called after the first full circuit pass.  Mirrors old tango's
-        ``_update_injection_well_inlet_T`` / ``_update_production_well`` inner
-        loop: inj_well → prod_lower → prod_upper → surface iterates until the
+        Two-phase operation that mirrors old tango's per-timestep inner loop:
+
+        **Phase 1 — T-convergence** (inner loop):
+        Iterates inj_well → prod_lower → prod_upper → surface until the
         injection temperature (surface outlet) changes by less than
-        ``_DT_SURFACE_TOL`` between iterations.  The reservoir is intentionally
-        skipped — it has already accumulated energy from the first pass and must
-        not be re-solved.
+        ``_DT_SURFACE_TOL``.  The reservoir is skipped each iteration (its
+        outlet is frozen at the main-pass value) so it does not accumulate
+        energy multiple times.
+
+        **Phase 2 — reservoir correction**:
+        After T-convergence, the injection well outlet carries the converged
+        injection temperature.  The reservoir is re-run once from ``energy_before``
+        (its pre-timestep value) using this converged injection T.  This matches
+        old tango's ``old + delta`` energy pattern, where only the *last*
+        intra-timestep call's delta is preserved.  Downstream components
+        (prod_lower, prod_upper, surface) are then re-solved once more so the
+        final recorded state is self-consistent.
 
         ``t_d_old`` is restored for every numerical well before each solve so
         that the Adams 2015 heat-loss time only advances by one ``del_t`` per
         outer timestep, regardless of how many inner iterations are needed.
 
         Args:
-            surface: Surface component (component_idx == 0).
+            surface: Surface component (last in solve order).
             t_d_old_saved: Pre-first-pass ``t_d_old`` snapshot for every
                 component that has that attribute (numerical wells only).
+            reservoir: Reservoir component (has ``energy_extracted``), or None.
+            energy_before: ``reservoir.energy_extracted`` value captured before
+                the main circuit pass.  Used to reset and re-apply a single
+                correct delta in Phase 2.
 
         """
-        # Identify the reservoir (has energy_extracted) — fixed throughout.
-        reservoir: Component | None = next(
-            (c for c in self._ordered if hasattr(c, "energy_extracted")),
-            None,
-        )
         if reservoir is None:
             return
 
@@ -358,6 +373,28 @@ class SystemBCIteration(SystemDirect):
                 _DT_SURFACE_TOL,
             )
 
+        # ── Phase 2: reservoir correction ────────────────────────────────────
+        # After T-convergence the injection well outlet carries the converged
+        # injection temperature.  _wire_one_stream(injection_well) inside the
+        # last inner iteration has already propagated that outlet to
+        # reservoir.inlet.  Re-run the reservoir from energy_before so that
+        # energy_extracted reflects the converged injection T (matches old
+        # tango's "old + delta" pattern where only the last intra-timestep
+        # call's delta is kept).  Then re-run the downstream components once
+        # so the final recorded state is self-consistent with the corrected
+        # reservoir outlet T.
+        reservoir.energy_extracted = energy_before
+        reservoir.solve()
+        self._wire_one_stream(reservoir)
+
+        for component in self._ordered:
+            if component.component_idx <= reservoir.component_idx:
+                continue  # injection_well and reservoir already done
+            if component.component_idx in t_d_old_saved:
+                component.t_d_old = t_d_old_saved[component.component_idx]
+            component.solve()
+            self._wire_one_stream(component)
+
     def _after_timestep(self, t: int) -> None:
         """Log a one-line per-timestep summary; called by the inherited ``run()`` loop."""
         self._log_timestep_summary(t)
@@ -383,7 +420,7 @@ class SystemBCIteration(SystemDirect):
 
     def _log_timestep_summary(self, t: int) -> None:
         """Emit a one-line INFO summary for a completed timestep."""
-        surface = self._by_idx.get(0)
+        surface = self._find_surface()
         if surface is None:
             return
         from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
