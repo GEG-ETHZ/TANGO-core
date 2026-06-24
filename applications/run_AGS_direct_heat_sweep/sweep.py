@@ -26,24 +26,23 @@ from tango.runner import Runner
 def _apply_depth(specs: dict, depth_m: float) -> None:
     """Update all depth-dependent parameters in-place.
 
-    When reservoir depth changes, the following must move together:
-      - reservoir.reservoir_depth
-      - reservoir.hydro_static_pressure  (ρ·g·depth, ρ=1000 kg/m³)
-      - injection_well.well_length (and _seq)
-      - production_well.well_length (and _seq)  — 80 % of total
-      - production_well_pump.well_length         — 20 % of total
-    """
-    set_nested_value(specs, "reservoir.reservoir_depth", depth_m)
-    set_nested_value(specs, "reservoir.hydro_static_pressure", 1000 * 9.81 * depth_m)
+    For the AGS topology (injection_well → horizontal_well → production_well),
+    depth controls the vertical sections only.  The horizontal loop length is
+    fixed at 2500 m regardless of depth — see the assumption note in
+    triemli_dh_base.yml.
 
+    Parameters updated:
+      - injection_well.well_length (and _seq)  — vertical descent = depth
+      - horizontal_well.wellhead_depth          — loop sits at bottom of vertical section
+      - production_well.well_length (and _seq) — vertical ascent = depth (symmetric)
+    """
     set_nested_value(specs, "injection_well.well_length", depth_m)
     set_nested_value(specs, "injection_well.well_length_seq", [depth_m])
 
-    prod_lower = 0.8 * depth_m
-    prod_upper = 0.2 * depth_m
-    set_nested_value(specs, "production_well.well_length", prod_lower)
-    set_nested_value(specs, "production_well.well_length_seq", [prod_lower])
-    set_nested_value(specs, "production_well_pump.well_length", prod_upper)
+    set_nested_value(specs, "horizontal_well.wellhead_depth", depth_m)
+
+    set_nested_value(specs, "production_well.well_length", depth_m)
+    set_nested_value(specs, "production_well.well_length_seq", [depth_m])
 
 
 def _apply_mass_flow(specs: dict, mdot: float) -> None:
@@ -96,13 +95,13 @@ def run_single_simulation(args: tuple) -> None:
         runner.update_parameters()
         runner.start()
 
-        # --- Production-well outlet (production_well_upper = pump section) ---
+        # --- Production-well outlet ---
         orch = runner.tango.workflow.orchestrator
-        prod_pump_unit = getattr(orch.unit, "production_well_upper", None)
+        prod_unit = getattr(orch.unit, "production_well", None)
 
-        if prod_pump_unit is not None and hasattr(prod_pump_unit, "outlet_fluid"):
-            T_prod_K: float = prod_pump_unit.outlet_fluid.T
-            h_prod_kJ: float = prod_pump_unit.outlet_fluid.H / 1000.0  # J/kg → kJ/kg
+        if prod_unit is not None and hasattr(prod_unit, "outlet_fluid"):
+            T_prod_K: float = prod_unit.outlet_fluid.T
+            h_prod_kJ: float = prod_unit.outlet_fluid.H / 1000.0  # J/kg → kJ/kg
         else:
             T_prod_K = float("nan")
             h_prod_kJ = float("nan")

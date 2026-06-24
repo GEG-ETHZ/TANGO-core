@@ -1,32 +1,36 @@
-# Triemli (Zurich) direct-heat doublet — base configuration for parameter sweep.
+# Triemli (Zurich) AGS direct-heat — base configuration for parameter sweep.
 #
-# Site parameters from MS student request (2026-06-19):
+# AGS topology: injection_well → horizontal_well → production_well → surface
+# No reservoir component: the borehole loop is sealed; formation permeability
+# is not a factor.  Heat exchange occurs conductively along the wellbore walls
+# using the Adams et al. (2015) transient heat-loss model in each segment.
+#
+# Site parameters (Triemli, Zurich):
 #   surface temperature : 11 °C  (284.15 K)
 #   thermal gradient    : 35 °C/km  (0.035 K/m)
 #   fluid               : H2O
-#   application         : direct heat only (no electricity)
-#   return temperature  : 50 °C (district-heating return)
+#   application         : direct heat only (district heating, no electricity)
+#   DH return temp      : 50 °C (re-injection temperature)
 #
-# The sweep varies:
-#   reservoir_depth     : 2000 – 6000 m  (10 values)
-#   mass_flow_rate      : 5   – 80 kg/s  (10 values)
+# Sweep axes (see sweep.py / common.py):
+#   well_depth_m    : 2000 – 6500 m  (10 values)
+#   mass_flow_kg_s  : 5   – 100 kg/s  (10 values)
 #
-# At 35 °C/km, 105 °C at the wellhead requires roughly 2700 m depth
-# (accounting for heat loss in the production well).
+# Fixed assumption: horizontal loop length = 2500 m regardless of well depth.
+# This is a simplification — in reality the loop length is an independent
+# design parameter.  It is held constant here to keep the sweep 2-D; a future
+# 3-D sweep could add loop length as a third axis.
 
 graph:
   nodes:
     injection_well:
       type: 'injection_well'
       unit: 'native'
-    reservoir:
-      type: 'reservoir'
+    horizontal_well:
+      type: 'horizontal_well'
       unit: 'native'
-    production_well_lower:
+    production_well:
       type: 'production_well'
-      unit: 'native'
-    production_well_upper:
-      type: 'production_well_pump'
       unit: 'native'
     surface:
       type: 'surface'
@@ -37,19 +41,16 @@ graph:
       target: 'injection_well'
     2:
       source: 'injection_well'
-      target: 'reservoir'
+      target: 'horizontal_well'
     3:
-      source: 'reservoir'
-      target: 'production_well_lower'
+      source: 'horizontal_well'
+      target: 'production_well'
     4:
-      source: 'production_well_lower'
-      target: 'production_well_upper'
-    5:
-      source: 'production_well_upper'
+      source: 'production_well'
       target: 'surface'
 
 runspec:
-  title: 'Triemli direct-heat doublet sweep'
+  title: 'Triemli AGS direct-heat sweep'
   workflow: 'native'
 
 props:
@@ -57,7 +58,7 @@ props:
   brine_density: 1000       # kg/m³
   rock_density: 2650.0      # kg/m³
   rock_cp: 1000.0           # J/(kg·K)
-  rock_k: 2.1               # W/(m·K)  — typical crystalline basement
+  rock_k: 2.1               # W/(m·K)
   thermal_gradient: 0.035   # K/m  (35 °C/km, Triemli site)
 
 surface:
@@ -65,35 +66,29 @@ surface:
   surface_pressure: 100_000     # Pa
   pipe_diameter: 0.41           # m
   approach_temperature: 7.0     # K
-  target_extraction_pressure: 7_000_000  # Pa — pump delivers to 7 MPa at wellhead
-
-reservoir:
-  reservoir_depth: 3000.0       # m  — swept in the script
-  thickness: 300.0              # m
-  permeability: 1.0e-13         # m²  (~100 mD — moderate EGS)
-  porosity: 0.1
-  hydro_static_pressure: 29_430_000  # Pa  = 1000*9.81*3000 — updated per depth in script
-  over_pressure_percentage: 5
+  target_extraction_pressure: 7_000_000  # Pa
 
 injection_well:
-  well_length: 3000.          # m  — updated per depth in script
-  diameter: 0.311             # m  (~12-inch casing, typical for EGS)
+  well_length: 3000.          # m  — updated per depth in sweep
+  diameter: 0.311             # m  (~12-inch casing)
   well_length_seq: [3000.]
   well_diameter_seq: [0.311]
-  epsilon: 5.5e-5             # m  (smooth steel pipe)
+  epsilon: 5.5e-5             # m
+
+horizontal_well:
+  wellhead_depth: 3000.       # m  — updated per depth in sweep (= well depth)
+  well_length: 2500.          # m  — FIXED (see assumption note at top of file)
+  diameter: 0.311             # m
+  vertical_deviation: 90      # deg  (fully horizontal)
+  well_length_seq: [2500.]
+  well_diameter_seq: [0.311]
 
 production_well:
-  well_length: 2400.          # m  = 0.8 × reservoir_depth — updated per depth
+  well_length: 3000.          # m  — updated per depth in sweep
   diameter: 0.311             # m
-  well_length_seq: [2400.]
+  well_length_seq: [3000.]
   well_diameter_seq: [0.311]
-  epsilon: 5.5e-5
-
-production_well_pump:
-  well_length: 600.           # m  = 0.2 × reservoir_depth — updated per depth
-  diameter: 0.311             # m
-  eta_pump: 0.75              # pump efficiency
-  epsilon: 5.5e-5
+  eta_pump: 0.75
 
 costs:
   permitting:
@@ -109,12 +104,12 @@ costs:
     sizing_strategy: average_performance
 
 schedule:
-  main_product: 'heat'         # direct-heat mode — economic model uses thermal power
-  electricity_price: 0.25      # CHF/kWh — used as by-product credit if any
-  bc_iteration_checkpoint: injection_well_bottom
+  main_product: 'heat'
+  electricity_price: 0.25      # CHF/kWh
+  bc_iteration_checkpoint: production_well_bottom
   mass_flow_rate: 30.          # kg/s — swept in the script
-  well_pattern: 'DOUBLET'
-  well_spacing: 500.           # m  — typical for EGS doublet
+  well_pattern: 'AGS'
+  well_spacing: 2500.          # m  (= horizontal loop length)
   well_pattern_dimens: [1, 1]
   start_date: '2024-01-01'
   num_pp: 1
@@ -122,9 +117,6 @@ schedule:
     type: ConstantDT
     num_tsteps: 25             # 25 years of operation
     dt: 1.0                    # year
-  bc_iteration:
-    check_fracing: yes
-    max_mass_rate: 150
   mass_rate:
     type: manual
     value: 30.                 # kg/s — kept in sync with mass_flow_rate in script
@@ -145,8 +137,8 @@ addons:
     execute: 'no'
     results_file: 'analyzer_results.csv'
 
-# Simple direct-heat surface plant: fluid passes through a district-heating
-# heat exchanger and returns at 50 °C (= injection temperature).
+# Direct-heat surface plant: produced fluid passes through a district-heating
+# heat exchanger and returns at 50 °C (= re-injection temperature).
 power_plant_graph:
   nodes:
     inlet:
@@ -168,4 +160,4 @@ power_plant_graph:
 
 DH:
   Subtype: 'DH_component'
-  T_out: 50      # °C — district-heating return temperature (injection temperature)
+  T_out: 50      # °C — district-heating return temperature (re-injection temperature)
