@@ -51,7 +51,7 @@ Write Docs       ██░░░░░░░░░░░░░░░░░░  ~
 
 ## Get Started
 
-### 0. Clone the repo and check out the active branch
+**0. Clone the repo and check out the active branch.**
 
 First, make sure your SSH key is registered with ETH GitLab —
 [SSH setup guide](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/ssh).
