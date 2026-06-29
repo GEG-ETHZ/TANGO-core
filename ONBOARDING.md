@@ -5,7 +5,6 @@
 Based on Chad Baker's usage over the last 30 days:
 
 **Work Type Breakdown:**
-
   Improve Quality  ████████████░░░░░░░░  ~38%
   Build Feature    ████████░░░░░░░░░░░░  ~25%
   Debug Fix        ██████░░░░░░░░░░░░░░  ~19%
@@ -13,7 +12,6 @@ Based on Chad Baker's usage over the last 30 days:
   Write Docs       ██░░░░░░░░░░░░░░░░░░  ~6%
 
 **Top Skills & Commands:**
-
   /compact   ████████████████████  1x/month
   /clear     ████████████████████  1x/month
   /effort    ████████████████████  1x/month
