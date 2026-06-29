@@ -65,3 +65,19 @@ class TESPyCoolPropError(TESPyError, CoolPropError):
 
     Not yet wired to any call site — see ``TESPyError`` docstring.
     """
+
+
+class LockedStateError(TangoNextError):
+    """Base class for all LockedState contract violations."""
+
+
+class StaleAccessError(LockedStateError):
+    """Raised by ``LockedState.get_fresh()`` when the field has not been set yet this timestep."""
+
+
+class FreshAccessError(LockedStateError):
+    """Raised by ``LockedState.get_stale()`` when the field has already been updated this timestep."""
+
+
+class DoubleWriteError(LockedStateError):
+    """Raised by ``LockedState.set()`` when the field has already been set once this timestep."""

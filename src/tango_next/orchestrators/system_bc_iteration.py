@@ -87,6 +87,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from tango_next.core.constants import W_TO_MW
 from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
@@ -426,8 +427,8 @@ class SystemBCIteration(SystemDirect):
         from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
 
         if isinstance(surface, SingleFlashSurface):
-            gross_mw = surface.state.gross_power_watts / 1e6
-            P_inj = surface.state.P_outlet
+            gross_mw = surface.state.gross_power_watts.get_fresh() * W_TO_MW
+            P_inj = surface.state.P_outlet.get_fresh()
             T_prod = surface.inlet.T
             logger.info(
                 "t=%3d | T_prod=%.1f K | P_inj=%.4g MPa | gross_power=%.3f MW",

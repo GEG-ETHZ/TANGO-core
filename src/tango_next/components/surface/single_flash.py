@@ -37,6 +37,7 @@ References
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -51,6 +52,7 @@ from tango_next.core.fluid_utils import (
     water_density,
     water_viscosity,
 )
+from tango_next.core.locked_state import LockedState
 
 _PA_TO_BAR: float = 1e-5
 _BAR_TO_PA: float = 1e5
@@ -76,48 +78,63 @@ _BAC_COEFFS: dict[str, dict[str, list[float]]] = {
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+def _ls() -> LockedState[float]:
+    ls: LockedState[float] = LockedState(float("nan"))
+    ls.mark_stale()
+    return ls
+
+
+@dataclass(frozen=True)
 class SingleFlashSurfaceState:
-    """Full simulation state for one surface plant solve step."""
+    """Full simulation state for one surface plant solve step.
+
+    All fields are ``LockedState[float]`` — writable exactly once per timestep.
+    Call ``mark_all_stale()`` at the start of each ``solve()``.
+    """
 
     # Inlet conditions (hot production fluid from production well)
-    T_inlet: float = field(default=float("nan"))
-    P_inlet: float = field(default=float("nan"))
-    mass_rate: float = field(default=float("nan"))
+    T_inlet: LockedState[float] = field(default_factory=_ls)
+    P_inlet: LockedState[float] = field(default_factory=_ls)
+    mass_rate: LockedState[float] = field(default_factory=_ls)
 
     # Surface pipe (wellhead → plant)
-    dP_pipe: float = field(default=float("nan"))  # noqa: N815
+    dP_pipe: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Friction pressure drop across the surface pipe (Pa)."""
-    P_tespy_inlet: float = field(default=float("nan"))
+    P_tespy_inlet: LockedState[float] = field(default_factory=_ls)
     """Pressure passed to TESPy inlet = P_inlet − dP_pipe (Pa)."""
 
     # Flash diagnostics
-    T_flash_K: float = field(default=float("nan"))
+    T_flash_K: LockedState[float] = field(default_factory=_ls)
     """Saturation temperature at flash valve outlet (K)."""
-    P_flash_Pa: float = field(default=float("nan"))
+    P_flash_Pa: LockedState[float] = field(default_factory=_ls)
     """Flash pressure after valve (Pa)."""
-    steam_fraction: float = field(default=float("nan"))
+    steam_fraction: LockedState[float] = field(default_factory=_ls)
     """Vapor quality (mass fraction steam) after the droplet separator."""
 
     # Power breakdown (all in W)
-    gross_turbine_power_W: float = field(default=float("nan"))  # noqa: N815
+    gross_turbine_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Gross turbine shaft power (positive = production)."""
-    pump_power_W: float = field(default=float("nan"))  # noqa: N815
+    pump_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Condensate pump parasitic (positive = consumption)."""
-    pump2_power_W: float = field(default=float("nan"))  # noqa: N815
+    pump2_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Separator liquid pump2 parasitic (positive = consumption)."""
-    cooling_tower_power_W: float = field(default=float("nan"))  # noqa: N815
+    cooling_tower_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Cooling-tower fan/circulator parasitic (positive = consumption)."""
-    gross_power_watts: float = field(default=float("nan"))
+    gross_power_watts: LockedState[float] = field(default_factory=_ls)
     """Alias for gross_turbine_power_W — used by existing tests and demo plots."""
-    net_power_W: float = field(default=float("nan"))  # noqa: N815
+    net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Net electrical power = gross − pump1 − pump2 − cooling tower (W)."""
 
     # Outlet conditions (injection stream)
-    T_outlet: float = field(default=float("nan"))
-    P_outlet: float = field(default=float("nan"))
-    rho: float = field(default=float("nan"))
-    mu: float = field(default=float("nan"))
+    T_outlet: LockedState[float] = field(default_factory=_ls)
+    P_outlet: LockedState[float] = field(default_factory=_ls)
+    rho: LockedState[float] = field(default_factory=_ls)
+    mu: LockedState[float] = field(default_factory=_ls)
+
+    def mark_all_stale(self) -> None:
+        """Mark every field stale — call at the start of each ``solve()``."""
+        for f in dataclasses.fields(self):
+            getattr(self, f.name).mark_stale()
 
 
 # ---------------------------------------------------------------------------
@@ -138,12 +155,12 @@ class SingleFlashSurfaceHistory:
 
     def record(self, state: SingleFlashSurfaceState) -> None:
         """Append a snapshot of ``state`` as one timestep entry."""
-        self.T_inlet.append(state.T_inlet)
-        self.T_outlet.append(state.T_outlet)
-        self.P_outlet.append(state.P_outlet)
-        self.gross_power_watts.append(state.gross_power_watts)
-        self.net_power_W.append(state.net_power_W)
-        self.steam_fraction.append(state.steam_fraction)
+        self.T_inlet.append(state.T_inlet.get_fresh())
+        self.T_outlet.append(state.T_outlet.get_fresh())
+        self.P_outlet.append(state.P_outlet.get_fresh())
+        self.gross_power_watts.append(state.gross_power_watts.get_fresh())
+        self.net_power_W.append(state.net_power_W.get_fresh())
+        self.steam_fraction.append(state.steam_fraction.get_fresh())
 
 
 # ---------------------------------------------------------------------------
@@ -297,29 +314,37 @@ class SingleFlashSurface(SurfaceComponent):
     def solve(self) -> None:
         """Solve TESPy single-flash network and extract outlet conditions + power."""
         s = self.state
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.mark_all_stale()
+
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
+
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
 
         conns = self._conns
 
         # ---- Surface pipe friction drop (wellhead → plant) ----
         # Matches src/tango/ SurfaceUnitFlexiblePP._update_state_pipe():
         # Haaland friction over well_spacing length, evaluated at inlet conditions.
-        rho_in = water_density(s.T_inlet, s.P_inlet)
-        mu_in = water_viscosity(s.T_inlet, s.P_inlet)
-        u_in = mean_velocity(s.mass_rate, rho_in, self.pipe_diameter)
-        Re_in = reynolds_number(s.mass_rate, self.pipe_diameter, mu_in)
+        rho_in = water_density(T_in, P_in)
+        mu_in = water_viscosity(T_in, P_in)
+        u_in = mean_velocity(mdot, rho_in, self.pipe_diameter)
+        Re_in = reynolds_number(mdot, self.pipe_diameter, mu_in)
         ff_in = friction_factor_haaland(Re_in, self.pipe_diameter, self.pipe_roughness)
-        s.dP_pipe = pressure_drop_friction(ff_in, self.well_spacing, self.pipe_diameter, rho_in, u_in)
-        s.P_tespy_inlet = s.P_inlet - s.dP_pipe
+        dp_pipe = pressure_drop_friction(ff_in, self.well_spacing, self.pipe_diameter, rho_in, u_in)
+        P_tespy_in = P_in - dp_pipe
+        s.dP_pipe.update(dp_pipe)
+        s.P_tespy_inlet.update(P_tespy_in)
 
         # ---- Inlet connection: T (°C), p (bar), m (kg/s), fluid ----
         conns[0].set_attr(
             fluid={self.inlet.fluid_name: 1},
-            m=s.mass_rate,
-            T=s.T_inlet + _K_TO_C,
-            p=s.P_tespy_inlet * _PA_TO_BAR,
+            m=mdot,
+            T=T_in + _K_TO_C,
+            p=P_tespy_in * _PA_TO_BAR,
         )
 
         # ---- Fixed component pressures ----
@@ -334,48 +359,48 @@ class SingleFlashSurface(SurfaceComponent):
         self._network.solve("design")
 
         # ---- Extract outlet conditions ----
-        outlet_T_C = conns[8].T.val  # °C
-        outlet_p_bar = conns[8].p.val  # bar
-
-        s.T_outlet = outlet_T_C + _C_TO_K
-        s.P_outlet = outlet_p_bar * _BAR_TO_PA
+        T_out = conns[8].T.val + _C_TO_K
+        P_out = conns[8].p.val * _BAR_TO_PA
+        s.T_outlet.update(T_out)
+        s.P_outlet.update(P_out)
 
         # ---- Flash diagnostics (from valve → separator connection) ----
-        s.P_flash_Pa = conns[1].p.val * _BAR_TO_PA
-        s.T_flash_K = conns[1].T.val + _C_TO_K
+        s.P_flash_Pa.update(conns[1].p.val * _BAR_TO_PA)
+        s.T_flash_K.update(conns[1].T.val + _C_TO_K)
 
         # Steam fraction = vapor mass flow / total mass flow at separator
         # sep.out2 (vapor) mass / total
-        if s.mass_rate > 0:
+        if mdot > 0:
             # TESPy connection [3] carries the vapor stream
-            s.steam_fraction = conns[3].m.val / s.mass_rate
+            s.steam_fraction.update(conns[3].m.val / mdot)
         else:
-            s.steam_fraction = float("nan")
+            s.steam_fraction.update(float("nan"))
 
         # ---- Power balance (TESPy P.val in Watts; turbine P < 0, compressor P > 0) ----
         # TESPy stores power in SI (W) regardless of h_unit="kJ/kg" display setting.
         gross_W = -self._turbine.P.val  # negate: turbine produces power (P < 0 in TESPy)
         pump_W = self._pump.P.val  # positive: compressor consumes power
         pump2_W = self._pump2.P.val
-
         cooling_W = self._compute_cooling_tower_parasitic()
 
-        s.gross_turbine_power_W = gross_W
-        s.pump_power_W = pump_W
-        s.pump2_power_W = pump2_W
-        s.cooling_tower_power_W = cooling_W
-        s.gross_power_watts = gross_W  # alias for tests/plots
-        s.net_power_W = gross_W - pump_W - pump2_W - cooling_W
+        s.gross_turbine_power_W.update(gross_W)
+        s.pump_power_W.update(pump_W)
+        s.pump2_power_W.update(pump2_W)
+        s.cooling_tower_power_W.update(cooling_W)
+        s.gross_power_watts.update(gross_W)  # alias for tests/plots
+        s.net_power_W.update(gross_W - pump_W - pump2_W - cooling_W)
 
         # ---- Fluid properties for injection stream ----
-        s.rho = water_density(s.T_outlet, s.P_outlet)
-        s.mu = water_viscosity(s.T_outlet, s.P_outlet)
+        rho_out = water_density(T_out, P_out)
+        mu_out = water_viscosity(T_out, P_out)
+        s.rho.update(rho_out)
+        s.mu.update(mu_out)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
-        self.outlet.rho = s.rho
-        self.outlet.mu = s.mu
+        self.outlet.T = T_out
+        self.outlet.P = P_out
+        self.outlet.mass_rate = mdot
+        self.outlet.rho = rho_out
+        self.outlet.mu = mu_out
         self.outlet.fluid_name = self.inlet.fluid_name
 
     # ------------------------------------------------------------------

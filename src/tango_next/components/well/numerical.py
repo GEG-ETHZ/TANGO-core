@@ -35,6 +35,7 @@ performance; results are converted to lists before storing in state.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -46,6 +47,7 @@ from tango_next.components.well.base import WellComponent
 from tango_next.core.constants import GRAVITY, YEAR_TO_SECOND
 from tango_next.core.fluid_state import FluidState
 from tango_next.core.fluid_utils import reynolds_number
+from tango_next.core.locked_state import LockedState
 from tango_next.core.physics_models import (
     FrictionModel,
     HeatTransferModel,
@@ -58,28 +60,53 @@ from tango_next.core.physics_models import (
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+def _ls_nan() -> LockedState[float]:
+    ls: LockedState[float] = LockedState(float("nan"))
+    ls.mark_stale()
+    return ls
+
+
+def _ls_zero() -> LockedState[float]:
+    ls: LockedState[float] = LockedState(0.0)
+    ls.mark_stale()
+    return ls
+
+
+def _ls_cells() -> LockedState[list[float]]:
+    ls: LockedState[list[float]] = LockedState([])
+    ls.mark_stale()
+    return ls
+
+
+@dataclass(frozen=True)
 class NumericalWellState:
     """Full discretized simulation state for one numerical-well solve step.
 
-    Cell arrays are ``list[float]`` for native Pydantic serialization.
+    All scalar fields are ``LockedState[float]`` and cell arrays are
+    ``LockedState[list[float]]``, each writable exactly once per timestep.
+    Call ``mark_all_stale()`` at the start of each ``solve()``.
     """
 
-    T_inlet: float = field(default=float("nan"))
-    P_inlet: float = field(default=float("nan"))
-    mass_rate: float = field(default=float("nan"))
-    t_d: float = field(default=0.0)
+    T_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    P_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    mass_rate: LockedState[float] = field(default_factory=_ls_nan)
+    t_d: LockedState[float] = field(default_factory=_ls_zero)
     """Dimensionless time at the end of this solve step (see module docstring)."""
-    P_cells: list[float] = field(default_factory=list)
-    h_cells: list[float] = field(default_factory=list)
-    T_cells: list[float] = field(default_factory=list)
-    rho_cells: list[float] = field(default_factory=list)
-    mu_cells: list[float] = field(default_factory=list)
-    u_cells: list[float] = field(default_factory=list)
-    T_outlet: float = field(default=float("nan"))
-    P_outlet: float = field(default=float("nan"))
-    pump_power_watts: float = field(default=0.0)
+    P_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    h_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    T_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    rho_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    mu_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    u_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    T_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    P_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    pump_power_watts: LockedState[float] = field(default_factory=_ls_zero)
     """Pump shaft power (W). Non-zero only for pump-equipped well components."""
+
+    def mark_all_stale(self) -> None:
+        """Mark every field stale — call at the start of each ``solve()``."""
+        for f in dataclasses.fields(self):
+            getattr(self, f.name).mark_stale()
 
 
 # Back-compat aliases so existing code that references the old specific names works.
@@ -110,16 +137,16 @@ class NumericalWellHistory:
 
     def record(self, state: NumericalWellState) -> None:
         """Append a copy of ``state`` as one timestep entry."""
-        self.t_d.append(state.t_d)
-        self.P_cells.append(list(state.P_cells))
-        self.h_cells.append(list(state.h_cells))
-        self.T_cells.append(list(state.T_cells))
-        self.rho_cells.append(list(state.rho_cells))
-        self.mu_cells.append(list(state.mu_cells))
-        self.u_cells.append(list(state.u_cells))
-        self.T_outlet.append(state.T_outlet)
-        self.P_outlet.append(state.P_outlet)
-        self.pump_power_watts.append(state.pump_power_watts)
+        self.t_d.append(state.t_d.get_fresh())
+        self.P_cells.append(list(state.P_cells.get_fresh()))
+        self.h_cells.append(list(state.h_cells.get_fresh()))
+        self.T_cells.append(list(state.T_cells.get_fresh()))
+        self.rho_cells.append(list(state.rho_cells.get_fresh()))
+        self.mu_cells.append(list(state.mu_cells.get_fresh()))
+        self.u_cells.append(list(state.u_cells.get_fresh()))
+        self.T_outlet.append(state.T_outlet.get_fresh())
+        self.P_outlet.append(state.P_outlet.get_fresh())
+        self.pump_power_watts.append(state.pump_power_watts.get_fresh())
 
 
 NumericalInjectionWellHistory = NumericalWellHistory
@@ -248,15 +275,21 @@ class NumericalInjectionWell(WellComponent):
     def solve(self) -> None:
         """March the discretized wellbore from inlet to bottom-hole conditions."""
         s = self.state
+        s.mark_all_stale()
         n = self.num_cells
 
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        s.t_d = self.t_d_old + del_t
-        self.t_d_old = s.t_d
+        t_d = self.t_d_old + del_t
+        s.t_d.update(t_d)
+        self.t_d_old = t_d
+
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
 
         P = np.zeros(n)
         h = np.zeros(n)
@@ -265,15 +298,14 @@ class NumericalInjectionWell(WellComponent):
         mu = np.zeros(n)
         u = np.zeros(n)
 
-        inlet_state = FluidState.with_PT(self.fluid_name, s.P_inlet, s.T_inlet)
+        inlet_state = FluidState.with_PT(self.fluid_name, P_in, T_in)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
         rho[0] = inlet_state.rho
         mu[0] = inlet_state.mu
-        u[0] = s.mass_rate / self.cross_sectional_area / rho[0]
+        u[0] = mdot / self.cross_sectional_area / rho[0]
 
-        mdot = s.mass_rate
         A = self.cross_sectional_area
         g = GRAVITY * self.gravity_scale_factor
         dz = self.cell_length
@@ -288,7 +320,7 @@ class NumericalInjectionWell(WellComponent):
                 self.heat_transfer_model,
                 dL=self.cell_length,
                 rock_k=self.rock_k,
-                t_d=s.t_d,
+                t_d=t_d,
                 delta_T=T_f[i - 1] - T_r[i - 1],
             )
             dp_grav = f_dir * rho[i - 1] * g * dz
@@ -301,18 +333,19 @@ class NumericalInjectionWell(WellComponent):
             T_f[i] = cell_state.T
             u[i] = mdot / A / rho[i]
 
-        s.P_cells = P.tolist()
-        s.h_cells = h.tolist()
-        s.T_cells = T_f.tolist()
-        s.rho_cells = rho.tolist()
-        s.mu_cells = mu.tolist()
-        s.u_cells = u.tolist()
-        s.P_outlet = P[-1]
-        s.T_outlet = T_f[-1]
+        s.P_cells.update(P.tolist())
+        s.h_cells.update(h.tolist())
+        s.T_cells.update(T_f.tolist())
+        s.rho_cells.update(rho.tolist())
+        s.mu_cells.update(mu.tolist())
+        s.u_cells.update(u.tolist())
+        s.P_outlet.update(P[-1])
+        s.T_outlet.update(T_f[-1])
+        s.pump_power_watts.update(0.0)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
+        self.outlet.T = T_f[-1]
+        self.outlet.P = P[-1]
+        self.outlet.mass_rate = mdot
         self.outlet.rho = rho[-1]
         self.outlet.mu = mu[-1]
         self.outlet.fluid_name = self.fluid_name
@@ -407,15 +440,21 @@ class NumericalProductionWell(WellComponent):
         Outlet (cell n-1): wellhead — slightly cooler, lower pressure.
         """
         s = self.state
+        s.mark_all_stale()
         n = self.num_cells
 
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        s.t_d = self.t_d_old + del_t
-        self.t_d_old = s.t_d
+        t_d = self.t_d_old + del_t
+        s.t_d.update(t_d)
+        self.t_d_old = t_d
+
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
 
         P = np.zeros(n)
         h = np.zeros(n)
@@ -424,15 +463,14 @@ class NumericalProductionWell(WellComponent):
         mu = np.zeros(n)
         u = np.zeros(n)
 
-        inlet_state = FluidState.with_PT(self.fluid_name, s.P_inlet, s.T_inlet)
+        inlet_state = FluidState.with_PT(self.fluid_name, P_in, T_in)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
         rho[0] = inlet_state.rho
         mu[0] = inlet_state.mu
-        u[0] = s.mass_rate / self.cross_sectional_area / rho[0]
+        u[0] = mdot / self.cross_sectional_area / rho[0]
 
-        mdot = s.mass_rate
         A = self.cross_sectional_area
         g = GRAVITY * self.gravity_scale_factor
         dz = self.cell_length
@@ -447,7 +485,7 @@ class NumericalProductionWell(WellComponent):
                 self.heat_transfer_model,
                 dL=self.cell_length,
                 rock_k=self.rock_k,
-                t_d=s.t_d,
+                t_d=t_d,
                 delta_T=T_f[i - 1] - T_r[i - 1],
             )
             # Upward (f_dir = +1): gravity reduces P; enthalpy decreases as PE increases and heat lost
@@ -461,18 +499,19 @@ class NumericalProductionWell(WellComponent):
             T_f[i] = cell_state.T
             u[i] = mdot / A / rho[i]
 
-        s.P_cells = P.tolist()
-        s.h_cells = h.tolist()
-        s.T_cells = T_f.tolist()
-        s.rho_cells = rho.tolist()
-        s.mu_cells = mu.tolist()
-        s.u_cells = u.tolist()
-        s.P_outlet = P[-1]
-        s.T_outlet = T_f[-1]
+        s.P_cells.update(P.tolist())
+        s.h_cells.update(h.tolist())
+        s.T_cells.update(T_f.tolist())
+        s.rho_cells.update(rho.tolist())
+        s.mu_cells.update(mu.tolist())
+        s.u_cells.update(u.tolist())
+        s.P_outlet.update(P[-1])
+        s.T_outlet.update(T_f[-1])
+        s.pump_power_watts.update(0.0)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
+        self.outlet.T = T_f[-1]
+        self.outlet.P = P[-1]
+        self.outlet.mass_rate = mdot
         self.outlet.rho = rho[-1]
         self.outlet.mu = mu[-1]
         self.outlet.fluid_name = self.fluid_name
@@ -505,15 +544,23 @@ class NumericalProductionWellPump(NumericalProductionWell):
         super().solve()
 
         s = self.state
+        # super().solve() already marked all fields stale then updated them;
+        # pump_power_watts was set to 0.0. Override P_outlet and pump_power_watts
+        # if a pump boost is needed — use update_unchecked equivalent: mark stale first.
         target_Pa = self.pump_target_pressure_megapascals * 1e6
-        if target_Pa > s.P_outlet:
-            pump_delta_p = target_Pa - s.P_outlet
-            rho_out = self.outlet.rho  # kg/m³ — set by super().solve() via CoolProp
-            if rho_out > 0.0:
-                s.pump_power_watts = s.mass_rate * pump_delta_p / rho_out / self.pump_efficiency
-            s.P_outlet = target_Pa
-            self.outlet.P = s.P_outlet
-        else:
-            s.pump_power_watts = 0.0
+        P_wellbore = s.P_outlet.get_fresh()
+        if target_Pa > P_wellbore:
+            pump_delta_p = target_Pa - P_wellbore
+            rho_out = self.outlet.rho  # set by super().solve() via CoolProp
+            pump_pwr = (
+                s.mass_rate.get_fresh() * pump_delta_p / rho_out / self.pump_efficiency
+                if rho_out > 0.0
+                else 0.0
+            )
+            s.P_outlet.mark_stale()
+            s.P_outlet.update(target_Pa)
+            s.pump_power_watts.mark_stale()
+            s.pump_power_watts.update(pump_pwr)
+            self.outlet.P = target_Pa
         # T_outlet is unchanged — isentropic enthalpy rise is negligible for
         # liquid water at these pressures (~0.05 K per 10 MPa boost).

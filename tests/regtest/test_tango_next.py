@@ -111,11 +111,11 @@ def test_injection_well_heats_cold_fluid() -> None:
     # Inlet: surface temperature + approach ≈ 295 K.
     # Outlet: somewhere between inlet and rock temperature at 5 km depth
     # (288 + 0.035 × 5000 = 463 K), depending on t_d and heat-loss model.
-    assert well.state.T_outlet > well.state.T_inlet, (
-        f"Injection well outlet T ({well.state.T_outlet:.1f} K) should exceed "
-        f"inlet T ({well.state.T_inlet:.1f} K) — geothermal gradient heats downward flow"
+    assert well.state.T_outlet.get_fresh() > well.state.T_inlet.get_fresh(), (
+        f"Injection well outlet T ({well.state.T_outlet.get_fresh():.1f} K) should exceed "
+        f"inlet T ({well.state.T_inlet.get_fresh():.1f} K) — geothermal gradient heats downward flow"
     )
-    assert well.state.T_outlet > 295.0  # must exceed cold surface injection T
+    assert well.state.T_outlet.get_fresh() > 295.0  # must exceed cold surface injection T
 
 
 def test_injection_well_pressure_increases_downward() -> None:
@@ -124,9 +124,9 @@ def test_injection_well_pressure_increases_downward() -> None:
     well = _components(wf)["injection_well"]
 
     # Net hydrostatic ≈ 1000 kg/m³ × 9.81 m/s² × 5000 m ≈ 49 MPa; friction ≈ few MPa.
-    assert well.state.P_outlet > well.state.P_inlet, (
-        f"Injection well outlet P ({well.state.P_outlet / 1e6:.2f} MPa) should exceed "
-        f"inlet P ({well.state.P_inlet / 1e6:.2f} MPa)"
+    assert well.state.P_outlet.get_fresh() > well.state.P_inlet.get_fresh(), (
+        f"Injection well outlet P ({well.state.P_outlet.get_fresh() / 1e6:.2f} MPa) should exceed "
+        f"inlet P ({well.state.P_inlet.get_fresh() / 1e6:.2f} MPa)"
     )
 
 
@@ -212,9 +212,9 @@ def test_reservoir_thermal_equilibration() -> None:
     res = _components(wf)["reservoir"]
 
     T_initial = 288.0 + 0.035 * 5000.0  # 463 K
-    T_inj = res.state.T_inlet
-    assert T_inj <= res.state.T_outlet <= T_initial, (
-        f"T_outlet={res.state.T_outlet:.1f} K not in [{T_inj:.1f}, {T_initial:.1f}] K"
+    T_inj = res.state.T_inlet.get_fresh()
+    assert T_inj <= res.state.T_outlet.get_fresh() <= T_initial, (
+        f"T_outlet={res.state.T_outlet.get_fresh():.1f} K not in [{T_inj:.1f}, {T_initial:.1f}] K"
     )
 
 
@@ -225,8 +225,8 @@ def test_reservoir_pressure_drop() -> None:
 
     # overpressure_target = hydro_static × (1 + op_pct/100) = 50e6 × 1.10 = 55 MPa
     overpressure_target = 50_000_000 * 1.10
-    assert res.state.P_outlet < overpressure_target
-    assert res.state.P_outlet > 0
+    assert res.state.P_outlet.get_fresh() < overpressure_target
+    assert res.state.P_outlet.get_fresh() > 0
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +239,8 @@ def test_surface_positive_gross_power() -> None:
     wf = _run_tango_next(NEW_SF_MANUAL)
     surface = _components(wf)["surface"]
 
-    assert surface.state.gross_power_watts > 0, (
-        f"gross_power_watts = {surface.state.gross_power_watts:.3g} W — expected > 0"
+    assert surface.state.gross_power_watts.get_fresh() > 0, (
+        f"gross_power_watts = {surface.state.gross_power_watts.get_fresh():.3g} W — expected > 0"
     )
 
 
@@ -249,9 +249,9 @@ def test_surface_outlet_cooler_than_inlet() -> None:
     wf = _run_tango_next(NEW_SF_MANUAL)
     surface = _components(wf)["surface"]
 
-    assert surface.state.T_outlet < surface.state.T_inlet, (
-        f"Surface outlet T ({surface.state.T_outlet:.1f} K) should be below "
-        f"inlet T ({surface.state.T_inlet:.1f} K)"
+    assert surface.state.T_outlet.get_fresh() < surface.state.T_inlet.get_fresh(), (
+        f"Surface outlet T ({surface.state.T_outlet.get_fresh():.1f} K) should be below "
+        f"inlet T ({surface.state.T_inlet.get_fresh():.1f} K)"
     )
 
 
@@ -343,14 +343,14 @@ def compare_against_old_tango(tmp_path: Path) -> dict[str, Any]:
     return {
         "old_lcoe": old_lcoe,
         "reference_lcoe": REFERENCE_LCOE,
-        "tango_next_power_W": surface.state.gross_power_watts if surface else None,
-        "inj_T_inlet_K": inj.state.T_inlet if inj else None,
-        "inj_T_outlet_K": inj.state.T_outlet if inj else None,
-        "inj_P_outlet_Pa": inj.state.P_outlet if inj else None,
+        "tango_next_power_W": surface.state.gross_power_watts.get_fresh() if surface else None,
+        "inj_T_inlet_K": inj.state.T_inlet.get_fresh() if inj else None,
+        "inj_T_outlet_K": inj.state.T_outlet.get_fresh() if inj else None,
+        "inj_P_outlet_Pa": inj.state.P_outlet.get_fresh() if inj else None,
         "inj_T_cells_last": inj.history.T_cells[-1] if (inj and inj.history) else None,
         "inj_P_cells_last": inj.history.P_cells[-1] if (inj and inj.history) else None,
-        "res_T_outlet_K": res.state.T_outlet if res else None,
-        "res_P_outlet_Pa": res.state.P_outlet if res else None,
-        "prod_T_outlet_K": prod.state.T_outlet if prod else None,
-        "prod_P_outlet_Pa": prod.state.P_outlet if prod else None,
+        "res_T_outlet_K": res.state.T_outlet.get_fresh() if res else None,
+        "res_P_outlet_Pa": res.state.P_outlet.get_fresh() if res else None,
+        "prod_T_outlet_K": prod.state.T_outlet.get_fresh() if prod else None,
+        "prod_P_outlet_Pa": prod.state.P_outlet.get_fresh() if prod else None,
     }

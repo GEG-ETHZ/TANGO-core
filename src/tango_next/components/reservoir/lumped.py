@@ -19,6 +19,7 @@ where T₀ = initial reservoir temperature, T_inj = current injection temperatur
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 
@@ -34,37 +35,56 @@ from tango_next.core.fluid_utils import (
     water_enthalpy,
     water_viscosity,
 )
+from tango_next.core.locked_state import LockedState
 
 # ---------------------------------------------------------------------------
 # State dataclass
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class LumpedReservoirState:
-    """Full simulation state for one reservoir solve step."""
+def _ls(v: float = float("nan")) -> LockedState[float]:
+    """Convenience: LockedState[float] starting stale with value ``v``."""
+    ls: LockedState[float] = LockedState(v)
+    ls.mark_stale()
+    return ls
 
-    T_inlet: float = field(default=float("nan"))
-    P_inlet: float = field(default=float("nan"))
-    mass_rate: float = field(default=float("nan"))
-    T_reservoir_initial: float = field(default=float("nan"))
+
+@dataclass(frozen=True)
+class LumpedReservoirState:
+    """Full simulation state for one reservoir solve step.
+
+    All fields are ``LockedState[float]`` so each is writable exactly once per
+    timestep.  Call ``mark_all_stale()`` at the start of each ``solve()``.
+    T_outlet and P_outlet start stale with NaN; use ``is_stale()`` rather than
+    ``math.isnan()`` to detect "not yet solved" on the first call.
+    """
+
+    T_inlet: LockedState[float] = field(default_factory=_ls)
+    P_inlet: LockedState[float] = field(default_factory=_ls)
+    mass_rate: LockedState[float] = field(default_factory=_ls)
+    T_reservoir_initial: LockedState[float] = field(default_factory=_ls)
     """Un-depleted geothermal temperature at reservoir depth (K)."""
-    P_reservoir: float = field(default=float("nan"))
-    rho: float = field(default=float("nan"))
-    mu: float = field(default=float("nan"))
-    impedance: float = field(default=float("nan"))
+    P_reservoir: LockedState[float] = field(default_factory=_ls)
+    rho: LockedState[float] = field(default_factory=_ls)
+    mu: LockedState[float] = field(default_factory=_ls)
+    impedance: LockedState[float] = field(default_factory=_ls)
     """Doublet radial-flow impedance Z (Pa·s/kg). ΔP = ṁ·Z."""
-    delta_p_darcy: float = field(default=float("nan"))
-    h_inlet: float = field(default=float("nan"))
+    delta_p_darcy: LockedState[float] = field(default_factory=_ls)
+    h_inlet: LockedState[float] = field(default_factory=_ls)
     """Specific enthalpy at inlet (J/kg)."""
-    h_outlet: float = field(default=float("nan"))
+    h_outlet: LockedState[float] = field(default_factory=_ls)
     """Specific enthalpy at outlet (J/kg) — computed at T_outlet, P_outlet."""
-    psi: float = field(default=float("nan"))
+    psi: LockedState[float] = field(default_factory=_ls)
     """Fractional energy extraction ψ = E_extracted / E_reservoir."""
-    gamma: float = field(default=float("nan"))
+    gamma: LockedState[float] = field(default_factory=_ls)
     """Depletion factor γ ∈ [0, 1]. T_outlet = T_inj + γ·(T₀ − T_inj)."""
-    T_outlet: float = field(default=float("nan"))
-    P_outlet: float = field(default=float("nan"))
+    T_outlet: LockedState[float] = field(default_factory=_ls)
+    P_outlet: LockedState[float] = field(default_factory=_ls)
+
+    def mark_all_stale(self) -> None:
+        """Mark every field stale — call at the start of each ``solve()``."""
+        for f in dataclasses.fields(self):
+            getattr(self, f.name).mark_stale()
 
 
 # ---------------------------------------------------------------------------
@@ -85,12 +105,12 @@ class LumpedReservoirHistory:
 
     def record(self, state: LumpedReservoirState) -> None:
         """Append one timestep snapshot."""
-        self.T_inlet.append(state.T_inlet)
-        self.T_outlet.append(state.T_outlet)
-        self.P_inlet.append(state.P_inlet)
-        self.P_outlet.append(state.P_outlet)
-        self.psi.append(state.psi)
-        self.gamma.append(state.gamma)
+        self.T_inlet.append(state.T_inlet.get_fresh())
+        self.T_outlet.append(state.T_outlet.get_fresh())
+        self.P_inlet.append(state.P_inlet.get_fresh())
+        self.P_outlet.append(state.P_outlet.get_fresh())
+        self.psi.append(state.psi.get_fresh())
+        self.gamma.append(state.gamma.get_fresh())
 
 
 # ---------------------------------------------------------------------------
@@ -206,67 +226,69 @@ class LumpedReservoir(ReservoirComponent):
     def solve(self) -> None:
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
 
-        s.T_reservoir_initial = self.T_initial
-        overpressure_fraction = 1.0 + self.over_pressure_percentage / 100.0
-        s.P_reservoir = self.hydro_static_pressure * overpressure_fraction
+        # Capture previous-timestep outlet before marking stale.
+        # is_stale() is True on the very first call (never been solved) — fall back to T_initial.
+        T_out_prev = self.T_initial if s.T_outlet.is_stale() else s.T_outlet.get_fresh()
+        P_reservoir_guess = self.hydro_static_pressure * (1.0 + self.over_pressure_percentage / 100.0)
+        P_out_prev = P_reservoir_guess if s.P_outlet.is_stale() else s.P_outlet.get_fresh()
 
-        # Fluid properties: average of inlet (current) and outlet (previous timestep).
-        # Matches src/tango/ which uses average_mu = 0.5*(inlet_fluid.mu + outlet_fluid.mu).
-        # On the first solve, s.T_outlet / s.P_outlet are NaN — fall back to T_initial.
-        T_out_prev = self.T_initial if math.isnan(s.T_outlet) else s.T_outlet
-        P_out_prev = s.P_reservoir if math.isnan(s.P_outlet) else s.P_outlet
-        s.rho = 0.5 * (water_density(s.T_inlet, s.P_inlet) + water_density(T_out_prev, P_out_prev))
-        s.mu = 0.5 * (water_viscosity(s.T_inlet, s.P_inlet) + water_viscosity(T_out_prev, P_out_prev))
+        s.mark_all_stale()
+
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
+
+        T_inj = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
+
+        s.T_reservoir_initial.update(self.T_initial)
+        s.P_reservoir.update(P_reservoir_guess)
+
+        # Fluid properties: average of current inlet and previous-timestep outlet.
+        rho = 0.5 * (water_density(T_inj, P_in) + water_density(T_out_prev, P_out_prev))
+        mu = 0.5 * (water_viscosity(T_inj, P_in) + water_viscosity(T_out_prev, P_out_prev))
+        s.rho.update(rho)
+        s.mu.update(mu)
 
         # Doublet impedance (Adams et al. 2020)
         L = self.well_spacing
         D = self.well_eff_diameter
         b_eff = self.thickness * self.net_to_gross_ratio
-        s.impedance = (
-            s.mu * (math.log(L / (math.e * D)) + D / L) / (s.rho * self.permeability * b_eff * math.pi)
-        )
-        s.delta_p_darcy = s.mass_rate * s.impedance
-        # Pressure reference: injection well bottom P (src/tango/ uses inlet_fluid.P directly).
-        s.P_outlet = s.P_inlet - s.delta_p_darcy
+        Z = mu * (math.log(L / (math.e * D)) + D / L) / (rho * self.permeability * b_eff * math.pi)
+        dp = mdot * Z
+        s.impedance.update(Z)
+        s.delta_p_darcy.update(dp)
+        P_out = P_in - dp
+        s.P_outlet.update(P_out)
 
-        # Thermal depletion (Adams 2015 — parity with src/tango/)
-        T_inj = s.T_inlet
+        # Thermal depletion (Adams 2015)
         dT = self.T_initial - T_inj
-        s.h_inlet = water_enthalpy(T_inj, s.P_inlet)
+        h_in = water_enthalpy(T_inj, P_in)
+        s.h_inlet.update(h_in)
 
-        # Use previous timestep's actual outlet enthalpy (src/tango/ uses outlet_fluid.H, not
-        # T_initial).  On the very first call, s.T_outlet is NaN — fall back to T_initial.
-        T_out_prev = self.T_initial if math.isnan(s.T_outlet) else s.T_outlet
-        P_out_prev = s.P_reservoir if math.isnan(s.P_outlet) else s.P_outlet
         h_prod_prev = water_enthalpy(T_out_prev, P_out_prev)
-
-        # Depletion curve coefficients: use average fluid properties between inlet and previous outlet
-        # (matches src/tango/ which uses average_rho, average_mu for impedance calc, and outlet_fluid
-        # for energy accumulation).
-        rho_avg = 0.5 * (water_density(T_inj, s.P_inlet) + water_density(T_out_prev, P_out_prev))
-        cp_avg = 0.5 * (water_cp(T_inj, s.P_inlet) + water_cp(T_out_prev, P_out_prev))
-
-        # Update depletion coefficients with current fluid properties (matches src/tango/ bc_iteration path)
-        self._recompute_depletion_coeffs(s.mass_rate, rho_avg, cp_avg)
+        rho_avg = 0.5 * (water_density(T_inj, P_in) + water_density(T_out_prev, P_out_prev))
+        cp_avg = 0.5 * (water_cp(T_inj, P_in) + water_cp(T_out_prev, P_out_prev))
+        self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         dt_seconds = self.dt_years * YEAR_TO_SECOND
-        delta_E = s.mass_rate * (h_prod_prev - s.h_inlet) * dt_seconds
-        self.energy_extracted += delta_E
+        self.energy_extracted += mdot * (h_prod_prev - h_in) * dt_seconds
 
         E_reservoir = self.rock_volume * self.rock_C_v * dT if dT > 0 else 1.0
-        s.psi = self.energy_extracted / E_reservoir if dT > 0 else 0.0
-        s.gamma = self._depletion_curve(s.psi) if dT > 0 else 1.0
+        psi = self.energy_extracted / E_reservoir if dT > 0 else 0.0
+        gamma = self._depletion_curve(psi) if dT > 0 else 1.0
+        s.psi.update(psi)
+        s.gamma.update(gamma)
 
-        s.T_outlet = T_inj + s.gamma * dT
-        s.h_outlet = water_enthalpy(s.T_outlet, s.P_outlet)
+        T_out = T_inj + gamma * dT
+        s.T_outlet.update(T_out)
+        s.h_outlet.update(water_enthalpy(T_out, P_out))
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
-        self.outlet.rho = water_density(s.T_outlet, s.P_outlet)
-        self.outlet.mu = water_viscosity(s.T_outlet, s.P_outlet)
+        self.outlet.T = T_out
+        self.outlet.P = P_out
+        self.outlet.mass_rate = mdot
+        self.outlet.rho = water_density(T_out, P_out)
+        self.outlet.mu = water_viscosity(T_out, P_out)
         self.outlet.fluid_name = self.inlet.fluid_name

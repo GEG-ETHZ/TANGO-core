@@ -18,6 +18,7 @@ Simplified-physics TODOs are marked throughout; upgrade path for each is noted.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 
 from pydantic import Field
@@ -32,36 +33,56 @@ from tango_next.core.fluid_utils import (
     water_density,
     water_viscosity,
 )
+from tango_next.core.locked_state import LockedState
 
 # ---------------------------------------------------------------------------
 # State dataclasses
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+def _ls(v: float = float("nan")) -> LockedState[float]:
+    """Convenience: LockedState[float] starting stale with value ``v``."""
+    ls: LockedState[float] = LockedState(v)
+    ls.mark_stale()
+    return ls
+
+
+@dataclass(frozen=True)
 class WellboreState:
-    """Full simulation state for one wellbore solve step."""
+    """Full simulation state for one wellbore solve step.
 
-    T_inlet: float = field(default=float("nan"))
-    P_inlet: float = field(default=float("nan"))
-    mass_rate: float = field(default=float("nan"))
-    rho: float = field(default=float("nan"))
-    mu: float = field(default=float("nan"))
-    velocity: float = field(default=float("nan"))
-    Re: float = field(default=float("nan"))
-    friction_factor: float = field(default=float("nan"))
-    delta_p_friction: float = field(default=float("nan"))
-    delta_p_hydrostatic: float = field(default=float("nan"))
-    T_outlet: float = field(default=float("nan"))
-    P_outlet: float = field(default=float("nan"))
+    All fields are ``LockedState[float]`` so that each is writable exactly once
+    per timestep.  The dataclass is ``frozen=True`` to prevent replacing the
+    wrapper objects themselves (the LockedState invariant is enforced on the
+    value inside).  Call ``mark_all_stale()`` at the start of each ``solve()``
+    to open the write slot for the new timestep.
+    """
+
+    T_inlet: LockedState[float] = field(default_factory=_ls)
+    P_inlet: LockedState[float] = field(default_factory=_ls)
+    mass_rate: LockedState[float] = field(default_factory=_ls)
+    rho: LockedState[float] = field(default_factory=_ls)
+    mu: LockedState[float] = field(default_factory=_ls)
+    velocity: LockedState[float] = field(default_factory=_ls)
+    Re: LockedState[float] = field(default_factory=_ls)
+    friction_factor: LockedState[float] = field(default_factory=_ls)
+    delta_p_friction: LockedState[float] = field(default_factory=_ls)
+    delta_p_hydrostatic: LockedState[float] = field(default_factory=_ls)
+    T_outlet: LockedState[float] = field(default_factory=_ls)
+    P_outlet: LockedState[float] = field(default_factory=_ls)
+
+    def mark_all_stale(self) -> None:
+        """Mark every field stale — call at the start of each ``solve()``."""
+        for f in dataclasses.fields(self):
+            getattr(self, f.name).mark_stale()
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProductionWellPumpState(WellboreState):
     """Wellbore state extended with pump data for LumpedProductionWellPump."""
 
-    pump_delta_p: float = field(default=float("nan"))
-    pump_power_watts: float = field(default=float("nan"))
+    pump_delta_p: LockedState[float] = field(default_factory=_ls)
+    pump_power_watts: LockedState[float] = field(default_factory=_ls)
 
 
 # ---------------------------------------------------------------------------
@@ -80,10 +101,10 @@ class WellboreHistory:
 
     def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot."""
-        self.T_inlet.append(state.T_inlet)
-        self.T_outlet.append(state.T_outlet)
-        self.P_inlet.append(state.P_inlet)
-        self.P_outlet.append(state.P_outlet)
+        self.T_inlet.append(state.T_inlet.get_fresh())
+        self.T_outlet.append(state.T_outlet.get_fresh())
+        self.P_inlet.append(state.P_inlet.get_fresh())
+        self.P_outlet.append(state.P_outlet.get_fresh())
 
 
 @dataclass
@@ -96,7 +117,7 @@ class ProductionWellPumpHistory(WellboreHistory):
         """Append one timestep snapshot, including pump power."""
         super().record(state)
         pump_state = state if isinstance(state, ProductionWellPumpState) else None
-        self.pump_power_watts.append(pump_state.pump_power_watts if pump_state else 0.0)
+        self.pump_power_watts.append(pump_state.pump_power_watts.get_fresh() if pump_state else 0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -131,33 +152,36 @@ class LumpedInjectionWell(WellComponent):
     def solve(self) -> None:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.mark_all_stale()
 
-        s.rho = water_density(s.T_inlet, s.P_inlet)
-        s.mu = water_viscosity(s.T_inlet, s.P_inlet)
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
 
-        s.velocity = mean_velocity(s.mass_rate, s.rho, self.diameter)
-        s.Re = reynolds_number(s.mass_rate, self.diameter, s.mu)
-        s.friction_factor = friction_factor_darcy(s.Re, self.diameter, self.pipe_roughness)
-        s.delta_p_friction = pressure_drop_friction(
-            s.friction_factor,
-            self.well_length,
-            self.diameter,
-            s.rho,
-            s.velocity,
-        )
-        s.delta_p_hydrostatic = hydrostatic_pressure(s.rho, self.well_length)
+        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        s.rho.update(rho)
+        s.mu.update(mu)
 
-        s.P_outlet = s.P_inlet + s.delta_p_hydrostatic - s.delta_p_friction
-        s.T_outlet = s.T_inlet + self.thermal_gradient * self.well_length
+        vel = mean_velocity(s.mass_rate.get_fresh(), rho, self.diameter)
+        re = reynolds_number(s.mass_rate.get_fresh(), self.diameter, mu)
+        ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
+        dp_f = pressure_drop_friction(ff, self.well_length, self.diameter, rho, vel)
+        dp_h = hydrostatic_pressure(rho, self.well_length)
+        s.velocity.update(vel)
+        s.Re.update(re)
+        s.friction_factor.update(ff)
+        s.delta_p_friction.update(dp_f)
+        s.delta_p_hydrostatic.update(dp_h)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
-        self.outlet.rho = s.rho
-        self.outlet.mu = s.mu
+        s.P_outlet.update(s.P_inlet.get_fresh() + dp_h - dp_f)
+        s.T_outlet.update(s.T_inlet.get_fresh() + self.thermal_gradient * self.well_length)
+
+        self.outlet.T = s.T_outlet.get_fresh()
+        self.outlet.P = s.P_outlet.get_fresh()
+        self.outlet.mass_rate = s.mass_rate.get_fresh()
+        self.outlet.rho = rho
+        self.outlet.mu = mu
         self.outlet.fluid_name = self.inlet.fluid_name
 
 
@@ -193,33 +217,36 @@ class LumpedProductionWell(WellComponent):
     def solve(self) -> None:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.mark_all_stale()
 
-        s.rho = water_density(s.T_inlet, s.P_inlet)
-        s.mu = water_viscosity(s.T_inlet, s.P_inlet)
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
 
-        s.velocity = mean_velocity(s.mass_rate, s.rho, self.diameter)
-        s.Re = reynolds_number(s.mass_rate, self.diameter, s.mu)
-        s.friction_factor = friction_factor_darcy(s.Re, self.diameter, self.pipe_roughness)
-        s.delta_p_friction = pressure_drop_friction(
-            s.friction_factor,
-            self.well_length,
-            self.diameter,
-            s.rho,
-            s.velocity,
-        )
-        s.delta_p_hydrostatic = hydrostatic_pressure(s.rho, self.well_length)
+        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        s.rho.update(rho)
+        s.mu.update(mu)
 
-        s.P_outlet = s.P_inlet - s.delta_p_hydrostatic - s.delta_p_friction
-        s.T_outlet = s.T_inlet  # perfectly insulated; Phase 2: Adams 2015
+        vel = mean_velocity(s.mass_rate.get_fresh(), rho, self.diameter)
+        re = reynolds_number(s.mass_rate.get_fresh(), self.diameter, mu)
+        ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
+        dp_f = pressure_drop_friction(ff, self.well_length, self.diameter, rho, vel)
+        dp_h = hydrostatic_pressure(rho, self.well_length)
+        s.velocity.update(vel)
+        s.Re.update(re)
+        s.friction_factor.update(ff)
+        s.delta_p_friction.update(dp_f)
+        s.delta_p_hydrostatic.update(dp_h)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
-        self.outlet.rho = s.rho
-        self.outlet.mu = s.mu
+        s.P_outlet.update(s.P_inlet.get_fresh() - dp_h - dp_f)
+        s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Adams 2015
+
+        self.outlet.T = s.T_outlet.get_fresh()
+        self.outlet.P = s.P_outlet.get_fresh()
+        self.outlet.mass_rate = s.mass_rate.get_fresh()
+        self.outlet.rho = rho
+        self.outlet.mu = mu
         self.outlet.fluid_name = self.inlet.fluid_name
 
 
@@ -255,41 +282,45 @@ class LumpedProductionWellPump(WellComponent):
     def solve(self) -> None:
         """Compute wellhead T and P including wellbore losses and pump boost."""
         s = self.state
-        s.T_inlet = self.inlet.T
-        s.P_inlet = self.inlet.P
-        s.mass_rate = self.inlet.mass_rate
+        s.mark_all_stale()
 
-        s.rho = water_density(s.T_inlet, s.P_inlet)
-        s.mu = water_viscosity(s.T_inlet, s.P_inlet)
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
 
-        s.velocity = mean_velocity(s.mass_rate, s.rho, self.diameter)
-        s.Re = reynolds_number(s.mass_rate, self.diameter, s.mu)
-        s.friction_factor = friction_factor_darcy(s.Re, self.diameter, self.pipe_roughness)
-        s.delta_p_friction = pressure_drop_friction(
-            s.friction_factor,
-            self.well_length,
-            self.diameter,
-            s.rho,
-            s.velocity,
-        )
-        s.delta_p_hydrostatic = hydrostatic_pressure(s.rho, self.well_length)
+        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        s.rho.update(rho)
+        s.mu.update(mu)
 
-        P_after_wellbore = s.P_inlet - s.delta_p_hydrostatic - s.delta_p_friction
+        vel = mean_velocity(s.mass_rate.get_fresh(), rho, self.diameter)
+        re = reynolds_number(s.mass_rate.get_fresh(), self.diameter, mu)
+        ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
+        dp_f = pressure_drop_friction(ff, self.well_length, self.diameter, rho, vel)
+        dp_h = hydrostatic_pressure(rho, self.well_length)
+        s.velocity.update(vel)
+        s.Re.update(re)
+        s.friction_factor.update(ff)
+        s.delta_p_friction.update(dp_f)
+        s.delta_p_hydrostatic.update(dp_h)
 
+        P_after_wellbore = s.P_inlet.get_fresh() - dp_h - dp_f
         target_Pa = self.pump_target_pressure_megapascals * 1e6
         if target_Pa > P_after_wellbore:
-            s.pump_delta_p = target_Pa - P_after_wellbore
-            s.pump_power_watts = s.mass_rate * s.pump_delta_p / s.rho
+            pump_dp = target_Pa - P_after_wellbore
+            pump_pwr = s.mass_rate.get_fresh() * pump_dp / rho
         else:
-            s.pump_delta_p = 0.0
-            s.pump_power_watts = 0.0
+            pump_dp = 0.0
+            pump_pwr = 0.0
+        s.pump_delta_p.update(pump_dp)
+        s.pump_power_watts.update(pump_pwr)
 
-        s.P_outlet = P_after_wellbore + s.pump_delta_p
-        s.T_outlet = s.T_inlet  # simplified: insulated + no pump T rise (Phase 2)
+        s.P_outlet.update(P_after_wellbore + pump_dp)
+        s.T_outlet.update(s.T_inlet.get_fresh())  # simplified: insulated + no pump T rise (Phase 2)
 
-        self.outlet.T = s.T_outlet
-        self.outlet.P = s.P_outlet
-        self.outlet.mass_rate = s.mass_rate
-        self.outlet.rho = s.rho
-        self.outlet.mu = s.mu
+        self.outlet.T = s.T_outlet.get_fresh()
+        self.outlet.P = s.P_outlet.get_fresh()
+        self.outlet.mass_rate = s.mass_rate.get_fresh()
+        self.outlet.rho = rho
+        self.outlet.mu = mu
         self.outlet.fluid_name = self.inlet.fluid_name
