@@ -51,6 +51,23 @@ Write Docs       ██░░░░░░░░░░░░░░░░░░  ~
 
 ## Get Started
 
+### 0. Clone the repo and check out the active branch
+
+First, make sure your SSH key is registered with ETH GitLab —
+[SSH setup guide](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/ssh).
+
+Then clone and switch to the active development branch
+([MR !59](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/59)):
+
+```bash
+git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git
+cd tango-core
+git checkout dev/tango-intern-tasks
+uv sync --group dev
+```
+
+### Parity test porting workflow
+
 A great first task is porting an old-tango example to tango_next and getting
 the parity test to pass.  Here's the workflow:
 
@@ -60,8 +77,8 @@ the parity test to pass.  Here's the workflow:
 uv run pytest tests/regtest/test_old_new_parity.py -v
 ```
 
-You'll see one passing case (`flexible_SF_manual.yml`) and several stubs
-that raise `NotImplementedError`.  Pick one stub.
+You'll see one passing case (`flexible_SF_manual.yml`) and the remaining
+stubs marked as expected failures (`xfailed`).  Pick one stub.
 
 **2. Create the tango_next config file.**
 
