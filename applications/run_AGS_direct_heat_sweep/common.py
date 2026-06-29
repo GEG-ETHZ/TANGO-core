@@ -21,9 +21,9 @@ DH_RETURN_TEMP_K: float = DH_RETURN_TEMP_C + 273.15
 
 # Grid sweep axes — 10 × 10 = 100 designs.
 # Depths chosen so that the geothermal gradient (35 °C/km) yields
-# useful wellhead temperatures.
+# useful wellhead temperatures for district heating.
 # At 35 °C/km + 11 °C surface → 105 °C outlet requires roughly 2700 m
-# (accounting for heat loss in the 0.8× lower production segment).
+# (accounting for heat loss along the vertical production section of the AGS loop).
 WELL_DEPTHS_M: list[float] = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500]
 
 # Mass flow rates in kg/s

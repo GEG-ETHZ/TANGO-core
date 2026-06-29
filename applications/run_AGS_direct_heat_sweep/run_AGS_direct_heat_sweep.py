@@ -1,4 +1,4 @@
-"""End-to-end orchestrator for the Triemli direct-heat parameter sweep.
+"""End-to-end orchestrator for the Triemli AGS direct-heat parameter sweep.
 
 Sweeps well depth (2 – 6.5 km) × mass flow rate (5 – 100 kg/s) over 100 designs
 and reports production temperature, specific enthalpy, thermal power, and CAPEX.
@@ -16,6 +16,28 @@ Usage
 
     # Single-threaded (debugging):
     python run_AGS_direct_heat_sweep.py --n-workers 1 --log-level INFO
+
+TODO (before re-running this sweep for the Triemli analysis)
+------------------------------------------------------------
+1. Find the "AGS - Water-Based (ORC Plant)" example in the web app and verify
+   that TANGO CLI reproduces its results.  This example likely lives in the
+   web app's scenario database — locate it and export/confirm the YAML
+   config.  Use it as the validated baseline before any further changes.
+
+2. Walk the validated ORC config to a direct-heat scenario: replace the ORC
+   surface plant with a district-heating heat exchanger (DH.T_out = 50 °C)
+   and confirm results are physically sensible.
+
+3. Re-run the depth × flow-rate sweep with the corrected AGS topology
+   (triemli_dh_base.yml now uses injection_well → horizontal_well →
+   production_well with no reservoir).  Extend the sweep to additional axes:
+     - number of horizontal loops  (well_pattern_dimens or multiple h_well nodes)
+     - horizontal loop length      (horizontal_well.well_length, currently fixed at 2500 m)
+     - loop diameter               (horizontal_well.diameter)
+   Note: multiple loops should be modelled in parallel (not in series) to
+   get correct per-loop pressure drop.  Confirm the right mechanism in old
+   tango before wiring this up (MULTIPLE_UNIT_NODE_OPTIONS supports multiple
+   horizontal_well nodes but the parallel vs. series semantics need checking).
 """
 
 from __future__ import annotations
