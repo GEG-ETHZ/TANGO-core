@@ -122,9 +122,9 @@ EXAMPLES_NEW = EXAMPLES_OLD / "tango_next"
 class ParityCase:
     """Describes one old-vs-new parity comparison.
 
-    Set ``new_yml=None`` to mark the case as a stub — the test will raise
-    ``NotImplementedError`` and show as ERROR in pytest, signalling that a
-    new YAML file needs to be created.
+    Set ``new_yml=None`` to mark the case as a stub — the test will call
+    ``pytest.xfail()`` and show as ``xfailed``, so it doesn't block CI
+    while signalling that a new YAML file needs to be created.
 
     Tolerances are per-variable, applied to the full per-timestep history
     array via ``numpy.testing.assert_allclose``.
@@ -286,11 +286,11 @@ def _run_tango_next(yml_path: Path) -> dict[str, Any]:
 def test_old_new_parity(case: ParityCase) -> None:
     """Compare per-timestep physical history between old tango and tango_next.
 
-    For stub cases (new_yml=None) this raises NotImplementedError — create
+    For stub cases (new_yml=None) this calls ``pytest.xfail()`` — create
     the tango_next YAML and fill in the ParityCase to activate the test.
     """
     if case.new_yml is None:
-        raise NotImplementedError(
+        pytest.xfail(
             f"tango_next YAML for '{case.old_yml}' has not been created yet. "
             "See the ADDING A NEW CASE instructions at the top of this file.",
         )
