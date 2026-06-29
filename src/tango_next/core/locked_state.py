@@ -270,11 +270,13 @@ class LockedState(Generic[T]):
         inner_type: Any = args[0] if args else Any
         inner_schema = handler(inner_type)
 
+        inner_validator = pydantic_core.SchemaValidator(inner_schema)
+
         def _validate(v: object) -> LockedState[Any]:  # type: ignore[type-arg]
             if isinstance(v, LockedState):
                 return v
             # Plain value from YAML/JSON/msgpack → validate inner type then wrap.
-            validated = pydantic_core.validate_core_schema(inner_schema, v)
+            validated = inner_validator.validate_python(v)
             return cls(validated)
 
         return pydantic_core.core_schema.no_info_plain_validator_function(
