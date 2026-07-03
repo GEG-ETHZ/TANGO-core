@@ -144,6 +144,7 @@ class SystemBCIteration(SystemDirect):
         dt_years: float,
         mass_rate: float,
         fluid_name: str,
+        bc_checkpoint_idx: int,
         policy: InjectionPolicy = InjectionPolicy.MANUAL,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         tolerance: float = DEFAULT_TOLERANCE,
@@ -153,18 +154,19 @@ class SystemBCIteration(SystemDirect):
         self.dt_years = dt_years
         self.mass_rate = mass_rate
         self.fluid_name = fluid_name
+        self.bc_checkpoint_idx = bc_checkpoint_idx
         self.policy = policy
         self.max_iterations = max_iterations
         self.tolerance = tolerance
 
     def _find_surface(self) -> SingleFlashSurface | None:
-        """Return the SingleFlashSurface component, or None if absent."""
+        """Return the BC-checkpoint component (surface), or None if absent."""
         from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
 
-        return next(
-            (c for c in self._ordered if isinstance(c, SingleFlashSurface)),
-            None,
-        )
+        component = self._by_idx.get(self.bc_checkpoint_idx)
+        if component is None or not isinstance(component, SingleFlashSurface):
+            return None
+        return component
 
     def _seed_circuit_inlet(self) -> None:
         """Seed the circuit-first component's inlet on the very first timestep.

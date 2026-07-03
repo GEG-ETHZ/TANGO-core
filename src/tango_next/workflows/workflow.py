@@ -54,12 +54,14 @@ class Workflow:
                 mass_rate: float = 0.0
             else:
                 mass_rate = float(sim_config["mass_rate"])
+            bc_checkpoint_idx: int = int(sim_config["bc_checkpoint_idx"])
             self._orchestrator: SystemBCIteration | SystemDirect = SystemBCIteration(
                 components,
                 n_tsteps=n_tsteps,
                 dt_years=dt_years,
                 mass_rate=mass_rate,
                 fluid_name=fluid_name,
+                bc_checkpoint_idx=bc_checkpoint_idx,
                 policy=policy,
             )
         else:

@@ -65,12 +65,15 @@ def extract_data(wf: Workflow) -> dict:
 
     Returns a flat dict of numpy arrays ready for plotting.
     """
+    # _orchestrator.components is a dict keyed by the component names defined
+    # in the YAML.  We unpack into locals here so the plotting code below reads
+    # as plain names rather than repeated dict lookups.
     c = wf._orchestrator.components
     surface = c["surface"]
     inj = c["injection_well"]
     res = c["reservoir"]
-    prod_lower = c["production_well_lower"]
-    prod_upper = c["production_well_upper"]  # has pump
+    prod_lower = c["production_well_lower"]  # NumericalProductionWell — full cell profile
+    prod_upper = c["production_well_upper"]  # LumpedProductionWell — has the production pump
 
     dt_years: float = wf._orchestrator.dt_years  # type: ignore[attr-defined]
     n_tsteps = len(surface.history.gross_power_watts)
