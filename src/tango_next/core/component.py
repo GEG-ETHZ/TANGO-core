@@ -67,7 +67,9 @@ class Component(BaseModel, ABC):
     )
 
     component_idx: int
-    """Circuit index. 0 is reserved for the BC checkpoint (surface component)."""
+    """Circuit index.  0 is the circuit entry (injection well, solved first).
+    The BC checkpoint (surface) is identified separately via ``bc_checkpoint_idx``
+    in ``sim_config``."""
 
     save_interval: int | None = 1
     """Timestep interval at which ``record()`` appends state to history.
