@@ -22,7 +22,8 @@ from tango.units.native.well import InjectionWellUnitNative, ProductionWellUnitN
 from tango.utils import load_from_yaml
 
 
-def get_specs(casename: str) -> None:
+def get_specs(casename: str) -> None:  # type: ignore[return]
+    """Load and merge YAML example specs into a flat dict for unit construction."""
     examples_dir = os.path.join(str(Path(__file__).parent.parent.parent), "examples")
     specs = load_from_yaml(os.path.join(examples_dir, f"{casename}.yml"))
     specs["common"] = specs["props"] | specs["surface"] | specs["schedule"] | specs["economic"]
@@ -35,7 +36,7 @@ specs_H2O = get_specs("testcase4")  # H2O
 
 
 def test_injection_well():
-
+    """InjectionWellUnitNative produces correct outlet P and T for CO2 and water."""
     unit = InjectionWellUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=6.0e6, T=295.15)
     outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
@@ -54,7 +55,7 @@ def test_injection_well():
 
 
 def test_reservoir():
-
+    """ReservoirUnitNative produces correct outlet P and T for CO2 and water."""
     unit = ReservoirUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=2.7579e7, T=330.0)
     unit._thermal_depletion()
@@ -71,7 +72,7 @@ def test_reservoir():
 
 
 def test_production_well():
-
+    """ProductionWellUnitNative produces correct outlet P and T for CO2 and water."""
     unit = ProductionWellUnitNative(id, specs_CO2)
     unit.init_stream_interface(P=2.8e7, T=375.0)
     outlet_enthalpy, outlet_pressure, mass_rate = unit.process_stream()
@@ -90,7 +91,7 @@ def test_production_well():
 
 
 def test_surface():
-
+    """SurfaceUnitCPGNative produces correct outlet P for CO2."""
     unit = SurfaceUnitCPGNative(id, specs_CO2)
     unit.init_stream_interface(P=1.0e7, T=330.0)
     unit.process_stream()

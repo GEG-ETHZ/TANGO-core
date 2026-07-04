@@ -5,7 +5,10 @@ from tango.core import FluidState
 
 
 class ComputePropsSI:
+    """Reference thermodynamic properties computed directly via CoolProp PropsSI."""
+
     def __init__(self, fluidname: str, P: float, T: float):
+        """Compute all relevant properties at the given pressure and temperature."""
         self.P = PropsSI("P", "P", P, "T", T, fluidname)
         self.T = PropsSI("T", "P", P, "T", T, fluidname)
         self.H = PropsSI("H", "P", P, "T", T, fluidname)
@@ -19,6 +22,7 @@ class ComputePropsSI:
 
 
 def check(state):
+    """Assert that all FluidState properties match the reference PropsSI values."""
     props = ComputePropsSI(state.fluidname, state.P, state.T)
     assert pytest.approx(props.P) == state.P
     assert pytest.approx(props.T) == state.T
@@ -33,6 +37,7 @@ def check(state):
 
 
 def test_FluidState():
+    """FluidState properties match CoolProp PropsSI for water and CO2."""
     state1 = FluidState.withPT("Water", 1.23e5, 321.0)
     assert pytest.approx(1.23e5) == state1.P
     assert pytest.approx(321.0) == state1.T

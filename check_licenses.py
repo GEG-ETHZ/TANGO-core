@@ -36,7 +36,8 @@ LICENSE_ALIASES = {
 import re
 
 
-def normalize_license(license_str):
+def normalize_license(license_str):  # noqa: ANN001, ANN201
+    """Normalize a license string to a canonical lowercase form for comparison."""
     license_str = license_str.lower().strip()
 
     # Remove extra spaces and clean up text

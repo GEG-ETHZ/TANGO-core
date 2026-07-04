@@ -46,6 +46,7 @@ def main(
     quiet: bool = False,
     sweep_dir: Path | None = None,
 ) -> None:
+    """Generate the LHS design matrix, skipping if it already exists."""
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     design_matrix_file = sweep_dir / "design_matrix.parquet"
     results_dir = sweep_dir / "results"
@@ -65,6 +66,7 @@ def main(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the design matrix generator."""
     params = load_params()
     parser = argparse.ArgumentParser(
         description="Generate LHS design matrix for TANGO parameter sweep",

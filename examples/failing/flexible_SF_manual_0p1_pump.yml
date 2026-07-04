@@ -72,7 +72,7 @@ injection_well:
 
 production_well:
   well_length: 4000. # m
-  diameter: 0.410 # m, 
+  diameter: 0.410 # m,
   epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
