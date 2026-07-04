@@ -65,21 +65,21 @@ reservoir:
 
 injection_well:
   well_length: 5000. # m
-  diameter: 16.0 # m, triggers error 
+  diameter: 16.0 # m, triggers error
   epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well:
   well_length: 4000. # m
-  diameter: 16.0 # m, triggers error 
+  diameter: 16.0 # m, triggers error
   epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well_pump:
   well_length: 1000. # m
-  diameter: 16.0 # m, triggers error 
+  diameter: 16.0 # m, triggers error
   epsilon: 55.e-6 # m, absolute surface roughness
 
 costs:

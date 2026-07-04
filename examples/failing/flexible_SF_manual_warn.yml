@@ -68,21 +68,21 @@ reservoir:
 
 injection_well:
   well_length: 11_000. # m triggers warning
-  diameter: 0.005 # m, triggers warning 
+  diameter: 0.005 # m, triggers warning
   epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well:
   well_length: 10_000. # m
-  diameter: 0.005 # m, triggers warning 
+  diameter: 0.005 # m, triggers warning
   epsilon: 55.e-6 # m, absolute surface roughness
   well_length_seq: [ 5000. ]
   well_diameter_seq: [ 0.410 ]
 
 production_well_pump:
   well_length: 1000. # m
-  diameter: 0.005 # m, triggers warning 
+  diameter: 0.005 # m, triggers warning
   epsilon: 55.e-6 # m, absolute surface roughness
 
 costs:

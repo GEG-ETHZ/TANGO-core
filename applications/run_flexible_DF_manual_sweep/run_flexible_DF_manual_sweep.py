@@ -27,6 +27,7 @@ from sweep import main as sweep_main
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the end-to-end sweep entry point."""
     params = load_params()
     parser = argparse.ArgumentParser(
         description="End-to-end LHS Parameter Sweep for TANGO simulations",

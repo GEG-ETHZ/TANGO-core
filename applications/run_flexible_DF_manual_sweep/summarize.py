@@ -53,6 +53,7 @@ def main(
     quiet: bool = False,
     sweep_dir: Path | None = None,
 ) -> None:
+    """Aggregate sweep results and write parquet + YAML summary files."""
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     results_dir = sweep_dir / "results"
     results_file = sweep_dir / "results.parquet"
@@ -70,6 +71,7 @@ def main(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the sweep summarizer."""
     parser = argparse.ArgumentParser(
         description="Aggregate sweep results for TANGO parameter sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

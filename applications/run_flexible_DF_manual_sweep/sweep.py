@@ -153,6 +153,7 @@ def main(
     progress_interval: int | None = None,
     sweep_dir: Path | None = None,
 ) -> None:
+    """Run the parameter sweep using the pre-generated design matrix."""
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     design_matrix_file = sweep_dir / "design_matrix.parquet"
     results_dir = sweep_dir / "results"
@@ -163,6 +164,7 @@ def main(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the sweep runner."""
     params = load_params()
     parser = argparse.ArgumentParser(
         description="Run simulation sweep for TANGO parameter sweep",
