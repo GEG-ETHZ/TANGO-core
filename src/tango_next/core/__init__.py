@@ -10,7 +10,6 @@ from tango_next.core.errors import (
 )
 from tango_next.core.init_protocol import Init
 from tango_next.core.orchestrator import Orchestrator
-from tango_next.core.serde import SerdeAPI
 from tango_next.core.stream import Stream
 
 __all__ = [
@@ -21,7 +20,6 @@ __all__ = [
     "Init",
     "Orchestrator",
     "SaturationError",
-    "SerdeAPI",
     "Stream",
     "TangoNextError",
 ]

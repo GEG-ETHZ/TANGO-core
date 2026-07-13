@@ -9,9 +9,9 @@ from typing import Protocol, runtime_checkable
 class Init(Protocol):
     """Protocol for objects that require post-deserialization initialization.
 
-    SerdeAPI calls self.init() after deserializing any object that implements
-    this protocol, allowing computed fields to be set up from the loaded state.
-    Modeled on the Init trait from fastsim-core.
+    ``Component.from_config()`` calls ``self.init()`` after constructing any
+    object that implements this protocol, allowing derived fields to be computed
+    from the validated input state.  Modeled on the Init trait from fastsim-core.
     """
 
     def init(self) -> None:
