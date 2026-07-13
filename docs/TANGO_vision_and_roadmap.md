@@ -754,17 +754,13 @@ the no-warm-start penalty will be most visible.
   the fully-solved hierarchy — not assembled by passing lists (`prod_pump_w_list`) or
   adding corrections at a separate economic layer.  This is the fix for the
   `surface.w_net` ≠ economic-layer inconsistency described above.
-- **Serialization:** Every TANGO code object gets `to_file` / `from_file` / `to_str` /
-  `from_str` methods. Format-agnostic (JSON, YAML, MessagePack, pickle).
-- **Round-trip verification (TODO):** `SerdeAPI` is currently a Phase 1 stub
-  (`src/tango_next/core/serde.py` — all four methods raise `NotImplementedError`). Once
-  it has a real implementation, verify lossless round-trip serialization across every
-  supported format pair: deserialize a representative YAML input to an object, serialize
-  to each other format (JSON, MessagePack), deserialize back, and assert equality against
-  the original parsed object at *every* hop — not just start-to-end, so a lossy
-  intermediate format can't hide behind a lucky cancellation. No existing test covers
-  this (confirmed: no `round_trip` / `roundtrip` / `serde` references anywhere under
-  `tests/`) — needs new test coverage once `SerdeAPI` is implemented.
+- **Serialization:** Pydantic's `model_dump()` / `model_validate()` serve as the
+  serialization layer for all `Component` subclasses — no separate mixin needed.
+  `Component.from_config()` handles YAML-dict → object construction; `Workflow.from_file()`
+  handles YAML file → object. Round-trip tests in `tests/unit/test_serde_roundtrip.py`
+  verify that `LockedState` fields survive `model_dump()` → `from_config()` correctly.
+  If binary formats (MessagePack) are ever needed, extend at that point — don't add
+  the abstraction speculatively.
 - most of these points have examples in https://github.com/NatLabRockies/fastsim
   (~/git/nrel/fastsim as of 2026-06-08 on Chad's computer). In fastsim,
   `TrackedState` is the analog for `LockedState`, but since we're (at least
@@ -779,12 +775,9 @@ the no-warm-start penalty will be most visible.
     `None` supported for no temporal output
 - [ ] Implement `iter_history` object that saves the state for each solver
     iteration at user-specified timestep intervals
-- [ ] Add a `SerdeAPI` mixin to `core/` (modeled on the fastsim Rust trait at
-    `fastsim-core/src/traits/serde_api.rs`). The mixin provides `to_file` /
-    `from_file` / `to_str` / `from_str` with format dispatch (YAML, JSON,
-    MessagePack) and calls `self.init()` after deserialization. Any class that
-    inherits `SerdeAPI` and implements `Init` gets the full serialization API
-    for free.
+- [x] Serialization: Pydantic `model_dump()` / `model_validate()` on `Component`
+    subsumes the `SerdeAPI` role from fastsim — no separate mixin needed. Round-trip
+    tests cover `LockedState` field fidelity (`tests/unit/test_serde_roundtrip.py`).
 - [ ] Make sure that all parameters and state variables have comments (or doc
     strings if there's a way to do this, like in Rust) explaining what they are
     and the unit of measure (e.g. watts).  For any variables with non-standard
@@ -871,7 +864,7 @@ unhandled error, packages the context and sends it to an LLM agent for interpret
 **What the agent receives:**
 - The full input YAML (the system configuration the user submitted)
 - The Python traceback and exception message
-- The last-known component states (serialized via SerdeAPI) — what each component
+- The last-known component states (serialized via `model_dump()`) — what each component
   computed before the failure
 
 **What the agent returns:**
@@ -925,8 +918,8 @@ in place, callers at any layer of the stack can `except CoolPropError` or
 failure they are handling — without parsing traceback strings or catching overly
 broad base types like `ValueError`.
 
-**Prerequisites:** Phase 2 SerdeAPI (so component states can be serialized at the
-point of failure) and a stable set of error types (`ConvergenceError`,
+**Prerequisites:** Stable component serialization via `model_dump()` (already in place)
+and a stable set of error types (`ConvergenceError`,
 `FracingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
 context attached to be useful.
 

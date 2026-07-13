@@ -409,6 +409,7 @@ class SystemBCIteration(SystemDirect):
         ``SystemDirect.run()`` (inherited), which calls ``_after_timestep``
         for the per-timestep summary.
         """
+        # TODO: figure out what `auto_flow_modes` is doing here and comment this line accordingly
         auto_flow_modes = (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH)
         mass_rate_repr = (
             "auto (fracing_flow())" if self.policy in auto_flow_modes else f"{self.mass_rate:.1f} kg/s"
