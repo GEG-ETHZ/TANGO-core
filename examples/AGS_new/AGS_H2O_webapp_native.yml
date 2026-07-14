@@ -1,0 +1,151 @@
+#
+# AGS - Water-Based (ORC Plant): the web app's actual runtime config.
+#
+# This is examples/MVP_templates/testcase7.yml plus one parameter override,
+# NOT an independent reconstruction. Traced end-to-end through tango_app
+# (2026-07-14):
+#   - tango_app/src/Components/SimulationParameters.tsx:245 — getConfigFilePath('ags_h2o')
+#     resolves to 'examples/MVP_templates/testcase7.yml' as the base config
+#     the backend loads.
+#   - SimulationParameters.tsx:525-566 — the web app then POSTs a fixed
+#     parameter_overrides dict on top of that base file. Every override key
+#     (schedule.well_pattern, well_spacing, mass_flow_rate, time.num_tsteps/dt,
+#     props.*, surface.surface_temperature/pipe_diameter/approach_temperature)
+#     already matches testcase7.yml's own values for the AGS_H2O preset —
+#     EXCEPT surface.target_extraction_pressure, which testcase7.yml doesn't
+#     set at all (native_ORC default is 2e6 Pa) and the web app always
+#     overrides to 7,000,000 Pa from the AGS_H2O preset. That's the one real
+#     difference, added explicitly below.
+#   - bc_iteration_checkpoint is not sent as an override by the web app (it's
+#     excluded entirely for isAGS modes) — it comes from testcase7.yml's own
+#     schedule block (production_well_bottom), unaffected by the override path.
+#
+# Native (not MOOSE), no reservoir node — AGS is a sealed closed loop, so
+# formation permeability is not a factor.
+#
+# NOT YET DONE: this has only been checked for structural/parameter parity
+# with the web app's request path (config file + override list), and runs
+# cleanly through tango_cli with self-consistent physics (energy balance
+# closes, no errors). It has NOT been numerically cross-checked against an
+# actual live web app run's reported output — that requires the external
+# Gunicorn TANGO backend + ArangoDB the web app talks to, which isn't
+# reachable from either repo alone. Flag this gap before calling it "validated."
+
+graph:
+  nodes:
+    injection_well:
+      type: 'injection_well'
+      unit: 'native'
+    horizontal_well:
+      type: 'horizontal_well'
+      unit: 'native'
+    production_well:
+      type: 'production_well'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_ORC'
+  edges:
+    1:
+      source: 'surface'
+      target: 'injection_well'
+    2:
+      source: 'injection_well'
+      target: 'horizontal_well'
+    3:
+      source: 'horizontal_well'
+      target: 'production_well'
+    4:
+      source: 'production_well'
+      target: 'surface'
+
+runspec:
+  title: 'AGS - Water-Based (ORC Plant)'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000       # kg/m3
+  rock_density: 2650.0      # kg/m3
+  rock_cp: 1000.0           # J/(kg*K)
+  rock_k: 2.1               # W/(m*K)
+  thermal_gradient: 0.035   # degC/m
+
+surface:
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78  # (-)
+  refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost' # min_cost or max_power
+  target_extraction_pressure: 7_000_000  # Pa — web app override (see header note)
+
+horizontal_well:
+  wellhead_depth: 2500. # m
+  well_length: 707. # m
+  diameter: 0.410 # m
+  vertical_deviation: 90 # deg
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+injection_well:
+  well_length: 2500. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+production_well:
+  well_length: 2500. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+functions:
+  dts:
+    type: segmented_linear
+    time: [0, 5]
+    dt: [1, 1 ]
+    end_time: 5
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+
+schedule:
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 5.0  # kg/s (injection rate per pattern)
+  well_pattern: 'AGS' # doublet, inverted_5spot, 5spot, AGS
+  well_spacing: 707. # m (inj-prod pair distance at surface)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 20 # number of time steps
+    dt: 1.0  # time step increment (year)
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: 'analyzer_results.csv'

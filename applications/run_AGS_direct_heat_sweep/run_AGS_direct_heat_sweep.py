@@ -19,25 +19,58 @@ Usage
 
 TODO (before re-running this sweep for the Triemli analysis)
 ------------------------------------------------------------
-1. Find the "AGS - Water-Based (ORC Plant)" example in the web app and verify
-   that TANGO CLI reproduces its results.  This example likely lives in the
-   web app's scenario database — locate it and export/confirm the YAML
-   config.  Use it as the validated baseline before any further changes.
+Context: an earlier version of this sweep accidentally used an EGS-doublet
+topology (reservoir node with `permeability`) copy-pasted from
+run_EGS_direct_heat_sweep/. That was fixed in the graph/YAML, but the
+`outputs/` directory was never regenerated afterward — every existing result
+file predates the fix and must be treated as invalid until step 4 below is
+re-run.
+
+1. DONE — reconstructed the web app's "AGS - Water-Based (ORC Plant)"
+   (AGS_H2O) example as a single runnable YAML:
+   examples/AGS_new/AGS_H2O_webapp_native.yml. It is native (not MOOSE) and
+   has no reservoir node. Traced the web app's actual request path
+   (tango_app/src/Components/SimulationParameters.tsx) and confirmed it
+   loads examples/MVP_templates/testcase7.yml as its base config plus a
+   fixed parameter_overrides dict — this YAML is that file, not an
+   independent reconstruction, so it can't silently drift from the web
+   app's real behavior.
+   VALIDATED — Chad ran the live web app with default AGS_H2O parameters
+   and reported LCOE/CAPEX breakdown/net electricity; our tango_cli run of
+   this YAML matches to rounding precision (LCOE 77.74 vs 77.7399 $/kWh,
+   total CAPEX $21,426,846 vs $21,426,845.63, net electricity 5.54 vs
+   5.5403 kWe, all five CAPEX line items agree). This is the validated
+   baseline going forward.
+   Known minor discrepancy (not yet resolved, appears immaterial at this
+   precision): the web app's atmospheric/surface temperature is 15.15 °C,
+   this YAML uses 15.0 °C (288.15 K) — a 0.15 °C gap inherited from
+   testcase7.yml itself, not introduced here.
 
 2. Walk the validated ORC config to a direct-heat scenario: replace the ORC
    surface plant with a district-heating heat exchanger (DH.T_out = 50 °C)
-   and confirm results are physically sensible.
+   and confirm results are physically sensible.  (triemli_dh_base.yml
+   already has a power_plant_graph/DH block doing this, but it was written
+   before step 1 was validated — recheck it against the validated baseline
+   rather than assuming it's correct.)
 
-3. Re-run the depth × flow-rate sweep with the corrected AGS topology
-   (triemli_dh_base.yml now uses injection_well → horizontal_well →
-   production_well with no reservoir).  Extend the sweep to additional axes:
+3. Reconcile the horizontal loop length: the web app baseline uses 707 m
+   (at 2500 m depth), while triemli_dh_base.yml uses 2500 m. Both are
+   internally consistent (well_spacing == horizontal well_length in each) —
+   pick one as the sweep's reference value and document why.
+
+4. Re-run the depth × flow-rate sweep with the corrected AGS topology and
+   reconciled loop length, using `--regenerate` (the existing outputs/ predate
+   the topology fix and must not be reused).  Extend the sweep to additional
+   axes:
      - number of horizontal loops  (well_pattern_dimens or multiple h_well nodes)
-     - horizontal loop length      (horizontal_well.well_length, currently fixed at 2500 m)
+     - horizontal loop length      (horizontal_well.well_length)
      - loop diameter               (horizontal_well.diameter)
    Note: multiple loops should be modelled in parallel (not in series) to
-   get correct per-loop pressure drop.  Confirm the right mechanism in old
-   tango before wiring this up (MULTIPLE_UNIT_NODE_OPTIONS supports multiple
-   horizontal_well nodes but the parallel vs. series semantics need checking).
+   get correct per-loop pressure drop.  MULTIPLE_UNIT_NODE_OPTIONS
+   (src/tango/core/config.py) allows multiple horizontal_well nodes but only
+   suppresses a duplicate-node registration error — it does not itself
+   establish parallel-flow physics.  Verify the actual graph execution
+   semantics before relying on it.
 """
 
 from __future__ import annotations
