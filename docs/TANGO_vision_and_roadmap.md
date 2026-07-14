@@ -598,27 +598,41 @@ module defining unit conversion constants and physical constansts, e.g.
     **Remaining gaps for whoever picks this up next** (intended hand-off
     point — Chad's plan is to get this set of two example files into good
     shape, then hand continuation to an intern):
-    - `LumpedProductionWell` / `LumpedProductionWellPump` still use the
-      simplified closed-form model (no discretization, no heat loss at all —
-      `T_outlet = T_inlet`). A `NumericalProductionWell` following the same
-      pattern as `NumericalInjectionWell` is the natural next step — note
-      `src/tango/`'s `ProductionWellUnitNative` shares the *same*
-      `WellUnitNative.process_stream()` base class, just with `_f_dir = 1.0`
-      (upward flow) instead of `-1.0`.
-    - `LumpedReservoir` is still linear 1-D Darcy vs. the original's radial
-      Dupuit-Thiem model (`BC_calculator.py`).
-    - `SingleFlashSurface` is still a Phase 1 placeholder, not a real TESPy
-      power cycle.
-    - Dimensionless-time tracking in `NumericalInjectionWell` only advances
-      correctly because exactly one `solve()` call happens per timestep today
-      (`InjectionPolicy.MANUAL`). Once `AUTO_*` policies add a multi-pass
-      outer convergence loop (Phase 2), this needs the old-tango split between
-      a per-pass `t_d` recompute and a once-per-timestep `t_d_old` advance —
-      flagged in detail in the component's module docstring.
-    - No automated test pins any of these numbers down yet (ties into the
-      "zero test coverage for `tango_next`" gap noted under Phase 1 tasks
-      below) — the comparison above was done by hand in a throwaway script,
-      not as a regression test.
+    - ~~`LumpedProductionWell` / `LumpedProductionWellPump` still use the
+      simplified closed-form model~~ — **done.** `NumericalProductionWell`
+      (`components/well/numerical.py`) now exists alongside
+      `NumericalInjectionWell`, sharing the same marching/Adams-2015
+      heat-loss scheme via `F_DIR = 1.0` vs. `-1.0`, mirroring `src/tango/`'s
+      `WellUnitNative._f_dir` split.
+    - ~~`LumpedReservoir` is still linear 1-D Darcy~~ — **done**, though not
+      literally Dupuit-Thiem: `components/reservoir/lumped.py` now implements
+      the doublet radial-flow impedance formula (Adams et al. 2020) plus
+      Adams 2015 thermal-depletion tracking, matching
+      `src/tango/units/native/reservoir.py`'s doublet well pattern.
+    - ~~`SingleFlashSurface` is still a Phase 1 placeholder~~ — **done.**
+      `components/surface/single_flash.py` now builds and solves a real
+      TESPy `Network` (valve → separator → turbine/pump branches → merge →
+      sink) each timestep, with cooling-tower parasitics, targeting parity
+      with `src/tango/units/native/surface/flexible_pp.py`.
+    - Dimensionless-time tracking in `NumericalInjectionWell`/
+      `NumericalProductionWell` still only advances correctly because
+      exactly one `solve()` call happens per timestep. `InjectionPolicy`
+      (`core/policies.py`) now defines `MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`,
+      `AUTO_FLOW`, and `AUTO_BOTH` in addition to `MANUAL`, and
+      `SystemBCIteration` already saves/restores a `t_d_old` around its inner
+      T-convergence loop — but `run_timestep` still raises
+      `NotImplementedError` for every mode except `MANUAL`. The outer
+      multi-pass convergence loop for `AUTO_*` (Phase 2) is the remaining
+      work; the per-pass vs. per-timestep `t_d` split is flagged in detail in
+      the component's module docstring.
+    - ~~No automated test pins any of these numbers down yet~~ — **done.**
+      `tests/regtest/test_old_new_parity.py` is a parametrized regression
+      test asserting `numpy.testing.assert_allclose` on reservoir T,
+      production T, and gross power histories between old tango and
+      tango_next for `flexible_SF_manual.yml` (currently 1 case implemented,
+      remaining YAMLs `xfail`ed as unported). The root-level `diag_*.py`
+      scripts were the original throwaway comparison scripts, now superseded
+      by this test.
 
 ---
 

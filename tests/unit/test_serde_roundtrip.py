@@ -1,4 +1,5 @@
-"""Round-trip serde tests for tango_next component state.
+"""Round-trip serialization/deserialization (serde) tests for tango_next
+component state.
 
 Verifies that ``LockedState[T]`` fields are transparent in the serialized
 format and round-trip correctly through ``model_dump()`` →
