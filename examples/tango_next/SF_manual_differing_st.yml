@@ -1,0 +1,172 @@
+# .Yaml file with differing surface temperature and pressure between common and surface
+
+title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate with differing surface temperature and pressure between common and surface
+
+
+common:  # shared physical parameters (previously props:)
+  fluid_name: H2O
+  brine_density: 1000        # kg/m3
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg·K)
+  rock_k: 2.1                # W/(m·K)
+  thermal_gradient: 0.035    # K/m
+  surface_pressure: 110_000       # Pa
+  surface_temperature: 300  # K
+
+layout:  # well-field geometry
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 3
+  dt_years: 1.0              # years
+  injection_mode: manual     # InjectionPolicy: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
+  mass_rate: 50              # kg/s — omit (or ignored) for auto-flow and auto-both
+  bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
+
+economic:
+  type: native
+  project_maturity: green_field  # green_field or brown_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    unit: single_flash
+    component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
+    prev: 3
+    next: 0
+    surface_temperature: 288  # K
+    injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    target_extraction_pressure: 7_000_000  # Pa
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+    surface_pressure: 100_000       # Pa
+
+    power_plant:
+
+      inlet:
+        type: Source
+        unit: native
+        component_idx: 0
+        next: 1
+
+      valve:
+        type: Valve
+        unit: native
+        component_idx: 1
+        prev: 0
+        next: 2
+        p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
+
+      droplet_separator:
+        type: DropletSeparator
+        unit: native
+        component_idx: 2
+        prev: 1
+        next_vapor: 4          # vapor stream → turbine
+        next_liquid: 3         # liquid stream → pump2
+
+      pump2:
+        type: Compressor
+        unit: native
+        component_idx: 3
+        prev: 2
+        next: 7
+        efficiency: 1.0
+
+      turbine:
+        type: Turbine
+        unit: native
+        component_idx: 4
+        prev: 2
+        next: 5
+        efficiency: 1.0
+        p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+
+      condenser:
+        type: SimpleHeatExchanger
+        unit: native
+        component_idx: 5
+        prev: 4
+        next: 6
+        subtype: condenser
+        design: closed
+        cooling_tower_mode: WET
+        set_number: 1
+        p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+        vapor_mass_fraction_out: 0
+
+      pump:
+        type: Compressor
+        unit: native
+        component_idx: 6
+        prev: 5
+        next: 7
+        efficiency: 1.0
+
+      mixer:
+        type: Merge
+        unit: native
+        component_idx: 7
+        prev_1: 6              # from pump (condensate)
+        prev_2: 3              # from pump2 (liquid separator stream)
+        next: 8
+
+      pp_outlet:
+        type: Sink
+        unit: native
+        component_idx: 8
+        prev: 7
+
+  injection_well:
+    type: injection_well
+    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedInjectionWell (single closed-form calc)
+    component_idx: 0          # first component solved each pass — circuit cut here (matches old tango solve order)
+    prev: 4
+    next: 1
+    well_length: 5000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
+
+  reservoir:
+    type: reservoir
+    unit: native
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    hydro_static_pressure: 50_000_000  # Pa
+    over_pressure_percentage: 10
+    well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
+
+  production_well_lower:
+    type: production_well
+    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedProductionWell (single closed-form calc)
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 4000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
+    wellhead_depth: 1000.0    # m — matches src/tango/ which sets wellhead_depth = pump_well_length (production_well_pump.well_length)
+
+  production_well_upper:
+    type: production_well_pump
+    unit: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
+    pump_target_pressure_megapascals: 7.0  # MPa — matches surface.target_extraction_pressure (old tango: target_extraction_pressure: 7000000)
