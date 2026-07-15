@@ -1,4 +1,4 @@
-"""Simulation sweep stage: run each (depth, mass-flow) design point in parallel."""
+"""Simulation sweep stage: run each (depth, mass-flow, loop-length) design point in parallel."""
 
 from __future__ import annotations
 
@@ -27,9 +27,8 @@ def _apply_depth(specs: dict, depth_m: float) -> None:
     """Update all depth-dependent parameters in-place.
 
     For the AGS topology (injection_well → horizontal_well → production_well),
-    depth controls the vertical sections only.  The horizontal loop length is
-    fixed at 2500 m regardless of depth — see the assumption note in
-    triemli_dh_base.yml.
+    depth controls the vertical sections only; loop length is a separate axis
+    (see _apply_loop_length).
 
     Parameters updated:
       - injection_well.well_length (and _seq)  — vertical descent = depth
@@ -45,6 +44,18 @@ def _apply_depth(specs: dict, depth_m: float) -> None:
     set_nested_value(specs, "production_well.well_length_seq", [depth_m])
 
 
+def _apply_loop_length(specs: dict, loop_length_m: float) -> None:
+    """Update the horizontal loop length in-place.
+
+    well_spacing must equal the horizontal loop length by convention (see
+    horizontal_well.py's Inconsistent well_spacing/length warning) — both are
+    updated together.
+    """
+    set_nested_value(specs, "horizontal_well.well_length", loop_length_m)
+    set_nested_value(specs, "horizontal_well.well_length_seq", [loop_length_m])
+    set_nested_value(specs, "schedule.well_spacing", loop_length_m)
+
+
 def _apply_mass_flow(specs: dict, mdot: float) -> None:
     """Update all mass-flow-rate parameters in-place (both schedule keys)."""
     set_nested_value(specs, "schedule.mass_flow_rate", mdot)
@@ -52,7 +63,7 @@ def _apply_mass_flow(specs: dict, mdot: float) -> None:
 
 
 def run_single_simulation(args: tuple) -> None:
-    """Worker: run one (depth, mass-flow) design point and write a JSON result file."""
+    """Worker: run one (depth, mass-flow, loop-length) design point and write a JSON result file."""
     row_idx, design_matrix_file, results_dir, log_level = args
     result_file = results_dir / f"{row_idx:06d}.json"
     if result_file.exists():
@@ -62,6 +73,7 @@ def run_single_simulation(args: tuple) -> None:
     row = df.filter(pl.col("row_idx") == row_idx).to_dicts()[0]
     depth_m: float = row["well_depth_m"]
     mdot: float = row["mass_flow_kg_s"]
+    loop_length_m: float = row["loop_length_m"]
 
     runner = Runner(input_file=BASE_YAML, no_save=True, log_level=log_level)
 
@@ -69,6 +81,7 @@ def run_single_simulation(args: tuple) -> None:
         "row_idx": row_idx,
         "well_depth_m": depth_m,
         "mass_flow_kg_s": mdot,
+        "loop_length_m": loop_length_m,
         # Physics outputs
         "T_prod_K": None,
         "T_prod_C": None,
@@ -91,6 +104,7 @@ def run_single_simulation(args: tuple) -> None:
 
     try:
         _apply_depth(runner.tango.specs, depth_m)
+        _apply_loop_length(runner.tango.specs, loop_length_m)
         _apply_mass_flow(runner.tango.specs, mdot)
         runner.update_parameters()
         runner.start()

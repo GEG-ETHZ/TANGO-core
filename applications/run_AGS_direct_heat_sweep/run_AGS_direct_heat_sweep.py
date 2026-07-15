@@ -1,7 +1,8 @@
 """End-to-end orchestrator for the Triemli AGS direct-heat parameter sweep.
 
-Sweeps well depth (2 – 6.5 km) × mass flow rate (5 – 100 kg/s) over 100 designs
-and reports production temperature, specific enthalpy, thermal power, and CAPEX.
+Sweeps well depth (2 – 6.5 km) × mass flow rate (5 – 100 kg/s) × horizontal loop
+length (707 – 2500 m) over 500 designs and reports production temperature,
+specific enthalpy, thermal power, and CAPEX.
 
 Runs generate → sweep → summarize in sequence.  Call individual stage scripts
 directly (generate.py, sweep.py, summarize.py) or use DVC for caching.
@@ -58,24 +59,38 @@ re-run.
    LCOE 77.7 $/kWh_e — direct heat is far more economical here, as expected,
    since it skips Carnot losses).
 
-3. Reconcile the horizontal loop length: the web app baseline uses 707 m
-   (at 2500 m depth), while triemli_dh_base.yml uses 2500 m. Both are
-   internally consistent (well_spacing == horizontal well_length in each) —
-   pick one as the sweep's reference value and document why.
+3. DONE (by making it moot) — the web app baseline uses a 707 m loop, while
+   triemli_dh_base.yml used a fixed 2500 m. Rather than pick one "correct"
+   constant, loop length is now a third sweep axis (see common.py's
+   LOOP_LENGTHS_M): [707, 1000, 1500, 2000, 2500] m, bracketing both prior
+   values. sweep.py's new _apply_loop_length() updates
+   horizontal_well.well_length/well_length_seq and schedule.well_spacing
+   together (both must match by convention — see the "Inconsistent
+   well_spacing and horizontal_well length" warning in horizontal_well.py).
 
-4. Re-run the depth × flow-rate sweep with the corrected AGS topology and
-   reconciled loop length, using `--regenerate` (the existing outputs/ predate
-   the topology fix and must not be reused).  Extend the sweep to additional
-   axes:
-     - number of horizontal loops  (well_pattern_dimens or multiple h_well nodes)
-     - horizontal loop length      (horizontal_well.well_length)
-     - loop diameter               (horizontal_well.diameter)
-   Note: multiple loops should be modelled in parallel (not in series) to
-   get correct per-loop pressure drop.  MULTIPLE_UNIT_NODE_OPTIONS
-   (src/tango/core/config.py) allows multiple horizontal_well nodes but only
-   suppresses a duplicate-node registration error — it does not itself
-   establish parallel-flow physics.  Verify the actual graph execution
-   semantics before relying on it.
+4. PARTIALLY ADDRESSED — full 10 x 10 x 5 = 500-design sweep re-run with `--regenerate`
+   (2026-07-15): 0 failures, ~24 s wall time on 8 workers. 25/500 designs
+   meet the T_prod >= 105 degC threshold, spanning all 5 loop lengths and
+   depths >= 5000 m — confirming the loop-length axis is doing real work,
+   not just adding runtime. summarize.py now writes one CSV per (metric,
+   loop length) pair, since a flat 2-D pivot can't show all three axes at
+   once.
+   STILL MISSING, not just deferred polish — the original TODO asked for
+   three additional axes and this only delivered one:
+     - horizontal loop length      DONE (see item 3)
+     - loop diameter               NOT DONE — would be a straightforward
+       fourth axis (horizontal_well.diameter), no known blockers.
+     - number of horizontal loops  NOT DONE — blocked on unverified
+       parallel-vs-series flow semantics. MULTIPLE_UNIT_NODE_OPTIONS
+       (src/tango/core/config.py) allows multiple horizontal_well nodes but
+       only suppresses a duplicate-node registration error — it does not
+       itself establish parallel-flow physics, and multiple loops must be
+       modelled in parallel (not in series) for correct per-loop pressure
+       drop. Verify the actual graph execution semantics before adding this
+       axis.
+   Do not treat this sweep's output as covering the full design space the
+   TODO originally called for until loop diameter and loop count are
+   addressed (or explicitly descoped by Chad).
 
 Notes
 -----
