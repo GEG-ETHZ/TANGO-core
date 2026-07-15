@@ -46,12 +46,17 @@ re-run.
    this YAML uses 15.0 °C (288.15 K) — a 0.15 °C gap inherited from
    testcase7.yml itself, not introduced here.
 
-2. Walk the validated ORC config to a direct-heat scenario: replace the ORC
-   surface plant with a district-heating heat exchanger (DH.T_out = 50 °C)
-   and confirm results are physically sensible.  (triemli_dh_base.yml
-   already has a power_plant_graph/DH block doing this, but it was written
-   before step 1 was validated — recheck it against the validated baseline
-   rather than assuming it's correct.)
+2. DONE — see "Direct-heat AGS validator fix" in NOTES below for the bug this
+   hit and the patch applied. examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml
+   is a minimal walk from the validated ORC baseline (topology/well
+   params/mass-flow untouched, only the surface node swapped to
+   native_flexible + a Source -> SimpleHeatExchanger(DH_component) -> Sink
+   power_plant_graph, per the proven pattern in examples/flexible_heat.yml).
+   Results are physically sensible: steady-state production at 60.3 degC,
+   DH heat exchanger drops it to the configured 50 degC return, net thermal
+   power 194.4 kWth, LCOH ~2.18 $/kWh_th (vs. the ORC baseline's 5.5 kWe /
+   LCOE 77.7 $/kWh_e — direct heat is far more economical here, as expected,
+   since it skips Carnot losses).
 
 3. Reconcile the horizontal loop length: the web app baseline uses 707 m
    (at 2500 m depth), while triemli_dh_base.yml uses 2500 m. Both are
@@ -71,6 +76,104 @@ re-run.
    suppresses a duplicate-node registration error — it does not itself
    establish parallel-flow physics.  Verify the actual graph execution
    semantics before relying on it.
+
+Notes
+-----
+Direct-heat AGS validator fix
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`SurfaceUnitFlexiblePP.validate_custom()`
+(src/tango/units/native/surface/flexible_pp.py) unconditionally did:
+
+    te_pp_in_est = (specs["surface"]["surface_temperature"]
+                    + specs["reservoir"]["reservoir_depth"] * specs["props"]["thermal_gradient"])
+
+to sanity-bound `target_extraction_pressure`. This assumes an EGS/doublet
+topology with a `reservoir` node. AGS has no reservoir, so every
+`native_flexible` (direct-heat) config on an AGS graph used to crash with
+`KeyError: 'reservoir'` at unit construction, before any simulation ran.
+
+This wasn't specific to the new baseline in this application:
+`triemli_dh_base.yml` — believed fixed after the earlier topology
+correction — hit the identical crash and had never actually completed a
+run. The direct-heat path here was broken independent of, and in addition
+to, the permeability/topology bug documented above.
+
+`reservoir_depth` in that formula stands in for "the depth at which the
+working fluid reaches its hottest point before returning to surface." For
+AGS that's the depth of the horizontal loop, i.e. `horizontal_well.wellhead_depth`
+— despite the name, this is NOT the depth of the surface wellhead (0 m); in
+this codebase's convention it's the depth below surface at which the
+horizontal segment begins (see horizontal_well.py's identical
+`T0 + h * dTdz` usage at line 53, where `h = self._specs.wellhead_depth`).
+That naming is confusing on its own terms (a "wellhead" is conventionally
+surface equipment) independent of the reservoir/no-reservoir question, and
+is a good example of the kind of ambiguity `tango_next` should design away
+(see docs/TANGO_vision_and_roadmap.md).
+
+Fixed in `flexible_pp.py`: `validate_custom()` now branches on whichever of
+`reservoir` / `horizontal_well` is present in specs to get this depth,
+instead of hardcoding `reservoir`. This is a pragmatic patch, not an
+architectural fix — the surface-unit code still has no general concept of
+"the subsurface component upstream of the surface plant," only two
+hardcoded node names. Confirmed working: examples/AGS_new/
+AGS_H2O_webapp_native_direct_heat.yml now runs and produces physically
+sensible results (steady-state production 60.3 degC, DH exchanger to the
+configured 50 degC return, net thermal power 194.4 kWth, LCOH ~2.18
+$/kWh_th).
+
+No AGS + direct-heat example exists anywhere, in tango-core or the web app
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Checked exhaustively (2026-07-15): every AGS example under examples/
+(AGS_new/, Martin_AGS/, EGC2025/, testcase6/7/8.yml, MVP_templates/) pairs
+AGS with an ORC or CO2 power-cycle surface plant, never native_flexible/DH.
+Every web app template that uses native_flexible + DH_component
+(flexible_heat.ts, flexible_CPG_inverted_native.ts,
+flexible_SF_cogeneration_e.ts) is a reservoir-based EGS/CPG topology, never
+AGS. examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml (this
+application) is the first working example of this combination, unblocked
+by the validator fix described above.
+
+Why none of the existing AGS examples were a good starting point
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This isn't one mistake — the whole AGS example set in this repo has accumulated
+inconsistencies characteristic of lacking a consistently enforced code style for
+a maintainable, re-runnable reference config:
+  - examples/AGS_new/H2O_1b.yml (the MOOSE-coupled example) hardcodes
+    absolute paths to a former contributor's machine
+    (/Users/morteza/Documents/projects/...) — not runnable as-is by anyone
+    else.
+  - The web app's own AGS_H2O template (tango_app/src/config/templates/) is
+    split across two files (AGS_H2O.ts, presets.ts) that don't fully agree
+    with each other or with the base YAML the app actually loads
+    (examples/MVP_templates/testcase7.yml) — the only reason this was
+    caught was tracing the live request path end-to-end rather than trusting
+    the template source.
+  - The AGS direct-heat sweep this application performs was originally
+    built (commit 6496f82) as a copy-paste of the EGS doublet sweep,
+    carrying over a `reservoir` node with a literal `permeability` value —
+    physically meaningless for a sealed AGS loop — which is how invalid
+    results ended up in a real client presentation before this was caught.
+  - The `native_flexible` surface unit (this NOTES section, above) was
+    apparently only ever exercised against reservoir-based topologies;
+    nothing in its test suite or examples caught that it can't run without
+    one.
+None of this was introduced by this work; it predates it and reflects the
+repo's broader history of single-use, paper-driven configs rather than a
+maintained reference set.
+
+Why we patched native instead of waiting for tango_next
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tango_next was explicitly designed to avoid this kind of topology-shaped
+ambiguity (see docs/TANGO_vision_and_roadmap.md), and building this case
+there instead of patching native's validator was considered. Decided
+against it for now: tango_next doesn't yet have direct-heat/district-heating
+surface plant support built at all, so doing this there means building that
+first, which risks blocking the Triemli deliverable on a bigger lift than
+the timeline allows. The native patch above is pragmatic, not
+architectural, and is intentionally scoped as small as possible; the
+vision-doc note ensures tango_next does this properly (per-component depth
+estimate, not a hardcoded node-name lookup) when that work happens.
+
 """
 
 from __future__ import annotations

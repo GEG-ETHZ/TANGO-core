@@ -361,6 +361,42 @@ both) — needs careful thought before the integration work begins. The architec
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
 
+#### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
+
+`src/tango/units/native/surface/flexible_pp.py`'s `validate_custom()` estimated the
+temperature the working fluid reaches before entering the surface plant as
+`surface_temperature + reservoir["reservoir_depth"] * thermal_gradient`. This is a
+correct estimate for EGS/CPG (reservoir-based) topologies, but it hardcoded a lookup
+into a `reservoir` block that doesn't exist for AGS — a sealed closed loop with no
+reservoir node at all. The result: the direct-heat (`native_flexible`) surface unit
+could not run on any AGS topology in `src/tango/` (`KeyError: 'reservoir'` at unit
+construction — see `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`
+NOTES for the full incident writeup and the pragmatic patch applied there).
+
+The underlying physical quantity — "depth at which the fluid reaches its hottest
+point before returning to surface" — is real and meaningful for AGS too; it's just
+the depth of the horizontal loop, i.e. `horizontal_well.wellhead_depth`. Despite the
+name, this is *not* the depth of a literal surface wellhead (0 m) — in this
+codebase's convention it's the depth below surface at which the horizontal segment
+begins, used identically to `reservoir_depth` (`T0 + h * thermal_gradient`) in
+`horizontal_well.py`. So the substitution is physically sound, but the name
+`wellhead_depth` is itself confusing independent of the reservoir/no-reservoir
+question — a second, smaller naming bug layered on top of the first. The
+`src/tango/` issue is that "depth of the subsurface heat-pickup point" was only
+ever named/looked-up as `reservoir_depth`, so the code silently assumed every
+topology has a reservoir.
+
+For `tango_next`, this argues for an AGS-bespoke depth/temperature-estimate concept
+(e.g. a `heat_pickup_depth` property computed per-topology, or resolved generically
+by asking whichever component sits between injection and production for "the depth
+its outlet temperature estimate should use") rather than a single hardcoded
+`specs["reservoir"]["reservoir_depth"]` lookup shared across all surface units.
+`tango_next`'s component-based design (each component owns its own state/specs
+dataclass — see `LockedState`, `NumericalProductionWell`/`NumericalInjectionWell`,
+`LumpedReservoir`) makes this easy to get right: the surface unit should ask the
+upstream subsurface component(s) for this estimate rather than reaching into a
+specific node name that may not exist.
+
 #### Pump electricity accounting — known inconsistencies (needs HIL verification)
 
 **⚠ Human-in-the-loop (HIL) verification required before relying on net power or LCOE
