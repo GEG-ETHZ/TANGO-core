@@ -69,6 +69,7 @@ dev = [
     "ipykernel ~= 7.0",
     "dvc>=3.0,<4.0", # pipeline + experiment tracking
     "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
+    "plotly>=5.24,<6.0", # interactive parallel-coordinates plot for parameter sweeps
 ]
 tango-app = [
     "flask==3.0.0",

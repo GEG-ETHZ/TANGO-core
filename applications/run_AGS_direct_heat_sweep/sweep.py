@@ -1,4 +1,4 @@
-"""Simulation sweep stage: run each (depth, mass-flow, loop-length) design point in parallel."""
+"""Simulation sweep stage: run each (depth, mass-flow, loop-length, loop-diameter) design point in parallel."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import tempfile
 import traceback
 from pathlib import Path
 
+import CoolProp.CoolProp as CP
 import polars as pl
 from common import (
     BASE_YAML,
@@ -21,6 +22,14 @@ from common import (
 )
 
 from tango.runner import Runner
+
+# Floor value: triemli_dh_base.yml's original fixed target_extraction_pressure,
+# which was valid at every depth up to 7500 m (see _apply_target_extraction_pressure).
+# Keeping it as the floor means depths that were already valid before the
+# 8000 m extension get byte-for-byte the same target_extraction_pressure as
+# before, and only the newly-added 8000 m tier's value actually changes.
+_TARGET_EXTRACTION_PRESSURE_FLOOR_PA = 7_000_000.0
+_TARGET_EXTRACTION_PRESSURE_SAFETY_FACTOR = 1.2
 
 
 def _apply_depth(specs: dict, depth_m: float) -> None:
@@ -44,6 +53,38 @@ def _apply_depth(specs: dict, depth_m: float) -> None:
     set_nested_value(specs, "production_well.well_length_seq", [depth_m])
 
 
+def _apply_target_extraction_pressure(specs: dict, depth_m: float) -> None:
+    """Scale surface.target_extraction_pressure with well depth so it stays
+    physically valid across the whole depth sweep.
+
+    SurfaceUnitFlexiblePP.validate_custom() (src/tango/units/native/surface/
+    flexible_pp.py) requires target_extraction_pressure to exceed the
+    saturation pressure at the estimated plant-inlet temperature
+    (surface_temperature + depth * thermal_gradient — same formula the
+    validator itself uses, replicated here). The original base YAML's fixed
+    7 MPa was valid up to 7500 m depth but not at 8000 m (saturation pressure
+    there is ~7.55 MPa) once the depth sweep was extended beyond its
+    original 6500 m ceiling — every 8000 m design failed validation with the
+    same ValidationError before this was added.
+
+    Floor at the original fixed value (not just at the computed minimum)
+    so every depth that was already valid keeps exactly the same
+    target_extraction_pressure as before this axis existed; only the newly
+    invalid tier's value actually changes. The 1.2x safety factor is applied
+    on top of the raw saturation pressure, not the validator's own 1.01x
+    warn threshold, for real engineering margin rather than just clearing
+    the check.
+    """
+    surface_temp_K = specs["surface"]["surface_temperature"]
+    thermal_gradient = specs["props"]["thermal_gradient"]
+    fluid_name = specs["props"]["fluid_name"]
+    te_pp_in_est_K = surface_temp_K + depth_m * thermal_gradient
+    p_sat = CP.PropsSI("P", "T", te_pp_in_est_K, "Q", 0, fluid_name)
+    required = p_sat * _TARGET_EXTRACTION_PRESSURE_SAFETY_FACTOR
+    target = max(_TARGET_EXTRACTION_PRESSURE_FLOOR_PA, required)
+    set_nested_value(specs, "surface.target_extraction_pressure", target)
+
+
 def _apply_loop_length(specs: dict, loop_length_m: float) -> None:
     """Update the horizontal loop length in-place.
 
@@ -56,6 +97,18 @@ def _apply_loop_length(specs: dict, loop_length_m: float) -> None:
     set_nested_value(specs, "schedule.well_spacing", loop_length_m)
 
 
+def _apply_loop_diameter(specs: dict, loop_diameter_m: float) -> None:
+    """Update the horizontal loop diameter in-place.
+
+    Only horizontal_well.diameter is swept, per the original TODO ("loop
+    diameter (horizontal_well.diameter)") — injection_well/production_well
+    diameters (vertical sections) are left at the base YAML's fixed 0.311 m
+    casing assumption, unrelated to this axis.
+    """
+    set_nested_value(specs, "horizontal_well.diameter", loop_diameter_m)
+    set_nested_value(specs, "horizontal_well.well_diameter_seq", [loop_diameter_m])
+
+
 def _apply_mass_flow(specs: dict, mdot: float) -> None:
     """Update all mass-flow-rate parameters in-place (both schedule keys)."""
     set_nested_value(specs, "schedule.mass_flow_rate", mdot)
@@ -63,7 +116,7 @@ def _apply_mass_flow(specs: dict, mdot: float) -> None:
 
 
 def run_single_simulation(args: tuple) -> None:
-    """Worker: run one (depth, mass-flow, loop-length) design point and write a JSON result file."""
+    """Worker: run one (depth, mass-flow, loop-length, loop-diameter) design point and write a JSON result file."""
     row_idx, design_matrix_file, results_dir, log_level = args
     result_file = results_dir / f"{row_idx:06d}.json"
     if result_file.exists():
@@ -74,6 +127,7 @@ def run_single_simulation(args: tuple) -> None:
     depth_m: float = row["well_depth_m"]
     mdot: float = row["mass_flow_kg_s"]
     loop_length_m: float = row["loop_length_m"]
+    loop_diameter_m: float = row["loop_diameter_m"]
 
     runner = Runner(input_file=BASE_YAML, no_save=True, log_level=log_level)
 
@@ -82,6 +136,7 @@ def run_single_simulation(args: tuple) -> None:
         "well_depth_m": depth_m,
         "mass_flow_kg_s": mdot,
         "loop_length_m": loop_length_m,
+        "loop_diameter_m": loop_diameter_m,
         # Physics outputs
         "T_prod_K": None,
         "T_prod_C": None,
@@ -104,7 +159,9 @@ def run_single_simulation(args: tuple) -> None:
 
     try:
         _apply_depth(runner.tango.specs, depth_m)
+        _apply_target_extraction_pressure(runner.tango.specs, depth_m)
         _apply_loop_length(runner.tango.specs, loop_length_m)
+        _apply_loop_diameter(runner.tango.specs, loop_diameter_m)
         _apply_mass_flow(runner.tango.specs, mdot)
         runner.update_parameters()
         runner.start()

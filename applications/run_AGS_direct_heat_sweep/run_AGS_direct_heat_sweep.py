@@ -1,20 +1,43 @@
 """End-to-end orchestrator for the Triemli AGS direct-heat parameter sweep.
 
-Sweeps well depth (2 – 6.5 km) × mass flow rate (5 – 100 kg/s) × horizontal loop
-length (707 – 2500 m) over 500 designs and reports production temperature,
-specific enthalpy, thermal power, and CAPEX.
+Sweeps well depth (2 – 8 km) × mass flow rate (3.5 – 100 kg/s) × horizontal
+loop length (707 – 3500 m) × loop diameter (0.2 – 0.75 m) over 6006 designs
+and reports production temperature, specific enthalpy, thermal power, and
+CAPEX. (Ranges extended 2026-07-15 from the original 6.5 km / 5 kg/s /
+2500 m / 0.5 m upper-lower bounds, same step sizes — see common.py.)
 
 Runs generate → sweep → summarize → plot in sequence.  Call individual stage
 scripts directly (generate.py, sweep.py, summarize.py, plot.py) or use DVC
 for caching.
 
-plot.py writes two PNGs to the sweep directory:
-  - success_scatter.png       one subplot per loop length, mass flow vs.
-                              well depth, colored by whether T_prod meets
-                              the 105 degC district-heating threshold.
-  - parallel_coordinates.png  every design as one line across well depth,
-                              mass flow, loop length, T_prod, thermal power,
+plot.py writes these to the sweep directory:
+  - success_scatter.png       grid of subplots (rows = loop diameter,
+                              columns = loop length), mass flow vs. well
+                              depth, colored by whether T_prod meets the
+                              105 degC district-heating threshold.
+  - lcoe_grid.png             same grid layout, with marker shape repeating
+                              the success_scatter threshold encoding
+                              (o = meets, x = misses) and marker color
+                              showing LCOH — designs with LCOH undefined
+                              (see sweep.py's LCOE-nulling note) are grey.
+  - parallel_coordinates.png  static matplotlib version: every design as one
+                              line across well depth, mass flow, loop
+                              length, loop diameter, T_prod, thermal power,
                               CAPEX, and LCOH, colored by LCOH.
+  - parallel_coordinates.html interactive Plotly version of the same plot —
+                              draggable axis brushing/filtering, hover
+                              tooltips. Requires the `dev` dependency group
+                              (plotly); skipped with a printed note if
+                              plotly isn't installed.
+  - parallel_coordinates_qualified.html  same as parallel_coordinates.html,
+                              pre-filtered to designs meeting the 105 degC
+                              threshold and >= 2 kW thermal power (~1000 of
+                              6006) instead of relying on manual axis-drag
+                              filtering, with the LCOH colorbar's 5th-95th
+                              percentile computed over just that subset so
+                              it actually resolves the spread among designs
+                              that matter instead of being dominated by the
+                              full sweep's much wider range.
 
 Usage
 -----
@@ -77,19 +100,19 @@ re-run.
    together (both must match by convention — see the "Inconsistent
    well_spacing and horizontal_well length" warning in horizontal_well.py).
 
-4. PARTIALLY ADDRESSED — full 10 x 10 x 5 = 500-design sweep re-run with `--regenerate`
-   (2026-07-15): 0 failures, ~24 s wall time on 8 workers. 25/500 designs
-   meet the T_prod >= 105 degC threshold, spanning all 5 loop lengths and
-   depths >= 5000 m — confirming the loop-length axis is doing real work,
-   not just adding runtime. summarize.py now writes one CSV per (metric,
-   loop length) pair, since a flat 2-D pivot can't show all three axes at
-   once.
-   STILL MISSING, not just deferred polish — the original TODO asked for
-   three additional axes and this only delivered one:
+4. PARTIALLY ADDRESSED — of the three additional axes the original TODO
+   asked for, two are now done:
      - horizontal loop length      DONE (see item 3)
-     - loop diameter               NOT DONE — would be a straightforward
-       fourth axis (horizontal_well.diameter), no known blockers.
-     - number of horizontal loops  NOT DONE — blocked on unverified
+     - loop diameter               DONE — fourth sweep axis added
+       (common.py's LOOP_DIAMETERS_M, currently [0.2, 0.311, 0.41, 0.5, 0.6,
+       0.75] m, bracketing the same two real reference points as loop
+       length: 0.311 m is triemli_dh_base.yml's original fixed casing
+       choice, 0.41 m is the web app's validated value). sweep.py's new
+       _apply_loop_diameter() updates horizontal_well.diameter/
+       well_diameter_seq only — the vertical wells' diameter is
+       intentionally left alone, per the original TODO wording ("loop
+       diameter (horizontal_well.diameter)").
+     - number of horizontal loops  NOT DONE — still blocked on unverified
        parallel-vs-series flow semantics. MULTIPLE_UNIT_NODE_OPTIONS
        (src/tango/core/config.py) allows multiple horizontal_well nodes but
        only suppresses a duplicate-node registration error — it does not
@@ -97,12 +120,52 @@ re-run.
        modelled in parallel (not in series) for correct per-loop pressure
        drop. Verify the actual graph execution semantics before adding this
        axis.
-   Do not treat this sweep's output as covering the full design space the
-   TODO originally called for until loop diameter and loop count are
-   addressed (or explicitly descoped by Chad).
+   Ranges extended again 2026-07-15 (Chad's request, second round): well
+   depth 6.5 -> 8 km, mass flow 5 -> 3.5 kg/s floor, loop length 2500 ->
+   3500 m, loop diameter 0.5 -> 0.75 m, all keeping the existing step sizes
+   (see common.py). This uncovered a real validation failure — see "8000 m
+   depth tier needed target_extraction_pressure to scale with depth" in
+   NOTES below — now fixed. Full 13 x 11 x 7 x 6 = 6006-design sweep
+   re-run with `--regenerate` (2026-07-15): 0 failures, ~4.5 min wall time
+   on 8 workers (slower per-design than the previous 2000-design sweep —
+   the extended ranges include more numerically demanding combinations,
+   not just proportionally more designs). 1003/6006 designs meet the
+   T_prod >= 105 degC threshold. summarize.py writes one CSV per (metric,
+   loop length, loop diameter) triple (252 files) instead of printing every
+   pivot table to the console, since 7 x 6 = 42 combinations is unreadable
+   as printed tables.
+   Number of horizontal loops is still the one axis from the original TODO
+   that's missing — that holds regardless of how far the other three axes
+   get extended. Don't treat any version of this sweep's output as covering
+   the full design space the TODO called for until that axis is addressed
+   or Chad explicitly descopes it.
 
 Notes
 -----
+8000 m depth tier needed target_extraction_pressure to scale with depth
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When the depth axis was extended to 8000 m, every single design at that
+depth (462/6006 — exactly 11 flow rates x 7 loop lengths x 6 diameters, a
+clean threshold, not scattered numerical noise) failed with the same
+ValidationError from SurfaceUnitFlexiblePP.validate_custom()
+(src/tango/units/native/surface/flexible_pp.py): the fixed
+surface.target_extraction_pressure (7 MPa, inherited unchanged from the
+original 2500 m-depth design) was below the saturation pressure at the
+estimated plant-inlet temperature at 8000 m (~291 degC -> ~7.55 MPa
+saturation pressure). Below that, the fluid would flash to vapor at the
+plant inlet — a real physical constraint, not a bug. 7500 m and shallower
+were all fine (required pressure there is well under 7 MPa).
+
+Fixed by adding sweep.py's _apply_target_extraction_pressure(): computes
+the same plant-inlet-temperature estimate the validator uses
+(surface_temperature + depth * thermal_gradient), gets its saturation
+pressure via CoolProp, and sets target_extraction_pressure to
+max(7 MPa, 1.2 x saturation_pressure). The 7 MPa floor means every depth
+that was already valid (<= 7500 m) gets exactly the same
+target_extraction_pressure as before this function existed — only the
+newly-added 8000 m tier's value actually changes, so none of the other
+5544 already-completed designs needed to be (or were) re-run.
+
 Negative LCOE at marginal (T_prod ~ 50-51 degC) designs — nulled, not fixed upstream
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 plot.py's parallel-coordinates plot surfaced 53/500 designs (all clustered

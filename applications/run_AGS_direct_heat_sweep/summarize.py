@@ -22,17 +22,26 @@ def aggregate_results(results_dir: Path) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
-def pivot_table(df: pl.DataFrame, value_col: str, loop_length_m: float | None = None) -> pl.DataFrame:
-    """Pivot (depth × mass-flow) into a 2-D table for a single output column, at one loop length.
+def pivot_table(
+    df: pl.DataFrame,
+    value_col: str,
+    loop_length_m: float | None = None,
+    loop_diameter_m: float | None = None,
+) -> pl.DataFrame:
+    """Pivot (depth × mass-flow) into a 2-D table for a single output column, at one (loop
+    length, loop diameter) slice.
 
     Rows = well depth [m], columns = mass-flow rate [kg/s].
-    Failed / null cells are shown as None. loop_length_m filters to a single
-    loop-length slice — a flat 2-D pivot can't show all three sweep axes at
-    once, so callers iterate over loop lengths (see main()).
+    Failed / null cells are shown as None. loop_length_m/loop_diameter_m filter
+    to a single slice — a flat 2-D pivot can't show all four sweep axes at
+    once, so callers iterate over (loop_length, loop_diameter) pairs (see
+    main()).
     """
     successful = df.filter(pl.col("error").is_null())
     if loop_length_m is not None:
         successful = successful.filter((pl.col("loop_length_m") - loop_length_m).abs() < 1e-6)
+    if loop_diameter_m is not None:
+        successful = successful.filter((pl.col("loop_diameter_m") - loop_diameter_m).abs() < 1e-6)
     if successful.is_empty():
         return pl.DataFrame()
 
@@ -71,6 +80,11 @@ def _loop_lengths(df: pl.DataFrame) -> list[float]:
     return sorted(df.select("loop_length_m").unique().to_series().to_list())
 
 
+def _loop_diameters(df: pl.DataFrame) -> list[float]:
+    """Sorted unique loop diameters present in the results."""
+    return sorted(df.select("loop_diameter_m").unique().to_series().to_list())
+
+
 _PIVOT_SPECS: list[tuple[str, str, str]] = [
     ("T_prod_C", "T_production_degC", "°C"),
     ("specific_enthalpy_kJ_kg", "specific_enthalpy_kJ_kg", "kJ/kg"),
@@ -105,37 +119,38 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         print(f"\nResults: {n_ok} succeeded, {n_fail} failed → {parquet_out}")
 
     loop_lengths = _loop_lengths(df)
+    loop_diameters = _loop_diameters(df)
 
     # ── write pivot CSVs (always, so the student always gets fresh files) ─────
-    # One CSV per (value, loop length) — a flat 2-D pivot can't show all three
-    # sweep axes, so loop length becomes a filename suffix instead of a table
-    # dimension.
+    # One CSV per (value, loop length, loop diameter) — a flat 2-D pivot can't
+    # show all four sweep axes, so loop length/diameter become filename
+    # suffixes instead of table dimensions.
     csv_dir = results_dir
     csv_paths: list[Path] = []
     for value_col, filename_stem, _unit in _PIVOT_SPECS:
         for loop_length in loop_lengths:
-            tbl = pivot_table(df, value_col, loop_length_m=loop_length)
-            if not tbl.is_empty():
-                csv_path = csv_dir / f"{filename_stem}__loop{int(round(loop_length))}m.csv"
-                tbl.write_csv(csv_path)
-                csv_paths.append(csv_path)
+            for loop_diameter in loop_diameters:
+                tbl = pivot_table(df, value_col, loop_length_m=loop_length, loop_diameter_m=loop_diameter)
+                if not tbl.is_empty():
+                    diam_tag = f"{loop_diameter:.3f}".replace(".", "p")
+                    csv_path = csv_dir / f"{filename_stem}__loop{int(round(loop_length))}m__d{diam_tag}m.csv"
+                    tbl.write_csv(csv_path)
+                    csv_paths.append(csv_path)
     if not quiet:
-        print(f"CSVs written to {csv_dir}/")
-        for p in csv_paths:
-            print(f"  {p.name}")
+        print(
+            f"CSVs written to {csv_dir}/ ({len(csv_paths)} files: "
+            f"{len(_PIVOT_SPECS)} metrics x {len(loop_lengths)} loop lengths x "
+            f"{len(loop_diameters)} loop diameters)",
+        )
 
     if quiet:
         return
 
-    # ── pivot tables for the student, one set per loop length ─────────────────
-    for loop_length in loop_lengths:
-        print(f"\n{'=' * 70}")
-        print(f"  Loop length: {loop_length:.0f} m")
-        print(f"{'=' * 70}")
-        for value_col, _stem, unit in _PIVOT_SPECS:
-            print_pivot(_PIVOT_LABELS[value_col], pivot_table(df, value_col, loop_length_m=loop_length), unit)
-
     # ── flag designs that meet the 105 °C threshold ───────────────────────────
+    # (Per-combo pivot tables are no longer dumped to the console — with loop
+    # length x loop diameter now 20 combinations, printing every metric's
+    # table for every combo is unreadable. Use the CSVs above, or plot.py's
+    # scatter/parallel-coordinates plots, for full exploration.)
     qualified = df.filter(
         pl.col("error").is_null() & (pl.col("T_prod_C") >= 105.0),
     )
@@ -150,13 +165,14 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
                         "well_depth_m",
                         "mass_flow_kg_s",
                         "loop_length_m",
+                        "loop_diameter_m",
                         "T_prod_C",
                         "specific_enthalpy_kJ_kg",
                         "thermal_power_kW",
                         "CAPEX_total_USD",
                         "LCOE_USD_per_kWh",
                     ],
-                ).sort(["well_depth_m", "mass_flow_kg_s", "loop_length_m"]),
+                ).sort(["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m"]),
             )
 
     # ── failed runs ───────────────────────────────────────────────────────────
@@ -167,7 +183,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         with pl.Config(tbl_rows=20):
             print(
                 df.filter(pl.col("error").is_not_null()).select(
-                    ["well_depth_m", "mass_flow_kg_s", "loop_length_m", "error"],
+                    ["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m", "error"],
                 ),
             )
 
