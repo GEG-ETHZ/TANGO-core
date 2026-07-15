@@ -4,8 +4,17 @@ Sweeps well depth (2 – 6.5 km) × mass flow rate (5 – 100 kg/s) × horizonta
 length (707 – 2500 m) over 500 designs and reports production temperature,
 specific enthalpy, thermal power, and CAPEX.
 
-Runs generate → sweep → summarize in sequence.  Call individual stage scripts
-directly (generate.py, sweep.py, summarize.py) or use DVC for caching.
+Runs generate → sweep → summarize → plot in sequence.  Call individual stage
+scripts directly (generate.py, sweep.py, summarize.py, plot.py) or use DVC
+for caching.
+
+plot.py writes two PNGs to the sweep directory:
+  - success_scatter.png       one subplot per loop length, mass flow vs.
+                              well depth, colored by whether T_prod meets
+                              the 105 degC district-heating threshold.
+  - parallel_coordinates.png  every design as one line across well depth,
+                              mass flow, loop length, T_prod, thermal power,
+                              CAPEX, and LCOH, colored by LCOH.
 
 Usage
 -----
@@ -94,6 +103,33 @@ re-run.
 
 Notes
 -----
+Negative LCOE at marginal (T_prod ~ 50-51 degC) designs — nulled, not fixed upstream
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+plot.py's parallel-coordinates plot surfaced 53/500 designs (all clustered
+right at the 50 degC DH return temperature — essentially non-functional
+loops with almost no useful delta-T) reporting deeply negative LCOE (as low
+as -180 $/kWh_th). Root cause: the native economic unit's
+Net_thermal_power_Generated_kWe goes negative for these designs — parasitic
+pumping load apparently consumes as much or more energy as the loop
+delivers, in the economic unit's own accounting — and LCOE = CAPEX /
+net_power, so dividing by a negative number flips the sign. A negative
+"cost" is nonsensical: these designs aren't cheap, they're not producing a
+priced product at all.
+
+Fixed locally in sweep.py's run_single_simulation(): when
+net_thermal_power_kW <= 0, LCOE is set to null (None / JSON null) rather
+than reporting the native unit's raw (wrong-signed) value. This is a
+result-post-processing fix in this application only, not a fix to the
+native economic unit itself — src/tango/units/native/economic/economic.py's
+LCOE formula still does the same division regardless of caller. Whether
+Net_thermal_power_Generated_kWe going negative is itself correct (parasitic
+pumping genuinely exceeding delivered heat is physically plausible for a
+barely-functional loop) or a sign/accounting bug is unresolved — it sits
+alongside the existing "Pump electricity accounting — known inconsistencies
+(needs HIL verification)" section in docs/TANGO_vision_and_roadmap.md and
+should be investigated together with that, not treated as solved by this
+workaround.
+
 Direct-heat AGS validator fix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 `SurfaceUnitFlexiblePP.validate_custom()`
@@ -198,6 +234,7 @@ from pathlib import Path
 
 from common import DEFAULT_LOG_LEVEL, DEFAULT_N_WORKERS, DEFAULT_SWEEP_DIR, load_params
 from generate import main as generate_main
+from plot import main as plot_main
 from summarize import main as summarize_main
 from sweep import main as sweep_main
 
@@ -264,3 +301,4 @@ if __name__ == "__main__":
         sweep_dir=sweep_dir,
     )
     summarize_main(quiet=False, sweep_dir=sweep_dir)  # always print tables at end
+    plot_main(quiet=args.quiet, sweep_dir=sweep_dir)

@@ -152,8 +152,25 @@ def run_single_simulation(args: tuple) -> None:
             result["CAPEX_surface_pipes_USD"] = er.get("CAPEX_surface_gathering_system")
             result["CAPEX_surface_plant_USD"] = er.get("CAPEX_surface_plant")
             result["CAPEX_total_USD"] = er.get("CAPEX_total")
-            result["LCOE_USD_per_kWh"] = er.get("LCOE")
-            result["net_thermal_power_kW"] = er.get("Net_thermal_power_Generated_kWe")  # kW_th
+            net_thermal_power_kW = er.get("Net_thermal_power_Generated_kWe")  # kW_th
+            result["net_thermal_power_kW"] = net_thermal_power_kW
+
+            lcoe = er.get("LCOE")
+            # LCOE = CAPEX / net_power. When net_thermal_power_kW <= 0 (parasitic
+            # pumping consumes as much or more than the loop delivers — a real
+            # outcome for marginal designs barely above the DH return
+            # temperature, not a simulation error), this ratio is undefined, not
+            # merely large: the plant isn't producing the product LCOE prices in
+            # the first place. Dividing CAPEX by a negative number flips the
+            # sign, producing a nonsensical negative "cost." NaN (not +inf) is
+            # the honest representation — +inf would imply a diminishing-returns
+            # limit as net power shrinks toward zero from above, which isn't
+            # what's happening here, and NaN is skipped by default in
+            # mean/percentile aggregations downstream (summarize.py, plot.py)
+            # instead of corrupting them the way +inf would.
+            if net_thermal_power_kW is not None and net_thermal_power_kW <= 0:
+                lcoe = None
+            result["LCOE_USD_per_kWh"] = lcoe
 
     except Exception as e:
         result["error"] = {

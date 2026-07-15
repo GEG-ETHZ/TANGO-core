@@ -404,6 +404,16 @@ outputs from `src/tango/`.  The summary below is based on static code analysis a
 contain errors — the original codebase is complex enough that misreading a sign convention
 or a code path is easy.**
 
+Concrete evidence this matters, found while running the Triemli AGS direct-heat sweep
+(`applications/run_AGS_direct_heat_sweep/`, see that script's NOTES): 53/500 swept
+designs — all clustered right at the district-heating return temperature (~50-51°C,
+i.e. barely-functional loops) — reported `Net_thermal_power_Generated_kWe` as negative,
+which the native LCOE formula (`CAPEX / net_power`) then turns into a deeply negative
+"cost" (as low as -180 $/kWh_th). Whether the underlying negative net power is itself
+correct (parasitic pumping genuinely exceeding delivered heat is physically plausible
+for a barely-functional loop) or a sign/accounting bug is unresolved and should be
+checked together with the table below, not in isolation.
+
 Current best understanding of pump accounting per surface plant type:
 
 | Pump | FlexiblePP | ORC | CPG |
