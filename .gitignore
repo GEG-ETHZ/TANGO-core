@@ -4,10 +4,10 @@
 *.so
 *.cfg
 !.isort.cfg
-!setup.cfg
 *.orig
 *.log
 *.pot
+*.prof
 __pycache__/*
 .cache/*
 .*.swp
@@ -52,6 +52,13 @@ MANIFEST
 .venv*/
 .conda*/
 .python-version
+.pixi/
+
+# Claude Code memory
+memory/
+
+# draw.io autosave/crash-recovery files
+docs/diagrams/src/.$*.bkp
 
 # Configuration and secrets
 config/arangodb.conf
