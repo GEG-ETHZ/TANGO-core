@@ -24,7 +24,7 @@ DH_RETURN_TEMP_K: float = DH_RETURN_TEMP_C + 273.15
 # useful wellhead temperatures for district heating.
 # At 35 °C/km + 11 °C surface → 105 °C outlet requires roughly 2700 m
 # (accounting for heat loss along the vertical production section of the AGS loop).
-# Extended 2026-07-15 (Chad's request) from 6500 m up to 8000 m, same 500 m step.
+# Extended 2026-07-15 from 6500 m up to 8000 m, same 500 m step.
 WELL_DEPTHS_M: list[float] = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000]
 
 # Mass flow rates in kg/s. Extended 2026-07-15 down to 3.5 kg/s (below the

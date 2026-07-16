@@ -117,8 +117,8 @@ re-run.
    together (both must match by convention — see the "Inconsistent
    well_spacing and horizontal_well length" warning in horizontal_well.py).
 
-4. PARTIALLY ADDRESSED — of the three additional axes the original TODO
-   asked for, two are now done:
+4. DONE, with one axis descoped — of the three additional axes the original
+   TODO asked for, two are done and the third is explicitly descoped:
      - horizontal loop length      DONE (see item 3)
      - loop diameter               DONE — fourth sweep axis added
        (common.py's LOOP_DIAMETERS_M, currently [0.2, 0.311, 0.41, 0.5, 0.6,
@@ -129,15 +129,24 @@ re-run.
        well_diameter_seq only — the vertical wells' diameter is
        intentionally left alone, per the original TODO wording ("loop
        diameter (horizontal_well.diameter)").
-     - number of horizontal loops  NOT DONE — still blocked on unverified
-       parallel-vs-series flow semantics. MULTIPLE_UNIT_NODE_OPTIONS
-       (src/tango/core/config.py) allows multiple horizontal_well nodes but
-       only suppresses a duplicate-node registration error — it does not
-       itself establish parallel-flow physics, and multiple loops must be
-       modelled in parallel (not in series) for correct per-loop pressure
-       drop. Verify the actual graph execution semantics before adding this
-       axis.
-   Ranges extended again 2026-07-15 (Chad's request, second round): well
+     - number of horizontal loops  DESCOPED for now (Chad's call, 2026-07-16).
+       Still blocked on unverified parallel-vs-series flow semantics:
+       MULTIPLE_UNIT_NODE_OPTIONS (src/tango/core/config.py) allows multiple
+       horizontal_well nodes but only suppresses a duplicate-node
+       registration error — it does not itself establish parallel-flow
+       physics, and multiple loops must be modelled in parallel (not in
+       series) for correct per-loop pressure drop. Properly supporting this
+       would mean either verifying the orchestrator's actual graph-traversal
+       semantics or building the split/merge topology explicitly ourselves
+       (N horizontal_well nodes, flow split evenly, merged before the
+       production well) — real scope, not a quick sweep-axis addition like
+       the other three. Reasoning for descoping rather than blocking on it:
+       sweeping loop length and loop diameter already varies the total
+       heat-exchange/flow capacity a design can deliver, which is a
+       reasonable surrogate for what adding more parallel loops would
+       accomplish — the design space isn't fully explored without this axis,
+       but it isn't unexplored either.
+   Ranges extended again 2026-07-15 (second round): well
    depth 6.5 -> 8 km, mass flow 5 -> 3.5 kg/s floor, loop length 2500 ->
    3500 m, loop diameter 0.5 -> 0.75 m, all keeping the existing step sizes
    (see common.py). This uncovered a real validation failure — see "8000 m
@@ -151,11 +160,11 @@ re-run.
    loop length, loop diameter) triple (252 files) instead of printing every
    pivot table to the console, since 7 x 6 = 42 combinations is unreadable
    as printed tables.
-   Number of horizontal loops is still the one axis from the original TODO
-   that's missing — that holds regardless of how far the other three axes
-   get extended. Don't treat any version of this sweep's output as covering
-   the full design space the TODO called for until that axis is addressed
-   or Chad explicitly descopes it.
+   Number of horizontal loops remains the one axis from the original TODO
+   that's missing — descoped rather than done, see above. This sweep's
+   output should be read as covering the loop-length/loop-diameter/depth/
+   mass-flow design space, with number-of-loops intentionally out of scope
+   for now rather than silently unaddressed.
 
 Notes
 -----
