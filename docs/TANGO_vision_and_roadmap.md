@@ -513,6 +513,27 @@ module defining unit conversion constants and physical constansts, e.g.
 
 ---
 
+#### CI test subset — `tests/regtest/` doesn't fit in the GitLab runner timeout
+
+As of 2026-07-16, the GitLab CI `test` job ran the full `pytest` suite and was
+killed after exceeding the 1h runner timeout partway through
+`tests/regtest/test_tango_next.py` (job #1857142) — `tests/regtest/` alone
+(old-vs-new parity, CMG/native comparisons, full simulation runs) takes 1h+.
+CI now runs only `tests/unit/` (36 tests, <1s), so a green pipeline means
+"unit tests pass," not "full suite passes." The full suite (`tests/unit/` +
+`tests/regtest/`) still runs locally on every `git push` via the `prek`
+pre-push hook, so regressions are still caught before merge — just not by
+the server-side pipeline. See `tests/README.md` for the day-to-day version
+of this note.
+
+Future task: either (a) speed up `tests/regtest/` until the full suite runs
+comfortably in CI, or (b) make the fast/slow split permanent — `tests/unit/`
+runs automatically (CI + pre-push), `tests/regtest/` runs locally via
+pre-push plus an optional, manually-triggered CI job for deliberate
+full-suite runs, but never automatically on every push.
+
+---
+
 ### Refactor Phases
 
 *Diagram: [Refactor Phases](diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
