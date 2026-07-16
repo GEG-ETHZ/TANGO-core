@@ -16,13 +16,19 @@ from common import DEFAULT_SWEEP_DIR
 T_PROD_THRESHOLD_C = 105.0
 
 # Axes shown in the parallel-coordinates plot, in order.
-# Inputs first (well_depth_m, mass_flow_kg_s, loop_length_m, loop_diameter_m),
+# row_idx first — not a design parameter, but lets you read off which
+# specific design a line belongs to (matches the row_idx column in
+# results.parquet and the <row_idx>.json filename in outputs/results/) by
+# hovering/dragging on that axis instead of having to reverse-engineer it
+# from the other seven values.
+# Then inputs (well_depth_m, mass_flow_kg_s, loop_length_m, loop_diameter_m),
 # then outputs chosen to tell the design story end to end:
 #   - T_prod_C            whether the district-heating temperature target is met
 #   - thermal_power_kW    how much useful heat the design actually delivers
 #   - CAPEX_total_USD     what it costs to build
 #   - LCOE_USD_per_kWh    the bottom-line cost-of-heat metric (LCOH in this mode)
 _PARCOORD_COLUMNS: list[tuple[str, str]] = [
+    ("row_idx", "Design\nindex"),
     ("well_depth_m", "Well depth\n[m]"),
     ("mass_flow_kg_s", "Mass flow\n[kg/s]"),
     ("loop_length_m", "Loop length\n[m]"),
@@ -32,6 +38,24 @@ _PARCOORD_COLUMNS: list[tuple[str, str]] = [
     ("CAPEX_total_USD", "Total CAPEX\n[USD]"),
     ("LCOE_USD_per_kWh", "LCOH\n[USD/kWh_th]"),
 ]
+
+# Display label for a color/value column in titles, legends, and colorbars.
+# LCOE_USD_per_kWh is the raw column name (matches sweep.py/summarize.py,
+# and the fact that it's literally computed as CAPEX / net_power regardless
+# of product), but this sweep runs in direct-heat mode, so what it actually
+# prices is heat, not electricity — showing the raw "LCOE" name in a title
+# is simply the wrong term here. Display as "LCOH" instead of the column name.
+_COLOR_COL_DISPLAY_NAMES: dict[str, str] = {
+    "LCOE_USD_per_kWh": "LCOH [USD/kWh_th]",
+}
+
+
+def _display_name(color_col: str) -> str:
+    """Human-facing label for a column, for titles/legends/colorbars only —
+    never use this for data access (pl.col(...), df[...]), only for text
+    shown to the viewer.
+    """
+    return _COLOR_COL_DISPLAY_NAMES.get(color_col, color_col)
 
 
 def plot_success_scatter(df: pl.DataFrame, out_path: Path) -> None:
@@ -213,11 +237,11 @@ def plot_lcoe_grid(df: pl.DataFrame, out_path: Path, color_col: str = "LCOE_USD_
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     cbar = fig.colorbar(sm, ax=axes, pad=0.015, extend="both", shrink=0.9)
-    cbar.set_label(f"{color_col} (5th-95th pctile; outliers clipped)")
+    cbar.set_label(f"{_display_name(color_col)} (5th-95th pctile; outliers clipped)")
 
     fig.suptitle(
-        f"{color_col} across all designs  "
-        f"(o = meets {T_PROD_THRESHOLD_C:.0f} degC, x = misses; color = {color_col}, "
+        f"{_display_name(color_col)} across all designs  "
+        f"(o = meets {T_PROD_THRESHOLD_C:.0f} degC, x = misses; color = {_display_name(color_col)}, "
         f"grey = undefined n={n_undefined_total})",
         y=1.02,
     )
@@ -277,7 +301,13 @@ def plot_parallel_coordinates(df: pl.DataFrame, out_path: Path, color_col: str =
         else:
             ax.plot(x, row, color="lightgrey", alpha=0.6, linewidth=0.8, zorder=-1)
     if n_undefined:
-        ax.plot([], [], color="lightgrey", linewidth=2, label=f"{color_col} undefined (n={n_undefined})")
+        ax.plot(
+            [],
+            [],
+            color="lightgrey",
+            linewidth=2,
+            label=f"{_display_name(color_col)} undefined (n={n_undefined})",
+        )
         ax.legend(loc="lower right", fontsize=8, framealpha=0.9)
 
     for i, (col_min, col_max, label) in enumerate(zip(mins, maxs, labels, strict=True)):
@@ -317,7 +347,7 @@ def plot_parallel_coordinates(df: pl.DataFrame, out_path: Path, color_col: str =
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=c_min, vmax=c_max))
     cbar = fig.colorbar(sm, ax=ax, pad=0.02, extend="both")
-    cbar.set_label(f"{color_col} (5th-95th pctile; outliers clipped)")
+    cbar.set_label(f"{_display_name(color_col)} (5th-95th pctile; outliers clipped)")
 
     fig.suptitle("Triemli AGS direct-heat sweep — all designs", y=0.99)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
@@ -383,7 +413,7 @@ def plot_parallel_coordinates_interactive(
                 "cmin": c_min,
                 "cmax": c_max,
                 "showscale": True,
-                "colorbar": {"title": f"{color_col}\n(5-95 pctile)"},
+                "colorbar": {"title": f"{_display_name(color_col)}\n(5-95 pctile)"},
             },
             # Default unselected-line dimming is subtle enough that a
             # dragged filter barely stands out, especially at the pale-yellow
@@ -396,7 +426,7 @@ def plot_parallel_coordinates_interactive(
     if title is None:
         title = (
             "Triemli AGS direct-heat sweep — all designs (interactive: drag along an axis "
-            f"to filter; {n_undefined} designs with {color_col} undefined excluded)"
+            f"to filter; {n_undefined} designs with {_display_name(color_col)} undefined excluded)"
         )
     fig.update_layout(
         title=title,
@@ -414,24 +444,22 @@ def plot_parallel_coordinates_interactive_qualified(
     df: pl.DataFrame,
     out_path: Path,
     color_col: str = "LCOE_USD_per_kWh",
-    min_thermal_power_kW: float = 2.0,
+    min_thermal_power_kW: float = 2000.0,
 ) -> bool:
     """Same as plot_parallel_coordinates_interactive, but restricted to designs
     that meet the T_prod >= 105 degC district-heating threshold AND deliver
     at least `min_thermal_power_kW` of thermal power (ṁ · Δh, the
     thermal_power_kW column — not net_thermal_power_kW, which has known sign
-    issues near-zero, see sweep.py's LCOE-nulling comment). This second
-    filter has no effect on the current sweep (all 102 qualifying designs
-    already deliver >= ~1190 kW), but guards against a future sweep's
-    parameter ranges producing designs that clear the temperature threshold
-    while barely delivering any useful heat.
+    issues near-zero, see sweep.py's LCOE-nulling comment). This is a real,
+    binding filter on the current (extended-range) sweep: of the 1003
+    designs meeting the temperature threshold, 583 also clear 2 MW.
 
     Filtering first (rather than plotting everything and asking the viewer to
     drag filters by hand) also tightens the color scale: the 5th-95th
     percentile is computed only over the filtered designs instead of the
     full sweep, so the colorbar actually resolves the LCOH spread among the
     designs that matter instead of being dominated by the much wider range
-    across all 2000.
+    across the full sweep.
     """
     qualified = df.filter(
         (pl.col("T_prod_C") >= T_PROD_THRESHOLD_C) & (pl.col("thermal_power_kW") >= min_thermal_power_kW),
@@ -439,7 +467,7 @@ def plot_parallel_coordinates_interactive_qualified(
     n_qualified = qualified.filter(pl.col("error").is_null()).height
     title = (
         f"Triemli AGS direct-heat sweep — designs meeting T_prod >= {T_PROD_THRESHOLD_C:.0f} degC "
-        f"and thermal power >= {min_thermal_power_kW:.0f} kW only (n={n_qualified}); "
+        f"and thermal power >= {min_thermal_power_kW / 1000:.0f} MW only (n={n_qualified}); "
         "interactive: drag along an axis to filter"
     )
     return plot_parallel_coordinates_interactive(qualified, out_path, color_col=color_col, title=title)

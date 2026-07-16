@@ -31,13 +31,30 @@ plot.py writes these to the sweep directory:
                               plotly isn't installed.
   - parallel_coordinates_qualified.html  same as parallel_coordinates.html,
                               pre-filtered to designs meeting the 105 degC
-                              threshold and >= 2 kW thermal power (~1000 of
+                              threshold and >= 2 MW thermal power (583 of
                               6006) instead of relying on manual axis-drag
                               filtering, with the LCOH colorbar's 5th-95th
                               percentile computed over just that subset so
                               it actually resolves the spread among designs
                               that matter instead of being dominated by the
                               full sweep's much wider range.
+
+Both parallel-coordinates plots include a "Design index" (row_idx) axis, but
+Plotly's Parcoords trace has no hover tooltips at all (confirmed via its
+attribute list — no hoverinfo/hovertemplate on the trace or on dimensions),
+so you can't read an exact row_idx off a line by hovering. Use
+find_design.py instead: drag narrow filter ranges on the plot's four input
+axes (well depth, mass flow, loop length, loop diameter) until only the
+line(s) you care about remain, read (approximate) values off the axes, then:
+
+    python find_design.py --well-depth-m 8000 --mass-flow-kg-s 30 \
+        --loop-length-m 3500 --loop-diameter-m 0.75
+
+prints the nearest-matching row(s) (normalized-distance nearest-neighbor,
+not exact/tolerance matching — deliberately so it keeps working if this
+sweep ever moves from a full-factorial grid to LHS or other continuous
+sampling, where "type the exact value" wouldn't make sense) plus each one's
+outputs/results/<row_idx>.json path.
 
 Usage
 -----
