@@ -16,7 +16,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-*Diagram: [Four-Tier Access Model](diagrams/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Four-Tier Access Model](diagrams/src/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ### Tier 1 — Community / Academic (free or very low cost)
 
@@ -572,7 +572,7 @@ full-suite runs, but never automatically on every push.
 
 ### Refactor Phases
 
-*Diagram: [Refactor Phases](diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Refactor Phases](diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ---
 
@@ -783,10 +783,11 @@ all congruent with each other.
 - [ ] Build a one-way migration tool from old to new input format
 - [x] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
-- [ ] Add test coverage for `tango_next` (currently zero — confirmed no `tests/` files reference
-    `tango_next` at all). The CLI, orchestrators, and components are functional enough to run
-    `flexible_SF_manual.yml` end-to-end under `InjectionPolicy.MANUAL`, but none of it has unit
-    tests yet; this should land before more Phase 1/2 functionality is layered on top.
+- [x] Add test coverage for `tango_next`. `tests/unit/test_serde_roundtrip.py` and
+    `tests/unit/test_locked_state.py` cover `LockedState`/serialization behavior,
+    `tests/regtest/test_tango_next.py` exercises the CLI/orchestrator/component stack end-to-end
+    (e.g. `flexible_SF_manual.yml` under `InjectionPolicy.MANUAL`), and
+    `tests/regtest/test_old_new_parity.py` regresses `tango_next` against `tango` output.
 
 ---
 
