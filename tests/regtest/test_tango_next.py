@@ -282,6 +282,7 @@ def test_coolprop_error_is_tango_next_error() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.perf
 def test_performance_20_timesteps() -> None:
     """Full 20-timestep run completes in under 60 s (NumericalInjectionWell + CoolProp).
 

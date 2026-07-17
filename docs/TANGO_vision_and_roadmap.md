@@ -93,6 +93,34 @@ The open/closed boundary is a key decision. One reasonable approach:
 This mirrors models used successfully by e.g. OpenFOAM (open core) + commercial
 extensions, or Ansys (open APIs, proprietary solver backends).
 
+#### Third-party dependency license policy (needs OSS-license-expert review)
+
+Quick, non-legal-advice observations for whoever on the team owns this — not
+a decision, just context to speed up that conversation (see also
+`tools/check_licenses.py`, which currently flags ~43 dependencies as
+"non-compliant," mostly because their license is unrecognized rather than
+because they're actually copyleft):
+
+- Standard copyleft (GPL/LGPL) obligations trigger on **distribution**, not
+  on internal/SaaS use. For Tier 4 (SaaS), running GPL-licensed dependencies
+  server-side without distributing the codebase generally doesn't trigger
+  copyleft — **AGPL is the one exception to watch for**, since it explicitly
+  extends copyleft to network-accessible use.
+- Tier 3 (Licensed On-Prem Binary) is the tier where this actually matters:
+  shipping a binary/installer that bundles GPL-licensed dependencies likely
+  does count as distribution and can trigger obligations, even though no
+  TANGO source is being shared. LGPL is generally lower-risk here (dynamic
+  linking/separate-module use typically doesn't require releasing your own
+  code, only modifications to the LGPL component itself).
+- Permissive licenses (MIT/BSD/Apache-2.0) aren't obligation-free just
+  because they're permissive — they require preserving attribution/license
+  notices in anything distributed (Tier 3 binaries, Tier 4 doesn't apply).
+  Worth having a NOTICE-file process regardless of the copyleft question.
+- The biggest immediate risk isn't copyleft — it's the "Unknown" bucket
+  (packages whose license `check_licenses.py` can't determine at all). Those
+  need to be resolved to *something* before "we're liberal about licenses"
+  can be a defensible policy, since an unknown license could be anything.
+
 ---
 
 ## Technical Roadmap: The TANGO Refactor
@@ -510,6 +538,14 @@ All unit conversions should be handled via constants imported from a
 module defining unit conversion constants and physical constansts, e.g.
 `p_out_kilopascals = p_out_megapascals * 1_000` should be
 `p_out_kilopascals = pascals * MEGA_TO_KILO`
+
+A 2026-07-16 repo cleanup audit found the Sphinx API-doc toolchain
+(`source/`, `.readthedocs.yml`, `make.bat`, `tox.ini`'s `docs` env) dormant
+and broken — `.readthedocs.yml` pointed at a `docs/conf.py` that didn't
+exist — and removed it rather than fix it. We still need a real process for
+generating API docs from `src/tango`/`src/tango_next` (whether that's a
+revived Sphinx setup, mkdocs, or something else) rather than leaving it
+undecided.
 
 ---
 
