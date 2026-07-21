@@ -1,0 +1,139 @@
+# tango_next format — Advanced Geothermal System (AGS), direct-heat only.
+#
+# Ported from applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml (the
+# Triemli, Zurich site). AGS is a sealed closed-loop wellbore — there is no
+# reservoir component: injection_well -> horizontal_well -> production_well
+# -> surface -> back to injection_well. All heat exchange is conductive,
+# through the wellbore walls (Adams et al. 2015 model, same as the vertical
+# wells), not via reservoir permeability.
+#
+# horizontal_well uses the base NumericalWell class directly (registered as
+# horizontal_well/numerical) rather than the NumericalInjectionWell /
+# NumericalProductionWell subclasses, with angle_from_vert_deg: 90 (fully
+# horizontal) — see components/well/numerical.py module docstring for how a
+# single marching scheme now covers vertical, horizontal, and deviated wells.
+#
+# No reservoir means InjectionPolicy's fracing-threshold machinery is
+# irrelevant here, but the closed loop still needs SystemBCIteration (not
+# SystemDirect): only SystemBCIteration seeds the circuit's first inlet
+# (injection_well) with cold conditions on timestep 0 via
+# _seed_circuit_inlet(). injection_mode: manual selects it and runs a single
+# circuit pass per timestep (no reservoir means _converge_injection_T() is a
+# no-op — see its "if reservoir is None: return" guard).
+#
+# Site parameters (Triemli, Zurich):
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   fluid                : H2O
+#   application          : direct heat only (district heating, no electricity)
+#   DH return temp       : 50 degC (re-injection temperature)
+#
+# Depth/loop-length values below are one point from the original sweep's
+# range (well_depth 2000-6500 m, loop_length 707-2500 m) — 707 m is the
+# range's validated reference point (see triemli_dh_base.yml's assumption
+# note), used here as-is rather than swept.
+
+title: Advanced Geothermal System (AGS), direct-heat, Triemli site
+
+common:
+  fluid_name: H2O
+  brine_density: 1000        # kg/m3
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+
+layout:
+  well_spacing: 707.0        # m — horizontal loop length; used by the surface
+                              # component as the injector-to-producer surface
+                              # pipe run.
+
+sim_config:
+  num_tsteps: 25              # 25 years of operation
+  dt_years: 1.0                # years
+  injection_mode: manual       # see module docstring: required even without a reservoir
+  mass_rate: 30                 # kg/s
+  bc_checkpoint_idx: 3           # component_idx of the surface (below)
+
+economic:
+  # Phase 2 placeholder — no EconomicComponent subclass exists yet in
+  # tango_next (see MainProduct in core/policies.py), so this block isn't
+  # wired into anything yet. Kept here so the intent (LCOH, not LCOE) is
+  # documented alongside the rest of the config.
+  type: native
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: heat
+
+components:
+
+  injection_well:
+    type: injection_well
+    unit: numerical
+    component_idx: 0           # circuit entry — matches old tango solve order
+    prev: 3
+    next: 1
+    well_length: 3000.0        # m — vertical well depth
+    diameter: 0.311             # m  (~12-inch casing)
+    pipe_roughness: 5.5e-5      # m
+    num_cells: 100
+
+  horizontal_well:
+    type: horizontal_well
+    unit: numerical
+    component_idx: 1
+    prev: 0
+    next: 2
+    well_length: 707.0          # m — horizontal loop flow-path length
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    num_cells: 100
+    wellhead_depth: 3000.0       # m — starting (vertical) depth, matches injection_well's well_length
+    angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
+
+  production_well:
+    type: production_well
+    unit: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 3000.0         # m — vertical well depth
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    num_cells: 100
+
+  surface:
+    type: surface
+    unit: graph
+    component_idx: 3            # solved last, loops back to injection_well (next: 0)
+    prev: 2
+    next: 0
+    surface_temperature: 284.15  # K  (11 degC, Triemli)
+    injection_pressure: 1_500_000  # Pa — initial guess for the BC-iteration solver;
+                                     # kept below the production wellhead pressure so
+                                     # TESPy's pr<=1 constraint on dh_hx isn't violated
+                                     # (Phase 1 limitation: this guess isn't yet solved
+                                     # for — see SystemBCIteration's module docstring)
+    surface_pressure: 100_000       # Pa
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    target_extraction_pressure: 7_000_000  # Pa
+    pipe_roughness: 5.5e-5             # m
+    well_spacing: 707.0                 # m — matches layout.well_spacing above
+
+    power_plant:
+      # Direct-heat surface plant: produced fluid passes through a
+      # district-heating heat exchanger and returns at 50 degC (the
+      # re-injection temperature) — no turbine, no electricity.
+      nodes:
+        inlet:
+          type: Source
+        dh_hx:
+          type: SimpleHeatExchanger
+          role: net_thermal
+          T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+        outlet:
+          type: Sink
+      edges:
+        1: {source: inlet, target: dh_hx}
+        2: {source: dh_hx, target: outlet}

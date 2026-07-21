@@ -31,6 +31,7 @@ from tango_next.workflows.workflow import Workflow
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 OLD_SF_MANUAL = EXAMPLES_DIR / "flexible_SF_manual.yml"
 NEW_SF_MANUAL = EXAMPLES_DIR / "tango_next" / "flexible_SF_manual.yml"
+NEW_AGS_DIRECT_HEAT = EXAMPLES_DIR / "tango_next" / "AGS_direct_heat.yml"
 
 REFERENCE_LCOE = 0.7740618821220107
 N_TSTEPS = 20  # sim_config.time.num_tsteps in the tango_next YAML
@@ -61,6 +62,27 @@ def test_smoke() -> None:
     wf = _run_tango_next(NEW_SF_MANUAL)
     # If we get here without exception, the circuit completed all 20 timesteps.
     assert wf._orchestrator.n_tsteps == N_TSTEPS
+
+
+def test_ags_direct_heat_smoke() -> None:
+    """tango_next runs the no-reservoir AGS direct-heat loop to completion.
+
+    Covers the closed-loop topology (injection_well -> horizontal_well ->
+    production_well -> surface -> back to injection_well, no reservoir) and
+    the ``horizontal_well``/``numerical`` registry entry (the base
+    ``NumericalWell`` used directly with ``angle_from_vert_deg: 90``).
+    """
+    wf = _run_tango_next(NEW_AGS_DIRECT_HEAT)
+    surface = _components(wf)["surface"]
+
+    # t=0 is a known cold-start transient (circuit seeded at surface_temperature
+    # rather than the steady re-injection temperature — see SystemBCIteration's
+    # _seed_circuit_inlet docstring), so check steady-state behavior from t=1 on.
+    net_thermal_steady_state = surface.history.net_thermal_W[1:]
+    assert all(q > 0 for q in net_thermal_steady_state), (
+        "Direct-heat plant should deliver positive net thermal power once past "
+        f"the t=0 cold-start transient: {net_thermal_steady_state}"
+    )
 
 
 # ---------------------------------------------------------------------------

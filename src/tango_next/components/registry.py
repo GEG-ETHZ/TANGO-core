@@ -25,6 +25,7 @@ from tango_next.components.well.numerical import (
     NumericalInjectionWell,
     NumericalProductionWell,
     NumericalProductionWellPump,
+    NumericalWell,
 )
 
 if TYPE_CHECKING:
@@ -39,5 +40,6 @@ COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("production_well", "numerical"): NumericalProductionWell,
     ("production_well_pump", "native"): LumpedProductionWellPump,
     ("production_well_pump", "numerical"): NumericalProductionWellPump,
+    ("horizontal_well", "numerical"): NumericalWell,
     ("surface", "graph"): GraphSurface,
 }
