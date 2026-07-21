@@ -22,22 +22,22 @@
         <mxCell id="loop_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontStyle=3;" value="for bc_iter in range(max_iterations):" vertex="1">
           <mxGeometry height="16" width="290" x="10" y="202" as="geometry" />
         </mxCell>
-        <mxCell id="c_inj" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="①  injection_well  (idx=1)&#xa;inlet.P = test_p   inlet.T = surface.outlet.T&#xa;LumpedInjectionWell.solve()" vertex="1">
+        <mxCell id="c_inj" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="①  injection_well  (idx=0)&#xa;inlet.P = test_p   inlet.T = surface.outlet.T&#xa;LumpedInjectionWell.solve()" vertex="1">
           <mxGeometry height="56" width="320" x="20" y="224" as="geometry" />
         </mxCell>
         <mxCell id="update_testp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=0;" value="test_p += target_reservoir_P − inj_well.outlet.P&#xa;target_reservoir_P = hydrostatic_P × (1 + overpressure%/100)&#xa;(src/tango/ MANUAL_FRACING_CHECK: skip if target_reservoir_P &amp;gt; inj_well.outlet.P —&#xa;reservoir inlet is below fracing threshold; no pressure adjustment needed)" vertex="1">
           <mxGeometry height="102" width="320" x="20" y="298" as="geometry" />
         </mxCell>
-        <mxCell id="c_res" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="②  reservoir  (idx=2)&#xa;LumpedReservoir.solve()&#xa;inlet ← inj_well.outlet" vertex="1">
+        <mxCell id="c_res" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="②  reservoir  (idx=1)&#xa;LumpedReservoir.solve()&#xa;inlet ← inj_well.outlet" vertex="1">
           <mxGeometry height="52" width="320" x="20" y="428" as="geometry" />
         </mxCell>
-        <mxCell id="c_pwl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="③  production_well_lower  (idx=3)&#xa;LumpedProductionWell.solve()&#xa;inlet ← reservoir.outlet" vertex="1">
+        <mxCell id="c_pwl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="③  production_well_lower  (idx=2)&#xa;LumpedProductionWell.solve()&#xa;inlet ← reservoir.outlet" vertex="1">
           <mxGeometry height="52" width="320" x="20" y="496" as="geometry" />
         </mxCell>
-        <mxCell id="c_pwu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="④  production_well_upper  (idx=4)&#xa;LumpedProductionWellPump.solve()  [inner loop]&#xa;iterate pump_dp until outlet.P ≈ target_extraction_P" vertex="1">
+        <mxCell id="c_pwu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="④  production_well_upper  (idx=3)&#xa;LumpedProductionWellPump.solve()  [inner loop]&#xa;iterate pump_dp until outlet.P ≈ target_extraction_P" vertex="1">
           <mxGeometry height="56" width="320" x="20" y="564" as="geometry" />
         </mxCell>
-        <mxCell id="c_surf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="⑤  surface  (idx=0)&#xa;SingleFlashSurface.solve()&#xa;inlet ← pro_well_pump.outlet  (P ≈ target_extraction_P)" vertex="1">
+        <mxCell id="c_surf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="⑤  surface  (idx=4)&#xa;GraphSurface.solve()&#xa;inlet ← pro_well_pump.outlet  (P ≈ target_extraction_P)" vertex="1">
           <mxGeometry height="52" width="320" x="20" y="636" as="geometry" />
         </mxCell>
         <mxCell id="conv_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontStyle=2;" value="AUTO_PRESSURE / AUTO_FLOW / AUTO_BOTH only  (see ★)" vertex="1">
@@ -105,7 +105,7 @@
             <mxPoint x="-96" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="phase2_note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=9;align=left;" value="★  InjectionPolicy governs iteration (see legend →)&lt;br&gt;&lt;br&gt;  MANUAL / MANUAL_FRACING_CHECK:&lt;br&gt;    single pass; break immediately after ⑤&lt;br&gt;&lt;br&gt;  AUTO_PRESSURE / AUTO_FLOW / AUTO_BOTH:&lt;br&gt;    loop until convergence diamond is satisfied&lt;br&gt;&lt;br&gt;  src/tango/: one loop body for all modes;&lt;br&gt;  MANUAL_FRACING_CHECK uses the &quot;skip if&lt;br&gt;  target &amp;gt; outlet.P&quot; shortcut in the update box.&lt;br&gt;&lt;br&gt;Phase 1 status: trivially converges in 1 pass.&lt;br&gt;  surface.outlet.P = _injection_pressure always,&lt;br&gt;  so |Δtest_p| = 0." vertex="1">
+        <mxCell id="phase2_note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=9;align=left;" value="★  InjectionPolicy governs iteration (see legend →)&lt;br&gt;&lt;br&gt;  MANUAL / MANUAL_FRACING_CHECK:&lt;br&gt;    single pass; break immediately after ⑤&lt;br&gt;&lt;br&gt;  AUTO_PRESSURE / AUTO_FLOW / AUTO_BOTH:&lt;br&gt;    loop until convergence diamond is satisfied&lt;br&gt;&lt;br&gt;  src/tango/: one loop body for all modes;&lt;br&gt;  MANUAL_FRACING_CHECK uses the &quot;skip if&lt;br&gt;  target &amp;gt; outlet.P&quot; shortcut in the update box.&lt;br&gt;&lt;br&gt;Phase 1 status: trivially converges in 1 pass.&lt;br&gt;  surface.outlet.P = self.injection_pressure always,&lt;br&gt;  so |Δtest_p| = 0." vertex="1">
           <mxGeometry height="210" width="300" x="330" y="770" as="geometry" />
         </mxCell>
         <mxCell id="pump_inner" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;align=left;" value="Inner pump loop (src/tango/: 5 fixed iterations):&#xa;  pump_dp = max(0, ρgL − pro_well.outlet.P)&#xa;  for i in range(5):&#xa;    pump_inlet.P = pro_well.outlet.P + pump_dp&#xa;    pro_well_pump.stream_interface()&#xa;    pump_dp += target_extraction_P − pump.outlet.P&#xa;    if pump.outlet.P ≈ target_extraction_P: break&#xa;Phase 2: replace with convergence-based loop." vertex="1">
@@ -119,34 +119,34 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="pp" parent="1" style="swimlane;startSize=48;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" value="SingleFlashSurface — power_plant sub-graph&#xa;(TESPy cycle inside surface.solve() — implemented)" vertex="1">
+        <mxCell id="pp" parent="1" style="swimlane;startSize=48;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" value="GraphSurface — power_plant sub-graph&#xa;(generic TESPy network built from power_plant.nodes/edges YAML — implemented)" vertex="1">
           <mxGeometry height="460" width="510" x="620" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="pp_in" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="inlet  (idx=0)&#xa;Source" vertex="1">
+        <mxCell id="pp_in" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="inlet&#xa;Source" vertex="1">
           <mxGeometry height="38" width="130" x="190" y="57" as="geometry" />
         </mxCell>
-        <mxCell id="pp_valve" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="valve  (idx=1)&#xa;p_out = 0.5 MPa" vertex="1">
+        <mxCell id="pp_valve" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="valve&#xa;p_out_megapascals: 0.5" vertex="1">
           <mxGeometry height="40" width="140" x="185" y="121" as="geometry" />
         </mxCell>
-        <mxCell id="pp_sep" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="droplet_separator  (idx=2)&#xa;DropletSeparator" vertex="1">
+        <mxCell id="pp_sep" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="droplet_separator&#xa;DropletSeparator" vertex="1">
           <mxGeometry height="40" width="180" x="165" y="191" as="geometry" />
         </mxCell>
-        <mxCell id="pp_turb" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="turbine  (idx=4)&#xa;p_out = 0.05 MPa" vertex="1">
+        <mxCell id="pp_turb" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="turbine  role: net_electric&#xa;p_out_megapascals: 0.05" vertex="1">
           <mxGeometry height="40" width="140" x="30" y="271" as="geometry" />
         </mxCell>
-        <mxCell id="pp_pump2" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=0;" value="pump2  (idx=3)&#xa;Compressor&#xa;brine re-injection pump" vertex="1">
+        <mxCell id="pp_pump2" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=0;" value="pump2  role: net_electric&#xa;Compressor&#xa;brine re-injection pump" vertex="1">
           <mxGeometry height="48" width="150" x="330" y="267" as="geometry" />
         </mxCell>
-        <mxCell id="pp_cond" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="condenser  (idx=5)&#xa;SimpleHeatExchanger" vertex="1">
+        <mxCell id="pp_cond" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="condenser&#xa;SimpleHeatExchanger" vertex="1">
           <mxGeometry height="40" width="140" x="30" y="347" as="geometry" />
         </mxCell>
-        <mxCell id="pp_pump" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" value="pump  (idx=6)&#xa;Compressor&#xa;condensate pump" vertex="1">
+        <mxCell id="pp_pump" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" value="pump  role: net_electric&#xa;Compressor&#xa;condensate pump" vertex="1">
           <mxGeometry height="48" width="140" x="30" y="407" as="geometry" />
         </mxCell>
-        <mxCell id="pp_mix" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="mixer  (idx=7)&#xa;Merge" vertex="1">
+        <mxCell id="pp_mix" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;" value="mixer&#xa;Merge" vertex="1">
           <mxGeometry height="40" width="130" x="195" y="407" as="geometry" />
         </mxCell>
-        <mxCell id="pp_note" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;align=left;" value="Phase 2: pump2.outlet.P → injection pressure.&#xa;Phase 1: surface.outlet.P = _injection_pressure&#xa;(BC variable, not computed from physics)." vertex="1">
+        <mxCell id="pp_note" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;align=left;" value="Phase 2: pump2.outlet.P → injection pressure.&#xa;Phase 1: surface.outlet.P = self.injection_pressure&#xa;(BC variable, not computed from physics). Node names&#xa;(not indices) are the real GraphSurface contract —&#xa;see components/surface/graph.py." vertex="1">
           <mxGeometry height="81" width="155" x="340" y="347" as="geometry" />
         </mxCell>
         <mxCell id="e_in_valve" edge="1" parent="pp" source="pp_in" style="edgeStyle=orthogonalEdgeStyle;" target="pp_valve">
