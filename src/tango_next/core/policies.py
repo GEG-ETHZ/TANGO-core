@@ -105,3 +105,51 @@ class InjectionPolicy(enum.StrEnum):
         "the target flow rate, the flow rate is reduced until a feasible pressure "
         "can be achieved. Most robust mode for high-flow or low-permeability reservoirs.",
     )
+
+
+class MainProduct(enum.StrEnum):
+    """Which output an ``EconomicComponent`` treats as the plant's primary product.
+
+    Determines the denominator in the levelized-cost calculation: net
+    electric power for ``ELECTRICITY`` (LCOE), net thermal power for
+    ``HEAT`` (LCOH). Both use the same formula —
+    ``CAPEX * (CRF + F_OM) / (product_power * W_TO_KW * CF * YEAR_TO_HOUR)``
+    — only the power term differs, so this does not need a second enum
+    per formula, just a branch on which surface-component output to sum.
+
+    **YAML field:** ``economic.main_product`` (e.g. ``main_product: heat``).
+
+    **src/tango/ mapping:** a raw string compared via
+    ``main_product == "heat"`` (``economic/economic.py``) — replaced here with
+    a real enum specifically to avoid repeating that stringly-typed pattern.
+    See ``project_src_tango_gotchas`` for other silent-failure modes from the
+    same root cause in ``src/tango/``.
+    """
+
+    ELECTRICITY = "electricity"
+    HEAT = "heat"
+
+
+class ComponentRole(enum.StrEnum):
+    """Tags a graph-surface TESPy node's output for aggregation into plant totals.
+
+    Deliberately explicit per-node rather than inferred from TESPy component
+    type: a ``SimpleHeatExchanger`` might be a condenser you reject heat
+    through (not a product) or a district-heating exchanger whose output
+    *is* the product — inferring from type alone would silently misclassify
+    one of them. A node with no role is still solved as part of the network,
+    just not summed into either total.
+
+    ``solve()`` sums ``.P.val`` over ``NET_ELECTRIC`` nodes (sign by TESPy
+    component type — Turbine positive, Compressor negative, same convention
+    as ``src/tango/``'s ``PowerPlant.calculate_net_power()``) and ``.Q.val``
+    over ``NET_THERMAL`` nodes, writing ``state.net_power_W`` /
+    ``state.net_thermal_W``. ``EconomicComponent.main_product`` (see
+    ``MainProduct`` above) picks which of those two totals feeds LCOE/LCOH.
+
+    **YAML field:** ``power_plant.nodes.<name>.role`` (optional; omit for
+    internal-only components like valves, separators, condensers).
+    """
+
+    NET_ELECTRIC = "net_electric"
+    NET_THERMAL = "net_thermal"

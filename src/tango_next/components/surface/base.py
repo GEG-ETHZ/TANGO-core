@@ -12,7 +12,10 @@ class SurfaceComponent(Component):
 
     The surface component is always at component_idx=0 (the BC checkpoint).
     Its injection_pressure field provides the initial guess to SystemBCIteration.
-    Concrete implementations: SingleFlashSurface, DoubleFlashSurface, etc. (Phase 3+).
+    Concrete implementation: GraphSurface, which builds its TESPy network
+    from a YAML power_plant.nodes/edges block rather than hardcoding a fixed
+    topology — see components/surface/graph.py for the single-flash,
+    direct-heat, or any other plant design.
     """
 
     prev: int

@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 
 from tango_next.core.component import Component
+from tango_next.core.policies import MainProduct
 
 
 class EconomicComponent(Component):
@@ -19,6 +20,8 @@ class EconomicComponent(Component):
     """Project maturity stage: 'green_field' or 'brown_field'."""
     discount_rate: float
     """Discount rate as a dimensionless fraction (e.g. 0.095 = 9.5%)."""
+    main_product: MainProduct = MainProduct.ELECTRICITY
+    """Which output is the plant's primary product — determines LCOE vs LCOH."""
 
     @abstractmethod
     def solve(self) -> None:

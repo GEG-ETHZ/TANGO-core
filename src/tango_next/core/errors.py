@@ -47,11 +47,12 @@ class TESPyError(TangoNextError):
     raise ``TESPyCoolPropError`` instead so it's still catchable as a
     CoolProp-rooted error.
 
-    Not yet wired to any call site — ``tango_next`` has no TESPy integration
-    yet (``SingleFlashSurface`` is a Phase 1 placeholder). This class exists
-    so the error taxonomy is ready when the real TESPy-based power plant
-    lands (see vision doc, Future Direction — AI-Assisted Error
-    Interpretation, for why this taxonomy matters).
+    TESPy integration is real (``GraphSurface`` solves an actual TESPy
+    ``Network`` each timestep), but no call site wraps a TESPy solve failure
+    in this class yet — ``GraphSurface.solve()`` lets TESPy's own exceptions
+    propagate directly. This class exists so the error taxonomy is ready to
+    wrap those failures (see vision doc, Future Direction — AI-Assisted
+    Error Interpretation, for why this taxonomy matters).
     """
 
 
