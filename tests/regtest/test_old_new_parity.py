@@ -266,10 +266,17 @@ def _run_tango_next(yml_path: Path) -> dict[str, Any]:
     surface = c["surface"]
     prod_upper = c["production_well_upper"]
     res = c["reservoir"]
+    # Old tango's "turbine_power_real" is gross turbine power only (-P.val,
+    # no pump/pump2 parasitic subtraction) — GraphSurface.state.net_power_W
+    # is the *net* total across every role=net_electric node, so for an
+    # apples-to-apples gross comparison read the turbine's own raw P.val out
+    # of the generic per-node history instead (node_detail stores TESPy's
+    # raw sign convention: negative P.val = production).
+    turbine_P = surface.history.node_history["turbine"]["P"]
     return {
         "res_T_out": list(res.history.T_outlet),
         "prod_T_out": list(prod_upper.history.T_outlet),
-        "gross_W": list(surface.history.gross_power_watts),
+        "gross_W": [-p for p in turbine_P],
     }
 
 

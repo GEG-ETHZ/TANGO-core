@@ -49,7 +49,7 @@ components:
 
   surface:
     type: surface
-    unit: single_flash
+    unit: graph
     component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
     prev: 3
     next: 0
@@ -62,89 +62,60 @@ components:
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
 
     power_plant:
-      # Single-Flash power plant sub-graph.
-      # component_idx values are local to this sub-graph.
-      # Branching components use next_<port> instead of a single next.
+      # Single-Flash TESPy topology, read generically by GraphSurface — see
+      # components/surface/graph.py module docstring for the inlet/outlet/
+      # role naming contract this depends on.
       #
-      # NOTE: p_out_megapascals uses the _<unit> suffix convention (Phase 2).
-      # If the underlying library (e.g. TESPy) expects the bare name `p_out`,
-      # the framework must map the suffixed name to the library param and apply
-      # the unit conversion. If that proves impractical, revert to the bare name
-      # on those specific components and document the exception here.
+      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(pump2) -\
+      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(pump) -> Merge -> Sink("outlet")
+      nodes:
+        inlet:
+          type: Source
 
-      inlet:
-        type: Source
-        unit: native
-        component_idx: 0
-        next: 1
+        valve:
+          type: Valve
+          p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
 
-      valve:
-        type: Valve
-        unit: native
-        component_idx: 1
-        prev: 0
-        next: 2
-        p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
+        droplet_separator:
+          type: DropletSeparator
 
-      droplet_separator:
-        type: DropletSeparator
-        unit: native
-        component_idx: 2
-        prev: 1
-        next_vapor: 4          # vapor stream → turbine
-        next_liquid: 3         # liquid stream → pump2
+        pump2:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0
 
-      pump2:
-        type: Compressor
-        unit: native
-        component_idx: 3
-        prev: 2
-        next: 7
-        efficiency: 1.0
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
 
-      turbine:
-        type: Turbine
-        unit: native
-        component_idx: 4
-        prev: 2
-        next: 5
-        efficiency: 1.0
-        p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+          vapor_mass_fraction_out: 0
 
-      condenser:
-        type: SimpleHeatExchanger
-        unit: native
-        component_idx: 5
-        prev: 4
-        next: 6
-        subtype: condenser
-        design: closed
-        cooling_tower_mode: WET
-        set_number: 1
-        p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
-        vapor_mass_fraction_out: 0
+        pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0
 
-      pump:
-        type: Compressor
-        unit: native
-        component_idx: 6
-        prev: 5
-        next: 7
-        efficiency: 1.0
+        mixer:
+          type: Merge
 
-      mixer:
-        type: Merge
-        unit: native
-        component_idx: 7
-        prev_1: 6              # from pump (condensate)
-        prev_2: 3              # from pump2 (liquid separator stream)
-        next: 8
+        outlet:
+          type: Sink
 
-      pp_outlet:
-        type: Sink
-        unit: native
-        component_idx: 8
-        prev: 7
+      edges:
+        1: {source: inlet, target: valve}
+        2: {source: valve, target: droplet_separator}
+        3: {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
+        4: {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
+        5: {source: turbine, target: condenser}
+        6: {source: condenser, target: pump}
+        7: {source: pump, target: mixer, target_port: in1}     # condensate
+        8: {source: pump2, target: mixer, target_port: in2}    # separator liquid
+        9: {source: mixer, target: outlet}
 
   injection_well:
     type: injection_well

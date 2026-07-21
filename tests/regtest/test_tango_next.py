@@ -94,7 +94,7 @@ def test_lcoe_parity(tmp_path: Path) -> None:
     # assert lcoe == pytest.approx(REFERENCE_LCOE, rel=1e-3)
     raise NotImplementedError(
         "tango_next economic component not yet implemented. "
-        "See SingleFlashSurface / EconomicComponent Phase 2 TODOs.",
+        "See GraphSurface / EconomicComponent Phase 2 TODOs.",
     )
 
 
@@ -234,13 +234,13 @@ def test_reservoir_pressure_drop() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_surface_positive_gross_power() -> None:
-    """Surface plant produces positive gross electrical power."""
+def test_surface_positive_net_power() -> None:
+    """Surface plant produces positive net electrical power."""
     wf = _run_tango_next(NEW_SF_MANUAL)
     surface = _components(wf)["surface"]
 
-    assert surface.state.gross_power_watts.get_fresh() > 0, (
-        f"gross_power_watts = {surface.state.gross_power_watts.get_fresh():.3g} W — expected > 0"
+    assert surface.state.net_power_W.get_fresh() > 0, (
+        f"net_power_W = {surface.state.net_power_W.get_fresh():.3g} W — expected > 0"
     )
 
 
@@ -319,7 +319,11 @@ def compare_against_old_tango(tmp_path: Path) -> dict[str, Any]:
 
     Returns a dict with keys:
       ``old_lcoe``          — LCOE from old tango ($/kWh)
-      ``tango_next_power``  — gross_power_watts from tango_next surface (last timestep)
+      ``tango_next_power_W``   — net_power_W from tango_next surface (last timestep)
+      ``tango_next_thermal_W`` — net_thermal_W from tango_next surface (last timestep;
+                                 0 for an electricity-product config like this one —
+                                 reported for completeness, not because this comparison
+                                 pair is heat-product)
       ``inj_T_outlet``      — injection well outlet T (K) from tango_next (last timestep)
       ``res_T_outlet``      — reservoir outlet T (K) from tango_next (last timestep)
       ``prod_T_outlet``     — production well outlet T (K) from tango_next (last timestep)
@@ -344,7 +348,8 @@ def compare_against_old_tango(tmp_path: Path) -> dict[str, Any]:
     return {
         "old_lcoe": old_lcoe,
         "reference_lcoe": REFERENCE_LCOE,
-        "tango_next_power_W": surface.state.gross_power_watts.get_fresh() if surface else None,
+        "tango_next_power_W": surface.state.net_power_W.get_fresh() if surface else None,
+        "tango_next_thermal_W": surface.state.net_thermal_W.get_fresh() if surface else None,
         "inj_T_inlet_K": inj.state.T_inlet.get_fresh() if inj else None,
         "inj_T_outlet_K": inj.state.T_outlet.get_fresh() if inj else None,
         "inj_P_outlet_Pa": inj.state.P_outlet.get_fresh() if inj else None,

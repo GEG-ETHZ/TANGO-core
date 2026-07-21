@@ -42,10 +42,10 @@ See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration
 
 ━━━ Phase 1 status — placeholder only ━━━
 
-Phase 1 ``SingleFlashSurface.solve()`` sets ``outlet.P = self._injection_pressure``
-(the current BC guess), so the loop trivially converges in 1 iteration because
-``test_p`` never changes.  The BC machinery is correct in structure but not yet
-driven by real physics.
+Phase 1: the surface component's ``solve()`` (currently ``GraphSurface``) sets
+``outlet.P = self.injection_pressure`` (the current BC guess), so the loop
+trivially converges in 1 iteration because ``test_p`` never changes.  The BC
+machinery is correct in structure but not yet driven by real physics.
 
 ━━━ Phase 2 tasks ━━━
 
@@ -92,7 +92,7 @@ from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
-    from tango_next.components.surface.single_flash import SingleFlashSurface
+    from tango_next.components.surface.base import SurfaceComponent
     from tango_next.core.component import Component
 
 logger = logging.getLogger(__name__)
@@ -159,12 +159,12 @@ class SystemBCIteration(SystemDirect):
         self.max_iterations = max_iterations
         self.tolerance = tolerance
 
-    def _find_surface(self) -> SingleFlashSurface | None:
+    def _find_surface(self) -> SurfaceComponent | None:
         """Return the BC-checkpoint component (surface), or None if absent."""
-        from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
+        from tango_next.components.surface.base import SurfaceComponent  # noqa: PLC0415
 
         component = self._by_idx.get(self.bc_checkpoint_idx)
-        if component is None or not isinstance(component, SingleFlashSurface):
+        if component is None or not isinstance(component, SurfaceComponent):
             return None
         return component
 
@@ -207,7 +207,7 @@ class SystemBCIteration(SystemDirect):
 
         """
         self._seed_circuit_inlet()
-        surface: SingleFlashSurface | None = self._find_surface()
+        surface: SurfaceComponent | None = self._find_surface()
         inj_well = self._by_idx.get(0)
         if inj_well is not None:
             inj_well.inlet.mass_rate = self.mass_rate
@@ -423,20 +423,29 @@ class SystemBCIteration(SystemDirect):
         super().run()
 
     def _log_timestep_summary(self, t: int) -> None:
-        """Emit a one-line INFO summary for a completed timestep."""
+        """Emit a one-line INFO summary for a completed timestep.
+
+        Duck-typed against ``surface.state`` rather than a specific concrete
+        class — ``SurfaceComponent`` doesn't mandate a state shape, so this
+        degrades gracefully (NaN) for any surface type missing one of these
+        fields instead of hardcoding a class-specific isinstance check.
+        """
         surface = self._find_surface()
         if surface is None:
             return
-        from tango_next.components.surface.single_flash import SingleFlashSurface  # noqa: PLC0415
-
-        if isinstance(surface, SingleFlashSurface):
-            gross_mw = surface.state.gross_power_watts.get_fresh() * W_TO_MW
-            P_inj = surface.state.P_outlet.get_fresh()
-            T_prod = surface.inlet.T
-            logger.info(
-                "t=%3d | T_prod=%.1f K | P_inj=%.4g MPa | gross_power=%.3f MW",
-                t,
-                T_prod,
-                P_inj / 1e6,
-                gross_mw,
-            )
+        state = getattr(surface, "state", None)
+        net_power = getattr(state, "net_power_W", None)
+        net_thermal = getattr(state, "net_thermal_W", None)
+        p_outlet = getattr(state, "P_outlet", None)
+        power_mw = net_power.get_fresh() * W_TO_MW if net_power is not None else float("nan")
+        thermal_mw = net_thermal.get_fresh() * W_TO_MW if net_thermal is not None else float("nan")
+        P_inj = p_outlet.get_fresh() if p_outlet is not None else float("nan")
+        T_prod = surface.inlet.T
+        logger.info(
+            "t=%3d | T_prod=%.1f K | P_inj=%.4g MPa | net_power=%.3f MW | net_thermal=%.3f MW",
+            t,
+            T_prod,
+            P_inj / 1e6,
+            power_mw,
+            thermal_mw,
+        )

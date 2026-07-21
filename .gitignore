@@ -80,9 +80,11 @@ gen_files/
 tools/examples_sweep_output/
 
 # Runtime artifacts written to cwd regardless of --no-save (optimizerr.py
-# plot_name + "_log"; ThermaGraph addon's default output_dir="output")
+# plot_name + "_log"; ThermaGraph addon's default output_dir="output";
+# BatchSimulation's output_file_name, e.g. batch_simulation.csv/opt_test.csv)
 /*_log
 /output/
+/*.csv
 
 # Images
 *.png
