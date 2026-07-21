@@ -210,3 +210,100 @@ def test_numerical_well_cell_arrays_roundtrip() -> None:
     assert well2.state.T_cells.is_fresh()
     assert well2.state.T_cells.get_fresh() == pytest.approx(T_cells)
     assert well2.state.P_cells.get_fresh() == pytest.approx(P_cells)
+
+
+# ---------------------------------------------------------------------------
+# GraphSurface
+# ---------------------------------------------------------------------------
+
+_DIRECT_HEAT_POWER_PLANT: dict = {
+    "nodes": {
+        "inlet": {"type": "Source"},
+        "dh_hx": {"type": "SimpleHeatExchanger", "role": "net_thermal", "T_out": 323.15},
+        "outlet": {"type": "Sink"},
+    },
+    "edges": {
+        1: {"source": "inlet", "target": "dh_hx"},
+        2: {"source": "dh_hx", "target": "outlet"},
+    },
+}
+
+
+def _graph_surface_cfg() -> dict:
+    return {
+        "component_idx": 0,
+        "prev": 0,
+        "next": 1,
+        "surface_temperature": 288.15,
+        "surface_pressure": 101325.0,
+        "injection_pressure": 7.0e6,
+        "pipe_diameter": 0.3,
+        "pipe_roughness": 1e-5,
+        "approach_temperature": 7.0,
+        "target_extraction_pressure": 7.0e6,
+        "well_spacing": 707.0,
+        "power_plant": _DIRECT_HEAT_POWER_PLANT,
+    }
+
+
+def test_graph_surface_roundtrip_state_values() -> None:
+    """State/history values (including node_detail/node_history dicts) survive
+    a model_dump / from_config(skip_init=True) round-trip.
+
+    Matches the convention used above for wells/reservoir — this only checks
+    that Pydantic-declared fields serialize correctly, NOT that the restored
+    object can solve() again (GraphSurface's TESPy network lives in private,
+    non-serialized attributes rebuilt by init() — see the next test for that).
+    """
+    from tango_next.components.surface.graph import GraphSurface
+
+    surface = GraphSurface.from_config(_graph_surface_cfg())
+    surface.inlet = Stream(mass_rate=50.0, P=8.5e6, T=423.15, fluid_name="water")
+    surface.solve()
+    surface.record(0)
+
+    T_out = surface.state.T_outlet.get_fresh()
+    net_thermal = surface.state.net_thermal_W.get_fresh()
+    node_detail = dict(surface.state.node_detail)
+
+    dump = surface.model_dump()
+
+    # Serialized form: raw values, no LockedState wrapper; plain dicts for
+    # node_detail/node_history (no custom serializer needed — they're just
+    # dict[str, dict[str, float | list[float]]]).
+    assert isinstance(dump["state"]["T_outlet"], float)
+    assert dump["state"]["T_outlet"] == pytest.approx(T_out)
+    assert dump["state"]["node_detail"]["dh_hx"]["Q"] == pytest.approx(node_detail["dh_hx"]["Q"])
+    assert dump["history"]["node_history"]["dh_hx"]["Q"] == pytest.approx(
+        surface.history.node_history["dh_hx"]["Q"],
+    )
+
+    surface2 = GraphSurface.from_config(dump, skip_init=True)
+    _assert_locked_float(surface2.state.T_outlet, T_out, "T_outlet")
+    _assert_locked_float(surface2.state.net_thermal_W, net_thermal, "net_thermal_W")
+    assert surface2.state.node_detail == node_detail
+    assert surface2.history.node_history == surface.history.node_history
+
+
+def test_graph_surface_roundtrip_then_resolve() -> None:
+    """After a full round-trip WITH init() (not skip_init), the restored
+    component can solve() again — proves the TESPy network (private,
+    non-serialized attributes) is correctly rebuilt from the serialized
+    power_plant dict alone, not silently relying on stale private state.
+    """
+    from tango_next.components.surface.graph import GraphSurface
+
+    surface = GraphSurface.from_config(_graph_surface_cfg())
+    surface.inlet = Stream(mass_rate=50.0, P=8.5e6, T=423.15, fluid_name="water")
+    surface.solve()
+
+    dump = surface.model_dump()
+
+    # skip_init defaults to False -> init() runs -> TESPy network rebuilt.
+    surface2 = GraphSurface.from_config(dump)
+    surface2.inlet = Stream(mass_rate=45.0, P=8.5e6, T=423.15, fluid_name="water")
+    surface2.solve()  # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
+
+    assert pytest.approx(323.15, abs=1e-6) == surface2.outlet.T  # fixed by T_out config
+    assert pytest.approx(7.0e6) == surface2.outlet.P  # fixed by injection_pressure BC
+    assert surface2.state.net_thermal_W.get_fresh() > 0
