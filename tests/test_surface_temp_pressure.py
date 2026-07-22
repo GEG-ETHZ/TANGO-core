@@ -28,7 +28,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 from tango_next.workflows.workflow import Workflow  # noqa: E402
 
-YAML_PATH = Path(__file__).parent.parent / "examples" / "SF_manual_differing_st.yml"
+YAML_PATH = Path(__file__).parent.parent / "examples" / "tango_next" / "SF_manual_differing_st.yml"
 SAVE_DIR = Path(__file__).parent.parent
 
 
@@ -74,4 +74,4 @@ def test_stp() -> None:
     )
     print(f"\n\n Surface surface pressure: {c['surface'].surface_pressure}")
 
-    assert c["surface"].surface_temperature == c["production_well_upper"].surface_temperature
+    assert c["surface"].surface_temperature != c["production_well_upper"].surface_temperature
