@@ -73,3 +73,4 @@ gen_files/
 *.png
 *.svg
 .aider*
+.claude/

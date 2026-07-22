@@ -1,5 +1,4 @@
-"""
-Currently the .yaml input file can take ``surface_temperature`` and ``surface_pressure`` as a parameter in the ``common:`` section and in the ``components: surface: `` section.
+"""Currently the .yaml input file can take ``surface_temperature`` and ``surface_pressure`` as a parameter in the ``common:`` section and in the ``components: surface: `` section.
 
 When the two sets of parameters differ
 e.g.:
@@ -22,26 +21,16 @@ The surface component will use the surface temp and pressure defined for the sur
 
 from __future__ import annotations
 
-import argparse
-import sys
 from pathlib import Path
-
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import pytest
-
-import pprint
 
 # ---------------------------------------------------------------------------
 # Path setup — allow running from anywhere in the repo
 # ---------------------------------------------------------------------------
-
-
 from tango_next.workflows.workflow import Workflow  # noqa: E402
 
-YAML_PATH = Path(__file__).parent.parent / "examples" / "SF_manual_differing_stp.yml"
+YAML_PATH = Path(__file__).parent.parent / "examples" / "SF_manual_differing_st.yml"
 SAVE_DIR = Path(__file__).parent.parent
+
 
 def run_simulation() -> Workflow:
     """Load and run the flexible Single-Flash YAML config; return the completed Workflow."""
@@ -49,6 +38,7 @@ def run_simulation() -> Workflow:
     wf.run()
     print("Simulation complete.")
     return wf
+
 
 def extract_stp_data(wf: Workflow) -> dict:
     """Pull per-timestep state from all components after a completed run.
@@ -62,29 +52,26 @@ def extract_stp_data(wf: Workflow) -> dict:
 
     surface_components = {"surface", "injection_well", "production_well_upper", "production_well"}
 
-    stp = dict()
+    stp = {}
 
     for component in surface_components:
         if component in c:
             print(component)
-            stp[component]['surface_temperature'] = c[component].surface_temperature
-            stp[component]['surface_pressure'] = c[component].surface_pressure
+            stp[component]["surface_temperature"] = c[component].surface_temperature
+            stp[component]["surface_pressure"] = c[component].surface_pressure
 
     return stp
-        
 
-def test_stp():
+
+def test_stp() -> None:
     """Run the simluation on the given file and assert that surface temp is equal accross all components"""
-
     wf = run_simulation()
 
     c = wf._orchestrator.components
 
-    print(f"Surface surface temp: {c['surface'].surface_temperature} \n Production well surface temp: {c['production_well_upper'].surface_temperature}")
+    print(
+        f"Surface surface temp: {c['surface'].surface_temperature} \n Production well surface temp: {c['production_well_upper'].surface_temperature}",
+    )
     print(f"\n\n Surface surface pressure: {c['surface'].surface_pressure}")
 
-    assert c['surface'].surface_temperature == c['production_well_upper'].surface_temperature
-
-if __name__ == "__main__":
-    test_stp() 
-
+    assert c["surface"].surface_temperature == c["production_well_upper"].surface_temperature
