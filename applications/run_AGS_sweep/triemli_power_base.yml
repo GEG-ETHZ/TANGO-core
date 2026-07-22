@@ -1,0 +1,153 @@
+# Triemli (Zurich) AGS power-generation (ORC) — base configuration for parameter sweep.
+#
+# AGS topology: injection_well → horizontal_well → production_well → surface
+# No reservoir component: the borehole loop is sealed; formation permeability
+# is not a factor.  Heat exchange occurs conductively along the wellbore walls
+# using the Adams et al. (2015) transient heat-loss model in each segment.
+#
+# Site parameters (Triemli, Zurich):
+#   surface temperature : 11 °C  (284.15 K)
+#   thermal gradient    : 35 °C/km  (0.035 K/m)
+#   fluid               : H2O
+#   application         : electricity generation via an ORC power plant
+#
+# The surface plant (native_ORC) and its parameters
+# (condensation_pressure_offset, eta_turbine, refrigerant, ORC_opt_mode) are
+# taken verbatim from the validated ORC baseline in
+# examples/AGS_new/AGS_H2O_webapp_native.yml — everything else here (AGS well
+# topology, props, costs, economic, addons, sweep-relevant schedule fields)
+# is unchanged from the sibling direct-heat sweep's
+# applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml, so the two
+# sweeps are apples-to-apples comparable.
+#
+# Sweep axes (see sweep.py / common.py):
+#   well_depth_m    : 2000 – 6500 m  (10 values)
+#   mass_flow_kg_s  : 5   – 100 kg/s  (10 values)
+#   loop_length_m   : 707 – 2500 m    (5 values)
+#
+# The horizontal loop length used to be held fixed at 2500 m, an unreconciled
+# guess that disagreed with the web app's validated AGS_H2O reference (707 m
+# — see examples/AGS_new/AGS_H2O_webapp_native.yml). Rather than pick one
+# "correct" constant, it's swept: 707 m is the validated reference point, the
+# rest bracket up to the old fixed value. horizontal_well.well_length and
+# schedule.well_spacing below are placeholders — both are overwritten per
+# design point in sweep.py's _apply_loop_length().
+
+graph:
+  nodes:
+    injection_well:
+      type: 'injection_well'
+      unit: 'native'
+    horizontal_well:
+      type: 'horizontal_well'
+      unit: 'native'
+    production_well:
+      type: 'production_well'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_ORC'
+  edges:
+    1:
+      source: 'surface'
+      target: 'injection_well'
+    2:
+      source: 'injection_well'
+      target: 'horizontal_well'
+    3:
+      source: 'horizontal_well'
+      target: 'production_well'
+    4:
+      source: 'production_well'
+      target: 'surface'
+
+runspec:
+  title: 'Triemli AGS power-generation sweep'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000       # kg/m³
+  rock_density: 2650.0      # kg/m³
+  rock_cp: 1000.0           # J/(kg·K)
+  rock_k: 2.1               # W/(m·K)
+  thermal_gradient: 0.035   # K/m  (35 °C/km, Triemli site)
+
+surface:
+  surface_temperature: 284.15   # K  (11 °C, Triemli)
+  surface_pressure: 100_000     # Pa
+  pipe_diameter: 0.41           # m
+  approach_temperature: 7.0     # K
+  condensation_pressure_offset: 50_000.0  # Pa
+  eta_turbine: 0.78             # (-)
+  refrigerant: 'R245fa'
+  ORC_opt_mode: 'min_cost'      # min_cost or max_power
+  target_extraction_pressure: 7_000_000  # Pa
+
+injection_well:
+  well_length: 3000.          # m  — updated per depth in sweep
+  diameter: 0.311             # m  (~12-inch casing)
+  well_length_seq: [3000.]
+  well_diameter_seq: [0.311]
+  epsilon: 5.5e-5             # m
+
+horizontal_well:
+  wellhead_depth: 3000.       # m  — updated per depth in sweep (= well depth)
+  well_length: 2500.          # m  — FIXED (see assumption note at top of file)
+  diameter: 0.311             # m
+  vertical_deviation: 90      # deg  (fully horizontal)
+  well_length_seq: [2500.]
+  well_diameter_seq: [0.311]
+
+production_well:
+  well_length: 3000.          # m  — updated per depth in sweep
+  diameter: 0.311             # m
+  well_length_seq: [3000.]
+  well_diameter_seq: [0.311]
+  eta_pump: 0.75
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+    sizing_strategy: average_performance
+
+schedule:
+  electricity_price: 0.25      # CHF/kWh
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 30.          # kg/s — swept in the script
+  well_pattern: 'AGS'
+  well_spacing: 2500.          # m  (= horizontal loop length)
+  well_pattern_dimens: [1, 1]
+  start_date: '2024-01-01'
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 25             # 25 years of operation
+    dt: 1.0                    # year
+  mass_rate:
+    type: manual
+    value: 30.                 # kg/s — kept in sync with mass_flow_rate in script
+
+economic:
+  type: 'native'
+  project_maturity: 'green_field'
+  discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: 'analyzer_results.csv'

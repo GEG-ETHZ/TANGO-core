@@ -522,6 +522,15 @@ from any specific external tool) that both the pure-heat and cogeneration cases 
 share, distinct from the InjectionPolicy machinery (which governs the injection
 *pressure* BC, not the production-side demand target).
 
+This gap is now flagged directly in `applications/run_AGS_direct_heat_sweep/
+run_AGS_direct_heat_sweep.py`'s module docstring (item 5), rather than only
+here, so it isn't missed by someone reading that app in isolation. It applies
+equally to `applications/run_AGS_sweep/` — the power-generation counterpart of
+that app, covering the same (depth, mass-flow, loop-length, loop-diameter)
+design space via `examples/AGS_new/AGS_H2O_webapp_native.yml`'s validated ORC
+surface plant instead of the direct-heat DH exchanger — for any variant of it
+that targets a thermal or cogeneration product rather than pure electricity.
+
 #### Pump electricity accounting — known inconsistencies (needs HIL verification)
 
 **⚠ Human-in-the-loop (HIL) verification required before relying on net power or LCOE

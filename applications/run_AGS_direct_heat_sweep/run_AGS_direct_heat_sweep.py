@@ -166,6 +166,27 @@ re-run.
    mass-flow design space, with number-of-loops intentionally out of scope
    for now rather than silently unaddressed.
 
+5. NOT DONE — this whole sweep assumes constant heat demand. Every design
+   point runs to steady state at one fixed mass_flow_rate (sweep.py's
+   _apply_mass_flow()); thermal_power_kW is a single static number per
+   design, not a time series. Real district-heating demand varies
+   seasonally (and diurnally), so a design sized for peak thermal_power_kW
+   is not the same as a design sized to serve a real annual demand curve
+   economically. src/tango/'s HotmapsDispatchDT time-type (see
+   src/tango/orchestrators/BC_calculator.py's PowerReader/iterator) is
+   *a* precedent for demand-following mass-rate control elsewhere in the
+   codebase, but it's tightly coupled to the Hotmaps desktop app's Excel
+   export pipeline and is not used here. This needs a lightweight,
+   Hotmaps-independent demand-curve mechanism before this sweep's results
+   can be read as "what you'd actually build," not just "what the physics
+   supports at one operating point." Tracked in
+   docs/TANGO_vision_and_roadmap.md's seasonal-heat-demand-variation
+   section. Applies equally to applications/run_AGS_sweep/ (the
+   power-generation counterpart of this sweep) wherever main_product is
+   heat/cogeneration — pure electricity sweeps are less exposed since
+   grid dispatch, not a fixed thermal demand curve, is the usual driver
+   there.
+
 Notes
 -----
 8000 m depth tier needed target_extraction_pressure to scale with depth
