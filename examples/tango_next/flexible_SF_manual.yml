@@ -27,6 +27,8 @@ common:  # shared physical parameters (previously props:)
   rock_cp: 1000.0            # J/(kg·K)
   rock_k: 2.1                # W/(m·K)
   thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
 
 layout:  # well-field geometry
   well_spacing: 707.0        # m
@@ -53,9 +55,7 @@ components:
     component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
     prev: 3
     next: 0
-    surface_temperature: 288  # K
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
-    surface_pressure: 100_000       # Pa
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
     target_extraction_pressure: 7_000_000  # Pa

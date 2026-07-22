@@ -1,77 +1,33 @@
-"""Currently the .yaml input file can take ``surface_temperature`` and ``surface_pressure`` as a parameter in the ``common:`` section and in the ``components: surface: `` section.
+"""``surface_temperature``/``surface_pressure`` must come from ``common:`` only.
 
-When the two sets of parameters differ
-e.g.:
-``
-common:
-    surface_temp = 300 K
-    surface_pressure = 110_000 Pa
-    ...
+Historically the .yaml input file could set ``surface_temperature`` and
+``surface_pressure`` both in ``common:`` and in ``components: surface:``, and
+when the two disagreed, the surface component silently used its own
+block's value while every other component (wells, reservoir) used
+``common:``'s value — see ``tests/TemperaturePressureDiscrepancy.md``.
 
-components:
-    surface:
-        surface_temp = 288K
-        surface_pressure = 100_000 Pa
-        ...
-``
-
-The surface component will use the surface temp and pressure defined for the surface but all other components will use the surface temp and pressure defined in common.
-
+``workflow.py::_build_components`` now forbids a component's own YAML block
+from redeclaring these keys at all (``ConfigError``), so this divergence is
+no longer representable. ``examples/tango_next/SF_manual_differing_st.yml``
+still declares them in both places (that's the point of the fixture) and is
+expected to fail to load.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Path setup — allow running from anywhere in the repo
-# ---------------------------------------------------------------------------
-from tango_next.workflows.workflow import Workflow  # noqa: E402
+import pytest
+
+from tango_next.core.errors import ConfigError
+from tango_next.workflows.workflow import Workflow
 
 YAML_PATH = Path(__file__).parent.parent / "examples" / "tango_next" / "SF_manual_differing_st.yml"
-SAVE_DIR = Path(__file__).parent.parent
 
 
-def run_simulation() -> Workflow:
-    """Load and run the flexible Single-Flash YAML config; return the completed Workflow."""
-    wf = Workflow.from_file(YAML_PATH)
-    wf.run()
-    print("Simulation complete.")
-    return wf
-
-
-def extract_stp_data(wf: Workflow) -> dict:
-    """Pull per-timestep state from all components after a completed run.
-
-    Returns a flat dict of numpy arrays ready for plotting.
+def test_differing_surface_temp_pressure_raises() -> None:
+    """Loading a file that sets surface_temperature/pressure in both common: and
+    components.surface must raise ConfigError, not silently prefer one.
     """
-    # _orchestrator.components is a dict keyed by the component names defined
-    # in the YAML.  We unpack into locals here so the plotting code below reads
-    # as plain names rather than repeated dict lookups.
-    c = wf._orchestrator.components
-
-    surface_components = {"surface", "injection_well", "production_well_upper", "production_well"}
-
-    stp = {}
-
-    for component in surface_components:
-        if component in c:
-            print(component)
-            stp[component]["surface_temperature"] = c[component].surface_temperature
-            stp[component]["surface_pressure"] = c[component].surface_pressure
-
-    return stp
-
-
-def test_stp() -> None:
-    """Run the simluation on the given file and assert that surface temp is equal accross all components"""
-    wf = run_simulation()
-
-    c = wf._orchestrator.components
-
-    print(
-        f"Surface surface temp: {c['surface'].surface_temperature} \n Production well surface temp: {c['production_well_upper'].surface_temperature}",
-    )
-    print(f"\n\n Surface surface pressure: {c['surface'].surface_pressure}")
-
-    assert c["surface"].surface_temperature != c["production_well_upper"].surface_temperature
+    with pytest.raises(ConfigError, match="surface_pressure.*surface_temperature"):
+        Workflow.from_file(YAML_PATH)

@@ -17,6 +17,14 @@ from tango_next.orchestrators.system_direct import SystemDirect
 
 logger = logging.getLogger(__name__)
 
+# Keys that represent global/ambient state shared by every component and must
+# come from common: only. A component's own YAML block is forbidden from
+# redeclaring them — otherwise that one component would silently diverge from
+# every other component consuming the same field (see
+# tests/TemperaturePressureDiscrepancy.md). Every component in the graph that
+# looks at "ambient surface conditions" must agree on what those are.
+COMMON_ONLY_KEYS = frozenset({"surface_temperature", "surface_pressure"})
+
 
 class Workflow:
     """Parses a tango_next input file and drives the simulation.
@@ -123,13 +131,15 @@ def _build_components(
         Dict of instantiated components keyed by their YAML name.
 
     """
-    # Pull layout/sim_config fields that some components need at spec construction time
+    # Pull layout/sim_config fields that some components need at spec construction time.
+    # surface_temperature/surface_pressure come from common: ONLY — see
+    # COMMON_ONLY_KEYS below, which forbids a component's own block from
+    # redeclaring them, so there is exactly one source of truth for ambient
+    # conditions instead of a per-component fallback that can silently diverge.
     layout_extras: dict[str, Any] = {
         "well_spacing": layout.get("well_spacing", 707.0),
-        "surface_temperature": common.get(
-            "surface_temperature",
-            components_block.get("surface", {}).get("surface_temperature", 288.0),
-        ),
+        "surface_temperature": common.get("surface_temperature", 288.0),
+        "surface_pressure": common.get("surface_pressure", 101_325.0),
         "dt_years": dt_years,
     }
 
@@ -141,13 +151,10 @@ def _build_components(
 
         cls = COMPONENT_REGISTRY.get(key)
         if cls is None:
-            logger.warning(
-                "No component registered for type=%r unit=%r — skipping %r.",
-                comp_type,
-                comp_unit,
-                name,
+            raise ConfigError(
+                f"Component {name!r} has type={comp_type!r} unit={comp_unit!r}, "
+                "which is not registered in COMPONENT_REGISTRY.",
             )
-            continue
 
         # Build merged dict for this component:
         # - From common/layout_extras: only fields the component actually declares
@@ -157,6 +164,16 @@ def _build_components(
         declared = set(cls.model_fields.keys())
         shared = {k: v for k, v in {**common, **layout_extras}.items() if k in declared}
         own = {k: v for k, v in comp_cfg.items() if k not in ("type", "unit")}
+
+        collisions = COMMON_ONLY_KEYS & own.keys()
+        if collisions:
+            raise ConfigError(
+                f"Component {name!r} sets {sorted(collisions)} in its own "
+                "YAML block, but these are global/ambient values that must "
+                "come from common: only (every component that consumes them "
+                "must agree). Move them to common: and remove them here.",
+            )
+
         merged: dict[str, Any] = {**shared, **own}
 
         try:

@@ -88,6 +88,139 @@ against old tango, and locked in with golden-snapshot regression coverage.
       resolved/explained — a golden snapshot locks in whatever's there,
       good or bad).
 
+## Active: common:/component-block override ambiguity
+
+Started 2026-07-22, triggered by `tests/TemperaturePressureDiscrepancy.md`
+(landed via the `dev/make-tango-robust` merge) — a real bug where a
+component's own YAML block silently overrides a `common:`-declared value in
+`workflows/workflow.py::_build_components`'s merge (`{**shared, **own}`,
+`own` always wins), so if only one component redeclares a value that's
+supposed to be global/ambient, that component silently diverges from every
+other component consuming the same field. An intern is pushing their own fix
+for this file; the plan is to implement independently in parallel, then
+`git stash`/compare/reconcile once their patch lands (their fix stashed out,
+verified, then this fix popped back in and re-checked).
+
+- [x] Implemented 2026-07-22: `surface_temperature`/`surface_pressure` are now
+      forbidden in any component's own YAML block (`COMMON_ONLY_KEYS` in
+      `workflows/workflow.py`) — `ConfigError` raised if redeclared, forcing
+      `common:` as the single source of truth. Updated
+      `examples/tango_next/flexible_SF_manual.yml` and
+      `examples/tango_next/AGS_direct_heat.yml` to move these two keys from
+      `components.surface` into `common:` (previously only declared under
+      `components.surface`, which happened to work because of the old
+      `components_block.get("surface", ...)` fallback that's now removed).
+      Also added a `common.get("surface_pressure", ...)` entry to
+      `layout_extras` — previously `surface_pressure` wasn't shared at all,
+      only `surface_temperature` was. All tango_next regtests pass
+      (`test_old_new_parity`, `test_ags_direct_heat_smoke`, full
+      `test_tango_next.py`) after the example-file edits, confirming no
+      numeric behavior changed.
+      `examples/tango_next/SF_manual_differing_st.yml` (the file that
+      demonstrates the bug) needed no change — it targets
+      `unit: single_flash`, which isn't registered in `COMPONENT_REGISTRY`
+      (`SingleFlashSurface` was deleted, see
+      [[project_tango_next_ags_surface_design]]), so it's already skipped
+      before reaching the merge logic and never exercises the guard either
+      way.
+      NOT fixed yet: `tests/test_surface_temp_pressure.py` (repo-root, wrong
+      convention path) points at a nonexistent file
+      (`examples/SF_manual_differing_stp.yml` — wrong dir, wrong filename)
+      and has an unrelated `KeyError` bug in `extract_stp_data` (indexes
+      `stp[component][...]` without initializing `stp[component] = {}`
+      first). Leaving this for the intern's incoming patch, per Chad.
+- [ ] **Same-shaped risk elsewhere, not yet fixed** — found by checking which
+      fields are (a) declared as Pydantic fields on 2+ different component
+      classes AND (b) plausible to set under `common:`, since that's exactly
+      the precondition that made surface_temperature/pressure dangerous.
+      Confirmed via grep across `src/tango_next/components/`:
+      - `thermal_gradient` — declared on `well/lumped.py` (x3 well variants),
+        `well/numerical.py`, `reservoir/lumped.py`.
+      - `rock_density`, `rock_cp`, `rock_k` — declared on `well/numerical.py`
+        and `reservoir/lumped.py`.
+      - `well_spacing` — declared on `reservoir/lumped.py` and
+        `surface/graph.py`.
+      None of these currently diverge in the checked-in example files (spot
+      checked all of `examples/tango_next/*.yml` — no component's own block
+      currently sets any of these), so this is a latent footgun, not an
+      active bug like surface_temperature/pressure was. Before extending
+      `COMMON_ONLY_KEYS` to cover them, need to settle a real question: is
+      there ever a legitimate reason for a specific well/reservoir to want a
+      locally different `rock_k`/`thermal_gradient` (e.g. geological
+      heterogeneity between well locations)? If yes, a hard "common: only"
+      ban is wrong for those fields and a different mechanism (e.g. an
+      explicit opt-in override syntax, or a warning instead of an error) is
+      needed. `surface_temperature`/`surface_pressure` were unambiguous
+      (ambient/BC state, never legitimately per-component) which is why they
+      got the strict treatment first.
+- [x] Reconciled 2026-07-22: the intern's patch (`049fdaa`/merge `123ed39`)
+      only fixed `tests/test_surface_temp_pressure.py`'s path/`KeyError` bugs
+      and changed its assertion to `!=` — i.e. it documented the divergence
+      as accepted behavior rather than fixing `_build_components`. It never
+      touched `workflow.py`. Popped this session's stash on top cleanly (no
+      conflicts — disjoint files). Additionally found and fixed, mid-review:
+      (1) `examples/tango_next/SF_manual_differing_st.yml` used a dead
+      `unit: single_flash` (deleted component) so the surface was silently
+      skipped by the registry lookup rather than ever exercising the guard —
+      fixed to `unit: graph` and ported the `nodes:`/`edges:` topology from
+      `flexible_SF_manual.yml` (the file's old flat prev/next-per-node schema
+      predates `GraphSurface`). (2) `COMPONENT_REGISTRY` misses were
+      warn-and-skip, not an error — masked (1) and would silently drop any
+      component with a typo'd `type`/`unit`; changed to raise `ConfigError`
+      immediately. (3) Rewrote `test_surface_temp_pressure.py` to assert
+      `ConfigError` is raised on divergence, replacing the `!=` assertion.
+      Full `tests/regtest` suite (70 passed, 40 xfailed) confirms no
+      regression in either `src/tango/` or `tango_next`.
+
+## Active: GraphSurface p_out / pressure-provenance follow-ups
+
+Started 2026-07-22 out of a deep-dive into where `GraphSurface`'s TESPy
+network states are solved vs. imposed — see
+`docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
+breakdown for `flexible_SF_manual.yml`) and the vision doc's new
+"`GraphSurface`'s fixed `p_out` values" section (justification for why fixed
+flash/condensing pressure is a legitimate modeling choice, not a shortcut).
+All three items below are intentionally **not started** — captured so the
+reasoning doesn't have to be re-derived next session.
+
+- [ ] **Think through the `dh_hx` pressure-DOF case carefully before touching
+      it.** Unlike the SF plant's condenser, `AGS_direct_heat.yml`'s `dh_hx`
+      has no `p_out` field at all — checked TESPy's `SimpleHeatExchanger`
+      mandatory constraints directly (`mass_flow_func`, `fluid_func`,
+      `energy_balance_func` only, no pressure relation), so `dh_hx`'s inlet
+      and outlet pressures are each independently pinned elsewhere (inlet by
+      the well-minus-pipe-friction calc, outlet by `injection_pressure`) with
+      zero relationship enforced between them by the component itself. This
+      is a sharper version of the fixed-`p_out` risk, not the same pattern —
+      there's no `p_out` value to even inspect when reviewing the YAML. Left
+      alone for now; needs real thought (not a quick fix) before deciding
+      whether the right answer is a validation check, a required `p_out`,
+      or something else.
+- [ ] **Port `src/tango/`'s pressure-monotonicity validation.**
+      `flexible_pp.py::validate_pressure_monotonicity()` walks
+      `power_plant_graph`'s edges upstream from every `p_out`-bearing node,
+      stopping at `Pump`/`Compressor` boundaries, and raises `ValidationError`
+      if pressure doesn't decrease monotonically along the flow path. Called
+      unconditionally at construction in old tango. `tango_next` has no
+      equivalent. Two things to check before porting verbatim: (a) as
+      written it only checks components that explicitly declare `p_out`, so
+      it would NOT catch the `dh_hx` case above — that needs a separate,
+      additional check; (b) needs verification it doesn't false-positive on
+      `GraphSurface`'s `pump`/`pump2` nodes, whose `p_out` isn't
+      independently declared at all — it's solved via `Merge`'s
+      pressure-equality constraint back to `injection_pressure` (see the
+      diagram) — legitimately consistent but not literally "explicitly
+      declared and decreasing."
+- [ ] **Add unit comments to every `p_out`/pressure-bearing key in every
+      TESPy-graph YAML file.** Currently a user has to go read
+      `graph.py`/`_apply_node_config` to learn that `p_out_megapascals` is
+      MPa, `T_out` is K, etc. — should be a comment on every occurrence in
+      every example file, not something you dig for. Scope: enumerate every
+      `p_out_megapascals`/`T_out`/`vapor_mass_fraction_out`/similar key
+      across all `examples/tango_next/*.yml` files with `power_plant` blocks,
+      confirm/add a unit comment on each. Deliberately deferred so it can be
+      captured in one clean commit rather than mixed into other changes.
+
 ## Backlog (queued, not yet started)
 
 - LCOE/LCOH economic-component design work for `tango_next` — paused

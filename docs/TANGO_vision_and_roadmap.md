@@ -451,6 +451,37 @@ doesn't exist in `tango_next` yet (currently H2O-only — see `FluidState` in
 `core/fluid_state.py`), which is likely the largest gap in this matrix, not the
 surface-plant topology.
 
+**`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
+shortcut.** Raised 2026-07-22 while tracing where `flexible_SF_manual.yml`'s TESPy plant
+states are solved versus imposed (see `docs/diagrams/src/graph_surface_state_provenance.drawio`
+for the full node-by-node breakdown). `GraphSurface` fixes two independent pressures per
+plant — flash pressure (the valve ahead of the droplet separator) and condensing pressure
+(shared by the turbine's and condenser's outlets, i.e. zero ΔP assumed across the condenser)
+— as YAML constants rather than deriving them from a resistance/flow relationship. This is
+not a `tango_next`-introduced simplification: `src/tango/`'s `flexible_pp.py` does the exact
+same thing (`p_out` as a bare fixed constant, same units convention). The justification: both
+are genuine real-plant control targets, not passively-emergent quantities. Flash pressure is
+routinely chosen by plant designers/operators to maximize power extraction for the delivered
+brine enthalpy (that choice *is* the single-flash design problem); condensing pressure is set
+primarily by the cooling system (ambient temperature via the cooling tower, `approach_temperature`
+— see the diagram for why that field is currently a no-op in `GraphSurface`'s condenser, only
+feeding a not-yet-ported parasitic-power calc), which changes on daily/seasonal timescales far
+slower than turbine/pump power modulation. So treating these two pressures as externally-imposed
+setpoints is defensible as a first-order approximation — but only self-consistently if the
+chosen values are actually calibrated to the site's assumed ambient/well conditions, and nothing
+currently checks that (see the diagram's risk callout). A rigorous *quantified* error estimate
+for "how wrong is this relative to treating pump power as the real state variable" would need
+either a resistance-closed alternative formulation to diff against, or real plant operating data
+— neither exists yet; this paragraph documents the qualitative justification only, not a
+validated bound.
+
+Two known, tracked-but-not-yet-addressed gaps in this area (see `docs/tango_next_tasks.md`):
+`src/tango/`'s `flexible_pp.py::validate_pressure_monotonicity()` (walks the power-plant graph
+upstream from each `p_out`, stopping at `Pump`/`Compressor` boundaries, raises on non-monotonic
+pressure) has no `tango_next` equivalent yet; and `AGS_direct_heat.yml`'s `dh_hx` node is a
+sharper version of the same risk with no `p_out` field to even inspect (its pressure is
+implicitly whatever gap exists between two unrelated boundary conditions — see the diagram).
+
 **Beyond the matrix — port the broader set of old-tango examples that actually run.**
 The 8-cell matrix above is the minimum canonical set, not the target. `src/tango/`'s
 `examples/` directory has many more real variants that don't map cleanly onto one
@@ -646,6 +677,26 @@ and the *outer* graph's own topology detection (DAG vs. loop, i.e. whether a gra
 `sim_config.injection_mode` is present, not yet by walking the actual Source/Sink structure
 of the component graph the way the `GroupedComponent` design above describes. Closing this
 remaining gap is a Phase 3 task.
+
+**Open consideration, not decided: `next`/`prev` sugar for binary split/merge.** Raised
+2026-07-22 discussing `GraphSurface`'s `power_plant.nodes`/`edges` schema versus the outer
+graph's per-node `component_idx`/`prev`/`next` fields. The outer graph is a strict chain (one
+`prev`, one `next` per node, doubling as the orchestrator's sequential solve order), so a
+scalar field suffices; the TESPy plant graph branches and merges (`DropletSeparator`'s
+liquid/vapor split, `Merge`'s two inlets), so `GraphSurface` uses an explicit `edges:` list
+with named `source_port`/`target_port` instead. For every topology in the repo today, the
+branching is binary, so a `next`/`next_alt` (defaulting to `out1`/`out2`) and `prev`/`prev_alt`
+(defaulting to `in1`/`in2`) convention on each node could plausibly give the same
+self-contained-per-node readability the outer graph has, without a separate `edges:` block.
+The real limitation: TESPy's two-stream `HeatExchanger` (registered in `_COMPONENT_TYPES`,
+unused so far) needs two independent in/out pairs, not one primary + one fallback — that case
+would need `next_1`/`next_2` generalization, which re-derives explicit port identification
+piecemeal rather than the single `source_port`/`target_port` string `edges:` already provides
+generically. A hybrid (sugar for the common binary case, `edges:` as an explicit fallback for
+anything that doesn't fit) is the leading idea, not yet built. Relatedly, the same argument
+for generality is prompting a reconsideration of whether the *outer* subsurface graph should
+also move to an explicit `edges:` block instead of per-node `prev`/`next` — parked, not started,
+but flagged here as in play for future robustness against topologies not yet anticipated.
 
 ---
 
