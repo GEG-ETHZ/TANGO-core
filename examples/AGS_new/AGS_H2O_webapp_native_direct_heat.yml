@@ -1,0 +1,169 @@
+#
+# AGS - Water-Based, walked from the validated web app ORC baseline to a
+# direct-heat (district heating) scenario.
+#
+# This is examples/AGS_new/AGS_H2O_webapp_native.yml (validated against a
+# live web app run, see that file's header) with ONLY the surface plant
+# swapped: native_ORC -> native_flexible with a power_plant_graph building
+# a Source -> SimpleHeatExchanger(DH_component) -> Sink TESPy network, and
+# schedule.main_product changed from 'electricity' (default) to 'heat'.
+# Topology, well geometry, mass flow rate, and subsurface props are
+# unchanged from the validated baseline, so any output difference is
+# attributable to the surface-plant swap alone.
+#
+# Pattern verified against examples/flexible_heat.yml (an existing,
+# already-working native_flexible + power_plant_graph + DH_component
+# config) rather than assumed:
+#   - native_flexible -> SurfaceUnitFlexiblePP (src/tango/units/native/surface/flexible_pp.py)
+#     only requires pipe_diameter; no ORC-specific fields (refrigerant,
+#     eta_turbine) apply once the surface plant is a custom power_plant_graph.
+#   - power_plant_graph is a generic TESPy network builder: node `type`
+#     strings (Source, SimpleHeatExchanger, Sink, ...) map directly to TESPy
+#     component classes (PowerPlant._create_component).
+#   - DH.T_out is in degrees Celsius (Network is built with T_unit="C").
+#   - schedule.main_product: 'heat' switches the LCOE calc to use net
+#     thermal power as the denominator (i.e. computes LCOH) instead of net
+#     electric power (src/tango/units/native/economic/economic.py:_get_LCOE).
+#
+# T_out = 50 degC chosen as a plausible district-heating return
+# temperature, matching applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml's
+# existing assumption (flexible_heat.yml itself uses 40 degC).
+
+graph:
+  nodes:
+    injection_well:
+      type: 'injection_well'
+      unit: 'native'
+    horizontal_well:
+      type: 'horizontal_well'
+      unit: 'native'
+    production_well:
+      type: 'production_well'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_flexible'
+  edges:
+    1:
+      source: 'surface'
+      target: 'injection_well'
+    2:
+      source: 'injection_well'
+      target: 'horizontal_well'
+    3:
+      source: 'horizontal_well'
+      target: 'production_well'
+    4:
+      source: 'production_well'
+      target: 'surface'
+
+runspec:
+  title: 'AGS - Water-Based (direct heat, walked from web app ORC baseline)'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000 # kg/m3
+  rock_density: 2650.0 # kg/m3
+  rock_cp: 1000.0  # # specific heat capacity (J/(kg*K))
+  rock_k: 2.1  # thermal conductivity (W/(m*K))
+  thermal_gradient: 0.035  # degC/m
+
+surface:
+  surface_temperature: 288.15  # K
+  surface_pressure: 100_000  # Pa
+  pipe_diameter: 0.41 # m
+  approach_temperature: 7.0  # K
+  target_extraction_pressure: 7_000_000  # Pa
+
+horizontal_well:
+  wellhead_depth: 2500. # m
+  well_length: 707. # m
+  diameter: 0.410 # m
+  vertical_deviation: 90 # deg
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+injection_well:
+  well_length: 2500. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+production_well:
+  well_length: 2500. # m
+  diameter: 0.410 # m
+  well_length_seq: [ 2500. ]
+  well_diameter_seq: [ 0.410 ]
+
+functions:
+  dts:
+    type: segmented_linear
+    time: [0, 5]
+    dt: [1, 1 ]
+    end_time: 5
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+
+schedule:
+  main_product: 'heat'
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 5.0  # kg/s (injection rate per pattern) — unchanged from ORC baseline
+  well_pattern: 'AGS' # doublet, inverted_5spot, 5spot, AGS
+  well_spacing: 707. # m (inj-prod pair distance at surface)
+  well_pattern_dimens: [1,1] # [num_patterns_x_dir, num_patterns_y_dir]
+  start_date: '2019-01-01' # Year-mm-dd
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 20 # number of time steps
+    dt: 1.0  # time step increment (year)
+
+economic: # optional
+  type: 'native'
+  project_maturity: 'green_field' # brown_field or green_field
+  discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: 'analyzer_results.csv'
+
+power_plant_graph:
+  nodes:
+    inlet:
+      type: 'Source'
+      unit: 'native'
+    outlet:
+      type: 'Sink'
+      unit: 'native'
+    DH:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+  edges:
+    1:
+      source: 'inlet'
+      target: 'DH'
+    2:
+      source: 'DH'
+      target: 'outlet'
+
+DH:
+  Subtype: 'DH_component'
+  T_out: 50  # degC — district-heating return/re-injection temperature

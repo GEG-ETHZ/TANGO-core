@@ -25,7 +25,7 @@
         <mxCell id="workflow" parent="wf_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="Workflow" vertex="1">
           <mxGeometry height="22" width="140" x="10" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="wf_note" parent="wf_layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=left;verticalAlign=top;" value="Top-level entry point: parses the YAML input file, builds the component graph, and selects the orchestrator — SystemDirect vs SystemBCIteration — &lt;br&gt;based on whether sim_config.bc_iteration is present. Contains: Workflow." vertex="1">
+        <mxCell id="wf_note" parent="wf_layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#888888;align=left;verticalAlign=top;" value="Top-level entry point: parses the YAML input file, builds the component graph, and selects the orchestrator — SystemDirect vs SystemBCIteration — &lt;br&gt;based on whether sim_config.injection_mode is present. Contains: Workflow." vertex="1">
           <mxGeometry height="44" width="640" x="160" y="25" as="geometry" />
         </mxCell>
         <mxCell id="orch_layer" parent="1" style="swimlane;startSize=22;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" value="orchestrators/" vertex="1">
@@ -46,16 +46,16 @@
         <mxCell id="well_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="well/" vertex="1">
           <mxGeometry height="140" width="195" x="10" y="26" as="geometry" />
         </mxCell>
-        <mxCell id="inj_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedInjectionWell" vertex="1">
+        <mxCell id="inj_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedInjectionWell&#xa;NumericalInjectionWell" vertex="1">
           <mxGeometry height="22" width="179" x="8" y="24" as="geometry" />
         </mxCell>
-        <mxCell id="prod_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWell" vertex="1">
+        <mxCell id="prod_well" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWell&#xa;NumericalProductionWell" vertex="1">
           <mxGeometry height="22" width="179" x="8" y="52" as="geometry" />
         </mxCell>
-        <mxCell id="prod_pump" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWellPump" vertex="1">
+        <mxCell id="prod_pump" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWellPump&#xa;NumericalProductionWellPump" vertex="1">
           <mxGeometry height="22" width="179" x="8" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="well_note" parent="well_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="all three classes in well/lumped.py" vertex="1">
+        <mxCell id="well_note" parent="well_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="all three in well/lumped.py. well/numerical.py also has NumericalWell&#xa;(+ thin NumericalInjectionWell/NumericalProductionWell subclasses,&#xa;NumericalProductionWellPump) — a marching Adams-2015 solver, not shown&#xa;as separate boxes here — see vision doc coverage-matrix note." vertex="1">
           <mxGeometry height="14" width="179" x="8" y="108" as="geometry" />
         </mxCell>
         <mxCell id="res_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" value="reservoir/" vertex="1">
@@ -70,10 +70,10 @@
         <mxCell id="surf_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" value="surface/" vertex="1">
           <mxGeometry height="140" width="195" x="385" y="26" as="geometry" />
         </mxCell>
-        <mxCell id="flex_pp" parent="surf_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="SingleFlashSurface" vertex="1">
+        <mxCell id="flex_pp" parent="surf_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="GraphSurface" vertex="1">
           <mxGeometry height="22" width="179" x="8" y="24" as="geometry" />
         </mxCell>
-        <mxCell id="surf_note" parent="surf_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="(surface/single_flash.py) — only surface&lt;br&gt;unit implemented so far. A graph-driven&lt;br&gt;TESPy power-plant and ORC variant&lt;br&gt;(ported from src/tango/) are Phase 2." vertex="1">
+        <mxCell id="surf_note" parent="surf_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="(surface/graph.py) — generic, builds a TESPy&lt;br&gt;Network from a YAML power_plant.nodes/edges&lt;br&gt;block (any topology, not hardcoded). Superseded&lt;br&gt;the earlier hardcoded SingleFlashSurface&lt;br&gt;(deleted 2026-07-20). CPG/ORC-specific fluid&lt;br&gt;support is still open — see vision doc." vertex="1">
           <mxGeometry height="60" width="187" x="4" y="52" as="geometry" />
         </mxCell>
         <mxCell id="econ_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;fontStyle=1;" value="economic/" vertex="1">
@@ -103,13 +103,13 @@
         <mxCell id="orch_abc" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Orchestrator (ABC)" vertex="1">
           <mxGeometry height="22" width="170" x="450" y="25" as="geometry" />
         </mxCell>
-        <mxCell id="injection_policy_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="InjectionPolicy (enum)" vertex="1">
+        <mxCell id="injection_policy_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="InjectionPolicy, MainProduct,&#xa;ComponentRole, WellRole (enums)" vertex="1">
           <mxGeometry height="22" width="160" x="10" y="53" as="geometry" />
         </mxCell>
         <mxCell id="errors_box" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="TangoNextError (+4 subclasses)" vertex="1">
           <mxGeometry height="22" width="210" x="180" y="53" as="geometry" />
         </mxCell>
-        <mxCell id="serde_mixin" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="SerdeAPI (Mixin)" vertex="1">
+        <mxCell id="serde_mixin" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Pydantic serde (model_dump/validate)" vertex="1">
           <mxGeometry height="22" width="150" x="400" y="53" as="geometry" />
         </mxCell>
         <mxCell id="init_proto" parent="core_layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Init (Protocol)" vertex="1">

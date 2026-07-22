@@ -74,9 +74,28 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         """
         # estimated temperature of fluid entering powerplant
         specs = self.raw_specs
+        # This estimate needs "depth at which the working fluid reaches its hottest
+        # point before returning to surface". For a reservoir-based topology
+        # (EGS/CPG) that's reservoir_depth. AGS has no reservoir node — the
+        # analogous depth is horizontal_well.wellhead_depth, which (despite the
+        # name) is the depth below surface at which the horizontal loop begins,
+        # not a literal surface wellhead (see horizontal_well.py's identical
+        # T0 + h * dTdz usage). Branching on whichever node exists is a pragmatic
+        # fix, not a real one: this file has no general concept of "the subsurface
+        # component upstream of the surface plant," only hardcoded node names.
+        # tango_next should replace this with a per-component estimate instead of
+        # a name lookup (see docs/TANGO_vision_and_roadmap.md).
+        if "reservoir" in specs:
+            heat_pickup_depth = specs["reservoir"]["reservoir_depth"]
+        elif "horizontal_well" in specs:
+            heat_pickup_depth = specs["horizontal_well"]["wellhead_depth"]
+        else:
+            raise RuntimeError(
+                "Cannot estimate power-plant inlet temperature: neither 'reservoir' "
+                "nor 'horizontal_well' found in specs.",
+            )
         te_pp_in_est = (
-            specs["surface"]["surface_temperature"]
-            + specs["reservoir"]["reservoir_depth"] * specs["props"]["thermal_gradient"]
+            specs["surface"]["surface_temperature"] + heat_pickup_depth * specs["props"]["thermal_gradient"]
         )
         try:
             p_sat = CP.CoolProp.PropsSI("P", "T", te_pp_in_est, "Q", 0, self._fluid_name)

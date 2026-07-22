@@ -2,6 +2,28 @@
 
 Modelled on ``TrackedState<T>`` in ``fastsim-core/src/utils/tracked_state.rs``.
 
+Motivation
+----------
+Any multi-component simulation can accidentally read or write a state variable
+at the wrong point in the solve order — reading a value before its upstream
+dependency has been updated, or writing it twice in the same timestep.  These
+bugs are hard to catch by inspection because the code *looks* correct; the error
+is in which loop level it runs inside.  ``LockedState`` catches them immediately
+at the call site rather than letting them propagate silently into results. The
+risk is especially acute in iterative solvers that mix a *convergence loop*
+(repeated passes until a boundary condition is satisfied) with a *timestep loop*
+(advancing the simulation forward in time).
+
+``LockedState`` addresses this by embedding the enforcement in the data itself
+rather than relying on caller discipline.  Any solver — existing or future —
+that tries to write a state variable twice in the same timestep receives an
+immediate ``DoubleWriteError`` at the call site.  This is the *solver-neutral*
+property: the constraint travels with the variable, not with the caller, so new
+orchestrators and new convergence strategies cannot accidentally violate it.
+
+The overhead is a single enum comparison on each read/write — negligible
+relative to any CoolProp or TESPy call.
+
 Bypass prevention
 -----------------
 In Rust, ``TrackedState<T>``'s ``value`` and ``status`` fields are

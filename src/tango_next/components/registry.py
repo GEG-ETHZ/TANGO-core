@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tango_next.components.reservoir.lumped import LumpedReservoir
-from tango_next.components.surface.single_flash import SingleFlashSurface
+from tango_next.components.surface.graph import GraphSurface
 from tango_next.components.well.lumped import (
     LumpedInjectionWell,
     LumpedProductionWell,
@@ -25,6 +25,7 @@ from tango_next.components.well.numerical import (
     NumericalInjectionWell,
     NumericalProductionWell,
     NumericalProductionWellPump,
+    NumericalWell,
 )
 
 if TYPE_CHECKING:
@@ -39,5 +40,6 @@ COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("production_well", "numerical"): NumericalProductionWell,
     ("production_well_pump", "native"): LumpedProductionWellPump,
     ("production_well_pump", "numerical"): NumericalProductionWellPump,
-    ("surface", "single_flash"): SingleFlashSurface,
+    ("horizontal_well", "numerical"): NumericalWell,
+    ("surface", "graph"): GraphSurface,
 }

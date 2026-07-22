@@ -66,8 +66,8 @@ reservoir:
   porosity: 0.1
   hydro_static_pressure: 50000000
   over_pressure_percentage: 10
-  inlet_state: 'injection_well.csv'
-  outlet_state:  'production_well.csv'
+  inlet_state: 'examples/injection_well.csv'
+  outlet_state:  'examples/production_well.csv'
 
 injection_well:
   well_length: 5000. # m

@@ -69,6 +69,7 @@ dev = [
     "ipykernel ~= 7.0",
     "dvc>=3.0,<4.0", # pipeline + experiment tracking
     "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
+    "plotly>=5.24,<6.0", # interactive parallel-coordinates plot for parameter sweeps
 ]
 tango-app = [
     "flask==3.0.0",
@@ -79,6 +80,7 @@ tango-app = [
 [dependency-groups]
 dev = [
     "prek>=0.3.13", # git hook management
+    "pytest-xdist>=3.8.0",
     "tango[dev]",
 ]
 tango-app = ["tango[tango-app]"]
@@ -86,10 +88,16 @@ tango-app = ["tango[tango-app]"]
 [tool.setuptools]
 zip-safe = false
 
+[tool.setuptools.package-dir]
+"" = "src"
+
 [tool.setuptools.packages.find]
+where = ["src"]
 include = [
-    "src/tango/",
-    "src/tango_next/",
+    "tango",
+    "tango.*",
+    "tango_next",
+    "tango_next.*",
 ] # package names should match these glob patterns (["*"] by default)
 namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 

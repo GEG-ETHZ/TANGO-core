@@ -6,7 +6,7 @@ Provides centralized access to translation mappings for parameter names, transla
 BASE_PATHS = {
     "target": "self.tango_instance.workflow.orchestrator.unit.surface.",
     "economic": "self.tango_instance.workflow.economic.get_results()['{key}']",
-    "results": "self.tango_instance.workflow._results['{key}'][-1]",
+    "results": "self.tango_instance.workflow.results['{key}'][-1]",
     "specs": "self.tango_instance.specs",
 }
 

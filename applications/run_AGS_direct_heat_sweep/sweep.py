@@ -1,4 +1,4 @@
-"""Simulation sweep stage: run each (depth, mass-flow) design point in parallel."""
+"""Simulation sweep stage: run each (depth, mass-flow, loop-length, loop-diameter) design point in parallel."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import tempfile
 import traceback
 from pathlib import Path
 
+import CoolProp.CoolProp as CP
 import polars as pl
 from common import (
     BASE_YAML,
@@ -22,14 +23,21 @@ from common import (
 
 from tango.runner import Runner
 
+# Floor value: triemli_dh_base.yml's original fixed target_extraction_pressure,
+# which was valid at every depth up to 7500 m (see _apply_target_extraction_pressure).
+# Keeping it as the floor means depths that were already valid before the
+# 8000 m extension get byte-for-byte the same target_extraction_pressure as
+# before, and only the newly-added 8000 m tier's value actually changes.
+_TARGET_EXTRACTION_PRESSURE_FLOOR_PA = 7_000_000.0
+_TARGET_EXTRACTION_PRESSURE_SAFETY_FACTOR = 1.2
+
 
 def _apply_depth(specs: dict, depth_m: float) -> None:
     """Update all depth-dependent parameters in-place.
 
     For the AGS topology (injection_well → horizontal_well → production_well),
-    depth controls the vertical sections only.  The horizontal loop length is
-    fixed at 2500 m regardless of depth — see the assumption note in
-    triemli_dh_base.yml.
+    depth controls the vertical sections only; loop length is a separate axis
+    (see _apply_loop_length).
 
     Parameters updated:
       - injection_well.well_length (and _seq)  — vertical descent = depth
@@ -45,6 +53,62 @@ def _apply_depth(specs: dict, depth_m: float) -> None:
     set_nested_value(specs, "production_well.well_length_seq", [depth_m])
 
 
+def _apply_target_extraction_pressure(specs: dict, depth_m: float) -> None:
+    """Scale surface.target_extraction_pressure with well depth so it stays
+    physically valid across the whole depth sweep.
+
+    SurfaceUnitFlexiblePP.validate_custom() (src/tango/units/native/surface/
+    flexible_pp.py) requires target_extraction_pressure to exceed the
+    saturation pressure at the estimated plant-inlet temperature
+    (surface_temperature + depth * thermal_gradient — same formula the
+    validator itself uses, replicated here). The original base YAML's fixed
+    7 MPa was valid up to 7500 m depth but not at 8000 m (saturation pressure
+    there is ~7.55 MPa) once the depth sweep was extended beyond its
+    original 6500 m ceiling — every 8000 m design failed validation with the
+    same ValidationError before this was added.
+
+    Floor at the original fixed value (not just at the computed minimum)
+    so every depth that was already valid keeps exactly the same
+    target_extraction_pressure as before this axis existed; only the newly
+    invalid tier's value actually changes. The 1.2x safety factor is applied
+    on top of the raw saturation pressure, not the validator's own 1.01x
+    warn threshold, for real engineering margin rather than just clearing
+    the check.
+    """
+    surface_temp_K = specs["surface"]["surface_temperature"]
+    thermal_gradient = specs["props"]["thermal_gradient"]
+    fluid_name = specs["props"]["fluid_name"]
+    te_pp_in_est_K = surface_temp_K + depth_m * thermal_gradient
+    p_sat = CP.PropsSI("P", "T", te_pp_in_est_K, "Q", 0, fluid_name)
+    required = p_sat * _TARGET_EXTRACTION_PRESSURE_SAFETY_FACTOR
+    target = max(_TARGET_EXTRACTION_PRESSURE_FLOOR_PA, required)
+    set_nested_value(specs, "surface.target_extraction_pressure", target)
+
+
+def _apply_loop_length(specs: dict, loop_length_m: float) -> None:
+    """Update the horizontal loop length in-place.
+
+    well_spacing must equal the horizontal loop length by convention (see
+    horizontal_well.py's Inconsistent well_spacing/length warning) — both are
+    updated together.
+    """
+    set_nested_value(specs, "horizontal_well.well_length", loop_length_m)
+    set_nested_value(specs, "horizontal_well.well_length_seq", [loop_length_m])
+    set_nested_value(specs, "schedule.well_spacing", loop_length_m)
+
+
+def _apply_loop_diameter(specs: dict, loop_diameter_m: float) -> None:
+    """Update the horizontal loop diameter in-place.
+
+    Only horizontal_well.diameter is swept, per the original TODO ("loop
+    diameter (horizontal_well.diameter)") — injection_well/production_well
+    diameters (vertical sections) are left at the base YAML's fixed 0.311 m
+    casing assumption, unrelated to this axis.
+    """
+    set_nested_value(specs, "horizontal_well.diameter", loop_diameter_m)
+    set_nested_value(specs, "horizontal_well.well_diameter_seq", [loop_diameter_m])
+
+
 def _apply_mass_flow(specs: dict, mdot: float) -> None:
     """Update all mass-flow-rate parameters in-place (both schedule keys)."""
     set_nested_value(specs, "schedule.mass_flow_rate", mdot)
@@ -52,7 +116,7 @@ def _apply_mass_flow(specs: dict, mdot: float) -> None:
 
 
 def run_single_simulation(args: tuple) -> None:
-    """Worker: run one (depth, mass-flow) design point and write a JSON result file."""
+    """Worker: run one (depth, mass-flow, loop-length, loop-diameter) design point and write a JSON result file."""
     row_idx, design_matrix_file, results_dir, log_level = args
     result_file = results_dir / f"{row_idx:06d}.json"
     if result_file.exists():
@@ -62,6 +126,8 @@ def run_single_simulation(args: tuple) -> None:
     row = df.filter(pl.col("row_idx") == row_idx).to_dicts()[0]
     depth_m: float = row["well_depth_m"]
     mdot: float = row["mass_flow_kg_s"]
+    loop_length_m: float = row["loop_length_m"]
+    loop_diameter_m: float = row["loop_diameter_m"]
 
     runner = Runner(input_file=BASE_YAML, no_save=True, log_level=log_level)
 
@@ -69,6 +135,8 @@ def run_single_simulation(args: tuple) -> None:
         "row_idx": row_idx,
         "well_depth_m": depth_m,
         "mass_flow_kg_s": mdot,
+        "loop_length_m": loop_length_m,
+        "loop_diameter_m": loop_diameter_m,
         # Physics outputs
         "T_prod_K": None,
         "T_prod_C": None,
@@ -91,6 +159,9 @@ def run_single_simulation(args: tuple) -> None:
 
     try:
         _apply_depth(runner.tango.specs, depth_m)
+        _apply_target_extraction_pressure(runner.tango.specs, depth_m)
+        _apply_loop_length(runner.tango.specs, loop_length_m)
+        _apply_loop_diameter(runner.tango.specs, loop_diameter_m)
         _apply_mass_flow(runner.tango.specs, mdot)
         runner.update_parameters()
         runner.start()
@@ -138,8 +209,25 @@ def run_single_simulation(args: tuple) -> None:
             result["CAPEX_surface_pipes_USD"] = er.get("CAPEX_surface_gathering_system")
             result["CAPEX_surface_plant_USD"] = er.get("CAPEX_surface_plant")
             result["CAPEX_total_USD"] = er.get("CAPEX_total")
-            result["LCOE_USD_per_kWh"] = er.get("LCOE")
-            result["net_thermal_power_kW"] = er.get("Net_thermal_power_Generated_kWe")  # kW_th
+            net_thermal_power_kW = er.get("Net_thermal_power_Generated_kWe")  # kW_th
+            result["net_thermal_power_kW"] = net_thermal_power_kW
+
+            lcoe = er.get("LCOE")
+            # LCOE = CAPEX / net_power. When net_thermal_power_kW <= 0 (parasitic
+            # pumping consumes as much or more than the loop delivers — a real
+            # outcome for marginal designs barely above the DH return
+            # temperature, not a simulation error), this ratio is undefined, not
+            # merely large: the plant isn't producing the product LCOE prices in
+            # the first place. Dividing CAPEX by a negative number flips the
+            # sign, producing a nonsensical negative "cost." NaN (not +inf) is
+            # the honest representation — +inf would imply a diminishing-returns
+            # limit as net power shrinks toward zero from above, which isn't
+            # what's happening here, and NaN is skipped by default in
+            # mean/percentile aggregations downstream (summarize.py, plot.py)
+            # instead of corrupting them the way +inf would.
+            if net_thermal_power_kW is not None and net_thermal_power_kW <= 0:
+                lcoe = None
+            result["LCOE_USD_per_kWh"] = lcoe
 
     except Exception as e:
         result["error"] = {

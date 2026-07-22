@@ -15,11 +15,15 @@
 # Sweep axes (see sweep.py / common.py):
 #   well_depth_m    : 2000 – 6500 m  (10 values)
 #   mass_flow_kg_s  : 5   – 100 kg/s  (10 values)
+#   loop_length_m   : 707 – 2500 m    (5 values)
 #
-# Fixed assumption: horizontal loop length = 2500 m regardless of well depth.
-# This is a simplification — in reality the loop length is an independent
-# design parameter.  It is held constant here to keep the sweep 2-D; a future
-# 3-D sweep could add loop length as a third axis.
+# The horizontal loop length used to be held fixed at 2500 m, an unreconciled
+# guess that disagreed with the web app's validated AGS_H2O reference (707 m
+# — see examples/AGS_new/AGS_H2O_webapp_native.yml). Rather than pick one
+# "correct" constant, it's swept: 707 m is the validated reference point, the
+# rest bracket up to the old fixed value. horizontal_well.well_length and
+# schedule.well_spacing below are placeholders — both are overwritten per
+# design point in sweep.py's _apply_loop_length().
 
 graph:
   nodes:

@@ -6,6 +6,23 @@ Verify that tango_next produces physically consistent per-timestep results
 compared to the original src/tango/ implementation, within documented
 tolerances that reflect known deliberate deviations.
 
+This file runs TWO independent comparisons per case:
+
+1. **old vs. new** (``ParityCase`` tolerances) — physical sanity check
+   against ``src/tango/``. Tolerances are deliberately loose (see below)
+   because tango_next fixes a known bug (the 1-step solve-order lag), so
+   exact agreement is neither expected nor desired.
+2. **new vs. golden** (tight, ``GOLDEN_RTOL``) — regression check against a
+   committed snapshot of tango_next's own prior output
+   (``golden_tango_next/<stem>.json``). This is the one that actually
+   catches accidental tango_next regressions: a change could easily shift
+   tango_next's numbers while staying inside the loose old-vs-new band
+   (e.g. drifting from -0.05 K away from old-tango to +0.05 K, still well
+   inside a 2 K tolerance) and comparison (1) alone would never notice.
+   Regenerate the golden file with ``tools/update_tango_next_golden.py``
+   only after confirming a change is an *intentional* physics change —
+   review the JSON diff as you would review any other test-value change.
+
 Known deliberate deviations (flexible_SF_manual baseline)
 ----------------------------------------------------------
 - Reservoir T:   ≲ 1 K   — minor integration differences; negligible
@@ -32,7 +49,10 @@ ADDING A NEW CASE
      - Set new_yml to the path (relative to examples/tango_next/)
      - Set the tolerance fields
      - Remove the ``implemented=False`` flag
-4. Run and verify the test passes.  Adjust tolerances if needed, but
+4. Run ``uv run python tools/update_tango_next_golden.py`` to generate
+   ``golden_tango_next/<stem>.json`` for the new case (the golden-comparison
+   step fails loudly if this file is missing).
+5. Run and verify the test passes.  Adjust tolerances if needed, but
    document WHY each tolerance is what it is.
 
 TARGET CASES (all cases from test_native.py::test_examples)
@@ -101,6 +121,7 @@ External simulator interface — requires CMG/DWSIM/MOOSE integration:
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,6 +132,14 @@ import pytest
 
 EXAMPLES_OLD = Path(__file__).parents[2] / "examples"
 EXAMPLES_NEW = EXAMPLES_OLD / "tango_next"
+GOLDEN_DIR = Path(__file__).parent / "golden_tango_next"
+"""Committed known-good tango_next snapshots, keyed by ``<stem>.json`` —
+see ``tools/update_tango_next_golden.py`` and the module docstring's
+"new vs. golden" comparison for why this exists alongside old-vs-new."""
+GOLDEN_RTOL = 1e-9
+"""Tight — this comparison exists to catch ANY unintended numeric drift in
+tango_next itself, not to allow known-deliberate deviation like the
+old-vs-new tolerances above do."""
 
 
 # ---------------------------------------------------------------------------
@@ -266,11 +295,35 @@ def _run_tango_next(yml_path: Path) -> dict[str, Any]:
     surface = c["surface"]
     prod_upper = c["production_well_upper"]
     res = c["reservoir"]
+    # Old tango's "turbine_power_real" is gross turbine power only (-P.val,
+    # no pump/pump2 parasitic subtraction) — GraphSurface.state.net_power_W
+    # is the *net* total across every role=net_electric node, so for an
+    # apples-to-apples gross comparison read the turbine's own raw P.val out
+    # of the generic per-node history instead (node_detail stores TESPy's
+    # raw sign convention: negative P.val = production).
+    turbine_P = surface.history.node_history["turbine"]["P"]
     return {
         "res_T_out": list(res.history.T_outlet),
         "prod_T_out": list(prod_upper.history.T_outlet),
-        "gross_W": list(surface.history.gross_power_watts),
+        "gross_W": [-p for p in turbine_P],
     }
+
+
+def _load_golden(new_yml: str) -> dict[str, list[float]]:
+    """Load the committed golden snapshot for a tango_next case.
+
+    Raises with a message pointing at the update script rather than
+    silently skipping — a missing golden file means the regression check
+    isn't actually running, which should fail loudly, not quietly pass.
+    """
+    path = GOLDEN_DIR / f"{Path(new_yml).stem}.json"
+    if not path.exists():
+        pytest.fail(
+            f"No golden file at {path}. Run "
+            "`uv run python tools/update_tango_next_golden.py` to generate it "
+            "(after confirming any resulting diff is an intentional change).",
+        )
+    return json.loads(path.read_text())
 
 
 # ---------------------------------------------------------------------------
@@ -322,3 +375,20 @@ def test_old_new_parity(case: ParityCase) -> None:
         rtol=case.power_rtol,
         err_msg=f"Gross power mismatch ({case.notes})",
     )
+
+    # Regression check: tango_next vs. its own last-known-good snapshot, at
+    # much tighter tolerance than the old-vs-new comparisons above — see the
+    # module docstring's "new vs. golden" section for why this is necessary.
+    golden = _load_golden(case.new_yml)
+    for key in ("res_T_out", "prod_T_out", "gross_W"):
+        np.testing.assert_allclose(
+            new[key],
+            golden[key],
+            rtol=GOLDEN_RTOL,
+            atol=0,
+            err_msg=(
+                f"tango_next '{key}' drifted from its golden snapshot ({case.notes}). "
+                "If this drift is intentional, review the diff and regenerate with "
+                "tools/update_tango_next_golden.py."
+            ),
+        )

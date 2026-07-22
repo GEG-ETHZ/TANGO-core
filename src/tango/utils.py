@@ -61,9 +61,8 @@ def parse_tango_args(args) -> argparse.Namespace:
     parser.add_argument(
         "--no-save",
         dest="no_save",
+        action="store_true",
         help="If `--no-save` is passed, no results are saved",
-        required=False,
-        default=False,
     )
     parser.add_argument(
         "--log-level",
