@@ -11,7 +11,7 @@ components:
         surface_temperature: 288
         surface_pressure: 100000
 ```
-In the code for building component objects 
+In the code for building component objects
 
 ```
 python

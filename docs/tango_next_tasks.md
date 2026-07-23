@@ -196,21 +196,40 @@ reasoning doesn't have to be re-derived next session.
       alone for now; needs real thought (not a quick fix) before deciding
       whether the right answer is a validation check, a required `p_out`,
       or something else.
-- [ ] **Port `src/tango/`'s pressure-monotonicity validation.**
-      `flexible_pp.py::validate_pressure_monotonicity()` walks
-      `power_plant_graph`'s edges upstream from every `p_out`-bearing node,
-      stopping at `Pump`/`Compressor` boundaries, and raises `ValidationError`
-      if pressure doesn't decrease monotonically along the flow path. Called
-      unconditionally at construction in old tango. `tango_next` has no
-      equivalent. Two things to check before porting verbatim: (a) as
-      written it only checks components that explicitly declare `p_out`, so
-      it would NOT catch the `dh_hx` case above — that needs a separate,
-      additional check; (b) needs verification it doesn't false-positive on
-      `GraphSurface`'s `pump`/`pump2` nodes, whose `p_out` isn't
-      independently declared at all — it's solved via `Merge`'s
-      pressure-equality constraint back to `injection_pressure` (see the
-      diagram) — legitimately consistent but not literally "explicitly
-      declared and decreasing."
+- [x] **Port `src/tango/`'s pressure-monotonicity validation — done 2026-07-23.**
+      Added `GraphSurface._validate_pressure_monotonicity()`
+      (`components/surface/graph.py`), called from `init()` right after
+      `node_cfgs`/`edge_cfgs` are parsed (pure YAML-config check, no TESPy
+      objects needed). Same algorithm as `flexible_pp.py`'s
+      `validate_pressure_monotonicity()`: walk upstream from every node with
+      a fixed `p_out_megapascals`, stopping at pressure-increasing nodes
+      (`Compressor` — `tango_next` has no separate `Pump` type, pumps are
+      `type: Compressor`), raise `ConfigError` if a downstream `p_out`
+      exceeds an upstream one. Verified: (a) raises correctly on a
+      deliberately-sabotaged copy of `flexible_SF_manual.yml` (turbine
+      `p_out` bumped above valve's); (b) no false positive on
+      `pump`/`pump2` — confirmed they're simply absent from the check's
+      `p_out_values` dict since they don't declare `p_out_megapascals`
+      explicitly (their pressure is solved via `Merge`'s equality
+      constraint, as expected); (c) full `tests/regtest` suite still 70
+      passed / 40 xfailed, no regressions. Locked in with two permanent
+      tests in `tests/regtest/test_tango_next.py`
+      (`test_pressure_monotonicity_passes_on_valid_config`,
+      `test_pressure_monotonicity_rejects_rising_pressure`) built on a new
+      reusable `sf_manual_config` fixture (fresh parsed dict of
+      `flexible_SF_manual.yml`, safe to mutate per-test) — the failing case
+      mutates a live config dict to push the turbine's `p_out` above the
+      valve's, then constructs a real `Workflow` from it and asserts
+      `ConfigError`. Both run in under half a second since `Workflow(cfg)`
+      construction alone triggers `GraphSurface.init()` (via
+      `Component.from_config()`) — no `.run()`/TESPy solve needed to
+      exercise the check.
+      **Known gap, not addressed by this port** (documented in the method's
+      own docstring so it's visible from the code, not just this file): it
+      only traces nodes that explicitly declare `p_out_megapascals`, so it
+      does NOT catch `AGS_direct_heat.yml`'s `dh_hx` case (no `p_out` field
+      at all — see the still-open item above) or anything else where
+      pressure is implicit rather than declared.
 - [x] **Add unit comments to every `p_out`/pressure-bearing key in every
       `tango_next` TESPy-graph YAML file — done 2026-07-23.** Checked all 3
       `examples/tango_next/*.yml` files with `power_plant` blocks

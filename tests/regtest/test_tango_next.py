@@ -20,8 +20,9 @@ from typing import Any
 
 import numpy as np
 import pytest
+import yaml
 
-from tango_next.core.errors import CoolPropError, TangoNextError
+from tango_next.core.errors import ConfigError, CoolPropError, TangoNextError
 from tango_next.workflows.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -275,6 +276,48 @@ def test_surface_outlet_cooler_than_inlet() -> None:
         f"Surface outlet T ({surface.state.T_outlet.get_fresh():.1f} K) should be below "
         f"inlet T ({surface.state.T_inlet.get_fresh():.1f} K)"
     )
+
+
+# ---------------------------------------------------------------------------
+# GraphSurface pressure-monotonicity validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sf_manual_config() -> dict[str, Any]:
+    """Fresh parsed dict of flexible_SF_manual.yml — safe for a test to mutate.
+
+    Not specific to the pressure-monotonicity tests below — any test that
+    wants a valid tango_next config to tweak before constructing a Workflow
+    (without touching the file on disk) can depend on this fixture too.
+    """
+    with NEW_SF_MANUAL.open() as f:
+        return yaml.safe_load(f)
+
+
+def test_pressure_monotonicity_passes_on_valid_config(sf_manual_config: dict[str, Any]) -> None:
+    """flexible_SF_manual.yml's plant (valve 0.05 MPa -> turbine/condenser 0.005 MPa,
+    monotonically decreasing) builds without GraphSurface's validation raising.
+    """
+    wf = Workflow(sf_manual_config)
+    assert "surface" in _components(wf)
+
+
+def test_pressure_monotonicity_rejects_rising_pressure(sf_manual_config: dict[str, Any]) -> None:
+    """Bumping the turbine's p_out above the upstream valve's raises ConfigError.
+
+    Mutates an already-parsed config dict (not the file on disk) to create a
+    non-physical plant — pressure rising across a passive expansion device —
+    then constructs a live Workflow from it and confirms GraphSurface's
+    _validate_pressure_monotonicity catches it during init(), before any
+    TESPy solve is attempted.
+    """
+    nodes = sf_manual_config["components"]["surface"]["power_plant"]["nodes"]
+    valve_p_out = nodes["valve"]["p_out_megapascals"]
+    nodes["turbine"]["p_out_megapascals"] = valve_p_out * 10  # now above upstream valve's p_out
+
+    with pytest.raises(ConfigError, match="not monotonically decreasing"):
+        Workflow(sf_manual_config)
 
 
 # ---------------------------------------------------------------------------
