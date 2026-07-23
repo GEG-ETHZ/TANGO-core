@@ -34,6 +34,7 @@ from tango_next.core.fluid_utils import (
     water_viscosity,
 )
 from tango_next.core.locked_state import LockedState
+from tango_next.core.specs import Common
 
 # ---------------------------------------------------------------------------
 # State dataclasses
@@ -136,8 +137,10 @@ class LumpedInjectionWell(WellComponent):
     TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
     """
 
-    thermal_gradient: float
-    """Geothermal temperature gradient (K/m) — from common: block."""
+    common: Common
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. See core/specs.py."""
 
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
@@ -175,7 +178,7 @@ class LumpedInjectionWell(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         s.P_outlet.update(s.P_inlet.get_fresh() + dp_h - dp_f)
-        s.T_outlet.update(s.T_inlet.get_fresh() + self.thermal_gradient * self.well_length)
+        s.T_outlet.update(s.T_inlet.get_fresh() + self.common.thermal_gradient * self.well_length)
 
         self.outlet.T = s.T_outlet.get_fresh()
         self.outlet.P = s.P_outlet.get_fresh()
@@ -201,8 +204,10 @@ class LumpedProductionWell(WellComponent):
     TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
     """
 
-    thermal_gradient: float
-    """Geothermal temperature gradient (K/m) — from common: block."""
+    common: Common
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. See core/specs.py."""
 
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
@@ -262,8 +267,10 @@ class LumpedProductionWellPump(WellComponent):
     TODO (Phase 2): track pump electricity consumption in EconomicComponent.
     """
 
-    thermal_gradient: float
-    """Geothermal temperature gradient (K/m) — from common: block."""
+    common: Common
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. See core/specs.py."""
     pump_efficiency: float = 0.75
     """Pump isentropic efficiency (dimensionless)."""
     pump_target_pressure_megapascals: float = 0.0

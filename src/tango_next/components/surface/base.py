@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 
 from tango_next.core.component import Component
+from tango_next.core.specs import Common
 
 
 class SurfaceComponent(Component):
@@ -22,10 +23,11 @@ class SurfaceComponent(Component):
     """Circuit index of the upstream component."""
     next: int
     """Circuit index of the downstream component."""
-    surface_temperature: float
-    """Ambient surface temperature (K)."""
-    surface_pressure: float
-    """Ambient surface pressure (Pa)."""
+    common: Common
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. Provides surface_temperature/surface_pressure
+    (ambient BC state). See core/specs.py."""
     injection_pressure: float
     """Initial guess for injection wellhead pressure used by SystemBCIteration (Pa).
     Updated in-place by SystemBCIteration each convergence pass.

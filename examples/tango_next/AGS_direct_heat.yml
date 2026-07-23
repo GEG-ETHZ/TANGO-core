@@ -37,7 +37,6 @@ title: Advanced Geothermal System (AGS), direct-heat, Triemli site
 
 common:
   fluid_name: H2O
-  brine_density: 1000        # kg/m3
   rock_density: 2650.0       # kg/m3
   rock_cp: 1000.0            # J/(kg*K)
   rock_k: 2.1                # W/(m*K)

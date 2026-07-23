@@ -36,6 +36,7 @@ from tango_next.core.fluid_utils import (
     water_viscosity,
 )
 from tango_next.core.locked_state import LockedState
+from tango_next.core.specs import Common
 
 # ---------------------------------------------------------------------------
 # State dataclass
@@ -127,16 +128,10 @@ class LumpedReservoir(ReservoirComponent):
     """
 
     # ---- YAML configuration fields ----
-    thermal_gradient: float
-    """Geothermal temperature gradient (K/m) — from common: block."""
-    surface_temperature: float
-    """Ambient surface temperature (K) — used to compute T₀."""
-    rock_density: float
-    """Rock bulk density (kg/m³) — from common: block."""
-    rock_cp: float
-    """Rock specific heat capacity (J/(kg·K)) — from common: block."""
-    rock_k: float
-    """Rock thermal conductivity (W/(m·K)) — from common: block."""
+    common: Common
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. See core/specs.py."""
     dt_years: float
     """Simulation timestep duration (years) — from sim_config.time.dt_years."""
     well_spacing: float = 707.0
@@ -173,12 +168,12 @@ class LumpedReservoir(ReservoirComponent):
 
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""
-        self.T_initial = self.surface_temperature + self.thermal_gradient * self.reservoir_depth
+        self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
         volume = self.thickness * area
         fluid_volume = self.porosity * volume
         self.rock_volume = volume - fluid_volume
-        self.rock_C_v = self.rock_density * self.rock_cp
+        self.rock_C_v = self.common.rock_density * self.common.rock_cp
         self.energy_extracted = 0.0
         self._recompute_depletion_coeffs(
             m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
@@ -195,9 +190,9 @@ class LumpedReservoir(ReservoirComponent):
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
         """Update Adams 2015 depletion coefficients from current fluid properties."""
         b = self.thickness
-        k_rock = self.rock_k
-        rho_rock = self.rock_density
-        cp_rock = self.rock_cp
+        k_rock = self.common.rock_k
+        rho_rock = self.common.rock_density
+        cp_rock = self.common.rock_cp
         R = self.well_spacing
 
         coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock

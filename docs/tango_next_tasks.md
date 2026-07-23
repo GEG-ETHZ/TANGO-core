@@ -62,12 +62,44 @@ against old tango, and locked in with golden-snapshot regression coverage.
       per-design YAML from a template the way old tango's does.
 
 ### 4. Compare tango_next vs. old tango, close/explain discrepancies
-- [ ] `AGS_direct_heat.yml` is currently NOT in `test_old_new_parity.py`'s
-      `PARITY_CASES` at all — it only has a standalone smoke test
+- [ ] **`AGS_direct_heat.yml` parity — scoped 2026-07-23, bigger than it
+      looks, NOT started.** Currently NOT in `test_old_new_parity.py`'s
+      `PARITY_CASES` at all — only has a standalone smoke test
       (`test_ags_direct_heat_smoke` in `test_tango_next.py`) asserting
       positive net thermal power, no actual old-vs-new numeric comparison.
-      Add it as a real `ParityCase` first, before worrying about
-      sweep-level comparison.
+      This isn't a one-line registry addition — three real pieces of work:
+      1. **No old-tango file lives under `examples/`.** The only old-tango
+         counterpart is `applications/run_AGS_direct_heat_sweep/
+         triemli_dh_base.yml` (a sweep-app file, params overwritten per
+         design point by `sweep.py`). `_run_old_tango`'s path handling
+         (`EXAMPLES_OLD / case.old_yml`) assumes everything lives under
+         `examples/` — need to add a static single-point copy there first
+         (matching `examples/AGS_new/`'s "validated reference point" pattern),
+         with `well_length`/`mass_rate`/etc. fixed to match
+         `examples/tango_next/AGS_direct_heat.yml`'s actual values (3000 m
+         vertical, 707 m horizontal, 30 kg/s).
+      2. **The comparison harness (`_run_old_tango`/`_run_tango_next` in
+         `test_old_new_parity.py`) is hardcoded to the SF/DOUBLET topology**
+         — fixed keys `reservoir_T`, `production_well_pump_T`,
+         `turbine_power_real`. AGS direct-heat has no reservoir at all
+         (sealed closed loop), a single `production_well` (not the
+         lower/upper split), and no turbine — it's a district-heating heat
+         exchanger (`dh_hx` in tango_next, `DH` node in old tango), so
+         "gross power" isn't the right comparable quantity; thermal power
+         delivered is. `ParityCase`'s tolerance fields (`res_T_atol`,
+         `prod_T_atol`, `power_rtol`) are similarly SF-shaped and don't fit.
+         Needs either a topology-aware branch in the harness or a second,
+         parallel comparison path for no-reservoir/thermal-only cases.
+      3. **Old tango's per-timestep thermal-power result key isn't
+         confirmed.** `native_workflow.py` builds per-timestep result keys
+         as `f"{component_name}_Q"` (mirrors `_P` for power, e.g. the
+         existing `turbine_power_real`-style lookups). The DH heat
+         exchanger's node name in `triemli_dh_base.yml`'s
+         `power_plant_graph` is `DH`, so the key is very likely `DH_Q` in
+         `workflow.results` — not yet verified by actually running it and
+         inspecting the dict.
+      Chad's call 2026-07-23: scope it here, don't build yet — pick up when
+      there's room for a real (not "quick") task.
 - [ ] Add an equivalent parity case for the power variant once its
       `tango_next` port exists.
 - [ ] Decide comparison scope: full 6006-point sweep-vs-sweep comparison
@@ -129,30 +161,213 @@ verified, then this fix popped back in and re-checked).
       and has an unrelated `KeyError` bug in `extract_stp_data` (indexes
       `stp[component][...]` without initializing `stp[component] = {}`
       first). Leaving this for the intern's incoming patch, per Chad.
-- [ ] **Same-shaped risk elsewhere, not yet fixed** — found by checking which
-      fields are (a) declared as Pydantic fields on 2+ different component
-      classes AND (b) plausible to set under `common:`, since that's exactly
-      the precondition that made surface_temperature/pressure dangerous.
-      Confirmed via grep across `src/tango_next/components/`:
-      - `thermal_gradient` — declared on `well/lumped.py` (x3 well variants),
-        `well/numerical.py`, `reservoir/lumped.py`.
-      - `rock_density`, `rock_cp`, `rock_k` — declared on `well/numerical.py`
-        and `reservoir/lumped.py`.
-      - `well_spacing` — declared on `reservoir/lumped.py` and
-        `surface/graph.py`.
-      None of these currently diverge in the checked-in example files (spot
-      checked all of `examples/tango_next/*.yml` — no component's own block
-      currently sets any of these), so this is a latent footgun, not an
-      active bug like surface_temperature/pressure was. Before extending
-      `COMMON_ONLY_KEYS` to cover them, need to settle a real question: is
-      there ever a legitimate reason for a specific well/reservoir to want a
-      locally different `rock_k`/`thermal_gradient` (e.g. geological
-      heterogeneity between well locations)? If yes, a hard "common: only"
-      ban is wrong for those fields and a different mechanism (e.g. an
-      explicit opt-in override syntax, or a warning instead of an error) is
-      needed. `surface_temperature`/`surface_pressure` were unambiguous
-      (ambient/BC state, never legitimately per-component) which is why they
-      got the strict treatment first.
+- [x] **`thermal_gradient`/`rock_density`/`rock_cp`/`rock_k` — fixed
+      2026-07-23.** Chad's call: unlike the general "same-shaped risk"
+      question below, these four are unambiguous (should always match
+      between every well and the reservoir — no legitimate per-component
+      override), so they got the same treatment as
+      `surface_temperature`/`surface_pressure`, plus one more layer:
+      1. Added to `COMMON_ONLY_KEYS` (`workflows/workflow.py`) — config-time
+         guard, same as before.
+      2. **New**: also marked `Field(frozen=True)` on these fields (plus
+         `surface_temperature`/`surface_pressure`, closing that original gap
+         too) across `well/lumped.py` (all 3 well variants),
+         `well/numerical.py`, `reservoir/lumped.py`, `surface/base.py`.
+         Verified empirically (Pydantic v2, this repo's exact version) that
+         per-field `frozen=True` (a) raises `ValidationError` on
+         post-construction mutation (`well.rock_k = x`), (b) does NOT
+         require model-level `validate_assignment=True`, (c) has zero
+         measurable cost on sibling mutable fields (confirmed
+         `surface.injection_pressure`, which `SystemBCIteration` reassigns
+         every BC-iteration pass, is untouched). This closes a real gap (1)
+         alone didn't: (1) only guards how a `Workflow` is *built* from
+         YAML — it says nothing about code that mutates an already-built
+         live component directly (e.g. a sweep script reusing objects
+         instead of rebuilding).
+      3. Confirmed (and documented, in `COMMON_ONLY_KEYS`'s comment block)
+         that `frozen=True` does NOT block the *intended* uses: (a)
+         standalone component construction/reconstruction via
+         `model_dump()`/`from_dict()` (unaffected — frozen only guards
+         post-construction assignment, not construction itself; matches
+         `tests/unit/test_serde_roundtrip.py`'s existing pattern), and (b)
+         `component.model_copy(update={...})` on a standalone component
+         (deliberately bypasses Pydantic validation by design — the correct
+         tool for e.g. sweeping a single standalone well's `rock_k`, since a
+         standalone well has no sibling component to diverge from).
+      4. Locked in with 3 new tests in `test_tango_next.py`:
+         `test_common_only_rejects_well_shared_rock_param_override`,
+         `test_common_only_rejects_reservoir_shared_rock_param_override`,
+         `test_frozen_shared_rock_param_rejects_runtime_mutation`. Full
+         `tests/regtest` suite: 80 passed / 40 xfailed (up from 75 — this
+         plus the serialization tests below), no regressions.
+      5. **Follow-on, also built 2026-07-23**: the fix surfaced a real gap
+         while discussing sweep workflows — `Workflow` had no public,
+         documented way to get a config dict back out of an already-built
+         instance (only the private `self._config`), which is exactly what
+         you need to do a *Workflow-level* sweep (as opposed to a
+         standalone-component one) without either relying on a private
+         attribute or holding onto the original raw dict yourself. Added
+         `Workflow.to_dict()` (fresh `deepcopy`, safe regardless of how
+         the `Workflow` was built), plus `from_str()`/`to_str()`/`to_file()`
+         alongside the existing `from_file()` — modeled on fastsim-core's
+         `SerdeAPI` trait pattern (see
+         [[project_phase2_architecture_lessons]]). 5 new round-trip tests
+         in `test_tango_next.py` (`test_workflow_to_config_*`,
+         `test_workflow_from_str_to_str_roundtrip`,
+         `test_workflow_to_file_from_file_roundtrip`,
+         `test_workflow_sweep_pattern_does_not_mutate_base`), the last one
+         using `tmp_path` per Chad's ask. Recommended sweep pattern, now
+         documented in `Workflow`'s class docstring:
+         `cfg = base_wf.to_dict(); cfg["common"][...] = x; Workflow(cfg)`.
+- [x] **SUPERSEDED 2026-07-23 — replaced the guard-list approach above with a
+      structural one.** After the `Field(frozen=True)`/`COMMON_ONLY_KEYS`
+      work above, Chad flagged (rightly) that old tango's `CommonSpecs`
+      dataclass precedent isn't a model to imitate (sloppy code around it),
+      and that `well/reservoir/surface` holding independent COPIES of
+      shared values — even guarded — is weaker than making divergence
+      structurally impossible. Landed:
+      1. **`core/specs.py`** (new file — moved here from `workflows/specs.py`
+         since `components/` needs to import it too, and `workflows →
+         components` is the established dependency direction, not the
+         reverse): `Common`, `Layout`, `SimConfig` — real Pydantic schemas
+         (`extra="forbid"`, whole-model `frozen=True`) for the `common:`/
+         `layout:`/`sim_config:` YAML blocks, previously all
+         `dict[str, Any]` with zero validation. Named without the `*Specs`
+         suffix deliberately (Chad: "I don't even want to see `CommonSpecs`
+         because the code around that was sloppy").
+      2. **Components now hold `common: Common`** (a single field) instead
+         of 6 independent `rock_k`/`rock_density`/`rock_cp`/
+         `thermal_gradient`/`surface_temperature`/`surface_pressure` fields
+         each — across `well/lumped.py` (×3), `well/numerical.py`,
+         `reservoir/lumped.py`, `surface/base.py`. `fluid_name` moved in
+         too (was common-sourced but never got the `COMMON_ONLY_KEYS`
+         treatment — a real inconsistency this closed as a side effect).
+         Verified empirically (this repo's exact Pydantic v2 version):
+         passing the same `Common` instance into multiple components'
+         constructors gives a genuine shared reference
+         (`well.common is reservoir.common is shared` → `True`) — Pydantic
+         does not copy nested model fields on construction. `_build_components`
+         (`workflows/workflow.py`) now constructs ONE `Common` and hands
+         the same reference to every component that declares the field.
+      3. **`COMMON_ONLY_KEYS` and per-field `Field(frozen=True)` are gone
+         entirely** — no longer needed. A component's own YAML block
+         setting `rock_k` is now rejected as an ordinary unknown-key error
+         (the component doesn't declare that field name anymore, only
+         `common`), not a special-cased guard list. `Common` itself is
+         frozen at the model level, so `well.common.rock_k = x` still
+         raises — ONE check instead of six, and it protects every
+         component sharing that instance at once, not just the one you
+         happened to touch. Also explicitly guard against a component's own
+         block setting `common` directly (same rejection, `ConfigError`).
+      4. **Scope decision, explicit**: `well_spacing` (layout) and
+         `dt_years` (sim_config) were NOT given the same shared-reference
+         treatment — components still get individually-threaded values for
+         those two, unchanged from before. Chad's call when offered the
+         choice ("Common only, for now") — see the still-open item below.
+      5. **`Workflow.to_dict()`/`to_str()`/`to_file()` fully rewritten —
+         `self._config` deleted entirely.** This was the actual point of
+         all of the above, surfaced when Chad pushed back hard on the
+         earlier `to_dict()` (which returned `deepcopy(self._config)`, a
+         cached copy of construction-time input): proved empirically that
+         mutating a live, non-frozen field (e.g.
+         `surface.injection_pressure = x`) was NOT reflected in
+         `to_dict()`'s output — a real, silent staleness bug, directly
+         analogous to `src/tango/`'s `specs.org`/`raw_specs` pattern (found
+         in `flexible_pp.py:55,62` — confirms this was an old-tango
+         carryover, not a `tango_next`-native design). Chad's stated
+         reasons (verbatim, worth keeping): wants the YAML schema fully
+         documented with "no guesswork"; worried people would edit a
+         retained `_config`-like object thinking it had effect and it
+         didn't; worried people would mutate live objects thinking it
+         propagated back to a cached dict and it didn't; and if `to_dict()`
+         could return either the object's real state or a cached dict with
+         no way to tell which (or whether they'd drifted apart), that's
+         irreducibly ambiguous. Fix: `Workflow` now retains `self._common`/
+         `self._layout`/`self._sim_config` (the validated, frozen,
+         canonical instances — never mutated after `__init__`) plus
+         `self.title` (plain passthrough) and `self._economic_raw` (one
+         deliberate, clearly-labeled exception — see next item). `to_dict()`
+         reconstructs fresh on every call: `common:`/`layout:`/`sim_config:`
+         from those retained instances' `model_dump()`, `components:` from
+         each LIVE component's own `model_dump()` (inherently live —
+         Pydantic has no caching to go stale) plus its `type`/`unit`
+         routing key recovered via a reverse lookup into
+         `COMPONENT_REGISTRY` (checked: every registry value is a distinct
+         class, so this is unambiguous). Verified the original bug is
+         actually fixed: mutating `surface.injection_pressure` after
+         construction now shows up in `to_dict()` immediately, every time.
+      6. **Two dump-format bugs found and fixed along the way**:
+         (a) `model_dump(mode="json")` converts `LockedState`'s "not yet
+         computed" `float('nan')` sentinel to `None` (not valid JSON),
+         which then fails to reload — switched to plain `model_dump()`
+         (NaN survives; `yaml.safe_dump`/`safe_load` round-trip it fine via
+         the `.nan` tag) plus a small `_yaml_safe()` recursive helper that
+         normalizes the one thing plain `model_dump()` leaves unsafe for
+         YAML (`Enum` members — `InjectionPolicy`, `FrictionModel`,
+         `HeatTransferModel`) to their plain `.value` string. Confirmed with
+         Chad this isn't introducing JSON as a format anywhere — YAML stays
+         the only serde format end to end; `mode="json"` was just Pydantic's
+         (confusingly-named) "give me plain-Python-safe types" dump flag.
+         (b) Comparing pre-solve `to_dict()` output via dict `==` spuriously
+         fails even between two genuinely-identical Workflows, because
+         `float('nan') != float('nan')` under IEEE-754 — not a real bug.
+         Chad's fix (better than my first attempt, which just ran the
+         simulation first to dodge it): compare the two `to_str()` YAML
+         **strings** directly instead of parsed dicts — `.nan` serializes
+         to the identical text either way, so string equality sidesteps
+         the issue at the root without needing to solve anything first.
+      7. **`economic:` — deliberate, labeled exception, not swept up in
+         "everything has a schema."** No `EconomicComponent` reads it yet
+         (Phase 2 placeholder — confirmed via grep, genuinely unwired, not
+         just unused-by-convention). Rather than invent a schema for fields
+         nothing consumes (risks getting the shape wrong, redoing it once
+         the real component lands) or silently drop the block on round-trip,
+         it's retained verbatim/unvalidated as `self._economic_raw` purely
+         so `to_dict()` doesn't lose it — explicitly documented as a
+         temporary passthrough to remove once a real economic schema
+         exists. Matches the one class of exception Chad said was
+         acceptable, citing fastsim's `Option<...>`-then-`Some(...)`
+         pattern for derived fields (`eff_interp_at_max_input` in
+         fastsim-core's `electric_machine.rs`) — a handful of clearly-labeled
+         exceptions is fine; an undocumented, ambiguous cache is not.
+      8. **`brine_density` and `well_pattern`/`well_pattern_dimens` —
+         confirmed dead, handled differently.** `brine_density` (present in
+         every example file's `common:` block) is consumed by nothing in
+         `tango_next`, and isn't in old tango's `CommonSpecs` either —
+         genuinely dead cruft, now rejected by `Common`'s `extra="forbid"`;
+         removed from all 3 `examples/tango_next/*.yml` files.
+         `well_pattern`/`well_pattern_dimens` are ALSO currently unused, but
+         kept as declared-but-inert fields on `Layout` (not deleted) since
+         there's a real forward-looking reason (`reservoir/lumped.py`'s
+         "TODO (Phase 2): add 5-spot and inverted-5-spot impedance
+         variants") — different treatment for a different reason, not an
+         oversight.
+      9. Tests: rewrote every test that referenced the old
+         `COMMON_ONLY_KEYS`/per-field-frozen mechanism to match the new
+         structural one (`test_component_own_block_rejects_shared_rock_param`,
+         `test_component_own_block_rejects_common_object`,
+         `test_components_share_one_common_instance_by_reference` — proves
+         shared identity via `id()`, `test_frozen_common_rejects_runtime_mutation`);
+         rewrote the `to_dict()` round-trip tests (dropped the
+         now-semantically-wrong "equals raw source YAML" check — `to_dict()`
+         legitimately includes more than hand-authored input now, e.g.
+         `NumericalWell`'s derived `T_r`/`cell_length`; replaced with a
+         representative-input-values check plus the string-comparison
+         round-trip tests above); added
+         `test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache` as
+         the direct regression test for the bug that started all of this.
+         Full `tests/regtest` suite green throughout (confirmed at each
+         step); `mypy src/tango_next/` clean; `ruff` clean.
+- [ ] **`well_spacing` — separate, NOT yet decided** — declared on
+      `reservoir/lumped.py` and `surface/graph.py`. Explicitly discussed
+      2026-07-23 as "less obvious" than the rock/thermal fields — Chad
+      wanted to fix the unambiguous ones first and come back to this one.
+      Not yet resolved: is there a legitimate reason `well_spacing` could
+      differ between the reservoir's impedance calc and the surface's
+      injector-to-producer pipe-run length? (They're both nominally "the
+      same physical distance" today, but conceptually one is a reservoir
+      hydraulics parameter and the other is a surface piping length, which
+      is a weaker coupling than "the rock is the same rock.")
 - [x] Reconciled 2026-07-22: the intern's patch (`049fdaa`/merge `123ed39`)
       only fixed `tests/test_surface_temp_pressure.py`'s path/`KeyError` bugs
       and changed its assertion to `!=` — i.e. it documented the divergence
@@ -222,7 +437,7 @@ reasoning doesn't have to be re-derived next session.
       valve's, then constructs a real `Workflow` from it and asserts
       `ConfigError`. Both run in under half a second since `Workflow(cfg)`
       construction alone triggers `GraphSurface.init()` (via
-      `Component.from_config()`) — no `.run()`/TESPy solve needed to
+      `Component.from_dict()`) — no `.run()`/TESPy solve needed to
       exercise the check.
       **Known gap, not addressed by this port** (documented in the method's
       own docstring so it's visible from the code, not just this file): it

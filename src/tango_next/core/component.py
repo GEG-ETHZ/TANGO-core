@@ -11,11 +11,11 @@ state/history, when ``solve()``/``record()`` run.
 Serialization design
 --------------------
 ``model_dump()`` returns all fields, including state, history, inlet, and outlet.
-This allows a solved model to be saved and later restored via ``from_config()``.
+This allows a solved model to be saved and later restored via ``from_dict()``.
 
 Round-trip test pattern (config-only, skip_init=True)::
 
-    comp1 = MyComponent.from_config(d, skip_init=True)
+    comp1 = MyComponent.from_dict(d, skip_init=True)
     json1 = comp1.model_dump()
     comp2 = MyComponent.model_validate(json1)
     json2 = comp2.model_dump()
@@ -90,7 +90,7 @@ class Component(BaseModel, ABC):
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], skip_init: bool = False) -> Component:
+    def from_dict(cls, config: dict[str, Any], skip_init: bool = False) -> Component:
         """Instantiate from a merged YAML config dict.
 
         Args:
@@ -108,7 +108,7 @@ class Component(BaseModel, ABC):
     def init(self) -> None:
         """Compute derived quantities from validated input fields.
 
-        Called by ``from_config()`` unless ``skip_init=True``.  Override in
+        Called by ``from_dict()`` unless ``skip_init=True``.  Override in
         subclasses to pre-compute geometry constants, look-up tables, etc.
         """
 

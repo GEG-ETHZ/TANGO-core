@@ -1051,9 +1051,9 @@ the no-warm-start penalty will be most visible.
   `surface.w_net` ≠ economic-layer inconsistency described above.
 - **Serialization:** Pydantic's `model_dump()` / `model_validate()` serve as the
   serialization layer for all `Component` subclasses — no separate mixin needed.
-  `Component.from_config()` handles YAML-dict → object construction; `Workflow.from_file()`
+  `Component.from_dict()` handles YAML-dict → object construction; `Workflow.from_file()`
   handles YAML file → object. Round-trip tests in `tests/unit/test_serde_roundtrip.py`
-  verify that `LockedState` fields survive `model_dump()` → `from_config()` correctly.
+  verify that `LockedState` fields survive `model_dump()` → `from_dict()` correctly.
   If binary formats (MessagePack) are ever needed, extend at that point — don't add
   the abstraction speculatively.
 - most of these points have examples in https://github.com/NatLabRockies/fastsim

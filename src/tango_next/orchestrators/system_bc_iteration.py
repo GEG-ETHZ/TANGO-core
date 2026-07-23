@@ -186,8 +186,8 @@ class SystemBCIteration(SystemDirect):
         if inj_well.inlet.mass_rate == 0.0:
             surface = self._find_surface()
             if surface is not None:
-                inj_well.inlet.T = surface.surface_temperature
-                inj_well.inlet.P = getattr(surface, "injection_pressure", surface.surface_pressure)
+                inj_well.inlet.T = surface.common.surface_temperature
+                inj_well.inlet.P = getattr(surface, "injection_pressure", surface.common.surface_pressure)
             inj_well.inlet.mass_rate = self.mass_rate
             inj_well.inlet.fluid_name = self.fluid_name
 
