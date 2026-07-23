@@ -4,6 +4,20 @@ from pathlib import Path
 
 import yaml
 
+# TODO: verify that TANGO is calculating the power as the mass flow rate times
+# the specific heat times the outlet temperature minus the
+# TODO: is there a heat exchanger effectiveness baked into this?
+#
+# TODO: figure out how OpEx is accounted
+# TODO: figure out how to make sure that if power demand is lower than what's
+# generated that we don't penalize ourselves by having pumping power required
+# included in OpEx
+# TODO: figure out how pumping power is calculated and it feeds into OpEx
+# because then we can do a post hoc analysis to turn that off during summer or
+# whatnot
+# TODO: make sure the heat exchanger and any other surface plant components are
+# included in CapEx
+
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 BASE_YAML = SCRIPT_DIR / "triemli_dh_base.yml"
@@ -25,6 +39,7 @@ DH_RETURN_TEMP_K: float = DH_RETURN_TEMP_C + 273.15
 # At 35 °C/km + 11 °C surface → 105 °C outlet requires roughly 2700 m
 # (accounting for heat loss in the 0.8× lower production segment).
 WELL_DEPTHS_M: list[float] = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500]
+# TODO: figure out how well depth in the parallel coordinates plot is calculated
 
 # Mass flow rates in kg/s
 MASS_FLOW_RATES_KG_S: list[float] = [5, 10, 15, 20, 30, 40, 50, 65, 80, 100]
