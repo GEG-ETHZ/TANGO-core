@@ -211,15 +211,30 @@ reasoning doesn't have to be re-derived next session.
       pressure-equality constraint back to `injection_pressure` (see the
       diagram) — legitimately consistent but not literally "explicitly
       declared and decreasing."
-- [ ] **Add unit comments to every `p_out`/pressure-bearing key in every
-      TESPy-graph YAML file.** Currently a user has to go read
-      `graph.py`/`_apply_node_config` to learn that `p_out_megapascals` is
-      MPa, `T_out` is K, etc. — should be a comment on every occurrence in
-      every example file, not something you dig for. Scope: enumerate every
-      `p_out_megapascals`/`T_out`/`vapor_mass_fraction_out`/similar key
-      across all `examples/tango_next/*.yml` files with `power_plant` blocks,
-      confirm/add a unit comment on each. Deliberately deferred so it can be
-      captured in one clean commit rather than mixed into other changes.
+- [x] **Add unit comments to every `p_out`/pressure-bearing key in every
+      `tango_next` TESPy-graph YAML file — done 2026-07-23.** Checked all 3
+      `examples/tango_next/*.yml` files with `power_plant` blocks
+      (`flexible_SF_manual.yml`, `AGS_direct_heat.yml`,
+      `SF_manual_differing_st.yml`). `p_out_megapascals`/`T_out` already had
+      unit comments (added when these files were first written/ported — not
+      actually missing). The real gap was `efficiency:` (7 occurrences) and
+      `vapor_mass_fraction_out:` (2 occurrences) having no unit/scale note at
+      all — added `# dimensionless [0-1] — TESPy eta_s (isentropic
+      efficiency)` and `# dimensionless [0-1] — TESPy vapor quality x (0 =
+      saturated liquid, 1 = saturated vapor)` respectively. Full
+      `test_old_new_parity`/`test_tango_next.py`/
+      `test_surface_temp_pressure.py` suite still green after — comment-only
+      diff, confirmed via `git diff`.
+- [ ] **Same gap exists much more widely in `src/tango/`'s old-format
+      examples — separate, bigger task, explicitly deferred.** Spot-checked
+      `examples/flexible_SF_manual.yml`/`flexible_ORC_manual.yml`: `p_out:`
+      values (e.g. `p_out: 0.5`, `p_out: 0.05`) have zero unit comments
+      anywhere. `grep -rln "power_plant_graph:" examples/` (excluding
+      `tango_next/`) turns up **60+ files** — a real gap, but not "easy," so
+      explicitly not swept today (Chad's call, 2026-07-23, when offered a
+      3-way scope choice). If picked up later: same treatment as above
+      (`p_out` is bar per `flexible_pp.py`'s `Network(p_unit="bar", ...)`),
+      but budget it as its own task, not a quick add-on.
 
 ## Backlog (queued, not yet started)
 

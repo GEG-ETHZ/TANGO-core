@@ -82,23 +82,23 @@ components:
         pump2:
           type: Compressor
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
 
         condenser:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
-          vapor_mass_fraction_out: 0
+          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
 
         pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
 
         mixer:
           type: Merge
