@@ -516,6 +516,40 @@ def test_frozen_common_rejects_runtime_mutation(sf_manual_config: dict[str, Any]
     assert components["surface"].injection_pressure == 1.5e6
 
 
+def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict[str, Any]) -> None:
+    """Component-local YAML config fields (not just `common`) reject live
+    mutation too — decided 2026-07-24, mirrors the `Common` treatment above.
+
+    Every field that is genuinely YAML config (set once at construction,
+    never reassigned by init()/solve()/the orchestrator) is now
+    `Field(frozen=True)` on each Component subclass. The only supported way
+    to change one is the dict-modify-then-reinstantiate pattern
+    (`Workflow.to_dict()` -> mutate the copy -> `Workflow(cfg)`), matching
+    `examples/tango_next/sweep_demo_AGS_direct_heat.py`. Fields that are
+    legitimately reassigned during simulation (`inlet`/`outlet`,
+    `surface.injection_pressure`) must remain mutable — checked here too.
+    """
+    from pydantic import ValidationError
+
+    wf = Workflow(sf_manual_config)
+    components = _components(wf)
+
+    with pytest.raises(ValidationError, match="frozen"):
+        components["injection_well"].well_length = 9999.0
+    with pytest.raises(ValidationError, match="frozen"):
+        components["reservoir"].permeability = 1e-13
+    with pytest.raises(ValidationError, match="frozen"):
+        components["surface"].pipe_diameter = 1.0
+
+    # Fields that are legitimately reassigned during simulation stay mutable.
+    from tango_next.core.stream import Stream
+
+    components["injection_well"].inlet = Stream(T=300.0, P=1e6, mass_rate=10.0, fluid_name="water")
+    assert components["injection_well"].inlet.T == 300.0
+    components["surface"].injection_pressure = 2.5e6
+    assert components["surface"].injection_pressure == 2.5e6
+
+
 # ---------------------------------------------------------------------------
 # Error taxonomy — CoolProp failures should surface as CoolPropError
 # ---------------------------------------------------------------------------

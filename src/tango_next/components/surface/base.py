@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
+from pydantic import Field
+
 from tango_next.core.component import Component
 from tango_next.core.specs import Common
 
@@ -19,26 +21,27 @@ class SurfaceComponent(Component):
     direct-heat, or any other plant design.
     """
 
-    prev: int
+    prev: int = Field(frozen=True)
     """Circuit index of the upstream component."""
-    next: int
+    next: int = Field(frozen=True)
     """Circuit index of the downstream component."""
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. Provides surface_temperature/surface_pressure
     (ambient BC state). See core/specs.py."""
     injection_pressure: float
     """Initial guess for injection wellhead pressure used by SystemBCIteration (Pa).
-    Updated in-place by SystemBCIteration each convergence pass.
+    Updated in-place by SystemBCIteration each convergence pass — deliberately
+    NOT frozen, unlike the other fields here; see Component's class docstring.
     """
-    pipe_diameter: float
+    pipe_diameter: float = Field(frozen=True)
     """Surface pipe inner diameter (m)."""
-    pipe_roughness: float
+    pipe_roughness: float = Field(frozen=True)
     """Absolute pipe wall roughness (m)."""
-    approach_temperature: float
+    approach_temperature: float = Field(frozen=True)
     """Heat exchanger approach temperature (K)."""
-    target_extraction_pressure: float
+    target_extraction_pressure: float = Field(frozen=True)
     """Minimum required extraction pressure at the surface inlet (Pa)."""
 
     @abstractmethod

@@ -45,21 +45,25 @@ against old tango, and locked in with golden-snapshot regression coverage.
       failure (`target_extraction_pressure` too low) is a precedent for
       edge-of-range failures that a single design point won't catch.
 
-### 3a. IMMEDIATE NEXT — small demo sweep, not the full port below
-Decided 2026-07-24, to be built same day (after a commit/compact of the
-`Common`/`to_dict()` refactor work). Scope is deliberately much smaller than
-task 3 below: get `examples/tango_next/AGS_direct_heat.yml` (already exists,
-already unblocked — no ORC gap, since it's direct-heat) running through a
-minimal sweep script that demonstrates the dict-modify-then-reinstantiate
-pattern from this session's `Common`/`Workflow.to_dict()` work, end to end,
-on a real example — not the full generate/sweep/summarize/plot pipeline
-matching old tango's apps (that's task 3 below, still blocked/deferred).
-Requirement: **at least one swept parameter must live in `common:`** (e.g.
-`rock_k` or `thermal_gradient`), specifically to exercise the shared-`Common`
-reference architecture, not just component-local fields — the whole point is
-demonstrating today's work, not just any parameter sweep. Pattern:
-`cfg = base_wf.to_dict(); cfg["common"][...] = x; Workflow(cfg).run()`, per
-`Workflow`'s class docstring.
+### 3a. DONE 2026-07-24 — small demo sweep, not the full port below
+Built as `examples/tango_next/sweep_demo_AGS_direct_heat.py`. Sweeps
+`common.rock_k` (deliberately a `common:` field, not component-local) over
+`[1.5, 2.1, 3.0, 4.0]` W/(m·K) against `AGS_direct_heat.yml`, using exactly
+the `cfg = base_wf.to_dict(); cfg["common"]["rock_k"] = x; Workflow(cfg).run()`
+pattern from `Workflow`'s class docstring. Reports final-timestep
+`surface.history.net_thermal_W` per value (monotonically increasing with
+rock_k, as expected — more conductive rock delivers more heat to the fluid);
+asserts each rebuilt Workflow's three well components all see the new
+`rock_k` via their shared `common` reference, and that `base_wf` itself is
+never mutated (`base_wf.to_dict()["common"]["rock_k"]` still reads 2.1 after
+the sweep). Verified: `rock_k=2.1` mid-sweep row matches a fresh unswept run
+of the same YAML exactly (110,149.68 W). Ruff clean. The recurring TESPy
+`pr`/`zeta` bound warnings from `dh_hx` are pre-existing baseline noise from
+this example (confirmed present on an unswept run too), not introduced by
+the sweep.
+
+Deliberately NOT the full generate/sweep/summarize/plot pipeline matching
+old tango's apps — that's task 3 below, still blocked/deferred.
 
 ### 3. Port both to `tango_next` under `applications/tango_next/run_AGS_sweep/`
 - [ ] **Blocking gap**: `tango_next` has no ORC / power-plant component yet
@@ -380,6 +384,56 @@ verified, then this fix popped back in and re-checked).
          the direct regression test for the bug that started all of this.
          Full `tests/regtest` suite green throughout (confirmed at each
          step); `mypy src/tango_next/` clean; `ruff` clean.
+      10. **DONE 2026-07-24 — extended `Field(frozen=True)` from `Common`
+          to every genuine config field on every `Component` subclass.**
+          Chad's ask: could Pydantic enforce that nothing be modified
+          directly at all? Answer landed on: not model-wide (would break
+          `init()`/`solve()`, which legitimately reassign several plain,
+          non-`LockedState` fields as part of running the simulation, not
+          config drift), but per-field, splitting each component's fields
+          into two buckets:
+          - **Frozen (config, set once at construction)**: `component_idx`/
+            `save_interval` (base `Component`); `prev`/`next`/`well_length`/
+            `diameter`/`pipe_roughness` (`WellComponent`); `prev`/`next`/
+            `reservoir_depth`/`thickness`/`permeability`/`porosity`/
+            `hydro_static_pressure`/`over_pressure_percentage`
+            (`ReservoirComponent`); `prev`/`next`/`common`/`pipe_diameter`/
+            `pipe_roughness`/`approach_temperature`/`target_extraction_pressure`
+            (`SurfaceComponent`); `common` on every well/reservoir class;
+            `dt_years`/`num_cells`/`wellhead_depth`/`gravity_scale_factor`/
+            `friction_model`/`heat_transfer_model`/`angle_from_vert_deg`
+            (`NumericalWell`); `pump_efficiency`/
+            `pump_target_pressure_megapascals` (`LumpedProductionWellPump`);
+            `dt_years`/`well_spacing`/`well_eff_diameter`/
+            `net_to_gross_ratio` (`LumpedReservoir`); `power_plant`/
+            `well_spacing`/`record_node_detail` (`GraphSurface`);
+            `project_maturity`/`discount_rate`/`main_product`
+            (`EconomicComponent`, unwired but done for consistency).
+          - **Deliberately left mutable**: `inlet`/`outlet` (reassigned every
+            solve by the orchestrator); `state`/`history` (container never
+            reassigned, only its internal fields mutate);
+            `SurfaceComponent.injection_pressure` (the BC-iteration guess,
+            reassigned every convergence pass by `SystemBCIteration`); a
+            handful of subclass-specific plain-float "derived, recomputed
+            each call" fields that are NOT `LockedState`-wrapped —
+            `NumericalWell.cell_length`/`relative_roughness`/
+            `cross_sectional_area`/`t_scaling_factor`/`T_r`/`t_d_old` (set
+            by `init()`, `t_d_old` also reassigned every `solve()`) and
+            `LumpedReservoir.T_initial`/`rock_volume`/`rock_C_v`/`p1`/`p2`/
+            `p3`/`energy_extracted` (reassigned by
+            `_recompute_depletion_coeffs()`/`solve()` every timestep).
+          Verified safe by grepping the whole `src/tango_next/` tree for
+          direct reassignment of every frozen-candidate field name before
+          touching anything — the only hits were `inlet`/`outlet`/
+          `injection_pressure`/`save_interval` (comparison, not assignment)
+          and the orchestrator's own unrelated `dt_years` attribute. Added
+          `test_frozen_component_config_rejects_runtime_mutation`
+          (`tests/regtest/test_tango_next.py`) alongside the existing
+          `test_frozen_common_rejects_runtime_mutation`. Full
+          `tests/regtest`+`tests/unit` suite green (36 passed, 1 xfailed);
+          `mypy src/`, `ruff check`, `ruff format --check` all clean;
+          `examples/tango_next/sweep_demo_AGS_direct_heat.py` re-run and
+          confirmed byte-identical output to before this change.
 - [ ] **NEXT SESSION — Chad wants to understand the shared-reference
       mechanics more deeply before this is considered settled.** Raised
       2026-07-23 at the very end of a long session ("brain is smoking"),

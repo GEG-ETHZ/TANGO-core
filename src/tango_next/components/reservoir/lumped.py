@@ -128,23 +128,26 @@ class LumpedReservoir(ReservoirComponent):
     """
 
     # ---- YAML configuration fields ----
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
-    dt_years: float
+    dt_years: float = Field(frozen=True)
     """Simulation timestep duration (years) — from sim_config.time.dt_years."""
-    well_spacing: float = 707.0
+    well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer horizontal distance (m) — from layout: block."""
-    well_eff_diameter: float = 0.41
+    well_eff_diameter: float = Field(default=0.41, frozen=True)
     """Effective well diameter for impedance calculation (m).
     Old tango computes this as the average of injection and production well
     diameters; set explicitly here for transparency.
     """
-    net_to_gross_ratio: float = 1.0
+    net_to_gross_ratio: float = Field(default=1.0, frozen=True)
     """Net-to-gross ratio for effective reservoir thickness (dimensionless)."""
 
     # ---- Derived constants (computed by init(), serialized for save/restore) ----
+    # Deliberately NOT frozen — init()/_recompute_depletion_coeffs() reassign
+    # these directly (plain floats, not LockedState) each call; see
+    # Component's class docstring for why fields like this stay mutable.
     T_initial: float = 0.0
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
     rock_volume: float = 0.0

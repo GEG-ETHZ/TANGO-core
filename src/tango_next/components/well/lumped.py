@@ -137,7 +137,7 @@ class LumpedInjectionWell(WellComponent):
     TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
     """
 
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
@@ -204,7 +204,7 @@ class LumpedProductionWell(WellComponent):
     TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
     """
 
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
@@ -267,13 +267,13 @@ class LumpedProductionWellPump(WellComponent):
     TODO (Phase 2): track pump electricity consumption in EconomicComponent.
     """
 
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
-    pump_efficiency: float = 0.75
+    pump_efficiency: float = Field(default=0.75, frozen=True)
     """Pump isentropic efficiency (dimensionless)."""
-    pump_target_pressure_megapascals: float = 0.0
+    pump_target_pressure_megapascals: float = Field(default=0.0, frozen=True)
     """Target outlet pressure from the pump (MPa). 0 means no active pump."""
 
     state: ProductionWellPumpState = Field(default_factory=ProductionWellPumpState)

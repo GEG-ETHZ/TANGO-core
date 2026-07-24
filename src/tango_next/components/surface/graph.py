@@ -203,14 +203,14 @@ class GraphSurface(SurfaceComponent):
     restore, call ``init()`` again to rebuild the network.
     """
 
-    power_plant: dict[str, Any] = Field(default_factory=dict)
+    power_plant: dict[str, Any] = Field(default_factory=dict, frozen=True)
     """``{"nodes": {name: {type, role?, ...attrs}}, "edges": {n: {source, target,
     source_port?, target_port?}}}``. See module docstring for the full shape.
     """
-    well_spacing: float = 707.0
+    well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer distance (m), used as surface pipe length,
     before the Darcy-Weisbach friction drop to the TESPy inlet."""
-    record_node_detail: bool = True
+    record_node_detail: bool = Field(default=True, frozen=True)
     """If True (default), populate state.node_detail / history.node_history
     with every node's P/Q/T/p/m each solve(). Set False to skip this
     (e.g. a large network run over many timesteps where the extra

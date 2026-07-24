@@ -252,26 +252,30 @@ class NumericalWell(WellComponent):
     convention, and the ``T_r`` deviated-well caveat.
     """
 
-    angle_from_vert_deg: float = 0.0
+    angle_from_vert_deg: float = Field(default=0.0, frozen=True)
     """0 = straight down (injection), 180 = straight up (production), 90 =
     horizontal. Values in between describe a deviated well."""
 
     # ---- YAML configuration fields ----
-    common: Common
+    common: Common = Field(frozen=True)
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds (Pydantic does not
     copy nested model fields on construction), not an independent copy.
     Common itself is frozen, so there is exactly one place these values can
     come from and no way for this well to silently diverge from the
     reservoir or any other well. See core/specs.py."""
-    dt_years: float
-    num_cells: int = 100
-    wellhead_depth: float = 0.0
-    gravity_scale_factor: float = 1.0
-    friction_model: FrictionModel = FrictionModel.HAALAND
-    heat_transfer_model: HeatTransferModel = HeatTransferModel.ADAMS_2015
+    dt_years: float = Field(frozen=True)
+    num_cells: int = Field(default=100, frozen=True)
+    wellhead_depth: float = Field(default=0.0, frozen=True)
+    gravity_scale_factor: float = Field(default=1.0, frozen=True)
+    friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
+    heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ADAMS_2015, frozen=True)
 
     # ---- Derived quantities (computed by init(), serialized for save/restore) ----
+    # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
+    # cross_sectional_area/t_scaling_factor/T_r via direct assignment, and
+    # solve() reassigns t_d_old every timestep; see Component's class
+    # docstring for why fields like this stay mutable.
     cell_length: float = 0.0
     relative_roughness: float = 0.0
     cross_sectional_area: float = 0.0

@@ -37,6 +37,37 @@ Each component's ``record(timestep)`` is called by the orchestrator after
 every ``solve()``; the component decides whether to append to history based
 on ``save_interval``.  Orchestrator.record() cascades downward so callers
 can call it at the top level and know it propagates.
+
+Frozen config fields (decided 2026-07-24)
+------------------------------------------
+Every field that is genuinely YAML config — set once at construction and
+never reassigned by ``init()``/``solve()``/the orchestrator afterward — is
+declared ``Field(frozen=True)`` in each concrete ``Component`` subclass
+(``component_idx``/``save_interval`` here on the base class; geometry,
+physics-model selections, etc. in each subclass). This mirrors ``Common``
+(``core/specs.py``): the only supported way to change one of these values
+is the dict-modify-then-reinstantiate pattern (``Workflow.to_dict()`` →
+mutate the copy → ``Workflow(cfg)``), never live attribute assignment —
+see ``examples/tango_next/sweep_demo_AGS_direct_heat.py`` for a worked
+example.
+
+This is deliberately NOT applied to every field. Some fields are plain
+Pydantic fields (not ``LockedState``-wrapped) that are legitimately
+reassigned during the simulation itself, not by a user tweaking config —
+freezing these would break ``init()``/``solve()``, not protect anything:
+
+- ``inlet``/``outlet`` — reassigned by the orchestrator/``solve()`` every
+  timestep.
+- ``state``/``history`` — the object itself is never reassigned (its
+  fields mutate internally instead), so freezing the container field would
+  add nothing.
+- ``SurfaceComponent.injection_pressure`` — the BC-iteration guess,
+  explicitly updated in place by ``SystemBCIteration`` every convergence
+  pass (see its docstring).
+- A handful of subclass-specific "derived, recomputed every timestep"
+  fields that happen to be plain floats rather than ``LockedState``, e.g.
+  ``NumericalWell.t_d_old`` and ``LumpedReservoir.energy_extracted``/
+  ``p1``/``p2``/``p3`` — see each class's own comments for why.
 """
 
 from __future__ import annotations
@@ -66,12 +97,12 @@ class Component(BaseModel, ABC):
         populate_by_name=True,
     )
 
-    component_idx: int
+    component_idx: int = Field(frozen=True)
     """Circuit index.  0 is the circuit entry (injection well, solved first).
     The BC checkpoint (surface) is identified separately via ``bc_checkpoint_idx``
     in ``sim_config``."""
 
-    save_interval: int | None = 1
+    save_interval: int | None = Field(default=1, frozen=True)
     """Timestep interval at which ``record()`` appends state to history.
     ``None`` disables history recording entirely.  Default ``1`` records
     every timestep (matches the original ``record_history=True`` behaviour).
