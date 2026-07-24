@@ -179,6 +179,7 @@ def run_single_simulation(args: tuple) -> None:
 
         # --- Injection temperature (surface outlet = DH return temperature) ---
         surf_unit = getattr(orch.unit, "surface", None)
+        # TODO: this should probably just be `DH_RETURN_TEMP_K` all the time
         if surf_unit is not None and hasattr(surf_unit, "outlet_fluid"):
             T_inj_K: float = surf_unit.outlet_fluid.T
         else:

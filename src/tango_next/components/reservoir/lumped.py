@@ -1,8 +1,8 @@
 """Lumped-parameter reservoir component for tango_next.
 
 LumpedReservoir models the subsurface as a single pressure-drop element
-using the doublet radial-flow impedance formula (Adams et al. 2020) and
-tracks thermal depletion via the Adams et al. (2015) cumulative-energy model.
+using a doublet radial-flow impedance formula and tracks thermal depletion
+via a cumulative-energy model. See References below for both.
 
 Pressure model (doublet impedance — parity with src/tango/):
     Z = μ · [ln(L / (e · D)) + D / L] / (ρ · k · b_eff · π)
@@ -15,6 +15,20 @@ Temperature model (thermal depletion — parity with src/tango/):
     T_outlet = T_inj + γ · (T₀ − T_inj)
 
 where T₀ = initial reservoir temperature, T_inj = current injection temperature.
+
+References
+----------
+Doublet impedance:
+    Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
+    geothermal simulator, v0.0.1 [Software]. Zenodo.
+    https://doi.org/10.5281/zenodo.4383139
+
+Thermal depletion (cumulative-energy / γ(ψ) fitting function):
+    Adams, B.M. et al. (2015). A comparison of electric power output of CO2
+    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
+    conditions. Applied Energy, 140, 365-377.
+    https://doi.org/10.1016/j.apenergy.2014.11.043
+
 """
 
 from __future__ import annotations
@@ -191,7 +205,13 @@ class LumpedReservoir(ReservoirComponent):
         )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
-        """Update Adams 2015 depletion coefficients from current fluid properties."""
+        """Update the thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.
+
+        Reference: Adams, B.M. et al. (2015). A comparison of electric power
+        output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
+        varying reservoir conditions. Applied Energy, 140, 365-377.
+        https://doi.org/10.1016/j.apenergy.2014.11.043
+        """
         b = self.thickness
         k_rock = self.common.rock_k
         rho_rock = self.common.rock_density
@@ -206,7 +226,12 @@ class LumpedReservoir(ReservoirComponent):
         self.p3 = float(np.clip(1.0 - 1.4646 * math.exp(-377.3 * coeff2), 0.0, 1.0))
 
     def _depletion_curve(self, psi: float) -> float:
-        """Adams 2015 γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid."""
+        """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
+
+        Reference: Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.
+        https://doi.org/10.1016/j.apenergy.2014.11.043 (same curve-fit as
+        ``_recompute_depletion_coeffs`` above — see its docstring).
+        """
         p1, p2, p3 = self.p1, self.p2, self.p3
         if psi <= -p1 / p2:
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * float(erfc(p2 * psi + p1)))

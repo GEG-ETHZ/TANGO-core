@@ -8,7 +8,8 @@ format and round-trip correctly through ``model_dump()`` →
 - Serialized form contains raw values (no ``LockedState`` wrapper).
 - Deserialized fields are ``LockedState`` instances, not plain floats.
 - Values are preserved exactly.
-- Deserialized status is fresh (matching fastsim TrackedState convention).
+- Deserialized status is fresh (readable immediately, same as any
+  newly-constructed ``LockedState``).
 - Persistent scalar fields (e.g. ``energy_extracted``) survive the round-trip.
 """
 

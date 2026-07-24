@@ -76,7 +76,7 @@ def extract_data(wf: Workflow) -> dict:
     prod_upper = c["production_well_upper"]  # LumpedProductionWell — has the production pump
 
     dt_years: float = wf._orchestrator.dt_years  # type: ignore[attr-defined]
-    n_tsteps = len(surface.history.gross_power_watts)
+    n_tsteps = len(surface.history.net_power_W)
     years = np.arange(n_tsteps) * dt_years
 
     # ------------------------------------------------------------------ wells
@@ -95,7 +95,13 @@ def extract_data(wf: Workflow) -> dict:
     res_T_out = np.array(res.history.T_outlet)  # K — to production well BH
 
     # ----------------------------------------------------------------- power
-    gross_MW = np.array(surface.history.gross_power_watts) / 1e6
+    # GraphSurface's history field is `net_power_W` (sum of -P.val over
+    # role=net_electric TESPy nodes — already nets out the plant's own
+    # internal turbine/pump balance), not `gross_power_watts` (an older
+    # SingleFlashSurface field name that no longer exists). Kept the local
+    # variable name `gross_MW` since well-level pump parasitics are still
+    # subtracted from it below, same as before.
+    gross_MW = np.array(surface.history.net_power_W) / 1e6
     prod_pump_MW = np.array(prod_upper.history.pump_power_watts) / 1e6
     inj_pump_MW = np.zeros(n_tsteps)  # Phase 2 — injection pump not tracked yet
     net_MW = gross_MW - prod_pump_MW - inj_pump_MW

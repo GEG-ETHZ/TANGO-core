@@ -11,7 +11,7 @@ class Init(Protocol):
 
     ``Component.from_dict()`` calls ``self.init()`` after constructing any
     object that implements this protocol, allowing derived fields to be computed
-    from the validated input state.  Modeled on the Init trait from fastsim-core.
+    from the validated input state.
     """
 
     def init(self) -> None:

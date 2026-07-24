@@ -2,11 +2,8 @@
 
 Every ``Component`` subclass is already its own schema (Pydantic fields,
 ``extra="forbid"``) — these three classes give the same guarantee to the
-top-level blocks that used to be plain, unvalidated ``dict[str, Any]``
-threaded through ``Workflow``/``_build_components`` by hand. Unknown keys
-now raise at load time instead of silently sitting inert forever (this is
-exactly how ``brine_density`` — present in every example file's ``common:``
-block, consumed by nothing — went unnoticed).
+top-level blocks. Unknown keys raise at load time rather than being
+silently accepted and never read by anything.
 
 ``economic:`` is deliberately NOT covered here yet: no ``EconomicComponent``
 reads it (Phase 2 placeholder — see ``AGS_direct_heat.yml``'s comment),

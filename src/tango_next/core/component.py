@@ -38,8 +38,8 @@ every ``solve()``; the component decides whether to append to history based
 on ``save_interval``.  Orchestrator.record() cascades downward so callers
 can call it at the top level and know it propagates.
 
-Frozen config fields (decided 2026-07-24)
-------------------------------------------
+Frozen config fields
+---------------------
 Every field that is genuinely YAML config — set once at construction and
 never reassigned by ``init()``/``solve()``/the orchestrator afterward — is
 declared ``Field(frozen=True)`` in each concrete ``Component`` subclass

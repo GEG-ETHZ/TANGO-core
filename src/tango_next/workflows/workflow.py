@@ -44,36 +44,32 @@ class Workflow:
         wf.run()
 
     ``from_file``/``from_str``/``to_file``/``to_str``/``to_dict`` are the
-    supported (de)serialization surface — modeled on fastsim-core's
-    ``SerdeAPI`` trait pattern (one controlled API for load/dump, insulated
-    from which YAML library is used underneath).
+    supported (de)serialization surface — one controlled API for load/dump,
+    insulated from which YAML library is used underneath.
 
     There is deliberately no cached "original config dict" anywhere in this
-    class (no ``self._config``, unlike an earlier version of this code, and
-    unlike ``src/tango/``'s ``specs.org``/``raw_specs`` pattern it was
-    modeled on). That pattern lets an object and the dict people think it
-    was built from silently drift apart: mutate a live component's
-    non-frozen field and a cached dict would keep reporting the OLD value
-    forever, with no way to tell they'd diverged. Every ``to_dict()`` call
-    instead reconstructs fresh from this Workflow's actual current live
-    state — ``common:``/``layout:``/``sim_config:`` from their retained,
-    frozen, canonical ``Common``/``Layout``/``SimConfig`` instances,
-    ``components:`` from each live component's own ``model_dump()`` (which,
-    being Pydantic, is inherently live — no caching possible). A mutation to
-    a genuinely-mutable field (e.g. ``surface.injection_pressure``) is
-    reflected immediately, every time.
+    class (no ``self._config``). Caching the construction-time input lets an
+    object and the dict people think it was built from silently drift
+    apart: mutate a live component's non-frozen field and a cached dict
+    would keep reporting the OLD value forever, with no way to tell they'd
+    diverged. Every ``to_dict()`` call instead reconstructs fresh from this
+    Workflow's actual current live state — ``common:``/``layout:``/
+    ``sim_config:`` from their retained, frozen, canonical ``Common``/
+    ``Layout``/``SimConfig`` instances, ``components:`` from each live
+    component's own ``model_dump()`` (which, being Pydantic, is inherently
+    live — no caching possible). A mutation to a genuinely-mutable field
+    (e.g. ``surface.injection_pressure``) is reflected immediately, every
+    time.
 
-    Every top-level YAML block has a real schema now: ``common:``/
-    ``layout:``/``sim_config:`` validate against ``Common``/``Layout``/
-    ``SimConfig`` (core/specs.py); ``components:`` was already validated
-    per-component (every Component subclass is its own schema). Unknown
-    keys raise ConfigError at load time instead of sitting inert forever —
-    this is how ``brine_density``, present in every example file's
-    ``common:`` block and consumed by nothing, went unnoticed for so long.
-    (``economic:`` is the one deliberate, documented exception — Phase 2
-    placeholder, no ``EconomicComponent`` consumes it yet, so it has no
-    schema of its own and is retained verbatim/unvalidated purely so
-    ``to_dict()`` doesn't silently drop it.)
+    Every top-level YAML block has a real schema: ``common:``/``layout:``/
+    ``sim_config:`` validate against ``Common``/``Layout``/``SimConfig``
+    (core/specs.py); ``components:`` was already validated per-component
+    (every Component subclass is its own schema). Unknown keys raise
+    ConfigError at load time rather than being silently accepted and never
+    read by anything. (``economic:`` is the one deliberate, documented
+    exception — Phase 2 placeholder, no ``EconomicComponent`` consumes it
+    yet, so it has no schema of its own and is retained
+    verbatim/unvalidated purely so ``to_dict()`` doesn't silently drop it.)
 
     ``common:`` gets one more guarantee beyond validation: every component
     that needs shared fluid/rock parameters holds a REFERENCE to the same

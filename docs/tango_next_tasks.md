@@ -579,6 +579,41 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
+- **Fix the TODOs in `applications/run_AGS_direct_heat_sweep/sweep.py`** —
+  flagged 2026-07-24, not started. Two open questions in
+  `run_single_simulation()`'s injection-temperature block (~lines 180-187):
+  1. `T_inj_K` is read off `surf_unit.outlet_fluid.T` when available,
+     falling back to the module-level `DH_RETURN_TEMP_K` constant only if
+     `surf_unit`/`outlet_fluid` is missing — comment questions whether it
+     should "probably just be `DH_RETURN_TEMP_K` all the time" instead of
+     conditionally reading the live outlet.
+  2. Second comment flags uncertainty about whether the fallback path
+     (`DH_RETURN_TEMP_K`) is actually the temperature that ends up
+     "getting used" downstream (i.e. whether the fallback and live-read
+     paths are actually equivalent, or silently diverge on the design
+     points where the fallback fires).
+  Needs someone to trace whether `surf_unit.outlet_fluid` is ever actually
+  absent in practice for this app's design-matrix rows (if never, the
+  fallback path is dead code and the ambiguity is moot); if it does fire,
+  determine which value (live outlet vs. `DH_RETURN_TEMP_K`) is physically
+  correct and make the two paths consistent. This is old-tango
+  (`src/tango/`) application code, not `tango_next` — unrelated to the
+  `Common`/frozen-fields work above, just adjacent in the same directory
+  tree. Chad: don't want to do this right now.
+- **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
+  started. Chad wants a pass across the whole repo (not scoped to
+  `tango_next`) to flag anything "wacky or inconsistent," explicitly
+  including `examples/`/`applications/`/`tests/` that are overly
+  duplicative and could be consolidated. Candidates worth checking when
+  this starts (not yet verified, just things noticed in passing this
+  session): the four near-identical `applications/run_*_sweep/` directories
+  (`run_AGS_direct_heat_sweep`, `run_AGS_sweep`, `run_EGS_direct_heat_sweep`,
+  `run_flexible_DF_manual_sweep`) each carry their own
+  generate/sweep/summarize/plot scripts — worth checking how much is
+  copy-pasted vs. genuinely different per site/product; `src/tango/`
+  (old) vs. `src/tango_next/` (new) dual-maintenance surface generally.
+  This is a big, open-ended audit — scope it explicitly before starting
+  rather than diving in ad hoc.
 - LCOE/LCOH economic-component design work for `tango_next` — paused
   2026-07-21 before reading any `src/tango/units/native/economic/*.py`
   source. Relevant to AGS sweep work since old tango's sweep scripts both

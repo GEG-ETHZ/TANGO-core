@@ -518,7 +518,7 @@ def test_frozen_common_rejects_runtime_mutation(sf_manual_config: dict[str, Any]
 
 def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict[str, Any]) -> None:
     """Component-local YAML config fields (not just `common`) reject live
-    mutation too — decided 2026-07-24, mirrors the `Common` treatment above.
+    mutation too, mirroring the `Common` treatment above.
 
     Every field that is genuinely YAML config (set once at construction,
     never reassigned by init()/solve()/the orchestrator) is now
