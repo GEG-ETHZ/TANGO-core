@@ -389,6 +389,10 @@ both) — needs careful thought before the integration work begins. The architec
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
 
+Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
+right foundation for this kind of external-simulator composition lives in
+`docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
+
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
 `src/tango/units/native/surface/flexible_pp.py`'s `validate_custom()` estimated the
@@ -1134,6 +1138,48 @@ baseline; the refactor is applied to all input configurations.
       `tango_next` (decoupled from the Hotmaps-specific `HotmapsDispatchDT` in
       `src/tango/`) before treating any pure-heat or cogeneration example as
       representative — see the note above.
+- [ ] **A clean pymoo optimization API for `tango_next`, modeled on fastsim's
+      `pymoo_api.py`/`ModelObjectives` pattern** (`~/git/nrel/fastsim/python/fastsim/pymoo_api.py`,
+      used e.g. in `cal_and_val/thermal/cal_bev.py`) — parameters set via a list
+      of explicit functions operating on a config dict, objectives extracted the
+      same way, dict-modify-then-reinstantiate throughout (never mutating a live
+      `Workflow`/component), wrapped so users don't need to understand pymoo's
+      `*args`/`**kwargs`-heavy `Problem` API directly. Should ship with a couple
+      of worked examples and lightweight test coverage (not full optimization
+      runs — sanity-check that parameter-setting functions actually perturb the
+      objective, mirroring `cal_bev.py`'s `perturb_params()`). `src/tango/`'s
+      `optimizerr.py` is NOT the reference for this — see
+      `docs/tango_next_tasks.md`'s optimizerr.py review (2026-07-24) for why.
+
+      **Design principle, decided 2026-07-24: for multi-objective runs, suggest
+      a candidate, never auto-select one.** `optimizerr.py` calls an
+      Achievement Scalarizing Function (ASF) or pseudo-weights method
+      automatically inside the optimization run to collapse the Pareto front
+      down to one "final" solution (`MOOOptimizer._select_asf_solution`/
+      `_select_pseudo_weights_solution`). Both methods are legitimate MCDM
+      techniques, but both necessarily encode an implicit objective-weighting
+      preference to do the collapse — there is no preference-free way to pick
+      one point off a genuine Pareto front. Baking that collapse into the
+      optimization call throws away exactly the information NSGA2-style MOO
+      exists to surface: tradeoffs a fixed weighting would never show you (e.g.
+      "give up 2% on cost, gain 15% on efficiency"). If a fixed collapse rule
+      is going to be applied regardless, a weighted-sum scalarization fed to a
+      single-objective optimizer gets to the same kind of single answer with
+      far less machinery — the point of running MOO is to *not* pre-commit to
+      that. fastsim's `pymoo_api.py` gets this right already: `run_minimize`
+      writes every point on the returned front to a dataframe/CSV (plus one
+      `euclidean`-distance column as a sort hint, not a filter) and leaves the
+      choice to the human. `tango_next`'s pymoo API should default to the same
+      — return the full front. The ASF/pseudo-weights *math* from
+      `optimizerr.py` is still worth keeping (see the `docs/tango_next_tasks.md`
+      review) — just re-scoped as a separate, explicitly-invoked, opt-in
+      helper that operates on an already-returned front
+      (`suggest_solution(front, method="asf", ...)`-shaped), clearly labeled as
+      *a* suggestion among valid alternatives, never called automatically and
+      never presented as *the* answer.
+
+      Explicitly not started, not urgent — captured here so the intent isn't
+      lost, not a commitment to build it soon.
 
 
 ---

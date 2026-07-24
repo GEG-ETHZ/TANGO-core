@@ -1,5 +1,11 @@
 # tango_next granular task tracker
 
+**END OF DAY 2026-07-24 (later today, after the AGS sweep demo below)**:
+Chad wants help preparing a markdown file summarizing, at a managerial
+level, the high-level objectives accomplished in the past 3 weeks plus
+plans for the next couple months. Not started — flagging so it isn't
+forgotten across the commit/compact about to happen.
+
 Working-level task list for `tango_next` porting/parity work. This is the
 detailed, frequently-updated companion to `docs/TANGO_vision_and_roadmap.md`
 — reconcile the two periodically (when a section here is fully done, fold a
@@ -38,6 +44,22 @@ against old tango, and locked in with golden-snapshot regression coverage.
       trusting the full grid — the direct-heat sweep's 8000 m depth-tier
       failure (`target_extraction_pressure` too low) is a precedent for
       edge-of-range failures that a single design point won't catch.
+
+### 3a. IMMEDIATE NEXT — small demo sweep, not the full port below
+Decided 2026-07-24, to be built same day (after a commit/compact of the
+`Common`/`to_dict()` refactor work). Scope is deliberately much smaller than
+task 3 below: get `examples/tango_next/AGS_direct_heat.yml` (already exists,
+already unblocked — no ORC gap, since it's direct-heat) running through a
+minimal sweep script that demonstrates the dict-modify-then-reinstantiate
+pattern from this session's `Common`/`Workflow.to_dict()` work, end to end,
+on a real example — not the full generate/sweep/summarize/plot pipeline
+matching old tango's apps (that's task 3 below, still blocked/deferred).
+Requirement: **at least one swept parameter must live in `common:`** (e.g.
+`rock_k` or `thermal_gradient`), specifically to exercise the shared-`Common`
+reference architecture, not just component-local fields — the whole point is
+demonstrating today's work, not just any parameter sweep. Pattern:
+`cfg = base_wf.to_dict(); cfg["common"][...] = x; Workflow(cfg).run()`, per
+`Workflow`'s class docstring.
 
 ### 3. Port both to `tango_next` under `applications/tango_next/run_AGS_sweep/`
 - [ ] **Blocking gap**: `tango_next` has no ORC / power-plant component yet
@@ -358,6 +380,37 @@ verified, then this fix popped back in and re-checked).
          the direct regression test for the bug that started all of this.
          Full `tests/regtest` suite green throughout (confirmed at each
          step); `mypy src/tango_next/` clean; `ruff` clean.
+- [ ] **NEXT SESSION — Chad wants to understand the shared-reference
+      mechanics more deeply before this is considered settled.** Raised
+      2026-07-23 at the very end of a long session ("brain is smoking"),
+      explicitly deferred — do not just answer inline next time, treat as
+      the first real discussion of the new session. Three questions, verbatim:
+      1. For sweeps: do we change the source `Common` value, or can we
+         mutate ANY reference to it (e.g. `some_well.common`) and have that
+         propagate back to every other component sharing it? (Answer is
+         "neither, exactly" — `Common` is frozen, so no live mutation
+         propagates anywhere; sweeps rebuild fresh per design point via
+         `Workflow.to_dict()` — but this needs to be walked through
+         carefully with concrete examples, not just asserted.)
+      2. How robust is this reference-sharing mechanism, really? (Worth
+         covering: what happens on `model_copy()` — verified earlier this
+         session it does NOT preserve the shared reference the same way,
+         see the `model_copy(update=...)` discussion; what happens under
+         (de)serialization round-trips — does `from_dict()` on a full
+         `Workflow` config reconstruct ONE shared `Common` or accidentally
+         give each component its own copy again? This wasn't explicitly
+         re-verified after the `to_dict()`/`_config` rewrite — should
+         confirm `Workflow(wf.to_dict())` still gives every component the
+         SAME `common` object, not just equal ones.)
+      3. Chad's intuition is that Python reference semantics here would
+         NOT translate directly to Rust (fastsim-core is Rust) — wants this
+         explained explicitly: `Rc<RefCell<Common>>`/`Arc<Mutex<Common>>`
+         vs. Python's default pass-by-object-reference, why Rust's ownership
+         model wouldn't let multiple structs hold an unsynchronized shared
+         mutable reference the way Python just did, and what the Rust
+         equivalent of "shared, effectively-immutable-in-practice state"
+         actually looks like (interior mutability patterns, or just Rc
+         without RefCell since Common is conceptually frozen anyway).
 - [ ] **`well_spacing` — separate, NOT yet decided** — declared on
       `reservoir/lumped.py` and `surface/graph.py`. Explicitly discussed
       2026-07-23 as "less obvious" than the rock/thermal fields — Chad
@@ -486,3 +539,73 @@ reasoning doesn't have to be re-derived next session.
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`) — vision doc,
   Phase 3.
 - Profiling `tango_next` once it stabilizes — vision doc, Phase 3.
+- Speculative long-horizon architecture thinking (Modelica-family tooling,
+  e.g. Rumoca, as a possible eventual replacement foundation for TESPy's
+  causal-solve approach) — `docs/long_term_architecture_exploration.md`,
+  started 2026-07-24. Explicitly parked, not planned; not blocking
+  anything above.
+- **pymoo optimization API for `tango_next`** — see the vision doc's Phase 3
+  task list (2026-07-24). Not started; modeled on fastsim's `pymoo_api.py`.
+
+  **`src/tango/optimizerr.py` review (2026-07-24)** — read in full (1229
+  lines) before answering whether it's worth reusing. Verdict: the overall
+  shape (`Optimizer` → `BaseOptimizer` → `{SOOOptimizer, MOOOptimizer}`,
+  each defining a pymoo `Problem` and wiring `minimize()`) is a reasonable
+  scaffold, similar in spirit to fastsim's `ModelObjectives`/
+  `CalibrationProblem` split — but the plumbing inside has real problems,
+  not just style complaints:
+  - **`set_parameter()` (line 232) uses `exec(f"{param_path} = {value}")`,
+    and `objective_func()` (line 134) uses `eval(target)`** to read/write
+    arbitrary attribute paths built from string templates
+    (`parameter_mappings.py`'s `VARIABLE_PARAMETER_MAPPING`). This is a
+    genuine anti-pattern, not just ugly: no type checking, no useful error
+    location, and a real (if currently low-probability, since the string
+    templates are developer-authored, not user input) code-injection shape
+    if that ever changes. fastsim's `pymoo_api.py` solves the identical
+    problem — set a parameter by name, extract an objective by name —
+    with plain `Callable` functions operating directly on a dict (see
+    `new_cab_length_m`/`get_mod_soc` in `cal_bev.py`). That's the pattern
+    to actually follow, not `optimizerr.py`.
+  - **Broad `except Exception: print(...); return inf`** (lines 143-149,
+    252-257, 277-282) swallows real bugs during optimization and silently
+    treats them as "bad but valid" objective values — matches the
+    silent-failure-mode pattern already flagged as a `src/tango/`
+    anti-pattern elsewhere (see `project_src_tango_gotchas` memory).
+  - **Sign-convention handling for maximize-vs-minimize looks tangled
+    and worth distrusting, not just distasteful**: `objective_func`
+    (lines 136-139) negates based on `target_type` with DIFFERENT logic
+    for the single- vs. multi-objective case, and then `SOOOptimizer`
+    separately negates again unconditionally (`out["F"] = -1 *
+    self.objective_func(x)`, line 640). Two negation layers with
+    different conditions in different files is exactly the shape of bug
+    that produces a wrong-but-plausible-looking optimum. Did not fully
+    trace whether it's actually wrong — flagging as needs-verification-
+    before-trusting, not confirmed-broken.
+  - Plotting/logging (`plot_results`, `print_results`,
+    `plot_hypervolume_igd`) is hardcoded to write PNGs/log files to
+    `os.getcwd()` unconditionally — no separation between the
+    optimization logic and its side effects, no way to run headless or
+    under test without touching disk.
+  - Real DRY violation between `SOOOptimizer`/`MOOOptimizer` (algorithm
+    selection, variable range/type extraction, result printing are
+    largely copy-pasted with small variations).
+
+  **What IS worth keeping, conceptually** (not necessarily the code
+  as-written): the Achievement Scalarizing Function (ASF) and
+  pseudo-weights Pareto-front final-solution-selection logic
+  (`_select_asf_solution`/`_select_pseudo_weights_solution`,
+  `calculate_asf`/`calculate_pseudo_weights`, lines 999-1229) is real,
+  non-trivial domain logic — picking one representative solution off a
+  multi-objective Pareto front is a genuine need pymoo doesn't solve for
+  you, and ASF/pseudo-weights are legitimate, well-known MOO
+  decision-making techniques. Worth reimplementing cleanly (dict-based,
+  no eval/exec, proper tests) rather than inventing a different selection
+  method from scratch. Handling both SOO and MOO with a sensible dispatch
+  on objective count, and supporting both integer and float variables,
+  is also reasonable scope to carry forward.
+
+  **Bottom line**: not "garbage" outright — the architecture shape and
+  the Pareto-selection math are worth keeping conceptually — but the
+  parameter-setting/objective-extraction mechanism (eval/exec) is a real
+  problem to leave behind entirely, not a style nitpick, and fastsim's
+  `pymoo_api.py` is the actual pattern to follow instead.
