@@ -6,6 +6,30 @@ TANGO is GEG's geothermal simulation platform. This document describes where TAN
 heading — both as a product that generates revenue for GEG, and as a software system that
 can support that goal reliably.
 
+## Table of Contents
+
+- [Product Vision: Four-Tier Access Model](#product-vision-four-tier-access-model)
+  - [Tier 1 — Community / Academic](#tier-1--community--academic-free-or-very-low-cost)
+  - [Tier 2 — GEG Consulting Projects](#tier-2--geg-consulting-projects-primary-near-term-revenue)
+  - [Tier 3 — Licensed On-Prem Binary](#tier-3--licensed-on-prem-binary)
+  - [Tier 4 — SaaS](#tier-4--saas-cloud-web-api--gui)
+  - [Licensing Strategy Notes](#licensing-strategy-notes)
+- [Technical Roadmap: The TANGO Refactor](#technical-roadmap-the-tango-refactor)
+  - [Why TANGO Needs a Refactor](#why-tango-needs-a-refactor)
+  - [Resolved Design Decisions](#resolved-design-decisions)
+  - [Open Design Questions](#open-design-questions)
+  - [Tooling & Process Housekeeping](#tooling--process-housekeeping)
+  - [Refactor Phases](#refactor-phases)
+    - [Phase 0 — Establish Baseline](#phase-0--establish-baseline-before-touching-any-code)
+    - [Phase 1 — Restructure Input Format & Module Layout](#phase-1--restructure-input-format--module-layout)
+    - [Phase 2 — Code Objects & State Management](#phase-2--code-objects--state-management)
+    - [Phase 3 — Modularity, Verification & Scale-Out](#phase-3--modularity-verification--scale-out)
+- [Future Direction — Geospatial Viability Analysis with LLM Augmentation](#future-direction--geospatial-viability-analysis-with-llm-augmentation)
+- [Future Direction — AI-Assisted Error Interpretation](#future-direction--ai-assisted-error-interpretation)
+- [The Connection: Refactor Enables the Product Vision](#the-connection-refactor-enables-the-product-vision)
+- [Summary](#summary)
+- [Appendix A: TESPy Dependency Assessment](#appendix-a-tespy-dependency-assessment)
+
 ---
 
 ## Product Vision: Four-Tier Access Model
@@ -142,7 +166,10 @@ they represent all tell the same story.
 
 ---
 
-### Design Issues to Resolve
+### Resolved Design Decisions
+
+Design questions that have already been settled and (mostly) implemented — kept here as
+the record of *why*, not as open items.
 
 #### The `native` vs. `external` naming problem
 
@@ -336,6 +363,11 @@ accounting fix to be in place before they can be meaningfully implemented.
 *Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — shows
 current modes and which trigger the outer convergence loop.*
 
+### Open Design Questions
+
+Design questions not yet settled — flagged here so the reasoning behind them doesn't
+have to be re-derived each time they come up.
+
 #### Extraction pressure as an independent policy axis
 
 `sim_config.injection_mode` and `sim_config.mass_rate` govern the injection-side BC:
@@ -377,7 +409,7 @@ would be premature.
 
 #### Where to provision sockets for external tools (open question)
 
-CMG, MOOSE, DWSIM and similar external simulators need to be integrated at some point. The
+CMG, MOOSE, DWSIM, Bruce's RAFT, and similar external simulators need to be integrated at some point. The
 current code treats this as an orchestrator-level concern (`SystemExternal`). An alternative
 view is that these are best modeled as **reservoir components** (or surface components, for
 DWSIM) — they implement the same interface as any other component, but delegate computation
@@ -388,6 +420,16 @@ This question — whether external tools are orchestrator add-ons or component a
 both) — needs careful thought before the integration work begins. The architecture decision
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
+
+Whichever shape wins, the goal is the same: `tango_next` should define a stable interface
+template (an ABC any component — reservoir, well, or surface — can implement) so that
+outside simulation tools can be plugged in as drop-in components rather than requiring
+bespoke orchestrator changes each time. Composability, not a growing list of one-off
+integrations, is the intended long-term pattern for CMG/MOOSE/DWSIM/RAFT and whatever comes
+after — see "Connect other simulation tools" (roadmap tracker) for the concrete initial
+list. **Bruce's RAFT is confirmed in scope.** The rest of the list is still TBD as of
+2026-07-26 — currently named candidates are RAFT (confirmed), MOOSE, METRO, CMG, and DWSIM,
+but the final set hasn't been decided.
 
 Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
 right foundation for this kind of external-simulator composition lives in
@@ -625,7 +667,28 @@ The new input schema (Phase 1) should be treated as the single source of truth f
 simulation configuration and the graph topology. The web app should read from and write to
 that schema, not maintain its own parallel representation.
 
+**Planned new GUI/web tool, built on the example scripts as a template.** Using the
+fleshed-out `tango_next` example scripts (see Phase 3 tasks) as its foundation, the new
+tool should:
+- Store graphical annotations (component positions, connection lines) directly in the
+  `tango_next` config files, so all config — simulation and graphics — lives in one place
+  (this generalizes the "store web app lines and graphics as annotations" Phase 3 task
+  below into the tool's actual design basis, not just a data-format fix)
+- Let users build custom models and configure component connections graphically, not just
+  view existing ones
+- Save run configuration and, for simulations that have already been run, their
+  corresponding results
+- Perform batch simulations (sweeps) from the GUI, not just single runs
+- Export a model/simulation configuration to an equivalent script, so a GUI-built model can
+  be handed off as ordinary `tango_next` Python/YAML rather than staying GUI-locked
+
+This is a superset of the Tier 4 "no-code scenario builder" concept above — the near-term
+goal is a general modeling/scripting-bridge tool, not only a SaaS-tier feature.
+
 #### Grouped subsystems (composite components)
+
+*Mostly implemented already — kept under "Open" because two concrete gaps remain
+(flagged below), not because the core design is undecided.*
 
 The `surface` component in `tango_next` already has a nested `power_plant:` block with
 its own local `prev`/`next` graph — it is a grouped subsystem in everything but name.
@@ -704,12 +767,19 @@ but flagged here as in play for future robustness against topologies not yet ant
 
 ---
 
-#### Miscellaneous
+### Tooling & Process Housekeeping
+
+Process/tooling gaps — not design questions about TANGO's physics or architecture,
+but real items that need a decision eventually.
+
+#### Unit conversion constants module
 
 All unit conversions should be handled via constants imported from a
 module defining unit conversion constants and physical constansts, e.g.
 `p_out_kilopascals = p_out_megapascals * 1_000` should be
 `p_out_kilopascals = pascals * MEGA_TO_KILO`
+
+#### API documentation toolchain (currently dormant)
 
 A 2026-07-16 repo cleanup audit found the Sphinx API-doc toolchain
 (`source/`, `.readthedocs.yml`, `make.bat`, `tox.ini`'s `docs` env) dormant
@@ -970,59 +1040,8 @@ all congruent with each other.
     (e.g. `flexible_SF_manual.yml` under `InjectionPolicy.MANUAL`), and
     `tests/regtest/test_old_new_parity.py` regresses `tango_next` against `tango` output.
 
----
-
-### TESPy Dependency Assessment
-
-`tango_next` uses [TESPy](https://github.com/oemof/tespy) to model the single-flash power
-plant cycle (valve → droplet separator → turbine/condenser/pump branches → mixer). TESPy
-was chosen for Phase 1 to achieve numerical parity with `src/tango/`, which also relies on
-it. The dependency is appropriate for that goal but carries several rough edges that should
-be weighed for Phase 2+.
-
-**TESPy shortcomings observed during Phase 1 implementation:**
-
-- **Silent unit inconsistency.** `h_unit="kJ/kg"` only controls display formatting;
-  `component.P.val` and `component.Q.val` are always stored in **Watts** (SI), not kW.
-  This caused a 1,000× power error during implementation — TESPy gives no warning.
-- **Stringly-typed API.** `connection.set_attr(fluid={"Water": 1}, T=..., p=...)` — wrong
-  key names fail silently at construction time and only error (confusingly) at solve time.
-- **No warm-start between solves.** Each call to `network.solve("design")` re-initializes
-  from scratch; there is no way to hand TESPy a prior solution as an initial guess. This
-  is a significant performance penalty for time-step simulations where the state changes
-  slowly between steps.
-- **Noisy convergence output.** TESPy emits solver-convergence messages via its own
-  `"TESPyLogger"` with a hardcoded level that must be overridden explicitly; standard
-  Python `logging.basicConfig` does not suppress it.
-- **Opaque solver failures.** Convergence errors surface as bare exceptions with
-  internal TESPy tracebacks, not as structured errors with state-point context. Difficult
-  to distinguish "physically infeasible state" from "solver failed to converge on a valid
-  state."
-- **Limited to steady-state.** TESPy solves one steady-state operating point per call;
-  transient effects in the surface plant are not modeled. This is acceptable for the
-  current timestep-averaged approach but limits future fidelity.
-
-**Case for migrating to a direct CoolProp implementation (Phase 2+):**
-
-A direct CoolProp implementation of the single-flash cycle would:
-- Eliminate solver overhead (explicit enthalpy/entropy calculations, no Newton loop over
-  the cycle graph).
-- Remove the warm-start limitation — each timestep can start from the previous solution
-  with no extra overhead.
-- Produce clean, structured errors via `CoolPropError` already in the `tango_next` error
-  taxonomy.
-- Reduce the dependency surface: CoolProp is already required; TESPy would no longer be.
-- Make the cycle physics fully transparent and testable at the unit level.
-
-The trade-off is implementation effort: TESPy encapsulates cycle topology and constraint
-propagation that would need to be re-derived explicitly. For a single-flash plant the
-physics is simple enough that a direct implementation is tractable; for more complex cycles
-(double-flash, ORC with recuperator) the trade-off is less clear.
-
-**Recommendation:** Retain TESPy for Phase 1 (parity target). Evaluate replacing it with
-a direct CoolProp implementation in Phase 2, scoped to the single-flash plant first.
-The decision should be made when the Phase 2 optimization/LCOE work begins — that is where
-the no-warm-start penalty will be most visible.
+*(A trade-off assessment of the TESPy dependency — parked, not urgent — has moved to*
+*[Appendix A](#appendix-a-tespy-dependency-assessment).)*
 
 ---
 
@@ -1258,46 +1277,11 @@ to "what the user should do about it" is well-defined enough to be reliably prod
 by an LLM that has been given the component context — but tedious and error-prone to
 hard-code as static error messages.
 
-**Implementation sketch:**
-
-```python
-# tango_next_cli.py — outer try/except in the `run` subcommand
-try:
-    Workflow.from_file(path).run()
-except Exception as exc:
-    if ai_interpretation_enabled():
-        agent_explain(exc, config=raw_yaml, component_states=last_states)
-    else:
-        raise
-```
-
-The `agent_explain` function can be a thin wrapper around the Claude API (or any
-capable model) with a system prompt that describes the TANGO component model and
-the most common failure modes. It should be opt-in (controlled by a CLI flag or
-config setting) so that users who prefer raw tracebacks or who are working offline
-are not affected.
-
-**Error taxonomy prerequisite:** For the agent to produce useful output — and for
-human debugging — TANGO needs a stable, identifiable set of exception types. The
-design follows the same philosophy as Rust's `thiserror` + `anyhow` crates:
-typed, catchable errors at library boundaries (`thiserror`-style), with rich
-context chained in as they propagate up (`anyhow`-style via Python's
-`raise TangoError(...) from exc`).
-
-Concretely: every CoolProp call must be wrapped so that low-level property-lookup
-failures surface as a `CoolPropError` (a TANGO-owned subclass of `TangoError`),
-not as a raw `ValueError` or `CoolProp.CoolProp.CoolPropError` buried three frames
-deep. The same applies to TESPy, which throws its own mix of solver-convergence and
-bad-state-point errors: these become `TESPyError` at the TANGO boundary. With this
-in place, callers at any layer of the stack can `except CoolPropError` or
-`except TESPyError` (or the broader `TangoError`) and know immediately what kind of
-failure they are handling — without parsing traceback strings or catching overly
-broad base types like `ValueError`.
-
-**Prerequisites:** Stable component serialization via `model_dump()` (already in place)
-and a stable set of error types (`ConvergenceError`,
-`FracingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
-context attached to be useful.
+**Implementation approach, prerequisites, and error-taxonomy design:** see
+[Appendix: AI-Assisted Error Interpretation — Implementation Sketch](appendices/ai_error_interpretation_sketch.md)
+for the code-level sketch (a top-level exception handler wrapping `tango_next_cli run`,
+routed through a stable `TangoError` exception taxonomy modeled on Rust's
+`thiserror`/`anyhow` pattern).
 
 *Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio) — shows the
 AI error agent as a future hook on the right side of the simulation loop.*
@@ -1332,3 +1316,60 @@ vision above:
 The licensing model and the refactor roadmap are not separate decisions — they should be
 developed together, because the architecture of the code determines what business models
 are even feasible.
+
+---
+
+## Appendix A: TESPy Dependency Assessment
+
+*Parked, not urgent — kept for reference when Phase 2 optimization/LCOE work begins,*
+*since that is where the trade-offs below matter most.*
+
+`tango_next` uses [TESPy](https://github.com/oemof/tespy) to model the single-flash power
+plant cycle (valve → droplet separator → turbine/condenser/pump branches → mixer). TESPy
+was chosen for Phase 1 to achieve numerical parity with `src/tango/`, which also relies on
+it. The dependency is appropriate for that goal but carries several rough edges that should
+be weighed for Phase 2+.
+
+**TESPy shortcomings observed during Phase 1 implementation:**
+
+- **Silent unit inconsistency.** `h_unit="kJ/kg"` only controls display formatting;
+  `component.P.val` and `component.Q.val` are always stored in **Watts** (SI), not kW.
+  This caused a 1,000× power error during implementation — TESPy gives no warning.
+- **Stringly-typed API.** `connection.set_attr(fluid={"Water": 1}, T=..., p=...)` — wrong
+  key names fail silently at construction time and only error (confusingly) at solve time.
+- **No warm-start between solves.** Each call to `network.solve("design")` re-initializes
+  from scratch; there is no way to hand TESPy a prior solution as an initial guess. This
+  is a significant performance penalty for time-step simulations where the state changes
+  slowly between steps.
+- **Noisy convergence output.** TESPy emits solver-convergence messages via its own
+  `"TESPyLogger"` with a hardcoded level that must be overridden explicitly; standard
+  Python `logging.basicConfig` does not suppress it.
+- **Opaque solver failures.** Convergence errors surface as bare exceptions with
+  internal TESPy tracebacks, not as structured errors with state-point context. Difficult
+  to distinguish "physically infeasible state" from "solver failed to converge on a valid
+  state."
+- **Limited to steady-state.** TESPy solves one steady-state operating point per call;
+  transient effects in the surface plant are not modeled. This is acceptable for the
+  current timestep-averaged approach but limits future fidelity.
+
+**Case for migrating to a direct CoolProp implementation (Phase 2+):**
+
+A direct CoolProp implementation of the single-flash cycle would:
+- Eliminate solver overhead (explicit enthalpy/entropy calculations, no Newton loop over
+  the cycle graph).
+- Remove the warm-start limitation — each timestep can start from the previous solution
+  with no extra overhead.
+- Produce clean, structured errors via `CoolPropError` already in the `tango_next` error
+  taxonomy.
+- Reduce the dependency surface: CoolProp is already required; TESPy would no longer be.
+- Make the cycle physics fully transparent and testable at the unit level.
+
+The trade-off is implementation effort: TESPy encapsulates cycle topology and constraint
+propagation that would need to be re-derived explicitly. For a single-flash plant the
+physics is simple enough that a direct implementation is tractable; for more complex cycles
+(double-flash, ORC with recuperator) the trade-off is less clear.
+
+**Recommendation:** Retain TESPy for Phase 1 (parity target). Evaluate replacing it with
+a direct CoolProp implementation in Phase 2, scoped to the single-flash plant first.
+The decision should be made when the Phase 2 optimization/LCOE work begins — that is where
+the no-warm-start penalty will be most visible.

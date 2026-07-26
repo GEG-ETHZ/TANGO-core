@@ -13,24 +13,43 @@ transition.
 
 ## Accomplished in the past 3 weeks
 
-**Repo health.** Removed legacy packaging/build tooling and dead code,
-consolidated license handling, and got CI running a real test subset
-reliably. The codebase is materially easier to onboard into and less prone
-to silent breakage.
+The throughline this period: `tango_next` isn't just a rewrite of what
+already existed — it's structurally more usable, maintainable, and
+extensible than the old codebase, and it is being built to modern software
+engineering standards from day one rather than retrofitting them later.
 
-**Correctness guarantees baked into the new architecture.** A recurring
-theme this period: finding places where the old system allowed silent,
-hard-to-detect bugs (a component quietly using a different value than the
-rest of the system for something that should always match, like rock
-thermal conductivity), and closing them structurally in `tango_next` rather
-than patching around them. Shared physical parameters (rock properties,
-surface temperature/pressure) are now enforced by the system's data model
-to be identical everywhere they're used — misconfiguration is caught
-immediately at setup time instead of producing quietly-wrong results
-downstream. Configuration objects are now also locked against accidental
-modification once a simulation is built, closing off an entire class of
-bugs where results silently stop reflecting the configuration they were
-supposedly run with.
+**Structural improvements that make the system easier to build on.** Shared
+physical parameters (rock properties, surface temperature/pressure) used to
+be copied independently into every component that needed them — meaning
+one component could silently drift out of sync with the rest of the system
+with no warning. `tango_next` now enforces a single shared, locked source
+of truth for these values at the data-model level: misconfiguration is
+caught immediately at setup, not discovered later as a mysteriously wrong
+result. Configuration is similarly locked against accidental modification
+once a simulation is built, and computations now cascade cleanly down the
+component hierarchy instead of being reassembled piecemeal — both closing
+off entire categories of bugs by construction rather than by convention.
+
+**This isn't just theoretical — it already caught a real bug.** Applying
+this state-management discipline surfaced a genuine, previously-unknown
+inaccuracy in the *old* codebase: it exits its internal convergence loop
+using a slightly stale intermediate value rather than the fully-converged
+one, quietly under-stating energy extraction every timestep. `tango_next`'s
+architecture makes this class of error structurally impossible — proof the
+new design isn't just "cleaner," it's measurably more correct.
+
+**Developer onboarding is a first-class concern.** Legacy packaging/build
+tooling and dead code were removed, license handling was consolidated, and
+CI now runs a real, reliable test subset. A new contributor (or an intern
+picking up this work) has meaningfully less accidental complexity to wade
+through before becoming productive.
+
+**Modern development practices, applied consistently rather than bolted
+on.** Every new `tango_next` module is fully type-checked (`mypy`) and
+lint-clean (`ruff`) from its first commit, configuration is validated
+through real schemas instead of untyped dictionaries, and every component
+supports a clean save/load (serialization) contract — closing gaps the old
+codebase never had answers for.
 
 **Validated regression testing infrastructure.** Added "golden snapshot"
 regression coverage and automated old-vs-new comparison tests, so that
@@ -49,6 +68,32 @@ running in the new architecture.
 **Documentation caught up to the code.** The technical roadmap and its
 diagrams were reconciled with what's actually built, so the roadmap
 reflects real state rather than stale planning.
+
+**Before vs. after, in one picture:**
+
+```mermaid
+flowchart LR
+    subgraph OLD["Old tango"]
+        direction TB
+        A1["Well A<br/>own copy of rock_k"]
+        A2["Well B<br/>own copy of rock_k"]
+        A3["Reservoir<br/>own copy of rock_k"]
+        A1 -.can silently drift apart.- A2
+        A2 -.no warning if wrong.- A3
+    end
+    subgraph NEW["tango_next"]
+        direction TB
+        B0["Common<br/>(single, locked value)"]
+        B1["Well A"] --> B0
+        B2["Well B"] --> B0
+        B3["Reservoir"] --> B0
+    end
+    OLD ~~~ NEW
+```
+
+*Old tango: each component holds its own copy of a shared parameter — nothing stops
+them from drifting apart. tango_next: every component reads the same locked value —
+divergence is impossible by construction.*
 
 ## Where things stand
 
