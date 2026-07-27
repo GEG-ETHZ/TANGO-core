@@ -151,7 +151,7 @@ product to fully replace the legacy system. Progress so far:
 ## Plan for the next couple of months
 
 *Snapshot of the [tango Miro board](https://miro.com/app/board/uXjVOfwfxsY=/?moveToWidget=3458764679176539081&cot=14)'s
-Gantt chart as of 2026-07-26, for quick reference only. **The Miro board is the
+Gantt chart as of 2026-07-27, for quick reference only. **The Miro board is the
 maintained, authoritative version of this timeline** — this diagram is a
 point-in-time copy and will not be kept in sync automatically; treat it as
 stale the moment the Miro board changes.*
@@ -159,7 +159,7 @@ stale the moment the Miro board changes.*
 ```mermaid
 gantt
     dateFormat  YYYY-MM-DD
-    title tango_next roadmap (Miro snapshot, 2026-07-26 — see Miro for current version)
+    title tango_next roadmap (Miro snapshot, 2026-07-27 — see Miro for current version)
     section Refactor
     Refactor kickoff phase              :done, kickoff, 2026-07-01, 2026-07-31
     Refactor build out phase            :active, buildout, 2026-07-13, 2026-09-11
@@ -170,6 +170,8 @@ gantt
     Extensibility as core design feature :ext, 2026-10-01, 2026-11-01
     Connect other simulation tools      :connect, 2026-11-01, 2026-12-15
     Build out new GUI/web tool          :gui, 2026-12-01, 2027-01-01
+    section AI assistance
+    AI-assisted error handling          :aierr, 2026-11-02, 2026-12-18
 ```
 
 1. **Finish AGS parity** — build the missing power-generation component,
