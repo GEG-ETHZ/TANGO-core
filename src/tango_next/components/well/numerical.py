@@ -72,6 +72,7 @@ from tango_next.core.physics_models import (
     compute_friction_factor,
     compute_heat_loss,
 )
+from tango_next.core.specs import Common
 
 # ---------------------------------------------------------------------------
 # Shared state / history types (injection and production use same shape)
@@ -251,25 +252,30 @@ class NumericalWell(WellComponent):
     convention, and the ``T_r`` deviated-well caveat.
     """
 
-    angle_from_vert_deg: float = 0.0
+    angle_from_vert_deg: float = Field(default=0.0, frozen=True)
     """0 = straight down (injection), 180 = straight up (production), 90 =
     horizontal. Values in between describe a deviated well."""
 
     # ---- YAML configuration fields ----
-    fluid_name: str
-    thermal_gradient: float
-    surface_temperature: float
-    rock_density: float
-    rock_cp: float
-    rock_k: float
-    dt_years: float
-    num_cells: int = 100
-    wellhead_depth: float = 0.0
-    gravity_scale_factor: float = 1.0
-    friction_model: FrictionModel = FrictionModel.HAALAND
-    heat_transfer_model: HeatTransferModel = HeatTransferModel.ADAMS_2015
+    common: Common = Field(frozen=True)
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds (Pydantic does not
+    copy nested model fields on construction), not an independent copy.
+    Common itself is frozen, so there is exactly one place these values can
+    come from and no way for this well to silently diverge from the
+    reservoir or any other well. See core/specs.py."""
+    dt_years: float = Field(frozen=True)
+    num_cells: int = Field(default=100, frozen=True)
+    wellhead_depth: float = Field(default=0.0, frozen=True)
+    gravity_scale_factor: float = Field(default=1.0, frozen=True)
+    friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
+    heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ADAMS_2015, frozen=True)
 
     # ---- Derived quantities (computed by init(), serialized for save/restore) ----
+    # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
+    # cross_sectional_area/t_scaling_factor/T_r via direct assignment, and
+    # solve() reassigns t_d_old every timestep; see Component's class
+    # docstring for why fields like this stay mutable.
     cell_length: float = 0.0
     relative_roughness: float = 0.0
     cross_sectional_area: float = 0.0
@@ -297,11 +303,11 @@ class NumericalWell(WellComponent):
             self.num_cells,
             self.diameter,
             self.pipe_roughness,
-            self.rock_k,
-            self.rock_density,
-            self.rock_cp,
-            self.surface_temperature,
-            self.thermal_gradient,
+            self.common.rock_k,
+            self.common.rock_density,
+            self.common.rock_cp,
+            self.common.surface_temperature,
+            self.common.thermal_gradient,
             self.angle_from_vert_deg,
         )
         self.t_d_old = 0.0
@@ -339,7 +345,7 @@ class NumericalWell(WellComponent):
         mu = np.zeros(n)
         u = np.zeros(n)
 
-        inlet_state = FluidState.with_PT(self.fluid_name, P_in, T_in)
+        inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
@@ -363,7 +369,7 @@ class NumericalWell(WellComponent):
             Q_loss = compute_heat_loss(
                 self.heat_transfer_model,
                 dL=self.cell_length,
-                rock_k=self.rock_k,
+                rock_k=self.common.rock_k,
                 t_d=t_d,
                 delta_T=T_f[i - 1] - T_r[i - 1],
             )
@@ -371,7 +377,7 @@ class NumericalWell(WellComponent):
             P[i] = P[i - 1] - dp_grav - dP_loss
             h[i] = h[i - 1] - f_dir * g * dz - Q_loss / mdot
 
-            cell_state = FluidState.with_HP(self.fluid_name, h[i], P[i])
+            cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i])
             rho[i] = cell_state.rho
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T
@@ -392,7 +398,7 @@ class NumericalWell(WellComponent):
         self.outlet.mass_rate = mdot
         self.outlet.rho = rho[-1]
         self.outlet.mu = mu[-1]
-        self.outlet.fluid_name = self.fluid_name
+        self.outlet.fluid_name = self.common.fluid_name
 
 
 # ---------------------------------------------------------------------------

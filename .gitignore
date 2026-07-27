@@ -90,3 +90,4 @@ tools/examples_sweep_output/
 *.png
 *.svg
 .aider*
+.claude/

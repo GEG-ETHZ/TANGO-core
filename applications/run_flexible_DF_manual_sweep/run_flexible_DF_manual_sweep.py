@@ -11,6 +11,7 @@ Parameter bounds are defined per-parameter in PARAMETER_BOUNDS in common.py.
 """
 
 import argparse
+import tempfile
 from pathlib import Path
 
 from common import (
@@ -24,6 +25,8 @@ from common import (
 from generate import main as generate_main
 from summarize import main as summarize_main
 from sweep import main as sweep_main
+
+SMOKE_N_SAMPLES = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,6 +84,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=f"Directory for sweep outputs (default: {DEFAULT_SWEEP_DIR})",
     )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help=(
+            f"Run a tiny {SMOKE_N_SAMPLES}-sample sweep into a fresh OS tempdir "
+            "instead of the full LHS sample count — for a fast 'does the "
+            "pipeline still run end to end' check, not real results. Overrides "
+            "--n-samples/--sweep-dir. Never touches outputs/ — a new tempdir "
+            "is created every run."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -88,9 +102,18 @@ if __name__ == "__main__":
     args = parse_args()
     if args.quiet and args.progress_interval is not None:
         raise ValueError("--quiet and --progress-interval are mutually exclusive")
-    sweep_dir = args.sweep_dir if args.sweep_dir is not None else DEFAULT_SWEEP_DIR
+
+    if args.smoke:
+        sweep_dir = args.sweep_dir or Path(tempfile.mkdtemp(prefix="tango_df_manual_smoke_"))
+        if not args.quiet:
+            print(f"Smoke run — writing to {sweep_dir}")
+        n_samples = SMOKE_N_SAMPLES
+    else:
+        sweep_dir = args.sweep_dir if args.sweep_dir is not None else DEFAULT_SWEEP_DIR
+        n_samples = args.n_samples
+
     generate_main(
-        n_samples=args.n_samples,
+        n_samples=n_samples,
         seed=args.seed,
         regenerate=args.regenerate,
         quiet=args.quiet,

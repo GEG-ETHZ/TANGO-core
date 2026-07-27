@@ -22,11 +22,12 @@ title: Hydrothermal system with flexible Single-Flash power plant and manual flo
 
 common:  # shared physical parameters (previously props:)
   fluid_name: H2O
-  brine_density: 1000        # kg/m3
   rock_density: 2650.0       # kg/m3
   rock_cp: 1000.0            # J/(kg·K)
   rock_k: 2.1                # W/(m·K)
   thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
 
 layout:  # well-field geometry
   well_spacing: 707.0        # m
@@ -53,9 +54,7 @@ components:
     component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
     prev: 3
     next: 0
-    surface_temperature: 288  # K
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
-    surface_pressure: 100_000       # Pa
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
     target_extraction_pressure: 7_000_000  # Pa
@@ -82,23 +81,23 @@ components:
         pump2:
           type: Compressor
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
 
         condenser:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
-          vapor_mass_fraction_out: 0
+          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
 
         pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
 
         mixer:
           type: Merge

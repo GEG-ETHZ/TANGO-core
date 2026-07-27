@@ -55,3 +55,19 @@ test:
 
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
+
+# Smoke-test every demo/example/application script — fast, not full sweeps.
+# applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
+# matrix, written to a fresh OS tempdir every run — never outputs/) instead
+# of their real multi-thousand-design grids — this checks the pipeline code
+# still runs end to end, not that every design converges (some corner
+# designs are expected to fail physically/numerically, same as in a real
+# sweep — that's fine, a non-zero *script* exit code is the failure signal
+# this target cares about).
+demos:
+    uv run python examples/tango_next/demo_flexible_sf.py
+    uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
+    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_AGS_sweep/run_AGS_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
