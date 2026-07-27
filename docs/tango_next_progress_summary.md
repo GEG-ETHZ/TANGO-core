@@ -20,7 +20,7 @@ engineering standards (e.g. `ruff` and `mypy` compliant) from day one rather
 than retrofitting them later.
 
 **Structural improvements that make the system easier to build on.**
-[Shared physical parameters](#before-vs-after-in-one-picture) (rock properties,
+Shared physical parameters (rock properties,
 surface temperature/pressure) used to
 be copied independently into every component that needed them — meaning
 one component could silently drift out of sync with the rest of the system
@@ -31,6 +31,30 @@ result. Configuration is similarly locked against accidental modification
 once a simulation is built, and computations now cascade cleanly down the
 component hierarchy instead of being reassembled piecemeal — both closing
 off entire categories of bugs by construction rather than by convention.
+
+```mermaid
+flowchart LR
+    subgraph OLD["Old tango"]
+        direction TB
+        A1["Well A<br/>own copy of rock_k"]
+        A2["Well B<br/>own copy of rock_k"]
+        A3["Reservoir<br/>own copy of rock_k"]
+        A1 -.can silently drift apart.- A2
+        A2 -.no warning if wrong.- A3
+    end
+    subgraph NEW["tango_next"]
+        direction TB
+        B0["Common<br/>(single, locked value)"]
+        B1["Well A"] --> B0
+        B2["Well B"] --> B0
+        B3["Reservoir"] --> B0
+    end
+    OLD ~~~ NEW
+```
+
+*Old tango: each component holds its own copy of a shared parameter — nothing stops
+them from drifting apart. tango_next: every component reads the same locked value —
+divergence is impossible by construction.*
 
 **This isn't just theoretical — it already caught a real bug.** Applying
 this state-management discipline surfaced a genuine, previously-unknown
@@ -100,32 +124,6 @@ running in the new architecture.
 **Documentation stays continuously synced with the code.** The technical
 roadmap and its diagrams are kept in lockstep with what's actually built,
 so the roadmap always reflects real state rather than stale planning.
-
-**Before vs. after, in one picture:**
-
-```mermaid
-flowchart LR
-    subgraph OLD["Old tango"]
-        direction TB
-        A1["Well A<br/>own copy of rock_k"]
-        A2["Well B<br/>own copy of rock_k"]
-        A3["Reservoir<br/>own copy of rock_k"]
-        A1 -.can silently drift apart.- A2
-        A2 -.no warning if wrong.- A3
-    end
-    subgraph NEW["tango_next"]
-        direction TB
-        B0["Common<br/>(single, locked value)"]
-        B1["Well A"] --> B0
-        B2["Well B"] --> B0
-        B3["Reservoir"] --> B0
-    end
-    OLD ~~~ NEW
-```
-
-*Old tango: each component holds its own copy of a shared parameter — nothing stops
-them from drifting apart. tango_next: every component reads the same locked value —
-divergence is impossible by construction.*
 
 ## Where things stand
 
