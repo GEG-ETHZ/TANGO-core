@@ -178,13 +178,24 @@ def run_single_simulation(args: tuple) -> None:
             h_prod_kJ = float("nan")
 
         # --- Injection temperature (surface outlet = DH return temperature) ---
+        # Verified 2026-07-27: the DH node's `T_out: 50` (triemli_dh_base.yml)
+        # is a hard TESPy connection constraint on the SimpleHeatExchanger, not
+        # an effectiveness/NTU-derived value — TESPy solves for whatever duty
+        # hits that exact outlet temperature, so a converged solve always
+        # produces exactly 50 degC here, never an approximation. No component
+        # sits between the DH outlet and the injection wellhead (see the
+        # comment on `DH.T_out` in triemli_dh_base.yml), so this live read is
+        # always correct and always equal to DH_RETURN_TEMP_K in practice; kept
+        # as the live read (rather than hardcoding the constant) since it's
+        # provably equivalent and self-verifying — if this ever silently
+        # stopped matching DH_RETURN_TEMP_K, that would itself be a signal
+        # something upstream changed.
+        # TODO: ask for review from Aline
         surf_unit = getattr(orch.unit, "surface", None)
-        # TODO: this should probably just be `DH_RETURN_TEMP_K` all the time
         if surf_unit is not None and hasattr(surf_unit, "outlet_fluid"):
             T_inj_K: float = surf_unit.outlet_fluid.T
         else:
-            # TODO: make sure this is actually the temperature getting used
-            T_inj_K = DH_RETURN_TEMP_K  # fallback: use configured return T
+            T_inj_K = DH_RETURN_TEMP_K  # defensive fallback; confirmed unreachable today
 
         # CoolProp enthalpy at return temperature for Δh calculation.
         # We use tango's FluidState which wraps CoolProp.

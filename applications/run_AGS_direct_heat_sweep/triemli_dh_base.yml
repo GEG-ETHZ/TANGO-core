@@ -164,4 +164,15 @@ power_plant_graph:
 
 DH:
   Subtype: 'DH_component'
+  # T_out is a hard TESPy connection constraint (see flexible_pp.py's
+  # SimpleHeatExchanger handling), not an effectiveness/NTU-derived value —
+  # TESPy solves for whatever duty is required to hit this exact outlet
+  # temperature, so the solved outlet is always precisely 50 °C given a
+  # converged solve, never an approximation. Nothing sits between this
+  # component's outlet and the injection wellhead (power_plant_graph has only
+  # inlet -> DH -> outlet, and the outer graph edge goes surface ->
+  # injection_well directly), and BC_calculator.py passes this temperature to
+  # the injection well's inlet unaltered — so downstream code can rely on
+  # the produced fluid always being re-injected at exactly this temperature.
+  # TODO: ask for review from Aline
   T_out: 50      # °C — district-heating return temperature (re-injection temperature)

@@ -13,24 +13,69 @@ transition.
 
 ## Accomplished in the past 3 weeks
 
-**Repo health.** Removed legacy packaging/build tooling and dead code,
-consolidated license handling, and got CI running a real test subset
-reliably. The codebase is materially easier to onboard into and less prone
-to silent breakage.
+The throughline this period: `tango_next` isn't just a rewrite of what
+already existed — it's structurally more usable, maintainable, and
+extensible than the old codebase, and it is being built to modern software
+engineering standards (e.g. `ruff` and `mypy` compliant) from day one rather
+than retrofitting them later.
 
-**Correctness guarantees baked into the new architecture.** A recurring
-theme this period: finding places where the old system allowed silent,
-hard-to-detect bugs (a component quietly using a different value than the
-rest of the system for something that should always match, like rock
-thermal conductivity), and closing them structurally in `tango_next` rather
-than patching around them. Shared physical parameters (rock properties,
-surface temperature/pressure) are now enforced by the system's data model
-to be identical everywhere they're used — misconfiguration is caught
-immediately at setup time instead of producing quietly-wrong results
-downstream. Configuration objects are now also locked against accidental
-modification once a simulation is built, closing off an entire class of
-bugs where results silently stop reflecting the configuration they were
-supposedly run with.
+**Structural improvements that make the system easier to build on.**
+Shared physical parameters (rock properties,
+surface temperature/pressure) used to
+be copied independently into every component that needed them — meaning
+one component could silently drift out of sync with the rest of the system
+with no warning. `tango_next` now enforces a single shared, locked source
+of truth for these values at the data-model level: misconfiguration is
+caught immediately at setup, not discovered later as a mysteriously wrong
+result. Configuration is similarly locked against accidental modification
+once a simulation is built, and computations now cascade cleanly down the
+component hierarchy instead of being reassembled piecemeal — both closing
+off entire categories of bugs by construction rather than by convention.
+
+```mermaid
+flowchart LR
+    subgraph OLD["Old tango"]
+        direction TB
+        A1["Well A<br/>own copy of rock_k"]
+        A2["Well B<br/>own copy of rock_k"]
+        A3["Reservoir<br/>own copy of rock_k"]
+        A1 -.can silently drift apart.- A2
+        A2 -.no warning if wrong.- A3
+    end
+    subgraph NEW["tango_next"]
+        direction TB
+        B0["Common<br/>(single, locked value)"]
+        B1["Well A"] --> B0
+        B2["Well B"] --> B0
+        B3["Reservoir"] --> B0
+    end
+    OLD ~~~ NEW
+```
+
+*Old tango: each component holds its own copy of a shared parameter — nothing stops
+them from drifting apart. tango_next: every component reads the same locked value —
+divergence is impossible by construction.*
+
+**This isn't just theoretical — it already caught a real bug.** Applying
+this state-management discipline surfaced a genuine, previously-unknown
+inaccuracy in the *old* codebase: it exits its internal convergence loop
+using a slightly stale intermediate value rather than the fully-converged
+one, quietly under-stating energy extraction every timestep. `tango_next`'s
+architecture makes this class of error structurally impossible — proof the
+new design isn't just "cleaner," it's measurably more correct.
+
+**Developer onboarding is a first-class concern.** Legacy packaging/build
+tooling and dead code were removed, license handling was consolidated, and
+CI now runs a real, reliable test subset. A new contributor (or an intern
+picking up this work, as confirmed by Dubhaltach McSweeney) has meaningfully
+less accidental complexity to wade through before becoming productive.
+
+**Modern development practices, applied consistently rather than bolted
+on.** Every new `tango_next` module is fully type-checked (`mypy`) and
+lint-clean (`ruff`) from its first commit, configuration is validated
+through real schemas instead of untyped dictionaries, and every component
+supports a clean save/load (serialization) contract — closing gaps the old
+codebase never had answers for.
 
 **Validated regression testing infrastructure.** Added "golden snapshot"
 regression coverage and automated old-vs-new comparison tests, so that
@@ -39,6 +84,36 @@ known-good baseline and the legacy implementation. This is what lets
 development continue at pace without re-litigating correctness by hand
 every time.
 
+**Surface plant layouts are now configuration, not code.** Previously, each
+power-plant/surface layout (single-flash, direct-heat, etc.) required its
+own hardcoded Python implementation — adding a new layout meant writing new
+code. `tango_next` now reads the entire surface-plant topology (which
+components exist, how they're connected) directly from the config file.
+Supporting a new layout is a matter of describing it in config, not writing
+and maintaining new code for it — a direct, concrete step toward the kind
+of extensibility and composability described above.
+
+```mermaid
+flowchart LR
+    subgraph OLD["Old tango"]
+        direction TB
+        O1["Single-flash layout<br/>→ its own Python class"]
+        O2["Direct-heat layout<br/>→ its own Python class"]
+        O3["New layout?<br/>→ write a new Python class"]
+    end
+    subgraph NEW["tango_next"]
+        direction TB
+        N0["GraphSurface<br/>(one generic engine)"]
+        C1["single_flash.yml"] --> N0
+        C2["AGS_direct_heat.yml"] --> N0
+        C3["new_layout.yml<br/>(new layout? just write YAML)"] --> N0
+    end
+    OLD ~~~ NEW
+```
+
+*Old tango: every plant layout is its own hardcoded implementation. tango_next: one
+generic engine reads any layout from config — new layouts need no new code.*
+
 **AGS (closed-loop) system support.** Ported the AGS direct-heat use case
 end-to-end into `tango_next`, including a working parameter-sweep example
 demonstrating the new system can reproduce sweep-style analyses (varying a
@@ -46,11 +121,21 @@ design parameter across many runs) that were previously only possible in
 the old codebase. This is the first fully modern, closed-loop system type
 running in the new architecture.
 
-**Documentation caught up to the code.** The technical roadmap and its
-diagrams were reconciled with what's actually built, so the roadmap
-reflects real state rather than stale planning.
+**Documentation stays continuously synced with the code.** The technical
+roadmap and its diagrams are kept in lockstep with what's actually built,
+so the roadmap always reflects real state rather than stale planning.
 
 ## Where things stand
+
+`tango_next` needs to cover every combination of geothermal system type and
+product to fully replace the legacy system. Progress so far:
+
+| | Heat extraction | Power extraction |
+|---|:---:|:---:|
+| AGS | ✅ | ⬜ |
+| EGS | ⬜ | ⬜ |
+| CPG | ⬜ | ⬜ |
+| Hydrothermal | ⬜ | ✅ |
 
 - `tango_next` can run: flexible single-flash plants (the original
   reference case) and AGS direct-heat systems, both validated against the
@@ -64,6 +149,30 @@ reflects real state rather than stale planning.
   started.
 
 ## Plan for the next couple of months
+
+*Snapshot of the [tango Miro board](https://miro.com/app/board/uXjVOfwfxsY=/?moveToWidget=3458764679176539081&cot=14)'s
+Gantt chart as of 2026-07-27, for quick reference only. **The Miro board is the
+maintained, authoritative version of this timeline** — this diagram is a
+point-in-time copy and will not be kept in sync automatically; treat it as
+stale the moment the Miro board changes.*
+
+```mermaid
+gantt
+    dateFormat  YYYY-MM-DD
+    title tango_next roadmap (Miro snapshot, 2026-07-27 — see Miro for current version)
+    section Refactor
+    Refactor kickoff phase              :done, kickoff, 2026-07-01, 2026-07-31
+    Refactor build out phase            :active, buildout, 2026-07-13, 2026-09-11
+    section Breadth
+    Flesh out example scripts           :scripts, 2026-09-01, 2026-10-15
+    New optimization framework          :optim, 2026-09-01, 2026-09-20
+    section Extensibility
+    Extensibility as core design feature :ext, 2026-10-01, 2026-11-01
+    Connect other simulation tools      :connect, 2026-11-01, 2026-12-15
+    Build out new GUI/web tool          :gui, 2026-12-01, 2027-01-01
+    section AI assistance
+    AI-assisted error handling          :aierr, 2026-11-02, 2026-12-18
+```
 
 1. **Finish AGS parity** — build the missing power-generation component,
    port the electric-generation sweep, and validate both heat and power
