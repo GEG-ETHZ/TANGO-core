@@ -20,8 +20,9 @@ from typing import Any
 
 import numpy as np
 import pytest
+import yaml
 
-from tango_next.core.errors import CoolPropError, TangoNextError
+from tango_next.core.errors import ConfigError, CoolPropError, TangoNextError
 from tango_next.workflows.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,120 @@ def _run_tango_next(path: Path) -> Workflow:
 
 def _components(wf: Workflow) -> dict[str, Any]:
     return wf._orchestrator.components
+
+
+# ---------------------------------------------------------------------------
+# Workflow (de)serialization round-trips — from_file/from_str/to_file/to_str/to_config
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_to_dict_reflects_source_yaml_inputs() -> None:
+    """to_dict() carries through the user-authored input values.
+
+    NOT a strict equality check against the raw source file: to_dict() is
+    reconstructed from live component state (see Workflow's class
+    docstring), which also includes derived/computed fields (e.g.
+    NumericalWell's T_r, cell_length — computed by init(), never present
+    in hand-authored YAML) that the original file never had. Checking a
+    representative sample of real input values is the meaningful
+    invariant here; test_workflow_from_str_to_str_roundtrip below is what
+    actually proves full round-trip fidelity.
+    """
+    with NEW_SF_MANUAL.open() as f:
+        original = yaml.safe_load(f)
+
+    wf = Workflow.from_file(NEW_SF_MANUAL)
+    dumped = wf.to_dict()
+
+    assert dumped["common"]["rock_k"] == original["common"]["rock_k"]
+    assert dumped["common"]["fluid_name"] == original["common"]["fluid_name"]
+    assert dumped["sim_config"]["num_tsteps"] == original["sim_config"]["num_tsteps"]
+    assert (
+        dumped["components"]["injection_well"]["well_length"]
+        == original["components"]["injection_well"]["well_length"]
+    )
+
+
+def test_workflow_to_config_is_a_fresh_copy_each_call() -> None:
+    """to_dict() never returns a shared reference — mutating one call's result
+    must not affect the Workflow or any other to_dict() call.
+    """
+    wf = Workflow.from_file(NEW_SF_MANUAL)
+
+    cfg_a = wf.to_dict()
+    cfg_a["common"]["rock_k"] = -1.0
+
+    cfg_b = wf.to_dict()
+    assert cfg_b["common"]["rock_k"] != -1.0
+    assert cfg_a is not cfg_b
+
+
+def test_workflow_from_str_to_str_roundtrip() -> None:
+    """to_str() -> from_str() reproduces byte-identical YAML output.
+
+    Compares the two YAML STRINGS, not the parsed dicts: pre-solve state
+    fields default to LockedState's "not yet computed" sentinel
+    (float('nan')), and NaN != NaN under plain ==, which would make a
+    dict-equality comparison spuriously fail even when both sides hold the
+    identical (still-unsolved) sentinel. YAML's `.nan` tag serializes
+    identically either way, so a string comparison sidesteps the issue at
+    the root — no need to run() first just to dodge NaN semantics.
+    """
+    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf2 = Workflow.from_str(wf.to_str())
+    assert wf2.to_str() == wf.to_str()
+
+
+def test_workflow_to_file_from_file_roundtrip(tmp_path: Path) -> None:
+    """to_file() -> from_file() on a temp path reproduces byte-identical YAML output.
+
+    See test_workflow_from_str_to_str_roundtrip's docstring for why this
+    compares serialized strings rather than parsed dicts (NaN != NaN).
+    """
+    wf = Workflow.from_file(NEW_SF_MANUAL)
+
+    out = tmp_path / "roundtrip.yml"
+    wf.to_file(out)
+    wf2 = Workflow.from_file(out)
+
+    assert wf2.to_str() == wf.to_str()
+
+
+def test_workflow_sweep_pattern_does_not_mutate_base() -> None:
+    """The documented sweep pattern (to_dict() per iteration) never mutates
+    the base Workflow, and each derived Workflow actually gets its own value.
+    """
+    base_wf = Workflow.from_file(NEW_SF_MANUAL)
+    original_rock_k = base_wf.to_dict()["common"]["rock_k"]
+
+    built_values = []
+    for rock_k in (original_rock_k + 1.0, original_rock_k + 2.0):
+        cfg = base_wf.to_dict()
+        cfg["common"]["rock_k"] = rock_k
+        wf = Workflow(cfg)
+        built_values.append(wf._orchestrator.components["reservoir"].common.rock_k)
+
+    assert built_values == [original_rock_k + 1.0, original_rock_k + 2.0]
+    assert base_wf.to_dict()["common"]["rock_k"] == original_rock_k
+
+
+def test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache() -> None:
+    """to_dict() reconstructs from CURRENT live state every call — no cached
+    "original config" that could silently drift from the real object.
+
+    This is the exact bug an earlier version of Workflow had: to_dict()
+    returned a deepcopy of self._config, the dict this Workflow happened to
+    be constructed from, which never noticed later mutations to genuinely
+    mutable fields (e.g. surface.injection_pressure, reassigned every
+    SystemBCIteration pass). Mutating it directly here and confirming
+    to_dict() picks it up immediately is the regression test for that.
+    """
+    wf = Workflow.from_file(NEW_SF_MANUAL)
+    surface = wf._orchestrator.components["surface"]
+
+    surface.injection_pressure = 9_999_999.0
+
+    assert wf.to_dict()["components"]["surface"]["injection_pressure"] == 9_999_999.0
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +390,164 @@ def test_surface_outlet_cooler_than_inlet() -> None:
         f"Surface outlet T ({surface.state.T_outlet.get_fresh():.1f} K) should be below "
         f"inlet T ({surface.state.T_inlet.get_fresh():.1f} K)"
     )
+
+
+# ---------------------------------------------------------------------------
+# GraphSurface pressure-monotonicity validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sf_manual_config() -> dict[str, Any]:
+    """Fresh parsed dict of flexible_SF_manual.yml — safe for a test to mutate.
+
+    Not specific to the pressure-monotonicity tests below — any test that
+    wants a valid tango_next config to tweak before constructing a Workflow
+    (without touching the file on disk) can depend on this fixture too.
+    """
+    with NEW_SF_MANUAL.open() as f:
+        return yaml.safe_load(f)
+
+
+def test_pressure_monotonicity_passes_on_valid_config(sf_manual_config: dict[str, Any]) -> None:
+    """flexible_SF_manual.yml's plant (valve 0.05 MPa -> turbine/condenser 0.005 MPa,
+    monotonically decreasing) builds without GraphSurface's validation raising.
+    """
+    wf = Workflow(sf_manual_config)
+    assert "surface" in _components(wf)
+
+
+def test_pressure_monotonicity_rejects_rising_pressure(sf_manual_config: dict[str, Any]) -> None:
+    """Bumping the turbine's p_out above the upstream valve's raises ConfigError.
+
+    Mutates an already-parsed config dict (not the file on disk) to create a
+    non-physical plant — pressure rising across a passive expansion device —
+    then constructs a live Workflow from it and confirms GraphSurface's
+    _validate_pressure_monotonicity catches it during init(), before any
+    TESPy solve is attempted.
+    """
+    nodes = sf_manual_config["components"]["surface"]["power_plant"]["nodes"]
+    valve_p_out = nodes["valve"]["p_out_megapascals"]
+    nodes["turbine"]["p_out_megapascals"] = valve_p_out * 10  # now above upstream valve's p_out
+
+    with pytest.raises(ConfigError, match="not monotonically decreasing"):
+        Workflow(sf_manual_config)
+
+
+# ---------------------------------------------------------------------------
+# Shared-parameter provenance: structural (config-time) + frozen Common (runtime)
+#
+# rock_density/rock_cp/rock_k/thermal_gradient/surface_temperature/
+# surface_pressure/fluid_name all live on ONE Common instance, shared BY
+# REFERENCE (not copied) across every well, the reservoir, and the surface
+# (see core/specs.py). Two things make divergence impossible rather than
+# merely guarded against:
+#   1. A component no longer declares these as its own fields at all (only
+#      `common`) — its own YAML block setting e.g. `rock_k` is rejected as
+#      an ordinary unknown-key error, the same as any other typo, not a
+#      special-cased guard list.
+#   2. Common itself is frozen (whole model) — even after a Workflow is
+#      built, `well.common.rock_k = x` raises. Config-time validation alone
+#      wouldn't catch code (e.g. a parameter-sweep script reusing live
+#      objects across runs) that mutates a component's attribute directly
+#      after construction — this closes that gap.
+# ---------------------------------------------------------------------------
+
+
+def test_component_own_block_rejects_shared_rock_param(sf_manual_config: dict[str, Any]) -> None:
+    """A well's own YAML block setting rock_k raises ConfigError — it's not a
+    field the well declares anymore (only `common` is), so it's rejected as
+    an unknown key like any other typo.
+    """
+    common_rock_k = sf_manual_config["common"]["rock_k"]
+    sf_manual_config["components"]["injection_well"]["rock_k"] = common_rock_k + 1.0
+
+    with pytest.raises(ConfigError, match="rock_k"):
+        Workflow(sf_manual_config)
+
+
+def test_component_own_block_rejects_common_object(sf_manual_config: dict[str, Any]) -> None:
+    """A component's own YAML block cannot set `common` directly either —
+    it's always the single shared Workflow-level instance.
+    """
+    sf_manual_config["components"]["injection_well"]["common"] = {"rock_k": 1.0}
+
+    with pytest.raises(ConfigError, match="common"):
+        Workflow(sf_manual_config)
+
+
+def test_components_share_one_common_instance_by_reference(sf_manual_config: dict[str, Any]) -> None:
+    """Every component holding a `common` field gets the exact same object —
+    not independent copies. Pydantic does not copy nested model fields on
+    construction; this proves the built Workflow actually relies on that.
+    """
+    wf = Workflow(sf_manual_config)
+    components = _components(wf)
+
+    holders = [c for c in components.values() if hasattr(c, "common")]
+    assert len(holders) >= 2, "expected at least 2 components (a well + the reservoir) to hold `common`"
+    assert len({id(c.common) for c in holders}) == 1, "every component's `common` should be the SAME object"
+
+
+def test_frozen_common_rejects_runtime_mutation(sf_manual_config: dict[str, Any]) -> None:
+    """Mutating a live, already-built Workflow's shared Common instance raises
+    — not just at config time.
+
+    Construction-time validation alone wouldn't catch code (e.g. a
+    parameter-sweep script reusing live objects across runs) that mutates
+    the shared Common object directly after the Workflow is built. Because
+    it's ONE shared instance, this single check protects every component
+    that references it — not just the one you happened to touch. A
+    genuinely-mutable field (surface.injection_pressure, which
+    SystemBCIteration reassigns every BC-iteration pass) is untouched by it.
+    """
+    from pydantic import ValidationError
+
+    wf = Workflow(sf_manual_config)
+    components = _components(wf)
+
+    with pytest.raises(ValidationError, match="frozen"):
+        components["injection_well"].common.rock_k = 999.0
+    with pytest.raises(ValidationError, match="frozen"):
+        components["reservoir"].common.thermal_gradient = 0.5
+
+    # A genuinely mutable field on the same component is unaffected.
+    components["surface"].injection_pressure = 1.5e6
+    assert components["surface"].injection_pressure == 1.5e6
+
+
+def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict[str, Any]) -> None:
+    """Component-local YAML config fields (not just `common`) reject live
+    mutation too, mirroring the `Common` treatment above.
+
+    Every field that is genuinely YAML config (set once at construction,
+    never reassigned by init()/solve()/the orchestrator) is now
+    `Field(frozen=True)` on each Component subclass. The only supported way
+    to change one is the dict-modify-then-reinstantiate pattern
+    (`Workflow.to_dict()` -> mutate the copy -> `Workflow(cfg)`), matching
+    `examples/tango_next/sweep_demo_AGS_direct_heat.py`. Fields that are
+    legitimately reassigned during simulation (`inlet`/`outlet`,
+    `surface.injection_pressure`) must remain mutable — checked here too.
+    """
+    from pydantic import ValidationError
+
+    wf = Workflow(sf_manual_config)
+    components = _components(wf)
+
+    with pytest.raises(ValidationError, match="frozen"):
+        components["injection_well"].well_length = 9999.0
+    with pytest.raises(ValidationError, match="frozen"):
+        components["reservoir"].permeability = 1e-13
+    with pytest.raises(ValidationError, match="frozen"):
+        components["surface"].pipe_diameter = 1.0
+
+    # Fields that are legitimately reassigned during simulation stay mutable.
+    from tango_next.core.stream import Stream
+
+    components["injection_well"].inlet = Stream(T=300.0, P=1e6, mass_rate=10.0, fluid_name="water")
+    assert components["injection_well"].inlet.T == 300.0
+    components["surface"].injection_pressure = 2.5e6
+    assert components["surface"].injection_pressure == 2.5e6
 
 
 # ---------------------------------------------------------------------------

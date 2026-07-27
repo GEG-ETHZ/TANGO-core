@@ -21,6 +21,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import tempfile
 from pathlib import Path
 
 from common import DEFAULT_LOG_LEVEL, DEFAULT_N_WORKERS, DEFAULT_SWEEP_DIR, load_params
@@ -71,17 +72,34 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=f"Output directory (default: {DEFAULT_SWEEP_DIR})",
     )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help=(
+            "Run a tiny 4-design corner sweep into a fresh OS tempdir instead "
+            "of the full 100-design grid — for a fast 'does the pipeline still "
+            "run end to end' check, not real results. Never touches outputs/ "
+            "— a new tempdir is created every run."
+        ),
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    sweep_dir = args.sweep_dir or DEFAULT_SWEEP_DIR
+
+    if args.smoke:
+        sweep_dir = args.sweep_dir or Path(tempfile.mkdtemp(prefix="tango_egs_dh_smoke_"))
+        if not args.quiet:
+            print(f"Smoke run — writing to {sweep_dir}")
+    else:
+        sweep_dir = args.sweep_dir or DEFAULT_SWEEP_DIR
 
     generate_main(
         regenerate=args.regenerate,
         quiet=args.quiet,
         sweep_dir=sweep_dir,
+        smoke=args.smoke,
     )
     sweep_main(
         n_workers=args.n_workers,

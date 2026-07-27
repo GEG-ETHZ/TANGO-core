@@ -1,7 +1,5 @@
 """LockedState — single-value wrapper that enforces one update per timestep.
 
-Modelled on ``TrackedState<T>`` in ``fastsim-core/src/utils/tracked_state.rs``.
-
 Motivation
 ----------
 Any multi-component simulation can accidentally read or write a state variable
@@ -26,11 +24,11 @@ relative to any CoolProp or TESPy call.
 
 Bypass prevention
 -----------------
-In Rust, ``TrackedState<T>``'s ``value`` and ``status`` fields are
-module-private by default — code outside ``tracked_state.rs`` literally cannot
-name them, so the contract is enforced by the compiler.  Python has no
-equivalent mechanism; every attribute is reachable at runtime.  We use three
-layers to make bypass *obvious* rather than *impossible*:
+In a language with real module-private fields, the compiler could enforce
+this contract directly — code outside the defining module simply couldn't
+name the internal fields. Python has no equivalent mechanism; every
+attribute is reachable at runtime.  We use three layers to make bypass
+*obvious* rather than *impossible*:
 
 **Layer 1 — ``__slots__``**: prevents attribute *addition*.  A caller cannot
 do ``ls.value = x`` (no slot named ``value``); Python raises ``AttributeError``
@@ -277,14 +275,12 @@ class LockedState(Generic[T]):
 
         Serialization: ``LockedState(v)`` → ``v`` (just the raw value).
         Validation/deserialization: plain ``v`` → ``LockedState(v)`` starting
-        fresh, matching fastsim's ``TrackedState`` behaviour where
-        ``StateStatus::default()`` is ``Fresh``.
+        **fresh** (readable immediately via ``get_fresh()``, same as any
+        newly-constructed ``LockedState`` — see ``__init__``).
 
         This means that in any YAML/JSON save file, a ``LockedState[float]``
         field appears as a bare float with no ``value``/``status`` keys — the
-        ``LockedState`` wrapper is invisible to the serialized format, exactly
-        as in fastsim's ``TrackedState`` custom ``Serialize``/``Deserialize``
-        impls (``fastsim-core/src/utils/tracked_state.rs``).
+        ``LockedState`` wrapper is invisible to the serialized format.
         """
         import pydantic_core  # noqa: PLC0415
 

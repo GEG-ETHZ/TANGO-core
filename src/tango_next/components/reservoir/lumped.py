@@ -1,8 +1,8 @@
 """Lumped-parameter reservoir component for tango_next.
 
 LumpedReservoir models the subsurface as a single pressure-drop element
-using the doublet radial-flow impedance formula (Adams et al. 2020) and
-tracks thermal depletion via the Adams et al. (2015) cumulative-energy model.
+using a doublet radial-flow impedance formula and tracks thermal depletion
+via a cumulative-energy model. See References below for both.
 
 Pressure model (doublet impedance — parity with src/tango/):
     Z = μ · [ln(L / (e · D)) + D / L] / (ρ · k · b_eff · π)
@@ -15,6 +15,20 @@ Temperature model (thermal depletion — parity with src/tango/):
     T_outlet = T_inj + γ · (T₀ − T_inj)
 
 where T₀ = initial reservoir temperature, T_inj = current injection temperature.
+
+References
+----------
+Doublet impedance:
+    Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
+    geothermal simulator, v0.0.1 [Software]. Zenodo.
+    https://doi.org/10.5281/zenodo.4383139
+
+Thermal depletion (cumulative-energy / γ(ψ) fitting function):
+    Adams, B.M. et al. (2015). A comparison of electric power output of CO2
+    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
+    conditions. Applied Energy, 140, 365-377.
+    https://doi.org/10.1016/j.apenergy.2014.11.043
+
 """
 
 from __future__ import annotations
@@ -36,6 +50,7 @@ from tango_next.core.fluid_utils import (
     water_viscosity,
 )
 from tango_next.core.locked_state import LockedState
+from tango_next.core.specs import Common
 
 # ---------------------------------------------------------------------------
 # State dataclass
@@ -127,29 +142,26 @@ class LumpedReservoir(ReservoirComponent):
     """
 
     # ---- YAML configuration fields ----
-    thermal_gradient: float
-    """Geothermal temperature gradient (K/m) — from common: block."""
-    surface_temperature: float
-    """Ambient surface temperature (K) — used to compute T₀."""
-    rock_density: float
-    """Rock bulk density (kg/m³) — from common: block."""
-    rock_cp: float
-    """Rock specific heat capacity (J/(kg·K)) — from common: block."""
-    rock_k: float
-    """Rock thermal conductivity (W/(m·K)) — from common: block."""
-    dt_years: float
+    common: Common = Field(frozen=True)
+    """Shared fluid/rock parameters — a reference to the SAME Common
+    instance every other component in the Workflow holds, not an
+    independent copy. See core/specs.py."""
+    dt_years: float = Field(frozen=True)
     """Simulation timestep duration (years) — from sim_config.time.dt_years."""
-    well_spacing: float = 707.0
+    well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer horizontal distance (m) — from layout: block."""
-    well_eff_diameter: float = 0.41
+    well_eff_diameter: float = Field(default=0.41, frozen=True)
     """Effective well diameter for impedance calculation (m).
     Old tango computes this as the average of injection and production well
     diameters; set explicitly here for transparency.
     """
-    net_to_gross_ratio: float = 1.0
+    net_to_gross_ratio: float = Field(default=1.0, frozen=True)
     """Net-to-gross ratio for effective reservoir thickness (dimensionless)."""
 
     # ---- Derived constants (computed by init(), serialized for save/restore) ----
+    # Deliberately NOT frozen — init()/_recompute_depletion_coeffs() reassign
+    # these directly (plain floats, not LockedState) each call; see
+    # Component's class docstring for why fields like this stay mutable.
     T_initial: float = 0.0
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
     rock_volume: float = 0.0
@@ -173,12 +185,12 @@ class LumpedReservoir(ReservoirComponent):
 
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""
-        self.T_initial = self.surface_temperature + self.thermal_gradient * self.reservoir_depth
+        self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
         volume = self.thickness * area
         fluid_volume = self.porosity * volume
         self.rock_volume = volume - fluid_volume
-        self.rock_C_v = self.rock_density * self.rock_cp
+        self.rock_C_v = self.common.rock_density * self.common.rock_cp
         self.energy_extracted = 0.0
         self._recompute_depletion_coeffs(
             m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
@@ -193,11 +205,17 @@ class LumpedReservoir(ReservoirComponent):
         )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
-        """Update Adams 2015 depletion coefficients from current fluid properties."""
+        """Update the thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.
+
+        Reference: Adams, B.M. et al. (2015). A comparison of electric power
+        output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
+        varying reservoir conditions. Applied Energy, 140, 365-377.
+        https://doi.org/10.1016/j.apenergy.2014.11.043
+        """
         b = self.thickness
-        k_rock = self.rock_k
-        rho_rock = self.rock_density
-        cp_rock = self.rock_cp
+        k_rock = self.common.rock_k
+        rho_rock = self.common.rock_density
+        cp_rock = self.common.rock_cp
         R = self.well_spacing
 
         coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock
@@ -208,7 +226,12 @@ class LumpedReservoir(ReservoirComponent):
         self.p3 = float(np.clip(1.0 - 1.4646 * math.exp(-377.3 * coeff2), 0.0, 1.0))
 
     def _depletion_curve(self, psi: float) -> float:
-        """Adams 2015 γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid."""
+        """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
+
+        Reference: Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.
+        https://doi.org/10.1016/j.apenergy.2014.11.043 (same curve-fit as
+        ``_recompute_depletion_coeffs`` above — see its docstring).
+        """
         p1, p2, p3 = self.p1, self.p2, self.p3
         if psi <= -p1 / p2:
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * float(erfc(p2 * psi + p1)))

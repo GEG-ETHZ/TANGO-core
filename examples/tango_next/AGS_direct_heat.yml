@@ -37,11 +37,12 @@ title: Advanced Geothermal System (AGS), direct-heat, Triemli site
 
 common:
   fluid_name: H2O
-  brine_density: 1000        # kg/m3
   rock_density: 2650.0       # kg/m3
   rock_cp: 1000.0            # J/(kg*K)
   rock_k: 2.1                # W/(m*K)
   thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
 
 layout:
   well_spacing: 707.0        # m — horizontal loop length; used by the surface
@@ -108,13 +109,11 @@ components:
     component_idx: 3            # solved last, loops back to injection_well (next: 0)
     prev: 2
     next: 0
-    surface_temperature: 284.15  # K  (11 degC, Triemli)
     injection_pressure: 1_500_000  # Pa — initial guess for the BC-iteration solver;
                                      # kept below the production wellhead pressure so
                                      # TESPy's pr<=1 constraint on dh_hx isn't violated
                                      # (Phase 1 limitation: this guess isn't yet solved
                                      # for — see SystemBCIteration's module docstring)
-    surface_pressure: 100_000       # Pa
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     target_extraction_pressure: 7_000_000  # Pa

@@ -9,9 +9,9 @@ from typing import Protocol, runtime_checkable
 class Init(Protocol):
     """Protocol for objects that require post-deserialization initialization.
 
-    ``Component.from_config()`` calls ``self.init()`` after constructing any
+    ``Component.from_dict()`` calls ``self.init()`` after constructing any
     object that implements this protocol, allowing derived fields to be computed
-    from the validated input state.  Modeled on the Init trait from fastsim-core.
+    from the validated input state.
     """
 
     def init(self) -> None:

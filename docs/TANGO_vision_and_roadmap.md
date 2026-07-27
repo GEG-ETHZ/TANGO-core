@@ -389,6 +389,10 @@ both) — needs careful thought before the integration work begins. The architec
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
 
+Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
+right foundation for this kind of external-simulator composition lives in
+`docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
+
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
 `src/tango/units/native/surface/flexible_pp.py`'s `validate_custom()` estimated the
@@ -450,6 +454,37 @@ hydrothermal share `LumpedReservoir`; CPG needs a CO2 `FluidState` path that
 doesn't exist in `tango_next` yet (currently H2O-only — see `FluidState` in
 `core/fluid_state.py`), which is likely the largest gap in this matrix, not the
 surface-plant topology.
+
+**`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
+shortcut.** Raised 2026-07-22 while tracing where `flexible_SF_manual.yml`'s TESPy plant
+states are solved versus imposed (see `docs/diagrams/src/graph_surface_state_provenance.drawio`
+for the full node-by-node breakdown). `GraphSurface` fixes two independent pressures per
+plant — flash pressure (the valve ahead of the droplet separator) and condensing pressure
+(shared by the turbine's and condenser's outlets, i.e. zero ΔP assumed across the condenser)
+— as YAML constants rather than deriving them from a resistance/flow relationship. This is
+not a `tango_next`-introduced simplification: `src/tango/`'s `flexible_pp.py` does the exact
+same thing (`p_out` as a bare fixed constant, same units convention). The justification: both
+are genuine real-plant control targets, not passively-emergent quantities. Flash pressure is
+routinely chosen by plant designers/operators to maximize power extraction for the delivered
+brine enthalpy (that choice *is* the single-flash design problem); condensing pressure is set
+primarily by the cooling system (ambient temperature via the cooling tower, `approach_temperature`
+— see the diagram for why that field is currently a no-op in `GraphSurface`'s condenser, only
+feeding a not-yet-ported parasitic-power calc), which changes on daily/seasonal timescales far
+slower than turbine/pump power modulation. So treating these two pressures as externally-imposed
+setpoints is defensible as a first-order approximation — but only self-consistently if the
+chosen values are actually calibrated to the site's assumed ambient/well conditions, and nothing
+currently checks that (see the diagram's risk callout). A rigorous *quantified* error estimate
+for "how wrong is this relative to treating pump power as the real state variable" would need
+either a resistance-closed alternative formulation to diff against, or real plant operating data
+— neither exists yet; this paragraph documents the qualitative justification only, not a
+validated bound.
+
+Two known, tracked-but-not-yet-addressed gaps in this area (see `docs/tango_next_tasks.md`):
+`src/tango/`'s `flexible_pp.py::validate_pressure_monotonicity()` (walks the power-plant graph
+upstream from each `p_out`, stopping at `Pump`/`Compressor` boundaries, raises on non-monotonic
+pressure) has no `tango_next` equivalent yet; and `AGS_direct_heat.yml`'s `dh_hx` node is a
+sharper version of the same risk with no `p_out` field to even inspect (its pressure is
+implicitly whatever gap exists between two unrelated boundary conditions — see the diagram).
 
 **Beyond the matrix — port the broader set of old-tango examples that actually run.**
 The 8-cell matrix above is the minimum canonical set, not the target. `src/tango/`'s
@@ -646,6 +681,26 @@ and the *outer* graph's own topology detection (DAG vs. loop, i.e. whether a gra
 `sim_config.injection_mode` is present, not yet by walking the actual Source/Sink structure
 of the component graph the way the `GroupedComponent` design above describes. Closing this
 remaining gap is a Phase 3 task.
+
+**Open consideration, not decided: `next`/`prev` sugar for binary split/merge.** Raised
+2026-07-22 discussing `GraphSurface`'s `power_plant.nodes`/`edges` schema versus the outer
+graph's per-node `component_idx`/`prev`/`next` fields. The outer graph is a strict chain (one
+`prev`, one `next` per node, doubling as the orchestrator's sequential solve order), so a
+scalar field suffices; the TESPy plant graph branches and merges (`DropletSeparator`'s
+liquid/vapor split, `Merge`'s two inlets), so `GraphSurface` uses an explicit `edges:` list
+with named `source_port`/`target_port` instead. For every topology in the repo today, the
+branching is binary, so a `next`/`next_alt` (defaulting to `out1`/`out2`) and `prev`/`prev_alt`
+(defaulting to `in1`/`in2`) convention on each node could plausibly give the same
+self-contained-per-node readability the outer graph has, without a separate `edges:` block.
+The real limitation: TESPy's two-stream `HeatExchanger` (registered in `_COMPONENT_TYPES`,
+unused so far) needs two independent in/out pairs, not one primary + one fallback — that case
+would need `next_1`/`next_2` generalization, which re-derives explicit port identification
+piecemeal rather than the single `source_port`/`target_port` string `edges:` already provides
+generically. A hybrid (sugar for the common binary case, `edges:` as an explicit fallback for
+anything that doesn't fit) is the leading idea, not yet built. Relatedly, the same argument
+for generality is prompting a reconsideration of whether the *outer* subsurface graph should
+also move to an explicit `edges:` block instead of per-node `prev`/`next` — parked, not started,
+but flagged here as in play for future robustness against topologies not yet anticipated.
 
 ---
 
@@ -1000,9 +1055,9 @@ the no-warm-start penalty will be most visible.
   `surface.w_net` ≠ economic-layer inconsistency described above.
 - **Serialization:** Pydantic's `model_dump()` / `model_validate()` serve as the
   serialization layer for all `Component` subclasses — no separate mixin needed.
-  `Component.from_config()` handles YAML-dict → object construction; `Workflow.from_file()`
+  `Component.from_dict()` handles YAML-dict → object construction; `Workflow.from_file()`
   handles YAML file → object. Round-trip tests in `tests/unit/test_serde_roundtrip.py`
-  verify that `LockedState` fields survive `model_dump()` → `from_config()` correctly.
+  verify that `LockedState` fields survive `model_dump()` → `from_dict()` correctly.
   If binary formats (MessagePack) are ever needed, extend at that point — don't add
   the abstraction speculatively.
 - most of these points have examples in https://github.com/NatLabRockies/fastsim
@@ -1083,6 +1138,55 @@ baseline; the refactor is applied to all input configurations.
       `tango_next` (decoupled from the Hotmaps-specific `HotmapsDispatchDT` in
       `src/tango/`) before treating any pure-heat or cogeneration example as
       representative — see the note above.
+- [ ] **A clean pymoo optimization API for `tango_next`, modeled on fastsim's
+      `pymoo_api.py`/`ModelObjectives` pattern** (`~/git/nrel/fastsim/python/fastsim/pymoo_api.py`,
+      used e.g. in `cal_and_val/thermal/cal_bev.py`) — parameters set via a list
+      of explicit functions operating on a config dict, objectives extracted the
+      same way, dict-modify-then-reinstantiate throughout (never mutating a live
+      `Workflow`/component), wrapped so users don't need to understand pymoo's
+      `*args`/`**kwargs`-heavy `Problem` API directly. Should ship with a couple
+      of worked examples and lightweight test coverage (not full optimization
+      runs — sanity-check that parameter-setting functions actually perturb the
+      objective, mirroring `cal_bev.py`'s `perturb_params()`). `src/tango/`'s
+      `optimizerr.py` is NOT the reference for this — see
+      `docs/tango_next_tasks.md`'s optimizerr.py review (2026-07-24) for why.
+      `examples/tango_next/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
+      small working precedent for the underlying mechanism this API would
+      build on: it sweeps `common.rock_k` by mutating a copy of
+      `Workflow.to_dict()` and reinstantiating, rather than mutating a live
+      `Workflow`/component in place — the exact dict-modify-then-reinstantiate
+      pattern this pymoo API needs for both parameter-setting and (eventually)
+      config-side objective extraction.
+
+      **Design principle, decided 2026-07-24: for multi-objective runs, suggest
+      a candidate, never auto-select one.** `optimizerr.py` calls an
+      Achievement Scalarizing Function (ASF) or pseudo-weights method
+      automatically inside the optimization run to collapse the Pareto front
+      down to one "final" solution (`MOOOptimizer._select_asf_solution`/
+      `_select_pseudo_weights_solution`). Both methods are legitimate MCDM
+      techniques, but both necessarily encode an implicit objective-weighting
+      preference to do the collapse — there is no preference-free way to pick
+      one point off a genuine Pareto front. Baking that collapse into the
+      optimization call throws away exactly the information NSGA2-style MOO
+      exists to surface: tradeoffs a fixed weighting would never show you (e.g.
+      "give up 2% on cost, gain 15% on efficiency"). If a fixed collapse rule
+      is going to be applied regardless, a weighted-sum scalarization fed to a
+      single-objective optimizer gets to the same kind of single answer with
+      far less machinery — the point of running MOO is to *not* pre-commit to
+      that. fastsim's `pymoo_api.py` gets this right already: `run_minimize`
+      writes every point on the returned front to a dataframe/CSV (plus one
+      `euclidean`-distance column as a sort hint, not a filter) and leaves the
+      choice to the human. `tango_next`'s pymoo API should default to the same
+      — return the full front. The ASF/pseudo-weights *math* from
+      `optimizerr.py` is still worth keeping (see the `docs/tango_next_tasks.md`
+      review) — just re-scoped as a separate, explicitly-invoked, opt-in
+      helper that operates on an already-returned front
+      (`suggest_solution(front, method="asf", ...)`-shaped), clearly labeled as
+      *a* suggestion among valid alternatives, never called automatically and
+      never presented as *the* answer.
+
+      Explicitly not started, not urgent — captured here so the intent isn't
+      lost, not a commitment to build it soon.
 
 
 ---

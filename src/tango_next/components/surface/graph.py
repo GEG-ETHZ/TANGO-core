@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field
 
 from tango_next.components.surface.base import SurfaceComponent
+from tango_next.core.errors import ConfigError
 from tango_next.core.fluid_utils import (
     friction_factor_haaland,
     mean_velocity,
@@ -202,14 +203,14 @@ class GraphSurface(SurfaceComponent):
     restore, call ``init()`` again to rebuild the network.
     """
 
-    power_plant: dict[str, Any] = Field(default_factory=dict)
+    power_plant: dict[str, Any] = Field(default_factory=dict, frozen=True)
     """``{"nodes": {name: {type, role?, ...attrs}}, "edges": {n: {source, target,
     source_port?, target_port?}}}``. See module docstring for the full shape.
     """
-    well_spacing: float = 707.0
+    well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer distance (m), used as surface pipe length,
     before the Darcy-Weisbach friction drop to the TESPy inlet."""
-    record_node_detail: bool = True
+    record_node_detail: bool = Field(default=True, frozen=True)
     """If True (default), populate state.node_detail / history.node_history
     with every node's P/Q/T/p/m each solve(). Set False to skip this
     (e.g. a large network run over many timesteps where the extra
@@ -233,6 +234,8 @@ class GraphSurface(SurfaceComponent):
         pp = self.power_plant
         node_cfgs: dict[str, dict[str, Any]] = pp.get("nodes", {})
         edge_cfgs: dict[str, dict[str, Any]] = pp.get("edges", {})
+
+        self._validate_pressure_monotonicity(node_cfgs, edge_cfgs)
 
         nodes: dict[str, Any] = {}
         for name, cfg in node_cfgs.items():
@@ -296,6 +299,72 @@ class GraphSurface(SurfaceComponent):
         self._net_thermal_nodes = net_thermal
         self._inlet_conn = next(c for c in conns if c.source.label == "inlet")
         self._outlet_conn = next(c for c in conns if c.target.label == "outlet")
+
+    @staticmethod
+    def _validate_pressure_monotonicity(
+        node_cfgs: dict[str, dict[str, Any]],
+        edge_cfgs: dict[str, dict[str, Any]],
+    ) -> None:
+        """Check that fixed ``p_out_megapascals`` values decrease monotonically downstream.
+
+        Ported from ``src/tango/``'s ``flexible_pp.py::validate_pressure_monotonicity``
+        — same algorithm (walk upstream from every node with a fixed p_out,
+        stopping at pressure-increasing ``Compressor`` nodes, flag any
+        downstream p_out that exceeds an upstream one), adapted to
+        ``power_plant.nodes``/``edges`` and the ``p_out_megapascals`` key.
+
+        Known gap, not covered by this check (see docs/tango_next_tasks.md):
+        nodes whose pressure is solved via ``Merge``'s pressure-equality
+        constraint rather than an explicit ``p_out_megapascals`` (e.g.
+        ``pump``/``pump2`` in the Single-Flash examples), and components with
+        no pressure spec at all (e.g. AGS_direct_heat.yml's ``dh_hx``, whose
+        pressure is implicitly whatever gap exists between two unrelated
+        boundary conditions) — neither is caught by this walk since it only
+        traces nodes that declare ``p_out_megapascals`` explicitly.
+        """
+        p_out_values: dict[str, float] = {
+            name: float(cfg["p_out_megapascals"])
+            for name, cfg in node_cfgs.items()
+            if "p_out_megapascals" in cfg
+        }
+
+        pressure_increasing_types = {"Compressor"}
+
+        upstream_map: dict[str, list[str]] = {}
+        for edge in edge_cfgs.values():
+            upstream_map.setdefault(edge["target"], []).append(edge["source"])
+
+        def find_upstream_p_out(node_name: str, visited: set[str]) -> list[tuple[str, float]]:
+            if node_name in visited:
+                return []
+            visited.add(node_name)
+            results: list[tuple[str, float]] = []
+            for upstream in upstream_map.get(node_name, []):
+                upstream_type = node_cfgs.get(upstream, {}).get("type", "")
+                if upstream_type in pressure_increasing_types:
+                    continue
+                if upstream in p_out_values:
+                    results.append((upstream, p_out_values[upstream]))
+                results.extend(find_upstream_p_out(upstream, visited))
+            return results
+
+        errors: list[str] = []
+        for name, p_out in p_out_values.items():
+            comp_type = node_cfgs.get(name, {}).get("type", "")
+            if comp_type in pressure_increasing_types:
+                continue
+            for upstream_name, upstream_p_out in find_upstream_p_out(name, set()):
+                if p_out > upstream_p_out:
+                    errors.append(
+                        f"{name}.p_out_megapascals ({p_out} MPa) > "
+                        f"{upstream_name}.p_out_megapascals ({upstream_p_out} MPa)",
+                    )
+
+        if errors:
+            raise ConfigError(
+                "power_plant.nodes pressure configuration is not monotonically "
+                "decreasing along the flow path:\n  " + "\n  ".join(errors),
+            )
 
     @staticmethod
     def _apply_node_config(node: Any, conns: list[Connection], cfg: dict[str, Any]) -> None:

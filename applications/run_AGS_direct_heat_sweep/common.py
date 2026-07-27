@@ -4,6 +4,8 @@ from pathlib import Path
 
 import yaml
 
+# TODO: make sure the return (i.e. the water injected back into the ground) water is cooled to 50*C
+
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 BASE_YAML = SCRIPT_DIR / "triemli_dh_base.yml"
@@ -29,6 +31,7 @@ WELL_DEPTHS_M: list[float] = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 60
 
 # Mass flow rates in kg/s. Extended 2026-07-15 down to 3.5 kg/s (below the
 # original 5 kg/s floor), same interval as the existing 5->10 step scaled down.
+# TODO: make the mass flow rate increments much smaller and the max should be much lower
 MASS_FLOW_RATES_KG_S: list[float] = [3.5, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100]
 
 # Horizontal loop length in m. Previously held fixed at 2500 m with no
@@ -39,6 +42,7 @@ MASS_FLOW_RATES_KG_S: list[float] = [3.5, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100
 # bracket the range up to the old fixed assumption so both prior values are
 # covered by data instead of debate.
 # Extended 2026-07-15 from 2500 m up to 3500 m, same 500 m step.
+# TODO: bump up the max to 8 km
 LOOP_LENGTHS_M: list[float] = [707, 1000, 1500, 2000, 2500, 3000, 3500]
 
 # Horizontal loop diameter in m. Same story as loop length: previously fixed
