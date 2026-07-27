@@ -43,8 +43,7 @@ WELL_DEPTHS_M: list[float] = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 60
 # a range derived from Triemli's actual pump/piping capacity) — changing them
 # requires a real-world flow-rate ceiling for this site, which isn't
 # something to guess at from the code. Left unchanged pending that input.
-# TODO: ask for review from Aline
-MASS_FLOW_RATES_KG_S: list[float] = [3.5, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100]
+MASS_FLOW_RATES_KG_S: list[float] = [3.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
 
 # Horizontal loop length in m. Previously held fixed at 2500 m with no
 # justification beyond "keep the sweep 2-D"; swept instead so a range of
