@@ -11,7 +11,7 @@ class Stream(BaseModel):
     SI units throughout: pressures in Pa, temperatures in K,
     enthalpies in J/kg, mass flow rates in kg/s.
 
-    Phase 2 will integrate FluidState as a Pydantic model and add
+    A future update will integrate FluidState as a Pydantic model and add
     property-lookup helpers via CoolProp.
     """
 

@@ -133,8 +133,8 @@ class LumpedInjectionWell(WellComponent):
     - P_bottom = P_top + ρ·g·depth − ΔP_friction      (down → +hydrostatic)
     - T_bottom = T_top  + thermal_gradient · depth     (linear geotherm)
 
-    TODO (Phase 2): replace linear T profile with transient conductive model.
-    TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
+    TODO: replace linear T profile with transient conductive model.
+    TODO: replace constant ρ, μ with CoolProp lookups.
     """
 
     common: Common = Field(frozen=True)
@@ -198,10 +198,10 @@ class LumpedProductionWell(WellComponent):
 
     Simplified physics:
     - P_top = P_bottom − ρ·g·depth − ΔP_friction   (up → −hydrostatic)
-    - T_top = T_inlet   (perfectly insulated — thermal model is Phase 2)
+    - T_top = T_inlet   (perfectly insulated — a more detailed thermal model is future work)
 
-    TODO (Phase 2): implement Adams et al. (2015) transient conduction model.
-    TODO (Phase 2): replace constant ρ, μ with CoolProp lookups.
+    TODO: implement Adams et al. (2015) transient conduction model.
+    TODO: replace constant ρ, μ with CoolProp lookups.
     """
 
     common: Common = Field(frozen=True)
@@ -263,8 +263,8 @@ class LumpedProductionWell(WellComponent):
 class LumpedProductionWellPump(WellComponent):
     """Upper production wellbore segment with an optional pump.
 
-    TODO (Phase 2): replace with TESPy Compressor or explicit pump curve.
-    TODO (Phase 2): track pump electricity consumption in EconomicComponent.
+    TODO: replace with TESPy Compressor or explicit pump curve.
+    TODO: track pump electricity consumption in EconomicComponent.
     """
 
     common: Common = Field(frozen=True)

@@ -37,10 +37,10 @@ Default physics selections match ``src/tango/`` exactly:
   FrictionModel.HAALAND, HeatTransferModel.ADAMS_2015.
 See ``core/physics_models.py`` to add or select a different variant.
 
-**Phase 1 simplification (flag for Phase 2):** dimensionless time (``t_d``) only
+**Known simplification (flag for later):** dimensionless time (``t_d``) only
 advances correctly when ``solve()`` is called exactly once per timestep — true
 today because only ``InjectionPolicy.MANUAL`` is implemented. Once AUTO_* policies
-add multi-pass outer loops (Phase 2), ``t_d`` must be split between a per-pass
+add multi-pass outer loops, ``t_d`` must be split between a per-pass
 update and a per-timestep commit — see ``src/tango/`` lines ~223-235.
 
 **History:** each spatially-distributed quantity is one state variable whose value

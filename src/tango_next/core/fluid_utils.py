@@ -95,7 +95,7 @@ def friction_factor_darcy(Re: float, diameter: float, roughness: float) -> float
     function for engineering decisions, verify against a trusted reference
     implementation or published table.
 
-    TODO (Phase 2): implement proper laminar–turbulent blending in transition regime.
+    TODO: implement proper laminar–turbulent blending in transition regime.
 
     Args:
         Re: Reynolds number (dimensionless).

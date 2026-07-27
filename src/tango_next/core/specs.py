@@ -6,7 +6,7 @@ top-level blocks. Unknown keys raise at load time rather than being
 silently accepted and never read by anything.
 
 ``economic:`` is deliberately NOT covered here yet: no ``EconomicComponent``
-reads it (Phase 2 placeholder — see ``AGS_direct_heat.yml``'s comment),
+reads it (a placeholder — see ``AGS_direct_heat.yml``'s comment),
 so inventing a schema for fields nothing consumes risks getting the shape
 wrong and having to redo it once the real component lands.
 """

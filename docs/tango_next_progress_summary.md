@@ -64,6 +64,28 @@ one, quietly under-stating energy extraction every timestep. `tango_next`'s
 architecture makes this class of error structurally impossible — proof the
 new design isn't just "cleaner," it's measurably more correct.
 
+**Safety-critical operating logic is now self-documenting.** The old system
+controlled a real safety concern — preventing "fracing" (unintentionally
+fracturing the reservoir rock during fluid injection) — through three
+separate, poorly-documented settings, and those three settings didn't map
+cleanly onto the two physically distinct ways fracing can actually happen:
+*wellhead-pressure-induced fracing* (the injection pump pushes wellhead
+pressure high enough that, after accounting for the fluid column and
+friction losses down the well, the pressure at the reservoir itself crosses
+the fracing threshold) and *reservoir-back-pressure-induced fracing*
+(pumping fluid in fast enough that the reservoir's own resistance to flow
+pushes the pressure at the injection point past that same threshold, even
+at a lower wellhead pressure). These are two different things that can each
+independently cause the same failure, so a setup meant to guard against one
+could leave the other unguarded without anyone noticing. `tango_next`
+replaces all three old settings with a single,
+explicitly-named, self-documenting mode setting (`InjectionPolicy`) that
+makes exactly what protection is active — against which mechanism(s) —
+obvious from the configuration itself, with room designed in for future
+automated-safety modes. The basic mode is implemented and in use today;
+the more advanced automated-protection modes are planned, tracked work,
+not yet built.
+
 **Developer onboarding is a first-class concern.** Legacy packaging/build
 tooling and dead code were removed, license handling was consolidated, and
 CI now runs a real, reliable test subset. A new contributor (or an intern

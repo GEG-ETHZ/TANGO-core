@@ -254,6 +254,27 @@ These two mechanisms are checked via separate code paths in `src/tango/` but nei
 clearly labeled. `check_fracing` guards only the flow-rate cap; the injection pressure
 adjustment (`test_p` update) runs regardless of the flag.
 
+**Why two separate checks at all, rather than one combined constraint?** Both mechanisms
+ultimately bound the same physical quantity — reservoir inlet pressure — so it's fair to
+ask why `InjectionPolicy` (and `src/tango/` before it) doesn't just treat "reservoir inlet
+pressure exceeds the fracing threshold" as a single check. The answer is architectural, not
+physical: TANGO uses an **explicit** solver that marches through the well/reservoir/surface
+loop component by component, one pressure/temperature calculation at a time, each step
+consuming the previous step's output as its input (`test_p` → injection well friction/head
+loss → reservoir inlet pressure → …). Mass rate and injection pressure are two separate
+inputs to that march, entering the loop at different points and via different physical
+relationships (Darcy flow vs. wellbore hydraulics) — so from the solver's point of view they
+are two distinct things that each need their own check, applied wherever they enter the
+calculation. An **implicit** solver — one that solves the well/reservoir system as a single
+coupled set of equations simultaneously, rather than marching step by step — would have no
+such distinction to make: reservoir inlet pressure would just be one term in that combined
+system, bounded by one constraint, regardless of whether flow rate or wellhead pressure (or
+both) happened to be pushing it there. The two-mechanism split in `InjectionPolicy` is a
+direct consequence of TANGO's explicit, stepwise architecture, not a fact about the
+underlying physics — worth keeping in mind if TANGO ever moves toward an implicit
+formulation (see Phase 2's Newton-step BC iteration, which is a step in that direction for
+the outer loop, though the inner per-component march remains explicit).
+
 **`InjectionPolicy` — the clean replacement**
 
 In `tango_next`, both concerns are unified into a single enum that makes every operating

@@ -138,7 +138,7 @@ class LumpedReservoir(ReservoirComponent):
 
     Matches src/tango/units/native/reservoir.py for the DOUBLET well pattern.
 
-    TODO (Phase 2): add 5-spot and inverted-5-spot impedance variants.
+    TODO: add 5-spot and inverted-5-spot impedance variants.
     """
 
     # ---- YAML configuration fields ----
@@ -178,6 +178,23 @@ class LumpedReservoir(ReservoirComponent):
     # ---- Persistent across timesteps ----
     energy_extracted: float = 0.0
     """Cumulative thermal energy extracted from the reservoir (J)."""
+    ever_solved: bool = False
+    """Whether ``solve()`` has ever completed for this component instance.
+
+    ``solve()`` needs to know whether ``state.T_outlet``/``state.P_outlet``
+    hold a real previous-timestep value or are still at their unsolved NaN
+    default, and ``LockedState.is_stale()`` can't answer that reliably here:
+    ``LockedState``'s Pydantic (de)serialization is deliberately value-only
+    (see ``LockedState.__get_pydantic_core_schema__``'s docstring) — a
+    freshly-*validated* ``LockedState`` (e.g. after the documented
+    ``Workflow.to_dict()`` → mutate → ``Workflow(cfg)`` sweep-point pattern,
+    ``core/workflows/workflow.py``) always starts **fresh**, even when the
+    dumped value is just the untouched NaN placeholder from a
+    never-solved component. A plain ``bool`` field round-trips through
+    ``model_dump()``/``model_validate()`` exactly (no wrapper, no implicit
+    status reset), so it stays a reliable "has this ever been solved"
+    signal across that reconstruction — unlike ``is_stale()``.
+    """
 
     # ---- Runtime state / history ----
     state: LumpedReservoirState = Field(default_factory=LumpedReservoirState)
@@ -251,10 +268,14 @@ class LumpedReservoir(ReservoirComponent):
         s = self.state
 
         # Capture previous-timestep outlet before marking stale.
-        # is_stale() is True on the very first call (never been solved) — fall back to T_initial.
-        T_out_prev = self.T_initial if s.T_outlet.is_stale() else s.T_outlet.get_fresh()
+        # self.ever_solved is False on the very first call (never been
+        # solved, even across a to_dict()/Workflow(cfg) reconstruction of an
+        # unsolved base config — see its docstring for why this, not
+        # s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the reliable check
+        # here) — fall back to T_initial / the hydrostatic guess.
+        T_out_prev = self.T_initial if not self.ever_solved else s.T_outlet.get_fresh()
         P_reservoir_guess = self.hydro_static_pressure * (1.0 + self.over_pressure_percentage / 100.0)
-        P_out_prev = P_reservoir_guess if s.P_outlet.is_stale() else s.P_outlet.get_fresh()
+        P_out_prev = P_reservoir_guess if not self.ever_solved else s.P_outlet.get_fresh()
 
         s.mark_all_stale()
 
@@ -315,3 +336,5 @@ class LumpedReservoir(ReservoirComponent):
         self.outlet.rho = water_density(T_out, P_out)
         self.outlet.mu = water_viscosity(T_out, P_out)
         self.outlet.fluid_name = self.inlet.fluid_name
+
+        self.ever_solved = True

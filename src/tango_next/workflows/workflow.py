@@ -67,7 +67,7 @@ class Workflow:
     (every Component subclass is its own schema). Unknown keys raise
     ConfigError at load time rather than being silently accepted and never
     read by anything. (``economic:`` is the one deliberate, documented
-    exception — Phase 2 placeholder, no ``EconomicComponent`` consumes it
+    exception — a placeholder, no ``EconomicComponent`` consumes it
     yet, so it has no schema of its own and is retained
     verbatim/unvalidated purely so ``to_dict()`` doesn't silently drop it.)
 

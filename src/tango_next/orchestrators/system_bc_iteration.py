@@ -40,14 +40,14 @@ See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration
    outer iteration and reaches its own convergence before the outer loop
    checks its criterion.
 
-━━━ Phase 1 status — placeholder only ━━━
+━━━ Current status — placeholder only ━━━
 
-Phase 1: the surface component's ``solve()`` (currently ``GraphSurface``) sets
+Currently, the surface component's ``solve()`` (currently ``GraphSurface``) sets
 ``outlet.P = self.injection_pressure`` (the current BC guess), so the loop
 trivially converges in 1 iteration because ``test_p`` never changes.  The BC
 machinery is correct in structure but not yet driven by real physics.
 
-━━━ Phase 2 tasks ━━━
+━━━ Planned: real BC-iteration physics ━━━
 
 Replace the current placeholder with the explicit update rule above.
 The surface must NOT set ``outlet.P = _injection_pressure``; instead:
@@ -62,7 +62,7 @@ reservoir inlet is below the fracing threshold, so no pressure adjustment is
 needed.  This is correct behaviour.  ``test_p`` is only reduced when the initial
 value drives the reservoir inlet above the fracing threshold.
 
-━━━ Inner pump loop (Phase 2) ━━━
+━━━ Planned: inner pump loop ━━━
 
 The old BC_calculator had a hardcoded 5-iteration loop for pump_dp with a
 ``d(P_out)/d(P_in) ≈ 1`` assumption and silent failure on phase-boundary
@@ -113,7 +113,7 @@ class SystemBCIteration(SystemDirect):
     ``run_timestep`` (inherited, then called via ``super()``) as the building
     block: single-pass policies (``MANUAL``, ``MANUAL_FRACING_CHECK``) call it
     once per timestep; iterative policies (``AUTO_*``) will call it repeatedly
-    inside an outer Newton-step loop (Phase 2 — not yet implemented).
+    inside an outer Newton-step loop (not yet implemented).
     ``InjectionPolicy`` is the sole authority over how many passes a timestep
     takes; the choice between ``SystemDirect`` and ``SystemBCIteration`` is a
     topology question (does this graph declare a circuit with a BC variable to
@@ -203,7 +203,7 @@ class SystemBCIteration(SystemDirect):
 
         Raises:
             NotImplementedError: For any policy not yet implemented.
-            ConvergenceError: (AUTO_* modes, Phase 2) if convergence is not reached.
+            ConvergenceError: (AUTO_* modes, once implemented) if convergence is not reached.
 
         """
         self._seed_circuit_inlet()
@@ -240,11 +240,11 @@ class SystemBCIteration(SystemDirect):
                     surface.outlet.P,
                 )
 
-            # Inner injection-temperature convergence loop (Phase 1).
+            # Inner injection-temperature convergence loop (Pass 1).
             # Mirrors old tango's update() which iterates injection_well →
             # production_wells → surface until dT_surface < 0.5 K.  The
             # reservoir is skipped inside the inner loop; it is re-run once
-            # after convergence in Phase 2 with the corrected injection T.
+            # after convergence in Pass 2 with the corrected injection T.
             if surface is not None:
                 self._converge_injection_T(surface, t_d_old_saved, reservoir, energy_before)
 
@@ -287,14 +287,14 @@ class SystemBCIteration(SystemDirect):
 
         Two-phase operation that mirrors old tango's per-timestep inner loop:
 
-        **Phase 1 — T-convergence** (inner loop):
+        **Pass 1 — T-convergence** (inner loop):
         Iterates inj_well → prod_lower → prod_upper → surface until the
         injection temperature (surface outlet) changes by less than
         ``_DT_SURFACE_TOL``.  The reservoir is skipped each iteration (its
         outlet is frozen at the main-pass value) so it does not accumulate
         energy multiple times.
 
-        **Phase 2 — reservoir correction**:
+        **Pass 2 — reservoir correction**:
         After T-convergence, the injection well outlet carries the converged
         injection temperature.  The reservoir is re-run once from ``energy_before``
         (its pre-timestep value) using this converged injection T.  This matches
@@ -314,7 +314,7 @@ class SystemBCIteration(SystemDirect):
             reservoir: Reservoir component (has ``energy_extracted``), or None.
             energy_before: ``reservoir.energy_extracted`` value captured before
                 the main circuit pass.  Used to reset and re-apply a single
-                correct delta in Phase 2.
+                correct delta in Pass 2.
 
         """
         if reservoir is None:
@@ -376,7 +376,7 @@ class SystemBCIteration(SystemDirect):
                 _DT_SURFACE_TOL,
             )
 
-        # ── Phase 2: reservoir correction ────────────────────────────────────
+        # ── Pass 2: reservoir correction ─────────────────────────────────────
         # After T-convergence the injection well outlet carries the converged
         # injection temperature.  _wire_one_stream(injection_well) inside the
         # last inner iteration has already propagated that outlet to
