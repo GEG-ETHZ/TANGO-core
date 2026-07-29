@@ -27,6 +27,11 @@ def print_datetime() -> None:
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
+# Short alias for liberal use in sweep scripts (e.g. logging wall-clock start
+# time in SLURM job output, where queue wait time isn't otherwise visible).
+print_dt = print_datetime
+
+
 def parse_tango_args(args) -> argparse.Namespace:
     """Parse command-line arguments for the TANGO application.
 

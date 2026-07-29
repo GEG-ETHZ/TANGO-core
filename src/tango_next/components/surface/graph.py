@@ -58,6 +58,7 @@ Unit conventions (TESPy network created with ``p_unit="bar"``, ``T_unit="C"``):
 from __future__ import annotations
 
 import dataclasses
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -230,6 +231,21 @@ class GraphSurface(SurfaceComponent):
         from tespy.components import Sink, Source  # noqa: PLC0415
         from tespy.connections import Connection  # noqa: PLC0415
         from tespy.networks import Network  # noqa: PLC0415
+
+        # TESPy manages its own logger ("TESPyLogger") independent of the
+        # standard logging config (see ``tango_next_cli.py``'s
+        # ``_configure_logging``, which syncs it for CLI runs only). Any
+        # caller building a GraphSurface directly via the Workflow API
+        # (e.g. applications/tango_next/*/sweep.py, which never goes
+        # through the CLI) would otherwise get TESPy's intermediate
+        # solver-iteration bound-violation warnings ("Invalid value for
+        # pr/zeta...") printed at WARNING level, even though these are
+        # normal, expected noise during convergence and not failures —
+        # matches old tango's precedent (src/tango/utils.py's set_logger)
+        # of silencing this by default. Set here, not just in the CLI, so
+        # every caller of GraphSurface gets quiet-by-default TESPy output
+        # rather than only the CLI path.
+        logging.getLogger("TESPyLogger").setLevel(logging.ERROR)
 
         pp = self.power_plant
         node_cfgs: dict[str, dict[str, Any]] = pp.get("nodes", {})
