@@ -1,5 +1,19 @@
 # Contributing
 
+## TANGO Code Commandments
+1. All new code additions must pass:
+    - `mypy --strict` type checking, as handled in the pyproject.toml file
+    - `ruff` format checking
+    - `pytest` tests
+
+    All tests are automated through git hooks and GitLab pipelines and can optionally be run with `just check`.
+1. All new state variables must be wrapped in
+  `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
+  that enforces exactly one `update()` per time step.
+1. All doc strings must be formatted in TODO style and explain what the documented object does, arguments, class attributes, outputs, ...
+1. All new attributes must comply with the object-is-config, config-is-object paradigm in which code objects and config (e.g. yaml files) have near 1:1 congruence.  Similarly, all new module structure must have reasonable compliance with this paradigm.
+1. All new attributes must be defined in pydantic schemas.
+
 ## Branching Strategy
 
 ### Persistent Branches
