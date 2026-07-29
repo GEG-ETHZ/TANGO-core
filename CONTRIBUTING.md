@@ -1,6 +1,6 @@
 # Contributing
 
-## TANGO Code Commandments
+## TANGO Commandments
 1. All new code additions must pass:
     - `mypy --strict` type checking, as handled in the pyproject.toml file
     - `ruff` format checking

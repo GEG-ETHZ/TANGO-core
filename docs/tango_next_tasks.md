@@ -583,25 +583,34 @@ reasoning doesn't have to be re-derived next session.
   707 m loop-length value and extended that axis to 8 km to match well depth's
   max, mirrored into `applications/tango_next/run_AGS_direct_heat_sweep/common.py`'s
   matching axis.
-- **DVC pipeline for the `tango_next` sweep apps — discussed 2026-07-29, not
-  started.** `applications/run_flexible_DF_manual_sweep/` is the one old-tango
-  app with a working `dvc.yaml` (generate → sweep → clean → summarize); none
-  of the four `tango_next` ports (AGS direct-heat, EGS direct-heat,
-  double-flash, and whichever AGS-power/ORC port eventually lands) have one
-  yet. Adding one is straightforward in shape (mirror the DF app's stage
-  structure, one `dvc.yaml` per app directory, matching existing convention
-  — not a single unified pipeline across apps) but a few things are worth
-  deciding before building it, not just copy-pasting:
-  1. **`outputs/results` as a DVC `out` doesn't scale the same way for every
-     app.** The DF app's LHS sweep defaults to 100 samples (cheap to hash as
-     a tracked directory); the AGS direct-heat grid is 12,870 individual JSON
-     files and will only grow. Decide per app whether to track the whole
-     `results/` directory (simplest, matches the DF precedent, but slow
-     `dvc repro`/`dvc status`) or only the two aggregated artifacts
-     (`design_matrix.parquet`, `results.parquet`) plus a metrics file,
-     treating the per-design JSONs as untracked scratch (already
-     `.gitignore`d).
-  2. **`src/tango_next` isn't tracked as a dependency, and that matters more
+- **DONE 2026-07-29 — DVC pipeline + `--clean` flag + SLURM sbatch script
+  added to every sweep app.** All 7 apps (`run_AGS_direct_heat_sweep`,
+  `run_AGS_sweep`, `run_EGS_direct_heat_sweep`, `run_flexible_DF_manual_sweep`,
+  and the three `tango_next/` ports) now have: a `dvc.yaml` mirroring the DF
+  app's stage structure (generate → sweep → clean → summarize[→ plot], one
+  pipeline per app directory, not a unified cross-app pipeline); a `--clean`
+  CLI flag on the orchestrator script (`clean_sweep_dir()` in `common.py`
+  empties the sweep dir except `.gitignore` — deliberately not tracking
+  individual filenames, since those drift as `summarize.py`/`plot.py` change);
+  and a single-node SLURM `sbatch` job script mirroring
+  `run_flexible_DF_manual_sweep_job.sh`'s existing pattern (n_workers derived
+  from `$SLURM_CPUS_PER_TASK`, written into `params.yaml`, then `dvc repro`).
+  Multi-node array sharding was explicitly descoped (Chad's call,
+  2026-07-29) — single-node only for now. Also added `print_dt()` (alias for
+  the pre-existing `print_datetime()` in `src/tango/utils.py`) to the start
+  of every orchestrator's `__main__` block, so SLURM job logs show actual
+  run-start wall-clock time (queue wait time isn't otherwise visible in the
+  log).
+  Of the three open design questions from the original discussion, only the
+  first was actually resolved by this pass; the other two are still open
+  and deliberately deferred, not silently dropped:
+  1. **RESOLVED — `outputs/results` is tracked as a whole DVC `out`
+     directory in every app**, matching the DF precedent, for consistency
+     across all 7 apps. Simpler than a two-tier (aggregate-only +
+     per-design-scratch) scheme, at the cost of slower `dvc repro`/`dvc
+     status` on the larger grid sweeps (AGS direct-heat's 12,870-design
+     grid) — acceptable for now, revisit if that becomes a real bottleneck.
+  2. **STILL OPEN — `src/tango_next` isn't tracked as a dependency, and that matters more
      here than it did for old tango.** The DF app's `dvc.yaml` has a comment
      explicitly waving this off as "burdensome to hash" — a reasonable
      tradeoff for old tango, which is stable. `tango_next` is not: this
@@ -616,7 +625,7 @@ reasoning doesn't have to be re-derived next session.
      `orchestrators/`, `workflows/`) rather than either ignoring it
      (matches old tango's tradeoff, but riskier here) or hashing the whole
      tree every run.
-  3. **No standardized metrics output across the three completed ports yet.**
+  3. **STILL OPEN — no standardized metrics output across the three completed ports yet.**
      The double-flash port's `summarize.py` writes a real `summary.yaml`
      (mean/std/percentiles) DVC could track as a `metrics:` output; the
      AGS/EGS direct-heat ports only print pivot tables and write CSVs — no
@@ -624,6 +633,13 @@ reasoning doesn't have to be re-derived next session.
      three (four, eventually) should get a consistent small metrics file
      (success/fail counts, thermal-power percentiles, count meeting the
      105 degC threshold, etc.) before wiring in `dvc metrics diff`.
+- **Line-by-line debugger walkthrough of one `tango_next` single-simulation
+  case** `examples/tango_next/flexible_SF_manual.yml` (the
+  original reference example used throughout tango_next's design/porting
+  work — simplest well-understood topology). Goal: step through the full
+  execution flow (`Workflow` → `Orchestrator`/`SystemBCIteration` →
+  component `solve()` calls) with a real debugger for one config, to build
+  or verify a concrete mental model of the current call graph.
 - **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
   started. Chad wants a pass across the whole repo (not scoped to
   `tango_next`) to flag anything "wacky or inconsistent," explicitly

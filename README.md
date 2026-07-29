@@ -44,6 +44,53 @@ You can run anything in the `./examples/` folder with, e.g. `uv run tango_cli -f
 **Tip:** To regenerate this tree, run:
 `tree -I '__pycache__|.venv|*.egg-info|.git'`
 
+## What's in `tests/`, `examples/`, and `applications/`
+
+These three directories serve different purposes and are easy to mix up:
+
+- **`tests/`** — automated, CI-gated correctness checks (162 tests total, run
+  via `uv run pytest`). `tests/unit/` covers individual components/utilities
+  in isolation; `tests/regtest/` is regression/integration coverage that runs
+  full simulations end-to-end and checks results against golden snapshots
+  (`tests/regtest/golden_tango_next/`). If you break something, one of these
+  should catch it — that's the whole point of running them before every push
+  (see [Running Checks](#running-checks) and the pre-push git hook).
+
+- **`examples/`** — standalone TANGO configs (`.yml`), runnable directly via
+  `uv run tango_cli -f examples/<file>.yml`, one simulation per file. Mostly
+  reference/historical configs organized by project or paper
+  (`AGS_new/`, `EGC2025/`, `Martin_AGS/`, `TANGO_paper/`, etc.) — not actively
+  maintained as a curated set, and `examples/failing/` is exactly what it
+  sounds like (known-broken configs kept for reference, not aspirational).
+  `examples/tango_next/` is the actively-maintained exception: every config
+  there backs either a unit/regression test, an application in
+  `applications/tango_next/`, or both — treat it as the current source of
+  truth for what a valid `tango_next` config looks like.
+
+- **`applications/`** — multi-run parameter-sweep pipelines built on top of
+  one `examples/` config, not single simulations. Each `run_*_sweep/`
+  directory is a self-contained generate → sweep → summarize (→ plot)
+  pipeline with its own `common.py` (grid/LHS bounds), `dvc.yaml` (DVC-cached
+  stages — see below), `params.yaml` (tunable knobs DVC tracks for
+  staleness), a `--clean` CLI flag (wipes generated outputs), and a SLURM
+  `*_job.sh` script for running on Euler/HPC. `applications/tango_next/`
+  mirrors the old-tango apps one-for-one as they get ported (see
+  `docs/tango_next_tasks.md` for current porting status). Every app also
+  supports `--smoke` for a fast end-to-end pipeline check (tiny sample count,
+  writes to a throwaway tempdir, never touches `outputs/`) — use that before
+  trusting a fresh clone or a code change, without waiting for a full sweep.
+
+  Running a sweep via DVC (from the app's own directory):
+  ```bash
+  cd applications/run_flexible_DF_manual_sweep
+  uv run dvc repro    # runs only stale stages, caches the rest
+  ```
+  On Euler/other SLURM clusters, submit the job script instead (see
+  [Running on Euler](#running-on-euler)):
+  ```bash
+  sbatch --cpus-per-task=16 run_flexible_DF_manual_sweep_job.sh --n-samples 200
+  ```
+
 ## Developers and Internal Users
 
 Note that these instructions have been verified to work on Euler.
