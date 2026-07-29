@@ -1,0 +1,50 @@
+stages:
+
+  # Stage 1: generate the design matrix (LHS sampling algorithm lives here).
+  generate:
+    cmd: python generate.py
+    deps:
+      - generate.py
+      - common.py
+      - ../../../examples/tango_next/hydro_double_flash_electric.yml
+      # NOTE: ../../../src/tango_next is technically a dep but would be burdensome to hash every time and thus is not tracked here.
+    params:
+      - params.yaml:
+          - n_samples
+          - seed
+    outs:
+      - outputs/design_matrix.parquet
+
+  # Stage 2: run all simulations in parallel (checkpoint/resume built in).
+  sweep:
+    cmd: python sweep.py
+    deps:
+      - sweep.py
+      - common.py
+      - ../../../examples/tango_next/hydro_double_flash_electric.yml
+      - outputs/design_matrix.parquet
+    params:
+      - params.yaml:
+          - n_workers
+          - log_level
+    outs:
+      - outputs/results
+
+  # Clean up any leftover .tmp files from atomic writes interrupted mid-run.
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+      - outputs/results
+
+  # Stage 3: aggregate JSONs → parquet, compute summary metrics.
+  summarize:
+    cmd: python summarize.py
+    deps:
+      - summarize.py
+      - common.py
+      - outputs/results
+    outs:
+      - outputs/results.parquet
+    metrics:
+      - outputs/summary.yaml:
+          cache: true

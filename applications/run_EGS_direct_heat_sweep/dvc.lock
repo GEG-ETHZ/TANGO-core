@@ -1,0 +1,81 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 9050d34bf8feb9b45b7b6088914e4b46
+      size: 3509
+    - path: generate.py
+      hash: md5
+      md5: 31e6a9022c0f0b1d373ae7f10fc97150
+      size: 3171
+    - path: triemli_dh_base.yml
+      hash: md5
+      md5: aed84f57ec179cb6bd397f24fc181117
+      size: 4820
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 4ca31cf36d2164e68d36391bc4b72d9d
+      size: 1616
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 9050d34bf8feb9b45b7b6088914e4b46
+      size: 3509
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 4ca31cf36d2164e68d36391bc4b72d9d
+      size: 1616
+    - path: sweep.py
+      hash: md5
+      md5: 9c99f206435f5333a6b41a5108e53e7c
+      size: 8870
+    - path: triemli_dh_base.yml
+      hash: md5
+      md5: aed84f57ec179cb6bd397f24fc181117
+      size: 4820
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 8
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: d396013822099371118540852cf38582.dir
+      size: 230720
+      nfiles: 100
+  summarize:
+    cmd: python summarize.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 9050d34bf8feb9b45b7b6088914e4b46
+      size: 3509
+    - path: outputs/results
+      hash: md5
+      md5: ed96e002f18e055fbd06f209f7392d0d.dir
+      size: 239483
+      nfiles: 106
+    - path: summarize.py
+      hash: md5
+      md5: 2e9862cd4cb70e551d43f163ae48e310
+      size: 6137
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 99bd3cc4288896958a024576e6a3b1f2
+      size: 12503
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in 
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: ed96e002f18e055fbd06f209f7392d0d.dir
+      size: 239483
+      nfiles: 106

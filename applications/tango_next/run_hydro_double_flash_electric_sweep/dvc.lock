@@ -1,0 +1,89 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: ../../../examples/tango_next/hydro_double_flash_electric.yml
+      hash: md5
+      md5: 006031b1610bd05da7436582ed36aa15
+      size: 8557
+    - path: common.py
+      hash: md5
+      md5: 064c9cb6a3682c66f0e62e979328666f
+      size: 9063
+    - path: generate.py
+      hash: md5
+      md5: e090a30218d11d894755945cb6f5de74
+      size: 4055
+    params:
+      params.yaml:
+        n_samples: 12
+        seed: 42
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 7f361620fbea015c8d47f763d0ebc7f1
+      size: 19162
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: ../../../examples/tango_next/hydro_double_flash_electric.yml
+      hash: md5
+      md5: 006031b1610bd05da7436582ed36aa15
+      size: 8557
+    - path: common.py
+      hash: md5
+      md5: 064c9cb6a3682c66f0e62e979328666f
+      size: 9063
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 7f361620fbea015c8d47f763d0ebc7f1
+      size: 19162
+    - path: sweep.py
+      hash: md5
+      md5: ed5f42e3f1323ba6981d0eeb47032661
+      size: 10382
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 4
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: 85d9bdaad7266f5d9a5ab689fc94a762.dir
+      size: 21280
+      nfiles: 12
+  summarize:
+    cmd: python summarize.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 064c9cb6a3682c66f0e62e979328666f
+      size: 9063
+    - path: outputs/results
+      hash: md5
+      md5: 85d9bdaad7266f5d9a5ab689fc94a762.dir
+      size: 21280
+      nfiles: 12
+    - path: summarize.py
+      hash: md5
+      md5: 53fb45afe20abdcc22c519a9a1a4e385
+      size: 4678
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: c7fd7393d97425b4c9e3e76b18a89b57
+      size: 3790
+    - path: outputs/summary.yaml
+      hash: md5
+      md5: 157c52d726aff8e20f399feaea3831c9
+      size: 262
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in 
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: 85d9bdaad7266f5d9a5ab689fc94a762.dir
+      size: 21280
+      nfiles: 12

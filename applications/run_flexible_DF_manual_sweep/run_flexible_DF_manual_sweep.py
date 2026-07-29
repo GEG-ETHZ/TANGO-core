@@ -20,11 +20,14 @@ from common import (
     DEFAULT_N_WORKERS,
     DEFAULT_SEED,
     DEFAULT_SWEEP_DIR,
+    clean_sweep_dir,
     load_params,
 )
 from generate import main as generate_main
 from summarize import main as summarize_main
 from sweep import main as sweep_main
+
+from tango.utils import print_dt
 
 SMOKE_N_SAMPLES = 2
 
@@ -95,13 +98,25 @@ def parse_args() -> argparse.Namespace:
             "is created every run."
         ),
     )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Remove all generated artifacts from --sweep-dir (or the default outputs/ dir) and exit",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
+    print_dt()
     if args.quiet and args.progress_interval is not None:
         raise ValueError("--quiet and --progress-interval are mutually exclusive")
+    if args.clean and args.smoke:
+        raise ValueError("--clean and --smoke are mutually exclusive")
+
+    if args.clean:
+        clean_sweep_dir(args.sweep_dir or DEFAULT_SWEEP_DIR, quiet=args.quiet)
+        raise SystemExit(0)
 
     if args.smoke:
         sweep_dir = args.sweep_dir or Path(tempfile.mkdtemp(prefix="tango_df_manual_smoke_"))

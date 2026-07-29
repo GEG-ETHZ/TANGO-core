@@ -12,6 +12,8 @@ from common import (
     WELL_DEPTHS_M,
 )
 
+from tango.utils import print_dt
+
 
 def generate_design_matrix(output_file: Path, quiet: bool = False, smoke: bool = False) -> pl.DataFrame:
     """Generate a full-factorial (depth × mass-flow × loop-length × loop-diameter) design matrix.
@@ -69,6 +71,7 @@ def main(
     and must never be confused with a cached full-grid matrix from a real
     sweep) — see ``generate_design_matrix``.
     """
+    print_dt()
     sweep_dir = sweep_dir or DEFAULT_SWEEP_DIR
     design_matrix_file = sweep_dir / "design_matrix.parquet"
 

@@ -1,0 +1,113 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: ../../../examples/tango_next/AGS_direct_heat.yml
+      hash: md5
+      md5: e19b9e6579dabe42e4cbc4de1a1ec579
+      size: 5735
+    - path: common.py
+      hash: md5
+      md5: 29fdcf3d5089d2d0bc1963cf71360d1a
+      size: 3812
+    - path: generate.py
+      hash: md5
+      md5: 24341685dd799ea90d505b89e0ae96fa
+      size: 4159
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: e264ffb8a2b337675d6cd2a23cb5a1fc
+      size: 27242
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: ../../../examples/tango_next/AGS_direct_heat.yml
+      hash: md5
+      md5: e19b9e6579dabe42e4cbc4de1a1ec579
+      size: 5735
+    - path: common.py
+      hash: md5
+      md5: 29fdcf3d5089d2d0bc1963cf71360d1a
+      size: 3812
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: e264ffb8a2b337675d6cd2a23cb5a1fc
+      size: 27242
+    - path: sweep.py
+      hash: md5
+      md5: b1a7a3e825a8122fb28f3fe8527537cd
+      size: 14275
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 8
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: a932189be70d03320ec9c11ae78ae545.dir
+      size: 7431505
+      nfiles: 12870
+  summarize:
+    cmd: python summarize.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 29fdcf3d5089d2d0bc1963cf71360d1a
+      size: 3812
+    - path: outputs/results
+      hash: md5
+      md5: 1645dd5b447a7d6bef929a0a5e0a46b6.dir
+      size: 8179327
+      nfiles: 13140
+    - path: summarize.py
+      hash: md5
+      md5: 59f00663c304d577c50e8386378306df
+      size: 8837
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 6cadd872edd5d40ea4aac541bc01d51f
+      size: 417251
+  plot:
+    cmd: python plot.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 29fdcf3d5089d2d0bc1963cf71360d1a
+      size: 3812
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 6cadd872edd5d40ea4aac541bc01d51f
+      size: 417251
+    - path: plot.py
+      hash: md5
+      md5: 480c0f712fc56cb4ad25a49c3bce3e3d
+      size: 15329
+    outs:
+    - path: outputs/parallel_coordinates.html
+      hash: md5
+      md5: 2114e56e365248725a64aeb7a973e9a9
+      size: 5598194
+    - path: outputs/parallel_coordinates.png
+      hash: md5
+      md5: 11d939ae3c3684bc24c19e708d3bd484
+      size: 1047750
+    - path: outputs/parallel_coordinates_qualified.html
+      hash: md5
+      md5: a2ba6edae17284241e4b1d9dd62632ae
+      size: 4574028
+    - path: outputs/success_scatter.png
+      hash: md5
+      md5: 7638a63e07ce9da5dc13bc62c46e7065
+      size: 669713
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in 
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: 1645dd5b447a7d6bef929a0a5e0a46b6.dir
+      size: 8179327
+      nfiles: 13140

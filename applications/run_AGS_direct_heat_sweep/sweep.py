@@ -22,6 +22,7 @@ from common import (
 )
 
 from tango.runner import Runner
+from tango.utils import print_dt
 
 # Floor value: triemli_dh_base.yml's original fixed target_extraction_pressure,
 # which was valid at every depth up to 7500 m (see _apply_target_extraction_pressure).
@@ -303,6 +304,7 @@ def main(
     sweep_dir: Path | None = None,
 ) -> None:
     """Run the sweep stage from the default sweep directory."""
+    print_dt()
     sweep_dir = sweep_dir or DEFAULT_SWEEP_DIR
     run_sweep(
         design_matrix_file=sweep_dir / "design_matrix.parquet",

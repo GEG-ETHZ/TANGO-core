@@ -11,6 +11,7 @@ horizontal loop, so this is a 2-axis (depth x mass-flow) grid — see
 ``generate.py``.
 """
 
+import shutil
 from pathlib import Path
 
 import yaml
@@ -47,6 +48,35 @@ def load_params() -> dict:
     if PARAMS_FILE.exists():
         return yaml.safe_load(PARAMS_FILE.read_text()) or {}
     return {}
+
+
+def clean_sweep_dir(sweep_dir: Path, quiet: bool = False) -> None:
+    """Remove every generated artifact from a sweep directory, preserving .gitignore.
+
+    Everything under a sweep dir (design matrix, results/, results.parquet,
+    plots) is regenerable output — nothing else is tracked in git (see
+    outputs/.gitignore) — so this simply empties the directory rather than
+    tracking individual filenames, which would drift out of sync as
+    summarize.py/plot.py gain or rename outputs.
+    """
+    if not sweep_dir.exists():
+        if not quiet:
+            print(f"{sweep_dir} does not exist, nothing to clean")
+        return
+    removed = []
+    for item in sorted(sweep_dir.iterdir()):
+        if item.name == ".gitignore":
+            continue
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+        removed.append(item.name)
+    if not quiet:
+        if removed:
+            print(f"Cleaned {sweep_dir}: removed {', '.join(removed)}")
+        else:
+            print(f"{sweep_dir} already clean")
 
 
 def get_nested_value(d: dict, path: str):

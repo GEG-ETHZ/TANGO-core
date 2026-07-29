@@ -1,0 +1,56 @@
+stages:
+
+  # Stage 1: generate the full-factorial design matrix (depth × mass-flow —
+  # see common.py for the grid axes).
+  generate:
+    cmd: python generate.py
+    deps:
+      - generate.py
+      - common.py
+      - triemli_dh_base.yml
+      # NOTE: ../../src/tango is technically a dep but would be burdensome to hash every time and thus is not tracked here.  However, longer term, when TANGO itself is used as a dependency, downstream projects should track the tango entry via:
+      #   params:
+      #     - pyproject.toml:
+      #         - project.dependencies
+    outs:
+      - outputs/design_matrix.parquet
+
+  # Stage 2: run all simulations in parallel (checkpoint/resume built in).
+  sweep:
+    cmd: python sweep.py
+    deps:
+      - sweep.py
+      - common.py
+      - triemli_dh_base.yml
+      - outputs/design_matrix.parquet
+    params:
+      - params.yaml:
+          - n_workers
+          - log_level
+    outs:
+      - outputs/results
+
+  # Clean up any leftover .tmp files from atomic writes interrupted mid-run.
+  # No outs — pure side-effect. Runs after sweep completes because it deps on
+  # outputs/results; DVC considers it stale after every successful sweep repro.
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+      - outputs/results
+
+  # Stage 3: aggregate per-design JSONs → parquet, plus per-metric pivot CSVs.
+  # summarize.py also writes CSVs (T_prod_C.csv, thermal_power_kW.csv, etc.)
+  # directly into outputs/results/ — the same directory the `sweep` stage
+  # already declares as its `outs`. Declaring outputs/results as an out here
+  # too would have DVC treat it as owned/overwritten by two stages, which is
+  # a real conflict, so only the parquet file (the artifact unique to this
+  # stage) is declared; the CSVs ride along inside the already-tracked
+  # outputs/results directory instead of being tracked individually.
+  summarize:
+    cmd: python summarize.py
+    deps:
+      - summarize.py
+      - common.py
+      - outputs/results
+    outs:
+      - outputs/results.parquet

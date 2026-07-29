@@ -1,0 +1,60 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: ace3750bae0d097e705e5c7525c0f123
+      size: 3956
+    - path: generate.py
+      hash: md5
+      md5: 73e8d6e9161df4877cd2db9bccead7a5
+      size: 4005
+    - path: triemli_power_base.yml
+      hash: md5
+      md5: d16d1c0bd644037a81c36cd86f854206
+      size: 4963
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 1ca284959140bad225f01c2138409dbe
+      size: 13408
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: ace3750bae0d097e705e5c7525c0f123
+      size: 3956
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: 1ca284959140bad225f01c2138409dbe
+      size: 13408
+    - path: sweep.py
+      hash: md5
+      md5: dade8efe7137535976431c1d899bc50c
+      size: 13729
+    - path: triemli_power_base.yml
+      hash: md5
+      md5: d16d1c0bd644037a81c36cd86f854206
+      size: 4963
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 8
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: a1d9f8e492a93c7f2b0af768a277ca29.dir
+      size: 10408992
+      nfiles: 6006
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in 
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: a1d9f8e492a93c7f2b0af768a277ca29.dir
+      size: 10408992
+      nfiles: 6006
