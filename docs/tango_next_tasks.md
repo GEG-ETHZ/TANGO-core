@@ -1,11 +1,5 @@
 # tango_next granular task tracker
 
-**END OF DAY 2026-07-24 (later today, after the AGS sweep demo below)**:
-Chad wants help preparing a markdown file summarizing, at a managerial
-level, the high-level objectives accomplished in the past 3 weeks plus
-plans for the next couple months. Not started — flagging so it isn't
-forgotten across the commit/compact about to happen.
-
 Working-level task list for `tango_next` porting/parity work. This is the
 detailed, frequently-updated companion to `docs/TANGO_vision_and_roadmap.md`
 — reconcile the two periodically (when a section here is fully done, fold a
@@ -579,27 +573,57 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
-- **Fix the TODOs in `applications/run_AGS_direct_heat_sweep/sweep.py`** —
-  flagged 2026-07-24, not started. Two open questions in
-  `run_single_simulation()`'s injection-temperature block (~lines 180-187):
-  1. `T_inj_K` is read off `surf_unit.outlet_fluid.T` when available,
-     falling back to the module-level `DH_RETURN_TEMP_K` constant only if
-     `surf_unit`/`outlet_fluid` is missing — comment questions whether it
-     should "probably just be `DH_RETURN_TEMP_K` all the time" instead of
-     conditionally reading the live outlet.
-  2. Second comment flags uncertainty about whether the fallback path
-     (`DH_RETURN_TEMP_K`) is actually the temperature that ends up
-     "getting used" downstream (i.e. whether the fallback and live-read
-     paths are actually equivalent, or silently diverge on the design
-     points where the fallback fires).
-  Needs someone to trace whether `surf_unit.outlet_fluid` is ever actually
-  absent in practice for this app's design-matrix rows (if never, the
-  fallback path is dead code and the ambiguity is moot); if it does fire,
-  determine which value (live outlet vs. `DH_RETURN_TEMP_K`) is physically
-  correct and make the two paths consistent. This is old-tango
-  (`src/tango/`) application code, not `tango_next` — unrelated to the
-  `Common`/frozen-fields work above, just adjacent in the same directory
-  tree. Chad: don't want to do this right now.
+- **DONE 2026-07-27 — TODOs in `applications/run_AGS_direct_heat_sweep/sweep.py`
+  resolved.** Traced the DH heat exchanger's `T_out` and confirmed it's a hard
+  TESPy connection constraint (not an effectiveness/NTU model), so the live
+  `surf_unit.outlet_fluid.T` read is always exactly correct given a converged
+  solve — kept as the live read (self-verifying) rather than hardcoding the
+  `DH_RETURN_TEMP_K` fallback, with the reasoning documented in both
+  `sweep.py` and `triemli_dh_base.yml`. Same day: dropped the poorly-provenanced
+  707 m loop-length value and extended that axis to 8 km to match well depth's
+  max, mirrored into `applications/tango_next/run_AGS_direct_heat_sweep/common.py`'s
+  matching axis.
+- **DVC pipeline for the `tango_next` sweep apps — discussed 2026-07-29, not
+  started.** `applications/run_flexible_DF_manual_sweep/` is the one old-tango
+  app with a working `dvc.yaml` (generate → sweep → clean → summarize); none
+  of the four `tango_next` ports (AGS direct-heat, EGS direct-heat,
+  double-flash, and whichever AGS-power/ORC port eventually lands) have one
+  yet. Adding one is straightforward in shape (mirror the DF app's stage
+  structure, one `dvc.yaml` per app directory, matching existing convention
+  — not a single unified pipeline across apps) but a few things are worth
+  deciding before building it, not just copy-pasting:
+  1. **`outputs/results` as a DVC `out` doesn't scale the same way for every
+     app.** The DF app's LHS sweep defaults to 100 samples (cheap to hash as
+     a tracked directory); the AGS direct-heat grid is 12,870 individual JSON
+     files and will only grow. Decide per app whether to track the whole
+     `results/` directory (simplest, matches the DF precedent, but slow
+     `dvc repro`/`dvc status`) or only the two aggregated artifacts
+     (`design_matrix.parquet`, `results.parquet`) plus a metrics file,
+     treating the per-design JSONs as untracked scratch (already
+     `.gitignore`d).
+  2. **`src/tango_next` isn't tracked as a dependency, and that matters more
+     here than it did for old tango.** The DF app's `dvc.yaml` has a comment
+     explicitly waving this off as "burdensome to hash" — a reasonable
+     tradeoff for old tango, which is stable. `tango_next` is not: this
+     week alone, `LumpedReservoir.solve()` and `GraphSurface.init()` both
+     changed in ways that silently change sweep output for anything using
+     them (see "Resolved Design Decisions"/this file's AGS sweep parity
+     section above). Without `src/tango_next` as a dependency, DVC can't
+     catch an engine-level regression the way a pipeline like this is
+     supposed to. Consider a lighter-weight proxy (a params entry pinning
+     the current git commit hash of `src/tango_next`, or depending on just
+     the specific subpackages actually touched — `components/`,
+     `orchestrators/`, `workflows/`) rather than either ignoring it
+     (matches old tango's tradeoff, but riskier here) or hashing the whole
+     tree every run.
+  3. **No standardized metrics output across the three completed ports yet.**
+     The double-flash port's `summarize.py` writes a real `summary.yaml`
+     (mean/std/percentiles) DVC could track as a `metrics:` output; the
+     AGS/EGS direct-heat ports only print pivot tables and write CSVs — no
+     single YAML/JSON summary to diff across commits. Decide whether all
+     three (four, eventually) should get a consistent small metrics file
+     (success/fail counts, thermal-power percentiles, count meeting the
+     105 degC threshold, etc.) before wiring in `dvc metrics diff`.
 - **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
   started. Chad wants a pass across the whole repo (not scoped to
   `tango_next`) to flag anything "wacky or inconsistent," explicitly
