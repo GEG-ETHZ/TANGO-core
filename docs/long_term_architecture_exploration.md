@@ -81,7 +81,15 @@ a Rust-native Modelica compiler — surfaced as a candidate worth tracking:
   appear to bias the technical read), Modia/Julia generally (JIT viewed as
   a worst-of-both-worlds compromise for scientific computing — slower
   iteration than Python, weaker compile-time correctness guarantees than
-  Rust).
+  Rust). **ModelingToolkit.jl** (the SciML acausal modeling framework;
+  Chad has met its lead, Chris Rackauckas) is a distinct project from
+  Modia — not a rename or successor, a separate and more actively
+  developed Julia DSL for the same acausal-modeling problem — but it's
+  the layer Dyad is built on top of, and both are JuliaHub-affiliated.
+  MTK's core is genuinely MIT-licensed, but "distinct from Dyad" overstates
+  the independence: same company driving the roadmap, Dyad as the
+  commercial product on MTK's open core. Same JIT objection as Modia
+  applies regardless of the licensing question.
 
 ## Known complaints about Modelica itself (not tool-specific)
 
@@ -136,11 +144,18 @@ language/ecosystem* itself," which no compiler choice fixes:
   That would give real, rigorous thermodynamic properties without either
   giving up CoolProp's fidelity or keeping TESPy's causal-network
   constraints — a hybrid path worth scoping if this ever becomes concrete.
-- **What's the actual multi-simulator federation story?** Does
-  Rumoca/Cyecca offer an FMU-like co-simulation boundary usable to
-  federate with CMG/MOOSE/DWSIM, or would that need custom glue code
-  either way? If it needs custom glue regardless, some of the architectural
-  advantage over the current approach narrows.
+- **What's the actual multi-simulator federation story?** Worth separating
+  two different boundaries here. Rumoca's own Python interop (see above)
+  already covers "Rumoca-compiled models talking to Python directly" —
+  that boundary doesn't need FMI. The open question is the other one:
+  federating with CMG/MOOSE/DWSIM, which are heterogeneous external
+  simulators, not Python libraries. **FMI** (Functional Mock-up Interface)
+  is the tool-independent open standard for exactly that kind of
+  co-simulation boundary, with FMPy as an open-source Python runtime for
+  it — noted here for posterity since Chad had already been assuming FMI
+  would be the answer here without having written it down. Still open:
+  whether Rumoca/Cyecca can export/consume FMUs, or whether that
+  federation needs custom glue code regardless of modeling-language choice.
 - **Team Rust fluency and maintenance burden** of taking on a second
   implementation language in the stack, beyond what PyO3-wrapping an
   existing crate (like the CoolProp/TESPy dependencies today) already
