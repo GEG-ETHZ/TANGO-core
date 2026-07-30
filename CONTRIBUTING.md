@@ -10,9 +10,17 @@
 1. All new state variables must be wrapped in
   `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
   that enforces exactly one `update()` per time step.
-1. All doc strings must be formatted in TODO style and explain what the documented object does, arguments, class attributes, outputs, ...
-1. All new attributes must comply with the object-is-config, config-is-object paradigm in which code objects and config (e.g. yaml files) have near 1:1 congruence.  Similarly, all new module structure must have reasonable compliance with this paradigm.
-1. All new attributes must be defined in pydantic schemas.
+1. All doc strings must be formatted in Google style and explain what the
+  documented object does, arguments, class attributes, outputs, ...
+1. All new attributes must comply with the object-is-config, config-is-object
+  paradigm in which code objects and config (e.g. yaml files) have near 1:1
+  congruence (exceptions could be e.g. parameter values that are derived upon
+  instantiation).  Similarly, all new module structure must have reasonable
+  compliance with this paradigm.
+1. Any shared data that must be available within multiple objects in the
+  hierarchy must be shared via reference rather than multiple, separate copies
+  that can get out of sync.
+1. All new class attributes must be defined in pydantic schemas.
 
 ## Branching Strategy
 

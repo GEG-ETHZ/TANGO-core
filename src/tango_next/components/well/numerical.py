@@ -398,7 +398,6 @@ class NumericalWell(WellComponent):
         self.outlet.mass_rate = mdot
         self.outlet.rho = rho[-1]
         self.outlet.mu = mu[-1]
-        self.outlet.fluid_name = self.common.fluid_name
 
 
 # ---------------------------------------------------------------------------

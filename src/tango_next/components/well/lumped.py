@@ -25,13 +25,13 @@ from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
 from tango_next.core.fluid_utils import (
+    fluid_density,
+    fluid_viscosity,
     friction_factor_darcy,
     hydrostatic_pressure,
     mean_velocity,
     pressure_drop_friction,
     reynolds_number,
-    water_density,
-    water_viscosity,
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.specs import Common
@@ -161,8 +161,8 @@ class LumpedInjectionWell(WellComponent):
         s.P_inlet.update(self.inlet.P)
         s.mass_rate.update(self.inlet.mass_rate)
 
-        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -185,7 +185,6 @@ class LumpedInjectionWell(WellComponent):
         self.outlet.mass_rate = s.mass_rate.get_fresh()
         self.outlet.rho = rho
         self.outlet.mu = mu
-        self.outlet.fluid_name = self.inlet.fluid_name
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +227,8 @@ class LumpedProductionWell(WellComponent):
         s.P_inlet.update(self.inlet.P)
         s.mass_rate.update(self.inlet.mass_rate)
 
-        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -252,7 +251,6 @@ class LumpedProductionWell(WellComponent):
         self.outlet.mass_rate = s.mass_rate.get_fresh()
         self.outlet.rho = rho
         self.outlet.mu = mu
-        self.outlet.fluid_name = self.inlet.fluid_name
 
 
 # ---------------------------------------------------------------------------
@@ -295,8 +293,8 @@ class LumpedProductionWellPump(WellComponent):
         s.P_inlet.update(self.inlet.P)
         s.mass_rate.update(self.inlet.mass_rate)
 
-        rho = water_density(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = water_viscosity(s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -330,4 +328,3 @@ class LumpedProductionWellPump(WellComponent):
         self.outlet.mass_rate = s.mass_rate.get_fresh()
         self.outlet.rho = rho
         self.outlet.mu = mu
-        self.outlet.fluid_name = self.inlet.fluid_name

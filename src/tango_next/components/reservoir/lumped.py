@@ -44,10 +44,10 @@ from scipy.special import erfc  # type: ignore[import-untyped]
 from tango_next.components.reservoir.base import ReservoirComponent
 from tango_next.core.constants import YEAR_TO_SECOND
 from tango_next.core.fluid_utils import (
-    water_cp,
-    water_density,
-    water_enthalpy,
-    water_viscosity,
+    fluid_cp,
+    fluid_density,
+    fluid_enthalpy,
+    fluid_viscosity,
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.specs import Common
@@ -211,11 +211,13 @@ class LumpedReservoir(ReservoirComponent):
         self.energy_extracted = 0.0
         self._recompute_depletion_coeffs(
             m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
-            rho_fluid=water_density(
+            rho_fluid=fluid_density(
+                self.common.fluid_name,
                 self.T_initial,
                 self.hydro_static_pressure * (1 + self.over_pressure_percentage / 100.0),
             ),
-            cp_fluid=water_cp(
+            cp_fluid=fluid_cp(
+                self.common.fluid_name,
                 self.T_initial,
                 self.hydro_static_pressure * (1 + self.over_pressure_percentage / 100.0),
             ),
@@ -291,8 +293,13 @@ class LumpedReservoir(ReservoirComponent):
         s.P_reservoir.update(P_reservoir_guess)
 
         # Fluid properties: average of current inlet and previous-timestep outlet.
-        rho = 0.5 * (water_density(T_inj, P_in) + water_density(T_out_prev, P_out_prev))
-        mu = 0.5 * (water_viscosity(T_inj, P_in) + water_viscosity(T_out_prev, P_out_prev))
+        fluid_name = self.common.fluid_name
+        rho = 0.5 * (
+            fluid_density(fluid_name, T_inj, P_in) + fluid_density(fluid_name, T_out_prev, P_out_prev)
+        )
+        mu = 0.5 * (
+            fluid_viscosity(fluid_name, T_inj, P_in) + fluid_viscosity(fluid_name, T_out_prev, P_out_prev)
+        )
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -309,12 +316,14 @@ class LumpedReservoir(ReservoirComponent):
 
         # Thermal depletion (Adams 2015)
         dT = self.T_initial - T_inj
-        h_in = water_enthalpy(T_inj, P_in)
+        h_in = fluid_enthalpy(fluid_name, T_inj, P_in)
         s.h_inlet.update(h_in)
 
-        h_prod_prev = water_enthalpy(T_out_prev, P_out_prev)
-        rho_avg = 0.5 * (water_density(T_inj, P_in) + water_density(T_out_prev, P_out_prev))
-        cp_avg = 0.5 * (water_cp(T_inj, P_in) + water_cp(T_out_prev, P_out_prev))
+        h_prod_prev = fluid_enthalpy(fluid_name, T_out_prev, P_out_prev)
+        rho_avg = 0.5 * (
+            fluid_density(fluid_name, T_inj, P_in) + fluid_density(fluid_name, T_out_prev, P_out_prev)
+        )
+        cp_avg = 0.5 * (fluid_cp(fluid_name, T_inj, P_in) + fluid_cp(fluid_name, T_out_prev, P_out_prev))
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         dt_seconds = self.dt_years * YEAR_TO_SECOND
@@ -328,13 +337,12 @@ class LumpedReservoir(ReservoirComponent):
 
         T_out = T_inj + gamma * dT
         s.T_outlet.update(T_out)
-        s.h_outlet.update(water_enthalpy(T_out, P_out))
+        s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out))
 
         self.outlet.T = T_out
         self.outlet.P = P_out
         self.outlet.mass_rate = mdot
-        self.outlet.rho = water_density(T_out, P_out)
-        self.outlet.mu = water_viscosity(T_out, P_out)
-        self.outlet.fluid_name = self.inlet.fluid_name
+        self.outlet.rho = fluid_density(fluid_name, T_out, P_out)
+        self.outlet.mu = fluid_viscosity(fluid_name, T_out, P_out)
 
         self.ever_solved = True

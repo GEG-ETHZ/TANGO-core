@@ -67,7 +67,6 @@ class SystemDirect(Orchestrator):
         dst.mass_rate = src.mass_rate
         dst.rho = src.rho
         dst.mu = src.mu
-        dst.fluid_name = src.fluid_name
 
     def run_timestep(self, t: int) -> None:
         """Execute one circuit pass: solve each component in order and wire streams."""

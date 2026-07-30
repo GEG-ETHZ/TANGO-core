@@ -19,9 +19,8 @@ from __future__ import annotations
 
 import math
 
-import CoolProp
-
 from tango_next.core.constants import GRAVITY
+from tango_next.core.fluid_state import FluidState
 
 # ---------------------------------------------------------------------------
 # Geometry
@@ -213,55 +212,63 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
 
 
 # ---------------------------------------------------------------------------
-# Fluid properties via CoolProp (Water)
+# Fluid properties via CoolProp
 # ---------------------------------------------------------------------------
+#
+# Every lookup takes ``fluid_name`` explicitly and goes through FluidState
+# (core/fluid_state.py) — the same CoolProp wrapper the numerical well model
+# uses — rather than assuming water. These four used to be hardcoded against
+# a single module-level "Water" AbstractState regardless of what fluid a
+# component's Common.fluid_name actually declared; that silently computed
+# wrong properties for any non-water fluid (see docs/tango_next_tasks.md's
+# fluid-identity review). Callers must pass ``common.fluid_name``, not a
+# literal fluid string, so every component using a shared Common instance
+# stays consistent by construction.
 
-_WATER_STATE = CoolProp.AbstractState("HEOS", "Water")
 
-
-def water_density(T: float, P: float) -> float:
-    """Liquid water density (kg/m³) via CoolProp.
+def fluid_density(fluid_name: str, T: float, P: float) -> float:
+    """Fluid density (kg/m³) via CoolProp.
 
     Args:
+        fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
 
     """
-    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
-    return _WATER_STATE.rhomass()
+    return FluidState.with_PT(fluid_name, P, T).rho
 
 
-def water_viscosity(T: float, P: float) -> float:
-    """Liquid water dynamic viscosity (Pa·s) via CoolProp.
+def fluid_viscosity(fluid_name: str, T: float, P: float) -> float:
+    """Fluid dynamic viscosity (Pa·s) via CoolProp.
 
     Args:
+        fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
 
     """
-    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
-    return _WATER_STATE.viscosity()
+    return FluidState.with_PT(fluid_name, P, T).mu
 
 
-def water_enthalpy(T: float, P: float) -> float:
-    """Liquid water specific enthalpy (J/kg) via CoolProp.
+def fluid_enthalpy(fluid_name: str, T: float, P: float) -> float:
+    """Fluid specific enthalpy (J/kg) via CoolProp.
 
     Args:
+        fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
 
     """
-    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
-    return _WATER_STATE.hmass()
+    return FluidState.with_PT(fluid_name, P, T).H
 
 
-def water_cp(T: float, P: float) -> float:
-    """Liquid water isobaric specific heat capacity (J/(kg·K)) via CoolProp.
+def fluid_cp(fluid_name: str, T: float, P: float) -> float:
+    """Fluid isobaric specific heat capacity (J/(kg·K)) via CoolProp.
 
     Args:
+        fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
 
     """
-    _WATER_STATE.update(CoolProp.PT_INPUTS, P, T)
-    return _WATER_STATE.cpmass()
+    return FluidState.with_PT(fluid_name, P, T).cp

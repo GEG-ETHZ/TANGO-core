@@ -67,12 +67,12 @@ from pydantic import Field
 from tango_next.components.surface.base import SurfaceComponent
 from tango_next.core.errors import ConfigError
 from tango_next.core.fluid_utils import (
+    fluid_density,
+    fluid_viscosity,
     friction_factor_haaland,
     mean_velocity,
     pressure_drop_friction,
     reynolds_number,
-    water_density,
-    water_viscosity,
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.policies import ComponentRole
@@ -483,8 +483,8 @@ class GraphSurface(SurfaceComponent):
         mdot = s.mass_rate.get_fresh()
 
         # ---- Surface pipe friction drop (wellhead -> plant) ----
-        rho_in = water_density(T_in, P_in)
-        mu_in = water_viscosity(T_in, P_in)
+        rho_in = fluid_density(self.common.fluid_name, T_in, P_in)
+        mu_in = fluid_viscosity(self.common.fluid_name, T_in, P_in)
         u_in = mean_velocity(mdot, rho_in, self.pipe_diameter)
         Re_in = reynolds_number(mdot, self.pipe_diameter, mu_in)
         ff_in = friction_factor_haaland(Re_in, self.pipe_diameter, self.pipe_roughness)
@@ -495,7 +495,7 @@ class GraphSurface(SurfaceComponent):
 
         # ---- Inlet connection ----
         self._inlet_conn.set_attr(
-            fluid={self.inlet.fluid_name: 1},
+            fluid={self.common.fluid_name: 1},
             m=mdot,
             T=T_in + _K_TO_C,
             p=P_tespy_in * _PA_TO_BAR,
@@ -525,8 +525,8 @@ class GraphSurface(SurfaceComponent):
             s.node_detail.update(self._collect_node_detail())
 
         # ---- Fluid properties for injection stream ----
-        rho_out = water_density(T_out, P_out)
-        mu_out = water_viscosity(T_out, P_out)
+        rho_out = fluid_density(self.common.fluid_name, T_out, P_out)
+        mu_out = fluid_viscosity(self.common.fluid_name, T_out, P_out)
         s.rho.update(rho_out)
         s.mu.update(mu_out)
 
@@ -535,4 +535,3 @@ class GraphSurface(SurfaceComponent):
         self.outlet.mass_rate = mdot
         self.outlet.rho = rho_out
         self.outlet.mu = mu_out
-        self.outlet.fluid_name = self.inlet.fluid_name

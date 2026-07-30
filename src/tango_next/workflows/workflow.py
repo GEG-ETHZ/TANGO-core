@@ -79,6 +79,20 @@ class Workflow:
     component to silently diverge from another — structurally, not via a
     guard list. See core/specs.py.
 
+    This is also how fluid identity (``Common.fluid_name``) is guaranteed
+    consistent across an entire flow path today: every component on the
+    circuit reads it off the SAME shared ``Common``, so there is nothing to
+    hand around or re-check per timestep (``Stream``, the per-component
+    inlet/outlet type, deliberately carries no fluid-identity field of its
+    own — see ``core/stream.py``). ``__init__`` asserts this identity once,
+    right after building components, so a future refactor that accidentally
+    constructs a second ``Common`` for one component fails loudly at
+    construction time instead of silently drifting. If a real fluid
+    *boundary* is ever introduced (e.g. a secondary/ORC loop with a
+    different working fluid from the geofluid loop), that component would
+    need an explicit second identity of its own — not a relaxation of this
+    check for the whole Workflow.
+
     A common use for ``to_dict()``: parameter sweeps that mutate a copy of
     the config between runs — safe regardless of whether the ``Workflow``
     was originally built via ``from_file``/``from_str`` or a raw dict, since
@@ -111,6 +125,7 @@ class Workflow:
         dt_years = self._sim_config.dt_years
 
         components = _build_components(config["components"], self._common, self._layout, dt_years)
+        _check_common_identity(components, self._common)
 
         if self._sim_config.injection_mode is not None:
             policy = self._sim_config.injection_mode
@@ -133,7 +148,6 @@ class Workflow:
                 n_tsteps=n_tsteps,
                 dt_years=dt_years,
                 mass_rate=mass_rate,
-                fluid_name=self._common.fluid_name,
                 bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                 policy=policy,
             )
@@ -246,6 +260,39 @@ def _yaml_safe(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_yaml_safe(v) for v in obj]
     return obj
+
+
+def _check_common_identity(components: dict[str, Component], common: Common) -> None:
+    """Assert every component's ``common`` (if declared) is this Workflow's SAME instance.
+
+    Called once, at construction time, right after ``_build_components``.
+    ``_build_components`` already only ever hands out one shared reference,
+    so this should never actually fail under normal use — it exists as a
+    structural guarantee (checked once, not re-checked every timestep) that
+    every component on a shared flow path (fluid identity, rock/thermal
+    parameters) really is looking at the one canonical ``Common``, not an
+    equal-but-separate copy that could silently drift. Uses ``is``, not
+    ``==``: two separately-constructed ``Common`` instances with identical
+    field values would compare equal but must still be rejected here.
+
+    Args:
+        components: Just-built components, keyed by YAML name.
+        common: This Workflow's canonical, frozen ``Common`` instance.
+
+    Raises:
+        ConfigError: If any component's ``common`` is not the same object.
+
+    """
+    for name, component in components.items():
+        component_common = getattr(component, "common", None)
+        if component_common is not None and component_common is not common:
+            raise ConfigError(
+                f"Component {name!r} does not share this Workflow's single "
+                "Common instance (fluid_name, rock/thermal parameters). "
+                "Every component on a shared flow path must reference the "
+                "exact same object, not an equal-but-separate copy — this "
+                "indicates a bug in component construction, not a config error.",
+            )
 
 
 def _build_components(

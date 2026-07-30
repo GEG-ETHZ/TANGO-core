@@ -130,7 +130,6 @@ class SystemBCIteration(SystemDirect):
         mass_rate: Mass flow rate (kg/s) — from ``sim_config.mass_rate``.
             Ignored (pass ``0.0``) for ``AUTO_FLOW`` / ``AUTO_BOTH``, where the
             solver computes mass rate from ``fracing_flow()`` each pass.
-        fluid_name: CoolProp fluid name (e.g. ``"Water"``).
         policy: Injection control policy (default ``MANUAL``).
         max_iterations: Maximum BC iterations per timestep (AUTO_* modes only).
         tolerance: Relative convergence tolerance on injection pressure.
@@ -143,7 +142,6 @@ class SystemBCIteration(SystemDirect):
         n_tsteps: int,
         dt_years: float,
         mass_rate: float,
-        fluid_name: str,
         bc_checkpoint_idx: int,
         policy: InjectionPolicy = InjectionPolicy.MANUAL,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
@@ -153,7 +151,6 @@ class SystemBCIteration(SystemDirect):
         super().__init__(components, n_tsteps=n_tsteps)
         self.dt_years = dt_years
         self.mass_rate = mass_rate
-        self.fluid_name = fluid_name
         self.bc_checkpoint_idx = bc_checkpoint_idx
         self.policy = policy
         self.max_iterations = max_iterations
@@ -189,7 +186,6 @@ class SystemBCIteration(SystemDirect):
                 inj_well.inlet.T = surface.common.surface_temperature
                 inj_well.inlet.P = getattr(surface, "injection_pressure", surface.common.surface_pressure)
             inj_well.inlet.mass_rate = self.mass_rate
-            inj_well.inlet.fluid_name = self.fluid_name
 
     # ------------------------------------------------------------------
     # Timestep execution
@@ -211,7 +207,6 @@ class SystemBCIteration(SystemDirect):
         inj_well = self._by_idx.get(0)
         if inj_well is not None:
             inj_well.inlet.mass_rate = self.mass_rate
-            inj_well.inlet.fluid_name = self.fluid_name
 
         if self.policy == InjectionPolicy.MANUAL:
             # Save t_d_old for all numerical wells BEFORE the first pass so that
@@ -331,7 +326,6 @@ class SystemBCIteration(SystemDirect):
         res_mdot = reservoir.outlet.mass_rate
         res_rho = reservoir.outlet.rho
         res_mu = reservoir.outlet.mu
-        res_fluid = reservoir.outlet.fluid_name
 
         T_inj_prev = surface.outlet.T
 
@@ -347,7 +341,6 @@ class SystemBCIteration(SystemDirect):
                         dst.mass_rate = res_mdot
                         dst.rho = res_rho
                         dst.mu = res_mu
-                        dst.fluid_name = res_fluid
                     continue  # skip solve() and _wire_one_stream()
 
                 # Restore t_d_old so heat-loss time advances only once per outer

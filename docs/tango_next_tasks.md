@@ -633,6 +633,83 @@ reasoning doesn't have to be re-derived next session.
      three (four, eventually) should get a consistent small metrics file
      (success/fail counts, thermal-power percentiles, count meeting the
      105 degC threshold, etc.) before wiring in `dvc metrics diff`.
+- **DONE 2026-07-30 — thorough review of how subsurface and surface
+  components are told what fluid is being passed around, both risks
+  confirmed real and fixed.** Flagged earlier the same day as a quick pass;
+  a full read of every call site confirmed both concrete risks were
+  genuine, not just theoretical:
+  1. **Confirmed**: `components/reservoir/lumped.py`, both lumped wells
+     (`well/lumped.py`), and `GraphSurface`'s pipe-hydraulics
+     (`surface/graph.py`) all called `fluid_utils.water_density`/
+     `water_viscosity`/`water_enthalpy`/`water_cp`, which were hardcoded
+     against a single module-level `CoolProp.AbstractState("HEOS", "Water")`
+     — none of them took a fluid name argument at all. A non-water
+     `common.fluid_name` (e.g. an EGS/CO2 design) would silently compute
+     every physical property as if it were water.
+  2. **Confirmed**: the inlet→outlet `fluid_name` copy-through was
+     byte-identical in every component, plus a second orchestrator-level
+     copy in `SystemDirect._wire_one_stream`/`SystemBCIteration` — two
+     redundant layers of the same fact, both unvalidated, both drift-prone,
+     neither ever actually needed since every fluid-consuming component
+     already holds a reference to the Workflow's single shared `Common`
+     instance (`core/specs.py`).
+  Also found, not previously flagged: `GraphSurface.solve()` passed TESPy a
+  genuine `fluid={name: 1}` dict (so TESPy really did solve with the
+  declared fluid's own EOS) while the pipe-friction calc wrapping it used
+  the hardcoded-water `fluid_utils` calls regardless — two different
+  property backends for nominally the same fluid, no cross-check between
+  them.
+
+  **Fix landed** (no mixture/brine support added — not needed by either
+  risk above, and Chad's ask was specifically "same substance across a flow
+  path," not composition modeling):
+  1. `core/fluid_utils.py`'s `water_density`/`water_viscosity`/
+     `water_enthalpy`/`water_cp` renamed to `fluid_density`/
+     `fluid_viscosity`/`fluid_enthalpy`/`fluid_cp`, each now taking
+     `fluid_name` explicitly and delegating to `FluidState.with_PT`
+     (`core/fluid_state.py` — the same CoolProp wrapper the numerical well
+     already used correctly). Added a `cp` property to `FluidState` so it
+     covers all four. Every call site (`reservoir/lumped.py`,
+     `well/lumped.py` ×3, `surface/graph.py`) now passes
+     `self.common.fluid_name` — real per-fluid physics everywhere, not just
+     in the numerical well.
+  2. **`Stream.fluid_name` removed entirely** (`core/stream.py`) — it was
+     genuinely redundant: every component that needs fluid identity already
+     has `self.common` (the shared, frozen `Common` instance). Removed the
+     inlet→outlet copy in every component's `solve()`
+     (`well/lumped.py` ×3, `reservoir/lumped.py`, `surface/graph.py`,
+     `well/numerical.py`) and the orchestrator-level copy
+     (`SystemDirect._wire_one_stream`, `SystemBCIteration`'s
+     `fluid_name` param/attribute and its stream-seeding assignments).
+     `GraphSurface`'s TESPy `fluid={...}` dict now reads
+     `self.common.fluid_name` instead of `self.inlet.fluid_name`.
+  3. **One-time structural guarantee, not a per-timestep check**: added
+     `_check_common_identity()` (`workflows/workflow.py`), called once from
+     `Workflow.__init__` right after `_build_components`. Asserts (via `is`,
+     not `==`) that every component's `common` attribute, if it declares
+     one, is the literal same object as the Workflow's canonical `Common` —
+     catching a future construction bug (a code path that accidentally
+     builds a second, equal-but-separate `Common`) at Workflow-build time
+     instead of letting it silently diverge later. This can't currently
+     fail under `_build_components`'s existing behavior (it already only
+     ever hands out one shared reference) — it's a guard against
+     regression, not a fix for an existing gap in that function. Documented
+     in `Workflow`'s class docstring as the mechanism that makes fluid
+     identity (and rock/thermal params) consistent across a flow path
+     without needing `Stream` to carry or re-verify anything after
+     construction. Left an explicit comment (not speculative code) noting
+     that a genuine future fluid-*boundary* component (e.g. a secondary/ORC
+     loop) would need its own separate identity, not a relaxation of this
+     check.
+  Verified: `ruff check`/`mypy src/tango_next` clean; full `tests/unit` +
+  `tests/regtest` suite green (updated the handful of
+  `Stream(..., fluid_name="water")` test constructions in
+  `test_serde_roundtrip.py`/`test_tango_next.py` — `Common.fluid_name`
+  itself is untouched and still tested).
+  Not done (deliberately out of scope, not asked for): mixture/brine/
+  composition support, or a typed `Fluid` object beyond the existing bare
+  `Common.fluid_name` string — neither risk above needed it, and adding it
+  now would be speculative.
 - **Line-by-line debugger walkthrough of one `tango_next` single-simulation
   case** `examples/tango_next/flexible_SF_manual.yml` (the
   original reference example used throughout tango_next's design/porting

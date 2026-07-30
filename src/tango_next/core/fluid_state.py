@@ -86,3 +86,8 @@ class FluidState:
     def mu(self) -> float:
         """Dynamic viscosity (Pa·s)."""
         return self._state.viscosity()
+
+    @property
+    def cp(self) -> float:
+        """Isobaric specific heat capacity (J/(kg·K))."""
+        return self._state.cpmass()

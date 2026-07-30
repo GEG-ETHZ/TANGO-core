@@ -544,7 +544,7 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     # Fields that are legitimately reassigned during simulation stay mutable.
     from tango_next.core.stream import Stream
 
-    components["injection_well"].inlet = Stream(T=300.0, P=1e6, mass_rate=10.0, fluid_name="water")
+    components["injection_well"].inlet = Stream(T=300.0, P=1e6, mass_rate=10.0)
     assert components["injection_well"].inlet.T == 300.0
     components["surface"].injection_pressure = 2.5e6
     assert components["surface"].injection_pressure == 2.5e6
