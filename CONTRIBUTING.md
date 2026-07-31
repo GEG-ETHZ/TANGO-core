@@ -21,6 +21,7 @@
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
 1. All new class attributes must be defined in pydantic schemas.
+1. There shall not be any `eval` functions!
 
 ## Branching Strategy
 
