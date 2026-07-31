@@ -209,8 +209,11 @@ class SystemBCIteration(SystemDirect):
             inj_well.inlet.mass_rate = self.mass_rate
 
         if self.policy == InjectionPolicy.MANUAL:
-            # Save t_d_old for all numerical wells BEFORE the first pass so that
-            # each inner-loop well solve advances t_d by exactly one del_t (not
+            # t_d_old is each numerical well's dimensionless time carried over
+            # from the previous timestep (used to advance the wellbore
+            # heat-loss model); solve() advances it by one del_t per call. Save
+            # it for all numerical wells BEFORE the first pass so that each
+            # inner-loop well solve advances t_d by exactly one del_t (not
             # multiple times).  Must capture the pre-pass values here.
             t_d_old_saved: dict[int, float] = {
                 c.component_idx: getattr(c, "t_d_old") for c in self._ordered if hasattr(c, "t_d_old")

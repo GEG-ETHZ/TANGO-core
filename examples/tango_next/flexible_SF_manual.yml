@@ -154,7 +154,7 @@ components:
     wellhead_depth: 1000.0    # m — matches src/tango/ which sets wellhead_depth = pump_well_length (production_well_pump.well_length)
 
   production_well_upper:
-    type: production_well_pump
+    type: production_well_with_pump
     unit: numerical
     component_idx: 3
     prev: 2

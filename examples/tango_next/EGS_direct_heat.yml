@@ -96,7 +96,7 @@ components:
     wellhead_depth: 600.0        # m — matches production_well_upper's well_length below
 
   production_well_upper:
-    type: production_well_pump
+    type: production_well_with_pump
     unit: numerical
     component_idx: 3
     prev: 2

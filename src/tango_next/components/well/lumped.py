@@ -6,7 +6,7 @@ as a 1-D pipe with:
   - Hydrostatic pressure change (positive going down, negative going up)
   - Linear geothermal temperature profile (no wellbore heat-transfer model)
 
-LumpedProductionWellPump adds a pump pressure boost at the wellhead.
+LumpedProductionWellWithPump adds a pump pressure boost at the wellhead.
 
 **Design intent**: The ``Lumped*`` prefix marks 0-D / lumped-parameter models.
 These are permanent optional variants to be kept alongside higher-fidelity
@@ -79,8 +79,8 @@ class WellboreState:
 
 
 @dataclass(frozen=True)
-class ProductionWellPumpState(WellboreState):
-    """Wellbore state extended with pump data for LumpedProductionWellPump."""
+class ProductionWellWithPumpState(WellboreState):
+    """Wellbore state extended with pump data for LumpedProductionWellWithPump."""
 
     pump_delta_p: LockedState[float] = field(default_factory=_ls)
     pump_power_watts: LockedState[float] = field(default_factory=_ls)
@@ -109,15 +109,15 @@ class WellboreHistory:
 
 
 @dataclass
-class ProductionWellPumpHistory(WellboreHistory):
-    """Extends WellboreHistory with pump power for LumpedProductionWellPump."""
+class ProductionWellWithPumpHistory(WellboreHistory):
+    """Extends WellboreHistory with pump power for LumpedProductionWellWithPump."""
 
     pump_power_watts: list[float] = field(default_factory=list)
 
     def record(self, state: WellboreState) -> None:  # type: ignore[override]
         """Append one timestep snapshot, including pump power."""
         super().record(state)
-        pump_state = state if isinstance(state, ProductionWellPumpState) else None
+        pump_state = state if isinstance(state, ProductionWellWithPumpState) else None
         self.pump_power_watts.append(pump_state.pump_power_watts.get_fresh() if pump_state else 0.0)
 
 
@@ -254,11 +254,11 @@ class LumpedProductionWell(WellComponent):
 
 
 # ---------------------------------------------------------------------------
-# LumpedProductionWellPump
+# LumpedProductionWellWithPump
 # ---------------------------------------------------------------------------
 
 
-class LumpedProductionWellPump(WellComponent):
+class LumpedProductionWellWithPump(WellComponent):
     """Upper production wellbore segment with an optional pump.
 
     TODO: replace with TESPy Compressor or explicit pump curve.
@@ -274,8 +274,8 @@ class LumpedProductionWellPump(WellComponent):
     pump_target_pressure_megapascals: float = Field(default=0.0, frozen=True)
     """Target outlet pressure from the pump (MPa). 0 means no active pump."""
 
-    state: ProductionWellPumpState = Field(default_factory=ProductionWellPumpState)
-    history: ProductionWellPumpHistory = Field(default_factory=ProductionWellPumpHistory)
+    state: ProductionWellWithPumpState = Field(default_factory=ProductionWellWithPumpState)
+    history: ProductionWellWithPumpHistory = Field(default_factory=ProductionWellWithPumpHistory)
 
     def record(self, timestep: int) -> None:
         """Append state to history if save_interval permits."""

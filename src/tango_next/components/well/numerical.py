@@ -173,73 +173,6 @@ NumericalProductionWellHistory = NumericalWellHistory
 
 
 # ---------------------------------------------------------------------------
-# Shared derived-geometry helper
-# ---------------------------------------------------------------------------
-
-
-def _compute_derived(
-    well_length: float,
-    wellhead_depth: float,
-    num_cells: int,
-    diameter: float,
-    pipe_roughness: float,
-    rock_k: float,
-    rock_density: float,
-    rock_cp: float,
-    surface_temperature: float,
-    thermal_gradient: float,
-    angle_from_vert_deg: float,
-) -> tuple[float, float, float, float, list[float]]:
-    """Compute geometry-derived constants shared by both well types.
-
-    Args:
-        well_length: Total wellbore flow-path length (m), wellhead to bottom
-            — the distance the fluid actually travels, not a vertical depth.
-        wellhead_depth: Flow-path position of the wellhead (m); 0 for a well
-            modeled starting at the surface. Same axis as ``well_length``.
-        num_cells: Axial discretization resolution (number of marching cells).
-        diameter: Wellbore inner diameter (m).
-        pipe_roughness: Absolute pipe wall roughness (m), used to form the
-            Darcy-Weisbach relative roughness ratio.
-        rock_k: Surrounding rock thermal conductivity (W/(m*K)).
-        rock_density: Surrounding rock density (kg/m^3).
-        rock_cp: Surrounding rock specific heat capacity (J/(kg*K)).
-        surface_temperature: Ambient surface temperature (K) — the T0 for the
-            rock temperature profile at zero vertical depth.
-        thermal_gradient: Geothermal temperature gradient (K per vertical
-            meter). Always per *true vertical* meter, regardless of well
-            path — rock temperature depends on depth, not distance traveled.
-        angle_from_vert_deg: 0 = straight down, 180 = straight up, 90 =
-            horizontal; values in between describe a deviated well. Used to
-            project flow-path position down to true vertical depth (via
-            ``cos``) before applying ``thermal_gradient``, so ``T_r`` tracks
-            actual rock temperature rather than distance traveled. ``abs()``
-            is applied because depth increases away from the wellhead
-            regardless of flow direction — the separate ``f_dir`` sign in
-            ``solve()`` already handles the injection-vs-production gravity
-            direction, so this must stay a positive magnitude.
-
-    Returns:
-        Tuple of ``(cell_length, relative_roughness, cross_sectional_area,
-        t_scaling_factor, T_r)``. ``cell_length`` is flow-path length per
-        cell (m) — used for friction and heat-loss geometry, deliberately
-        *not* scaled by angle, since those depend on distance traveled.
-        ``T_r`` is the rock temperature (K) at each cell's true vertical
-        depth, one value per cell.
-
-    """
-    cell_length = well_length / num_cells
-    relative_roughness = pipe_roughness / diameter
-    cross_sectional_area = 0.25 * math.pi * diameter**2
-    t_scaling_factor = 4.0 * rock_k / (rock_density * rock_cp * diameter**2)
-    zspace = np.linspace(wellhead_depth, well_length, num_cells + 1)
-    zspace = (zspace[1:] + zspace[:-1]) * 0.5
-    vertical_depth = zspace * abs(math.cos(math.radians(angle_from_vert_deg)))
-    T_r = (surface_temperature + vertical_depth * thermal_gradient).tolist()
-    return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
-
-
-# ---------------------------------------------------------------------------
 # NumericalWell
 # ---------------------------------------------------------------------------
 
@@ -297,20 +230,40 @@ class NumericalWell(WellComponent):
             self.cross_sectional_area,
             self.t_scaling_factor,
             self.T_r,
-        ) = _compute_derived(
-            self.well_length,
-            self.wellhead_depth,
-            self.num_cells,
-            self.diameter,
-            self.pipe_roughness,
-            self.common.rock_k,
-            self.common.rock_density,
-            self.common.rock_cp,
-            self.common.surface_temperature,
-            self.common.thermal_gradient,
-            self.angle_from_vert_deg,
-        )
+        ) = self._compute_derived()
         self.t_d_old = 0.0
+
+    def _compute_derived(self) -> tuple[float, float, float, float, list[float]]:
+        """Compute geometry-derived constants from this well's validated input fields.
+
+        Returns:
+            Tuple of ``(cell_length, relative_roughness, cross_sectional_area,
+            t_scaling_factor, T_r)``. ``cell_length`` is flow-path length per
+            cell (m) — used for friction and heat-loss geometry, deliberately
+            *not* scaled by angle, since those depend on distance traveled.
+            ``T_r`` is the rock temperature (K) at each cell's true vertical
+            depth, one value per cell — computed by projecting flow-path
+            position onto true vertical depth (via ``cos(angle_from_vert_deg)``)
+            before applying ``thermal_gradient`` (a per-vertical-meter
+            quantity), so ``T_r`` tracks actual rock temperature rather than
+            distance traveled. ``abs()`` is applied because depth increases
+            away from the wellhead regardless of flow direction — the
+            separate ``f_dir`` sign in ``solve()`` already handles the
+            injection-vs-production gravity direction, so this must stay a
+            positive magnitude.
+
+        """
+        cell_length = self.well_length / self.num_cells
+        relative_roughness = self.pipe_roughness / self.diameter
+        cross_sectional_area = 0.25 * math.pi * self.diameter**2
+        t_scaling_factor = (
+            4.0 * self.common.rock_k / (self.common.rock_density * self.common.rock_cp * self.diameter**2)
+        )
+        zspace = np.linspace(self.wellhead_depth, self.well_length, self.num_cells + 1)
+        zspace = (zspace[1:] + zspace[:-1]) * 0.5
+        vertical_depth = zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
+        T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
+        return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
 
     def record(self, timestep: int) -> None:
         """Append state to history if save_interval permits."""
@@ -433,11 +386,11 @@ class NumericalProductionWell(NumericalWell):
 
 
 # ---------------------------------------------------------------------------
-# NumericalProductionWellPump
+# NumericalProductionWellWithPump
 # ---------------------------------------------------------------------------
 
 
-class NumericalProductionWellPump(NumericalProductionWell):
+class NumericalProductionWellWithPump(NumericalProductionWell):
     """Upper production wellbore with numerical heat loss and an optional pump.
 
     Inherits the full Adams 2015 marching heat-loss model from

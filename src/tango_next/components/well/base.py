@@ -13,7 +13,7 @@ class WellComponent(Component):
     """Abstract base for all wellbore components (injection and production).
 
     Concrete implementations: LumpedInjectionWell, NumericalInjectionWell,
-    LumpedProductionWell, NumericalProductionWell, LumpedProductionWellPump.
+    LumpedProductionWell, NumericalProductionWell, LumpedProductionWellWithPump.
 
     All wellbore geometry fields live here — subclasses add fluid/physics fields.
     """
