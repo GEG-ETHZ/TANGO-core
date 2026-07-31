@@ -273,7 +273,11 @@ both) happened to be pushing it there. The two-mechanism split in `InjectionPoli
 direct consequence of TANGO's explicit, stepwise architecture, not a fact about the
 underlying physics — worth keeping in mind if TANGO ever moves toward an implicit
 formulation (see Phase 2's Newton-step BC iteration, which is a step in that direction for
-the outer loop, though the inner per-component march remains explicit).
+the outer loop, though the inner per-component march remains explicit). See
+[`docs/implicit_solver_exploration.md`](implicit_solver_exploration.md) for an exploration
+of what adopting a residual/Jacobian-based implicit solve (in the style of tespy's Newton
+network solver) would take, and why the fracing switch itself is the hard part rather than
+the solver mechanics.
 
 **`InjectionPolicy` — the clean replacement**
 
