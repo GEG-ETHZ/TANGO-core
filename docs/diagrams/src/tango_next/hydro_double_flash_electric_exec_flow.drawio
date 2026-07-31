@@ -1,0 +1,568 @@
+<mxfile host="Electron">
+  <diagram name="hydro_double_flash_electric Execution Flow" id="hydro-double-flash-electric-exec-flow">
+    <mxGraphModel dx="1838" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=16;fontStyle=1;" value="hydro_double_flash_electric — tango_next Execution-Flow Call Tree" vertex="1">
+  <mxGeometry x="20" y="-40" width="1400" height="26" as="geometry" />
+</mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" value="examples/tango_next/hydro_double_flash_electric.yml — one box per function/method entry. Left-to-right = execution order; collapse a box in draw.io to hide its callees." vertex="1">
+  <mxGeometry x="20" y="-14" width="1400" height="18" as="geometry" />
+</mxCell>
+        <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;LEGEND&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;Solid border = TANGO&#x27;s own code (this repo). &lt;font color=&quot;#b85450&quot;&gt;&lt;b&gt;Dashed red border + &amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt; = the box&#x27;s primary action is a direct call into a third-party library (CoolProp, TESPy, PyYAML) — fill color still encodes phase/category. Left-to-right = temporal/physical flow order; top-to-bottom inside a box = call order within that step. Collapse any box in draw.io to hide its detail.&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="20" y="20" width="1400" height="56" as="geometry" />
+</mxCell>
+        <mxCell id="n2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;main()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;tango_next_cli.py:166 — entry point for `hydro_double_flash_electric.yml` (injection_mode: manual → InjectionPolicy.MANUAL → SystemBCIteration; bc_checkpoint_idx=4; mass_rate=50; num_tsteps=20)&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="20" y="96" width="1400" height="3106" as="geometry" />
+</mxCell>
+        <mxCell id="n3" parent="n2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;_build_parser()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;tango_next_cli.py:35 — argparse setup&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="1376" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n4" parent="n2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;args = parser.parse_args()&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="1376" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n5" parent="n2" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;_cmd_run(args, log_level)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;tango_next_cli.py:115 — dispatched for `run` subcommand&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="159" width="1376" height="2935" as="geometry" />
+</mxCell>
+        <mxCell id="n6" parent="n5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;_configure_logging(level)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;tango_next_cli.py:102 — sets root + TESPyLogger level&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="1352" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n7" parent="n5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;Workflow.from_file(path)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;workflow.py:158 → p.read_text() → Workflow.from_str(text) [workflow.py:178] → yaml.safe_load(s)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="1352" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n8" parent="n5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;t_start = time.time()&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="186" width="1352" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n9" parent="n5" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;initialize once →   then run 20 timesteps →&lt;/b&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="237" width="3418" height="2584" as="geometry" />
+</mxCell>
+        <mxCell id="n10" parent="n9" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;Workflow.__init__(config)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;workflow.py:108 — reached via Workflow.from_file(path) → from_str(text) → yaml.safe_load(s) [workflow.py:158/178]&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="42" width="480" height="2224" as="geometry" />
+</mxCell>
+        <mxCell id="n11" parent="n10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;Common(**config[&quot;common&quot;])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;specs.py:21 — validated, frozen, single shared instance&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="54" width="456" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n12" parent="n10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;Layout(**config[&quot;layout&quot;])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;specs.py:44&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="120" width="456" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n13" parent="n10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;SimConfig(**config[&quot;sim_config&quot;])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;specs.py:59&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="186" width="456" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n14" parent="n10" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;_build_components(components_block, common, layout, dt_years)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;workflow.py:298&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="252" width="456" height="1606" as="geometry" />
+</mxCell>
+        <mxCell id="n15" parent="n14" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;for each of the 5 YAML component blocks: COMPONENT_REGISTRY.get((type, unit))&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;registry.py:35 → concrete class&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="432" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n16" parent="n14" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#e1d5e7;" value="&lt;b&gt;COMPONENT INIT  (once, inside _build_components, before any timestep)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;Component.from_dict() [component.py:123] calls cls.model_validate(config) then obj.init(), once per component in _build_components()&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="108" width="432" height="1486" as="geometry" />
+</mxCell>
+        <mxCell id="n17" parent="n16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 0] NumericalInjectionWell.init()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;→ NumericalWell.init() — numerical.py:292 · angle_from_vert_deg=0.0&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="54" width="408" height="172" as="geometry" />
+</mxCell>
+        <mxCell id="n18" parent="n17" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;_compute_derived(well_length, wellhead_depth, num_cells, diameter, pipe_roughness, common.rock_k/rock_density/rock_cp, common.surface_temperature, common.thermal_gradient, angle_from_vert_deg)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;numerical.py:180 → cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r (np.linspace + cos projection)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="384" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n19" parent="n17" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.t_d_old = 0.0&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="123" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n20" parent="n16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 1] LumpedReservoir.init()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;lumped.py:203&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="240" width="408" height="340" as="geometry" />
+</mxCell>
+        <mxCell id="n21" parent="n20" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_initial = surface_temperature + thermal_gradient·reservoir_depth&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n22" parent="n20" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;rock_volume, rock_C_v from thickness/well_spacing/porosity/common.rock_*&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n23" parent="n20" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_density(fluid_name, T_initial, hydrostatic·(1+overpressure%))&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:229&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="144" width="384" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n24" parent="n20" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_cp(fluid_name, T_initial, hydrostatic·(1+overpressure%))&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:265&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="210" width="384" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n25" parent="n20" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._recompute_depletion_coeffs(m_dot, rho_fluid, cp_fluid)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;lumped.py:226 → sets p1 (math.exp), p2, p3 (np.clip)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="276" width="384" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n26" parent="n16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 2] NumericalProductionWell.init()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;→ NumericalWell.init() — numerical.py:292 · angle_from_vert_deg=180 · same _compute_derived() callee as idx 0&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="594" width="408" height="133" as="geometry" />
+</mxCell>
+        <mxCell id="n27" parent="n26" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;_compute_derived(well_length, wellhead_depth, num_cells, diameter, pipe_roughness, common.rock_k/rock_density/rock_cp, common.surface_temperature, common.thermal_gradient, angle_from_vert_deg)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;numerical.py:180 → cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r (np.linspace + cos projection)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="54" width="384" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n28" parent="n16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 3] NumericalProductionWellPump.init()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;numerical.py — angle_from_vert_deg=180 inherited&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="741" width="408" height="136" as="geometry" />
+</mxCell>
+        <mxCell id="n29" parent="n28" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;(no override — inherits NumericalWell.init() unchanged)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;same _compute_derived() callee tree; pump_target_pressure_megapascals / pump_efficiency are plain validated fields, untouched by init()&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="384" height="82" as="geometry" />
+</mxCell>
+        <mxCell id="n30" parent="n16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=54;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 4] GraphSurface.init()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;graph.py:228 — double-flash TESPy topology (Source→Valve→DropletSeparator→(Turbine+Valve→DropletSeparator2→Turbine2)→SimpleHeatExchangers→Merges→Compressors→Sink)&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="891" width="408" height="583" as="geometry" />
+</mxCell>
+        <mxCell id="n31" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._validate_pressure_monotonicity(node_cfgs, edge_cfgs)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;graph.py:319 — recursive find_upstream_p_out() walk over 15-node/15-edge graph&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="66" width="384" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n32" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;for each of 15 nodes: tespy_cls = getattr(tespy.components, _COMPONENT_TYPES[type]); nodes[name] = tespy_cls(name)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="147" width="384" height="49" as="geometry" />
+</mxCell>
+        <mxCell id="n33" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;assert nodes[&quot;inlet&quot;] is Source, nodes[&quot;outlet&quot;] is Sink&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="210" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n34" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;for each of 15 edges: Connection(source_node, source_port, target_node, target_port)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="261" width="384" height="49" as="geometry" />
+</mxCell>
+        <mxCell id="n35" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;Network(p_unit=&quot;bar&quot;, T_unit=&quot;C&quot;, h_unit=&quot;kJ/kg&quot;, iterinfo=False); net.add_conns(*conns)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="324" width="384" height="49" as="geometry" />
+</mxCell>
+        <mxCell id="n36" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;for each node cfg: self._apply_node_config(node, conns, cfg)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;graph.py:385 — sets eta_s on turbine1/turbine2/pump1/pump2; sets p/T/x on valve1/valve2/turbine1/turbine2/condenser1/condenser2 connections&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="387" width="384" height="82" as="geometry" />
+</mxCell>
+        <mxCell id="n37" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;classify role-tagged nodes → net_electric = [turbine1, turbine2, pump1, pump2]; net_thermal = []&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="483" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n38" parent="n30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;store self._network, self._conns, self._nodes, self._net_electric_nodes, self._net_thermal_nodes, self._inlet_conn, self._outlet_conn&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="534" width="384" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n39" parent="n10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;_check_common_identity(components, common)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;workflow.py:265 — asserts every component.common is (identity) the one shared Common&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="1872" width="456" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n40" parent="n10" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;SystemBCIteration(components, n_tsteps=20, dt_years=1.0, mass_rate=50, bc_checkpoint_idx=4, policy=MANUAL)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_bc_iteration.py:139 — sim_config.injection_mode = &quot;manual&quot; selects this orchestrator over SystemDirect&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="1953" width="456" height="259" as="geometry" />
+</mxCell>
+        <mxCell id="n41" parent="n40" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;super().__init__(components, n_tsteps)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;== SystemDirect.__init__ — system_direct.py:30&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="54" width="432" height="142" as="geometry" />
+</mxCell>
+        <mxCell id="n42" parent="n41" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;sorted(components.values(), key=component_idx) → self._ordered&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="408" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n43" parent="n41" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._by_idx = {idx: component}&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="408" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n44" parent="n40" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;stores dt_years, mass_rate, bc_checkpoint_idx, policy, max_iterations, tolerance&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="210" width="432" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n45" parent="n9" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef6ff;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#eef6ff;" value="&lt;b&gt;TIME LOOP — for t in range(20):  (SystemDirect.run() — system_direct.py:90)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;20 timesteps × 1 yr, mass_rate=50.0 kg/s — one iteration shown; loops back to run_timestep(t+1) until t == 19&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="506" y="42" width="2900" height="2530" as="geometry" />
+</mxCell>
+        <mxCell id="n46" parent="n45" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;SystemBCIteration.run_timestep(t)  — overrides SystemDirect.run_timestep via polymorphism&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_bc_iteration.py:194&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="42" width="2876" height="1999" as="geometry" />
+</mxCell>
+        <mxCell id="n47" parent="n46" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;self._seed_circuit_inlet()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_bc_iteration.py:168&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="2852" height="157" as="geometry" />
+</mxCell>
+        <mxCell id="n48" parent="n47" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._find_surface()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;system_bc_iteration.py:159 → GraphSurface instance (idx 4)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="2828" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n49" parent="n47" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;(t=0 only, inj_well.inlet.mass_rate==0) seeds inj_well.inlet.{T,P,mass_rate} from surface.common.surface_temperature / surface.injection_pressure / self.mass_rate&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="2828" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n50" parent="n46" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;surface = self._find_surface(); inj_well = self._by_idx[0]; inj_well.inlet.mass_rate = self.mass_rate&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="213" width="2852" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n51" parent="n46" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;since policy == InjectionPolicy.MANUAL:&lt;/b&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="264" width="2852" height="1723" as="geometry" />
+</mxCell>
+        <mxCell id="n52" parent="n51" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;t_d_old_saved = {idx: c.t_d_old for c in self._ordered if hasattr(c, &quot;t_d_old&quot;)}&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;snapshot NumericalWell.t_d_old for the 3 numerical wells (idx 0,2,3)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="2828" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n53" parent="n51" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reservoir = next(c with attr &quot;energy_extracted&quot;) → LumpedReservoir (idx 1); energy_before = reservoir.energy_extracted&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="2828" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n54" parent="n51" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;MAIN CIRCUIT PASS  then  INNER T-CONVERGENCE LOOP  (sequential — read left to right)&lt;/b&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="159" width="2778" height="1552" as="geometry" />
+</mxCell>
+        <mxCell id="n55" parent="n54" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#d5e8d4;" value="&lt;b&gt;MAIN CIRCUIT PASS — SystemDirect.run_timestep(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_direct.py:71 — called from SystemBCIteration.run_timestep via super().run_timestep(t)&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="42" width="2100" height="1498" as="geometry" />
+</mxCell>
+        <mxCell id="n56" parent="n55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;for component in self._ordered: component.solve(); self._wire_one_stream(component)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;system_direct.py:71 — component_idx order 0,1,2,3,4 — the 5 boxes below mirror the physical flow direction left→right; each is collapsed by default, expand any one for its solve() detail&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="2076" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n57" parent="n55" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#d5e8d4;" value="&lt;b&gt;physical flow order →&lt;/b&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="108" width="2410" height="1378" as="geometry" />
+</mxCell>
+        <mxCell id="n58" parent="n57" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 0] NumericalInjectionWell.solve() — NumericalWell.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;numerical.py:322 · angle=0.0°&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="320" height="889" as="geometry" />
+</mxCell>
+        <mxCell id="n59" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.mark_all_stale()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;NumericalWellState.mark_all_stale() — numerical.py:125&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="296" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n60" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_inlet / P_inlet / mass_rate.update(inlet.*)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;copy Stream inlet onto LockedState&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="123" width="296" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n61" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;t_d = t_d_old + t_scaling_factor·dt_years·YEAR_TO_SECOND&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;s.t_d.update(t_d)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="189" width="296" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n62" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_PT(fluid_name, P_in, T_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:28 → CoolProp.AbstractState(&quot;HEOS&quot;, fluid_name); fs.update_PT() — fluid_state.py:47&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="255" width="296" height="94" as="geometry" />
+</mxCell>
+        <mxCell id="n63" parent="n58" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;for i in 1..num_cells-1  (marching loop, 100 cells)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="363" width="296" height="361" as="geometry" />
+</mxCell>
+        <mxCell id="n64" parent="n63" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reynolds_number(mdot, diameter, mu[i-1])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:59&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="272" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n65" parent="n63" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_friction_factor(HAALAND, Re, D, roughness)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:56 → friction_factor_haaland() — fluid_utils.py:115&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="272" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n66" parent="n63" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_heat_loss(ADAMS_2015, dL, rock_k, t_d, ΔT)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:70 → heat_loss_adams_2015() — fluid_utils.py:179&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="189" width="272" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n67" parent="n63" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_HP(fluid_name, h[i], P[i])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:35 → fs.update_HP() (CoolProp HmassP_INPUTS) — fluid_state.py:56&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="270" width="272" height="79" as="geometry" />
+</mxCell>
+        <mxCell id="n68" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_cells / h_cells / T_cells / rho_cells / mu_cells / u_cells.update(...)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="738" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n69" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_outlet / T_outlet.update(...); s.pump_power_watts.update(0.0)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="789" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n70" parent="n58" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.{T,P,mass_rate,rho,mu} = ...&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="840" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n71" parent="n57" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;→&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;inj_well.outlet → reservoir.inlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="346" y="42" width="120" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n72" parent="n57" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 1] LumpedReservoir.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;lumped.py:268&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="480" y="42" width="340" height="1006" as="geometry" />
+</mxCell>
+        <mxCell id="n73" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_out_prev / P_out_prev ← self.ever_solved ? state.get_fresh() : T_initial / hydrostatic guess&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n74" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.mark_all_stale()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;LumpedReservoirState.mark_all_stale() — lumped.py:99&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n75" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_inlet / P_inlet / mass_rate.update(inlet.*)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="174" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n76" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_density(fluid_name, T, P)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:229 → FluidState.with_PT(...).rho&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="225" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n77" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_viscosity(fluid_name, T, P)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:241 → FluidState.with_PT(...).mu&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="291" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n78" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;doublet impedance: Z = μ·[ln(L/(e·D)) + D/L] / (ρ·k·b_eff·π); dp = mdot·Z&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="357" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n79" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_enthalpy(fluid_name, T, P)  ×2 (inlet, prev outlet)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:253 → FluidState.with_PT(...).H&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="408" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n80" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_cp(fluid_name, T, P)  ×2 (avg)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:265 → FluidState.with_PT(...).cp&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="474" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n81" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;lumped.py:226 → sets self.p1, self.p2 (math.exp), self.p3 (np.clip)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="540" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n82" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.energy_extracted += mdot·(h_prod_prev - h_in)·dt_seconds&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="621" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n83" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;psi = energy_extracted / E_reservoir&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="672" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n84" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._depletion_curve(psi)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;lumped.py:247 → scipy.special.erfc(...) or math.exp(...) branch on ψ threshold&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="723" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n85" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_out = T_inj + gamma·(T_initial - T_inj); s.T_outlet.update(T_out)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="804" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n86" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_enthalpy(...) again for h_outlet&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="855" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n87" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.T/P/mass_rate = ...; outlet.rho = fluid_density(...); outlet.mu = fluid_viscosity(...)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="906" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n88" parent="n72" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.ever_solved = True&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="957" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n89" parent="n57" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;→&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;reservoir.outlet → prod_well_lower.inlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="834" y="42" width="120" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n90" parent="n57" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 2] NumericalProductionWell.solve() — NumericalWell.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;numerical.py:322 · angle=180° (straight up); f_dir=+1&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="968" y="42" width="320" height="901" as="geometry" />
+</mxCell>
+        <mxCell id="n91" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.mark_all_stale()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;NumericalWellState.mark_all_stale() — numerical.py:125&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="54" width="296" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n92" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_inlet / P_inlet / mass_rate.update(inlet.*)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;copy Stream inlet onto LockedState&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="135" width="296" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n93" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;t_d = t_d_old + t_scaling_factor·dt_years·YEAR_TO_SECOND&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;s.t_d.update(t_d)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="201" width="296" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n94" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_PT(fluid_name, P_in, T_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:28 → CoolProp.AbstractState(&quot;HEOS&quot;, fluid_name); fs.update_PT() — fluid_state.py:47&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="267" width="296" height="94" as="geometry" />
+</mxCell>
+        <mxCell id="n95" parent="n90" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;for i in 1..num_cells-1  (marching loop, 100 cells)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="375" width="296" height="361" as="geometry" />
+</mxCell>
+        <mxCell id="n96" parent="n95" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reynolds_number(mdot, diameter, mu[i-1])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:59&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="272" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n97" parent="n95" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_friction_factor(HAALAND, Re, D, roughness)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:56 → friction_factor_haaland() — fluid_utils.py:115&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="272" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n98" parent="n95" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_heat_loss(ADAMS_2015, dL, rock_k, t_d, ΔT)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:70 → heat_loss_adams_2015() — fluid_utils.py:179&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="189" width="272" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n99" parent="n95" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_HP(fluid_name, h[i], P[i])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:35 → fs.update_HP() (CoolProp HmassP_INPUTS) — fluid_state.py:56&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="270" width="272" height="79" as="geometry" />
+</mxCell>
+        <mxCell id="n100" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_cells / h_cells / T_cells / rho_cells / mu_cells / u_cells.update(...)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="750" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n101" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_outlet / T_outlet.update(...); s.pump_power_watts.update(0.0)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="801" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n102" parent="n90" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.{T,P,mass_rate,rho,mu} = ...&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="852" width="296" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n103" parent="n57" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;→&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;prod_lower.outlet → prod_well_upper.inlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="1302" y="42" width="120" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n104" parent="n57" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 3] NumericalProductionWellPump.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;numerical.py:457&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="1436" y="42" width="340" height="1264" as="geometry" />
+</mxCell>
+        <mxCell id="n105" parent="n104" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;super().solve() — NumericalWell.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;numerical.py:322 · angle_from_vert_deg=180 inherited; identical marching-loop callee tree&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="316" height="901" as="geometry" />
+</mxCell>
+        <mxCell id="n106" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.mark_all_stale()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;NumericalWellState.mark_all_stale() — numerical.py:125&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="54" width="292" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n107" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_inlet / P_inlet / mass_rate.update(inlet.*)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;copy Stream inlet onto LockedState&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="135" width="292" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n108" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;t_d = t_d_old + t_scaling_factor·dt_years·YEAR_TO_SECOND&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;s.t_d.update(t_d)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="201" width="292" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n109" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_PT(fluid_name, P_in, T_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:28 → CoolProp.AbstractState(&quot;HEOS&quot;, fluid_name); fs.update_PT() — fluid_state.py:47&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="267" width="292" height="94" as="geometry" />
+</mxCell>
+        <mxCell id="n110" parent="n105" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;for i in 1..num_cells-1  (marching loop, 100 cells)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="375" width="292" height="361" as="geometry" />
+</mxCell>
+        <mxCell id="n111" parent="n110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reynolds_number(mdot, diameter, mu[i-1])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:59&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="268" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n112" parent="n110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_friction_factor(HAALAND, Re, D, roughness)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:56 → friction_factor_haaland() — fluid_utils.py:115&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="268" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n113" parent="n110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;compute_heat_loss(ADAMS_2015, dL, rock_k, t_d, ΔT)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;physics_models.py:70 → heat_loss_adams_2015() — fluid_utils.py:179&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="189" width="268" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n114" parent="n110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;FluidState.with_HP(fluid_name, h[i], P[i])&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_state.py:35 → fs.update_HP() (CoolProp HmassP_INPUTS) — fluid_state.py:56&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="270" width="268" height="79" as="geometry" />
+</mxCell>
+        <mxCell id="n115" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_cells / h_cells / T_cells / rho_cells / mu_cells / u_cells.update(...)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="750" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n116" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_outlet / T_outlet.update(...); s.pump_power_watts.update(0.0)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="801" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n117" parent="n105" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.{T,P,mass_rate,rho,mu} = ...&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="852" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n118" parent="n104" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;if pump_target_pressure_megapascals·1e6 &gt; P_wellbore:&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="957" width="316" height="295" as="geometry" />
+</mxCell>
+        <mxCell id="n119" parent="n118" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;pump_dp = target - P_wellbore&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n120" parent="n118" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;pump_pwr = mdot·pump_dp/rho_out/pump_efficiency&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n121" parent="n118" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.P_outlet.mark_stale(); s.P_outlet.update(target_Pa)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="144" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n122" parent="n118" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.pump_power_watts.mark_stale(); s.pump_power_watts.update(pump_pwr)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="195" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n123" parent="n118" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.P = target_Pa&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="246" width="292" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n124" parent="n57" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;→&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;prod_upper.outlet → surface.inlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="1790" y="42" width="120" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n125" parent="n57" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#ffe6cc;" value="&lt;b&gt;[idx 4] GraphSurface.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;graph.py:472&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="1924" y="42" width="340" height="1324" as="geometry" />
+</mxCell>
+        <mxCell id="n126" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.mark_all_stale()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;GraphSurfaceState.mark_all_stale() — graph.py:154&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n127" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_inlet / P_inlet / mass_rate.update(inlet.*)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="108" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n128" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_density(common.fluid_name, T_in, P_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:229&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="159" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n129" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_viscosity(common.fluid_name, T_in, P_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:241&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="225" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n130" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;mean_velocity(mdot, rho_in, pipe_diameter)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:45&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="291" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n131" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reynolds_number(mdot, pipe_diameter, mu_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:59&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="357" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n132" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;friction_factor_haaland(Re_in, pipe_diameter, pipe_roughness)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:115&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="423" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n133" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;pressure_drop_friction(ff_in, well_spacing, pipe_diameter, rho_in, u_in)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;fluid_utils.py:141 → dp_pipe (surface-pipe friction, wellhead→plant)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="489" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n134" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;self._inlet_conn.set_attr(fluid=..., m=mdot, T=T_in+K_TO_C, p=P_tespy_in·PA_TO_BAR)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;TESPy Connection &quot;inlet&quot;→&quot;valve1&quot;&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="570" width="316" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n135" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;self._outlet_conn.set_attr(p = self.injection_pressure·PA_TO_BAR)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;TESPy Connection &quot;merge2&quot;→&quot;outlet&quot; — the BC variable SystemBCIteration would iterate&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="648" width="316" height="79" as="geometry" />
+</mxCell>
+        <mxCell id="n136" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b85450;dashed=1;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;font color=&quot;#b85450&quot; style=&quot;font-size:8px;&quot;&gt;&lt;b&gt;&amp;#9881; EXTERNAL CALL&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;self._network.solve(&quot;design&quot;)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;TESPy network solve — internally solves the whole double-flash topology: valve1 → droplet_separator1 (splits vapor/liquid) → turbine1/valve2 → droplet_separator2 → turbine2/pump1 → condenser1/condenser2 → merge1 → pump2 → merge2 → outlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="741" width="316" height="124" as="geometry" />
+</mxCell>
+        <mxCell id="n137" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_out = outlet_conn.T.val + C_TO_K; P_out = outlet_conn.p.val·BAR_TO_PA&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="879" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n138" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;s.T_outlet.update(T_out); s.P_outlet.update(P_out)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="930" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n139" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;net_power_W = sum(-node.P.val for node in net_electric_nodes)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;turbine1, turbine2, pump1, pump2 (role: net_electric) — turbines +, pumps -&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="981" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n140" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;net_thermal_W = sum(-node.Q.val for node in net_thermal_nodes)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;none tagged here → 0&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="1062" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n141" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;if record_node_detail: self._collect_node_detail()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;graph.py:422 — snapshots P/Q/T/p/m for every one of the 15 TESPy nodes&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="1128" width="316" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n142" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#399e5a;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;fluid_density(common.fluid_name, T_out, P_out); fluid_viscosity(...)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;for outlet stream&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="1209" width="316" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n143" parent="n125" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self.outlet.{T,P,mass_rate,rho,mu} = ...&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="1275" width="316" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n144" parent="n57" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;→&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;surface.outlet → inj_well.inlet (next timestep only — idx0 already ran this pass)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="2278" y="42" width="120" height="64" as="geometry" />
+</mxCell>
+        <mxCell id="n145" parent="n54" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5eaff;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#f5eaff;" value="&lt;b&gt;_converge_injection_T(surface, t_d_old_saved, reservoir, energy_before)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_bc_iteration.py:274 — INNER T-CONVERGENCE LOOP, runs after logger.info(&quot;t=%3d MANUAL single pass...&quot;) [system_bc_iteration.py:231]; mirrors old-tango&#x27;s dT_surface&lt;0.5K loop&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="2126" y="42" width="640" height="1390" as="geometry" />
+</mxCell>
+        <mxCell id="n146" parent="n145" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;save reservoir.outlet.{T,P,mass_rate,rho,mu} as res_T/res_P/res_mdot/res_rho/res_mu&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="54" width="616" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n147" parent="n145" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;res_downstream = self._by_idx[reservoir.next]&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;→ production_well_lower&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="105" width="616" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n148" parent="n145" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_inj_prev = surface.outlet.T&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="171" width="616" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n149" parent="n145" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5eaff;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#f5eaff;" value="&lt;b&gt;for inner_iter in range(_MAX_INNER_ITER = 20):&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="222" width="616" height="616" as="geometry" />
+</mxCell>
+        <mxCell id="n150" parent="n149" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5eaff;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#f5eaff;" value="&lt;b&gt;for component in self._ordered:  (idx 0,1,2,3,4 again)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="592" height="409" as="geometry" />
+</mxCell>
+        <mxCell id="n151" parent="n150" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;if component is reservoir:&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="568" height="142" as="geometry" />
+</mxCell>
+        <mxCell id="n152" parent="n151" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;wire saved res_T/res_P/res_mdot/res_rho/res_mu directly onto res_downstream.inlet  (skip reservoir.solve() and _wire_one_stream entirely)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="544" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n153" parent="n151" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;continue&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="544" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n154" parent="n150" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;restore component.t_d_old = t_d_old_saved[idx]&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;numerical wells only&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="198" width="568" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n155" parent="n150" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;component.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;same solve() call trees as main pass above: idx 0 NumericalWell.solve(), idx 2/3 likewise, idx 4 GraphSurface.solve() (re-solves TESPy network)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="264" width="568" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n156" parent="n150" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._wire_one_stream(component)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;system_direct.py:48 — copies outlet.{T,P,mass_rate,rho,mu} → downstream.inlet. &lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="345" width="568" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n157" parent="n149" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;T_inj_new = surface.outlet.T&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="465" width="592" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n158" parent="n149" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;if abs(T_inj_new - T_inj_prev) &lt; _DT_SURFACE_TOL (0.5 K): break&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="516" width="592" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n159" parent="n149" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;else: T_inj_prev = T_inj_new  (loop again, up to 20×)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="567" width="592" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n160" parent="n145" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;(for/else): logger.warning if not converged within 20 iters&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="852" width="616" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n161" parent="n145" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5eaff;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#f5eaff;" value="&lt;b&gt;PASS 2 — reservoir correction (single re-solve)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="903" width="616" height="475" as="geometry" />
+</mxCell>
+        <mxCell id="n162" parent="n161" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reservoir.energy_extracted = energy_before  (reset to pre-timestep baseline)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="592" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n163" parent="n161" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;reservoir.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;== LumpedReservoir.solve() — lumped.py:268 (full callee tree as above), now using the T-converged injection temperature at reservoir.inlet&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="592" height="67" as="geometry" />
+</mxCell>
+        <mxCell id="n164" parent="n161" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._wire_one_stream(component)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;system_direct.py:48 — copies outlet.{T,P,mass_rate,rho,mu} → downstream.inlet. reservoir&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="174" width="592" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n165" parent="n161" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#fff2cc;" value="&lt;b&gt;for component in self._ordered where idx &gt; reservoir.component_idx:  (idx 2,3,4)&lt;/b&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="240" width="592" height="223" as="geometry" />
+</mxCell>
+        <mxCell id="n166" parent="n165" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;restore t_d_old_saved[idx]&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="568" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n167" parent="n165" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;component.solve()&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;NumericalWell.solve() ×2, GraphSurface.solve() ×1 — final re-solve&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="568" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n168" parent="n165" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;self._wire_one_stream(component)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;system_direct.py:48 — copies outlet.{T,P,mass_rate,rho,mu} → downstream.inlet. &lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="159" width="568" height="52" as="geometry" />
+</mxCell>
+        <mxCell id="n169" parent="n45" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;after each timestep →&lt;/b&gt;" vertex="1" collapsed="0">
+  <mxGeometry x="12" y="2055" width="638" height="463" as="geometry" />
+</mxCell>
+        <mxCell id="n170" parent="n169" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=42;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;self._after_timestep(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;== SystemBCIteration._after_timestep(t) — system_bc_iteration.py:394&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="42" width="300" height="361" as="geometry" />
+</mxCell>
+        <mxCell id="n171" parent="n170" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#f5f5f5;" value="&lt;b&gt;self._log_timestep_summary(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;system_bc_iteration.py:418&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="12" y="54" width="276" height="295" as="geometry" />
+</mxCell>
+        <mxCell id="n172" parent="n171" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;surface = self._find_surface()&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="252" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n173" parent="n171" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;state.net_power_W.get_fresh() × W_TO_MW&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="252" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n174" parent="n171" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;state.net_thermal_W.get_fresh() × W_TO_MW&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="144" width="252" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n175" parent="n171" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;state.P_outlet.get_fresh()&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="195" width="252" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n176" parent="n171" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;logger.info(&quot;t=%3d | T_prod=... | P_inj=... MPa | net_power=... MW | net_thermal=... MW&quot;)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="246" width="252" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n177" parent="n169" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=4;container=1;collapsible=1;recursiveResize=0;startSize=30;swimlaneFillColor=#dae8fc;" value="&lt;b&gt;self.record(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-style:italic;&quot;&gt;&lt;i&gt;== SystemDirect.record(t) — system_direct.py:85&lt;/i&gt;&lt;/font&gt;" vertex="1" collapsed="1">
+  <mxGeometry x="326" y="42" width="300" height="409" as="geometry" />
+</mxCell>
+        <mxCell id="n178" parent="n177" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;for component in self._ordered: component.record(t)&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="42" width="276" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n179" parent="n177" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;[idx 0/2/3] NumericalWell.record(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;numerical.py:315 → self.history.record(self.state) == NumericalWellHistory.record() [numerical.py:157] — appends t_d, P/h/T/rho/mu/u_cells, T_outlet, P_outlet, pump_power_watts&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="93" width="276" height="97" as="geometry" />
+</mxCell>
+        <mxCell id="n180" parent="n177" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;[idx 1] LumpedReservoir.record(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;lumped.py:261 → LumpedReservoirHistory.record() [lumped.py:121] — appends T_inlet/outlet, P_inlet/outlet, psi, gamma&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="204" width="276" height="82" as="geometry" />
+</mxCell>
+        <mxCell id="n181" parent="n177" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;[idx 4] GraphSurface.record(t)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;graph.py:465 → GraphSurfaceHistory.record() [graph.py:179] — appends T_inlet/outlet, P_outlet, net_power_W, net_thermal_W, per-node node_history&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="12" y="300" width="276" height="97" as="geometry" />
+</mxCell>
+        <mxCell id="n182" parent="n5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;elapsed = time.time() - t_start&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="2835" width="1352" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n183" parent="n5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;print(&quot;Simulation finished normally. Elapsed time: ... seconds.&quot;); return 0&lt;/b&gt;" vertex="1">
+  <mxGeometry x="12" y="2886" width="1352" height="37" as="geometry" />
+</mxCell>
+        <mxCell id="n184" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=10;align=left;spacing=4;verticalAlign=middle;" value="&lt;b&gt;economic: block — NO-OP for this example&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;i&gt;EconomicComponent [components/economic/base.py:13] is abstract with no concrete subclass registered anywhere (not in COMPONENT_REGISTRY) — nothing in this config runs an economic/LCOE calculation.&lt;/i&gt;&lt;/font&gt;" vertex="1">
+  <mxGeometry x="20" y="3222" width="1400" height="52" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
