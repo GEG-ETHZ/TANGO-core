@@ -1,0 +1,186 @@
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!! DO NOT TRUST MULTI-TIMESTEP RESULTS FROM THIS CONFIG (confirmed 2026-08-01) !!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# This config has a horizontal_well and no reservoir node. Any such config
+# is silently routed by src/tango/utils.py::system_name() (~line 875-876) to
+# the SystemNative orchestrator (src/tango/orchestrators/native.py:14-77),
+# whose update_time_dependent_vars()/update()/balanced() are literal no-op
+# placeholders (pass / pass / return True). NOTHING ever advances between
+# timesteps: a multi-timestep run silently repeats the SAME solved state at
+# every timestep after t=0 (confirmed empirically on this file AND on the
+# previously-"validated" examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml
+# -- same exact frozen-after-t0 signature on both). Any apparent thermal/
+# temperature decline over time from this config is NOT REAL PHYSICS.
+# See docs/tango_next_tasks.md's "AGS_direct_heat.yml parity" entry (section
+# 4) for the full root-cause trace and status. NOT YET FIXED.
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
+# Triemli (Zurich) AGS direct-heat — static single-point reference config.
+#
+# This is the fixed "validated reference point" counterpart to
+# applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml (that file is a
+# sweep-app base, with well_length/well_spacing overwritten per design point
+# by sweep.py) — mirroring examples/AGS_new/'s "validated reference point"
+# pattern. Used for old-tango-vs-tango_next parity testing against
+# examples/tango_next/AGS_direct_heat.yml, which this file matches exactly
+# (3000 m vertical wells, 707 m horizontal loop, 30 kg/s, 25 timesteps). See
+# tests/regtest/test_old_new_parity.py's THERMAL_PARITY_CASES.
+#
+# AGS topology: injection_well → horizontal_well → production_well → surface
+# No reservoir component: the borehole loop is sealed; formation permeability
+# is not a factor.  Heat exchange occurs conductively along the wellbore walls
+# using the Adams et al. (2015) transient heat-loss model in each segment.
+#
+# Site parameters (Triemli, Zurich):
+#   surface temperature : 11 °C  (284.15 K)
+#   thermal gradient    : 35 °C/km  (0.035 K/m)
+#   fluid               : H2O
+#   application         : direct heat only (district heating, no electricity)
+#   DH return temp      : 50 °C (re-injection temperature)
+
+graph:
+  nodes:
+    injection_well:
+      type: 'injection_well'
+      unit: 'native'
+    horizontal_well:
+      type: 'horizontal_well'
+      unit: 'native'
+    production_well:
+      type: 'production_well'
+      unit: 'native'
+    surface:
+      type: 'surface'
+      unit: 'native_flexible'
+  edges:
+    1:
+      source: 'surface'
+      target: 'injection_well'
+    2:
+      source: 'injection_well'
+      target: 'horizontal_well'
+    3:
+      source: 'horizontal_well'
+      target: 'production_well'
+    4:
+      source: 'production_well'
+      target: 'surface'
+
+runspec:
+  title: 'Triemli AGS direct-heat — static reference point'
+  workflow: 'native'
+
+props:
+  fluid_name: 'H2O'
+  brine_density: 1000       # kg/m³
+  rock_density: 2650.0      # kg/m³
+  rock_cp: 1000.0           # J/(kg·K)
+  rock_k: 2.1               # W/(m·K)
+  thermal_gradient: 0.035   # K/m  (35 °C/km, Triemli site)
+
+surface:
+  surface_temperature: 284.15   # K  (11 °C, Triemli)
+  surface_pressure: 100_000     # Pa
+  pipe_diameter: 0.41           # m
+  approach_temperature: 7.0     # K
+  target_extraction_pressure: 7_000_000  # Pa
+
+injection_well:
+  well_length: 3000.          # m
+  diameter: 0.311             # m  (~12-inch casing)
+  well_length_seq: [3000.]
+  well_diameter_seq: [0.311]
+  epsilon: 5.5e-5             # m
+
+horizontal_well:
+  wellhead_depth: 3000.       # m — starting (vertical) depth, matches injection_well's well_length
+  well_length: 707.           # m — validated reference point (see header note)
+  diameter: 0.311             # m
+  vertical_deviation: 90      # deg  (fully horizontal)
+  well_length_seq: [707.]
+  well_diameter_seq: [0.311]
+
+production_well:
+  well_length: 3000.          # m
+  diameter: 0.311             # m
+  well_length_seq: [3000.]
+  well_diameter_seq: [0.311]
+  eta_pump: 0.75
+
+costs:
+  permitting:
+    type: default
+  exploration:
+    type: default
+  wells:
+    type: default
+  surface_pipes:
+    type: default
+  power_plant:
+    type: default
+    sizing_strategy: average_performance
+
+schedule:
+  main_product: 'heat'
+  electricity_price: 0.25      # CHF/kWh
+  bc_iteration_checkpoint: production_well_bottom
+  mass_flow_rate: 30.          # kg/s
+  well_pattern: 'AGS'
+  well_spacing: 707.           # m  (= horizontal loop length)
+  well_pattern_dimens: [1, 1]
+  start_date: '2024-01-01'
+  num_pp: 1
+  time:
+    type: ConstantDT
+    num_tsteps: 25             # 25 years of operation
+    dt: 1.0                    # year
+  mass_rate:
+    type: manual
+    value: 30.                 # kg/s — kept in sync with mass_flow_rate above
+
+economic:
+  type: 'native'
+  project_maturity: 'green_field'
+  discount_rate: 0.095
+
+addons:
+  ThermaGraph:
+    active: 'no'
+    execute: 'no'
+    states_file: 'thermagraph_states.json'
+    connections_file: 'thermagraph_connections.json'
+  Analyzer:
+    active: 'no'
+    execute: 'no'
+    results_file: 'analyzer_results.csv'
+
+# Direct-heat surface plant: produced fluid passes through a district-heating
+# heat exchanger and returns at 50 °C (= re-injection temperature).
+power_plant_graph:
+  nodes:
+    inlet:
+      type: 'Source'
+      unit: 'native'
+    DH:
+      type: 'SimpleHeatExchanger'
+      unit: 'native'
+    outlet:
+      type: 'Sink'
+      unit: 'native'
+  edges:
+    1:
+      source: 'inlet'
+      target: 'DH'
+    2:
+      source: 'DH'
+      target: 'outlet'
+
+DH:
+  Subtype: 'DH_component'
+  # T_out is a hard TESPy connection constraint (see flexible_pp.py's
+  # SimpleHeatExchanger handling), not an effectiveness/NTU-derived value —
+  # TESPy solves for whatever duty is required to hit this exact outlet
+  # temperature, so the solved outlet is always precisely 50 °C given a
+  # converged solve, never an approximation.
+  T_out: 50      # °C — district-heating return temperature (re-injection temperature)
