@@ -16,6 +16,17 @@ class SystemNative(UnitManager):
 
     This class provides the framework for system iterations, convergence checks, and time-dependent variable updates.
 
+    !!! BUG, CONFIRMED 2026-08-01, NOT YET FIXED !!!
+    ``update_time_dependent_vars()``/``update()``/``balanced()`` below are
+    literal no-op placeholders on THIS base class — real time-marching only
+    exists in the ``SystemCPGNative``/``SystemORCNative`` subclasses.
+    ``utils.py::system_name()`` silently routes every AGS-shaped config
+    (horizontal well, no reservoir) here, meaning those configs never
+    advance dimensionless time or any other time-dependent state between
+    timesteps. See ``system_name()``'s docstring and
+    ``docs/tango_next_tasks.md``'s "AGS_direct_heat.yml parity" entry
+    (section 4) for the full trace.
+
     Attributes:
         x_lst (list): List of x-values for root-finding or iterative calculations.
         y_lst (list): List of y-values corresponding to `x_lst`.

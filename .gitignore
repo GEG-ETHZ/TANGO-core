@@ -91,3 +91,4 @@ tools/examples_sweep_output/
 *.svg
 .aider*
 .claude/
+*.drawio.bkp

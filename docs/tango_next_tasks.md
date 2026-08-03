@@ -82,44 +82,114 @@ old tango's apps — that's task 3 below, still blocked/deferred.
       per-design YAML from a template the way old tango's does.
 
 ### 4. Compare tango_next vs. old tango, close/explain discrepancies
-- [ ] **`AGS_direct_heat.yml` parity — scoped 2026-07-23, bigger than it
-      looks, NOT started.** Currently NOT in `test_old_new_parity.py`'s
-      `PARITY_CASES` at all — only has a standalone smoke test
-      (`test_ags_direct_heat_smoke` in `test_tango_next.py`) asserting
-      positive net thermal power, no actual old-vs-new numeric comparison.
-      This isn't a one-line registry addition — three real pieces of work:
-      1. **No old-tango file lives under `examples/`.** The only old-tango
-         counterpart is `applications/run_AGS_direct_heat_sweep/
-         triemli_dh_base.yml` (a sweep-app file, params overwritten per
-         design point by `sweep.py`). `_run_old_tango`'s path handling
-         (`EXAMPLES_OLD / case.old_yml`) assumes everything lives under
-         `examples/` — need to add a static single-point copy there first
-         (matching `examples/AGS_new/`'s "validated reference point" pattern),
-         with `well_length`/`mass_rate`/etc. fixed to match
-         `examples/tango_next/AGS_direct_heat.yml`'s actual values (3000 m
-         vertical, 707 m horizontal, 30 kg/s).
-      2. **The comparison harness (`_run_old_tango`/`_run_tango_next` in
-         `test_old_new_parity.py`) is hardcoded to the SF/DOUBLET topology**
-         — fixed keys `reservoir_T`, `production_well_pump_T`,
-         `turbine_power_real`. AGS direct-heat has no reservoir at all
-         (sealed closed loop), a single `production_well` (not the
-         lower/upper split), and no turbine — it's a district-heating heat
-         exchanger (`dh_hx` in tango_next, `DH` node in old tango), so
-         "gross power" isn't the right comparable quantity; thermal power
-         delivered is. `ParityCase`'s tolerance fields (`res_T_atol`,
-         `prod_T_atol`, `power_rtol`) are similarly SF-shaped and don't fit.
-         Needs either a topology-aware branch in the harness or a second,
-         parallel comparison path for no-reservoir/thermal-only cases.
-      3. **Old tango's per-timestep thermal-power result key isn't
-         confirmed.** `native_workflow.py` builds per-timestep result keys
-         as `f"{component_name}_Q"` (mirrors `_P` for power, e.g. the
-         existing `turbine_power_real`-style lookups). The DH heat
-         exchanger's node name in `triemli_dh_base.yml`'s
-         `power_plant_graph` is `DH`, so the key is very likely `DH_Q` in
-         `workflow.results` — not yet verified by actually running it and
-         inspecting the dict.
-      Chad's call 2026-07-23: scope it here, don't build yet — pick up when
-      there's room for a real (not "quick") task.
+- [ ] **`AGS_direct_heat.yml` parity — scoped 2026-07-23, picked up
+      2026-07-31, BLOCKED on a discovered old-tango bug (not a tango_next
+      problem).** Of the three pieces originally scoped, the first two are
+      actually done; the third uncovered something bigger than "confirm a
+      result key."
+      1. **DONE 2026-07-31** — static single-point old-tango reference file
+         added at `examples/AGS_direct_heat.yml` (copied from
+         `applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml`, the
+         two sweep-placeholder fields — `horizontal_well.well_length` and
+         `schedule.well_spacing` — fixed from `2500.` to `707.` to match
+         `examples/tango_next/AGS_direct_heat.yml`'s reference point exactly:
+         3000 m vertical wells, 707 m horizontal loop, 30 kg/s, 25 timesteps).
+      2. **Result keys confirmed by actually running old tango**, not
+         guessed: production well outlet T is `production_well_T` (K) — via
+         `REPORT_SETTINGS["production_well"] = "outlet_fluid"`
+         (`core/config.py`) feeding `append_results`'s `f"{unit_name}_{attr}"`
+         convention. Heat delivered is `DH_heat_transfer_real` — **not**
+         `DH_Q` as originally guessed; it comes from `parse_results_flexible`
+         (`utils.py:1105-1115`) reading `component.Q.val` under the key
+         `f"{component_name}_heat_transfer"`, then `append_results` on that
+         bare float picks up `.real`/`.imag`. Despite the source comment
+         saying "Heat transfer in kW," the value's actual magnitude (checked
+         by hand: `mass_rate × Δh` from the printed inlet/outlet enthalpy
+         table matches the raw number, e.g. `-382461` ≈ `-382.47 kW`
+         computed in **W**, not `-382461` kW) confirms it's already in W —
+         the comment is wrong, don't scale by 1000.
+      3. **BLOCKING DISCOVERY — old tango never advances wellbore transient
+         state for AGS (horizontal-well, no-reservoir) configs, at all,
+         for the entire run.** Ran the new static file: `production_well_T`
+         and `DH_heat_transfer_real` are bit-identical across all 24
+         timesteps after t=0 (a separate, differently-signed t=0
+         cold-start/init-pass artifact). Suspected a config mistake first,
+         so cross-checked against the pre-existing, previously-"validated"
+         `examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml` (20
+         timesteps, unrelated to anything touched today) — **same exact
+         signature**: `production_well_T` frozen at `333.0700731379618` for
+         19 straight timesteps after t=0. Confirmed systemic, not a mistake
+         in the new file.
+
+         **Root cause, verified three independent ways (static trace,
+         cross-check against an unrelated pre-existing file, AND live
+         runtime introspection of the actual instantiated class — not just
+         read from source):**
+         `src/tango/utils.py::system_name()` (bug condition at line 898,
+         confirmed by direct grep — line numbers shift as comments are
+         added, always re-grep before citing): `if "horizontal_well" in
+         unit_types and "reservoir" not in unit_types: sys_name =
+         sys_name.split("_")[0]`. For our AGS config this collapses
+         `sys_name` from `"native_flexible"` (set by the surface node) down
+         to plain `"native"`. `SYSTEM_OPTIONS["native"]`
+         (`units/registry.py:31`) maps to the *base* `SystemNative` class
+         (`orchestrators/native.py:14`), whose `balanced()`/
+         `update_time_dependent_vars()`/`update()` (lines 67/76/83) are
+         literal `return True`/`pass`/`pass` placeholders — real
+         time-marching (`t_d` advancement, BC-iteration) only exists in the
+         `SystemCPGNative`/`SystemORCNative` subclasses, which this routing
+         never reaches. **Confirmed live**: `runner.tango.workflow.sys_name
+         == "native"` and `type(runner.tango.workflow.orchestrator) is
+         SystemNative` (not a subclass), with
+         `inspect.getsource(type(...).update_time_dependent_vars)` printing
+         exactly the base class's `pass` body — no override in the MRO gets
+         reached. So for any config with a horizontal well and no
+         reservoir, **nothing ever advances between timesteps** — the
+         "25-year simulation" is the same single solved state repeated 24
+         times. This explains both the flatness and the ~3× magnitude gap
+         vs. tango_next (382 kW old, flat, vs. tango_next's real transient
+         declining 142.7 kW → 110.1 kW over the run) — it isn't a tunable
+         numerical deviation, old tango simply has no valid transient
+         reference for this topology to compare against.
+
+         **All affected files now carry an explicit in-file warning**
+         (added 2026-08-01, not yet fixed): `system_name()`'s docstring and
+         the `SystemNative` class docstring in the two files above; every
+         old-tango config with `horizontal_well` + no `reservoir` —
+         `examples/AGS_direct_heat.yml`, `examples/AGS_new/
+         AGS_H2O_webapp_native.yml`, `examples/AGS_new/
+         AGS_H2O_webapp_native_direct_heat.yml`, `examples/testcase{6,7,8}.yml`,
+         `examples/MVP_templates/testcase{6,7}.yml`,
+         `applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml`,
+         `applications/run_AGS_sweep/triemli_power_base.yml`; and the four
+         sweep-orchestration scripts that run them (`run_AGS_direct_heat_sweep
+         .py`/`sweep.py` and `run_AGS_sweep.py`/`sweep.py` in their
+         respective `applications/` dirs). `applications/run_EGS_direct_heat_sweep/`
+         is NOT affected — checked, it has a `reservoir` node, so it doesn't
+         hit this branch.
+
+         Minor, unrelated bug noticed along the way (cosmetic only, not the
+         cause of the above, also now flagged in-file):
+         `horizontal_well.py`'s consistency check (line 104, re-grep before
+         citing) — `if np.abs(well_spacing - horizontal_well.well_length) <
+         1e-5: logging.warning("Inconsistent...")` — triggers when the two
+         values *match* (small difference), the opposite of what the
+         message says; harmless (log-only), not investigated further.
+
+         **Not fixed, not decided how to proceed** — this is old tango's own
+         legacy behavior, out of scope to silently patch without sign-off.
+         Options to weigh next session: (a) treat AGS direct-heat as having
+         no valid old-tango transient reference, and rely on tango_next's
+         own smoke test (`test_ags_direct_heat_smoke`) + golden-snapshot
+         self-consistency instead of an old-vs-new comparison; (b) fix
+         `system_name()`'s AGS routing in old tango so it actually
+         time-marches, then re-run this comparison for real; (c) something
+         else. Chad's call, not started.
+      Comparison harness (`_run_old_tango`/`_run_tango_next` in
+      `test_old_new_parity.py` being hardcoded to the SF/DOUBLET topology)
+      still needs the parallel no-reservoir/thermal-only path described in
+      the original scoping — deferred behind the blocker above, no point
+      building it against a reference that can't validate anything yet.
 - [ ] Add an equivalent parity case for the power variant once its
       `tango_next` port exists.
 - [ ] Decide comparison scope: full 6006-point sweep-vs-sweep comparison
@@ -710,13 +780,20 @@ reasoning doesn't have to be re-derived next session.
   composition support, or a typed `Fluid` object beyond the existing bare
   `Common.fluid_name` string — neither risk above needed it, and adding it
   now would be speculative.
-- **Line-by-line debugger walkthrough of one `tango_next` single-simulation
-  case** `examples/tango_next/flexible_SF_manual.yml` (the
-  original reference example used throughout tango_next's design/porting
-  work — simplest well-understood topology). Goal: step through the full
-  execution flow (`Workflow` → `Orchestrator`/`SystemBCIteration` →
-  component `solve()` calls) with a real debugger for one config, to build
-  or verify a concrete mental model of the current call graph.
+- **IN PROGRESS (~halfway, as of 2026-07-31) — Line-by-line debugger
+  walkthrough of one `tango_next` single-simulation case.** Originally scoped
+  against `examples/tango_next/flexible_SF_manual.yml` (the original
+  reference example used throughout tango_next's design/porting work —
+  simplest well-understood topology); in practice picked up against
+  `hydro_double_flash_electric` instead, using
+  `docs/diagrams/src/tango_next/hydro_double_flash_electric_exec_flow.drawio`
+  as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
+  node and added the previously-missing `Workflow.__init__` entry node).
+  Goal: step through the full execution flow (`Workflow` →
+  `Orchestrator`/`SystemBCIteration` → component `solve()` calls) with a
+  real debugger for one config, to build or verify a concrete mental model
+  of the current call graph. Chad did roughly half of the walkthrough
+  himself — needs to be picked back up and finished, not restarted.
 - **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
   started. Chad wants a pass across the whole repo (not scoped to
   `tango_next`) to flag anything "wacky or inconsistent," explicitly
