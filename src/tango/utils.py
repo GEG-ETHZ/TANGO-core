@@ -833,6 +833,27 @@ def check_inputs(specs: dict) -> None:
 def system_name(specs) -> str:
     """Determines the system name based on the specifications.
 
+    !!! BUG, CONFIRMED 2026-08-01, NOT YET FIXED !!!
+    The "horizontal well but no reservoir" branch below (any AGS-shaped
+    config) collapses ``sys_name`` down to plain ``"native"``, which
+    ``SYSTEM_OPTIONS`` (``units/registry.py``) maps to the *base*
+    ``SystemNative`` class (``orchestrators/native.py:14-77``) — whose
+    ``update_time_dependent_vars()``/``update()``/``balanced()`` are literal
+    no-op placeholders (``pass``/``pass``/``return True``). Real
+    time-marching only exists in the ``SystemCPGNative``/``SystemORCNative``
+    subclasses, which this branch never routes to. Net effect: for any
+    AGS config, dimensionless time (``t_d``) and every other time-dependent
+    well/reservoir variable NEVER ADVANCE — a multi-timestep run silently
+    repeats the exact same solved state at every timestep after t=0.
+    Confirmed empirically against this file's own logic, against a live run
+    of a new static AGS config, AND against the pre-existing "validated"
+    ``examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml`` (same exact
+    frozen-after-t0 signature). See ``docs/tango_next_tasks.md``'s
+    "AGS_direct_heat.yml parity" entry (section 4) for the full trace.
+    Do not "fix" this without Chad's sign-off — this dispatch is used by
+    every AGS/CO2-horizontal-well config in ``examples/``/``applications/``,
+    blast radius not yet assessed.
+
     Args:
         specs (dict): The specifications dictionary containing the system's graph and schedule.
 

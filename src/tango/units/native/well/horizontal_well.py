@@ -95,6 +95,12 @@ class HorizontalWellUnitNative(WellUnitNative):
                 raise RuntimeError(f"Failed to read horizontal_well specs for id: {id}")
         if "wellhead_depth" not in specs["horizontal_well"]:
             raise RuntimeError("Required parameter 'wellhead_depth' is not found in specs")
+        # BUG, confirmed 2026-08-01, cosmetic only: this condition fires when
+        # the two values MATCH (difference < 1e-5), the opposite of what the
+        # message says — should be inverted (warn when they DIFFER). Doesn't
+        # affect physics, not yet fixed. Unrelated to the much more serious
+        # AGS no-time-marching bug — see system_name()'s docstring in
+        # utils.py and docs/tango_next_tasks.md section 4.
         if np.abs(specs["common"]["well_spacing"] - specs["horizontal_well"]["well_length"]) < 1e-5:
             logging.warning("Inconsistent well_spacing and horizontal_well length found.")
         specs_dict: dict = specs["common"] | specs["horizontal_well"]

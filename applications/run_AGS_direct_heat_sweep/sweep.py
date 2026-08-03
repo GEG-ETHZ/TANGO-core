@@ -1,4 +1,18 @@
-"""Simulation sweep stage: run each (depth, mass-flow, loop-length, loop-diameter) design point in parallel."""
+"""Simulation sweep stage: run each (depth, mass-flow, loop-length, loop-diameter) design point in parallel.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! DO NOT TRUST MULTI-TIMESTEP RESULTS FROM THIS SWEEP (confirmed 2026-08-01) !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Every design point here is an AGS config (horizontal_well, no reservoir),
+which src/tango/utils.py::system_name() (~line 875-876) silently routes to
+the SystemNative orchestrator (src/tango/orchestrators/native.py:14-77) —
+its update_time_dependent_vars()/update()/balanced() are literal no-op
+placeholders. NOTHING advances between timesteps: every design point's
+multi-timestep run repeats the SAME solved state at every timestep after
+t=0. Any apparent thermal decline over time in this sweep's output is NOT
+REAL PHYSICS. See docs/tango_next_tasks.md's "AGS_direct_heat.yml parity"
+entry (section 4) for the full root-cause trace and status. NOT YET FIXED.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,18 @@
 """End-to-end orchestrator for the Triemli AGS direct-heat parameter sweep.
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! DO NOT TRUST MULTI-TIMESTEP RESULTS FROM THIS SWEEP (confirmed 2026-08-01) !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Every design point here is an AGS config (horizontal_well, no reservoir),
+which src/tango/utils.py::system_name() (~line 875-876) silently routes to
+the SystemNative orchestrator (src/tango/orchestrators/native.py:14-77) —
+its update_time_dependent_vars()/update()/balanced() are literal no-op
+placeholders. NOTHING advances between timesteps: every design point's
+multi-timestep run repeats the SAME solved state at every timestep after
+t=0. Any apparent thermal decline over time in this sweep's output is NOT
+REAL PHYSICS. See docs/tango_next_tasks.md's "AGS_direct_heat.yml parity"
+entry (section 4) for the full root-cause trace and status. NOT YET FIXED.
+
 Sweeps well depth (2 – 8 km) × mass flow rate (3.5 – 100 kg/s) × horizontal
 loop length (707 – 3500 m) × loop diameter (0.2 – 0.75 m) over 6006 designs
 and reports production temperature, specific enthalpy, thermal power, and
