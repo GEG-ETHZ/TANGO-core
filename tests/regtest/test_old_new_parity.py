@@ -180,12 +180,21 @@ PARITY_CASES: list[ParityCase] = [
     ParityCase(
         old_yml="flexible_SF_manual.yml",
         new_yml="flexible_SF_manual.yml",
-        res_T_atol=2.0,  # known max deviation ≲ 0.1 K; 2 K headroom catches regressions
-        prod_T_atol=3.0,  # known deviation ≲ 0.75 K (Adams heat-loss integration diff)
-        power_rtol=0.08,  # known deviation ≲ 3.7% (driven by prod-T diff)
+        res_T_atol=2.0,  # measured max deviation ≲ 0.18 K; 2 K headroom catches regressions
+        prod_T_atol=3.0,  # measured max deviation ≲ 0.16 K
+        power_rtol=0.08,  # measured max deviation ≲ 0.26%
         notes=(
             "DOUBLET layout, manual mass flow, single-flash surface. "
-            "Tolerances cover known deliberate deviations from 1-step-lag fix."
+            "Tolerances cover known deliberate deviations from the 1-step-lag "
+            "fix. Re-measured after letting the reservoir fully participate "
+            "in T-convergence instead of freezing it (2026-08) — agreement "
+            "with old tango tightened (res T max delta 0.214->0.172 K, "
+            "prod T 0.190->0.160 K, gross power 0.36%->0.26%) but did not "
+            "vanish, since old tango's real loop also converges injection "
+            "pressure together with temperature, which tango_next's MANUAL "
+            "policy still treats as a fixed given (see "
+            "system_bc_iteration.py's module docstring, 'Planned: real "
+            "BC-iteration physics')."
         ),
     ),
     # ------------------------------------------------------------------

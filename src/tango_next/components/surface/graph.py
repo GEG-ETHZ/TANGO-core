@@ -118,7 +118,8 @@ class GraphSurfaceState:
     """Full simulation state for one graph-surface solve step.
 
     Scalar fields are ``LockedState[float]`` — writable exactly once per
-    timestep. Call ``mark_all_stale()`` at the start of each ``solve()``.
+    timestep. ``mark_all_stale()`` is called by the orchestrator (via
+    ``Component.mark_all_stale()``) immediately before each ``solve()``.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
@@ -472,7 +473,6 @@ class GraphSurface(SurfaceComponent):
     def solve(self) -> None:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
         s = self.state
-        s.mark_all_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)

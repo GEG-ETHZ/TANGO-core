@@ -175,8 +175,10 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
 
-    for _ in range(3):
+    for i in range(3):
         res.inlet = Stream(T=350.0, P=5.1e7, mass_rate=50.0)
+        if i > 0:
+            res.mark_all_stale()
         res.solve()
 
     energy_before = res.energy_extracted
@@ -313,6 +315,10 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     # skip_init defaults to False -> init() runs -> TESPy network rebuilt.
     surface2 = GraphSurface.from_dict(dump)
     surface2.inlet = Stream(mass_rate=45.0, P=8.5e6, T=423.15)
+    # dump captured surface's already-solved (fresh) state, so surface2's
+    # restored state starts fresh too — mark it stale first, exactly like
+    # the orchestrator would immediately before each solve().
+    surface2.mark_all_stale()
     surface2.solve()  # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
 
     assert pytest.approx(323.15, abs=1e-6) == surface2.outlet.T  # fixed by T_out config

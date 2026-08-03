@@ -69,7 +69,8 @@ class LumpedReservoirState:
     """Full simulation state for one reservoir solve step.
 
     All fields are ``LockedState[float]`` so each is writable exactly once per
-    timestep.  Call ``mark_all_stale()`` at the start of each ``solve()``.
+    timestep.  ``mark_all_stale()`` is called by the orchestrator (via
+    ``Component.mark_all_stale()``) immediately before each ``solve()``.
     T_outlet and P_outlet start stale with NaN; use ``is_stale()`` rather than
     ``math.isnan()`` to detect "not yet solved" on the first call.
     """
@@ -269,17 +270,19 @@ class LumpedReservoir(ReservoirComponent):
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
 
-        # Capture previous-timestep outlet before marking stale.
-        # self.ever_solved is False on the very first call (never been
-        # solved, even across a to_dict()/Workflow(cfg) reconstruction of an
-        # unsolved base config — see its docstring for why this, not
-        # s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the reliable check
-        # here) — fall back to T_initial / the hydrostatic guess.
-        T_out_prev = self.T_initial if not self.ever_solved else s.T_outlet.get_fresh()
+        # Capture previous-timestep outlet. The orchestrator already called
+        # mark_all_stale() before this solve(), so T_outlet/P_outlet are
+        # stale, holding last cycle's value — get_stale() is the canonical
+        # LockedState read for that (see core/locked_state.py's lifecycle
+        # docstring), not get_fresh(). self.ever_solved is False on the very
+        # first call (never been solved, even across a to_dict()/Workflow(cfg)
+        # reconstruction of an unsolved base config — see its docstring for
+        # why this, not s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the
+        # reliable check here) — fall back to T_initial / the hydrostatic
+        # guess.
+        T_out_prev = self.T_initial if not self.ever_solved else s.T_outlet.get_stale()
         P_reservoir_guess = self.hydro_static_pressure * (1.0 + self.over_pressure_percentage / 100.0)
-        P_out_prev = P_reservoir_guess if not self.ever_solved else s.P_outlet.get_fresh()
-
-        s.mark_all_stale()
+        P_out_prev = P_reservoir_guess if not self.ever_solved else s.P_outlet.get_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)

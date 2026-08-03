@@ -55,8 +55,9 @@ class WellboreState:
     All fields are ``LockedState[float]`` so that each is writable exactly once
     per timestep.  The dataclass is ``frozen=True`` to prevent replacing the
     wrapper objects themselves (the LockedState invariant is enforced on the
-    value inside).  Call ``mark_all_stale()`` at the start of each ``solve()``
-    to open the write slot for the new timestep.
+    value inside).  ``mark_all_stale()`` is called by the orchestrator (via
+    ``Component.mark_all_stale()``) immediately before each ``solve()`` to
+    open the write slot for the new timestep.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
@@ -155,7 +156,6 @@ class LumpedInjectionWell(WellComponent):
     def solve(self) -> None:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
-        s.mark_all_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)
@@ -221,7 +221,6 @@ class LumpedProductionWell(WellComponent):
     def solve(self) -> None:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
-        s.mark_all_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)
@@ -287,7 +286,6 @@ class LumpedProductionWellWithPump(WellComponent):
     def solve(self) -> None:
         """Compute wellhead T and P including wellbore losses and pump boost."""
         s = self.state
-        s.mark_all_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)

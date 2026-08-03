@@ -85,7 +85,7 @@ crossings.  Replace with a convergence-based loop::
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tango_next.core.constants import W_TO_MW
 from tango_next.core.policies import InjectionPolicy
@@ -109,19 +109,21 @@ _MAX_INNER_ITER: int = 20
 class SystemBCIteration(SystemDirect):
     """Convergence-loop orchestrator for injection-pressure BC iteration.
 
-    Subclasses ``SystemDirect``, reusing its single-circuit-pass
-    ``run_timestep`` (inherited, then called via ``super()``) as the building
-    block: single-pass policies (``MANUAL``, ``MANUAL_FRACING_CHECK``) call it
-    once per timestep; iterative policies (``AUTO_*``) will call it repeatedly
-    inside an outer Newton-step loop (not yet implemented).
+    Subclasses ``SystemDirect``, reusing its component ordering/wiring
+    (``self._ordered``, ``_wire_one_stream``) as the building block.
+    ``MANUAL``/``MANUAL_FRACING_CHECK`` drive a temperature-convergence loop
+    (``_converge_injection_T``) that re-solves the whole circuit every
+    iteration; iterative pressure policies (``AUTO_*``) will additionally
+    wrap that in an outer Newton-step loop (not yet implemented).
     ``InjectionPolicy`` is the sole authority over how many passes a timestep
     takes; the choice between ``SystemDirect`` and ``SystemBCIteration`` is a
     topology question (does this graph declare a circuit with a BC variable to
     solve for at all), not a duplicate encoding of policy.
 
-    Components are executed in ascending ``component_idx`` order each pass.
-    The injection well (idx 0) is solved first; the circuit continues
-    through reservoir → production wells → surface → back to injection well.
+    Components are executed in ascending ``component_idx`` order each
+    iteration. The injection well (idx 0) is solved first; the circuit
+    continues through reservoir → production wells → surface → back to
+    injection well.
 
     Args:
         components: Named components keyed by YAML name.
@@ -209,42 +211,18 @@ class SystemBCIteration(SystemDirect):
             inj_well.inlet.mass_rate = self.mass_rate
 
         if self.policy == InjectionPolicy.MANUAL:
-            # t_d_old is each numerical well's dimensionless time carried over
-            # from the previous timestep (used to advance the wellbore
-            # heat-loss model); solve() advances it by one del_t per call. Save
-            # it for all numerical wells BEFORE the first pass so that each
-            # inner-loop well solve advances t_d by exactly one del_t (not
-            # multiple times).  Must capture the pre-pass values here.
-            t_d_old_saved: dict[int, float] = {
-                c.component_idx: getattr(c, "t_d_old") for c in self._ordered if hasattr(c, "t_d_old")
-            }
-
-            # Save reservoir energy_extracted BEFORE the main pass.  The main pass
-            # runs the reservoir with the cold circuit-seed injection T (288 K), which
-            # over-extracts energy.  After T-convergence we re-run the reservoir with
-            # the converged injection T starting from this saved baseline.
-            reservoir = next(
-                (c for c in self._ordered if hasattr(c, "energy_extracted")),
-                None,
-            )
-            energy_before = getattr(reservoir, "energy_extracted", 0.0) if reservoir is not None else 0.0
-
-            super().run_timestep(t)  # first full circuit pass
+            # Snapshot every component's convergence-sensitive state (see
+            # Component.snapshot_convergence_state's docstring) as it stood
+            # at the end of the PREVIOUS calendar timestep, before this
+            # timestep solves anything. Every iteration below restores this
+            # SAME snapshot first, so every re-solve attempt asks the same
+            # question — "given last timestep's real state, what does this
+            # timestep look like with THIS iteration's injection-T guess" —
+            # rather than accumulating across attempts.
+            snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
 
             if surface is not None:
-                logger.info(
-                    "t=%3d  MANUAL single pass  P_inj=%.4g Pa",
-                    t,
-                    surface.outlet.P,
-                )
-
-            # Inner injection-temperature convergence loop (Pass 1).
-            # Mirrors old tango's update() which iterates injection_well →
-            # production_wells → surface until dT_surface < 0.5 K.  The
-            # reservoir is skipped inside the inner loop; it is re-run once
-            # after convergence in Pass 2 with the corrected injection T.
-            if surface is not None:
-                self._converge_injection_T(surface, t_d_old_saved, reservoir, energy_before)
+                self._converge_injection_T(surface, snapshot)
 
             return
 
@@ -277,85 +255,47 @@ class SystemBCIteration(SystemDirect):
     def _converge_injection_T(
         self,
         surface: Component,
-        t_d_old_saved: dict[int, float],
-        reservoir: Component | None,
-        energy_before: float,
+        snapshot: dict[int, dict[str, Any]],
     ) -> None:
-        """Converge injection temperature then correct reservoir energy extraction.
+        """Converge injection temperature, re-solving the whole circuit every iteration.
 
-        Two-phase operation that mirrors old tango's per-timestep inner loop:
+        Every component in the circuit — including the reservoir, which
+        used to be frozen/skipped here — is restored to its
+        end-of-previous-timestep snapshot and genuinely re-solved on every
+        iteration. This matters physically: the reservoir's real output
+        (via the production wellhead) does reach back to influence the
+        converged injection temperature (through the surface plant's
+        non-condenser branch merging back in), so freezing it during
+        convergence was producing a self-inconsistent answer, not just an
+        approximation.
 
-        **Pass 1 — T-convergence** (inner loop):
-        Iterates inj_well → prod_lower → prod_upper → surface until the
-        injection temperature (surface outlet) changes by less than
-        ``_DT_SURFACE_TOL``.  The reservoir is skipped each iteration (its
-        outlet is frozen at the main-pass value) so it does not accumulate
-        energy multiple times.
-
-        **Pass 2 — reservoir correction**:
-        After T-convergence, the injection well outlet carries the converged
-        injection temperature.  The reservoir is re-run once from ``energy_before``
-        (its pre-timestep value) using this converged injection T.  This matches
-        old tango's ``old + delta`` energy pattern, where only the *last*
-        intra-timestep call's delta is preserved.  Downstream components
-        (prod_lower, prod_upper, surface) are then re-solved once more so the
-        final recorded state is self-consistent.
-
-        ``t_d_old`` is restored for every numerical well before each solve so
-        that the Adams 2015 heat-loss time only advances by one ``del_t`` per
-        outer timestep, regardless of how many inner iterations are needed.
+        Each iteration: restore every component from ``snapshot`` (so this
+        iteration starts from "state as committed at the end of the
+        previous timestep," not from whatever the last iteration left
+        behind), solve the whole circuit in order, wire streams as usual.
+        Repeat until the injection temperature (surface outlet) changes by
+        less than ``_DT_SURFACE_TOL`` between iterations. The iteration
+        that satisfies convergence is already the final, committed answer —
+        no separate correction pass afterward.
 
         Args:
             surface: Surface component (last in solve order).
-            t_d_old_saved: Pre-first-pass ``t_d_old`` snapshot for every
-                component that has that attribute (numerical wells only).
-            reservoir: Reservoir component (has ``energy_extracted``), or None.
-            energy_before: ``reservoir.energy_extracted`` value captured before
-                the main circuit pass.  Used to reset and re-apply a single
-                correct delta in Pass 2.
+            snapshot: Per-``component_idx`` result of
+                ``Component.snapshot_convergence_state()``, captured once
+                before this loop starts.
 
         """
-        if reservoir is None:
-            return
-
-        # Save reservoir outlet so it can be wired to its downstream neighbour
-        # on each inner iteration (bypassing the un-solved reservoir).
-        res_next_idx: int | None = getattr(reservoir, "next", None)
-        res_downstream: Component | None = (
-            self._by_idx.get(res_next_idx) if res_next_idx is not None else None
-        )
-        res_T = reservoir.outlet.T
-        res_P = reservoir.outlet.P
-        res_mdot = reservoir.outlet.mass_rate
-        res_rho = reservoir.outlet.rho
-        res_mu = reservoir.outlet.mu
-
-        T_inj_prev = surface.outlet.T
+        T_inj_prev: float | None = None
 
         for inner_iter in range(_MAX_INNER_ITER):
             for component in self._ordered:
-                if component is reservoir:
-                    # Wire saved outlet to the downstream component instead of
-                    # re-solving the reservoir.
-                    if res_downstream is not None:
-                        dst = res_downstream.inlet
-                        dst.T = res_T
-                        dst.P = res_P
-                        dst.mass_rate = res_mdot
-                        dst.rho = res_rho
-                        dst.mu = res_mu
-                    continue  # skip solve() and _wire_one_stream()
-
-                # Restore t_d_old so heat-loss time advances only once per outer
-                # timestep, not once per inner iteration.
-                if component.component_idx in t_d_old_saved:
-                    setattr(component, "t_d_old", t_d_old_saved[component.component_idx])
-
+                component.restore_convergence_state(snapshot[component.component_idx])
+                component.mark_all_stale()
                 component.solve()
                 self._wire_one_stream(component)
 
             T_inj_new = surface.outlet.T
-            if abs(T_inj_new - T_inj_prev) < _DT_SURFACE_TOL:
+            if T_inj_prev is not None and abs(T_inj_new - T_inj_prev) < _DT_SURFACE_TOL:
                 logger.debug(
                     "T-convergence: inner iter %d, dT=%.4f K",
                     inner_iter + 1,
@@ -368,31 +308,9 @@ class SystemBCIteration(SystemDirect):
                 "T-convergence: max inner iterations (%d) reached without convergence "
                 "(final dT=%.4f K > tol=%.4f K)",
                 _MAX_INNER_ITER,
-                abs(surface.outlet.T - T_inj_prev),
+                abs(surface.outlet.T - (T_inj_prev if T_inj_prev is not None else float("nan"))),
                 _DT_SURFACE_TOL,
             )
-
-        # ── Pass 2: reservoir correction ─────────────────────────────────────
-        # After T-convergence the injection well outlet carries the converged
-        # injection temperature.  _wire_one_stream(injection_well) inside the
-        # last inner iteration has already propagated that outlet to
-        # reservoir.inlet.  Re-run the reservoir from energy_before so that
-        # energy_extracted reflects the converged injection T (matches old
-        # tango's "old + delta" pattern where only the last intra-timestep
-        # call's delta is kept).  Then re-run the downstream components once
-        # so the final recorded state is self-consistent with the corrected
-        # reservoir outlet T.
-        setattr(reservoir, "energy_extracted", energy_before)
-        reservoir.solve()
-        self._wire_one_stream(reservoir)
-
-        for component in self._ordered:
-            if component.component_idx <= reservoir.component_idx:
-                continue  # injection_well and reservoir already done
-            if component.component_idx in t_d_old_saved:
-                setattr(component, "t_d_old", t_d_old_saved[component.component_idx])
-            component.solve()
-            self._wire_one_stream(component)
 
     def _after_timestep(self, t: int) -> None:
         """Log a one-line per-timestep summary; called by the inherited ``run()`` loop."""

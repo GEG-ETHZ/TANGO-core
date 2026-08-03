@@ -103,7 +103,8 @@ class NumericalWellState:
 
     All scalar fields are ``LockedState[float]`` and cell arrays are
     ``LockedState[list[float]]``, each writable exactly once per timestep.
-    Call ``mark_all_stale()`` at the start of each ``solve()``.
+    ``mark_all_stale()`` is called by the orchestrator (via
+    ``Component.mark_all_stale()``) immediately before each ``solve()``.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
@@ -275,7 +276,6 @@ class NumericalWell(WellComponent):
     def solve(self) -> None:
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
-        s.mark_all_stale()
         n = self.num_cells
 
         s.T_inlet.update(self.inlet.T)

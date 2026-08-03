@@ -90,11 +90,13 @@ instance::
         energy_extracted: LockedState[float] = field(default_factory=lambda: LockedState(0.0))
 
 A new ``LockedState`` starts **fresh** — the initial value is authoritative for
-the 0th timestep.  Before each timestep's ``solve()`` the orchestrator (or the
-component itself) calls ``mark_stale()`` (or ``check_and_reset()`` for
-combined validate-and-advance).  During ``solve()``, ``update()`` writes the
-new value and re-marks it fresh.  ``get_fresh()`` / ``get_stale()`` assert the
-expected status before returning the value.
+the 0th timestep.  Immediately before each ``solve()`` call, the orchestrator
+calls ``component.mark_all_stale()`` (``core/component.py``), which cascades
+down to ``mark_stale()`` on every state field (or ``check_and_reset()`` for
+combined validate-and-advance) — components no longer call this on
+themselves.  During ``solve()``, ``update()`` writes the new value and
+re-marks it fresh.  ``get_fresh()`` / ``get_stale()`` assert the expected
+status before returning the value.
 
 Status semantics
 ----------------

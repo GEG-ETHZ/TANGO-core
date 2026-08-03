@@ -72,12 +72,27 @@ freezing these would break ``init()``/``solve()``, not protect anything:
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from tango_next.core.stream import Stream
+
+_CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS = frozenset({"inlet", "outlet", "state", "history"})
+"""Fields excluded from Component.snapshot_convergence_state()/restore_convergence_state().
+
+- inlet/outlet: must evolve iteration-to-iteration during a convergence loop
+  (e.g. the injection-temperature guess literally propagates through them
+  around the circuit) — restoring them would prevent any loop from moving.
+- state: every solve() unconditionally rewrites every one of its LockedState
+  fields each call, so restoring it first is always discarded work.
+- history: only touched by record(), called once per timestep after any
+  convergence loop finishes, never during it — and it grows every timestep,
+  so repeatedly deep-copying it inside a convergence loop gets more
+  expensive over the course of a run for zero benefit.
+"""
 
 
 class Component(BaseModel, ABC):
@@ -89,6 +104,15 @@ class Component(BaseModel, ABC):
 
     The orchestrator sets ``inlet`` before calling ``solve()``;
     ``solve()`` reads ``inlet`` and writes ``outlet``.
+
+    The orchestrator also calls ``mark_all_stale()`` immediately before every
+    ``solve()`` call — ``solve()`` itself does not do this. A component fresh
+    from construction already starts with a stale ``state`` (each field's
+    ``default_factory`` marks it stale), so the very first ``solve()`` call
+    needs no explicit ``mark_all_stale()`` first; every subsequent call does.
+    Callers invoking ``solve()`` directly (bypassing an orchestrator — tests,
+    scratch scripts) must call ``mark_all_stale()`` themselves before any
+    call after the first.
     """
 
     model_config = ConfigDict(
@@ -146,6 +170,60 @@ class Component(BaseModel, ABC):
     @abstractmethod
     def solve(self) -> None:
         """Compute outlet stream state from the current inlet stream state."""
+
+    def mark_all_stale(self) -> None:
+        """Mark every attribute that exposes its own ``mark_all_stale()`` stale.
+
+        Called by the orchestrator immediately before each ``solve()`` —
+        staleness is owned by whatever dispatches ``solve()``, not by
+        ``solve()`` itself. Walks this component's own attributes (today,
+        exactly ``state``) rather than hardcoding a field name, so any
+        future attribute exposing ``mark_all_stale()`` is picked up for
+        free.
+        """
+        for value in vars(self).values():
+            candidate = getattr(value, "mark_all_stale", None)
+            if callable(candidate):
+                candidate()
+
+    def snapshot_convergence_state(self) -> dict[str, Any]:
+        """Deep-copy every field that must not leak across a within-timestep re-solve.
+
+        Used by orchestrators that re-solve a component more than once for
+        the same calendar timestep (e.g. an injection-temperature
+        convergence loop): restore this snapshot before every re-solve so
+        each attempt starts from "state as committed at the end of the
+        previous timestep," not from whatever the last attempt left behind.
+
+        Scope: every non-frozen *declared Pydantic field* except ``inlet``/
+        ``outlet``/``state``/``history`` (see
+        ``_CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS``) — categorical, not a
+        hand-maintained list of field names, so a future field of the same
+        kind (persists across timesteps, mutated by ``solve()``) is
+        protected automatically. Deliberately scoped to
+        ``type(self).model_fields`` rather than ``vars(self)``: some
+        components (e.g. ``GraphSurface``) keep private, non-field
+        attributes (a live TESPy network/connections) that ``init()``
+        builds once and ``solve()`` mutates through TESPy's own machinery —
+        those must never be snapshotted/deep-copied/replaced.
+        """
+        return {
+            name: copy.deepcopy(getattr(self, name))
+            for name, info in type(self).model_fields.items()
+            if not info.frozen and name not in _CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS
+        }
+
+    def restore_convergence_state(self, snapshot: dict[str, Any]) -> None:
+        """Write a fresh deep copy of a ``snapshot_convergence_state()`` snapshot back onto self.
+
+        Deep-copies again at restore time, not just at snapshot time — the
+        snapshot must stay pristine across repeated restores within the
+        same timestep, so a ``solve()`` call's in-place mutation of what
+        was handed out on one attempt must not corrupt what the next
+        attempt reads back.
+        """
+        for name, value in snapshot.items():
+            setattr(self, name, copy.deepcopy(value))
 
     def record(self, timestep: int) -> None:
         """Append the current ``state`` to ``history`` if ``save_interval`` permits.

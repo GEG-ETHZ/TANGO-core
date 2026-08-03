@@ -71,6 +71,7 @@ class SystemDirect(Orchestrator):
     def run_timestep(self, t: int) -> None:
         """Execute one circuit pass: solve each component in order and wire streams."""
         for component in self._ordered:
+            component.mark_all_stale()
             component.solve()
             self._wire_one_stream(component)
 
