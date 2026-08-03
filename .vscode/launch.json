@@ -7,6 +7,16 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+        },
+        {
+            "name": "Python: hydro_double_flash_electric.yml",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tango_next_cli",
+            "args": [
+                "examples/tango_next/hydro_double_flash_electric.yml"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }

@@ -31,12 +31,43 @@ up (traced the exact cause, reproduced it on an unrelated file that had
 already been "validated," and checked it live in a running simulation) —
 this isn't a guess.
 
+There's also a structural reason to trust that this wasn't luck: `tango_next`
+has a built-in guardrail (`LockedState`) that requires every value which is
+supposed to be recomputed each year to actually get recomputed — if a
+calculation were ever silently skipped the way it was in the legacy system,
+`tango_next` would raise an error immediately instead of quietly reusing
+last year's number. That guardrail stayed silent throughout this
+investigation, which is exactly the point — its silence is confirmation
+that a fresh, real number really was computed for every single year. The
+legacy system has no equivalent safeguard anywhere, which is a real part of
+why this kind of bug could survive undetected for as long as it did.
+
 Because the legacy system currently has no trustworthy year-by-year
 baseline for this design type, we can't do the usual side-by-side numeric
 comparison for it right now. Every affected file has been marked so no one
 accidentally trusts a bad number in the meantime, and the decision on how
 to handle the legacy system's fix is queued in `docs/tango_next_tasks.md`
 for when there's time to make that call.
+
+## Also found: the MOOSE-coupled examples can't currently be run by anyone but their original author
+
+Separately, while checking whether any other simulation approach shared the
+AGS problem above, we found that every example using the MOOSE external solver
+(roughly 55 configurations) has hardcoded file paths pointing to one specific
+person's personal computer — Morteza. At least one of the physics input files
+these configurations need doesn't appear to be saved anywhere in our repository
+at all. No documentation of how our code talks to MOOSE was left behind, so
+getting this running again will mean reverse-engineering it from scratch unless
+he's able to help.
+
+I've reached out to Morteza by email and Slack to ask for help getting this
+running and for any documentation he might have. If he doesn't respond, we
+should plan on treating this as a rebuild rather than a quick fix.
+
+*How our own code is supposed to connect to MOOSE* is effectively a black box
+today: no setup instructions, no internal documentation, hardcoded to a machine
+we no longer have access to, and (per an earlier repo audit) some of the
+required input data may be missing entirely.
 
 ## Where things stand
 
@@ -47,8 +78,12 @@ implemented and runs correctly in `tango_next` on its own terms (its own
 smoke test and internal self-consistency checks pass); what's blocked is
 specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
 
-## Immediate next step
+## Immediate next steps
 
-Revisit the AGS old-tango bug (`docs/tango_next_tasks.md` §4) and decide how
-to proceed before resuming any further AGS parity work. Everything else
-queued from July's plan is unaffected and can continue in parallel.
+1. Revisit the AGS old-tango bug (`docs/tango_next_tasks.md` §4) and decide
+   how to proceed before resuming any further AGS parity work.
+2. Wait on Morteza's response regarding the MOOSE integration; if none
+   comes, scope the reverse-engineering effort as its own task.
+
+Everything else queued from July's plan is unaffected and can continue in
+parallel.
