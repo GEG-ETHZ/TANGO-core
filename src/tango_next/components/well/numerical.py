@@ -62,7 +62,7 @@ import numpy as np
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
-from tango_next.core.constants import GRAVITY, YEAR_TO_SECOND
+from tango_next.core.constants import YEAR_TO_SECOND
 from tango_next.core.fluid_state import FluidState
 from tango_next.core.fluid_utils import reynolds_number
 from tango_next.core.locked_state import LockedState
@@ -307,7 +307,7 @@ class NumericalWell(WellComponent):
         u[0] = mdot / self.cross_sectional_area / rho[0]
 
         A = self.cross_sectional_area
-        g = GRAVITY * self.gravity_scale_factor
+        g = self.gravity * self.gravity_scale_factor
         dz = self.cell_length  # flow-path length per cell (friction, heat-loss)
         # -cos(...) so this matches the legacy f_dir convention exactly at the
         # endpoints (-1 straight down / injection, +1 straight up / production)

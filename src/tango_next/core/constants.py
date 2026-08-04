@@ -29,8 +29,17 @@ from __future__ import annotations
 # Physical constants
 # ---------------------------------------------------------------------------
 
-GRAVITY: float = 9.80665
-"""Standard gravitational acceleration (m/s²).  NIST / ISO 80000-3."""
+GRAVITY: float = 9.81
+"""Gravitational acceleration (m/s²) — default value only; per-component
+`gravity` fields (well/reservoir components) can override this, since
+gravity genuinely varies regionally by up to ~0.5%.
+
+TODO: matches src/tango/'s rounded GRAVITY_ACCELERATION (2026-08, for
+parity comparison purposes) rather than the more precise NIST/ISO 80000-3
+standard value (9.80665) this used to be. Revisit switching the *default*
+back to 9.80665 once old-tango parity is no longer the active concern —
+component-level overrides make this a one-line change whenever that
+happens."""
 
 YEAR_TO_SECOND: float = 31_536_000.0
 """Seconds per (365-day) year.  Matches src/tango/core/constants.py exactly,

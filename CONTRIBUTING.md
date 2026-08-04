@@ -1,6 +1,9 @@
 # Contributing
 
 ## TANGO Commandments
+These are strict rules that all TANGO developers must follow.  These rules are
+intended to prevent problems that TANGO users and developers have struggled
+with.
 1. All new code additions must pass:
     - `mypy --strict` type checking, as handled in the pyproject.toml file
     - `ruff` format checking

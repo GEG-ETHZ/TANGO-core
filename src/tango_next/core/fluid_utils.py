@@ -160,7 +160,7 @@ def pressure_drop_friction(
     return friction_factor * (length / diameter) * (rho * velocity**2 / 2.0)
 
 
-def hydrostatic_pressure(rho: float, delta_depth: float) -> float:
+def hydrostatic_pressure(rho: float, delta_depth: float, gravity: float = GRAVITY) -> float:
     """Hydrostatic pressure difference over a vertical depth interval (Pa).
 
     ΔP_hydro = ρ · g · Δdepth    (positive for downward Δdepth)
@@ -171,9 +171,12 @@ def hydrostatic_pressure(rho: float, delta_depth: float) -> float:
     Args:
         rho: Fluid density (kg/m³).
         delta_depth: Vertical depth interval (m), positive downward.
+        gravity: Gravitational acceleration (m/s²) — defaults to
+            core/constants.py's GRAVITY; pass the calling component's own
+            `gravity` field to respect a per-component override.
 
     """
-    return rho * GRAVITY * delta_depth
+    return rho * gravity * delta_depth
 
 
 def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -> float:

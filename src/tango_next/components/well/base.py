@@ -7,6 +7,7 @@ from abc import abstractmethod
 from pydantic import Field
 
 from tango_next.core.component import Component
+from tango_next.core.constants import GRAVITY
 
 
 class WellComponent(Component):
@@ -28,6 +29,9 @@ class WellComponent(Component):
     """Wellbore inner diameter (m)."""
     pipe_roughness: float = Field(frozen=True)
     """Absolute pipe wall roughness for Darcy-Weisbach friction (m)."""
+    gravity: float = Field(default=GRAVITY, frozen=True)
+    """Gravitational acceleration (m/s²) — defaults to core/constants.py's
+    GRAVITY, overridable per well since gravity varies regionally."""
 
     @abstractmethod
     def solve(self) -> None:

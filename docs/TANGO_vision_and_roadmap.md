@@ -754,13 +754,10 @@ however deep that goes.
 happening to sit at index 0. That's no longer true: `sim_config.bc_checkpoint_idx` is now
 an explicit, independent config field (`Workflow` → `SystemBCIteration.bc_checkpoint_idx`
 → `_find_surface()`), decoupled from `component_idx`. In fact `component_idx: 0` is now the
-*injection well* in `flexible_SF_manual.yml`/`AGS_direct_heat.yml` (the circuit-entry point,
-matching old tango's solve order), with the surface deliberately solved *last* each pass so
-it sees the current-timestep production well output rather than the previous timestep's
-stale value (see Phase 0's reservoir-depletion walkthrough below for the full 1-step-lag
-fix), while `bc_checkpoint_idx: 4` (or `3` for the AGS example) points at the surface
-separately. So the BC-checkpoint identity is already a real, named property rather than a
-magic index — that part of the original gap is closed.
+*injection well* in `flexible_SF_manual.yml`/`AGS_direct_heat.yml` (the circuit-entry point),
+with the surface solved last each pass, while `bc_checkpoint_idx: 4` (or `3` for the AGS
+example) points at the surface separately. So the BC-checkpoint identity is already a real,
+named property rather than a magic index — that part of the original gap is closed.
 
 What's still open: the power plant sub-graph parsing (`GraphSurface`'s `power_plant.nodes`/
 `edges`) is still bespoke rather than going through a generalized `GroupedComponent` path,
@@ -898,9 +895,14 @@ full-suite runs, but never automatically on every push.
     tango) vs. `examples/tango_next/flexible_SF_manual.yml` (tango_next) has
     now been completed across all 20 timesteps. The residual deltas are:
 
-    - Reservoir outlet temperature: ≤ 0.04% (≤ 0.2 K at 463 K peak)
-    - Gross / net power: ≤ 0.37% (≤ 0.006 MW at ~1.6 MW peak)
+    - Reservoir outlet temperature: ≲ 0.04% (≲ 0.20 K, concentrated at the
+      steepest part of the depletion transition, t≈5-7 for this case —
+      settles to < 0.01 K agreement before and after that transition)
+    - Gross / net power: ≲ 0.34%
     - Injection well outlet (isolated, 20-step fixed inlet): < 0.001 K (effectively zero)
+
+    See `tests/regtest/test_old_new_parity.py`'s `ParityCase` notes for
+    `flexible_SF_manual.yml` for the authoritative up-to-date figures.
 
     These deltas are **deliberate, not bugs** — see the next section for the
     root cause and the rationale for not closing them.
@@ -948,22 +950,43 @@ full-suite runs, but never automatically on every push.
     once the solver has converged on a self-consistent solution for that
     timestep.
 
-    tango_next avoids this by design:
-    `SystemBCIteration._converge_injection_T()` runs an inner T-convergence
-    loop that skips the reservoir entirely (freezing its outlet), then after
-    convergence re-runs the reservoir exactly once with the converged injection
-    temperature (`system_bc_iteration.py:386–388`, the "Phase 2 reservoir
-    correction" block). This is more internally consistent than old tango, and
-    is the reason tango_next's reservoir temperature is very slightly warmer
-    (~0.2 K) at peak depletion — it extracts marginally less energy per
-    timestep because it uses the correct, converged injection temperature rather
-    than a one-iteration-stale approximation.
+    tango_next avoids this by design: `SystemBCIteration._converge_injection_T()`
+    (`system_bc_iteration.py`) snapshots every component's cross-timestep
+    state once per timestep, then restores and fully re-solves the *entire*
+    circuit — reservoir included, no exceptions — on every inner iteration,
+    checking convergence only after each complete pass (see
+    `docs/tango_next_t_convergence.md` for the full mechanism). Because the
+    reservoir is genuinely re-solved using *this* iteration's own injection
+    temperature every time, by the iteration where convergence is declared,
+    `energy_extracted` was already computed from a fully self-consistent,
+    same-iteration injection temperature — never a stale one-iteration-behind
+    value the way old tango's does.
 
-    **The current delta is the floor, not a target.** Closing it would require
-    reproducing old tango's solver bug, which is the wrong direction. The
-    ~0.37% power delta and ≤ 0.2 K temperature delta are the expected and
-    acceptable permanent deviation between a correct implementation and the
-    legacy one.
+    **`LumpedReservoir`'s initial-pressure bootstrap.** `LumpedReservoir`
+    computes `P_initial = brine_density × g × reservoir_depth` (a
+    `brine_density` field, defaulting to 1000 kg/m³, lives on
+    `ReservoirComponent`), matching old tango's
+    `ReservoirUnitNative._compute_initial_pressure()` exactly — used for
+    the reservoir's own initial/undepleted state (`P_out_prev` before it
+    has ever been solved), separate from the fracing-safety-ceiling
+    calculation (`hydro_static_pressure × (1 + over_pressure_percentage/100)`),
+    which is a different physical quantity. Verified with an isolated,
+    fixed-input reservoir comparison (both reservoirs given identical
+    T/P/mass-rate): old tango's and tango_next's outputs agree to
+    sub-microkelvin precision across the first several timesteps.
+
+    What remains is concentrated at the single steepest part of the
+    Adams-2015 depletion curve's transition (t≈5-7 for this case) — both
+    codebases implement that curve identically (same coefficients, same
+    erfc/exp branches), but it's steep enough there that ordinary
+    floating-point-level differences elsewhere (independent CoolProp call
+    sequences, minor wellbore-integration differences) get momentarily
+    amplified before both systems settle back onto the same long-run
+    behavior. This isn't something further code changes can eliminate
+    without literally
+    reproducing old tango's arithmetic instruction-for-instruction, which
+    isn't a goal — see `tests/regtest/test_old_new_parity.py`'s
+    `ParityCase` notes for the up-to-date figures.
 
     **Remaining gaps for whoever picks this up next** (intended hand-off
     point — Chad's plan is to get this set of two example files into good

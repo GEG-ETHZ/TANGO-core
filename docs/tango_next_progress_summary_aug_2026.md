@@ -82,6 +82,44 @@ legacy baseline for comparison; `tango_next`'s own internal checks stand
 in for that comparison instead. See `docs/tango_next_tasks.md`'s "Open
 items — tracked, not scheduled" section.
 
+## Found and fixed a real tango_next bug while investigating a small numeric mismatch
+
+We'd been tracking a small, persistent disagreement between old tango and
+tango_next on one of our core comparison files — small enough to be
+"close enough" for most purposes, but we wanted to understand exactly
+why it existed rather than just tolerate it.
+
+The cause: one of tango_next's startup values — an initial guess used
+only before a component has been solved for the first time — was
+computed with the wrong formula. It borrowed a formula meant for a
+different purpose (a safety-ceiling check) instead of the one that
+actually represents the reservoir's true starting condition. The two
+formulas give noticeably different numbers for this file (about a 12%
+difference), and because that startup guess only matters for a single
+instant before real data takes over, the mistake was practically
+invisible — except that it left behind a tiny seed of a discrepancy
+that compounded over time. This is a genuine tango_next defect, not
+something inherited from the legacy system. **Fixed and verified**: the
+reservoir now computes its true initial pressure the same way old tango
+does, and the two systems agree to sub-microkelvin precision once given
+the same inputs.
+
+What's left after this fix is a much smaller, well-understood residual,
+concentrated at the steepest part of one physics curve both systems
+implement identically — the kind of floating-point-level difference
+that's inherent to comparing two independently-written codebases, not a
+discoverable bug. See `docs/TANGO_vision_and_roadmap.md` for the full
+technical detail.
+
+**A related point worth recording on its own merits.** Separately, we
+confirmed something about the *old* system that's worth calling a bug in
+its own right: old tango's convergence loop can, in principle, declare
+"done" and use a cumulative number computed from a stale, one-step-behind
+value rather than the fully up-to-date one from that same pass.
+tango_next's design rules this out categorically — every value used in
+any calculation always comes from the same, fully up-to-date pass, by
+construction. See `docs/bugs-fixed.md`.
+
 ## Also found: the MOOSE-coupled examples can't currently be run by anyone but their original author
 
 Separately, while checking whether any other simulation approach shared the
@@ -117,6 +155,8 @@ specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
    2026-08-03: not fixing the legacy system for this. Closed.
 2. Wait on Morteza's response regarding the MOOSE integration; if none
    comes, scope the reverse-engineering effort as its own task.
+3. ~~Fix the reservoir startup-value bug and re-confirm~~ — done 2026-08-04:
+   fixed and verified (see above).
 
 Everything else queued from July's plan is unaffected and can continue in
 parallel.

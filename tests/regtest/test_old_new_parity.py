@@ -10,8 +10,8 @@ This file runs TWO independent comparisons per case:
 
 1. **old vs. new** (``ParityCase`` tolerances) — physical sanity check
    against ``src/tango/``. Tolerances are deliberately loose (see below)
-   because tango_next fixes a known bug (the 1-step solve-order lag), so
-   exact agreement is neither expected nor desired.
+   since exact agreement between two independent implementations is
+   neither expected nor desired.
 2. **new vs. golden** (tight, ``GOLDEN_RTOL``) — regression check against a
    committed snapshot of tango_next's own prior output
    (``golden_tango_next/<stem>.json``). This is the one that actually
@@ -26,12 +26,8 @@ This file runs TWO independent comparisons per case:
 Known deliberate deviations (flexible_SF_manual baseline)
 ----------------------------------------------------------
 - Reservoir T:   ≲ 1 K   — minor integration differences; negligible
-- Production T:  ≲ 1 K   — Adams 2015 heat-loss integration vs. old tango
-                            cell-stepping differs slightly
+- Production T:  ≲ 1 K   — minor integration differences; negligible
 - Gross power:   ≲ 5%    — driven by the production-T difference above
-- These deviations are INTENTIONAL: tango_next fixes the 1-step temporal
-  lag in old tango's solve order (surface now sees the same-timestep
-  production well output rather than the previous timestep's).
 
 ADDING A NEW CASE
 -----------------
@@ -180,21 +176,22 @@ PARITY_CASES: list[ParityCase] = [
     ParityCase(
         old_yml="flexible_SF_manual.yml",
         new_yml="flexible_SF_manual.yml",
-        res_T_atol=2.0,  # measured max deviation ≲ 0.18 K; 2 K headroom catches regressions
-        prod_T_atol=3.0,  # measured max deviation ≲ 0.16 K
-        power_rtol=0.08,  # measured max deviation ≲ 0.26%
+        res_T_atol=2.0,  # measured max deviation ≲ 0.20 K; 2 K headroom catches regressions
+        prod_T_atol=3.0,  # measured max deviation ≲ 0.18 K
+        power_rtol=0.08,  # measured max deviation ≲ 0.34%
         notes=(
             "DOUBLET layout, manual mass flow, single-flash surface. "
-            "Tolerances cover known deliberate deviations from the 1-step-lag "
-            "fix. Re-measured after letting the reservoir fully participate "
-            "in T-convergence instead of freezing it (2026-08) — agreement "
-            "with old tango tightened (res T max delta 0.214->0.172 K, "
-            "prod T 0.190->0.160 K, gross power 0.36%->0.26%) but did not "
-            "vanish, since old tango's real loop also converges injection "
-            "pressure together with temperature, which tango_next's MANUAL "
-            "policy still treats as a fixed given (see "
-            "system_bc_iteration.py's module docstring, 'Planned: real "
-            "BC-iteration physics')."
+            "tango_next's reservoir fully participates in T-convergence "
+            "(no freezing/refreezing) and uses the same doublet-impedance and "
+            "Adams 2015 depletion-curve formulas as old tango, including the "
+            "same initial/undepleted reservoir pressure formula "
+            "(brine_density * g * depth). The remaining small delta is "
+            "concentrated at the steepest part of the depletion transition "
+            "(t~5-7 for this case), where the shared nonlinear curve "
+            "amplifies minor floating-point-level differences elsewhere "
+            "(wellbore integration) — it settles back to <0.01 K agreement "
+            "once past the transition (see docs/TANGO_vision_and_roadmap.md "
+            "for detail)."
         ),
     ),
     # ------------------------------------------------------------------

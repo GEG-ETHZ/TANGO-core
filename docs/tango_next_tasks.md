@@ -8,6 +8,24 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **DONE 2026-08-04 — `LumpedReservoir` initial-pressure bootstrap fixed.**
+  Its "not yet solved" bootstrap for `P_out_prev` was using the
+  fracing-ceiling formula instead of old tango's actual reservoir-bootstrap
+  formula (`brine_density × g × reservoir_depth`) — two different physical
+  quantities. Added a `brine_density` field to `ReservoirComponent`
+  (default 1000 kg/m³, matching old tango); `LumpedReservoir` now computes
+  a proper `P_initial` matching old tango's formula exactly. Verified via
+  isolated fixed-input comparison: reservoir outputs now agree to
+  sub-microkelvin precision given identical inputs. Also matched
+  `core/constants.py`'s `GRAVITY` to old tango's rounded `9.81` (was
+  `9.80665`, the more precise NIST/ISO 80000-3 value) for comparison
+  purposes, and made gravity a per-component field (`WellComponent`/
+  `ReservoirComponent`) with that constant only as the default, since
+  gravity genuinely varies regionally — see the TODO on `GRAVITY` for
+  reverting the default once old-tango parity is no longer the active
+  concern. Full test suite, golden snapshot, and `ParityCase` tolerances
+  updated. Full technical detail: `docs/TANGO_vision_and_roadmap.md`.
+
 ## Next session priorities (set 2026-08-03)
 
 Top of the queue for the next session, in order:
@@ -82,6 +100,59 @@ Top of the queue for the next session, in order:
 2. **Flesh out `InjectionPolicy` variants** (today only `MANUAL` is fully
    implemented; see `docs/tango_next_t_convergence.md` for how `MANUAL`'s
    convergence loop works as the reference case).
+
+   **Follow-up once pressure convergence lands, agreed 2026-08-04**: after
+   implementing real BC-iteration pressure physics (the "Planned: real
+   BC-iteration physics" section of `system_bc_iteration.py`'s module
+   docstring), re-run the `flexible_SF_manual.yml` parity comparison
+   against old tango's actual equivalent. Confirmed the current comparison
+   is *not* confounded by fracing/mass-rate iteration — verified two ways
+   (instrumented a real run): `flexible_SF_manual.yml` uses
+   `mass_rate.type: manual`, which skips old tango's `automatic`-only
+   mass-rate iteration loops entirely, and `check_fracing`'s cap
+   (`fracing_flow()` ≈ 183–403 kg/s across timesteps) never actually
+   engages against the manual `mass_rate=50` kg/s — it's a no-op for this
+   case. The real asymmetry is that old tango's outer loop *always*
+   iterates injection pressure (`test_p`), in every mass-rate mode,
+   including `manual` — there is no old-tango mode that skips pressure
+   iteration the way tango_next's `MANUAL` currently does. So "the
+   relevant old tango equivalent" to compare a future pressure-converging
+   tango_next policy against is simply old tango's `iterator()` as-is, not
+   a different/special old-tango mode.
+
+   **Correction, 2026-08-04**: the paragraph above was written assuming
+   old tango's `test_p` update actively runs for this comparison. Directly
+   instrumented and checked across the full 20-timestep run: it does not
+   — `manual` mass-rate mode's `test_p` update only fires when `target_p
+   <= inj_well.outlet_fluid.P` (a one-sided fracing-safety cap, not an
+   active solve), and for this config `target_p` (55 MPa) never drops
+   below the bottom-hole pressure (~49.75–49.88 MPa) it's compared
+   against — so `test_p` stays pinned at its YAML initial-guess value for
+   every single timestep. **This asymmetry is real as a general
+   mechanism, but is not active for `flexible_SF_manual.yml` and is not
+   the cause of its parity delta** — see the DONE entry above (reservoir
+   initial-pressure bootstrap fix) for what was. The general point about
+   needing a future pressure-converging tango_next policy to compare
+   against old tango's `iterator()` as-is (not a special mode) still
+   stands for whenever a
+   config *does* exercise this path.
+
+   Also checked (instrumented a real run, reverted after) whether the
+   `production_well_pump`'s hardcoded `num_dp_iter = 5` loop
+   (`BC_calculator.py:456-497`) introduces meaningful error for this case:
+   measured residual shrinks geometrically (~0.006× per iteration) from
+   ~2.7 MPa (iteration 0) to 0.004 Pa (iteration 4, the last one
+   performed) against a 7 MPa target — ≈6e-10 relative error. **Confirmed
+   negligible for `flexible_SF_manual.yml`** — not a contributor to the
+   observed parity deltas. Caveat: this converges fast because the
+   pump-pressure/outlet-pressure relationship is nearly linear in this
+   case's regime; the loop still has no real convergence check at all (its
+   only early-exit condition requires `pump_dp == 0.0`, i.e. no boost
+   needed — for any case actually needing a nonzero boost it just runs all
+   5 iterations unconditionally), so this finding doesn't generalize to
+   cases closer to a phase boundary — re-check if a future case exercises
+   that regime. Not fixing this in old tango; noted here only so the
+   "is this negligible?" question doesn't have to be re-derived.
 3. **Implement the `pymoo_api` concept** (optimizer-facing API, per
    `optimizerr.py`/`function_evaluator.py` prior art in old tango).
 

@@ -34,7 +34,7 @@ components:
   surface:
     type: surface
     unit: graph
-    component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
+    component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
     surface_temperature: 288  # K

@@ -51,7 +51,7 @@ components:
   surface:
     type: surface
     unit: graph
-    component_idx: 4          # solved last; sees current-step production well output (no 1-step lag)
+    component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
@@ -137,8 +137,10 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 50_000_000  # Pa
+    hydro_static_pressure: 50_000_000  # Pa — nominal, used only for the fracing-safety ceiling
     over_pressure_percentage: 10
+    brine_density: 1000           # kg/m3 — matches src/tango/'s brine_density, used for the
+                                   # reservoir's own initial/undepleted pressure (brine_density * g * depth)
     well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
 
   production_well_lower:

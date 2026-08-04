@@ -81,6 +81,7 @@ class LumpedReservoirState:
     T_reservoir_initial: LockedState[float] = field(default_factory=_ls)
     """Un-depleted geothermal temperature at reservoir depth (K)."""
     P_reservoir: LockedState[float] = field(default_factory=_ls)
+    """Un-depleted reservoir pressure (Pa) — see ``LumpedReservoir.P_initial``."""
     rho: LockedState[float] = field(default_factory=_ls)
     mu: LockedState[float] = field(default_factory=_ls)
     impedance: LockedState[float] = field(default_factory=_ls)
@@ -165,6 +166,11 @@ class LumpedReservoir(ReservoirComponent):
     # Component's class docstring for why fields like this stay mutable.
     T_initial: float = 0.0
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
+    P_initial: float = 0.0
+    """Un-depleted reservoir pressure = brine_density × g × reservoir_depth
+    (Pa) — matches src/tango/'s ReservoirUnitNative._compute_initial_pressure().
+    Distinct from the fracing-safety ceiling
+    (hydro_static_pressure × (1 + over_pressure_percentage/100))."""
     rock_volume: float = 0.0
     """Rock (non-fluid) volume = thickness × area × (1 − porosity) (m³)."""
     rock_C_v: float = 0.0  # noqa: N815
@@ -204,6 +210,7 @@ class LumpedReservoir(ReservoirComponent):
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""
         self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
+        self.P_initial = self.brine_density * self.gravity * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
         volume = self.thickness * area
         fluid_volume = self.porosity * volume
@@ -212,16 +219,8 @@ class LumpedReservoir(ReservoirComponent):
         self.energy_extracted = 0.0
         self._recompute_depletion_coeffs(
             m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
-            rho_fluid=fluid_density(
-                self.common.fluid_name,
-                self.T_initial,
-                self.hydro_static_pressure * (1 + self.over_pressure_percentage / 100.0),
-            ),
-            cp_fluid=fluid_cp(
-                self.common.fluid_name,
-                self.T_initial,
-                self.hydro_static_pressure * (1 + self.over_pressure_percentage / 100.0),
-            ),
+            rho_fluid=fluid_density(self.common.fluid_name, self.T_initial, self.P_initial),
+            cp_fluid=fluid_cp(self.common.fluid_name, self.T_initial, self.P_initial),
         )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
@@ -281,8 +280,7 @@ class LumpedReservoir(ReservoirComponent):
         # reliable check here) — fall back to T_initial / the hydrostatic
         # guess.
         T_out_prev = self.T_initial if not self.ever_solved else s.T_outlet.get_stale()
-        P_reservoir_guess = self.hydro_static_pressure * (1.0 + self.over_pressure_percentage / 100.0)
-        P_out_prev = P_reservoir_guess if not self.ever_solved else s.P_outlet.get_stale()
+        P_out_prev = self.P_initial if not self.ever_solved else s.P_outlet.get_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)
@@ -293,7 +291,7 @@ class LumpedReservoir(ReservoirComponent):
         mdot = s.mass_rate.get_fresh()
 
         s.T_reservoir_initial.update(self.T_initial)
-        s.P_reservoir.update(P_reservoir_guess)
+        s.P_reservoir.update(self.P_initial)
 
         # Fluid properties: average of current inlet and previous-timestep outlet.
         fluid_name = self.common.fluid_name
