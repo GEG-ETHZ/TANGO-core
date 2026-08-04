@@ -137,7 +137,8 @@ class SystemExternal(UnitManager):
 
         """
         if self.unit.injection_well.__class__.__name__ == "WellUnitMOOSE":
-            pass  # check bc_point here
+            # TODO: check bc_point here
+            raise NotImplementedError
         else:
             if self.unit.surface.__class__.__name__ in [
                 "SurfaceUnitFlexiblePP",

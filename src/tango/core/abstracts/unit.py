@@ -145,7 +145,7 @@ class SimplePressureDrop(ABC):
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s]
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
@@ -156,4 +156,4 @@ class SimplePressureDrop(ABC):
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s]
         """
-        pass
+        raise NotImplementedError

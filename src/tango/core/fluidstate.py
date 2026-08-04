@@ -397,8 +397,7 @@ class FluidState:
                 if t_err:
                     raise SubzeroTempError(msg) from cp_err
                 else:
-                    # unreachable
-                    pass
+                    raise AssertionError("unreachable")
             else:
                 raise CoolPropError(str(cp_err))
 

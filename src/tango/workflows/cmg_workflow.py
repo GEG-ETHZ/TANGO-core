@@ -48,7 +48,8 @@ class CMGWorkflow(Workflow):
         self.system.execute()
 
         if self.economic is not None:
-            pass  # Placeholder for economic unit integration.
+            # Placeholder for economic unit integration.
+            raise NotImplementedError
 
     def execute(self):
         """Not implemented yet"""

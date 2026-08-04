@@ -90,7 +90,8 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         r"""Return approximate flow pressure delta [Pa], accounting for gravitational
         effects
         """
-        pass  # to be implemented in child classes
+        # to be implemented in child classes
+        raise NotImplementedError
 
     @abstractmethod
     def get_flow_res_per_dx(self, te: float, p: float, mdot: float) -> float:
@@ -101,12 +102,12 @@ class SurfaceUnitNative(Unit, SimplePressureDrop, Validator):
         - `p`: estimated pressure [Pa] for property evaluations
         - `mdot`: mass flow rate [kg/s]
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def process_stream(self) -> tuple[float, float, float]:
 
-        pass  # to be implemented in child classes
+        raise NotImplementedError  # to be implemented in child classes
 
     # ----------------------------------------- Private Functions ---------------------------------------- #
 

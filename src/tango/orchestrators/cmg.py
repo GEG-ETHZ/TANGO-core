@@ -67,7 +67,7 @@ class SystemCMG(UnitManager):
         This method can be extended to define data flow or dependency relationships
         between units connected by edges in the graph.
         """
-        pass
+        raise NotImplementedError
 
     def stream_interface(self) -> None:
         """Executes a series of operations across nodes in the system.
