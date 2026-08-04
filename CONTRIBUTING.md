@@ -25,6 +25,11 @@
 1. All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
 1. Any parameter that can take on a small, finite set of values should be
   handled as `StrEnum` so that we explicitly document and enforce these values.
+1. Unimplemented base-class methods must `raise NotImplementedError` (or a
+  more specific error), never a silent `pass`. A no-op placeholder is
+  indistinguishable from "correctly does nothing" until someone goes
+  looking, and can let real bugs run silently for a long time before
+  anyone notices.
 
 ## Branching Strategy
 

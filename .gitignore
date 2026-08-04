@@ -90,6 +90,7 @@ tools/examples_sweep_output/
 *.png
 *.svg
 !docs/diagrams/img/**/*.svg
+!docs/diagrams/img/**/*.png
 .aider*
 .claude/
 *.drawio.bkp

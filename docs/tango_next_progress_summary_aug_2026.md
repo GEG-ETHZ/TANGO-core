@@ -1,9 +1,9 @@
 # tango_next: Progress Summary & Forward Plan — August 2026
 
-*Prepared 2026-08-01. Managerial-level summary — for engineering detail, see
-`docs/tango_next_tasks.md` (working task tracker) and
-`docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues from
-`docs/tango_next_progress_summary_july_2026.md`.*
+*Prepared 2026-08-01, updated 2026-08-04. Managerial-level summary — for
+engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
+and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
+from `docs/tango_next_progress_summary_july_2026.md`.*
 
 ## A real bug found in the old system — and proof tango_next doesn't have it
 
@@ -49,6 +49,39 @@ accidentally trusts a bad number in the meantime, and the decision on how
 to handle the legacy system's fix is queued in `docs/tango_next_tasks.md`
 for when there's time to make that call.
 
+### Further confirmed 2026-08-04 — watched it happen live, step by step
+
+To remove any remaining doubt, we stepped through an actual run of the
+affected example in a debugger and watched the failure happen in real
+time, one line at a time, rather than relying only on code inspection:
+
+1. The system-selection logic reads the config's surface-unit type
+   (`'native_flexible'`) and, specifically because this design has no
+   reservoir, collapses that down to the generic `'native'` before
+   deciding which internal engine to use.
+2. That collapsed name gets used to pick the engine — and it picks the
+   generic placeholder engine (which does nothing year-to-year) instead
+   of the real one this design should get.
+3. We watched the placeholder engine's "do nothing" step execute, in the
+   debugger, exactly where the real yearly-update calculation should have
+   run instead.
+4. We then ran the same file end-to-end and printed its year-by-year
+   result column directly: the first year gives a real, distinct number
+   (320.88...), and every year after that repeats the exact same number
+   (333.07...) verbatim, all the way through year 25 — the file-level
+   proof matching what the debugger showed line-by-line.
+
+This is now confirmed four independent ways: code inspection, a second
+unrelated "validated" file showing the same signature, a live debugger
+walkthrough of the exact failure, and the raw output data itself. There
+is no remaining ambiguity about whether this bug is real.
+
+**Decision made 2026-08-03**: we are not fixing this in the legacy
+system. AGS/no-reservoir designs are treated as having no trustworthy
+legacy baseline for comparison; `tango_next`'s own internal checks stand
+in for that comparison instead. See `docs/tango_next_tasks.md`'s "Open
+items — tracked, not scheduled" section.
+
 ## Also found: the MOOSE-coupled examples can't currently be run by anyone but their original author
 
 Separately, while checking whether any other simulation approach shared the
@@ -80,8 +113,8 @@ specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
 
 ## Immediate next steps
 
-1. Revisit the AGS old-tango bug (`docs/tango_next_tasks.md` §4) and decide
-   how to proceed before resuming any further AGS parity work.
+1. ~~Revisit the AGS old-tango bug and decide how to proceed~~ — decided
+   2026-08-03: not fixing the legacy system for this. Closed.
 2. Wait on Morteza's response regarding the MOOSE integration; if none
    comes, scope the reverse-engineering effort as its own task.
 
