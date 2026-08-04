@@ -29,6 +29,56 @@ Top of the queue for the next session, in order:
    an automatic correction happened, even though it's not an error.
    Implementation lives in `SystemBCIteration._converge_injection_T` /
    `run_timestep`'s `MANUAL` branch (`orchestrators/system_bc_iteration.py`).
+
+   Additional items folded into this same area of work, agreed 2026-08-04:
+   - **DONE 2026-08-04 — non-convergence must raise, not warn.**
+     `_converge_injection_T`'s `for...else` now `raise`s `ConvergenceError`
+     (already existed in `core/errors.py`, no new exception class needed)
+     instead of `logger.warning(...)` when `max_inner_iterations` is
+     exhausted without converging — previously the loop silently returned
+     and the caller used the unconverged state as if it were final.
+     Audited the rest of `tango_next` for the same silent-swallow pattern
+     (`logger.warning`, bare `except`, other max-iteration loops) — this
+     was the only instance; nothing else needed the same fix. Full test
+     suite re-run clean (121 passed, 40 xfailed, matches baseline).
+   - **DONE 2026-08-04 — `max_inner_iterations` is now a constructor
+     parameter** on `SystemBCIteration` (default `DEFAULT_MAX_INNER_ITER =
+     20`, same value as before), replacing the hardcoded module-level
+     `_MAX_INNER_ITER` constant, so it can be tuned per-case instead of
+     requiring a code edit.
+   - **Retain the per-timestep injection-temperature convergence history**
+     (each iteration's guess, not just the latest) so its behavior can be
+     inspected — e.g. to diagnose slow/oscillating convergence, and to
+     inform the Newton/secant-acceleration work below. Wipe it at the
+     start of each new timestep, so it's just a plain in-memory list
+     inspectable with a debugger — no need for a formal `LockedState`/
+     `history` mechanism for this, per-timestep debugger visibility is
+     good enough.
+   - **Newton/secant acceleration of the T-convergence loop is still
+     under discussion, not decided** — see the "On Newton's method for
+     faster convergence" discussion (2026-08-04 session): replace plain
+     Picard substitution with a secant-style extrapolation using the last
+     two `(guess, residual)` pairs, mirroring old tango's
+     `utils.py::newton()` (already used by `SystemCPGNative.update()` for
+     its own outer pressure loop). Chad wants to think this through
+     further before committing — **do not implement until he explicitly
+     revisits this**, flagged so it isn't silently implemented or
+     silently dropped.
+   - **CPG dependency, flagged 2026-08-04**: the current production-pump
+     boost (`LumpedProductionWellWithPump.solve()`,
+     `components/well/lumped.py:310-321`) computes `pump_dp` directly
+     (no iteration) by treating the fluid as effectively incompressible
+     through the pump — density is evaluated once from inlet conditions
+     and held constant across the pressure boost. This is a reasonable
+     placeholder for water/brine but **will not hold for CPG**, where the
+     working fluid (CO2) is likely supercritical and has strong,
+     nonlinear density sensitivity to pressure right in that regime — the
+     constant-density assumption breaks down exactly where CPG needs it
+     most. **The real iterative pump-solve (already sketched in this
+     file's "Planned: inner pump loop" docstring section, lines ~65-82)
+     must be implemented before any CPG case can be trusted**, not just
+     as a nice-to-have physics upgrade. Treat this as a hard prerequisite
+     for CPG parity/validation work, not an independent backlog item.
 2. **Flesh out `InjectionPolicy` variants** (today only `MANUAL` is fully
    implemented; see `docs/tango_next_t_convergence.md` for how `MANUAL`'s
    convergence loop works as the reference case).

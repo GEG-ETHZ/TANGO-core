@@ -88,6 +88,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from tango_next.core.constants import W_TO_MW
+from tango_next.core.errors import ConvergenceError
 from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
@@ -100,10 +101,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_MAX_ITERATIONS: int = 200
 DEFAULT_TOLERANCE: float = 1e-4
 
-# Inner injection-temperature convergence constants — must match old tango's
-# CONVERGENCE_CRITERIA["dT_surface"] = 0.5 K and MAX_NUM_ITR = 20.
+# Inner injection-temperature convergence tolerance — must match old tango's
+# CONVERGENCE_CRITERIA["dT_surface"] = 0.5 K.
 _DT_SURFACE_TOL: float = 0.5  # K
-_MAX_INNER_ITER: int = 20
+
+# Default for max_inner_iterations (see SystemBCIteration.__init__) — must
+# match old tango's MAX_NUM_ITR = 20.
+DEFAULT_MAX_INNER_ITER: int = 20
 
 
 class SystemBCIteration(SystemDirect):
@@ -135,6 +139,10 @@ class SystemBCIteration(SystemDirect):
         policy: Injection control policy (default ``MANUAL``).
         max_iterations: Maximum BC iterations per timestep (AUTO_* modes only).
         tolerance: Relative convergence tolerance on injection pressure.
+        max_inner_iterations: Maximum iterations for the injection-
+            temperature convergence loop (``_converge_injection_T``, used by
+            ``MANUAL``/``MANUAL_FRACING_CHECK``). Raises ``ConvergenceError``
+            if exhausted without converging.
 
     """
 
@@ -148,6 +156,7 @@ class SystemBCIteration(SystemDirect):
         policy: InjectionPolicy = InjectionPolicy.MANUAL,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         tolerance: float = DEFAULT_TOLERANCE,
+        max_inner_iterations: int = DEFAULT_MAX_INNER_ITER,
     ) -> None:
         """Initialise the base single-pass engine, then BC-specific state."""
         super().__init__(components, n_tsteps=n_tsteps)
@@ -157,6 +166,7 @@ class SystemBCIteration(SystemDirect):
         self.policy = policy
         self.max_iterations = max_iterations
         self.tolerance = tolerance
+        self.max_inner_iterations = max_inner_iterations
 
     def _find_surface(self) -> SurfaceComponent | None:
         """Return the BC-checkpoint component (surface), or None if absent."""
@@ -285,10 +295,18 @@ class SystemBCIteration(SystemDirect):
                 ``Component.snapshot_convergence_state()``, captured once
                 before this loop starts.
 
+        Raises:
+            ConvergenceError: If ``self.max_inner_iterations`` is exhausted
+                without the injection temperature settling within
+                ``_DT_SURFACE_TOL``. Not converging is treated as a hard
+                failure, not a warning — silently continuing on an
+                unconverged state would let a physically-inconsistent
+                timestep pass as if it were a real answer.
+
         """
         T_inj_prev: float | None = None
 
-        for inner_iter in range(_MAX_INNER_ITER):
+        for inner_iter in range(self.max_inner_iterations):
             for component in self._ordered:
                 component.restore_convergence_state(snapshot[component.component_idx])
                 component.mark_all_stale()
@@ -305,12 +323,11 @@ class SystemBCIteration(SystemDirect):
                 break
             T_inj_prev = T_inj_new
         else:
-            logger.warning(
-                "T-convergence: max inner iterations (%d) reached without convergence "
-                "(final dT=%.4f K > tol=%.4f K)",
-                _MAX_INNER_ITER,
-                abs(surface.outlet.T - (T_inj_prev if T_inj_prev is not None else float("nan"))),
-                _DT_SURFACE_TOL,
+            raise ConvergenceError(
+                f"T-convergence: max inner iterations ({self.max_inner_iterations}) "
+                f"reached without convergence (final dT="
+                f"{abs(surface.outlet.T - (T_inj_prev if T_inj_prev is not None else float('nan'))):.4f} "
+                f"K > tol={_DT_SURFACE_TOL:.4f} K)",
             )
 
     def _after_timestep(self, t: int) -> None:
