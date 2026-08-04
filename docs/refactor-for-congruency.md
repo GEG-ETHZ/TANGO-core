@@ -1,5 +1,15 @@
 # Refactor TANGO to achieve congruency between input files, code ojects, package/module structure, and actual physical systems
 
+**Superseded (as of 2026-08).** This was an early planning sketch; `tango_next`
+now exists and has already implemented most of what's checklisted below
+(component/graph structure via `component_idx`/`prev`/`next`, `state`/
+`history`/`LockedState`, per-component `solve()`, `to_dict`/`from_dict`/
+`to_str`/`from_str` serialization, characterization tests against the old
+codebase). `docs/TANGO_vision_and_roadmap.md`'s Phase 1/2/3 structure is the
+current, actively-maintained tracking document — checkboxes here were never
+updated as work landed and shouldn't be trusted as current status. Kept for
+historical record of the original framing, not as a live task list.
+
 ## Steps
 ### Convert example input file to desired structure
 - [ ] consolidate code object data and graph connection so that, e.g. injection_wellbore stores all of it's attributes, a link idx, and previous and next link id for graph network

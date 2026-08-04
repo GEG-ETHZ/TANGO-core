@@ -259,15 +259,17 @@ class SystemBCIteration(SystemDirect):
     ) -> None:
         """Converge injection temperature, re-solving the whole circuit every iteration.
 
-        Every component in the circuit — including the reservoir, which
-        used to be frozen/skipped here — is restored to its
-        end-of-previous-timestep snapshot and genuinely re-solved on every
-        iteration. This matters physically: the reservoir's real output
+        Every component in the circuit — reservoir included, no exceptions —
+        is restored to its end-of-previous-timestep snapshot and genuinely
+        re-solved on every iteration. This matters physically: the
+        reservoir's real output
         (via the production wellhead) does reach back to influence the
-        converged injection temperature (through the surface plant's
-        non-condenser branch merging back in), so freezing it during
-        convergence was producing a self-inconsistent answer, not just an
-        approximation.
+        converged injection temperature. The condenser branch's own outlet
+        state (T/P/enthalpy) is pinned, but the mass flow through it is
+        not — the separator's flash fraction depends on the actual
+        wellhead-fed inlet enthalpy, so both branches carry wellhead
+        effects into the merge (the liquid branch through its state, the
+        condenser branch through its mass weight).
 
         Each iteration: restore every component from ``snapshot`` (so this
         iteration starts from "state as committed at the end of the
@@ -275,8 +277,7 @@ class SystemBCIteration(SystemDirect):
         behind), solve the whole circuit in order, wire streams as usual.
         Repeat until the injection temperature (surface outlet) changes by
         less than ``_DT_SURFACE_TOL`` between iterations. The iteration
-        that satisfies convergence is already the final, committed answer —
-        no separate correction pass afterward.
+        that satisfies convergence is already the final, committed answer.
 
         Args:
             surface: Surface component (last in solve order).

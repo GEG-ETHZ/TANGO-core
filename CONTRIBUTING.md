@@ -22,6 +22,9 @@
   that can get out of sync.
 1. All new class attributes must be defined in pydantic schemas.
 1. There shall not be any `eval` functions!
+1. All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
+1. Any parameter that can take on a small, finite set of values should be
+  handled as `StrEnum` so that we explicitly document and enforce these values.
 
 ## Branching Strategy
 

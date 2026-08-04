@@ -8,6 +8,70 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+## Next session priorities (set 2026-08-03)
+
+Top of the queue for the next session, in order:
+
+1. **Injection-wellhead inlet-temperature guess robustness.** Right now a
+   bad user-supplied guess can crash the solver outright even when the
+   rest of the system is physically valid, despite the fact that we
+   already iterate on injection temperature. Plan (Chad's, shared with
+   coworkers on Slack 2026-08-03): on a solver failure from a bad guess,
+   retry with a lower guess closer to surface/ambient temperature; if it
+   would need to go *below* surface temperature to get a working first
+   iteration, fail outright (that's a genuinely invalid case, not a bad
+   guess). This also means the user should be able to leave the initial
+   guess blank entirely and let tango_next pick one — consistent with the
+   idea floated earlier this session that ~65% of the way from reservoir
+   temperature to ambient is a good default starting guess. When the pivot
+   fires (retrying with a lower guess after a bad-guess solver failure),
+   don't fail silently — log a `WARNING` (or similar) so it's visible that
+   an automatic correction happened, even though it's not an error.
+   Implementation lives in `SystemBCIteration._converge_injection_T` /
+   `run_timestep`'s `MANUAL` branch (`orchestrators/system_bc_iteration.py`).
+2. **Flesh out `InjectionPolicy` variants** (today only `MANUAL` is fully
+   implemented; see `docs/tango_next_t_convergence.md` for how `MANUAL`'s
+   convergence loop works as the reference case).
+3. **Implement the `pymoo_api` concept** (optimizer-facing API, per
+   `optimizerr.py`/`function_evaluator.py` prior art in old tango).
+
+**Explicit non-goal:** do **not** fix the old-tango AGS
+`system_name()`/no-time-marching bug (see "Open items — tracked, not
+scheduled" below) — old tango is not being patched.
+
+## Open items — tracked, not scheduled
+
+Real, still-open items that are deliberately **not** being worked next
+session. Kept here so they don't get silently dropped or re-discovered
+from scratch.
+
+- **Old-tango AGS no-time-marching bug** (`system_name()` routing in
+  `src/tango/utils.py` sends AGS-shaped configs to a no-op `SystemNative`,
+  so old tango never advances time for AGS configs). Confirmed real,
+  three independent ways. **Decision: not fixing old tango for this.**
+  tango_next itself is unaffected; this only blocks using old tango as an
+  AGS transient reference.
+- **MOOSE/MOSKito integration** — ~55 configs unrunnable, hardcoded to a
+  former contributor's (Morteza's) machine, no docs left. Blocked on his
+  response to outreach. Backlog.
+- **No genuine "modest disparity" old-vs-new parity case found yet** — SF/
+  EGS/double-flash sweeps all came back "good" agreement. CPG/ORC
+  topologies and edge-of-sweep-range points haven't been checked.
+- **AGS sweep-vs-sweep comparison** (old tango vs. tango_next, full sweep)
+  — blocked on getting all tango_next sweep scripts DVC-consistent with
+  `--clean` flags first; not actioned.
+- **Debugger walkthrough** (half done) — blocked on re-tracing
+  `hydro_double_flash_electric_exec_flow.drawio`'s T-convergence section
+  against the new mechanism; `docs/tango_next_t_convergence.md` now
+  explains the mechanism itself, but the exec-flow diagram's nodes still
+  need re-tracing, not just a warning box.
+- Three "Active" threads below (AGS sweep parity port, `common:`/
+  component-block override ambiguity, `GraphSurface` p_out/pressure-
+  provenance follow-ups) — see their sections for status.
+- Untracked repo-root files (`CLAUDE.md`, `deployment_analysis_questions.md`,
+  `tango_diagramming_workflow.md`) — left as-is; could be `.gitignore`d
+  instead of tracked, still an open call.
+
 ## Active: AGS sweep parity (heat + power)
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new
@@ -643,6 +707,75 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
+- **DONE 2026-08 — `mark_all_stale()` cascaded from the orchestrator, not
+  called by each component locally.** Previously every component's
+  `solve()` called `self.state.mark_all_stale()` as its own first line
+  (`core/locked_state.py`'s docstring even shrugged that either "the
+  orchestrator (or the component itself)" could do it). Replaced with one
+  generic `Component.mark_all_stale()` (walks the component's own
+  attributes for anything exposing `mark_all_stale()`, today just `state`)
+  that the orchestrator now calls immediately before every `solve()`
+  invocation — all 4 call sites across `system_direct.py` and
+  `system_bc_iteration.py`'s BC-convergence loop. Exposed a real ordering
+  bug: `LumpedReservoir.solve()` read its own previous-timestep outlet via
+  `get_fresh()` as its first action, relying on `mark_all_stale()`
+  happening later in the same call — fixed to use `get_stale()`, the
+  canonical `LockedState` pattern for this. Two unit tests updated
+  (`test_serde_roundtrip.py`) that called `.solve()` directly more than
+  once without an intervening `mark_all_stale()` — now a documented part
+  of `Component`'s calling contract.
+- **DONE 2026-08 — Reservoir no longer frozen during injection-temperature
+  convergence.** `SystemBCIteration._converge_injection_T` used to skip
+  the reservoir's `solve()` entirely for the whole T-convergence inner
+  loop (its outlet cached and replayed unchanged), only re-solving it once
+  afterward ("Pass 2"). Traced the actual single-flash surface topology
+  (`flexible_SF_manual.yml`) and confirmed this was physically wrong: the
+  condenser branch's own outlet *state* (T/P/enthalpy) is a hard pinned
+  BC, but the mass flow through it isn't — the separator's flash fraction
+  depends on the actual wellhead-fed inlet enthalpy, so both branches
+  carry wellhead effects into the merge (the liquid branch through its
+  state, the condenser branch through its mass weight) — freezing
+  the reservoir was producing a self-inconsistent answer, not just an
+  approximation. Also verified against old tango's actual convergence
+  loop (`BC_calculator.py::FlowRateCalculator.iterator()`, confirmed live
+  via `SystemExternal`) that it re-solves the reservoir every outer
+  iteration, not twice.
+
+  Replaced with a generic snapshot/restore mechanism
+  (`Component.snapshot_convergence_state()`/`restore_convergence_state()`,
+  scoped to non-frozen fields excluding `inlet`/`outlet`/`state`/
+  `history`) used uniformly by every component in the circuit, reservoir
+  included — restored fresh before every iteration. Collapses the old
+  main-pass/T-loop/Pass-2 structure into one uniform loop with no
+  special-casing. See the annotated diagram published this session for
+  the full mechanism (linked from the warning box added to
+  `docs/diagrams/src/tango_next/hydro_double_flash_electric_exec_flow.drawio`,
+  since that diagram's T-convergence section now describes the old
+  mechanism).
+
+  Regenerated the golden snapshot for `flexible_SF_manual.yml` (genuine
+  physics change) and re-measured old-vs-new agreement: tightened as
+  expected (reservoir T max delta 0.214→0.172 K, prod T 0.190→0.160 K,
+  gross power 0.36%→0.26%) but didn't vanish — old tango's loop also
+  converges injection *pressure* together with temperature, which
+  tango_next's `MANUAL` policy still treats as a fixed given (see "Open
+  Design Questions" → extraction pressure note in the vision doc for the
+  related, still-open policy question).
+- **DONE 2026-08-03 — T-convergence explainer pulled into the TANGO docs
+  proper.** The mechanism (reservoir/production-well/surface-plant
+  circuit, the snapshot/restore convergence loop, why the reservoir must
+  be re-solved every iteration) previously only existed as a Claude
+  Artifact page. Now checked into the repo: `docs/tango_next_t_convergence.md`
+  (renders natively on GitLab, embeds two SVGs via standard markdown image
+  syntax), backed by an editable `.drawio` source
+  (`docs/diagrams/src/tango_next/t_convergence.drawio`, two pages —
+  "Circuit" and "Convergence loop") with matching exported SVGs under
+  `docs/diagrams/img/tango_next/`. The warning box in
+  `hydro_double_flash_electric_exec_flow.drawio` now points at the new doc
+  instead of the Artifact URL. Note the SVGs were hand-authored to match
+  the `.drawio` layout rather than a true draw.io export — if the
+  `.drawio` file is edited going forward, re-export its SVGs from the
+  draw.io app to keep the two in sync.
 - **DONE 2026-07-27 — TODOs in `applications/run_AGS_direct_heat_sweep/sweep.py`
   resolved.** Traced the DH heat exchanger's `T_out` and confirmed it's a hard
   TESPy connection constraint (not an effectiveness/NTU model), so the live
@@ -794,6 +927,22 @@ reasoning doesn't have to be re-derived next session.
   real debugger for one config, to build or verify a concrete mental model
   of the current call graph. Chad did roughly half of the walkthrough
   himself — needs to be picked back up and finished, not restarted.
+  **CAUTION (2026-08): the diagram's T-convergence/BC-iteration section is
+  now stale** — `SystemBCIteration._converge_injection_T` was rewritten
+  (reservoir no longer frozen/skipped during the inner loop; the old
+  `t_d_old_saved`/`energy_before`/"Pass 2" mechanism replaced by a generic
+  `Component.snapshot_convergence_state()`/`restore_convergence_state()`
+  used uniformly by every component). A prominent warning box was added to
+  the `.drawio` file marking exactly which nodes are affected, and a fresh
+  annotated diagram of the *new* mechanism was published separately
+  (see this session's artifact link in the `.drawio` warning box).
+  **TODO, blocking further walkthrough progress: re-trace the
+  T-convergence/BC-iteration section of
+  `hydro_double_flash_electric_exec_flow.drawio` against the current
+  `_converge_injection_T` (snapshot/restore, reservoir included, no more
+  Pass 2) before continuing the debugger walkthrough past that point** —
+  don't debug against the old nodes as if they still match
+  `system_bc_iteration.py`.
 - **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
   started. Chad wants a pass across the whole repo (not scoped to
   `tango_next`) to flag anything "wacky or inconsistent," explicitly

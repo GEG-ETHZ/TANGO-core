@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 300" width="100%" height="300" role="img" aria-label="Circuit diagram: injection well through reservoir, production wells, and surface plant, back to injection well" font-family="ui-monospace, SFMono-Regular, Consolas, Menlo, monospace">
+  <rect x="0" y="0" width="920" height="300" fill="#ffffff"></rect>
+
+  <!-- main circuit boxes -->
+  <g>
+    <rect x="20" y="120" width="108" height="66" rx="6" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="74" y="144" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14181d">injection</text>
+    <text x="74" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14181d">well</text>
+    <text x="74" y="170" text-anchor="middle" font-size="10.5" fill="#5b6472">component_idx 0</text>
+  </g>
+  <g>
+    <rect x="168" y="120" width="150" height="66" rx="6" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="243" y="144" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14181d">reservoir</text>
+    <text x="243" y="158" text-anchor="middle" font-size="10.5" fill="#5b6472">doublet impedance +</text>
+    <text x="243" y="170" text-anchor="middle" font-size="10.5" fill="#5b6472">thermal depletion</text>
+  </g>
+  <g>
+    <rect x="358" y="120" width="140" height="66" rx="6" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="428" y="144" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14181d">production well</text>
+    <text x="428" y="158" text-anchor="middle" font-size="10.5" fill="#5b6472">lower &#8594; upper</text>
+    <text x="428" y="170" text-anchor="middle" font-size="10.5" fill="#5b6472">idx 2 &#8594; 3</text>
+  </g>
+
+  <!-- surface plant, expanded -->
+  <g>
+    <rect x="544" y="20" width="340" height="280" rx="8" fill="none" stroke="#d7dbd6" stroke-width="1.4" stroke-dasharray="3 3"></rect>
+    <text x="714" y="14" text-anchor="middle" font-size="10.5" font-weight="700" fill="#14181d">surface plant &mdash; idx 4</text>
+
+    <rect x="560" y="133" width="64" height="30" rx="5" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="592" y="152" text-anchor="middle" font-size="10.5" fill="#5b6472">separator</text>
+
+    <!-- vapor / pinned branch -->
+    <rect x="652" y="52" width="176" height="16" rx="8" fill="#f0e2d8" stroke="#c1501f" stroke-width="1"></rect>
+    <text x="740" y="63" text-anchor="middle" font-size="9.5" font-weight="700" fill="#c1501f">FIXED P, x &#8594; FIXED T</text>
+    <rect x="652" y="76" width="70" height="28" rx="5" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="687" y="93" text-anchor="middle" font-size="10.5" fill="#5b6472">turbine</text>
+    <rect x="750" y="76" width="70" height="28" rx="5" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="785" y="93" text-anchor="middle" font-size="10.5" fill="#5b6472">condenser</text>
+
+    <!-- liquid / free branch -->
+    <rect x="652" y="158" width="176" height="16" rx="8" fill="#dcece9" stroke="#21787a" stroke-width="1"></rect>
+    <text x="740" y="169" text-anchor="middle" font-size="9.5" font-weight="700" fill="#21787a">STATE NOT PINNED</text>
+    <rect x="687" y="180" width="70" height="28" rx="5" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="722" y="197" text-anchor="middle" font-size="10.5" fill="#5b6472">pump2</text>
+
+    <rect x="687" y="232" width="70" height="28" rx="5" fill="#ffffff" stroke="#3c4550" stroke-width="1.4"></rect>
+    <text x="722" y="250" text-anchor="middle" font-size="10.5" fill="#5b6472">merge</text>
+  </g>
+
+  <!-- connecting lines: main circuit -->
+  <path d="M128,148 H168" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+  <path d="M318,148 H358" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+  <path d="M498,148 H560" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+
+  <path d="M624,141 H636 V90 H652" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+  <path d="M624,155 H636 V194 H687" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+
+  <path d="M722,90 H750" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+
+  <path d="M722,208 V232" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+
+  <path d="M820,90 H860 V246 H757" stroke="#c1501f" stroke-width="2" fill="none" marker-end="url(#arrowHeat)"></path>
+
+  <!-- merge back to injection well (return path) -->
+  <path d="M687,246 H74 V176" stroke="#21787a" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#arrowData)"></path>
+  <text x="280" y="264" text-anchor="middle" font-size="10.5" font-weight="600" fill="#21787a">surface.outlet &#8594; injection_well.inlet (next iteration / next timestep)</text>
+
+  <!-- idx badges -->
+  <g><circle cx="74" cy="112" r="10" fill="#14181d"></circle><text x="74" y="116" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">0</text></g>
+  <g><circle cx="243" cy="112" r="10" fill="#14181d"></circle><text x="243" y="116" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">1</text></g>
+  <g><circle cx="428" cy="112" r="10" fill="#14181d"></circle><text x="428" y="116" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">2/3</text></g>
+  <g><circle cx="722" cy="262" r="10" fill="#14181d"></circle><text x="722" y="266" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">4</text></g>
+
+  <defs>
+    <marker id="arrowHeat" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c1501f"></path>
+    </marker>
+    <marker id="arrowData" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#21787a"></path>
+    </marker>
+  </defs>
+</svg>

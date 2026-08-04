@@ -1111,13 +1111,27 @@ all congruent with each other.
   attribute accessing and use slots or similar.
 
 **Tasks:**
-- [ ] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass`
-- [ ] Add a component-specific `state` object to each class; move all transient state variables into it
-- [ ] Implement `LockedState` — enforces each state variable is updated once and only once per timestep
-- [ ] Implement `history` object — saves state at user-specified intervals, with
-    `None` supported for no temporal output
-- [ ] Implement `iter_history` object that saves the state for each solver
-    iteration at user-specified timestep intervals
+- [x] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass` —
+    every `tango_next` component subclasses `Component(BaseModel, ABC)`
+    (`core/component.py`); `state`/`history` are `dataclass` per the
+    task's own "preferred or" allowance.
+- [x] Add a component-specific `state` object to each class; move all transient state variables into it
+- [x] Implement `LockedState` — enforces each state variable is updated once and only once per timestep
+    (`core/locked_state.py`; cascaded from the orchestrator via
+    `Component.mark_all_stale()`, not called by components themselves —
+    2026-08).
+- [x] Implement `history` object — saves state at user-specified intervals, with
+    `None` supported for no temporal output (`save_interval: int | None`)
+- [ ] `iter_history` object that saves the state for each solver iteration —
+    **open question, not committed (2026-08): may not be worth building.**
+    Not built today; the convergence-loop rework
+    (`SystemBCIteration._converge_injection_T`) re-solves components up to
+    20x per timestep with no per-iteration history recorded, only the
+    converged final state. Chad's read: this arguably belongs to debugger
+    territory (step through with a real debugger when you need
+    per-iteration visibility) rather than a first-class recorded-history
+    feature. Revisit if a concrete need for recorded (not just
+    step-through) per-iteration state actually comes up.
 - [x] Serialization: Pydantic `model_dump()` / `model_validate()` on `Component`
     subsumes the `SerdeAPI` role from fastsim — no separate mixin needed. Round-trip
     tests cover `LockedState` field fidelity (`tests/unit/test_serde_roundtrip.py`).

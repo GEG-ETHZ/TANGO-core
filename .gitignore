@@ -89,6 +89,18 @@ tools/examples_sweep_output/
 # Images
 *.png
 *.svg
+!docs/diagrams/img/**/*.svg
 .aider*
 .claude/
 *.drawio.bkp
+
+# Root-level scratch markdown (planning notes, worklogs) — not meant to be
+# tracked; repo-root only, doesn't affect docs/ etc. Existing tracked
+# root .md files are explicitly excepted below.
+/*.md
+!/CHANGELOG.md
+!/CONTRIBUTING.md
+!/ONBOARDING.md
+!/README.md
+!/REPO_CLEANUP_AUDIT.md
+!/TODO.md
