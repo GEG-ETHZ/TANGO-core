@@ -15,7 +15,7 @@
           <mxGeometry x="358" y="120" width="140" height="66" as="geometry" />
         </mxCell>
 
-        <mxCell id="c_plant" value="surface plant &mdash; idx 4" style="rounded=1;dashed=1;fillColor=none;strokeColor=#D7DBD6;verticalAlign=top;fontStyle=1;fontSize=11;align=center" vertex="1" parent="1">
+        <mxCell id="c_plant" value="surface plant &#8212; idx 4" style="rounded=1;dashed=1;fillColor=none;strokeColor=#D7DBD6;verticalAlign=top;fontStyle=1;fontSize=11;align=center" vertex="1" parent="1">
           <mxGeometry x="544" y="20" width="340" height="280" as="geometry" />
         </mxCell>
         <mxCell id="c_sep" value="separator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
@@ -71,7 +71,7 @@
           <mxGeometry x="40" y="20" width="640" height="64" as="geometry" />
         </mxCell>
 
-        <mxCell id="l_loopbox" value="REPEAT &mdash; UP TO 20 TIMES, FOR EACH COMPONENT IN CIRCUIT ORDER&#10;every component &mdash; reservoir included, no exceptions" style="rounded=1;dashed=1;fillColor=#DCECE9;fillOpacity=35;strokeColor=#21787A;verticalAlign=top;align=left;spacingLeft=10;fontColor=#21787A;fontStyle=1;fontSize=10" vertex="1" parent="1">
+        <mxCell id="l_loopbox" value="REPEAT &#8212; UP TO 20 TIMES, FOR EACH COMPONENT IN CIRCUIT ORDER&#10;every component &#8212; reservoir included, no exceptions" style="rounded=1;dashed=1;fillColor=#DCECE9;fillOpacity=35;strokeColor=#21787A;verticalAlign=top;align=left;spacingLeft=10;fontColor=#21787A;fontStyle=1;fontSize=10" vertex="1" parent="1">
           <mxGeometry x="40" y="112" width="640" height="128" as="geometry" />
         </mxCell>
 
@@ -84,7 +84,7 @@
         <mxCell id="pe2" style="edgeStyle=none;rounded=0;strokeColor=#5B6472;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="p2" target="p3"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="pe3" style="edgeStyle=none;rounded=0;strokeColor=#5B6472;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="p3" target="p4"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="l_note" value="Restoring first means this attempt starts clean from last timestep's real state &mdash; not from whatever the previous attempt left behind." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6472;fontSize=10;whiteSpace=wrap;" vertex="1" parent="1">
+        <mxCell id="l_note" value="Restoring first means this attempt starts clean from last timestep's real state &#8212; not from whatever the previous attempt left behind." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6472;fontSize=10;whiteSpace=wrap;" vertex="1" parent="1">
           <mxGeometry x="60" y="200" width="600" height="30" as="geometry" />
         </mxCell>
 
@@ -93,9 +93,9 @@
         </mxCell>
         <mxCell id="e_loop_dec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#3C4550;html=1;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0" edge="1" parent="1" source="l_loopbox" target="l_decision"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="l_no" value="no &mdash; loop back to the top with the new guess (max 20&times;)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#A83F3F;html=1;endArrow=block;endFill=1;fontColor=#A83F3F;fontStyle=1;fontSize=9;exitX=0;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="l_decision" target="l_loopbox"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="180" y="306"/><mxPoint x="180" y="176"/></Array></mxGeometry></mxCell>
+        <mxCell id="l_no" value="no &#8212; loop back to the top with the new guess (max 20&#215;)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#A83F3F;html=1;endArrow=block;endFill=1;fontColor=#A83F3F;fontStyle=1;fontSize=9;exitX=0;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="l_decision" target="l_loopbox"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="20" y="306"/><mxPoint x="20" y="126"/></Array></mxGeometry></mxCell>
 
-        <mxCell id="l_final" value="NO CORRECTION PASS NEEDED&#10;this iteration's state is the final answer&#10;Already used the converged temperature and the correct snapshot restore." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2F7D4F;fillOpacity=10;strokeColor=#2F7D4F;fontColor=#2F7D4F;fontSize=10;align=left;spacingLeft=10" vertex="1" parent="1">
+        <mxCell id="l_final" value="CONVERGED&#10;this iteration's state is the final answer&#10;Already used the converged temperature and the correct snapshot restore." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2F7D4F;fillOpacity=10;strokeColor=#2F7D4F;fontColor=#2F7D4F;fontSize=10;align=left;spacingLeft=10" vertex="1" parent="1">
           <mxGeometry x="160" y="374" width="400" height="70" as="geometry" />
         </mxCell>
         <mxCell id="l_yes" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#2F7D4F;html=1;endArrow=block;endFill=1;fontColor=#2F7D4F;fontStyle=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0" edge="1" parent="1" source="l_decision" target="l_final"><mxGeometry relative="1" as="geometry" /></mxCell>

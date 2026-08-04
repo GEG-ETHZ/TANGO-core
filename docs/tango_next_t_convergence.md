@@ -49,10 +49,8 @@ everything else in the circuit.
 - **Check injection temperature** — after one full circuit pass: is
   `|ΔT_inj| < 0.5 K`? If not, loop back to the top with the new guess (up
   to 20 times). If so, converged.
-- **This iteration's state is the final answer** — no correction pass
-  needed. It already used the converged temperature and the correct,
-  single-copy snapshot restore, so there's nothing left to fix up
-  afterward.
+- **This iteration's state is the final answer.** It already used the
+  converged temperature and the correct, single-copy snapshot restore.
 
 See `core/component.py` (`snapshot_convergence_state`/
 `restore_convergence_state`) and `orchestrators/system_bc_iteration.py`

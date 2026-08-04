@@ -772,10 +772,14 @@ reasoning doesn't have to be re-derived next session.
   "Circuit" and "Convergence loop") with matching exported SVGs under
   `docs/diagrams/img/tango_next/`. The warning box in
   `hydro_double_flash_electric_exec_flow.drawio` now points at the new doc
-  instead of the Artifact URL. Note the SVGs were hand-authored to match
-  the `.drawio` layout rather than a true draw.io export — if the
-  `.drawio` file is edited going forward, re-export its SVGs from the
-  draw.io app to keep the two in sync.
+  instead of the Artifact URL. Embeds PNG, not SVG (GitLab refuses to
+  render locally-hosted SVGs inline for security reasons and falls back to
+  a plain link) — the markdown doc's `.png`s and the checked-in `.svg`s
+  are both true draw.io CLI exports of the `.drawio` source
+  (`/Applications/draw.io.app/Contents/MacOS/draw.io --export --format
+  {svg,png} --page-index N`, 1-indexed), not hand-authored, so re-running
+  that export after any `.drawio` edit keeps all three in sync — don't
+  hand-edit the `.svg`/`.png` files directly.
 - **DONE 2026-07-27 — TODOs in `applications/run_AGS_direct_heat_sweep/sweep.py`
   resolved.** Traced the DH heat exchanger's `T_out` and confirmed it's a hard
   TESPy connection constraint (not an effectiveness/NTU model), so the live
