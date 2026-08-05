@@ -9,7 +9,7 @@
 # placeholders (pass / pass / return True). NOTHING ever advances between
 # timesteps: a multi-timestep run silently repeats the SAME solved state at
 # every timestep after t=0 (confirmed empirically on this file AND on the
-# previously-"validated" examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml
+# previously-"validated" examples/AGS_new/AGS_H2O_native_direct_heat.yml
 # -- same exact frozen-after-t0 signature on both). Any apparent thermal/
 # temperature decline over time from this config is NOT REAL PHYSICS.
 # See docs/tango_next_tasks.md's "AGS_direct_heat.yml parity" entry (section

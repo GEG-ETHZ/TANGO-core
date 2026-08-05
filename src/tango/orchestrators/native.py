@@ -78,14 +78,14 @@ class SystemNative(UnitManager):
 
         Placeholder in this base class.
         """
-        pass
+        raise NotImplementedError
 
     def update(self) -> None:
         """Updates unknowns to balance the system.
 
         Placeholder in this base class.
         """
-        pass
+        raise NotImplementedError
 
 
 class SystemCPGNative(SystemNative):

@@ -4,15 +4,15 @@ Usage examples
 --------------
 Run a simulation::
 
-    tango_next_cli run examples/tango_next/flexible_SF_manual.yml
+    tango_next_cli run examples/tango_next/hydro_sf_electric.yml
 
 Run with debug logging::
 
-    tango_next_cli run examples/tango_next/flexible_SF_manual.yml --log-level DEBUG
+    tango_next_cli run examples/tango_next/hydro_sf_electric.yml --log-level DEBUG
 
 Validate an input file without running::
 
-    tango_next_cli validate examples/tango_next/flexible_SF_manual.yml
+    tango_next_cli validate examples/tango_next/hydro_sf_electric.yml
 
 Print version::
 
@@ -43,7 +43,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  tango_next_cli run examples/tango_next/flexible_SF_manual.yml\n"
+            "  tango_next_cli run examples/tango_next/hydro_sf_electric.yml\n"
             "  tango_next_cli run my_config.yml --log-level DEBUG\n"
             "  tango_next_cli validate my_config.yml\n"
         ),
@@ -77,7 +77,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "input_file",
         type=Path,
         metavar="INPUT_FILE",
-        help=("Path to the tango_next YAML input file (e.g. examples/tango_next/flexible_SF_manual.yml)."),
+        help=("Path to the tango_next YAML input file (e.g. examples/tango_next/hydro_sf_electric.yml)."),
     )
     # ---- validate ----
     val_p = sub.add_parser(

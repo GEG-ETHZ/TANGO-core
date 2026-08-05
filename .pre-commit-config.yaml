@@ -40,7 +40,7 @@ repos:
     hooks:
       - id: pytest
         name: Run test suite
-        entry: uv run pytest -n 2 -m "not perf"
+        entry: uv run pytest -m "not perf"
         language: system
         files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false

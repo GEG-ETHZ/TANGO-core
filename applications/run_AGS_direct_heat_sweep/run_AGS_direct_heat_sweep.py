@@ -110,7 +110,7 @@ re-run.
    testcase7.yml itself, not introduced here.
 
 2. DONE — see "Direct-heat AGS validator fix" in NOTES below for the bug this
-   hit and the patch applied. examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml
+   hit and the patch applied. examples/AGS_new/AGS_H2O_native_direct_heat.yml
    is a minimal walk from the validated ORC baseline (topology/well
    params/mass-flow untouched, only the surface node swapped to
    native_flexible + a Source -> SimpleHeatExchanger(DH_component) -> Sink
@@ -290,7 +290,7 @@ instead of hardcoding `reservoir`. This is a pragmatic patch, not an
 architectural fix — the surface-unit code still has no general concept of
 "the subsurface component upstream of the surface plant," only two
 hardcoded node names. Confirmed working: examples/AGS_new/
-AGS_H2O_webapp_native_direct_heat.yml now runs and produces physically
+AGS_H2O_native_direct_heat.yml now runs and produces physically
 sensible results (steady-state production 60.3 degC, DH exchanger to the
 configured 50 degC return, net thermal power 194.4 kWth, LCOH ~2.18
 $/kWh_th).
@@ -303,7 +303,7 @@ AGS with an ORC or CO2 power-cycle surface plant, never native_flexible/DH.
 Every web app template that uses native_flexible + DH_component
 (flexible_heat.ts, flexible_CPG_inverted_native.ts,
 flexible_SF_cogeneration_e.ts) is a reservoir-based EGS/CPG topology, never
-AGS. examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml (this
+AGS. examples/AGS_new/AGS_H2O_native_direct_heat.yml (this
 application) is the first working example of this combination, unblocked
 by the validator fix described above.
 

@@ -84,7 +84,7 @@ stubs marked as expected failures (`xfailed`).  Pick one stub.
 
 The old config lives in `examples/<name>.yml`.  The new format goes in
 `examples/tango_next/<name>.yml`.  Use
-`examples/tango_next/flexible_SF_manual.yml` as a template — the header
+`examples/tango_next/hydro_sf_electric.yml` as a template — the header
 comments in that file explain every structural change.
 
 You have a few options for doing the conversion:

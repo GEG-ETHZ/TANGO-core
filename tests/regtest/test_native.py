@@ -36,8 +36,11 @@ def files_and_values() -> list[tuple[Path, float, float]]:
         ("testcase3.yml", 0.6920357140009343),
         ("testcase4.yml", 38.00773371474072),
         ("testcase5.yml", 6.2710133224835936),
-        ("testcase6.yml", 65.30175787016593),
-        ("testcase7.yml", 149.38633520084258),
+        # testcase6.yml, testcase7.yml (AGS, horizontal_well/no reservoir node)
+        # removed: SystemNative.update_time_dependent_vars()/update() are
+        # unimplemented placeholders, so old tango never time-marches these
+        # configs. See docs/tango_next_tasks.md's "AGS_direct_heat.yml
+        # parity" entry; not being fixed in old tango (decided 2026-08-03).
         ("timestep_irregular.yml", 1.0476074181749977),
         ("timestep_linear.yml", 1.5316080111875296),
         ("timestep_linear_csv.yml", 0.6920357140009343),

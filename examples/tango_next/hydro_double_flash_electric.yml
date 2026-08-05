@@ -2,7 +2,7 @@
 # power plant.
 #
 # Ported from examples/flexible_DF_manual.yml. The subsurface (doublet
-# reservoir + pumped production) is identical to flexible_SF_manual.yml's —
+# reservoir + pumped production) is identical to hydro_sf_electric.yml's —
 # same site numbers, reused verbatim — only the surface plant differs: two
 # flash stages (droplet_separator1 at the higher pressure, droplet_separator2
 # at a lower pressure, per standard double-flash design) each driving their

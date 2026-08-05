@@ -300,7 +300,7 @@ old tango's apps — that's task 3 below, still blocked/deferred.
          timesteps after t=0 (a separate, differently-signed t=0
          cold-start/init-pass artifact). Suspected a config mistake first,
          so cross-checked against the pre-existing, previously-"validated"
-         `examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml` (20
+         `examples/AGS_new/AGS_H2O_native_direct_heat.yml` (20
          timesteps, unrelated to anything touched today) — **same exact
          signature**: `production_well_T` frozen at `333.0700731379618` for
          19 straight timesteps after t=0. Confirmed systemic, not a mistake
@@ -343,7 +343,7 @@ old tango's apps — that's task 3 below, still blocked/deferred.
          old-tango config with `horizontal_well` + no `reservoir` —
          `examples/AGS_direct_heat.yml`, `examples/AGS_new/
          AGS_H2O_webapp_native.yml`, `examples/AGS_new/
-         AGS_H2O_webapp_native_direct_heat.yml`, `examples/testcase{6,7,8}.yml`,
+         AGS_H2O_native_direct_heat.yml`, `examples/testcase{6,7,8}.yml`,
          `examples/MVP_templates/testcase{6,7}.yml`,
          `applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml`,
          `applications/run_AGS_sweep/triemli_power_base.yml`; and the four

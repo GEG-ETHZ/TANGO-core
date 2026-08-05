@@ -499,20 +499,22 @@ specific node name that may not exist.
 #### `tango_next` example coverage matrix — one system type needs both a heat and a power example
 
 As of 2026-07-21, `examples/tango_next/` covers exactly two cells of a larger matrix:
-Single-Flash hydrothermal (power, `flexible_SF_manual.yml`) and AGS direct-heat
+Single-Flash hydrothermal (power, `hydro_sf_electric.yml`) and AGS direct-heat
 (heat, `AGS_direct_heat.yml`, ported from `applications/run_AGS_direct_heat_sweep/`).
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
-|              | Heat extraction | Power extraction |
-|--------------|------------------|-------------------|
-| AGS          | ✓ `AGS_direct_heat.yml` | ☐ |
-| EGS          | ☐ | ☐ |
-| CPG          | ☐ | ☐ |
-| Hydrothermal | ☐ | ✓ `flexible_SF_manual.yml` |
+|                  | Heat extraction         | Power extraction           |
+|------------------|-------------------------|----------------------------|
+| AGS              | ✓ `AGS_direct_heat.yml` | ☐                          |
+| CO2-AGS          | ☐                       | ☐                          |
+| EGS              | ☐                       | ☐                          |
+| CO2-EGS          | ☐                       | ☐                          |
+| CPG              | ☐                       | ☐                          |
+| Hydrothermal     | ☐                       | ✓ `hydro_sf_electric.yml`  |
 
 Each cell should be a real, runnable `tango_next` YAML — not just a config that
 happens to parse, but one whose output has been sanity-checked (as
-`AGS_direct_heat.yml` and `flexible_SF_manual.yml` were) against expected physical
+`AGS_direct_heat.yml` and `hydro_sf_electric.yml` were) against expected physical
 behavior. `GraphSurface`'s YAML-graph-driven design (see
 `components/surface/graph.py`) should make most of these a matter of composing a
 new `power_plant.nodes`/`edges` topology and tagging the right nodes
@@ -523,7 +525,7 @@ doesn't exist in `tango_next` yet (currently H2O-only — see `FluidState` in
 surface-plant topology.
 
 **`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
-shortcut.** Raised 2026-07-22 while tracing where `flexible_SF_manual.yml`'s TESPy plant
+shortcut.** Raised 2026-07-22 while tracing where `hydro_sf_electric.yml`'s TESPy plant
 states are solved versus imposed (see `docs/diagrams/src/graph_surface_state_provenance.drawio`
 for the full node-by-node breakdown). `GraphSurface` fixes two independent pressures per
 plant — flash pressure (the valve ahead of the droplet separator) and condensing pressure
@@ -754,10 +756,13 @@ however deep that goes.
 happening to sit at index 0. That's no longer true: `sim_config.bc_checkpoint_idx` is now
 an explicit, independent config field (`Workflow` → `SystemBCIteration.bc_checkpoint_idx`
 → `_find_surface()`), decoupled from `component_idx`. In fact `component_idx: 0` is now the
-*injection well* in `flexible_SF_manual.yml`/`AGS_direct_heat.yml` (the circuit-entry point),
-with the surface solved last each pass, while `bc_checkpoint_idx: 4` (or `3` for the AGS
-example) points at the surface separately. So the BC-checkpoint identity is already a real,
-named property rather than a magic index — that part of the original gap is closed.
+*injection well* in `hydro_sf_electric.yml`/`AGS_direct_heat.yml` (the circuit-entry point,
+matching old tango's solve order), with the surface deliberately solved *last* each pass so
+it sees the current-timestep production well output rather than the previous timestep's
+stale value (see Phase 0's reservoir-depletion walkthrough below for the full 1-step-lag
+fix), while `bc_checkpoint_idx: 4` (or `3` for the AGS example) points at the surface
+separately. So the BC-checkpoint identity is already a real, named property rather than a
+magic index — that part of the original gap is closed.
 
 What's still open: the power plant sub-graph parsing (`GraphSurface`'s `power_plant.nodes`/
 `edges`) is still bespoke rather than going through a generalized `GroupedComponent` path,
@@ -892,7 +897,7 @@ full-suite runs, but never automatically on every push.
     replaced.
 
     A true end-to-end comparison of `examples/flexible_SF_manual.yml` (old
-    tango) vs. `examples/tango_next/flexible_SF_manual.yml` (tango_next) has
+    tango) vs. `examples/tango_next/hydro_sf_electric.yml` (tango_next) has
     now been completed across all 20 timesteps. The residual deltas are:
 
     - Reservoir outlet temperature: ≲ 0.04% (≲ 0.20 K, concentrated at the
@@ -962,28 +967,31 @@ full-suite runs, but never automatically on every push.
     same-iteration injection temperature — never a stale one-iteration-behind
     value the way old tango's does.
 
-    **`LumpedReservoir`'s initial-pressure bootstrap.** `LumpedReservoir`
-    computes `P_initial = brine_density × g × reservoir_depth` (a
-    `brine_density` field, defaulting to 1000 kg/m³, lives on
-    `ReservoirComponent`), matching old tango's
-    `ReservoirUnitNative._compute_initial_pressure()` exactly — used for
-    the reservoir's own initial/undepleted state (`P_out_prev` before it
-    has ever been solved), separate from the fracing-safety-ceiling
-    calculation (`hydro_static_pressure × (1 + over_pressure_percentage/100)`),
-    which is a different physical quantity. Verified with an isolated,
-    fixed-input reservoir comparison (both reservoirs given identical
-    T/P/mass-rate): old tango's and tango_next's outputs agree to
-    sub-microkelvin precision across the first several timesteps.
+    **`LumpedReservoir`'s initial-pressure bootstrap now matches old
+    tango's, closing a real gap.** `LumpedReservoir` computes a proper
+    `P_initial = brine_density × g × reservoir_depth` (a `brine_density`
+    field, defaulting to 1000 kg/m³, was added to `ReservoirComponent`),
+    matching old tango's `ReservoirUnitNative._compute_initial_pressure()`
+    exactly — used for the reservoir's own initial/undepleted state
+    (`P_out_prev` before it has ever been solved), separate from the
+    fracing-safety-ceiling calculation (`hydro_static_pressure × (1 +
+    over_pressure_percentage/100)`), which is a different physical
+    quantity old tango never conflates the two with. Verified with an
+    isolated, fixed-input reservoir comparison (both reservoirs given
+    identical T/P/mass-rate): old tango's and tango_next's outputs now
+    agree to sub-microkelvin precision across the first several
+    timesteps, versus a compounding, multi-hundredths-of-a-Kelvin drift
+    beforehand.
 
-    What remains is concentrated at the single steepest part of the
-    Adams-2015 depletion curve's transition (t≈5-7 for this case) — both
-    codebases implement that curve identically (same coefficients, same
-    erfc/exp branches), but it's steep enough there that ordinary
-    floating-point-level differences elsewhere (independent CoolProp call
-    sequences, minor wellbore-integration differences) get momentarily
-    amplified before both systems settle back onto the same long-run
-    behavior. This isn't something further code changes can eliminate
-    without literally
+    What remains after this fix is concentrated at the single steepest
+    part of the Adams-2015 depletion curve's transition (t≈5-7 for this
+    case) — both codebases implement that curve identically (same
+    coefficients, same erfc/exp branches), but it's steep enough there
+    that the same already-documented, already-accepted floating-point-
+    level differences elsewhere (independent CoolProp call sequences,
+    the 1-step-lag fix above) get momentarily amplified before both
+    systems settle back onto the same long-run behavior. This isn't
+    something further code changes can eliminate without literally
     reproducing old tango's arithmetic instruction-for-instruction, which
     isn't a goal — see `tests/regtest/test_old_new_parity.py`'s
     `ParityCase` notes for the up-to-date figures.
@@ -1085,7 +1093,7 @@ all congruent with each other.
 - [x] Add test coverage for `tango_next`. `tests/unit/test_serde_roundtrip.py` and
     `tests/unit/test_locked_state.py` cover `LockedState`/serialization behavior,
     `tests/regtest/test_tango_next.py` exercises the CLI/orchestrator/component stack end-to-end
-    (e.g. `flexible_SF_manual.yml` under `InjectionPolicy.MANUAL`), and
+    (e.g. `hydro_sf_electric.yml` under `InjectionPolicy.MANUAL`), and
     `tests/regtest/test_old_new_parity.py` regresses `tango_next` against `tango` output.
 
 *(A trade-off assessment of the TESPy dependency — parked, not urgent — has moved to*

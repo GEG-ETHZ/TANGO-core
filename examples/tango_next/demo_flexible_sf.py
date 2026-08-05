@@ -1,6 +1,6 @@
 """Interactive demo: tango_next flexible Single-Flash system.
 
-Runs ``examples/tango_next/flexible_SF_manual.yml`` and generates four figures:
+Runs ``examples/tango_next/hydro_sf_electric.yml`` and generates four figures:
 
   1. Temperature vs axial position parameterized by timestep
        - Injection well: full 100-cell spatial profile (NumericalInjectionWell)
@@ -37,7 +37,7 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango_next.workflows.workflow import Workflow  # noqa: E402
 
-YAML_PATH = Path(__file__).parent / "flexible_SF_manual.yml"
+YAML_PATH = Path(__file__).parent / "hydro_sf_electric.yml"
 SAVE_DIR = Path(__file__).parent
 
 

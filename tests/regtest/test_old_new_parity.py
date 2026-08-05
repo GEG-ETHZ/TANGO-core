@@ -33,7 +33,7 @@ ADDING A NEW CASE
 -----------------
 1. Find the corresponding case in tests/regtest/test_native.py::test_examples.
 2. Create examples/tango_next/<stem>.yml using
-   examples/tango_next/flexible_SF_manual.yml as the template.
+   examples/tango_next/hydro_sf_electric.yml as the template.
    Key structural changes from old → new format:
      - props: → common:
      - graph: nodes/edges → per-component component_idx/prev/next
@@ -59,20 +59,21 @@ implemented yet.  Evaluate each one before investing in a new YAML.
 
 Single-Flash (SF) — highest priority; shares the existing surface component:
   [x] flexible_SF_manual.yml        — DOUBLET, manual flow — working baseline
+                                       (tango_next port: hydro_sf_electric.yml)
   [ ] flexible_SF_doublet.yml       — DOUBLET variant
   [ ] flexible_SF_inverted.yml      — inverted-5-spot layout
   [ ] flexible_SF_cogeneration_e.yml — SF + electrical cogeneration
   [ ] flexible_SF_cogeneration_h.yml — SF + heat cogeneration
 
-Basic test cases (testcase1–7) — older, less documented; audit for logic
-flaws before porting; some may not be worth it:
+Basic test cases (testcase1–5) — older, less documented; audit for logic
+flaws before porting; some may not be worth it. testcase6.yml/testcase7.yml
+removed 2026-08-05 (never actually time-marched in old tango; see
+tests/regtest/test_native.py):
   [ ] testcase1.yml
   [ ] testcase2.yml
   [ ] testcase3.yml
   [ ] testcase4.yml
   [ ] testcase5.yml
-  [ ] testcase6.yml
-  [ ] testcase7.yml
 
 Timestep scheduling variants — same physics as testcase1–3, different dt:
   [ ] timestep_irregular.yml        — may not be worth a separate port
@@ -175,7 +176,7 @@ PARITY_CASES: list[ParityCase] = [
     # ------------------------------------------------------------------
     ParityCase(
         old_yml="flexible_SF_manual.yml",
-        new_yml="flexible_SF_manual.yml",
+        new_yml="hydro_sf_electric.yml",
         res_T_atol=2.0,  # measured max deviation ≲ 0.20 K; 2 K headroom catches regressions
         prod_T_atol=3.0,  # measured max deviation ≲ 0.18 K
         power_rtol=0.08,  # measured max deviation ≲ 0.34%
@@ -210,8 +211,11 @@ PARITY_CASES: list[ParityCase] = [
     ParityCase(old_yml="testcase3.yml", new_yml=None),
     ParityCase(old_yml="testcase4.yml", new_yml=None),
     ParityCase(old_yml="testcase5.yml", new_yml=None),
-    ParityCase(old_yml="testcase6.yml", new_yml=None),
-    ParityCase(old_yml="testcase7.yml", new_yml=None),
+    # testcase6.yml, testcase7.yml removed (2026-08-05): AGS configs that old
+    # tango never actually time-marches (see tests/regtest/test_native.py's
+    # comment at the same date). Equivalent tango_next coverage tracked as
+    # the CO2-AGS/AGS-power cells in docs/TANGO_vision_and_roadmap.md's
+    # example coverage matrix instead.
     # Timestep scheduling variants — same physics as testcase1-3, different dt
     ParityCase(old_yml="timestep_irregular.yml", new_yml=None),
     ParityCase(old_yml="timestep_linear.yml", new_yml=None),

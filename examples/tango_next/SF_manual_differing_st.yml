@@ -49,7 +49,7 @@ components:
       # Single-Flash TESPy topology, read generically by GraphSurface — see
       # components/surface/graph.py module docstring for the inlet/outlet/
       # role naming contract this depends on. Same topology as
-      # flexible_SF_manual.yml's power_plant block.
+      # hydro_sf_electric.yml's power_plant block.
       #
       # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(pump2) -\
       #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(pump) -> Merge -> Sink("outlet")

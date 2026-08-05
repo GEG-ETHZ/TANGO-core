@@ -80,6 +80,7 @@ class InjectionPolicy(enum.StrEnum):
         "Both mass flow rate and injection wellhead pressure are user-specified. "
         "No fracing check is performed. Single solver pass per timestep.",
     )
+    # TODO: change `fracing` to `fracking` everywhere!!!!
     MANUAL_FRACING_CHECK = (
         "manual-fracing-check",
         "Both user-specified. Both fracing directions checked; any violation raises "

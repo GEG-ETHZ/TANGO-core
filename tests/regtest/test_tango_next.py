@@ -2,7 +2,7 @@
 
 Reference: ``examples/flexible_SF_manual.yml`` run via the old tango ``Runner``
 produces LCOE = 0.7740618821220107.  The equivalent tango_next input is
-``examples/tango_next/flexible_SF_manual.yml``.
+``examples/tango_next/hydro_sf_electric.yml``.
 
 tango_next cannot yet compute LCOE — the economic component is Phase 2 work.
 ``test_lcoe_parity`` is marked xfail and will auto-promote when LCOE is wired.
@@ -31,7 +31,7 @@ from tango_next.workflows.workflow import Workflow
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 OLD_SF_MANUAL = EXAMPLES_DIR / "flexible_SF_manual.yml"
-NEW_SF_MANUAL = EXAMPLES_DIR / "tango_next" / "flexible_SF_manual.yml"
+NEW_SF_MANUAL = EXAMPLES_DIR / "tango_next" / "hydro_sf_electric.yml"
 NEW_AGS_DIRECT_HEAT = EXAMPLES_DIR / "tango_next" / "AGS_direct_heat.yml"
 
 REFERENCE_LCOE = 0.7740618821220107
@@ -173,7 +173,7 @@ def test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache() -> None:
 
 
 def test_smoke() -> None:
-    """tango_next runs flexible_SF_manual.yml to completion without raising."""
+    """tango_next runs hydro_sf_electric.yml to completion without raising."""
     wf = _run_tango_next(NEW_SF_MANUAL)
     # If we get here without exception, the circuit completed all 20 timesteps.
     assert wf._orchestrator.n_tsteps == N_TSTEPS
@@ -399,7 +399,7 @@ def test_surface_outlet_cooler_than_inlet() -> None:
 
 @pytest.fixture
 def sf_manual_config() -> dict[str, Any]:
-    """Fresh parsed dict of flexible_SF_manual.yml — safe for a test to mutate.
+    """Fresh parsed dict of hydro_sf_electric.yml — safe for a test to mutate.
 
     Not specific to the pressure-monotonicity tests below — any test that
     wants a valid tango_next config to tweak before constructing a Workflow
@@ -410,7 +410,7 @@ def sf_manual_config() -> dict[str, Any]:
 
 
 def test_pressure_monotonicity_passes_on_valid_config(sf_manual_config: dict[str, Any]) -> None:
-    """flexible_SF_manual.yml's plant (valve 0.05 MPa -> turbine/condenser 0.005 MPa,
+    """hydro_sf_electric.yml's plant (valve 0.05 MPa -> turbine/condenser 0.005 MPa,
     monotonically decreasing) builds without GraphSurface's validation raising.
     """
     wf = Workflow(sf_manual_config)

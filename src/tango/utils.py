@@ -847,7 +847,7 @@ def system_name(specs) -> str:
     repeats the exact same solved state at every timestep after t=0.
     Confirmed empirically against this file's own logic, against a live run
     of a new static AGS config, AND against the pre-existing "validated"
-    ``examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml`` (same exact
+    ``examples/AGS_new/AGS_H2O_native_direct_heat.yml`` (same exact
     frozen-after-t0 signature). See ``docs/tango_next_tasks.md``'s
     "AGS_direct_heat.yml parity" entry (section 4) for the full trace.
     Do not "fix" this without Chad's sign-off — this dispatch is used by

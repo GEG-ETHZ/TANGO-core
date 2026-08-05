@@ -40,7 +40,7 @@ class Workflow:
 
     Usage::
 
-        wf = Workflow.from_file("examples/tango_next/flexible_SF_manual.yml")
+        wf = Workflow.from_file("examples/tango_next/hydro_sf_electric.yml")
         wf.run()
 
     ``from_file``/``from_str``/``to_file``/``to_str``/``to_dict`` are the

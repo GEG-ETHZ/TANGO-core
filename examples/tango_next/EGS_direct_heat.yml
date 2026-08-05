@@ -2,7 +2,7 @@
 #
 # Ported from applications/run_EGS_direct_heat_sweep/triemli_dh_base.yml (the
 # Triemli, Zurich site) combined with two already-proven tango_next pieces:
-# the doublet/reservoir subsurface topology from flexible_SF_manual.yml
+# the doublet/reservoir subsurface topology from hydro_sf_electric.yml
 # (injection_well -> reservoir -> production_well_lower ->
 # production_well_upper) and the district-heating surface plant from
 # AGS_direct_heat.yml (a single SimpleHeatExchanger targeting a fixed
