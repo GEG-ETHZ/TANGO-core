@@ -11,8 +11,8 @@ run as a failure. The statistics table reports ``net_power_W`` instead of
 ``LCOE``.
 
 Usage:
-    python run_hydro_double_flash_electric_analysis.py
-    python run_hydro_double_flash_electric_analysis.py --sweep-dir /path/to/sweep
+    python run_hydro_df_electric_analysis.py
+    python run_hydro_df_electric_analysis.py --sweep-dir /path/to/sweep
 """
 
 import argparse

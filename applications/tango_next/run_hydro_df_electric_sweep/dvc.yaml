@@ -6,7 +6,7 @@ stages:
     deps:
       - generate.py
       - common.py
-      - ../../../examples/tango_next/hydro_double_flash_electric.yml
+      - ../../../examples/tango_next/hydro_df_electric.yml
       # NOTE: ../../../src/tango_next is technically a dep but would be burdensome to hash every time and thus is not tracked here.
     params:
       - params.yaml:
@@ -21,7 +21,7 @@ stages:
     deps:
       - sweep.py
       - common.py
-      - ../../../examples/tango_next/hydro_double_flash_electric.yml
+      - ../../../examples/tango_next/hydro_df_electric.yml
       - outputs/design_matrix.parquet
     params:
       - params.yaml:

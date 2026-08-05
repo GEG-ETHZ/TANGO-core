@@ -182,7 +182,7 @@ from scratch.
   — blocked on getting all tango_next sweep scripts DVC-consistent with
   `--clean` flags first; not actioned.
 - **Debugger walkthrough** (half done) — blocked on re-tracing
-  `hydro_double_flash_electric_exec_flow.drawio`'s T-convergence section
+  `hydro_df_electric_exec_flow.drawio`'s T-convergence section
   against the new mechanism; `docs/tango_next_t_convergence.md` now
   explains the mechanism itself, but the exec-flow diagram's nodes still
   need re-tracing, not just a warning box.
@@ -870,7 +870,7 @@ reasoning doesn't have to be re-derived next session.
   main-pass/T-loop/Pass-2 structure into one uniform loop with no
   special-casing. See the annotated diagram published this session for
   the full mechanism (linked from the warning box added to
-  `docs/diagrams/src/tango_next/hydro_double_flash_electric_exec_flow.drawio`,
+  `docs/diagrams/src/tango_next/hydro_df_electric_exec_flow.drawio`,
   since that diagram's T-convergence section now describes the old
   mechanism).
 
@@ -892,7 +892,7 @@ reasoning doesn't have to be re-derived next session.
   (`docs/diagrams/src/tango_next/t_convergence.drawio`, two pages —
   "Circuit" and "Convergence loop") with matching exported SVGs under
   `docs/diagrams/img/tango_next/`. The warning box in
-  `hydro_double_flash_electric_exec_flow.drawio` now points at the new doc
+  `hydro_df_electric_exec_flow.drawio` now points at the new doc
   instead of the Artifact URL. Embeds PNG, not SVG (GitLab refuses to
   render locally-hosted SVGs inline for security reasons and falls back to
   a plain link) — the markdown doc's `.png`s and the checked-in `.svg`s
@@ -1043,8 +1043,8 @@ reasoning doesn't have to be re-derived next session.
   against `examples/tango_next/flexible_SF_manual.yml` (the original
   reference example used throughout tango_next's design/porting work —
   simplest well-understood topology); in practice picked up against
-  `hydro_double_flash_electric` instead, using
-  `docs/diagrams/src/tango_next/hydro_double_flash_electric_exec_flow.drawio`
+  `hydro_df_electric` instead, using
+  `docs/diagrams/src/tango_next/hydro_df_electric_exec_flow.drawio`
   as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
   node and added the previously-missing `Workflow.__init__` entry node).
   Goal: step through the full execution flow (`Workflow` →
@@ -1063,7 +1063,7 @@ reasoning doesn't have to be re-derived next session.
   (see this session's artifact link in the `.drawio` warning box).
   **TODO, blocking further walkthrough progress: re-trace the
   T-convergence/BC-iteration section of
-  `hydro_double_flash_electric_exec_flow.drawio` against the current
+  `hydro_df_electric_exec_flow.drawio` against the current
   `_converge_injection_T` (snapshot/restore, reservoir included, no more
   Pass 2) before continuing the debugger walkthrough past that point** —
   don't debug against the old nodes as if they still match

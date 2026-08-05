@@ -11,7 +11,7 @@ mechanics, which are otherwise unchanged from old tango.
 ``PARAMETER_BOUNDS`` below is old tango's dict translated key-by-key from
 flat ``specs`` dot-paths to tango_next's nested
 ``common.*``/``layout.*``/``sim_config.*``/``components.<name>.*`` config-dict
-paths, targeting ``examples/tango_next/hydro_double_flash_electric.yml``
+paths, targeting ``examples/tango_next/hydro_df_electric.yml``
 instead of ``examples/flexible_DF_manual.yml``. Two parameters from old
 tango's dict are dropped entirely (documented inline below) because the
 corresponding tango_next schema field doesn't exist:
@@ -46,7 +46,7 @@ import yaml
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 _REPO_ROOT = SCRIPT_DIR.parents[2]
-BASE_YAML = _REPO_ROOT / "examples" / "tango_next" / "hydro_double_flash_electric.yml"
+BASE_YAML = _REPO_ROOT / "examples" / "tango_next" / "hydro_df_electric.yml"
 DEFAULT_SWEEP_DIR = SCRIPT_DIR / "outputs"
 PARAMS_FILE = SCRIPT_DIR / "params.yaml"
 
@@ -114,7 +114,7 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "components.surface.power_plant.nodes.turbine2.efficiency": (0.7, 1.0),
     "components.surface.power_plant.nodes.turbine2.p_out_megapascals": (0.5, 3.0),
     # condenser2 has no p_out field at all (pinned via merge1's equal-pressure
-    # constraint with condenser1 — see hydro_double_flash_electric.yml's
+    # constraint with condenser1 — see hydro_df_electric.yml's
     # comment); old tango has no condenser2.p_out parameter either, so
     # there's nothing to translate here.
     "components.surface.power_plant.nodes.condenser2.vapor_mass_fraction_out": (

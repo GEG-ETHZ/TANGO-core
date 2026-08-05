@@ -3,7 +3,7 @@
 tango_next port of ``applications/run_flexible_DF_manual_sweep/sweep.py``.
 The parameter-mutation mechanics are entirely different from the old-tango
 version: instead of mutating a live ``Runner.tango.specs`` dict in place,
-every design point re-reads ``hydro_double_flash_electric.yml`` fresh
+every design point re-reads ``hydro_df_electric.yml`` fresh
 (``Workflow.from_file(BASE_YAML).to_dict()``), mutates a plain dict copy
 using the scale factors sampled per-row in the design matrix, and builds a
 brand-new ``Workflow`` from it — see ``Workflow``'s class docstring

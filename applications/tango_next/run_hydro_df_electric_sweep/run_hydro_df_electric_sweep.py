@@ -1,7 +1,7 @@
 """End-to-end orchestrator for the tango_next double-flash LHS parameter sweep.
 
 tango_next port of ``applications/run_flexible_DF_manual_sweep/``, targeting
-``examples/tango_next/hydro_double_flash_electric.yml`` via the
+``examples/tango_next/hydro_df_electric.yml`` via the
 ``tango_next`` engine (``src/tango_next/``). Runs a Latin Hypercube Sample
 over ~21 continuous parameters across the double-flash topology (material
 properties, reservoir, wells, surface plant components — see ``common.py``
@@ -25,17 +25,17 @@ summarize.py) if you only need one stage.
 
 Usage
 -----
-    cd applications/tango_next/run_hydro_double_flash_electric_sweep
-    uv run python run_hydro_double_flash_electric_sweep.py --n-samples 100 --n-workers 8
+    cd applications/tango_next/run_hydro_df_electric_sweep
+    uv run python run_hydro_df_electric_sweep.py --n-samples 100 --n-workers 8
 
     # Regenerate design matrix and re-run all simulations:
-    uv run python run_hydro_double_flash_electric_sweep.py --regenerate --n-samples 1000
+    uv run python run_hydro_df_electric_sweep.py --regenerate --n-samples 1000
 
     # Single-threaded (debugging):
-    uv run python run_hydro_double_flash_electric_sweep.py --n-workers 1 --log-level INFO
+    uv run python run_hydro_df_electric_sweep.py --n-workers 1 --log-level INFO
 
     # Fast smoke test (2-sample sweep, fresh tempdir):
-    uv run python run_hydro_double_flash_electric_sweep.py --smoke --n-workers 2
+    uv run python run_hydro_df_electric_sweep.py --smoke --n-workers 2
 """
 
 import argparse

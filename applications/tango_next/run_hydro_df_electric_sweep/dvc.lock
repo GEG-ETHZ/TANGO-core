@@ -3,7 +3,7 @@ stages:
   generate:
     cmd: python generate.py
     deps:
-    - path: ../../../examples/tango_next/hydro_double_flash_electric.yml
+    - path: ../../../examples/tango_next/hydro_df_electric.yml
       hash: md5
       md5: 006031b1610bd05da7436582ed36aa15
       size: 8557
@@ -27,7 +27,7 @@ stages:
   sweep:
     cmd: python sweep.py
     deps:
-    - path: ../../../examples/tango_next/hydro_double_flash_electric.yml
+    - path: ../../../examples/tango_next/hydro_df_electric.yml
       hash: md5
       md5: 006031b1610bd05da7436582ed36aa15
       size: 8557

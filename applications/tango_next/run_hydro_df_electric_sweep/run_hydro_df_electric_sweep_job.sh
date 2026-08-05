@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=tango_next_run_hydro_double_flash_electric_sweep
+#SBATCH --job-name=tango_next_run_hydro_df_electric_sweep
 #SBATCH --time=48:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=48
 #SBATCH --mem-per-cpu=1G
-#SBATCH --output=run_hydro_double_flash_electric_sweep_%j.out
-#SBATCH --error=run_hydro_double_flash_electric_sweep_%j.err
+#SBATCH --output=run_hydro_df_electric_sweep_%j.out
+#SBATCH --error=run_hydro_df_electric_sweep_%j.err
 
 # ---------------------------------------------------------------------------
 # Runs the DVC pipeline for the tango_next double-flash LHS sweep.
@@ -14,8 +14,8 @@
 # before calling dvc repro so DVC tracks them correctly.
 #
 # Examples:
-#   SWEEP_N_SAMPLES=500 sbatch run_hydro_double_flash_electric_sweep_job.sh
-#   sbatch --cpus-per-task=16 run_hydro_double_flash_electric_sweep_job.sh --n-samples 200
+#   SWEEP_N_SAMPLES=500 sbatch run_hydro_df_electric_sweep_job.sh
+#   sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 200
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -65,7 +65,7 @@ echo "Memory info: $(free -h | grep 'Mem:')"
 echo ""
 
 cd "$REPO_ROOT"
-uv run dvc repro applications/tango_next/run_hydro_double_flash_electric_sweep/dvc.yaml
+uv run dvc repro applications/tango_next/run_hydro_df_electric_sweep/dvc.yaml
 
 echo ""
 echo "=========================================="

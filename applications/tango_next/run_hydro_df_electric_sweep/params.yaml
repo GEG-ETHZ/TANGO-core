@@ -1,4 +1,4 @@
-# Parameters for the tango_next hydro_double_flash_electric LHS sweep.
+# Parameters for the tango_next hydro_df_electric LHS sweep.
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `dvc repro` from the repo root to re-execute stale stages.
 
