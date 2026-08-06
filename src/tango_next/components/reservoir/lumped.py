@@ -64,6 +64,13 @@ def _ls(v: float = float("nan")) -> LockedState[float]:
     return ls
 
 
+def _locked(value: bool) -> LockedState[bool]:  # noqa: FBT001
+    """Convenience: LockedState[bool] starting stale with value ``value``."""
+    ls: LockedState[bool] = LockedState(value)
+    ls.mark_stale()
+    return ls
+
+
 @dataclass(frozen=True)
 class LumpedReservoirState:
     """Full simulation state for one reservoir solve step.
@@ -183,24 +190,34 @@ class LumpedReservoir(ReservoirComponent):
     """Adams 2015 depletion curve coefficient p3."""
 
     # ---- Persistent across timesteps ----
-    energy_extracted: float = 0.0
-    """Cumulative thermal energy extracted from the reservoir (J)."""
-    ever_solved: bool = False
+    # LockedState-wrapped like any other state, but deliberately kept as
+    # bare Component fields rather than moved into `state`: `state` is
+    # excluded from snapshot_convergence_state()/restore_convergence_state()
+    # (see Component's class docstring) because its fields are all
+    # unconditionally recomputed from scratch each solve() call. These two
+    # are not — each depends on its own prior value — so they need that
+    # restore, to avoid double-accumulating across SystemBCIteration's
+    # inner re-solve iterations.
+    energy_extracted: LockedState[float] = Field(default_factory=lambda: _ls(0.0))
+    """Cumulative thermal energy extracted from the reservoir (J). Updated via
+    ``increment()`` (see ``solve()``), not ``update()`` — it's a running total,
+    not a value recomputed from scratch each timestep."""
+    ever_solved: LockedState[bool] = Field(default_factory=lambda: _locked(value=False))
     """Whether ``solve()`` has ever completed for this component instance.
 
     ``solve()`` needs to know whether ``state.T_outlet``/``state.P_outlet``
     hold a real previous-timestep value or are still at their unsolved NaN
-    default, and ``LockedState.is_stale()`` can't answer that reliably here:
-    ``LockedState``'s Pydantic (de)serialization is deliberately value-only
-    (see ``LockedState.__get_pydantic_core_schema__``'s docstring) — a
-    freshly-*validated* ``LockedState`` (e.g. after the documented
-    ``Workflow.to_dict()`` → mutate → ``Workflow(cfg)`` sweep-point pattern,
-    ``core/workflows/workflow.py``) always starts **fresh**, even when the
-    dumped value is just the untouched NaN placeholder from a
-    never-solved component. A plain ``bool`` field round-trips through
-    ``model_dump()``/``model_validate()`` exactly (no wrapper, no implicit
-    status reset), so it stays a reliable "has this ever been solved"
-    signal across that reconstruction — unlike ``is_stale()``.
+    default. Read via the normal ``get_stale()`` (before this call) /
+    ``update()`` (for the next call) cycle — not via
+    ``is_stale()``/``is_fresh()`` directly, which would break across a
+    ``Workflow.to_dict()`` → mutate → ``Workflow(cfg)`` sweep-point
+    reconstruction (``LockedState``'s Pydantic validator always starts a
+    reconstructed instance **fresh** — see
+    ``LockedState.__get_pydantic_core_schema__``'s docstring — so the
+    *status* can't be trusted as the signal post-reconstruction). The
+    *value* round-trips correctly regardless of status, so reading it the
+    same way every other ``LockedState`` field is read sidesteps the
+    problem entirely.
     """
 
     # ---- Runtime state / history ----
@@ -216,7 +233,6 @@ class LumpedReservoir(ReservoirComponent):
         fluid_volume = self.porosity * volume
         self.rock_volume = volume - fluid_volume
         self.rock_C_v = self.common.rock_density * self.common.rock_cp
-        self.energy_extracted = 0.0
         self._recompute_depletion_coeffs(
             m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
             rho_fluid=fluid_density(self.common.fluid_name, self.T_initial, self.P_initial),
@@ -270,17 +286,19 @@ class LumpedReservoir(ReservoirComponent):
         s = self.state
 
         # Capture previous-timestep outlet. The orchestrator already called
-        # mark_all_stale() before this solve(), so T_outlet/P_outlet are
-        # stale, holding last cycle's value — get_stale() is the canonical
-        # LockedState read for that (see core/locked_state.py's lifecycle
-        # docstring), not get_fresh(). self.ever_solved is False on the very
-        # first call (never been solved, even across a to_dict()/Workflow(cfg)
-        # reconstruction of an unsolved base config — see its docstring for
-        # why this, not s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the
-        # reliable check here) — fall back to T_initial / the hydrostatic
-        # guess.
-        T_out_prev = self.T_initial if not self.ever_solved else s.T_outlet.get_stale()
-        P_out_prev = self.P_initial if not self.ever_solved else s.P_outlet.get_stale()
+        # mark_all_stale() before this solve(), so T_outlet/P_outlet/
+        # ever_solved are all stale, holding last cycle's value —
+        # get_stale() is the canonical LockedState read for that (see
+        # core/locked_state.py's lifecycle docstring), not get_fresh().
+        # ever_solved is False on the very first call (never been solved,
+        # even across a to_dict()/Workflow(cfg) reconstruction of an
+        # unsolved base config — see its docstring for why this, not
+        # s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the reliable check
+        # here) — fall back to T_initial / the hydrostatic guess.
+        was_solved_before = self.ever_solved.get_stale()
+        self.ever_solved.update(True)
+        T_out_prev = self.T_initial if not was_solved_before else s.T_outlet.get_stale()
+        P_out_prev = self.P_initial if not was_solved_before else s.P_outlet.get_stale()
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)
@@ -328,10 +346,10 @@ class LumpedReservoir(ReservoirComponent):
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         dt_seconds = self.dt_years * YEAR_TO_SECOND
-        self.energy_extracted += mdot * (h_prod_prev - h_in) * dt_seconds
+        self.energy_extracted.increment(mdot * (h_prod_prev - h_in) * dt_seconds)
 
         E_reservoir = self.rock_volume * self.rock_C_v * dT if dT > 0 else 1.0
-        psi = self.energy_extracted / E_reservoir if dT > 0 else 0.0
+        psi = self.energy_extracted.get_fresh() / E_reservoir if dT > 0 else 0.0
         gamma = self._depletion_curve(psi) if dT > 0 else 1.0
         s.psi.update(psi)
         s.gamma.update(gamma)
@@ -345,5 +363,3 @@ class LumpedReservoir(ReservoirComponent):
         self.outlet.mass_rate = mdot
         self.outlet.rho = fluid_density(fluid_name, T_out, P_out)
         self.outlet.mu = fluid_viscosity(fluid_name, T_out, P_out)
-
-        self.ever_solved = True

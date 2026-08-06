@@ -10,7 +10,8 @@ format and round-trip correctly through ``model_dump()`` →
 - Values are preserved exactly.
 - Deserialized status is fresh (readable immediately, same as any
   newly-constructed ``LockedState``).
-- Persistent scalar fields (e.g. ``energy_extracted``) survive the round-trip.
+- Persistent accumulator fields (e.g. ``energy_extracted``) survive the
+  round-trip too, same as any other ``LockedState`` field.
 """
 
 from __future__ import annotations
@@ -155,17 +156,18 @@ def test_lumped_reservoir_roundtrip_values() -> None:
     T_out = res.state.T_outlet.get_fresh()
     P_out = res.state.P_outlet.get_fresh()
     psi = res.state.psi.get_fresh()
-    energy = res.energy_extracted
+    energy = res.energy_extracted.get_fresh()
 
     dump = res.model_dump()
     assert isinstance(dump["state"]["T_outlet"], float)
     assert dump["state"]["T_outlet"] == pytest.approx(T_out)
+    assert isinstance(dump["energy_extracted"], float)
 
     res2 = LumpedReservoir.from_dict(dump, skip_init=True)
     _assert_locked_float(res2.state.T_outlet, T_out, "T_outlet")
     _assert_locked_float(res2.state.P_outlet, P_out, "P_outlet")
     _assert_locked_float(res2.state.psi, psi, "psi")
-    assert res2.energy_extracted == pytest.approx(energy)
+    _assert_locked_float(res2.energy_extracted, energy, "energy_extracted")
 
 
 def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
@@ -181,10 +183,10 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
             res.mark_all_stale()
         res.solve()
 
-    energy_before = res.energy_extracted
+    energy_before = res.energy_extracted.get_fresh()
     dump = res.model_dump()
     res2 = LumpedReservoir.from_dict(dump, skip_init=True)
-    assert res2.energy_extracted == pytest.approx(energy_before)
+    assert res2.energy_extracted.get_fresh() == pytest.approx(energy_before)
 
 
 # ---------------------------------------------------------------------------

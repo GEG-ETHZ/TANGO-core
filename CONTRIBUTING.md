@@ -23,7 +23,12 @@ with.
 1. Any shared data that must be available within multiple objects in the
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
-1. All new class attributes must be defined in pydantic schemas.
+1. All class attributes representing simulation config or persisted/
+  serialized state must be defined in pydantic schemas. Orchestration/wiring
+  internals, runtime state governed by `LockedState` (rule 2), and framework
+  primitives (e.g. `LockedState` itself) are exempt — they're never loaded
+  from or dumped to config, so pydantic's validation/serialization contract
+  doesn't apply to them.
 1. There shall not be any `eval` functions!
 1. All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
 1. Any parameter that can take on a small, finite set of values should be

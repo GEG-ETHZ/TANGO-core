@@ -65,6 +65,12 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field
 
 from tango_next.components.surface.base import SurfaceComponent
+from tango_next.core.constants import (
+    BAR_TO_PA,
+    C_TO_K_OFFSET,
+    K_TO_C_OFFSET,
+    PA_TO_BAR,
+)
 from tango_next.core.errors import ConfigError
 from tango_next.core.fluid_utils import (
     fluid_density,
@@ -79,11 +85,6 @@ from tango_next.core.policies import ComponentRole
 
 if TYPE_CHECKING:
     from tespy.connections import Connection
-
-_PA_TO_BAR: float = 1e-5
-_BAR_TO_PA: float = 1e5
-_K_TO_C: float = -273.15
-_C_TO_K: float = 273.15
 
 # node config "type" string -> TESPy class. Extend as new topologies need
 # component types not yet listed here — keep in sync with
@@ -408,7 +409,7 @@ class GraphSurface(SurfaceComponent):
         if "p_out_megapascals" in cfg:
             conn_attrs["p"] = float(cfg["p_out_megapascals"]) * 10.0  # MPa -> bar
         if "T_out" in cfg:
-            conn_attrs["T"] = float(cfg["T_out"]) + _K_TO_C  # K -> degC
+            conn_attrs["T"] = float(cfg["T_out"]) + K_TO_C_OFFSET  # K -> degC
         if "vapor_mass_fraction_out" in cfg:
             conn_attrs["x"] = float(cfg["vapor_mass_fraction_out"])
         if not conn_attrs:
@@ -440,8 +441,8 @@ class GraphSurface(SurfaceComponent):
 
             outgoing = next((c for c in self._conns if c.source is node), None)
             if outgoing is not None:
-                values["T"] = outgoing.T.val + _C_TO_K
-                values["p"] = outgoing.p.val * _BAR_TO_PA
+                values["T"] = outgoing.T.val + C_TO_K_OFFSET
+                values["p"] = outgoing.p.val * BAR_TO_PA
                 values["m"] = outgoing.m.val
 
             detail[name] = values
@@ -497,19 +498,19 @@ class GraphSurface(SurfaceComponent):
         self._inlet_conn.set_attr(
             fluid={self.common.fluid_name: 1},
             m=mdot,
-            T=T_in + _K_TO_C,
-            p=P_tespy_in * _PA_TO_BAR,
+            T=T_in + K_TO_C_OFFSET,
+            p=P_tespy_in * PA_TO_BAR,
         )
 
         # ---- Outlet / injection pressure BC ----
-        self._outlet_conn.set_attr(p=self.injection_pressure * _PA_TO_BAR)
+        self._outlet_conn.set_attr(p=self.injection_pressure * PA_TO_BAR)
 
         # ---- Solve ----
         self._network.solve("design")
 
         # ---- Extract outlet conditions ----
-        T_out = self._outlet_conn.T.val + _C_TO_K
-        P_out = self._outlet_conn.p.val * _BAR_TO_PA
+        T_out = self._outlet_conn.T.val + C_TO_K_OFFSET
+        P_out = self._outlet_conn.p.val * BAR_TO_PA
         s.T_outlet.update(T_out)
         s.P_outlet.update(P_out)
 

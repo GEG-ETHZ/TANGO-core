@@ -232,6 +232,23 @@ class LockedState(Generic[T]):
         self.__value = value
         self.__status = _Status.FRESH
 
+    def increment(self, delta: T) -> None:
+        """Add ``delta`` to the current value and mark fresh.
+
+        For accumulator-style state (e.g. cumulative extracted energy) that
+        must be updated by ``+=`` rather than whole-value replacement, while
+        still enforcing the same "exactly once per timestep" contract as
+        ``update()``. Only meaningful for a ``T`` that supports ``+``.
+
+        Raises:
+            DoubleWriteError: The value has already been updated this timestep.
+
+        """
+        if self.__status is _Status.FRESH:
+            raise DoubleWriteError("LockedState is already fresh — call mark_stale() before updating again.")
+        self.__value = self.__value + delta  # type: ignore[operator]
+        self.__status = _Status.FRESH
+
     # ------------------------------------------------------------------
     # Timestep boundary
     # ------------------------------------------------------------------

@@ -87,7 +87,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from tango_next.core.constants import W_TO_MW
+from tango_next.core.constants import PA_TO_MPA, W_TO_MW
 from tango_next.core.errors import ConvergenceError
 from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
@@ -136,6 +136,10 @@ class SystemBCIteration(SystemDirect):
         mass_rate: Mass flow rate (kg/s) — from ``sim_config.mass_rate``.
             Ignored (pass ``0.0``) for ``AUTO_FLOW`` / ``AUTO_BOTH``, where the
             solver computes mass rate from ``fracing_flow()`` each pass.
+        bc_checkpoint_idx: ``component_idx`` of the boundary-condition
+            checkpoint component (the surface) — from
+            ``sim_config.bc_checkpoint_idx``. Used to look up the surface via
+            ``_find_surface()`` for circuit-seeding and convergence checks.
         policy: Injection control policy (default ``MANUAL``).
         max_iterations: Maximum BC iterations per timestep (AUTO_* modes only).
         tolerance: Relative convergence tolerance on injection pressure.
@@ -158,7 +162,25 @@ class SystemBCIteration(SystemDirect):
         tolerance: float = DEFAULT_TOLERANCE,
         max_inner_iterations: int = DEFAULT_MAX_INNER_ITER,
     ) -> None:
-        """Initialise the base single-pass engine, then BC-specific state."""
+        """Initialise the base single-pass engine, then store BC-specific state.
+
+        See the class docstring for the meaning of each argument.
+
+        Args:
+            components: Named components keyed by YAML name.
+            n_tsteps: Total number of simulation timesteps.
+            dt_years: Duration of each timestep (years).
+            mass_rate: Mass flow rate (kg/s).
+            bc_checkpoint_idx: ``component_idx`` of the boundary-condition
+                checkpoint component (the surface).
+            policy: Injection control policy.
+            max_iterations: Maximum BC iterations per timestep (AUTO_* modes
+                only).
+            tolerance: Relative convergence tolerance on injection pressure.
+            max_inner_iterations: Maximum iterations for the injection-
+                temperature convergence loop.
+
+        """
         super().__init__(components, n_tsteps=n_tsteps)
         self.dt_years = dt_years
         self.mass_rate = mass_rate
@@ -377,7 +399,7 @@ class SystemBCIteration(SystemDirect):
             "t=%3d | T_prod=%.1f K | P_inj=%.4g MPa | net_power=%.3f MW | net_thermal=%.3f MW",
             t,
             T_prod,
-            P_inj / 1e6,
+            P_inj * PA_TO_MPA,
             power_mw,
             thermal_mw,
         )

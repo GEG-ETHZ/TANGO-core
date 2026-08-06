@@ -66,8 +66,27 @@ freezing these would break ``init()``/``solve()``, not protect anything:
   pass (see its docstring).
 - A handful of subclass-specific "derived, recomputed every timestep"
   fields that happen to be plain floats rather than ``LockedState``, e.g.
-  ``NumericalWell.t_d_old`` and ``LumpedReservoir.energy_extracted``/
-  ``p1``/``p2``/``p3`` — see each class's own comments for why.
+  ``NumericalWell.cell_length``/``relative_roughness``/``T_r`` and
+  ``LumpedReservoir.T_initial``/``rock_volume``/``rock_C_v``/``p1``/``p2``/
+  ``p3`` — these are pure functions of already-restored inputs, recomputed
+  identically however many times ``solve()`` runs in a timestep, so there
+  is nothing for write-once enforcement to protect. See each class's own
+  comments for why.
+
+``NumericalWell.t_d_old``, ``LumpedReservoir.energy_extracted``, and
+``LumpedReservoir.ever_solved`` are genuine cross-timestep accumulator/
+sticky-flag state, so unlike the fields above they ARE ``LockedState``-
+wrapped (``t_d_old``/``energy_extracted`` via ``LockedState.increment()``,
+``ever_solved`` via the normal ``get_stale()``/``update()`` cycle) — but
+deliberately kept as plain ``Component`` fields rather than moved into
+``state``, specifically so they stay in scope for
+``snapshot_convergence_state()``/``restore_convergence_state()``'s
+categorical restore. ``state`` itself is excluded from that restore
+(next paragraph) because every one of *its* fields is unconditionally
+recomputed from scratch each ``solve()`` call; these three are not — they
+depend on their own prior value — so they need the restore that ``state``
+is exempt from, in order to avoid double-accumulating across
+``SystemBCIteration``'s inner re-solve iterations.
 """
 
 from __future__ import annotations
@@ -78,6 +97,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from tango_next.core.locked_state import LockedState
 from tango_next.core.stream import Stream
 
 _CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS = frozenset({"inlet", "outlet", "state", "history"})
@@ -172,16 +192,20 @@ class Component(BaseModel, ABC):
         """Compute outlet stream state from the current inlet stream state."""
 
     def mark_all_stale(self) -> None:
-        """Mark every attribute that exposes its own ``mark_all_stale()`` stale.
+        """Mark every ``LockedState`` field, and every ``state``-like container, stale.
 
         Called by the orchestrator immediately before each ``solve()`` —
         staleness is owned by whatever dispatches ``solve()``, not by
-        ``solve()`` itself. Walks this component's own attributes (today,
-        exactly ``state``) rather than hardcoding a field name, so any
-        future attribute exposing ``mark_all_stale()`` is picked up for
-        free.
+        ``solve()`` itself. Walks this component's own attributes rather
+        than hardcoding field names, so any future ``LockedState`` field —
+        whether a bare ``Component`` attribute (e.g. ``energy_extracted``)
+        or nested inside a container exposing its own ``mark_all_stale()``
+        (e.g. ``state``) — is picked up for free.
         """
         for value in vars(self).values():
+            if isinstance(value, LockedState):
+                value.mark_stale()
+                continue
             candidate = getattr(value, "mark_all_stale", None)
             if callable(candidate):
                 candidate()

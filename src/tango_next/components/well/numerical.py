@@ -62,7 +62,7 @@ import numpy as np
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
-from tango_next.core.constants import YEAR_TO_SECOND
+from tango_next.core.constants import MPA_TO_PA, YEAR_TO_SECOND
 from tango_next.core.fluid_state import FluidState
 from tango_next.core.fluid_utils import reynolds_number
 from tango_next.core.locked_state import LockedState
@@ -207,16 +207,22 @@ class NumericalWell(WellComponent):
 
     # ---- Derived quantities (computed by init(), serialized for save/restore) ----
     # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
-    # cross_sectional_area/t_scaling_factor/T_r via direct assignment, and
-    # solve() reassigns t_d_old every timestep; see Component's class
-    # docstring for why fields like this stay mutable.
+    # cross_sectional_area/t_scaling_factor/T_r via direct assignment; see
+    # Component's class docstring for why fields like this stay mutable.
     cell_length: float = 0.0
     relative_roughness: float = 0.0
     cross_sectional_area: float = 0.0
     t_scaling_factor: float = 0.0
     T_r: list[float] = Field(default_factory=list)
     """Rock temperature profile along well axis (K), one value per cell."""
-    t_d_old: float = 0.0
+
+    # LockedState-wrapped, but deliberately kept as a bare Component field
+    # rather than moved into `state`: `state.t_d` is excluded from
+    # snapshot_convergence_state()/restore_convergence_state() because it's
+    # unconditionally recomputed from t_d_old each solve() call, but
+    # t_d_old itself depends on its own prior value, so it needs that
+    # restore — see Component's class docstring.
+    t_d_old: LockedState[float] = Field(default_factory=_ls_zero)
     """Dimensionless time carried over from the previous timestep."""
 
     # ---- Runtime state / history ----
@@ -232,7 +238,6 @@ class NumericalWell(WellComponent):
             self.t_scaling_factor,
             self.T_r,
         ) = self._compute_derived()
-        self.t_d_old = 0.0
 
     def _compute_derived(self) -> tuple[float, float, float, float, list[float]]:
         """Compute geometry-derived constants from this well's validated input fields.
@@ -283,9 +288,9 @@ class NumericalWell(WellComponent):
         s.mass_rate.update(self.inlet.mass_rate)
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        t_d = self.t_d_old + del_t
+        t_d = self.t_d_old.get_stale() + del_t
         s.t_d.update(t_d)
-        self.t_d_old = t_d
+        self.t_d_old.update(t_d)
 
         T_in = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -415,7 +420,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         # super().solve() already marked all fields stale then updated them;
         # pump_power_watts was set to 0.0. Override P_outlet and pump_power_watts
         # if a pump boost is needed — use update_unchecked equivalent: mark stale first.
-        target_Pa = self.pump_target_pressure_megapascals * 1e6
+        target_Pa = self.pump_target_pressure_megapascals * MPA_TO_PA
         P_wellbore = s.P_outlet.get_fresh()
         if target_Pa > P_wellbore:
             pump_delta_p = target_Pa - P_wellbore

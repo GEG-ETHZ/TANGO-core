@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
+from tango_next.core.constants import MPA_TO_PA
 from tango_next.core.fluid_utils import (
     fluid_density,
     fluid_viscosity,
@@ -308,7 +309,7 @@ class LumpedProductionWellWithPump(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         P_after_wellbore = s.P_inlet.get_fresh() - dp_h - dp_f
-        target_Pa = self.pump_target_pressure_megapascals * 1e6
+        target_Pa = self.pump_target_pressure_megapascals * MPA_TO_PA
         if target_Pa > P_after_wellbore:
             pump_dp = target_Pa - P_after_wellbore
             pump_pwr = s.mass_rate.get_fresh() * pump_dp / rho

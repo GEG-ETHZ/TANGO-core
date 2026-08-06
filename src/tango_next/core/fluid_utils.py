@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 
-from tango_next.core.constants import GRAVITY
+from tango_next.core.constants import EULER_CONSTANT_X2, GRAVITY
 from tango_next.core.fluid_state import FluidState
 
 # ---------------------------------------------------------------------------
@@ -193,10 +193,18 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
     more insulating rock), based on dimensionless time t_d:
 
         β = (π·t_d)^-0.5 + 0.5 - 0.25·(t_d/π)^0.5 + 0.125·t_d,   t_d ≤ 2.8
-        β = 2 / (ln(4·t_d) - 1.16) - 1.16 / (ln(4·t_d) - 1.16)²,  t_d > 2.8
+        β = 2 / (ln(4·t_d) - 2γ) - 2γ / (ln(4·t_d) - 2γ)²,  t_d > 2.8
 
-    Matches ``src/tango/units/native/well/base.py::WellUnitNative._compute_Q_loss``
-    exactly (same beta correlation, same formula).
+    where γ is the Euler-Mascheroni constant (``core/constants.py``'s
+    ``EULER_CONSTANT`` — ``EULER_CONSTANT_X2`` is ``2γ``). The source paper
+    rounds ``2γ ≈ 1.15442`` up to 1.16 with no stated justification; we use
+    the actual constant instead.
+
+    Same beta correlation and formula as
+    ``src/tango/units/native/well/base.py::WellUnitNative._compute_Q_loss``,
+    but not bit-for-bit identical: that implementation hardcodes the
+    source paper's rounded 1.16, while this one uses ``2γ`` at full
+    precision (see above).
 
     Reference:
     ---------
@@ -215,8 +223,8 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
     if t_d <= 2.8:
         beta = (math.pi * t_d) ** -0.5 + 0.5 - 0.25 * (t_d / math.pi) ** 0.5 + 0.125 * t_d
     else:
-        ln_term = math.log(4.0 * t_d) - 1.16
-        beta = 2.0 / ln_term - 1.16 / ln_term**2
+        ln_term = math.log(4.0 * t_d) - EULER_CONSTANT_X2
+        beta = 2.0 / ln_term - EULER_CONSTANT_X2 / ln_term**2
     return 2.0 * dL * math.pi * rock_k * beta * delta_T
 
 
