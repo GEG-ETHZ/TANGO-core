@@ -19,13 +19,13 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: AGS_H2O_webapp_native_direct_heat.yml (old tango)",
+            "name": "Python: AGS_H2O_webapp_native.yml (old tango)",
             "type": "debugpy",
             "request": "launch",
             "module": "tango.tango_cli",
             "args": [
                 "-f",
-                "examples/AGS_new/AGS_H2O_webapp_native_direct_heat.yml"
+                "examples/AGS_new/AGS_H2O_webapp_native.yml"
             ],
             "console": "integratedTerminal"
         }
