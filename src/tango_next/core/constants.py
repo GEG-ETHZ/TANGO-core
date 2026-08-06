@@ -99,10 +99,9 @@ K_TO_C_OFFSET: float = -273.15
 
 EULER_CONSTANT: float = 0.5772156649015329
 """The Euler-Mascheroni constant γ, to float64 precision. Used by
-``fluid_utils.heat_loss_adams_2015``'s Adams-2015 β correlation for
-``t_d > 2.8`` — the correlation's coefficient is exactly ``2γ``, which the
-source paper rounds to 1.16 with no stated justification (``2 × 0.57721566...
-≈ 1.15442``, closer to 1.15 than 1.16). We use the actual constant instead
-of either rounding."""
+``fluid_utils.heat_loss_adams_2015``'s wellbore heat-loss β correlation
+for ``t_d > 2.8`` (Zhang et al. 2011, Geothermics 40, 261-266, Eq. 2 —
+see that function's docstring), whose coefficient is exactly ``2γ``
+(``EULER_CONSTANT_X2``, below)."""
 EULER_CONSTANT_X2: float = EULER_CONSTANT * 2.0
 """``2γ`` — see ``EULER_CONSTANT``."""

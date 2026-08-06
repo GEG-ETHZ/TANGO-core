@@ -180,7 +180,7 @@ def hydrostatic_pressure(rho: float, delta_depth: float, gravity: float = GRAVIT
 
 
 def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -> float:
-    r"""Adams et al. (2015) transient conductive heat loss for one wellbore cell (W).
+    r"""Transient conductive heat loss for one wellbore cell (W).
 
     Q_loss = 2π · dL · k_rock · β(t_d) · ΔT
 
@@ -196,22 +196,32 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
         β = 2 / (ln(4·t_d) - 2γ) - 2γ / (ln(4·t_d) - 2γ)²,  t_d > 2.8
 
     where γ is the Euler-Mascheroni constant (``core/constants.py``'s
-    ``EULER_CONSTANT`` — ``EULER_CONSTANT_X2`` is ``2γ``). The source paper
-    rounds ``2γ ≈ 1.15442`` up to 1.16 with no stated justification; we use
-    the actual constant instead.
+    ``EULER_CONSTANT`` — ``EULER_CONSTANT_X2`` is ``2γ``). (Zhang et al.'s
+    own Eq. 2 shows ``γ``, not ``2γ``, in the second term's numerator —
+    not a discrepancy: they keep a ``2k/r₀`` prefactor outside their
+    ``f2``, whereas β here already folds that factor of 2 in, since
+    ``Q_loss = 2π·k_rock·β·ΔT`` applies it directly. Algebraically
+    identical, just factored differently.)
 
     Same beta correlation and formula as
     ``src/tango/units/native/well/base.py::WellUnitNative._compute_Q_loss``,
-    but not bit-for-bit identical: that implementation hardcodes the
-    source paper's rounded 1.16, while this one uses ``2γ`` at full
-    precision (see above).
+    but not bit-for-bit identical: that implementation hardcodes ``2γ`` as
+    the literal 1.16, while this one uses ``EULER_CONSTANT_X2`` at full
+    precision.
 
-    Reference:
-    ---------
-    Adams, B.M. et al. (2015). A comparison of electric power output of CO2
-    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
-    conditions. Applied Energy, 140, 365-377.
-    https://doi.org/10.1016/j.apenergy.2014.11.043
+    References:
+    ----------
+    β and its two-regime piecewise form (Equations 1 and 2) originate with:
+        Zhang, Y., Pan, L., Pruess, K., & Finsterle, S. (2011). A
+        time-convolution approach for modeling heat exchange between a
+        wellbore and surrounding formation. Geothermics, 40, 261-266.
+        https://doi.org/10.1016/j.geothermics.2011.08.003
+    This implementation's exact form matches Equation S65/S66 of:
+        Adams, B.M., Ogland-Hand, J.D., Bielicki, J.M., Schädle, P., & Saar,
+        M.O. Estimating the geothermal electricity generation potential of
+        sedimentary basins using genGEO (the generalizable GEOthermal
+        techno-economic simulator). Supplemental Information, §S6
+        "Wellbore Model", Eq. S66 (which itself cites Zhang et al., 2011).
 
     Args:
         dL: Axial cell length (m).
