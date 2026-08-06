@@ -184,7 +184,13 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
 
     Q_loss = 2π · dL · k_rock · β(t_d) · ΔT
 
-    where β is a dimensionless coefficient based on dimensionless time t_d:
+    where β is a dimensionless heat-transfer-efficiency coefficient for
+    the surrounding rock — large at small t_d (only the rock immediately
+    at the wellbore wall has been thermally disturbed, so it still
+    conducts heat to/from the wellbore readily) and shrinking as t_d
+    grows (the thermally-disturbed zone widens, so further exchange must
+    conduct through progressively more already-equilibrated, effectively
+    more insulating rock), based on dimensionless time t_d:
 
         β = (π·t_d)^-0.5 + 0.5 - 0.25·(t_d/π)^0.5 + 0.125·t_d,   t_d ≤ 2.8
         β = 2 / (ln(4·t_d) - 1.16) - 1.16 / (ln(4·t_d) - 1.16)²,  t_d > 2.8

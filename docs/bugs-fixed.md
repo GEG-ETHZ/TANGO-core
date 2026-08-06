@@ -17,9 +17,10 @@ links to the fuller writeup where one exists.
 (a `horizontal_well` node with no `reservoir` node) down to the generic
 system name `"native"`, which routes to the base `SystemNative`
 orchestrator — whose time-marching methods
-(`update_time_dependent_vars`/`update`/`balanced`) are no-op placeholders.
-Result: a multi-timestep AGS run silently repeats the exact same solved
-state at every timestep after t=0, with no error of any kind.
+(`update_time_dependent_vars`/`update`/`balanced`) were no-op placeholders.
+Result (pre-2026-08-04): a multi-timestep AGS run silently repeated the
+exact same solved state at every timestep after t=0, with no error of any
+kind.
 
 Confirmed four independent ways: code inspection, reproducing the same
 signature on an unrelated pre-existing "validated" example file, a live
@@ -29,13 +30,75 @@ the wrong class gets instantiated and its no-op method actually executes),
 and the raw output data itself (`production_well_T` bit-identical for
 every year after year 1).
 
-`tango_next` doesn't have this class of bug — orchestrator selection isn't
-a string-collapsing dispatch, and `LockedState` would raise immediately if
-a component's `solve()` ever silently skipped updating a field it owns.
+**Root cause, confirmed to the exact mechanism (2026-08-05).** Two
+independent gaps, either one sufficient on its own:
 
-Decision (2026-08-03): not fixing this in `src/tango`. AGS/no-reservoir
-designs are treated as having no trustworthy legacy baseline for
-comparison. Full writeup:
+1. `SystemNative.balanced()` (base class) unconditionally `return True`s —
+   breakpoint at `orchestrators/native.py`'s `return True` line inside
+   `balanced()`, or at `workflows/native_workflow.py:326`
+   (`if self.orchestrator.balanced():`) inside `_native_system_iteration`'s
+   `while not self.orchestrator.max_itr_reached(count)` loop, confirms it
+   returns `True` on the very first pass (`count == 1`) every timestep,
+   for every AGS-shaped config. Since the AGS graph is a closed loop
+   (`surface → injection_well → horizontal_well → production_well →
+   surface`, with the surface's outlet feeding the injection well's inlet
+   again on the *next* timestep's single pass), the circuit is solved
+   exactly once per timestep with no inner convergence check at all. The
+   multi-timestep change this produces (confirmed on
+   `examples/AGS_new/AGS_H2O_webapp_native.yml`: `production_well_T` drops
+   336.7 K → 331.0 K over the first ~5 of 20 timesteps) is the closed
+   loop's own cold-start fixed-point convergence — a numerical artifact of
+   the solve order, not simulated physical time.
+2. Independently, the wellbore heat-loss physics
+   (`units/native/well/base.py`'s `_compute_Q_loss`, an Adams-2015/Ramey-
+   style transient-conduction model keyed on dimensionless time `_t_d`)
+   never advances for any well under `SystemNative`: `_t_d_old` and
+   `time_step` are only ever mutated by `update_dimensionless_time_old()`,
+   and nothing calls that method for any well here. Instrumented directly
+   (temporarily reverting the placeholders to `pass` for a local,
+   uncommitted debugging run, then restoring them): `time_step=0` and
+   `t_d_old=0.0` on **all 20** outer-loop passes, for `injection_well`,
+   `horizontal_well`, and `production_well` alike — `_t_d` is recomputed
+   to the identical value (594.66...) every single timestep. Even the
+   sibling `SystemCPGNative` (which *does* call
+   `update_dimensionless_time_old()`, and does have real time-marching)
+   only calls it for `injection_well`/`production_well` — never for
+   `horizontal_well` — so a reservoir-bearing config would still leave the
+   horizontal well's own rock-cooling state pinned at "one year of
+   extraction" forever.
+
+Hardened 2026-08-04 (`bada742`): the no-op `pass` placeholders now
+`raise NotImplementedError`, so any multi-timestep run of an AGS-shaped
+config fails loudly instead of silently returning wrong numbers —
+including `examples/AGS_new/AGS_H2O_webapp_native.yml`, the web app's own
+live runtime config. `tests/regtest/test_native.py`'s `testcase6.yml`/
+`testcase7.yml` regression cases (the only in-repo tests that exercised
+this exact failure mode) were removed 2026-08-05 rather than `xfail`ed,
+since old tango isn't being fixed for this (see decision below) — the
+equivalent tango_next coverage is tracked as open cells in
+`docs/TANGO_vision_and_roadmap.md`'s example-coverage matrix instead.
+
+`tango_next` doesn't have this class of bug, for a more specific reason
+than "orchestrator selection isn't a string-collapsing dispatch": its
+numerical well component still has a `t_d_old`-equivalent field (same
+name, same role) — the field itself wasn't removed. What's different is
+that there's no separate, per-unit-type-wireable "advance the old value"
+method to forget to call. `solve()` advances `t_d`/`t_d_old` together,
+unconditionally, every time it runs; and `SystemBCIteration`'s inner
+T-convergence loop (`system_bc_iteration.py`) snapshots every component's
+non-frozen persistent field *categorically* (`Component.
+snapshot_convergence_state()`/`restore_convergence_state()` — any field
+`solve()` mutates and that must survive across timesteps, not a
+hand-maintained list) before each of its inner re-solve attempts, so
+however many inner iterations a timestep needs, only the final, converged
+attempt's advance survives — one real advance per physical timestep,
+guaranteed generically rather than per-field. There's no code path
+structurally capable of leaving `t_d_old` un-advanced the way
+`SystemNative`/`SystemCPGNative` did for `horizontal_well`.
+
+Decision (2026-08-03): not fixing the underlying physics gap in
+`src/tango`. AGS/no-reservoir designs are treated as having no
+trustworthy legacy baseline for comparison. Full writeup:
 `docs/tango_next_progress_summary_aug_2026.md`, `docs/tango_next_tasks.md`
 §"AGS sweep parity" and "Open items" sections.
 

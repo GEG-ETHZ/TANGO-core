@@ -5,7 +5,7 @@ engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
 and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
 from `docs/tango_next_progress_summary_july_2026.md`.*
 
-## A real bug found in the old system — and proof tango_next doesn't have it
+## Old system is not actually solving AGS — and proof tango_next doesn't have this bug
 
 While checking `tango_next`'s results for one class of geothermal system
 (AGS — a sealed, closed-loop design with no reservoir) against the legacy
@@ -49,7 +49,7 @@ accidentally trusts a bad number in the meantime, and the decision on how
 to handle the legacy system's fix is queued in `docs/tango_next_tasks.md`
 for when there's time to make that call.
 
-### Further confirmed 2026-08-04 — watched it happen live, step by step
+### Confirmed via debugger: AGS configs get routed to the no-op placeholder engine (2026-08-04)
 
 To remove any remaining doubt, we stepped through an actual run of the
 affected example in a debugger and watched the failure happen in real
@@ -82,7 +82,63 @@ legacy baseline for comparison; `tango_next`'s own internal checks stand
 in for that comparison instead. See `docs/tango_next_tasks.md`'s "Open
 items — tracked, not scheduled" section.
 
-## Found and fixed a real tango_next bug while investigating a small numeric mismatch
+### Hardened the silent AGS failure into a loud one; root cause is a fake convergence check plus a frozen heat-loss clock (2026-08-04/05)
+
+We changed the legacy system so this bug can no longer hide. Where it
+used to just do nothing and move on, it now stops the run immediately
+with a clear error the moment a multi-year AGS simulation tries to
+advance past its first year. This isn't a fix for the underlying physics
+gap — that decision from 2026-08-03 stands — it just means nobody can
+accidentally trust a silently-wrong number from this class of config
+again. One real consequence: the web app's own live AGS (water) config
+is affected by this same bug and now fails loudly too, instead of quietly
+returning numbers that were never real. The two automated tests that
+only existed to check this exact broken behavior were removed, since
+keeping them around no longer serves a purpose — the legacy system isn't
+being fixed for this case, so there's nothing left for those tests to
+guard.
+
+While hardening this, we also pinned down *exactly* why it happens, in
+more precise terms than before. There are two separate reasons the
+legacy system never advances time here, either one enough by itself:
+
+1. The part of the code that's supposed to check "has this year's
+   calculation settled down yet?" for this design always just says "yes,
+   immediately" — without ever actually checking anything. Since this
+   design's simulated wells/surface form a closed loop (each one feeds
+   the next, in a circle), that means the whole loop only ever gets
+   solved once per year, with no chance to settle. What looks like a
+   changing number for the first several years is actually just that
+   one-pass loop settling into a stable operating point on its own — the
+   same way repeatedly restarting a calculation from its own last answer
+   converges — not real years passing.
+2. Separately, and just as important: the piece of physics that's
+   supposed to track how much the surrounding rock has cooled from years
+   of continuous heat extraction never gets told a year has passed. We
+   confirmed this directly by temporarily re-enabling the broken
+   behavior on a local, throwaway copy, instrumenting it, and watching
+   the internal "how much time has passed" value: across all 20 years of
+   a real run, for every one of the three wells involved, it never once
+   changed. It's fixed forever at "one year's worth of extraction,"
+   which is also why, once the loop settles into its stable operating
+   point (point 1, above), the output just goes flat — not because 19
+   more years of gradual cooling happened and then leveled off, but
+   because those 19 years were never simulated in the first place.
+
+**tango_next avoids this for a more specific reason than "it's built
+differently."** It still tracks the same kind of "how much time has
+passed" value the legacy system does — that idea wasn't removed. What's
+different is that tango_next has no separate, easy-to-forget step for
+advancing it. The value gets updated automatically, every time, as an
+unavoidable part of the same calculation that uses it — and a generic,
+built-in safeguard (not something anyone had to remember to apply to
+this specific value) makes sure that if a single year's calculation
+needs several internal attempts to settle, only the final, correct
+attempt's update actually sticks. There's no way to end up in the
+legacy system's situation, where one specific well's "time passed"
+tracking was simply never wired up to anything that would advance it.
+
+## Fixed a wrong reservoir initial-pressure formula in tango_next (found while chasing a small numeric mismatch)
 
 We'd been tracking a small, persistent disagreement between old tango and
 tango_next on one of our core comparison files — small enough to be
@@ -153,6 +209,8 @@ specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
 
 1. ~~Revisit the AGS old-tango bug and decide how to proceed~~ — decided
    2026-08-03: not fixing the legacy system for this. Closed.
+   ~~Harden the silent failure into a loud one and confirm the exact
+   mechanism~~ — done 2026-08-04/05 (see above).
 2. Wait on Morteza's response regarding the MOOSE integration; if none
    comes, scope the reverse-engineering effort as its own task.
 3. ~~Fix the reservoir startup-value bug and re-confirm~~ — done 2026-08-04:
