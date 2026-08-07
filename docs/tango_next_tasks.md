@@ -192,19 +192,6 @@ from scratch.
 - Untracked repo-root files (`CLAUDE.md`, `deployment_analysis_questions.md`,
   `tango_diagramming_workflow.md`) — left as-is; could be `.gitignore`d
   instead of tracked, still an open call.
-- **Trace the actual source of the Adams-2015 β coefficient.** The
-  `heat_loss_adams_2015` docstring in `src/tango_next/core/fluid_utils.py`
-  attributes β (and its two-regime piecewise form) to Adams et al. 2015
-  (`Documents/Papers/GEG/1-s2.0-S0306261914012124-main.pdf`), but a direct
-  read of that PDF turned up no occurrence of β at all — the paper cites
-  another source for this piece, and that cited paper is the one that
-  likely has the actual β definition. Chad tried to pull it and couldn't
-  get easy access. Likely candidate:
-  https://www.scopus.com/pages/publications/84876225375 — not yet
-  confirmed to contain β itself. Near-term TODO: get access to that paper,
-  confirm it has the definition, and correct the attribution in the
-  docstring (and anywhere else β's origin is cited).
-
 ## Active: AGS sweep parity (heat + power)
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new
