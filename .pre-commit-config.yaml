@@ -11,6 +11,16 @@ repos:
         args: [ --fix ]
       - id: ruff-format
 
+  # Local, fast checks
+  - repo: local
+    hooks:
+      - id: hash-tango-next
+        name: hash src/tango_next (for DVC dep tracking)
+        entry: uv run python tools/hash_tango_next.py
+        language: system
+        files: ^src/tango_next/
+        pass_filenames: false
+
   # Strict/Slow checks (run ONLY on push)
   - repo: local
     hooks:

@@ -8,10 +8,6 @@ stages:
       - generate.py
       - common.py
       - ../../../examples/tango_next/AGS_direct_heat.yml
-      # NOTE: ../../../src/tango_next is technically a dep but would be burdensome to hash every time and thus is not tracked here.  However, longer term, when TANGO itself is used as a dependency, downstream projects should track the tango entry via:
-      #   params:
-      #     - pyproject.toml:
-      #         - project.dependencies
     outs:
       - outputs/design_matrix.parquet
 
@@ -23,6 +19,11 @@ stages:
       - common.py
       - ../../../examples/tango_next/AGS_direct_heat.yml
       - outputs/design_matrix.parquet
+      # Content hash of src/tango_next/, kept current by the hash-tango-next
+      # pre-commit hook (tools/hash_tango_next.py). Tracking this one small
+      # file instead of the whole src/tango_next/ tree directly means DVC
+      # doesn't have to hash hundreds of source files on every `dvc repro`.
+      - ../../../src/tango_next.hash
     params:
       - params.yaml:
           - n_workers
