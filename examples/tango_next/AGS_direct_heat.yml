@@ -13,7 +13,7 @@
 # horizontal) — see components/well/numerical.py module docstring for how a
 # single marching scheme now covers vertical, horizontal, and deviated wells.
 #
-# No reservoir means InjectionPolicy's fracing-threshold machinery is
+# No reservoir means InjectionPolicy's fracking-threshold machinery is
 # irrelevant here, but the closed loop still needs SystemBCIteration (not
 # SystemDirect): only SystemBCIteration seeds the circuit's first inlet
 # (injection_well) with cold conditions on timestep 0 via

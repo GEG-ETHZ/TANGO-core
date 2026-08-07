@@ -23,7 +23,7 @@ Outer convergence criterion (relative, must ALL be satisfied)::
     |mass_rate[N] − mass_rate[N-1]| / mass_rate[N-1]   < tolerance   (AUTO_FLOW / AUTO_BOTH)
     |inj_well.inlet.P[N] − inj_well.inlet.P[N-1]| / …  < tolerance
 
-``MANUAL`` and ``MANUAL_FRACING_CHECK`` modes do a single pass (no outer loop).
+``MANUAL`` and ``MANUAL_FRACKING_CHECK`` modes do a single pass (no outer loop).
 ``AUTO_PRESSURE`` / ``AUTO_FLOW`` / ``AUTO_BOTH`` iterate until all criteria are met.
 See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration mode).
 
@@ -56,11 +56,11 @@ The surface must NOT set ``outlet.P = _injection_pressure``; instead:
   - The surface gets its inlet from the production pump outlet (fixed at
     ``target_extraction_P``) and its outlet pressure comes from TESPy pump2.
 
-In ``MANUAL_FRACING_CHECK`` mode (src/tango/ ``type: manual, check_fracing: True``):
+In ``MANUAL_FRACKING_CHECK`` mode (src/tango/ ``type: manual, check_fracking: True``):
 when ``target_reservoir_P > inj_well.outlet.P``, the update is skipped — the
-reservoir inlet is below the fracing threshold, so no pressure adjustment is
+reservoir inlet is below the fracking threshold, so no pressure adjustment is
 needed.  This is correct behaviour.  ``test_p`` is only reduced when the initial
-value drives the reservoir inlet above the fracing threshold.
+value drives the reservoir inlet above the fracking threshold.
 
 ━━━ Planned: inner pump loop ━━━
 
@@ -115,7 +115,7 @@ class SystemBCIteration(SystemDirect):
 
     Subclasses ``SystemDirect``, reusing its component ordering/wiring
     (``self._ordered``, ``_wire_one_stream``) as the building block.
-    ``MANUAL``/``MANUAL_FRACING_CHECK`` drive a temperature-convergence loop
+    ``MANUAL``/``MANUAL_FRACKING_CHECK`` drive a temperature-convergence loop
     (``_converge_injection_T``) that re-solves the whole circuit every
     iteration; iterative pressure policies (``AUTO_*``) will additionally
     wrap that in an outer Newton-step loop (not yet implemented).
@@ -135,7 +135,7 @@ class SystemBCIteration(SystemDirect):
         dt_years: Duration of each timestep (years).
         mass_rate: Mass flow rate (kg/s) — from ``sim_config.mass_rate``.
             Ignored (pass ``0.0``) for ``AUTO_FLOW`` / ``AUTO_BOTH``, where the
-            solver computes mass rate from ``fracing_flow()`` each pass.
+            solver computes mass rate from ``fracking_flow()`` each pass.
         bc_checkpoint_idx: ``component_idx`` of the boundary-condition
             checkpoint component (the surface) — from
             ``sim_config.bc_checkpoint_idx``. Used to look up the surface via
@@ -145,7 +145,7 @@ class SystemBCIteration(SystemDirect):
         tolerance: Relative convergence tolerance on injection pressure.
         max_inner_iterations: Maximum iterations for the injection-
             temperature convergence loop (``_converge_injection_T``, used by
-            ``MANUAL``/``MANUAL_FRACING_CHECK``). Raises ``ConvergenceError``
+            ``MANUAL``/``MANUAL_FRACKING_CHECK``). Raises ``ConvergenceError``
             if exhausted without converging.
 
     """
@@ -258,11 +258,11 @@ class SystemBCIteration(SystemDirect):
 
             return
 
-        if self.policy == InjectionPolicy.MANUAL_FRACING_CHECK:
-            # Phase 2: add fracing_flow() and threshold checks before/after the pass.
+        if self.policy == InjectionPolicy.MANUAL_FRACKING_CHECK:
+            # Phase 2: add fracking_flow() and threshold checks before/after the pass.
             raise NotImplementedError(
-                "InjectionPolicy.MANUAL_FRACING_CHECK requires Phase 2 fracing logic "
-                "(fracing_flow() Darcy calculation and reservoir threshold access).",
+                "InjectionPolicy.MANUAL_FRACKING_CHECK requires Phase 2 fracking logic "
+                "(fracking_flow() Darcy calculation and reservoir threshold access).",
             )
 
         # AUTO_* modes — Phase 2: outer Newton-step convergence loop.
@@ -275,7 +275,7 @@ class SystemBCIteration(SystemDirect):
         #   else:
         #       raise ConvergenceError(...)
         #
-        # AUTO_FLOW and AUTO_BOTH also update mass_rate = fracing_flow() each pass.
+        # AUTO_FLOW and AUTO_BOTH also update mass_rate = fracking_flow() each pass.
         # AUTO_BOTH additionally co-iterates test_p and mass_rate jointly — confirmed
         # (2026-06-16) to raise NotImplementedError below like the other AUTO_* modes
         # until that joint update rule is implemented.
@@ -366,7 +366,7 @@ class SystemBCIteration(SystemDirect):
         # TODO: figure out what `auto_flow_modes` is doing here and comment this line accordingly
         auto_flow_modes = (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH)
         mass_rate_repr = (
-            "auto (fracing_flow())" if self.policy in auto_flow_modes else f"{self.mass_rate:.1f} kg/s"
+            "auto (fracking_flow())" if self.policy in auto_flow_modes else f"{self.mass_rate:.1f} kg/s"
         )
         logger.info(
             "SystemBCIteration: %d timesteps × %.2g yr, mass_rate=%s",

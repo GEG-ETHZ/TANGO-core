@@ -129,7 +129,7 @@ class Workflow:
 
         if self._sim_config.injection_mode is not None:
             policy = self._sim_config.injection_mode
-            # AUTO_FLOW / AUTO_BOTH compute mass_rate from fracing_flow() each
+            # AUTO_FLOW / AUTO_BOTH compute mass_rate from fracking_flow() each
             # pass — mass_rate is not prescribed and may be omitted from the YAML.
             if policy in (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH):
                 mass_rate: float = 0.0

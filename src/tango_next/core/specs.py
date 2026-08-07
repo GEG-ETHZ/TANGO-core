@@ -68,6 +68,6 @@ class SimConfig(BaseModel):
     SystemBCIteration."""
     mass_rate: float | None = None
     """Required unless injection_mode is absent, or is AUTO_FLOW/AUTO_BOTH
-    (mass rate computed from fracing_flow() instead)."""
+    (mass rate computed from fracking_flow() instead)."""
     bc_checkpoint_idx: int | None = None
     """Required when injection_mode is present."""

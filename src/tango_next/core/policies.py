@@ -11,26 +11,26 @@ class InjectionPolicy(enum.StrEnum):
     Geothermal reservoirs can be damaged by hydraulic fracturing via two
     independent mechanisms:
 
-    1. **Flow-induced fracing** — mass flow rate high enough that the Darcy-law
-       pressure drop drives the reservoir inlet above the fracing threshold:
+    1. **Flow-induced fracking** — mass flow rate high enough that the Darcy-law
+       pressure drop drives the reservoir inlet above the fracking threshold:
 
-       ``fracing_flow = 2πhk · ΔP_allowed / (μ · ln(re/rw))``
+       ``fracking_flow = 2πhk · ΔP_allowed / (μ · ln(re/rw))``
 
        where ``ΔP_allowed = hydrostatic_P × overpressure% / 100``.
 
-    2. **Pressure-induced fracing** — injection wellhead pressure high enough
+    2. **Pressure-induced fracking** — injection wellhead pressure high enough
        that, after hydrostatic head and friction losses in the injection well,
        ``inj_well.outlet.P`` exceeds ``hydrostatic_P × (1 + overpressure%/100)``.
 
     Each policy variant specifies whether mass flow rate and wellhead pressure
-    are user-prescribed or solver-iterated, and what happens when a fracing
+    are user-prescribed or solver-iterated, and what happens when a fracking
     threshold would be exceeded.
 
-    The policy is scoped to *injection control*, not just fracing prevention.
+    The policy is scoped to *injection control*, not just fracking prevention.
     A per-timestep ``MAX_NET_POWER`` variant fits the same per-timestep Newton-step
     mechanism as ``AUTO_*`` above: iterate mass flow rate and injection pressure
     jointly to maximise ``gross_power - pump_parasitic_load`` *at this timestep*,
-    stopping at the fracing limit only if it would otherwise be exceeded.
+    stopping at the fracking limit only if it would otherwise be exceeded.
 
     A whole-horizon objective like ``MIN_LCOE`` is a different shape of problem and
     likely needs a different solver mechanism: LCOE depends on cumulative energy
@@ -46,7 +46,7 @@ class InjectionPolicy(enum.StrEnum):
     **YAML field:** ``sim_config.injection_mode`` (kebab-case string, e.g.
     ``injection_mode: auto-pressure``).
 
-    **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACING_CHECK`` execute
+    **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACKING_CHECK`` execute
     one circuit pass per timestep and return.  ``AUTO_*`` variants drive an outer
     Newton-step convergence loop.  See ``SystemBCIteration.run_timestep`` and the
     BC Iteration Solver diagram in ``docs/diagrams/src/``.
@@ -56,13 +56,13 @@ class InjectionPolicy(enum.StrEnum):
     ============================================  ======================
     src/tango/ config                             InjectionPolicy
     ============================================  ======================
-    ``type: manual, check_fracing: False``        ``MANUAL``
-    ``type: manual, check_fracing: True``         ``MANUAL_FRACING_CHECK``
+    ``type: manual, check_fracking: False``        ``MANUAL``
+    ``type: manual, check_fracking: True``         ``MANUAL_FRACKING_CHECK``
     ``type: automatic`` (standard non-Hotmaps)    ``AUTO_BOTH``
     ============================================  ======================
 
     In HotmapsDispatch mode, ``type: automatic`` has more complex behaviour
-    (early timesteps use a specified rate with optional fracing cap; later
+    (early timesteps use a specified rate with optional fracking cap; later
     timesteps may iterate to a target thermal power output).  That is a
     distinct operating mode not yet represented in this enum.
     """
@@ -78,28 +78,30 @@ class InjectionPolicy(enum.StrEnum):
     MANUAL = (
         "manual",
         "Both mass flow rate and injection wellhead pressure are user-specified. "
-        "No fracing check is performed. Single solver pass per timestep.",
+        "No fracking check is performed. Single solver pass per timestep.",
     )
-    # TODO: change `fracing` to `fracking` everywhere!!!!
-    MANUAL_FRACING_CHECK = (
-        "manual-fracing-check",
-        "Both user-specified. Both fracing directions checked; any violation raises "
-        "an error. Pressure reduced if initial value causes pressure-induced fracing; "
-        "rate capped if it causes flow-induced fracing. Single solver pass per timestep.",
+    MANUAL_FRACKING_CHECK = (
+        "manual-fracking-check",
+        "Both user-specified. Both fracking directions checked; any violation raises "
+        "an error. Pressure reduced if initial value causes pressure-induced fracking; "
+        "rate capped if it causes flow-induced fracking. Single solver pass per timestep.",
     )
+    # TODO: make it so that this finds the exact pressure (within some tolerance parameter with a reasonable default) at which fracking does not occur
     AUTO_PRESSURE = (
         "auto-pressure",
         "Mass flow rate user-specified. Injection wellhead pressure iterated via "
         "Newton step (test_p += target_reservoir_P - inj_well.outlet.P) until "
-        "reservoir inlet converges to the fracing threshold. "
-        "Flow-induced fracing raises an error.",
+        "reservoir inlet converges to the fracking threshold. "
+        "Flow-induced fracking raises an error.",
     )
+    # TODO: make it so that this finds the exact mass flow rate (within some tolerance parameter with a reasonable default) at which fracking does not occur
     AUTO_FLOW = (
         "auto-flow",
         "Injection wellhead pressure user-specified. Mass flow rate iterated to "
-        "fracing_flow() each pass; co-evolves with pressure until both stabilize. "
-        "Pressure-induced fracing raises an error.",
+        "fracking_flow() each pass; co-evolves with pressure until both stabilize. "
+        "Pressure-induced fracking raises an error.",
     )
+    # This needs to do something fancier than the above two options and requires thought
     AUTO_BOTH = (
         "auto-both",
         "Both flow rate and pressure are iterated simultaneously. If no feasible injection pressure exists at "

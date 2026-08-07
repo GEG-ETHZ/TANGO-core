@@ -176,7 +176,7 @@ class LumpedReservoir(ReservoirComponent):
     P_initial: float = 0.0
     """Un-depleted reservoir pressure = brine_density × g × reservoir_depth
     (Pa) — matches src/tango/'s ReservoirUnitNative._compute_initial_pressure().
-    Distinct from the fracing-safety ceiling
+    Distinct from the fracking-safety ceiling
     (hydro_static_pressure × (1 + over_pressure_percentage/100))."""
     rock_volume: float = 0.0
     """Rock (non-fluid) volume = thickness × area × (1 − porosity) (m³)."""

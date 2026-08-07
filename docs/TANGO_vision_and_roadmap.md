@@ -197,7 +197,7 @@ Early on, `SystemBCIteration` re-implemented the entire single-pass solve loop i
 identical to what `SystemDirect` already did — two code paths doing the same thing, picked by
 whether a YAML key happened to be present. The fix: `SystemBCIteration` now subclasses
 `SystemDirect` and reuses its single-circuit-pass `run_timestep` (one call per pass for
-`MANUAL`/`MANUAL_FRACING_CHECK`, repeated calls inside a Newton loop for `AUTO_*` once Phase 2
+`MANUAL`/`MANUAL_FRACKING_CHECK`, repeated calls inside a Newton loop for `AUTO_*` once Phase 2
 lands) instead of duplicating it. `SystemDirect` owns the only implementation of "one circuit
 pass" and "loop over timesteps"; `InjectionPolicy` is the sole authority over how many passes
 a timestep takes, and never determines which orchestrator *class* is used. Orchestrator choice
@@ -284,7 +284,7 @@ the solver mechanics.
 In `tango_next`, both concerns are unified into a single enum that makes every operating
 mode self-documenting. The YAML field is `sim_config.injection_mode`. Note that
 `sim_config.mass_rate` is only meaningful for policies where flow rate is user-prescribed
-(`MANUAL`, `MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is
+(`MANUAL`, `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is
 computed from `fracing_flow()` each pass, so the field may be omitted entirely under those modes.
 
 ```python
@@ -295,7 +295,7 @@ class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
     """Both mass flow rate and injection wellhead pressure are user-specified.
     No fracing check is performed. Single solver pass per timestep."""
 
-    MANUAL_FRACING_CHECK = "manual-fracing-check"
+    MANUAL_FRACKING_CHECK = "manual-fracing-check"
     """Both user-specified. Both fracing directions are checked; any violation
     raises an error. Injection pressure is reduced if the initial value would
     cause pressure-induced fracing; rate is capped if it would cause
@@ -325,10 +325,10 @@ class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
 `max_mass_rate` is preserved as a separate optional hard cap that applies after
 mode-based rate computation, regardless of mode. It is meaningful for `AUTO_FLOW` and
 `AUTO_BOTH` (to bound runaway rate growth) but has no effect in `MANUAL` or
-`MANUAL_FRACING_CHECK` if the specified rate is already below the cap.
+`MANUAL_FRACKING_CHECK` if the specified rate is already below the cap.
 
 **Current implementation status (confirmed 2026-06-16):** only `MANUAL` is implemented in
-`tango_next` today — a single circuit pass, no correction of any kind. `MANUAL_FRACING_CHECK`,
+`tango_next` today — a single circuit pass, no correction of any kind. `MANUAL_FRACKING_CHECK`,
 `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH` all raise `NotImplementedError` from
 `SystemBCIteration.run_timestep` (Phase 2 work). In particular, `AUTO_BOTH` — which jointly
 manipulates both mass flow rate and injection pressure — is confirmed to raise
@@ -358,11 +358,11 @@ fits the same per-timestep mechanism as `AUTO_PRESSURE`/`AUTO_FLOW`/`AUTO_BOTH`.
 | `src/tango/` configuration | `InjectionPolicy` equivalent |
 |---|---|
 | `type: manual, check_fracing: False` | `MANUAL` |
-| `type: manual, check_fracing: True` | `MANUAL_FRACING_CHECK` |
+| `type: manual, check_fracing: True` | `MANUAL_FRACKING_CHECK` |
 | `type: automatic` (standard, non-Hotmaps) | `AUTO_BOTH` (test_p and mass_rate co-evolve each iteration) |
 
 In HotmapsDispatch mode, `type: automatic` has more complex behavior: early timesteps
-use a specified rate with an optional fracing cap (similar to `MANUAL_FRACING_CHECK`),
+use a specified rate with an optional fracing cap (similar to `MANUAL_FRACKING_CHECK`),
 while later timesteps either use `fracing_flow()` or iterate mass flow rate to hit a
 target thermal power output (`controlled_power_generation: yes` — note that `src/tango/`
 checks this with a `== "yes"` string comparison, so `True` silently does nothing there).
@@ -1027,7 +1027,7 @@ full-suite runs, but never automatically on every push.
     - Dimensionless-time tracking in `NumericalInjectionWell`/
       `NumericalProductionWell` still only advances correctly because
       exactly one `solve()` call happens per timestep. `InjectionPolicy`
-      (`core/policies.py`) now defines `MANUAL_FRACING_CHECK`, `AUTO_PRESSURE`,
+      (`core/policies.py`) now defines `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`,
       `AUTO_FLOW`, and `AUTO_BOTH` in addition to `MANUAL`, and
       `SystemBCIteration` already saves/restores a `t_d_old` around its inner
       T-convergence loop — but `run_timestep` still raises

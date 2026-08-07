@@ -20,7 +20,7 @@ layout:  # well-field geometry
 sim_config:
   num_tsteps: 3
   dt_years: 1.0              # years
-  injection_mode: manual     # InjectionPolicy: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual     # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
   mass_rate: 50              # kg/s — omit (or ignored) for auto-flow and auto-both
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
 

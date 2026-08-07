@@ -40,8 +40,8 @@ layout:
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
-  injection_mode: manual     # see EGS_direct_heat.yml's note: MANUAL_FRACING_CHECK
-                             # (old tango's check_fracing: yes) isn't implemented yet
+  injection_mode: manual     # see EGS_direct_heat.yml's note: MANUAL_FRACKING_CHECK
+                             # (old tango's check_fracking: yes) isn't implemented yet
   mass_rate: 50              # kg/s
   bc_checkpoint_idx: 4       # component_idx of the surface (below)
 

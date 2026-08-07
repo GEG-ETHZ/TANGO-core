@@ -34,7 +34,7 @@ hand-rolls a fixed-point (Picard) update:
 test_p += target_reservoir_P − inj_well.outlet.P
 ```
 
-plus a separate inner temperature-convergence loop, plus a `MANUAL_FRACING_CHECK` mode
+plus a separate inner temperature-convergence loop, plus a `MANUAL_FRACKING_CHECK` mode
 that is a *different* code path entirely for when the fracing threshold rather than the
 pressure target is the binding constraint. Flow-induced and pressure-induced fracing are
 checked as two independent mechanisms (see the vision doc) precisely because the explicit,
