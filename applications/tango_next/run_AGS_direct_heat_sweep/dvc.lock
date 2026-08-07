@@ -25,8 +25,12 @@ stages:
     deps:
     - path: ../../../examples/tango_next/AGS_direct_heat.yml
       hash: md5
-      md5: e19b9e6579dabe42e4cbc4de1a1ec579
-      size: 5735
+      md5: 09357ce9ab0edbb93ac36cde53d20d48
+      size: 5736
+    - path: ../../../src/tango_next.hash
+      hash: md5
+      md5: 97f696375a8e56557950dee25980c131
+      size: 41
     - path: common.py
       hash: md5
       md5: 29fdcf3d5089d2d0bc1963cf71360d1a
@@ -46,8 +50,8 @@ stages:
     outs:
     - path: outputs/results
       hash: md5
-      md5: a932189be70d03320ec9c11ae78ae545.dir
-      size: 7431505
+      md5: f84a4b5cc4491d1fbcdb0ab09121dd8a.dir
+      size: 7418464
       nfiles: 12870
   summarize:
     cmd: python summarize.py
@@ -58,8 +62,8 @@ stages:
       size: 3812
     - path: outputs/results
       hash: md5
-      md5: 1645dd5b447a7d6bef929a0a5e0a46b6.dir
-      size: 8179327
+      md5: 564cb71c0d045ba4e6314a85fa56a8fc.dir
+      size: 8166235
       nfiles: 13140
     - path: summarize.py
       hash: md5
@@ -68,8 +72,8 @@ stages:
     outs:
     - path: outputs/results.parquet
       hash: md5
-      md5: 6cadd872edd5d40ea4aac541bc01d51f
-      size: 417251
+      md5: 656d868656c72242ae1c82e5b97177f6
+      size: 417194
   plot:
     cmd: python plot.py
     deps:
@@ -79,8 +83,8 @@ stages:
       size: 3812
     - path: outputs/results.parquet
       hash: md5
-      md5: 6cadd872edd5d40ea4aac541bc01d51f
-      size: 417251
+      md5: 656d868656c72242ae1c82e5b97177f6
+      size: 417194
     - path: plot.py
       hash: md5
       md5: 480c0f712fc56cb4ad25a49c3bce3e3d
@@ -88,26 +92,26 @@ stages:
     outs:
     - path: outputs/parallel_coordinates.html
       hash: md5
-      md5: 2114e56e365248725a64aeb7a973e9a9
-      size: 5598194
+      md5: eaadf1506a71865e56018ee77e37041f
+      size: 5598034
     - path: outputs/parallel_coordinates.png
       hash: md5
-      md5: 11d939ae3c3684bc24c19e708d3bd484
-      size: 1047750
+      md5: d615789f3938e9b22270544ebdb9c19d
+      size: 1047494
     - path: outputs/parallel_coordinates_qualified.html
       hash: md5
-      md5: a2ba6edae17284241e4b1d9dd62632ae
-      size: 4574028
+      md5: 47dc94745171dff95fc7d65c968229af
+      size: 4573938
     - path: outputs/success_scatter.png
       hash: md5
-      md5: 7638a63e07ce9da5dc13bc62c46e7065
-      size: 669713
+      md5: 68a1b7e20b3d08fe52bc5783e75cc471
+      size: 669726
   clean:
     cmd: python -c "import pathlib; [f.unlink() for f in 
       pathlib.Path('outputs/results').glob('*.tmp')]"
     deps:
     - path: outputs/results
       hash: md5
-      md5: 1645dd5b447a7d6bef929a0a5e0a46b6.dir
-      size: 8179327
-      nfiles: 13140
+      md5: f84a4b5cc4491d1fbcdb0ab09121dd8a.dir
+      size: 7418464
+      nfiles: 12870
