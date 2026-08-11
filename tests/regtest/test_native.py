@@ -18,6 +18,13 @@ from tango.core.errors import (
 )
 from tango.runner import Runner
 
+pytestmark = pytest.mark.old_tango
+"""Pure old-tango coverage (parametrized over every examples/*.yml — the
+dominant contributor to full-suite runtime) with zero tango_next
+involvement — deselected by default (see pytest.ini) while old tango
+isn't being changed. Run explicitly with `-m old_tango` if that changes.
+"""
+
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 
 

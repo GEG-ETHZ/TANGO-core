@@ -50,7 +50,14 @@ repos:
     hooks:
       - id: pytest
         name: Run test suite
-        entry: uv run pytest -m "not perf"
+        # not old_tango: deselects pure old-tango coverage (test_native.py,
+        # test_data_leakage.py — parametrized over the full examples/*.yml
+        # corpus, the dominant contributor to full-suite runtime) while
+        # old tango (src/tango/) isn't being changed. Does NOT deselect
+        # the old-vs-new parity tests, which use old tango as a reference
+        # oracle for tango_next and stay in the default run. Run with
+        # `uv run pytest -m old_tango` explicitly if old tango changes.
+        entry: uv run pytest -m "not perf and not old_tango"
         language: system
         files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false

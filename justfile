@@ -49,9 +49,17 @@ lint:
 typecheck:
     uv run mypy src/tango_next/
 
-# Run test suite
-test:
-    uv run pytest -v
+# Run test suite. Pass --all to include old_tango/perf tests too (a real full run).
+test *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args="{{args}}"
+    if [[ "$args" == *"--all"* ]]; then
+        args="${args/--all/}"
+        uv run pytest -v $args
+    else
+        uv run pytest -v -m "not old_tango and not perf" $args
+    fi
 
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
