@@ -55,8 +55,11 @@ import pandas as pd
 import yaml
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.initialization import Initialization
 from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation, StarmapParallelization
 from pymoo.core.result import Result
+from pymoo.core.sampling import Sampling
+from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
@@ -352,6 +355,26 @@ class Minimization:
             avoids pickling live TESPy/CoolProp state that a solved object
             would carry. Default ``True``.
         save_dir: Where to save results — default ``outputs/pymoo/``.
+        seed_from: Path to a previous run's ``pareto_results.csv`` (or
+            ``pareto_results_partial.csv`` — same schema) to WARM-START
+            the initial population from, instead of pymoo's default
+            random/LHS init. A cheap alternative to true checkpoint/resume
+            (which would need to pickle the whole ``Algorithm`` — including
+            a live ``multiprocessing.Pool`` when ``n_processes > 1``, which
+            can't be pickled at all): this only reuses the numeric param
+            columns already sitting in a saved CSV, so it works
+            unconditionally regardless of ``n_processes``. NOT a true
+            resume — the new run starts at generation 1 with a fresh RNG
+            state, just seeded with better-than-random starting points.
+            The non-dominated designs from ``seed_from`` are combined with
+            ``pad_sampling``-generated designs to fill out the rest of
+            ``algorithm.pop_size`` (if ``seed_from`` has MORE designs than
+            ``pop_size``, only the first ``pop_size`` are used). Default
+            ``None`` (no seeding, pymoo's normal init).
+        pad_sampling: pymoo ``Sampling`` used to fill out the population
+            beyond what ``seed_from`` provides. Default ``LHS()`` — better
+            design-space coverage than plain random sampling for the
+            "fill in the rest" role. Only used if ``seed_from`` is given.
 
     Raises:
         ValueError: If ``policy`` is not one of the two allowed policies.
@@ -370,6 +393,8 @@ class Minimization:
         save_results: bool = True,
         save_pareto_configs: bool = True,
         save_dir: Path | str = DEFAULT_SAVE_DIR,
+        seed_from: Path | str | None = None,
+        pad_sampling: Sampling | None = None,
     ) -> None:
         """See class docstring for argument details."""
         if policy not in ALLOWED_POLICIES:
@@ -389,8 +414,28 @@ class Minimization:
         self.save_results = save_results
         self.save_pareto_configs = save_pareto_configs
         self.save_dir = Path(save_dir)
+        self.seed_from = Path(seed_from) if seed_from is not None else None
+        self.pad_sampling: Sampling = pad_sampling if pad_sampling is not None else LHS()
         self.n_failures = 0
         """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+
+    def _load_seed_x(self, path: Path) -> npt.NDArray[np.float64]:
+        """Read a previous run's results CSV, return its param columns as an ``(n, n_var)`` array.
+
+        Column order matches ``self.params`` — the CSV must have been
+        written by THIS same ``Minimization`` setup (same params, same
+        names), which is the only case that makes sense to seed from
+        anyway.
+        """
+        seed_df = pd.read_csv(path)
+        cols = [p.name for p in self.params]
+        missing = [c for c in cols if c not in seed_df.columns]
+        if missing:
+            raise ValueError(
+                f"seed_from={path} is missing column(s) {missing!r} — does it come from a "
+                "Minimization run with the same params (same names, same order)?",
+            )
+        return seed_df[cols].to_numpy(dtype=float)
 
     def _build_config(self, x: list[float]) -> dict[str, Any]:
         """Apply every ``ParamSpec`` to a fresh copy of ``base_cfg``."""
@@ -459,6 +504,39 @@ class Minimization:
         # self.algorithm in place, so the same Minimization instance could
         # in principle be .run() more than once without carrying state over.
         algorithm = copy.deepcopy(self.algorithm)
+        if self.seed_from is not None:
+            seed_x = self._load_seed_x(self.seed_from)
+            pop_size = algorithm.pop_size
+            if len(seed_x) > pop_size:
+                logger.info(
+                    "seed_from=%s has %d designs, more than pop_size=%d -- using the first %d.",
+                    self.seed_from,
+                    len(seed_x),
+                    pop_size,
+                    pop_size,
+                )
+                seed_x = seed_x[:pop_size]
+            n_pad = pop_size - len(seed_x)
+            if n_pad > 0:
+                pad_pop = self.pad_sampling(problem, n_pad)
+                seed_x = np.vstack([seed_x, pad_pop.get("X")])
+            logger.info(
+                "Warm-starting from %s: %d seeded design(s) + %d %s-padded design(s) = pop_size=%d.",
+                self.seed_from,
+                pop_size - n_pad,
+                n_pad,
+                type(self.pad_sampling).__name__,
+                pop_size,
+            )
+            # Mirrors GeneticAlgorithm.__init__'s own construction of
+            # self.initialization from `sampling` -- swapping in our seeded
+            # ndarray while preserving whatever repair/eliminate_duplicates
+            # this algorithm was already configured with.
+            algorithm.initialization = Initialization(
+                seed_x,
+                repair=algorithm.repair,
+                eliminate_duplicates=algorithm.eliminate_duplicates,
+            )
         algorithm.setup(
             problem,
             termination=termination,

@@ -140,6 +140,20 @@ def build_parser() -> argparse.ArgumentParser:
             "for part of the current result."
         ),
     )
+    parser.add_argument(
+        "--seed-from",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a previous run's pareto_results.csv (or "
+            "pareto_results_partial.csv from an interrupted run) to "
+            "warm-start the initial population from, instead of pymoo's "
+            "default random/LHS init. NOT a true resume (fresh RNG state, "
+            "restarts at generation 1) -- see Minimization's seed_from "
+            "docstring for the full tradeoff. Remaining population slots "
+            "beyond what the file provides are filled via LHS."
+        ),
+    )
     return parser
 
 
