@@ -37,12 +37,20 @@
 # --show-toplevel`) -- that assumes a git clone, but the documented Euler
 # workflow (README.md's "Running on Euler") is rsync-based and doesn't
 # necessarily bring `.git` along, which made REPO_ROOT resolve to an empty
-# string and `uv run --project ""` fail with a useless error. This script's
-# own location relative to the repo root is fixed
-# (applications/tango_next/opt_hydro_df_electric/), so just walk up three
-# directories -- works identically whether this is a git clone or a plain
-# rsynced copy.
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+# string and `uv run --project ""` fail with a useless error.
+#
+# Also NOT `dirname "$0"`-based, despite this script's own location
+# relative to the repo root being fixed: `sbatch` COPIES the submitted
+# script into a spool directory (e.g. /var/spool/slurm/...) and executes
+# THAT copy, so `$0` inside a real sbatch job does not point at this
+# script's actual location at all (confirmed the hard way: worked when
+# tested by running the script directly, broke under a real `sbatch`
+# submission with "can't open file '/var/spool/slurm/applications/...'").
+# $SLURM_SUBMIT_DIR is the reliable one -- SLURM sets it to the directory
+# `sbatch` was invoked FROM, which the documented workflow always is
+# (this script's own directory). Falls back to `dirname "$0"` only for
+# local testing outside SLURM, where $SLURM_SUBMIT_DIR is unset.
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
 
 CPUS="${SLURM_CPUS_PER_TASK:-48}"
 N_WORKERS=$(( CPUS - 3 ))
