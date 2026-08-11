@@ -102,6 +102,40 @@ in-flight multi-step work across sessions.
   properly this time (a real tolerance-based loop, not a fixed 5-shot
   fixed-point scheme). Chad's explicit call: don't implement yet, keep as
   tracked backlog.
+- [x] **DONE 2026-08-11 — `pymoo_api.Minimization` now saves the current
+  non-dominated front after every generation**, not just at the end.
+  `Minimization.run()` was refactored from pymoo's `minimize()`
+  convenience wrapper to the equivalent `algorithm.setup()` +
+  `while algorithm.has_next(): algorithm.next()` loop (confirmed
+  behaviorally identical — that's literally what `minimize()` does
+  internally) specifically to get a hook between generations. After each
+  one, writes `pareto_results_partial.csv`/`pareto_configs_partial/`
+  (deliberately different filenames from the final
+  `pareto_results.csv`/`pareto_configs/`, so a completed run's real
+  output is never ambiguous with a leftover partial one from an
+  interrupted run) plus an `n_gen` provenance column. If a run gets
+  killed (SLURM time limit, Ctrl-C, crash), whatever the front looked
+  like as of the last completed generation is already on disk.
+- [ ] **Idea to consider, NOT committed to yet: stop/resume for
+  `Minimization.run()`.** Chad's ask, prompted by the above — being able
+  to pause a long HPC run and later continue it from where it left off,
+  rather than restarting from scratch. Researched (not implemented): the
+  same `algorithm.setup()`/`.next()` loop the save-every-generation
+  feature above already uses is also pymoo's own documented checkpoint
+  mechanism — confirmed empirically (pickled a real pymoo `Algorithm`
+  mid-run on a synthetic problem, reloaded it, and `.next()` continued
+  correctly: same generation counter, same population, same
+  non-dominated front — genuine continuation, not a restart). The real
+  complication is `n_processes > 1`: the algorithm holds a live
+  `multiprocessing.Pool` (via `StarmapParallelization`), and pool objects
+  can't be pickled at all (OS-level resources, not serializable) — a real
+  implementation needs to strip the pool out of `problem.elementwise_runner`
+  before pickling and rebuild a fresh one after reloading, not naively
+  pickle the whole algorithm object. Would need new CLI flags
+  (`--checkpoint-every`/`--resume-from`, roughly) and a checkpoint file
+  format decision. Meaningfully more surface area than the
+  save-every-generation feature above — flagged as worth doing, not
+  scheduled.
 
 ## Next session priorities (set 2026-08-03)
 
