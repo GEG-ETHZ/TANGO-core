@@ -50,13 +50,13 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import yaml
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation, StarmapParallelization
 from pymoo.core.result import Result
-from pymoo.optimize import minimize
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
@@ -421,6 +421,16 @@ class Minimization:
     def run(self) -> tuple[Result, pd.DataFrame]:
         """Run the optimization and return pymoo's raw ``Result`` plus a results dataframe.
 
+        Runs generation-by-generation (``algorithm.setup()`` + a
+        ``while algorithm.has_next(): algorithm.next()`` loop) instead of
+        pymoo's ``minimize()`` convenience wrapper — behaviorally identical
+        (that's literally what ``minimize()`` does internally), but this
+        gives a hook between generations to save the CURRENT non-dominated
+        front after every one (``_save_intermediate``, if ``save_results``)
+        — if the run gets killed (SLURM time limit, ^C, crash) partway
+        through, whatever the front looked like as of the LAST completed
+        generation is already on disk, not lost.
+
         Returns:
             ``(res, df)`` — ``res`` is pymoo's own ``Result`` (``res.X``/
             ``res.F`` are the pareto-front decision variables/objectives);
@@ -444,27 +454,72 @@ class Minimization:
         )
         print("Minimization.run() starting at")
         print_dt()
-        res = minimize(
+
+        # copy_algorithm=True is minimize()'s own default -- avoids mutating
+        # self.algorithm in place, so the same Minimization instance could
+        # in principle be .run() more than once without carrying state over.
+        algorithm = copy.deepcopy(self.algorithm)
+        algorithm.setup(
             problem,
-            self.algorithm,
-            termination,
+            termination=termination,
             seed=self.pymoo_config.seed,
             verbose=self.verbose,
             save_history=False,
             output=ParetoProgressOutput(),
         )
-        df = self._build_results_df(res)
+        while algorithm.has_next():
+            algorithm.next()
+            if self.save_results:
+                self._save_intermediate(algorithm)
+        res = algorithm.result()
+
+        df = self._build_results_df(res.X, res.F, n_gen=algorithm.n_gen)
         if self.n_failures:
             logger.info(
                 "Minimization: %d evaluations were constraint violations (failed to solve).",
                 self.n_failures,
             )
         if self.save_results:
-            self._save(res, df)
+            self._write_pareto(
+                res.X,
+                df,
+                self.save_dir / "pareto_results.csv",
+                self.save_dir / "pareto_configs" if self.save_pareto_configs else None,
+            )
         return res, df
 
-    def _build_results_df(self, res: Result) -> pd.DataFrame:
-        """Pareto-front results as a dataframe, plus a ``euclidean`` aggregate column.
+    def _save_intermediate(self, algorithm: GeneticAlgorithm) -> None:
+        """Write the CURRENT (possibly not yet converged) non-dominated front.
+
+        Called after every generation — see ``run()``'s docstring for why.
+        Deliberately separate filenames from the final save
+        (``pareto_results_partial.csv``/``pareto_configs_partial/``) so a
+        completed run's real output is never ambiguous with a leftover
+        partial one from an interrupted run.
+        """
+        opt = algorithm.opt
+        x = None if opt is None or len(opt) == 0 else opt.get("X")
+        f = None if opt is None or len(opt) == 0 else opt.get("F")
+        df = self._build_results_df(x, f, n_gen=algorithm.n_gen)
+        self._write_pareto(
+            x,
+            df,
+            self.save_dir / "pareto_results_partial.csv",
+            self.save_dir / "pareto_configs_partial" if self.save_pareto_configs else None,
+        )
+
+    def _build_results_df(
+        self,
+        x: npt.NDArray[np.float64] | None,
+        f: npt.NDArray[np.float64] | None,
+        n_gen: int | None = None,
+    ) -> pd.DataFrame:
+        """Pareto-front results (params ``x`` + objectives ``f``) as a dataframe.
+
+        Adds a ``euclidean`` aggregate column and (if ``n_gen`` given) an
+        ``n_gen`` provenance column — useful on the intermediate saves
+        (``_save_intermediate``) to see at a glance which generation a
+        partial front is from; harmless on the final save too.
 
         ``euclidean`` is a Z-SCORE-NORMALIZED Euclidean distance
         (``sqrt(Σ z_i²)``, ``z_i = (objective_i - mean) / std`` across the
@@ -479,11 +534,11 @@ class Minimization:
         a different normalization can always be recomputed later from the
         raw data without having lost anything.
         """
-        if res.X is None or res.F is None:
+        if x is None or f is None:
             return pd.DataFrame(columns=[p.name for p in self.params] + [o.name for o in self.objectives])
 
-        x = res.X if res.X.ndim == 2 else res.X.reshape(1, -1)
-        f = res.F if res.F.ndim == 2 else res.F.reshape(1, -1)
+        x = x if x.ndim == 2 else x.reshape(1, -1)
+        f = f if f.ndim == 2 else f.reshape(1, -1)
 
         x_df = pd.DataFrame(x, columns=[p.name for p in self.params])
         f_df = pd.DataFrame(f, columns=[o.name for o in self.objectives])
@@ -491,23 +546,29 @@ class Minimization:
         std = f_df.std().replace(0.0, 1.0)  # constant column -> no scaling, avoid /0
         z = (f_df - f_df.mean()) / std
         df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+        if n_gen is not None:
+            df["n_gen"] = n_gen
         return df
 
-    def _save(self, res: Result, df: pd.DataFrame) -> None:
-        """Write the results dataframe and (if enabled) every pareto design's config."""
+    def _write_pareto(
+        self,
+        x: npt.NDArray[np.float64] | None,
+        df: pd.DataFrame,
+        csv_path: Path,
+        configs_dir: Path | None,
+    ) -> None:
+        """Write ``df`` to ``csv_path`` and, if ``configs_dir`` given, one YAML per row of ``x``."""
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        df.to_csv(self.save_dir / "pareto_results.csv", index=False)
-        logger.info("Wrote %s", self.save_dir / "pareto_results.csv")
+        df.to_csv(csv_path, index=False)
+        logger.info("Wrote %s", csv_path)
 
-        if not self.save_pareto_configs or res.X is None:
+        if configs_dir is None or x is None:
             return
-        configs_dir = self.save_dir / "pareto_configs"
         configs_dir.mkdir(exist_ok=True)
-        x = res.X if res.X.ndim == 2 else res.X.reshape(1, -1)
+        x = x if x.ndim == 2 else x.reshape(1, -1)
         for i, row in enumerate(x):
             cfg = self._build_config(list(row))
-            path = configs_dir / f"design_{i:03d}.yml"
-            path.write_text(yaml.safe_dump(cfg, sort_keys=False))
+            (configs_dir / f"design_{i:03d}.yml").write_text(yaml.safe_dump(cfg, sort_keys=False))
         logger.info("Wrote %d pareto-design configs to %s", len(x), configs_dir)
 
 
