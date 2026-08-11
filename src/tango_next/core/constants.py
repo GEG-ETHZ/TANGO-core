@@ -29,6 +29,10 @@ Temperature offsets (additive, not multiplicative)
 ----------------------------------------------------
 C_TO_K_OFFSET = 273.15   (degC + C_TO_K_OFFSET -> K)
 K_TO_C_OFFSET = -273.15  (K + K_TO_C_OFFSET -> degC)
+
+Time
+----
+YEAR_TO_HOUR = 8760.0  (hours per 365-day year)
 """
 
 from __future__ import annotations
@@ -96,6 +100,10 @@ C_TO_K_OFFSET: float = 273.15
 
 K_TO_C_OFFSET: float = -273.15
 """Add to a temperature in K to get degC."""
+
+YEAR_TO_HOUR: float = 8760.0
+"""Hours per (365-day) year. Matches src/tango/core/constants.py exactly —
+used by NativeEconomicComponent's LCOE formula (annual operational hours)."""
 
 EULER_CONSTANT: float = 0.5772156649015329
 """The Euler-Mascheroni constant γ, to float64 precision. Used by

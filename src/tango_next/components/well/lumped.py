@@ -24,9 +24,9 @@ from dataclasses import dataclass, field
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
-from tango_next.core.constants import MPA_TO_PA
 from tango_next.core.fluid_utils import (
     fluid_density,
+    fluid_enthalpy,
     fluid_viscosity,
     friction_factor_darcy,
     hydrostatic_pressure,
@@ -269,10 +269,21 @@ class LumpedProductionWellWithPump(WellComponent):
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
-    pump_efficiency: float = Field(default=0.75, frozen=True)
-    """Pump isentropic efficiency (dimensionless)."""
-    pump_target_pressure_megapascals: float = Field(default=0.0, frozen=True)
-    """Target outlet pressure from the pump (MPa). 0 means no active pump."""
+    pump_efficiency: float = Field(default=1.0, frozen=True)
+    """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
+    derating) to match old tango's BC_calculator.py pump-power calculation,
+    which applies no efficiency correction at all. TODO: lower this
+    default to ~0.9 once a real efficiency figure is settled on (Chad's
+    call, deliberately deferred — parity with old tango comes first). See
+    NumericalProductionWellWithPump.solve()'s docstring for the full
+    derivation of why this uses an isothermal CoolProp enthalpy rise
+    rather than mass_rate*ΔP/ρ."""
+    target_extraction_pressure: float = Field(default=0.0, frozen=True)
+    """Target outlet pressure from the pump (Pa). 0 means no active pump.
+    Sourced from ``sim_config.target_extraction_pressure`` — the SAME
+    single value ``SurfaceComponent`` uses, threaded in by
+    ``_build_components`` (see that field's docstring in ``core/specs.py``
+    for the duplicated-value bug this replaced)."""
 
     state: ProductionWellWithPumpState = Field(default_factory=ProductionWellWithPumpState)
     history: ProductionWellWithPumpHistory = Field(default_factory=ProductionWellWithPumpHistory)
@@ -309,10 +320,17 @@ class LumpedProductionWellWithPump(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         P_after_wellbore = s.P_inlet.get_fresh() - dp_h - dp_f
-        target_Pa = self.pump_target_pressure_megapascals * MPA_TO_PA
+        target_Pa = self.target_extraction_pressure
         if target_Pa > P_after_wellbore:
             pump_dp = target_Pa - P_after_wellbore
-            pump_pwr = s.mass_rate.get_fresh() * pump_dp / rho
+            # Isothermal CoolProp enthalpy rise, not mass_rate*ΔP/ρ — see
+            # NumericalProductionWellWithPump.solve()'s docstring for why
+            # (water's thermal expansivity, not compressibility, is what
+            # matters for dH/dP|_T at typical wellhead conditions).
+            T_out = s.T_inlet.get_fresh()  # isothermal across this simplified segment
+            h_before = fluid_enthalpy(self.common.fluid_name, T_out, P_after_wellbore)
+            h_after = fluid_enthalpy(self.common.fluid_name, T_out, target_Pa)
+            pump_pwr = s.mass_rate.get_fresh() * (h_after - h_before) / self.pump_efficiency
         else:
             pump_dp = 0.0
             pump_pwr = 0.0

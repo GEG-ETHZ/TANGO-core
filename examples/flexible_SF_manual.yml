@@ -74,7 +74,12 @@ production_well:
   well_length: 4000. # m
   diameter: 0.410 # m
   epsilon: 55.e-6 # m, absolute surface roughness
-  well_length_seq: [5000.]
+  well_length_seq: [5000.]  # NOT a bug (see docs/bugs-fixed.md): this is the
+  # TOTAL well depth for costing purposes — production_well (4000 m) plus
+  # production_well_pump (1000 m) below sum to 5000 m, matching this well's
+  # true bottom depth. A 2026-08-10 "fix" briefly changed this to [4000.]
+  # on the mistaken assumption it should equal well_length alone; reverted
+  # once the actual well_length_seq intent was confirmed.
   well_diameter_seq: [0.410]
 
 production_well_pump:

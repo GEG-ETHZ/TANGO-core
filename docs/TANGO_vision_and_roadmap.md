@@ -399,10 +399,17 @@ have to be re-derived each time they come up.
 finding the flow rate and/or injection wellhead pressure needed to prevent fracing.
 But `SystemBCIteration`'s own module docstring documents a second, independent
 sub-problem: the production-pump inner loop that finds `dP_pump` needed to hit
-`target_extraction_pressure` at the surface inlet. Today `target_extraction_pressure`
-is a fixed value on the surface component spec and the pump-loop physics is not yet
-implemented — but these two concerns (injection control, extraction control) should
-be independently configurable rather than folded into a single key.
+`target_extraction_pressure` at the surface inlet. As of 2026-08-10,
+`target_extraction_pressure` is a single fixed value on `sim_config` — threaded by
+reference to both the surface component and any pump-bearing production well via
+`_build_components`'s `layout_extras` mechanism (fixing a real bug where it used to
+be two independently-set, unvalidated copies — see `docs/bugs-fixed.md`) — but the
+pump-loop physics itself (the real Newton-Raphson solve old tango does, finding
+`dP_pump` such that the whole circuit is pressure-consistent — see below) is not yet
+implemented; tango_next's pump-bearing wells currently apply this value directly as
+a fixed target rather than solving for it. These two concerns (injection control,
+extraction control) should also be independently configurable rather than folded
+into a single key — that part of this section's proposal still stands.
 
 **Proposed design (Phase 2+):** introduce a sibling `extraction_control` block in
 `sim_config` housing `target_extraction_pressure` and a parallel `ExtractionPolicy` enum.

@@ -37,6 +37,9 @@ layout:  # well-field geometry
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
+  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
   injection_mode: manual     # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
   mass_rate: 50              # kg/s — omit (or ignored) for auto-flow and auto-both
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
@@ -57,7 +60,6 @@ components:
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
-    target_extraction_pressure: 7_000_000  # Pa
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
 
     power_plant:
@@ -93,6 +95,13 @@ components:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+          # Cost-only metadata (NativeEconomicComponent, ignored by GraphSurface's
+          # physics) — matches old tango's flexible_SF_manual.yml condenser block
+          # exactly: a singleton set (no paired cooler), closed/wet cooling tower.
+          Subtype: condenser
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
 
         pump:
           type: Compressor
@@ -165,7 +174,9 @@ components:
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
-    pump_target_pressure_megapascals: 7.0  # MPa — matches surface.target_extraction_pressure (old tango: target_extraction_pressure: 7000000)
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above (see that field's
+    # docstring in core/specs.py for the duplicated-value bug this fixed).
 
 # TODO: migrate addons section
 # The old format had a top-level addons: block (ThermaGraph, Analyzer) that activated

@@ -133,6 +133,27 @@ class MainProduct(enum.StrEnum):
     HEAT = "heat"
 
 
+class ProjectMaturity(enum.StrEnum):
+    """Whether a geothermal project's wells already exist (``BROWN_FIELD``)
+    or must still be drilled/permitted/explored (``GREEN_FIELD``).
+
+    ``GREEN_FIELD`` includes injection-well, permitting, and exploration
+    CAPEX; ``BROWN_FIELD`` zeroes all three (existing infrastructure reused,
+    only production wells/surface plant/pipes are new spend) — a real
+    ~30%+ swing on total CAPEX, not a cosmetic distinction.
+
+    **YAML field:** ``economic.project_maturity``.
+
+    **src/tango/ mapping:** a raw string compared via
+    ``project_maturity.upper() == "BROWN_FIELD"`` (``economic/economic.py``,
+    ``wells.py``, ``permitting.py``, ``exploration.py``) — replaced here with
+    a real enum for the same reason as ``MainProduct``, above.
+    """
+
+    GREEN_FIELD = "green_field"
+    BROWN_FIELD = "brown_field"
+
+
 class ComponentRole(enum.StrEnum):
     """Tags a graph-surface TESPy node's output for aggregation into plant totals.
 
@@ -143,12 +164,22 @@ class ComponentRole(enum.StrEnum):
     one of them. A node with no role is still solved as part of the network,
     just not summed into either total.
 
-    ``solve()`` sums ``.P.val`` over ``NET_ELECTRIC`` nodes (sign by TESPy
-    component type — Turbine positive, Compressor negative, same convention
-    as ``src/tango/``'s ``PowerPlant.calculate_net_power()``) and ``.Q.val``
-    over ``NET_THERMAL`` nodes, writing ``state.net_power_W`` /
-    ``state.net_thermal_W``. ``EconomicComponent.main_product`` (see
-    ``MainProduct`` above) picks which of those two totals feeds LCOE/LCOH.
+    ``solve()`` sums ``-P.val`` (uniformly negated, no per-type branch) over
+    ``NET_ELECTRIC`` nodes and ``-Q.val`` over ``NET_THERMAL`` nodes, writing
+    ``state.net_power_W``/``state.net_thermal_W``. The uniform negation
+    happens to land on the physically correct sign for every node type
+    without a branch, because TESPy's own raw sign convention already
+    differs by type — confirmed empirically (``hydro_df_electric.yml``'s
+    topology): ``Turbine.P.val`` is negative (generates/removes energy),
+    ``Compressor.P.val`` is positive (consumes/adds energy) — so negating
+    both makes a turbine add to net power and a pump subtract from it, with
+    no ``isinstance`` check needed. Do not assume this sign is a stable
+    physical constant if porting a formula from elsewhere (e.g.
+    ``src/tango/``'s cost model) that reads raw ``P.val`` directly — it's a
+    wiring-convention artifact of how each TESPy network happens to be
+    built, not a TESPy-wide guarantee (see ``project_economic_model_wackiness``
+    memory for a case where this bit a literal port). ``EconomicComponent.main_product``
+    (see ``MainProduct`` above) picks which of the two totals feeds LCOE/LCOH.
 
     **YAML field:** ``power_plant.nodes.<name>.role`` (optional; omit for
     internal-only components like valves, separators, condensers).

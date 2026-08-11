@@ -17,6 +17,7 @@ a single timestep takes once that topology choice has been made.
 
 from __future__ import annotations
 
+from tango_next.components.economic.base import EconomicComponent
 from tango_next.core.component import Component
 from tango_next.core.orchestrator import Orchestrator
 
@@ -27,10 +28,29 @@ class SystemDirect(Orchestrator):
     Also the base class for SystemBCIteration — see module docstring.
     """
 
-    def __init__(self, components: dict[str, Component], n_tsteps: int = 1) -> None:
-        """Initialise, sorting components by component_idx for circuit order."""
+    def __init__(
+        self,
+        components: dict[str, Component],
+        n_tsteps: int = 1,
+        economic: EconomicComponent | None = None,
+    ) -> None:
+        """Initialise, sorting components by component_idx for circuit order.
+
+        Args:
+            components: Named physical components keyed by YAML name.
+            n_tsteps: Total number of simulation timesteps.
+            economic: Optional economic component (from the ``economic:``
+                YAML block). Deliberately kept OUT of ``components``/
+                ``_ordered``/``_by_idx`` — it must run exactly once, after
+                every physical timestep completes (see ``finalize()``), not
+                once per timestep like every other component. See
+                ``NativeEconomicComponent``'s module docstring for why it
+                can't just be component_idx N+1 in the per-timestep loop.
+
+        """
         self._components = components
         self.n_tsteps = n_tsteps
+        self._economic = economic
 
         # Sort components by component_idx for deterministic solve order.
         self._ordered: list[Component] = sorted(
@@ -88,9 +108,34 @@ class SystemDirect(Orchestrator):
         for component in self._ordered:
             component.record(t)
 
+    def finalize(self) -> None:
+        """Run the economic component (if any) exactly once, after all timesteps.
+
+        Called by ``run()`` after the ``for t in range(self.n_tsteps)`` loop
+        finishes — not once per timestep like ``run_timestep()``. Old tango's
+        ``EconomicUnitNative.execute()`` runs the same way (once, at the end
+        of the run — see ``NativeEconomicComponent``'s module docstring),
+        because CAPEX sizing and the LCOE denominator both read the physical
+        components' FINAL solved ``state`` (turbine/pump/HX power, net
+        power/thermal output), not a time-averaged history.
+
+        The economic component has no ``inlet``/``outlet`` wiring to any
+        other component, so it gets the whole ``components`` dict handed to
+        it directly (a private, non-Pydantic attribute — the same "live
+        cross-reference" pattern ``GraphSurface`` already uses for its TESPy
+        network), rather than going through the ``Stream`` abstraction every
+        physical component uses.
+        """
+        if self._economic is None:
+            return
+        self._economic._components = self._components  # noqa: SLF001
+        self._economic.mark_all_stale()
+        self._economic.solve()
+
     def run(self) -> None:
-        """Execute all timesteps."""
+        """Execute all timesteps, then the economic finalize step (if any)."""
         for t in range(self.n_tsteps):
             self.run_timestep(t)
             self._after_timestep(t)
             self.record(t)
+        self.finalize()

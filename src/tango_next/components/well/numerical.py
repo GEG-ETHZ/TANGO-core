@@ -62,9 +62,9 @@ import numpy as np
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
-from tango_next.core.constants import MPA_TO_PA, YEAR_TO_SECOND
+from tango_next.core.constants import YEAR_TO_SECOND
 from tango_next.core.fluid_state import FluidState
-from tango_next.core.fluid_utils import reynolds_number
+from tango_next.core.fluid_utils import fluid_enthalpy, reynolds_number
 from tango_next.core.locked_state import LockedState
 from tango_next.core.physics_models import (
     FrictionModel,
@@ -400,40 +400,67 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
 
     Inherits the full Adams 2015 marching heat-loss model from
     ``NumericalProductionWell``.  After the wellbore solve, a pump boost is
-    applied to ``P_outlet`` if ``pump_target_pressure_megapascals`` exceeds the
+    applied to ``P_outlet`` if ``target_extraction_pressure`` exceeds the
     wellbore outlet pressure.
 
     Use this for the upper production well segment in a split (lower/upper)
     production wellbore configuration.
     """
 
-    pump_efficiency: float = 0.75
-    """Pump isentropic efficiency (dimensionless)."""
-    pump_target_pressure_megapascals: float = 0.0
-    """Target outlet pressure after pump boost (MPa). 0 = no active pump."""
+    pump_efficiency: float = 1.0
+    """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
+    derating) to match old tango's BC_calculator.py pump-power calculation,
+    which applies no efficiency correction at all — see the isothermal
+    enthalpy-rise note below. TODO: lower this default to ~0.9 once a real
+    efficiency figure is settled on (Chad's call, deliberately deferred —
+    parity with old tango comes first)."""
+    target_extraction_pressure: float = 0.0
+    """Target outlet pressure after pump boost (Pa). 0 = no active pump.
+    Sourced from ``sim_config.target_extraction_pressure`` — the SAME
+    single value ``SurfaceComponent`` uses, threaded in by
+    ``_build_components`` (see that field's docstring in ``core/specs.py``
+    for the duplicated-value bug this replaced)."""
 
     def solve(self) -> None:
-        """March wellbore heat loss, then apply pump pressure boost."""
+        """March wellbore heat loss, then apply pump pressure boost.
+
+        Pump work is the ISOTHERMAL CoolProp enthalpy rise between the
+        wellbore outlet and the boosted (target) pressure, at the wellbore
+        outlet temperature — matching old tango's ``BC_calculator.py``
+        inline calculation (``-(inlet.H - outlet.H) * mass_rate`` after an
+        isothermal ``updatePT`` pump boost) exactly in form.
+
+        Deliberately NOT ``mass_rate * ΔP / ρ`` (the previous formula here):
+        verified against a live old-tango run that this hydraulic estimate
+        overstates the true isothermal enthalpy rise by ~53% at typical
+        production wellhead conditions (~400 K) — water is nearly
+        incompressible (``(∂V/∂P)_T`` is tiny, as expected) but NOT
+        thermally inert, and it's the thermal expansivity term in
+        ``dH/dP|_T = V - T·(∂V/∂T)_P`` that matters here, not
+        compressibility. Confirmed via CoolProp's own isobaric expansion
+        coefficient: predicted ``dH/dP`` from the exact identity matched
+        the measured value from a live run to 4 significant figures. See
+        docs/tango_next_tasks.md for the full derivation.
+        """
         super().solve()
 
         s = self.state
         # super().solve() already marked all fields stale then updated them;
         # pump_power_watts was set to 0.0. Override P_outlet and pump_power_watts
         # if a pump boost is needed — use update_unchecked equivalent: mark stale first.
-        target_Pa = self.pump_target_pressure_megapascals * MPA_TO_PA
+        target_Pa = self.target_extraction_pressure
         P_wellbore = s.P_outlet.get_fresh()
         if target_Pa > P_wellbore:
-            pump_delta_p = target_Pa - P_wellbore
-            rho_out = self.outlet.rho  # set by super().solve() via CoolProp
-            pump_pwr = (
-                s.mass_rate.get_fresh() * pump_delta_p / rho_out / self.pump_efficiency
-                if rho_out > 0.0
-                else 0.0
-            )
+            T_out = s.T_outlet.get_fresh()
+            h_before = s.h_cells.get_fresh()[-1]
+            h_after = fluid_enthalpy(self.common.fluid_name, T_out, target_Pa)
+            pump_pwr = s.mass_rate.get_fresh() * (h_after - h_before) / self.pump_efficiency
             s.P_outlet.mark_stale()
             s.P_outlet.update(target_Pa)
             s.pump_power_watts.mark_stale()
             s.pump_power_watts.update(pump_pwr)
             self.outlet.P = target_Pa
+        # T_outlet is unchanged — the pump boost is isothermal by construction
+        # (matches old tango, which also holds T fixed and only raises P).
         # T_outlet is unchanged — isentropic enthalpy rise is negligible for
         # liquid water at these pressures (~0.05 K per 10 MPa boost).

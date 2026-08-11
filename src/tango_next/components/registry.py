@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from tango_next.components.economic.native import NativeEconomicComponent
 from tango_next.components.reservoir.lumped import LumpedReservoir
 from tango_next.components.surface.graph import GraphSurface
 from tango_next.components.well.lumped import (
@@ -42,4 +43,5 @@ COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("production_well_with_pump", "numerical"): NumericalProductionWellWithPump,
     ("horizontal_well", "numerical"): NumericalWell,
     ("surface", "graph"): GraphSurface,
+    ("economic", "native"): NativeEconomicComponent,
 }

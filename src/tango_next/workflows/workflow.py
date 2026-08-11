@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 from enum import Enum
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
+from tango_next.components.economic.base import EconomicComponent
 from tango_next.components.registry import COMPONENT_REGISTRY
 from tango_next.core.component import Component
 from tango_next.core.errors import ConfigError
@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 _REVERSE_REGISTRY: dict[type[Component], tuple[str, str]] = {
     cls: key for key, cls in COMPONENT_REGISTRY.items()
 }
+
+# Keys single-sourced from common:/layout:/sim_config: and threaded to
+# components via _build_components — never legitimately set in a
+# component's own YAML block. ONE shared constant, used both to reject
+# them at load time (_build_components) and to exclude them from
+# Workflow.to_dict()'s per-component dump (they'd otherwise round-trip
+# straight back into that same rejection). Keeping this in one place is
+# deliberate: the target_extraction_pressure bug this generalizes existed
+# BECAUSE two independent copies of "which fields are shared" could drift
+# apart — a second hardcoded list here would repeat that exact mistake at
+# the meta level.
+_LAYOUT_EXTRA_KEYS = ("well_spacing", "dt_years", "target_extraction_pressure")
+_PROTECTED_COMPONENT_KEYS = frozenset({"common", *_LAYOUT_EXTRA_KEYS})
 
 
 class Workflow:
@@ -63,13 +76,13 @@ class Workflow:
 
     Every top-level YAML block has a real schema: ``common:``/``layout:``/
     ``sim_config:`` validate against ``Common``/``Layout``/``SimConfig``
-    (core/specs.py); ``components:`` was already validated per-component
-    (every Component subclass is its own schema). Unknown keys raise
+    (core/specs.py); ``components:`` and ``economic:`` are each validated
+    per-component (every ``Component`` subclass, including
+    ``NativeEconomicComponent``, is its own schema). Unknown keys raise
     ConfigError at load time rather than being silently accepted and never
-    read by anything. (``economic:`` is the one deliberate, documented
-    exception — a placeholder, no ``EconomicComponent`` consumes it
-    yet, so it has no schema of its own and is retained
-    verbatim/unvalidated purely so ``to_dict()`` doesn't silently drop it.)
+    read by anything. Unlike ``components:``, ``economic:`` is deliberately
+    NOT part of the per-timestep circuit — see
+    ``_build_economic_component()`` and ``SystemDirect.finalize()``.
 
     ``common:`` gets one more guarantee beyond validation: every component
     that needs shared fluid/rock parameters holds a REFERENCE to the same
@@ -108,12 +121,7 @@ class Workflow:
     def __init__(self, config: dict[str, Any]) -> None:
         """Build the orchestrator and components from a parsed config dict."""
         self.title: str | None = config.get("title")
-        # economic: is a Phase 2 placeholder — no EconomicComponent consumes
-        # it yet (see AGS_direct_heat.yml's comment). No schema of its own;
-        # retained verbatim so to_dict() round-trips it instead of silently
-        # dropping it. Remove this passthrough once a real EconomicComponent
-        # (and an Economic spec class) exists.
-        self._economic_raw: dict[str, Any] = config.get("economic", {})
+        self._economic: EconomicComponent | None = _build_economic_component(config.get("economic"))
         try:
             self._common = Common(**config.get("common", {}))
             self._layout = Layout(**config.get("layout", {}))
@@ -123,8 +131,19 @@ class Workflow:
 
         n_tsteps = self._sim_config.num_tsteps
         dt_years = self._sim_config.dt_years
+        if self._economic is not None:
+            # Total project lifetime (years) — NativeEconomicComponent needs
+            # this for its discount-rate/CRF term but has no sim_config
+            # access of its own (see its _total_project_years property).
+            self._economic._total_years = n_tsteps * dt_years  # noqa: SLF001
 
-        components = _build_components(config["components"], self._common, self._layout, dt_years)
+        components = _build_components(
+            config["components"],
+            self._common,
+            self._layout,
+            dt_years,
+            self._sim_config.target_extraction_pressure,
+        )
         _check_common_identity(components, self._common)
 
         if self._sim_config.injection_mode is not None:
@@ -150,9 +169,10 @@ class Workflow:
                 mass_rate=mass_rate,
                 bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                 policy=policy,
+                economic=self._economic,
             )
         else:
-            self._orchestrator = SystemDirect(components, n_tsteps=n_tsteps)
+            self._orchestrator = SystemDirect(components, n_tsteps=n_tsteps, economic=self._economic)
 
     @classmethod
     def from_file(cls, path: Path | str) -> Workflow:
@@ -211,7 +231,13 @@ class Workflow:
         components: dict[str, Any] = {}
         for name, component in self._orchestrator.components.items():
             comp_type, comp_unit = _REVERSE_REGISTRY[type(component)]
-            dumped = component.model_dump(exclude={"common"})
+            # _PROTECTED_COMPONENT_KEYS excluded here for the same reason
+            # "common" always was: these are sourced from
+            # common:/layout:/sim_config: (single source of truth), not
+            # owned by the component's own block — re-emitting them here
+            # would round-trip straight into _build_components's guard that
+            # forbids a component's own block from setting them.
+            dumped = component.model_dump(exclude=set(_PROTECTED_COMPONENT_KEYS))
             components[name] = {"type": comp_type, "unit": comp_unit, **dumped}
 
         result: dict[str, Any] = {
@@ -222,8 +248,16 @@ class Workflow:
         }
         if self.title is not None:
             result["title"] = self.title
-        if self._economic_raw:
-            result["economic"] = copy.deepcopy(self._economic_raw)
+        if self._economic is not None:
+            # Registry key is ("economic", impl) — the first element is a
+            # fixed category label, not a YAML-facing value (unlike physical
+            # components, where both tuple elements ARE the YAML-facing
+            # values). The economic YAML block's own type field is the
+            # SECOND element (e.g. "native") — see
+            # _build_economic_component()'s docstring for why that field
+            # plays the role a physical component's unit field plays.
+            _comp_category, comp_impl = _REVERSE_REGISTRY[type(self._economic)]
+            result["economic"] = {"type": comp_impl, **self._economic.model_dump()}
         return _yaml_safe(result)
 
     def to_str(self) -> str:
@@ -295,11 +329,57 @@ def _check_common_identity(components: dict[str, Component], common: Common) -> 
             )
 
 
+def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicComponent | None:
+    """Build the ``economic:`` block's component, if present.
+
+    Deliberately separate from ``_build_components``: the ``economic:``
+    block is not part of the ``components:`` circuit (no ``prev``/``next``,
+    no participation in per-timestep ``_ordered``/``_by_idx`` — see
+    ``SystemDirect.finalize()``), so it doesn't need ``component_idx`` from
+    the user at all; a sentinel value is used since it plays no role in
+    solve ordering or stream wiring for this component.
+
+    Uses the same ``(category, implementation)`` registry-key shape as
+    physical components' ``(type, unit)``, with the YAML's ``type:`` field
+    (e.g. ``"native"``) playing the role ``unit:`` plays for physical
+    components — old tango's ``economic.type`` already selects the concrete
+    implementation the same way (``EconomicUnitNative`` for ``type: native``).
+
+    Args:
+        economic_cfg: Parsed ``economic:`` YAML block, or ``None``/empty if
+            absent (no economic component for this Workflow).
+
+    Returns:
+        The built economic component, or ``None`` if ``economic_cfg`` is
+        absent/empty.
+
+    Raises:
+        ConfigError: If ``type`` is not registered, or construction fails.
+
+    """
+    if not economic_cfg:
+        return None
+    comp_impl: str = economic_cfg.get("type", "native")
+    key = ("economic", comp_impl)
+    cls = COMPONENT_REGISTRY.get(key)
+    if cls is None:
+        raise ConfigError(
+            f"economic: has type={comp_impl!r}, which is not registered in COMPONENT_REGISTRY.",
+        )
+    own = {k: v for k, v in economic_cfg.items() if k != "type"}
+    own.setdefault("component_idx", -1)
+    try:
+        return cls.from_dict(own)  # type: ignore[attr-defined,return-value]
+    except Exception as exc:
+        raise ConfigError(f"Failed to build economic component: {exc}") from exc
+
+
 def _build_components(
     components_block: dict[str, Any],
     common: Common,
     layout: Layout,
     dt_years: float,
+    target_extraction_pressure: float,
 ) -> dict[str, Component]:
     """Instantiate all components from the ``components:`` YAML block.
 
@@ -309,9 +389,12 @@ def _build_components(
           (core/specs.py) for why this makes divergence structurally
           impossible rather than merely guarded against.
       (b) whichever layout/sim_config-derived fields it declares
-          (``well_spacing``, ``dt_years``) — still individually threaded
-          per component, not shared-referenced (see
-          docs/tango_next_tasks.md for that scope decision).
+          (``well_spacing``, ``dt_years``, ``target_extraction_pressure``)
+          — still individually threaded per component, not shared-referenced
+          via a single frozen object the way ``common`` is (see
+          docs/tango_next_tasks.md for that scope decision) — but still a
+          SINGLE source value copied out to every declaring component at
+          construction time, not independently user-supplied per component.
       (c) all keys from its own YAML block.
     Unknown keys in a component's own block raise a Pydantic
     ``ValidationError`` (wrapped as ``ConfigError``) — this is now also how
@@ -319,11 +402,28 @@ def _build_components(
     simply isn't a field the component declares anymore (only ``common``
     is), an ordinary unknown-key error rather than a special-cased guard.
 
+    A component's own YAML block is also flatly forbidden from setting
+    ``common`` or any ``layout_extras`` key (``well_spacing``, ``dt_years``,
+    ``target_extraction_pressure``) directly — module-level
+    ``_PROTECTED_COMPONENT_KEYS`` is checked generically against every
+    component's own block, once, rather than via a hand-written
+    ``if key in own: raise`` per field. This is
+    deliberate: those per-field checks were added one at a time as each
+    duplication bug was found (``common`` first, then
+    ``target_extraction_pressure`` — see ``docs/tango_next_tasks.md``'s
+    2026-08-10 entry), and ``well_spacing``/``dt_years`` were caught
+    missing this same protection by inspection, not by a bug report — a
+    generic check closes that whole class of "forgot to add the guard for
+    the next field" gap at once, including for any field added here in the
+    future (by a human or an agent authoring new shared config surface).
+
     Args:
         components_block: Parsed ``components:`` mapping from the input file.
         common: Validated, shared ``common:`` block.
         layout: Validated ``layout:`` block.
         dt_years: Simulation timestep duration (years), from ``sim_config.dt_years``.
+        target_extraction_pressure: Minimum required extraction pressure at
+            the surface inlet (Pa), from ``sim_config.target_extraction_pressure``.
 
     Returns:
         Dict of instantiated components keyed by their YAML name.
@@ -332,7 +432,16 @@ def _build_components(
     layout_extras: dict[str, Any] = {
         "well_spacing": layout.well_spacing,
         "dt_years": dt_years,
+        "target_extraction_pressure": target_extraction_pressure,
     }
+    # Guards against the two lists (this dict's keys and module-level
+    # _LAYOUT_EXTRA_KEYS) drifting apart — the exact "independent copies of
+    # the same set of names" mistake this whole mechanism exists to
+    # prevent, one level up. Cheap enough to just always check.
+    assert set(layout_extras) == set(_LAYOUT_EXTRA_KEYS), (
+        f"layout_extras keys {sorted(layout_extras)} != _LAYOUT_EXTRA_KEYS "
+        f"{sorted(_LAYOUT_EXTRA_KEYS)} — update both together."
+    )
 
     built: dict[str, Component] = {}
     for name, comp_cfg in components_block.items():
@@ -348,11 +457,15 @@ def _build_components(
             )
 
         own = {k: v for k, v in comp_cfg.items() if k not in ("type", "unit")}
-        if "common" in own:
+        collisions = _PROTECTED_COMPONENT_KEYS & own.keys()
+        if collisions:
             raise ConfigError(
-                f"Component {name!r} sets 'common' in its own YAML block — "
-                "common: is always the single shared instance for the whole "
-                "Workflow and cannot be set per-component.",
+                f"Component {name!r} sets {sorted(collisions)!r} in its own YAML "
+                "block — these are always sourced from common:/layout:/sim_config: "
+                "(shared across every component that declares them) and cannot be "
+                "set per-component. See docs/tango_next_tasks.md's "
+                "'common:/component-block override ambiguity' section for the bugs "
+                "this generic guard closes.",
             )
 
         # Build merged dict for this component:

@@ -4,40 +4,51 @@
 These are strict rules that all TANGO developers must follow.  These rules are
 intended to prevent problems that TANGO users and developers have struggled
 with.
-1. All new code additions must pass:
+1. <a id="rule-ci-checks"></a>All new code additions must pass:
     - `mypy --strict` type checking, as handled in the pyproject.toml file
     - `ruff` format checking
     - `pytest` tests
 
     All tests are automated through git hooks and GitLab pipelines and can optionally be run with `just check`.
-1. All new state variables must be wrapped in
+1. <a id="rule-locked-state"></a>All new state variables must be wrapped in
   `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
   that enforces exactly one `update()` per time step.
-1. All doc strings must be formatted in Google style and explain what the
+1. <a id="rule-docstrings"></a>All doc strings must be formatted in Google style and explain what the
   documented object does, arguments, class attributes, outputs, ...
-1. All new attributes must comply with the object-is-config, config-is-object
+1. <a id="rule-object-is-config"></a>All new attributes must comply with the object-is-config, config-is-object
   paradigm in which code objects and config (e.g. yaml files) have near 1:1
   congruence (exceptions could be e.g. parameter values that are derived upon
   instantiation).  Similarly, all new module structure must have reasonable
   compliance with this paradigm.
-1. Any shared data that must be available within multiple objects in the
+1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
-1. All class attributes representing simulation config or persisted/
+1. <a id="rule-pydantic-schemas"></a>All class attributes representing simulation config or persisted/
   serialized state must be defined in pydantic schemas. Orchestration/wiring
-  internals, runtime state governed by `LockedState` (rule 2), and framework
+  internals, runtime state governed by `LockedState` ([rule: LockedState](#rule-locked-state)), and framework
   primitives (e.g. `LockedState` itself) are exempt — they're never loaded
   from or dumped to config, so pydantic's validation/serialization contract
   doesn't apply to them.
-1. There shall not be any `eval` functions!
-1. All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
-1. Any parameter that can take on a small, finite set of values should be
+1. <a id="rule-no-eval"></a>There shall not be any `eval` functions!
+1. <a id="rule-unit-conversion-factors"></a>All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
+1. <a id="rule-finite-values-strenum"></a>Any parameter that can take on a small, finite set of values should be
   handled as `StrEnum` so that we explicitly document and enforce these values.
-1. Unimplemented base-class methods must `raise NotImplementedError` (or a
+1. <a id="rule-no-silent-pass"></a>Unimplemented base-class methods must `raise NotImplementedError` (or a
   more specific error), never a silent `pass`. A no-op placeholder is
   indistinguishable from "correctly does nothing" until someone goes
   looking, and can let real bugs run silently for a long time before
   anyone notices.
+1. <a id="rule-unit-suffix-naming"></a>Any variable or YAML field whose value is in a non-SI unit must name that
+  unit explicitly as a suffix (e.g. `p_out_megapascals`, not `p_out`) —
+  converted to/from SI at the point the field is read, using the factors
+  from [rule: unit conversion factors](#rule-unit-conversion-factors). Fields already in SI units (`T_out` in Kelvin, pressures in
+  Pa, mass rates in kg/s, power in W, ...) need no suffix, since SI is the
+  assumed default everywhere a name doesn't say otherwise. This replaces
+  old tango's convention of an implicit, file-global unit (e.g. TESPy's
+  `Network(p_unit='bar', ...)`, so a bare `p_out: 0.05` silently meant bar)
+  with one that's self-evident from the name alone, no matter where it's
+  read out of context.
+1. All private fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
 
 ## Branching Strategy
 

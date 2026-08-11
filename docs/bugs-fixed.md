@@ -67,7 +67,8 @@ independent gaps, either one sufficient on its own:
    horizontal well's own rock-cooling state pinned at "one year of
    extraction" forever.
 
-Hardened 2026-08-04 (`bada742`): the no-op `pass` placeholders now
+**Fixed:** `bada742` (2026-08-04) — "harden old-tango placeholders: silent
+pass -> loud failure." The no-op `pass` placeholders now
 `raise NotImplementedError`, so any multi-timestep run of an AGS-shaped
 config fails loudly instead of silently returning wrong numbers —
 including `examples/AGS_new/AGS_H2O_webapp_native.yml`, the web app's own
@@ -115,6 +116,10 @@ is `False`. Only the literal string `yes` activates these fields.
 booleans checked with `if value:`, enforced by `CONTRIBUTING.md`'s YAML
 Style section (YAML configs use Python-style `True`/`False`).
 
+**Avoided by design since:** `735745a` (2026-06-10, "stand up tango_next
+module scaffold") — no specific fix commit exists, since tango_next never
+had this stringly-typed pattern to begin with.
+
 ## `check_fracing` doesn't gate what its name implies
 
 `bc_iteration.check_fracing` in `src/tango` only gates the flow-rate cap
@@ -126,6 +131,9 @@ flag — two separate fracing mechanisms exist, but only one is labeled a
 `tango_next` replaces both mechanisms with the explicit `InjectionPolicy`
 enum, so there's no separately-named flag whose scope doesn't match its
 name.
+
+**Fixed:** `6f66171` (2026-06-12) — "docs + tango_next: InjectionPolicy
+enum, BC iteration design, AI error agent vision."
 
 ## Non-convergence silently swallowed instead of raised
 
@@ -145,12 +153,15 @@ name.
 
 `tango_next`'s `SystemBCIteration._converge_injection_T` originally
 mirrored this same pattern (`logger.warning(...)` on exhaustion, no
-exception). Fixed 2026-08-04: now `raise`s `ConvergenceError` instead
-(already existed in `core/errors.py`, no new exception class needed), so
-non-convergence is a hard failure a caller can't silently miss. Audited
-the rest of `tango_next` for the same silent-swallow pattern
-(`logger.warning`, bare `except`, other max-iteration loops) — this was
-the only instance.
+exception). Now `raise`s `ConvergenceError` instead (already existed in
+`core/errors.py`, no new exception class needed), so non-convergence is a
+hard failure a caller can't silently miss. Audited the rest of
+`tango_next` for the same silent-swallow pattern (`logger.warning`, bare
+`except`, other max-iteration loops) — this was the only instance.
+
+**Fixed:** `62b1d8d` (2026-08-04) — "fix(system_bc_iteration): raise
+ConvergenceError instead of warning on T-loop exhaustion, parameterize
+max iterations."
 
 ## Convergence loop can commit a result computed from mixed fresh/stale state
 
@@ -185,3 +196,62 @@ temperature stabilizes within 1-2 iterations there, so "stale" and
 class doesn't measurably affect that comparison. It's recorded here for
 what it structurally prevents, not as an explanation tied to any one
 observed number.
+
+**Avoided by design since:** `2ae784e` (2026-08-03) — "refactor(tango_next):
+cascade mark_all_stale(), let reservoir converge with the circuit," the
+commit that established `Component.snapshot_convergence_state()`/
+`restore_convergence_state()`'s categorical (not per-field) restore. No
+single "fix" commit exists in the usual sense — this was tango_next's
+design from when the T-convergence loop was first built, not a
+subsequently-discovered-and-patched bug.
+
+## `NativeEconomicComponent` double-counted well mobilization cost across split physics sub-components
+
+`src/tango`'s well-cost model (`wells.py`'s gengeo formula) has a fixed
+per-well mobilization term (`+275300`, before PPI/multiplier scaling) that
+applies once per *well*, not once per physics sub-component. A well split
+into multiple physics components for other reasons — e.g. `hydro_df_electric.yml`'s
+production well is modeled as `production_well_lower` (4000 m) +
+`production_well_upper` (1000 m, carries the downhole pump) — is still
+ONE well for costing purposes. Old tango's own reference files reflect
+this correctly: `flexible_SF_manual.yml`/`flexible_DF_manual.yml`'s
+`production_well.well_length_seq: [5000.]` is the COMBINED total depth
+(4000 + 1000), applied through the gengeo formula as a single section —
+confirmed with Chad directly (undocumented anywhere in `src/tango` itself;
+the field's actual intent — letting cost vary by OUTER/casing diameter
+per depth segment, independent of the inner flow diameter physics uses —
+is verbal-knowledge-only, not written down anywhere in the repo).
+
+This was initially misdiagnosed (2026-08-10, same day, corrected before
+any of the wrong version was committed) as a data-entry bug in the two
+example files — on the mistaken assumption `well_length_seq` should equal
+`well_length` alone — and "fixed" by changing `[5000.]` to `[4000.]` in
+both files. That was wrong and was reverted.
+
+The REAL bug was in `tango_next`'s own `NativeEconomicComponent`
+(`src/tango_next/components/economic/native.py`), not in old tango or its
+example files: it combined production-side well components by summing
+each one's INDEPENDENTLY-costed gengeo-formula result — i.e. costing
+`production_well_lower` (4000 m) and `production_well_upper` (1000 m) as
+two separate wells, each paying its own `+275300` mobilization fee, and
+each squared independently in the formula's `0.105*L²` term
+(`4000² + 1000² = 17,000,000` vs. the correct combined
+`5000² = 25,000,000` — the formula is NOT linear in length, so this isn't
+just a double-counted constant, it changes the quadratic term's
+contribution too).
+
+**Fixed** (uncommitted as of 2026-08-10 — update this hash once
+committed): `NativeEconomicComponent._compute_well_capex`/new helper
+`_combined_production_length_and_diameter` now sum every production-side
+`WellComponent`'s length into ONE total depth and cost it through the
+gengeo formula exactly once, matching old tango's actual (correct)
+design. Verified: `CAPEX_well` now matches old tango to the exact digit
+(`36,506,133.65678038`) for both `flexible_SF_manual.yml` and
+`flexible_DF_manual.yml` — previously it was off by design, whichever
+direction the (wrong) example-file edit happened to push it.
+
+`tango_next` doesn't yet have a real `well_length_seq` equivalent
+(varying outer/casing diameter by segment) — tracked as a planned,
+explicitly-optional future feature in `docs/tango_next_tasks.md`'s open
+items, defaulting to today's single-combined-section behavior when
+unspecified.

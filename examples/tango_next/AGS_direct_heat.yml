@@ -52,15 +52,24 @@ layout:
 sim_config:
   num_tsteps: 25              # 25 years of operation
   dt_years: 1.0                # years
+  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
   injection_mode: manual       # see module docstring: required even without a reservoir
   mass_rate: 30                 # kg/s
   bc_checkpoint_idx: 3           # component_idx of the surface (below)
 
 economic:
-  # Phase 2 placeholder — no EconomicComponent subclass exists yet in
-  # tango_next (see MainProduct in core/policies.py), so this block isn't
-  # wired into anything yet. Kept here so the intent (LCOH, not LCOE) is
-  # documented alongside the rest of the config.
+  # Computed by NativeEconomicComponent, but scoped/verified against the
+  # DOUBLET + turbine/pump/condenser topology (hydro_df_electric.yml), not
+  # this one — confirmed CAPEX_surface_plant comes back 0.0 here (not a
+  # crash): the district-heating exchanger has no Subtype: cooler/condenser
+  # tag, so it isn't counted by any of the ported surface-plant cost
+  # formulas. CAPEX_total/LCOH below are real but understate true cost
+  # (missing the surface heat exchanger's own equipment cost) until a
+  # direct-heat-exchanger cost formula is ported. See
+  # project_economic_model_wackiness memory / NativeEconomicComponent's
+  # module docstring for the full scope.
   type: native
   project_maturity: green_field
   discount_rate: 0.095
@@ -116,9 +125,10 @@ components:
                                      # for — see SystemBCIteration's module docstring)
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
-    target_extraction_pressure: 7_000_000  # Pa
     pipe_roughness: 5.5e-5             # m
-    well_spacing: 707.0                 # m — matches layout.well_spacing above
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing
+    # above (see _PROTECTED_COMPONENT_KEYS in workflows/workflow.py for the
+    # duplicated-value bug class this guards against).
 
     power_plant:
       # Direct-heat surface plant: produced fluid passes through a

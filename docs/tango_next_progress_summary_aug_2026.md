@@ -24,30 +24,24 @@ surfaced because `tango_next`'s numbers *did* show the expected year-by-year
 change, which made the legacy system's flat, unchanging output stand out
 by comparison.
 
-**tango_next does not have this problem** — its AGS model already computes
-the wellbore cooling correctly, which is exactly how we caught the legacy
-system's error in the first place. Confirmed thoroughly before writing this
-up (traced the exact cause, reproduced it on an unrelated file that had
-already been "validated," and checked it live in a running simulation) —
-this isn't a guess.
+**tango_next does not have this problem** — its AGS model already computes the
+wellbore cooling correctly, which is exactly how we caught the legacy system's
+error in the first place. There's also a structural reason to trust that
+this wasn't luck: `tango_next` has a built-in guardrail (`LockedState`) that
+requires every value which is supposed to be recomputed each year to actually
+get recomputed — if a calculation were ever silently skipped the way it was
+in the legacy system, `tango_next` would raise an error immediately instead of
+quietly reusing last year's number. That guardrail stayed silent throughout this
+investigation, which is exactly the point — its silence is confirmation that a
+fresh, real number really was computed for every single year. The legacy system
+has no equivalent safeguard anywhere, which is a real part of why this kind of
+bug could survive undetected for as long as it did.
 
-There's also a structural reason to trust that this wasn't luck: `tango_next`
-has a built-in guardrail (`LockedState`) that requires every value which is
-supposed to be recomputed each year to actually get recomputed — if a
-calculation were ever silently skipped the way it was in the legacy system,
-`tango_next` would raise an error immediately instead of quietly reusing
-last year's number. That guardrail stayed silent throughout this
-investigation, which is exactly the point — its silence is confirmation
-that a fresh, real number really was computed for every single year. The
-legacy system has no equivalent safeguard anywhere, which is a real part of
-why this kind of bug could survive undetected for as long as it did.
-
-Because the legacy system currently has no trustworthy year-by-year
-baseline for this design type, we can't do the usual side-by-side numeric
-comparison for it right now. Every affected file has been marked so no one
-accidentally trusts a bad number in the meantime, and the decision on how
-to handle the legacy system's fix is queued in `docs/tango_next_tasks.md`
-for when there's time to make that call.
+Because the legacy system currently has no trustworthy year-by-year baseline
+for AGS, we can't do the usual side-by-side numeric comparison. Every affected
+file has been marked so no one accidentally trusts a bad number in the
+meantime, and the decision on how to handle the legacy system's fix is queued in
+`docs/tango_next_tasks.md` for when there's time to make that call.
 
 ### Confirmed via debugger: AGS configs get routed to the no-op placeholder engine (2026-08-04)
 
@@ -175,6 +169,58 @@ value rather than the fully up-to-date one from that same pass.
 tango_next's design rules this out categorically — every value used in
 any calculation always comes from the same, fully up-to-date pass, by
 construction. See `docs/bugs-fixed.md`.
+
+## Built a real cost model in tango_next, then a working optimizer on top of it (2026-08-07)
+
+We can now compute a real, defensible levelized cost of energy (LCOE) in
+tango_next — not a placeholder — and use it to automatically search for
+the best-performing design, rather than only running one scenario at a
+time by hand.
+
+This started as a request to build an optimizer that tunes a plant's flow
+rate and injection pressure to get the best combination of low cost and
+high energy output. Partway in, we hit a real gap: tango_next had no cost
+model at all — every existing sweep tool already showed "LCOE: null"
+because nothing computed it. Rather than fake the number, we built the
+real thing: ported the actual well-cost, permitting, exploration, pipe,
+and power-plant cost formulas from the old system into tango_next, wired
+up to run automatically once a simulation finishes.
+
+**Verified against the old system, not just self-consistent.** Three of
+the five cost categories (permitting, exploration, surface piping) match
+the old system's numbers *exactly, to the dollar* — strong confirmation the
+formulas were ported correctly, not just plausibly. The other two (well
+cost, power-plant equipment cost) don't match as tightly, and we tracked
+down exactly why: the old system's own reference file has a data-entry
+mistake (a well-length value copy-pasted from the wrong well) that quietly
+changes its own cost calculation, and a separate, already-known minor
+timing difference between the two systems' physics amplifies through the
+power-plant formulas. Neither is a bug in the new cost model — both are
+explained, documented, and accounted for with appropriately-sized
+tolerances in a new automated test that will catch any future regression.
+
+With a working cost number in hand, we built the optimizer on top of it: a
+reusable search tool (using the same genetic-algorithm approach as our
+legacy optimization code) that automatically tries different combinations
+of flow rate and injection pressure, discards any combination that fails
+to run rather than crashing the whole search, and returns the best
+tradeoffs between cost and energy output as a ranked set of designs — each
+one saved so it can be re-loaded and re-run individually. The example
+script for our double-flash plant now runs this search end-to-end and
+produces a chart showing the full tradeoff space at a glance.
+
+**A related point worth recording on its own merits.** While tracing one
+of the cost formulas, we found that the old system's own well-pump and
+turbine cost calculations quietly rely on a sign convention (which
+direction "positive" points for a given piece of equipment) that isn't a
+fixed physical rule — it depends on which way a particular network happens
+to be wired internally. tango_next's plant model wires things the opposite
+way for pumps, which would have silently zeroed out or corrupted those
+costs if we'd copied the old formulas literally. We caught this by testing
+against real numbers rather than assuming the old formulas would transfer
+as-is, and used a more robust approach (based on the size of the value,
+not its sign) that gives the identical answer for the old system and the
+correct answer for ours.
 
 ## Also found: the MOOSE-coupled examples can't currently be run by anyone but their original author
 

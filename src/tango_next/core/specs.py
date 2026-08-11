@@ -5,10 +5,11 @@ Every ``Component`` subclass is already its own schema (Pydantic fields,
 top-level blocks. Unknown keys raise at load time rather than being
 silently accepted and never read by anything.
 
-``economic:`` is deliberately NOT covered here yet: no ``EconomicComponent``
-reads it (a placeholder — see ``AGS_direct_heat.yml``'s comment),
-so inventing a schema for fields nothing consumes risks getting the shape
-wrong and having to redo it once the real component lands.
+``economic:`` is deliberately NOT covered here: it's not a top-level
+schema in the same sense as ``common:``/``layout:``/``sim_config:`` — it's
+validated as a ``Component`` subclass in its own right
+(``NativeEconomicComponent``, ``components/economic/native.py``), the same
+way ``components:`` entries are, via ``Workflow._build_economic_component()``.
 """
 
 from __future__ import annotations
@@ -63,6 +64,18 @@ class SimConfig(BaseModel):
 
     num_tsteps: int
     dt_years: float
+    target_extraction_pressure: float
+    """Minimum required extraction pressure at the surface inlet (Pa) — the
+    SINGLE shared source of this value. Threaded to any component
+    declaring a field of this exact name (``SurfaceComponent``,
+    pump-bearing production wells) via ``_build_components``'s
+    ``layout_extras`` mechanism, the same way ``well_spacing``/``dt_years``
+    already are. Previously duplicated as two independently-set,
+    unvalidated copies (``SurfaceComponent.target_extraction_pressure`` and
+    each pump-bearing well's own ``pump_target_pressure_megapascals``) with
+    nothing enforcing they matched — a real Rule 5 ("shared via reference,
+    not separate copies that can drift") violation. See
+    ``docs/bugs-fixed.md``."""
     injection_mode: InjectionPolicy | None = None
     """Absent selects SystemDirect (no BC iteration); present selects
     SystemBCIteration."""

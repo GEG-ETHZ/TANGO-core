@@ -93,6 +93,7 @@ from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
+    from tango_next.components.economic.base import EconomicComponent
     from tango_next.components.surface.base import SurfaceComponent
     from tango_next.core.component import Component
 
@@ -147,6 +148,7 @@ class SystemBCIteration(SystemDirect):
             temperature convergence loop (``_converge_injection_T``, used by
             ``MANUAL``/``MANUAL_FRACKING_CHECK``). Raises ``ConvergenceError``
             if exhausted without converging.
+        economic: Optional economic component — see ``SystemDirect.__init__``.
 
     """
 
@@ -161,6 +163,7 @@ class SystemBCIteration(SystemDirect):
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         tolerance: float = DEFAULT_TOLERANCE,
         max_inner_iterations: int = DEFAULT_MAX_INNER_ITER,
+        economic: EconomicComponent | None = None,
     ) -> None:
         """Initialise the base single-pass engine, then store BC-specific state.
 
@@ -179,9 +182,10 @@ class SystemBCIteration(SystemDirect):
             tolerance: Relative convergence tolerance on injection pressure.
             max_inner_iterations: Maximum iterations for the injection-
                 temperature convergence loop.
+            economic: Optional economic component — see ``SystemDirect.__init__``.
 
         """
-        super().__init__(components, n_tsteps=n_tsteps)
+        super().__init__(components, n_tsteps=n_tsteps, economic=economic)
         self.dt_years = dt_years
         self.mass_rate = mass_rate
         self.bc_checkpoint_idx = bc_checkpoint_idx

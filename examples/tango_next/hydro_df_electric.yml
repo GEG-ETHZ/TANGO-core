@@ -40,14 +40,17 @@ layout:
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
+  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
   injection_mode: manual     # see EGS_direct_heat.yml's note: MANUAL_FRACKING_CHECK
                              # (old tango's check_fracking: yes) isn't implemented yet
   mass_rate: 50              # kg/s
   bc_checkpoint_idx: 4       # component_idx of the surface (below)
 
 economic:
-  # Phase 2 placeholder — no EconomicComponent subclass exists yet in
-  # tango_next, so this block isn't wired into anything yet.
+  # Computed by NativeEconomicComponent (src/tango_next/components/economic/native.py)
+  # once per run, after all timesteps complete — see SystemDirect.finalize().
   type: native
   project_maturity: green_field
   discount_rate: 0.095
@@ -63,9 +66,10 @@ components:
     injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
-    target_extraction_pressure: 7_000_000  # Pa
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
-    well_spacing: 707.0        # m — matches layout.well_spacing above
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing
+    # above (see _PROTECTED_COMPONENT_KEYS in workflows/workflow.py for the
+    # duplicated-value bug class this guards against).
 
     power_plant:
       # Double-flash TESPy topology: two flash stages (higher-pressure
@@ -100,6 +104,13 @@ components:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005          # MPa (= 0.05 bar — matches old tango p_out: 0.05)
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+          # Cost-only metadata (NativeEconomicComponent, ignored by GraphSurface's
+          # physics) — matches old tango's flexible_DF_manual.yml condenser1 block
+          # exactly: a singleton set (no paired cooler), closed/wet cooling tower.
+          Subtype: condenser
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
 
         valve2:
           type: Valve
@@ -121,6 +132,11 @@ components:
           # equal-pressure constraint across its inlets to match condenser1's
           # 0.005 MPa, not an independently-declared value.
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+          # Cost-only metadata — see condenser1's comment above.
+          Subtype: condenser
+          set_number: 2
+          design: closed
+          cooling_tower_mode: WET
 
         pump1:
           type: Compressor
@@ -205,4 +221,6 @@ components:
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     num_cells: 100
-    pump_target_pressure_megapascals: 7.0  # MPa — matches surface.target_extraction_pressure
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure below (see that field's
+    # docstring in core/specs.py for the duplicated-value bug this fixed).

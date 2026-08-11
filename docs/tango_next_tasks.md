@@ -26,6 +26,83 @@ in-flight multi-step work across sessions.
   concern. Full test suite, golden snapshot, and `ParityCase` tolerances
   updated. Full technical detail: `docs/TANGO_vision_and_roadmap.md`.
 
+- **DONE 2026-08-10 — production-well pump-power formula fixed; LCOE parity
+  went from +16.1%/+11.5% off to -1.1%/-1.0%.** Chad's "urgent" pump-power
+  investigation (queued behind the `target_extraction_pressure` fix above):
+  suspected old tango's iterative pump solve might be reading a STALE
+  power value — ruled that out empirically (instrumented a live run of
+  the ACTUAL code path these examples use, `BC_calculator.py`'s
+  `FlowRateCalculator.iterator` — note: `orchestrators/native.py`'s
+  Newton-Raphson pump loop, read earlier in the investigation, is a
+  RED HERRING for these examples; they route through `bc_iteration`
+  scheduling instead, a completely different orchestrator). Old tango's
+  `prod_pump_w_list.append(...)` fires immediately after the outer
+  BC-convergence loop exits, using that same converged pass's fluid
+  states — confirmed self-consistent (achieved pressure lands exactly on
+  `target_extraction_pressure`, residual 0.00 Pa, every timestep). Not
+  stale.
+  The real cause: compared old tango's actual pump ΔP against
+  tango_next's at the plateau timestep — 5.395 MPa vs. 5.302 MPa, only
+  1.7% apart, so the WELL PHYSICS agreed closely. The ~2.035x power gap
+  was entirely in how each system converts that (nearly-identical) ΔP
+  into power. tango_next used `mass_rate * ΔP / ρ / pump_efficiency` (a
+  naive hydraulic-work estimate); old tango's `BC_calculator.py` computes
+  an isothermal CoolProp enthalpy rise (`-(inlet.H - outlet.H) * mass_rate`
+  after an isothermal `updatePT` pressure boost) with NO efficiency term
+  at all. Verified with real numbers pulled from a live run: the
+  hydraulic estimate overstates the true enthalpy rise by ~53% at these
+  conditions (~400 K, ~11-16 MPa) — water is nearly incompressible
+  (`(∂V/∂P)_T` is tiny, as expected) but NOT thermally inert, and it's
+  the thermal-expansivity term in the exact identity
+  `dH/dP|_T = V - T*(∂V/∂T)_P` that matters here, not compressibility.
+  Confirmed to 4 significant figures using CoolProp's own isobaric
+  expansion coefficient (β≈8.62e-4 K⁻¹ at 400 K): predicted `dH/dP` from
+  the identity matched the measured value from the live run almost
+  exactly. 1.53x (formula mismatch) × 1.33x (extra `/0.75` efficiency
+  term old tango doesn't apply) ≈ 2.04x — fully accounts for the
+  observed gap.
+  **Fixed**: `NumericalProductionWellWithPump.solve()`
+  (`components/well/numerical.py`) now computes pump power as
+  `mass_rate * (H(target_Pa, T) - H(P_wellbore, T)) / pump_efficiency`
+  via the existing `fluid_enthalpy()` CoolProp helper — matching old
+  tango's formula shape exactly. `pump_efficiency` default changed
+  `0.75 → 1.0` (Chad's call: match old tango's no-derating behavior for
+  parity now; a TODO notes dropping it to ~0.9 later once a real figure
+  is chosen, deliberately deferred). Also fixed
+  `LumpedProductionWellWithPump` (`components/well/lumped.py`) the same
+  way — found it had a WORSE, separate bug along the way: it declared a
+  `pump_efficiency` field but never actually applied it in `solve()` at
+  all (dead field). Not exercised by any current example
+  (`unit: numerical` is used everywhere), but fixed for consistency
+  rather than left as a landmine for whoever switches variants next.
+  Result verified against a fresh `_run_old_tango`/`_run_tango_next`
+  comparison: LCOE SF -1.1%, DF -1.0% (down from +16.1%/+11.5%);
+  `CAPEX_surface_plant`/`CAPEX_total` unaffected, as expected (pump power
+  only feeds the LCOE denominator, not CAPEX). Updated
+  `tests/regtest/test_old_new_economic_parity.py`'s stale golden values
+  and module docstring (previously described a now-superseded
+  final-timestep-only/"1-step lag" narrative from an earlier round of
+  this investigation) and `docs/tango_next_tasks.md`'s "Next session
+  priorities" entry below. Full `tests/unit`+`tests/regtest` suite: 123
+  passed, 0 failed (up from 5 pre-existing failures before this fix) —
+  `ruff`/`mypy` clean.
+- [ ] **Near-term TODO (flagged 2026-08-11, not started): iterate to achieve
+  `target_extraction_pressure` instead of directly solving for it.**
+  `NumericalProductionWellWithPump`/`LumpedProductionWellWithPump`'s pump
+  boost currently computes the required enthalpy rise via a single
+  closed-form CoolProp lookup at the target pressure — correct for a
+  well-behaved (single-phase, monotonic) liquid, but doesn't handle cases
+  where that assumption breaks down (e.g. approaching a phase boundary,
+  or any other place a single-shot solve isn't actually valid). Old
+  tango's own approach (`BC_calculator.py`'s 5-fixed-iteration pump_dp
+  loop) is genuinely worse in some ways (see the "isothermal enthalpy
+  rise" investigation above — no efficiency term, fixed iteration count
+  with no real tolerance check) but the STRUCTURE (iterate to convergence
+  rather than trust one direct solve) is the right idea to borrow, done
+  properly this time (a real tolerance-based loop, not a fixed 5-shot
+  fixed-point scheme). Chad's explicit call: don't implement yet, keep as
+  tracked backlog.
+
 ## Next session priorities (set 2026-08-03)
 
 Top of the queue for the next session, in order:
@@ -178,6 +255,29 @@ from scratch.
 - **No genuine "modest disparity" old-vs-new parity case found yet** — SF/
   EGS/double-flash sweeps all came back "good" agreement. CPG/ORC
   topologies and edge-of-sweep-range points haven't been checked.
+- **Multi-segment well CAPEX (`well_length_seq`/`well_diameter_seq`
+  equivalent) — planned, not built.** Old tango's fields of the same name
+  are meant to let well CAPEX vary by depth segment based on OUTER/casing
+  diameter (different drilling/material cost per segment), independent of
+  the inner flow diameter the physics uses — confirmed with Chad
+  verbally, undocumented anywhere in `src/tango/` itself. Never actually
+  exercised in old tango (every example file uses a single-segment list
+  representing the well's full combined depth, not genuinely varying
+  diameter by segment). See `project_economic_model_wackiness` memory:
+  this field's poor documentation caused a real, now-fixed double-counting
+  bug in `NativeEconomicComponent` (it briefly seemed like the two active
+  reference files' data was wrong — it wasn't; the port's cost-combining
+  logic was). An earlier pass here claimed ~80 old-tango example files had
+  stale/mismatched `well_length_seq` values — that check compared against
+  `well_length` alone, which is the WRONG comparison (per the corrected
+  understanding above); that finding should be treated as unverified, not
+  re-used, unless someone redoes it against the correct check (does
+  `well_length_seq` sum to the well's true combined total depth). When
+  multi-segment costing gets built in tango_next: make it a genuinely
+  optional field on well components, defaulting to the well's existing
+  single `well_length`/`diameter` (today's behavior) when unspecified —
+  multi-segment costing should be strictly opt-in, not a new required
+  field on every well.
 - **AGS sweep-vs-sweep comparison** (old tango vs. tango_next, full sweep)
   — blocked on getting all tango_next sweep scripts DVC-consistent with
   `--clean` flags first; not actioned.
@@ -713,16 +813,21 @@ verified, then this fix popped back in and re-checked).
          equivalent of "shared, effectively-immutable-in-practice state"
          actually looks like (interior mutability patterns, or just Rc
          without RefCell since Common is conceptually frozen anyway).
-- [ ] **`well_spacing` — separate, NOT yet decided** — declared on
-      `reservoir/lumped.py` and `surface/graph.py`. Explicitly discussed
-      2026-07-23 as "less obvious" than the rock/thermal fields — Chad
-      wanted to fix the unambiguous ones first and come back to this one.
-      Not yet resolved: is there a legitimate reason `well_spacing` could
-      differ between the reservoir's impedance calc and the surface's
-      injector-to-producer pipe-run length? (They're both nominally "the
-      same physical distance" today, but conceptually one is a reservoir
-      hydraulics parameter and the other is a surface piping length, which
-      is a weaker coupling than "the rock is the same rock.")
+- [x] **`well_spacing` — resolved 2026-08-10, folded into the generic guard
+      below.** Declared on `reservoir/lumped.py` and `surface/graph.py`.
+      Explicitly discussed 2026-07-23 as "less obvious" than the
+      rock/thermal fields — Chad wanted to fix the unambiguous ones first
+      and come back to this one. The open question (is there a legitimate
+      reason `well_spacing` could differ between the reservoir's impedance
+      calc and the surface's injector-to-producer pipe-run length?) is
+      settled in favor of "no, treat it the same as everything else in
+      `layout_extras`" — Chad's call, prompted by wanting deterministic
+      guardrails robust to configs authored by AI agents, not just humans,
+      after live-demoing that a component's own block silently overriding
+      `well_spacing` went uncaught. See the generalized-guard entry
+      immediately below — `well_spacing` gets the exact same protection
+      `target_extraction_pressure` already had, via one shared mechanism
+      rather than a bespoke one.
 - [x] Reconciled 2026-07-22: the intern's patch (`049fdaa`/merge `123ed39`)
       only fixed `tests/test_surface_temp_pressure.py`'s path/`KeyError` bugs
       and changed its assertion to `!=` — i.e. it documented the divergence
@@ -741,6 +846,124 @@ verified, then this fix popped back in and re-checked).
       `ConfigError` is raised on divergence, replacing the `!=` assertion.
       Full `tests/regtest` suite (70 passed, 40 xfailed) confirms no
       regression in either `src/tango/` or `tango_next`.
+- [x] **Fixed 2026-08-10 — same pattern, `target_extraction_pressure`/
+      `pump_target_pressure_megapascals`.** Chad flagged this independently
+      while reviewing example YAML: `SurfaceComponent.target_extraction_pressure`
+      and each pump-bearing production well's own
+      `pump_target_pressure_megapascals` were two independent, unvalidated
+      Pydantic fields with nothing enforcing they matched — a real Rule 5
+      violation, confirmed at risk in practice (matching only by manual
+      diligence across 4 of 5 relevant example files). Applied the same
+      "single source, threaded by `_build_components`" treatment already
+      used for `well_spacing`/`dt_years` (Chad's choice: thread it through
+      `layout_extras`, not the full `Common`-style shared-reference object,
+      since only two component kinds ever declare it):
+      1. Added `target_extraction_pressure: float` (required) to `SimConfig`
+         (`core/specs.py`) — the single source.
+      2. `_build_components` (`workflows/workflow.py`) threads it through
+         `layout_extras` like `well_spacing`/`dt_years`, and explicitly
+         rejects (`ConfigError`) a component's own YAML block setting it
+         directly — a stricter guard than `well_spacing`/`dt_years` get
+         today (those still silently let `own` win over `shared`; the
+         still-open item above about `well_spacing` applies here too, not
+         yet revisited).
+      3. Renamed `pump_target_pressure_megapascals` →
+         `target_extraction_pressure` on both `LumpedProductionWellWithPump`
+         and `NumericalProductionWellWithPump` (`components/well/{lumped,numerical}.py`),
+         dropping the now-redundant `* MPA_TO_PA` conversion (value now
+         threaded in Pa directly from `sim_config`).
+      4. All 5 affected example YAML files updated: the value now lives once,
+         under `sim_config.target_extraction_pressure`; removed entirely
+         from `components.surface` and pump-bearing well blocks.
+      5. **Found and fixed a real bug the new guard exposed**:
+         `Workflow.to_dict()` (`workflow.py`) dumped every component field
+         except `common` back into that component's own YAML block —
+         including `target_extraction_pressure`, since it's a genuine field
+         on `SurfaceComponent`/pump wells. Round-tripping a `to_dict()`
+         output straight back into `Workflow(...)` therefore always tripped
+         the new "can't set this per-component" guard. Fixed by excluding
+         `target_extraction_pressure` from `to_dict()`'s per-component dump
+         too, the same way `common` already is — `sim_config:` is the only
+         place it appears in a round-tripped config now. Caught by the
+         existing round-trip tests (`test_workflow_from_str_to_str_roundtrip`,
+         `test_workflow_to_file_from_file_roundtrip`,
+         `test_workflow_sweep_pattern_does_not_mutate_base`), no new test
+         needed.
+      6. **Found and resolved 2026-08-10 (same session)** — separate,
+         pre-existing, unrelated to this fix:
+         `examples/tango_next/SF_manual_differing_st.yml` failed to load on
+         current `main`/this branch (confirmed via `git stash`, independent
+         of the `target_extraction_pressure` fix) with a pydantic
+         `extra_forbidden` error on `surface_temperature`/`surface_pressure`
+         inside `components.surface`. Root cause: this fixture's entire
+         premise (item above, "Reconciled 2026-07-22") was a *guarded*
+         per-component override of `common:` (`COMMON_ONLY_KEYS`, raising a
+         friendly `ConfigError` on divergence) — but that guard-list
+         mechanism was itself superseded later the same day (item above,
+         "SUPERSEDED 2026-07-23") by the structural single-shared-`Common`
+         -object fix, under which `SurfaceComponent` simply never declares
+         `surface_temperature`/`surface_pressure` as its own fields at all.
+         The file's rejection was therefore *correct* under the current
+         design (no per-component override of ambient state is possible,
+         full stop) — the fixture's premise was just obsolete, not the code.
+         Chad's call: delete it — the general "own block can't override any
+         `Common` field" behavior is already covered generically by
+         `test_component_own_block_rejects_shared_rock_param` (`rock_k`,
+         same field group per that test's own comment block). Deleted
+         `examples/tango_next/SF_manual_differing_st.yml` and its dedicated
+         `tests/test_surface_temp_pressure.py` (the only other reference,
+         entirely dependent on this fixture). `tests/TemperaturePressureDiscrepancy.md`
+         left in place as the historical bug-report record (not code, not
+         rewritten per established practice for historical log entries).
+      `uv run ruff check`, `uv run mypy src/` clean; full
+      `tests/unit`+`tests/regtest` suite: same 4 pre-existing economic
+      golden-value failures as before this fix (unrelated — stale from the
+      run-averaged-power/parasitic-power fixes earlier this session, tracked
+      separately), no new failures once the `to_dict()` fix above landed.
+      7. **Follow-on, same session — generalized the per-field guard.**
+         Chad's ask, after seeing the `well_spacing` divergence go uncaught
+         live in a demo: since AI agents (not just humans) will be
+         authoring a lot of these YAML configs, make this whole class of
+         bug hard to reintroduce, not just patched for the one field that
+         happened to get reported. The `if "common" in own: raise` /
+         `if "target_extraction_pressure" in own: raise` blocks in
+         `_build_components` were two hand-written, near-duplicate guards
+         added one at a time as each bug was found — `well_spacing`/
+         `dt_years` had no equivalent guard at all, purely because nobody
+         had written one yet. Replaced with:
+         - Module-level `_LAYOUT_EXTRA_KEYS` and
+           `_PROTECTED_COMPONENT_KEYS = frozenset({"common", *_LAYOUT_EXTRA_KEYS})`
+           in `workflows/workflow.py` — ONE list of "fields no component's
+           own YAML block may set," checked generically
+           (`_PROTECTED_COMPONENT_KEYS & own.keys()`) instead of one
+           hand-written `if` per field. A future shared field is protected
+           the moment it's added to this one set — no separate guard to
+           remember to write.
+         - `Workflow.to_dict()`'s per-component dump now excludes the same
+           `_PROTECTED_COMPONENT_KEYS` set (was hardcoded to
+           `{"common", "target_extraction_pressure"}` only) — otherwise
+           `well_spacing`/`dt_years` would round-trip straight back into
+           the new rejection, the same `to_dict()` bug found earlier this
+           session for `target_extraction_pressure` alone.
+         - Added a same-file `assert set(layout_extras) == set(_LAYOUT_EXTRA_KEYS)`
+           in `_build_components` — guards against the *meta* version of
+           this exact bug (the dict-of-values and the tuple-of-names drifting
+           apart), cheap enough to always run.
+         - **Found 3 more real instances of the exact bug being guarded
+           against**, only surfaced because the generalized guard is
+           strict where the old one was silent: `examples/tango_next/hydro_df_electric.yml`,
+           `AGS_direct_heat.yml`, and `EGS_direct_heat.yml` all redundantly
+           set `well_spacing` inside `components.surface` (matching
+           `layout.well_spacing` today, by manual diligence only — exactly
+           the pre-guard risk profile `target_extraction_pressure` had).
+           Removed all three; `well_spacing` now lives once, under
+           `layout:`, same as `hydro_sf_electric.yml` already had it.
+         - Full `tests/unit`+`tests/regtest` suite re-run after the YAML
+           fixes: back to the same 5 pre-existing economic golden-value
+           failures (one more test passing than before, from
+           `test_ags_direct_heat_smoke` — it happened to load
+           `AGS_direct_heat.yml`, which had the `well_spacing` duplication)
+           — no new failures. `ruff`/`mypy` clean.
 
 ## Active: GraphSurface p_out / pressure-provenance follow-ups
 

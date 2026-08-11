@@ -42,7 +42,14 @@ class SurfaceComponent(Component):
     approach_temperature: float = Field(frozen=True)
     """Heat exchanger approach temperature (K)."""
     target_extraction_pressure: float = Field(frozen=True)
-    """Minimum required extraction pressure at the surface inlet (Pa)."""
+    """Minimum required extraction pressure at the surface inlet (Pa).
+    Sourced from ``sim_config.target_extraction_pressure`` — the SINGLE
+    shared source, threaded in by ``_build_components`` (see that field's
+    docstring in ``core/specs.py``). Any pump-bearing production well in
+    the same Workflow declares a field of this exact same name and
+    receives the identical value the same way — do not set this directly
+    in a component's own YAML block (``_build_components`` now rejects
+    that explicitly)."""
 
     @abstractmethod
     def solve(self) -> None:
