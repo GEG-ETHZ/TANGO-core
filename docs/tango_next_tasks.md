@@ -1084,6 +1084,145 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
+- **`Workflow.to_dataframe()` — flatten per-timestep history into a single
+  dataframe, modeled on fastsim's `to_dataframe()`/`to_pydict(flatten=True)`
+  (`~/git/nrel/fastsim/python/fastsim/__init__.py`).** Flagged 2026-08-11,
+  not started. Goal: one row per recorded timestep, one column per
+  time-varying leaf value, column names dot-joined through the full
+  hierarchy (e.g. `components.production_well_upper.history.T_outlet`,
+  `components.surface.history.node_history.turbine.P`).
+
+  **How this differs from fastsim's version, concretely — don't port the
+  fastsim algorithm verbatim:**
+  1. fastsim's `to_pydict(flatten=True)` exists because Rust structs have no
+     native "give me a plain nested dict" — it round-trips through
+     msgpack/yaml/json first. `tango_next` already has this:
+     `Workflow.to_dict()` (`workflows/workflow.py`) is the live, canonical,
+     never-stale nested dict (`common`/`layout`/`sim_config`/`title`/
+     `components`/`economic`, each component's own `model_dump()` nested
+     under `components.<name>`). Start from that, not a new pydict layer.
+  2. fastsim's `get_flattened()` has to *infer* which list-valued leaves are
+     genuine per-timestep history vs. static config, via a length-matching
+     heuristic (`len(v) == hist_len`) — because in a Rust vehicle model
+     "history" isn't always cleanly delimited from config in the flattened
+     view. **Chad (who wrote that heuristic) confirmed 2026-08-11 it's
+     known-fragile, not a stable design to imitate** — he flagged it at the
+     time as something to fix later in fastsim itself. Don't treat it as
+     prior art worth matching; it's included above only to explain why
+     fastsim needed inference at all. `tango_next` doesn't have that
+     ambiguity in the first place: every component's
+     `history` field is a dedicated dataclass
+     (`WellboreHistory`/`LumpedReservoirHistory`/`GraphSurfaceHistory`/
+     `NumericalWellHistory`, per-component-type in `components/*/`) whose
+     fields are *always* per-timestep lists, and `state` fields are always
+     scalars (`LockedState.get_fresh()`, one value for the current
+     timestep). So the flatten pass only needs to recurse into dicts
+     (component name → `history` →, for `GraphSurface`, two more levels:
+     `node_history[node_name][quantity]`) and treat any list found under a
+     `.history.` path segment as a column — no length-based guessing
+     needed, `history.` prefix is sufficient. (Non-history list-shaped YAML
+     config, if any ever exists, would need excluding explicitly, but none
+     is known to exist today — check before generalizing this rule.)
+  3. **Real complication — confirmed NOT unique to tango_next, fastsim has
+     the identical open gap at the Rust level, just not yet hit in
+     practice.** `Component` has a per-component `save_interval`
+     (`core/component.py`, default `1`, frozen config field) — every
+     component decides independently whether to append to its own
+     `history` on a given timestep, so two components in the same
+     `Workflow` with different `save_interval` values genuinely produce
+     different-length history lists. Checked fastsim's Rust side
+     (`fastsim-core/src/traits.rs`, `HistoryMethods` trait) for how it
+     handles this: `set_save_interval()` cascades recursively down every
+     nested struct, but the getter's own doc comment admits the gap
+     outright — *"Returns save interval for `self` but does not guarantee
+     recursive consistency in nested objects"* — i.e. nothing stops a
+     child's `save_interval` from later diverging from its parent's
+     cascaded value, and the getter doesn't check. fastsim's Python
+     `to_dataframe()` papers over exactly this with its
+     `allow_partial`/`cutoff = min(...)` fallback — worth reading that
+     fallback path literally before ever copying it: it looks like it
+     takes `min()` of the history arrays themselves, not
+     `min(len(v) for v in ...)`, which is almost certainly a latent bug
+     there, not something to reproduce.
+
+     **tango_next has no such get/set mechanism at all today** —
+     `save_interval` is a plain frozen-at-construction Pydantic field, set
+     once per component via YAML, not a runtime-settable cascading
+     property the way fastsim's mixin trait provides. So this isn't "port
+     fastsim's setter," it's "design the equivalent from scratch, and this
+     time make the getter actually detect divergence instead of silently
+     reporting only `self`."
+
+     **Proposed API** (discussed with Chad 2026-08-11 — his sketch was a
+     Rust sum type, `enum SaveInterval { Uniform(usize), NonUniform }`;
+     translated to the actual Python idiom for that shape, PEP 634
+     dataclass-variants + `match`/`case`, rather than the plain
+     "return a set, caller checks `len() == 1`" shortcut he also floated
+     as a fallback):
+
+     ```python
+     @dataclass(frozen=True)
+     class UniformSaveInterval:
+         interval: int | None
+
+     @dataclass(frozen=True)
+     class NonUniformSaveInterval:
+         intervals: frozenset[int | None]  # every distinct value present
+
+     SaveIntervalReport = UniformSaveInterval | NonUniformSaveInterval
+
+     def get_save_interval(self) -> SaveIntervalReport:
+         """Walk every component; report whether save_interval is uniform."""
+     ```
+
+     Call sites use `match`, with a final `case _: assert_never(report)` so
+     mypy flags it if a third variant is ever added — the closest Python
+     gets to Rust's compiler-enforced exhaustiveness (`typing.assert_never`
+     is available; `requires-python = ">=3.11"` per `pyproject.toml`, so no
+     version blocker). `to_dataframe()`'s own uniform-`save_interval`
+     precondition check (point 3 above) becomes the first real caller:
+
+     ```python
+     match self.get_save_interval():
+         case UniformSaveInterval(interval):
+             ...  # proceed
+         case NonUniformSaveInterval(intervals):
+             raise ConfigError(f"non-uniform save_interval: {sorted(intervals, key=str)}")
+     ```
+
+     Chad's plain-`frozenset`-return alternative (skip the two dataclasses,
+     just return `frozenset[int | None]` and let callers check
+     `len(x) == 1`) is the lower-ceremony option if this ends up being a
+     one-call-site need — flagged as the fallback, not the recommendation,
+     since the tagged-union version is the one that actually matches the
+     Rust design intent (self-documenting return type, a case caller can't
+     silently forget to handle) rather than relying on every caller
+     remembering the `len() == 1` convention. Pick whichever before
+     implementing `to_dataframe()`, not after — this getter is a
+     prerequisite for it, not a follow-on.
+  4. `economic` has no per-timestep `history` at all — it's computed once in
+     `finalize()` (see [[project_pymoo_economic_resume_state]]), so its
+     fields are all scalars. Exclude `economic.*` from the flattened
+     time-series columns entirely (there's nothing to align it to
+     row-per-timestep with); if a combined view is wanted later, that's a
+     second, separate one-row dataframe/dict, not mixed into this one.
+  5. No time/index column exists implicitly the way fastsim's `cyc.` history
+     does (fastsim's own drive cycle carries `time_seconds` for free).
+     `to_dataframe()` should prepend an explicit index column (row `i` →
+     calendar timestep `i * save_interval`, then `* dt_years` if a
+     years-since-start column is wanted) rather than leaving rows
+     positionally implicit.
+  6. `pandas`/`polars` are both already base dependencies (`pyproject.toml`)
+     — unlike a hypothetical fresh port, no new dependency decision is
+     needed; mirroring fastsim's dual-`backend` parameter is just a
+     preference call, not a dependency question.
+
+  **Proposed signature**: `Workflow.to_dataframe(backend: Literal["pandas",
+  "polars"] = "pandas") -> pd.DataFrame | pl.DataFrame`, implemented as a
+  method on `Workflow` (not on individual components — the hierarchy being
+  flattened is the whole workflow's `to_dict()` tree, not any one
+  component's).
+
 - **DONE 2026-08 — `mark_all_stale()` cascaded from the orchestrator, not
   called by each component locally.** Previously every component's
   `solve()` called `self.state.mark_all_stale()` as its own first line
