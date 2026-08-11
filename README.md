@@ -138,6 +138,10 @@ Note that these instructions have been verified to work on Euler.
 1. Run `curl -LsSf https://astral.sh/uv/install.sh | sh` to
     [install `uv`](https://docs.astral.sh/uv/getting-started/installation/) for your Euler
     user account
+1. Run `curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin`
+    to install [`just`](https://github.com/casey/just) for your Euler user account (no `sudo`
+    needed — installs a prebuilt binary into `~/.local/bin`). Make sure `~/.local/bin` is on your
+    `PATH` (add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` if it isn't already).
 1. Run `rsync -ahPv ~/tango-core/applications/ /cluster/scratch/<username>/tango-applications/` to get the demo files into your working directory
 1. Run `cd /cluster/scratch/<username>/tango-applications/run_flexible_DF_manual_sweep`
 1. Run `sbatch --cpus-per-task=16 run_flexible_DF_manual_sweep_job.sh --n-samples 39` to kick off a slurm job with 16 CPUs, 13 workers, and 39 design evaluations
