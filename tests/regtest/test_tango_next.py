@@ -670,6 +670,55 @@ def test_auto_pressure_requires_reservoir(ags_direct_heat_config: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
+# InjectionPolicy.AUTO_FLOW — outer Picard loop on mass rate
+# ---------------------------------------------------------------------------
+
+
+def test_auto_flow_converges_to_capped_mass_rate(sf_manual_config: dict[str, Any]) -> None:
+    """AUTO_FLOW's outer Picard loop converges mass_rate to ``max_mass_rate``
+    when the cap sits below the reservoir's natural (uncapped)
+    ``fracking_flow()`` threshold.
+
+    Capped rather than left uncapped: this config's natural, uncapped
+    fracking-flow threshold (~165 kg/s) sits right at the edge of a known,
+    separately-documented production-side numerical instability that a cold
+    solve can hit near/above ~166 kg/s (``docs/tango_next_tasks.md``). A
+    generous cap well clear of that boundary keeps this test robust without
+    depending on it.
+    """
+    sf_manual_config["sim_config"]["num_tsteps"] = 3
+    sf_manual_config["sim_config"]["injection_mode"] = "auto-flow"
+    sf_manual_config["sim_config"]["max_mass_rate"] = 100.0
+    wf = Workflow(sf_manual_config)
+    wf.run()
+
+    orch = wf._orchestrator
+    assert orch.mass_rate == pytest.approx(100.0)
+
+
+def test_auto_flow_requires_reservoir(ags_direct_heat_config: dict[str, Any]) -> None:
+    """AUTO_FLOW has no fracking-flow threshold to converge toward on a
+    reservoir-less topology (e.g. AGS's closed loop) — raises ConfigError
+    rather than silently doing nothing or crashing on a missing attribute.
+    """
+    ags_direct_heat_config["sim_config"]["injection_mode"] = "auto-flow"
+
+    with pytest.raises(ConfigError, match="requires a reservoir component"):
+        Workflow(ags_direct_heat_config).run()
+
+
+def test_auto_flow_rejects_max_mass_rate_on_other_policies(sf_manual_config: dict[str, Any]) -> None:
+    """``max_mass_rate`` is meaningless outside AUTO_FLOW/AUTO_BOTH — set
+    alongside any other injection_mode, it raises ConfigError rather than
+    being silently ignored.
+    """
+    sf_manual_config["sim_config"]["max_mass_rate"] = 100.0  # injection_mode stays manual-fracking-check
+
+    with pytest.raises(ConfigError, match="only meaningful for AUTO_FLOW/AUTO_BOTH"):
+        Workflow(sf_manual_config)
+
+
+# ---------------------------------------------------------------------------
 # Error taxonomy — CoolProp failures should surface as CoolPropError
 # ---------------------------------------------------------------------------
 

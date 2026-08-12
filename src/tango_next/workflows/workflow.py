@@ -148,16 +148,21 @@ class Workflow:
 
         if self._sim_config.injection_mode is not None:
             policy = self._sim_config.injection_mode
-            # AUTO_FLOW / AUTO_BOTH compute mass_rate from fracking_flow() each
-            # pass — mass_rate is not prescribed and may be omitted from the YAML.
-            if policy in (InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH):
-                mass_rate: float = 0.0
-            else:
-                if self._sim_config.mass_rate is None:
-                    raise ConfigError(
-                        "sim_config.mass_rate is required unless injection_mode is AUTO_FLOW or AUTO_BOTH.",
-                    )
-                mass_rate = self._sim_config.mass_rate
+            if self._sim_config.mass_rate is None:
+                raise ConfigError(
+                    "sim_config.mass_rate is required when injection_mode is present. For AUTO_FLOW/"
+                    "AUTO_BOTH this is the initial guess for the mass-rate Picard iteration, not a "
+                    "fixed value — see SimConfig.mass_rate's docstring.",
+                )
+            mass_rate = self._sim_config.mass_rate
+            if self._sim_config.max_mass_rate is not None and policy not in (
+                InjectionPolicy.AUTO_FLOW,
+                InjectionPolicy.AUTO_BOTH,
+            ):
+                raise ConfigError(
+                    f"sim_config.max_mass_rate is only meaningful for AUTO_FLOW/AUTO_BOTH "
+                    f"(injection_mode is {policy.value!r}) — there is nothing for it to cap.",
+                )
             if self._sim_config.bc_checkpoint_idx is None:
                 raise ConfigError(
                     "sim_config.bc_checkpoint_idx is required when injection_mode is present.",
@@ -169,6 +174,7 @@ class Workflow:
                 mass_rate=mass_rate,
                 bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                 policy=policy,
+                max_mass_rate=self._sim_config.max_mass_rate,
                 economic=self._economic,
             )
         else:

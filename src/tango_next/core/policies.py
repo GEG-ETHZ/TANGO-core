@@ -96,7 +96,6 @@ class InjectionPolicy(enum.StrEnum):
         "until reservoir inlet converges to the fracking threshold. "
         "Flow-induced fracking raises an error.",
     )
-    # TODO: make it so that this finds the exact mass flow rate (within some tolerance parameter with a reasonable default) at which fracking does not occur
     AUTO_FLOW = (
         "auto-flow",
         "Injection wellhead pressure user-specified. Mass flow rate iterated to "
