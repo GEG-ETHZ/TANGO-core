@@ -1,8 +1,23 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 default_stages: [pre-commit, pre-push]
+# Without this, hooks all run regardless of earlier failures (pre-commit's
+# default) -- pointless for check-remote-up-to-date, whose entire point is
+# to skip the slow mypy/pytest hooks below it once it fails.
+fail_fast: true
 
 repos:
+  # Remote freshness check (run ONLY on push, before anything else below --
+  # catches a stale branch in ~1s instead of after the full mypy/pytest run)
+  - repo: local
+    hooks:
+      - id: check-remote-up-to-date
+        name: check remote is up to date before running the rest
+        entry: uv run python tools/check_remote_up_to_date.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
   # Fast checks (run on both commit and push just to be safe)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.5
