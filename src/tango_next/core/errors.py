@@ -23,6 +23,25 @@ class ConfigError(TangoNextError):
     """Raised when an input configuration is invalid or inconsistent."""
 
 
+class FrackingViolationError(TangoNextError):
+    """Raised when injection would exceed a hydraulic-fracking threshold.
+
+    Covers both mechanisms ``InjectionPolicy`` distinguishes (see
+    ``core/policies.py``): flow-induced (mass rate too high) and
+    pressure-induced (wellhead pressure too high after hydrostatic head and
+    friction losses). Catch this specifically to distinguish "the reservoir
+    would be damaged by this injection schedule" from any other simulation
+    failure (e.g. a fluid-property lookup error or non-convergence).
+
+    Deliberately raised rather than silently capping the offending value
+    down to a safe threshold: a silent correction would let a caller mistake
+    a corrected-but-different run for the one they actually asked for, with
+    no signal that anything was adjusted. Surfacing it as an explicit,
+    specifically-typed error keeps that decision visible and in the
+    caller's hands.
+    """
+
+
 class CoolPropError(TangoNextError):
     """Wraps a CoolProp failure raised by *our own* direct property lookup.
 

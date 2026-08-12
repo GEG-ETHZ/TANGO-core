@@ -299,3 +299,74 @@ def fluid_cp(fluid_name: str, T: float, P: float) -> float:
 
     """
     return FluidState.with_PT(fluid_name, P, T).cp
+
+
+# ---------------------------------------------------------------------------
+# Fracking thresholds
+# ---------------------------------------------------------------------------
+#
+# Two independent mechanisms — see InjectionPolicy's class docstring
+# (core/policies.py) for the full physical explanation. These two functions
+# each compute one side's threshold; callers (SystemBCIteration) compare the
+# actual mass rate / wellhead pressure against them and raise
+# FrackingViolationError on violation, rather than silently correcting —
+# see FrackingViolationError's docstring for why.
+
+
+def target_reservoir_pressure(hydro_static_pressure: float, over_pressure_percentage: float) -> float:
+    """Pressure-induced fracking threshold at the reservoir inlet (Pa).
+
+    target_reservoir_P = hydro_static_pressure × (1 + over_pressure_percentage / 100)
+
+    Args:
+        hydro_static_pressure: Nominal hydrostatic pressure at reservoir
+            depth (Pa) — ``ReservoirComponent.hydro_static_pressure``.
+        over_pressure_percentage: Allowed over-pressure as a percentage of
+            hydrostatic pressure (%) — ``ReservoirComponent.over_pressure_percentage``.
+
+    """
+    return hydro_static_pressure * (1.0 + over_pressure_percentage / 100.0)
+
+
+def fracking_flow(
+    thickness: float,
+    permeability: float,
+    hydro_static_pressure: float,
+    over_pressure_percentage: float,
+    well_spacing: float,
+    wellbore_diameter: float,
+    mu: float,
+    rho: float,
+) -> float:
+    """Flow-induced fracking threshold mass rate (kg/s).
+
+    q = 2·π·h·k·ΔP / (μ · ln(r_res / r_well))     (volumetric flow, m³/s)
+    ΔP = over_pressure_percentage / 100 × hydro_static_pressure
+    r_res  = well_spacing / 2                     (effective reservoir radius)
+    r_well = wellbore_diameter / 2                (wellbore radius)
+    m  = ρ · q                                    (mass flow, kg/s)
+
+    Args:
+        thickness: Reservoir thickness (m) — ``ReservoirComponent.thickness``.
+        permeability: Reservoir permeability (m²) —
+            ``ReservoirComponent.permeability``.
+        hydro_static_pressure: Nominal hydrostatic pressure at reservoir
+            depth (Pa) — ``ReservoirComponent.hydro_static_pressure``.
+        over_pressure_percentage: Allowed over-pressure as a percentage of
+            hydrostatic pressure (%) —
+            ``ReservoirComponent.over_pressure_percentage``.
+        well_spacing: Injector-to-producer spacing (m) — half of this is
+            used as the effective reservoir radius ``re``.
+        wellbore_diameter: Injection well diameter (m) —
+            ``WellComponent.diameter``.
+        mu: Fluid dynamic viscosity (Pa·s) at the injection well outlet —
+            see ``fluid_viscosity`` above.
+        rho: Fluid density (kg/m³) at the injection well outlet — see
+            ``fluid_density`` above.
+
+    """
+    r_res = well_spacing / 2.0
+    r_well = wellbore_diameter / 2.0
+    delta_p = over_pressure_percentage / 100.0 * hydro_static_pressure
+    q = (2 * math.pi * thickness * permeability * delta_p) / (mu * math.log(r_res / r_well))
+    return rho * q

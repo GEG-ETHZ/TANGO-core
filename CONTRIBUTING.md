@@ -4,25 +4,25 @@
 These are strict rules that all TANGO developers must follow.  These rules are
 intended to prevent problems that TANGO users and developers have struggled
 with.
+1. <a id="rule-object-is-config"></a>All new code objects and attributes must comply with the object-is-config, config-is-object
+  paradigm in which code objects and config (e.g. yaml files) have near 1:1
+  congruence (exceptions could be e.g. parameter values that are derived upon
+  instantiation).  Similarly, all new module structure must have reasonable
+  compliance with this paradigm.
+1. <a id="rule-locked-state"></a>All new state variables must be wrapped in
+  `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
+  that enforces exactly one `update()` per time step.
+1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
+  hierarchy must be shared via reference rather than multiple, separate copies
+  that can get out of sync.
 1. <a id="rule-ci-checks"></a>All new code additions must pass:
     - `mypy --strict` type checking, as handled in the pyproject.toml file
     - `ruff` format checking
     - `pytest` tests
 
     All tests are automated through git hooks and GitLab pipelines and can optionally be run with `just check`.
-1. <a id="rule-locked-state"></a>All new state variables must be wrapped in
-  `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
-  that enforces exactly one `update()` per time step.
 1. <a id="rule-docstrings"></a>All doc strings must be formatted in Google style and explain what the
   documented object does, arguments, class attributes, outputs, ...
-1. <a id="rule-object-is-config"></a>All new attributes must comply with the object-is-config, config-is-object
-  paradigm in which code objects and config (e.g. yaml files) have near 1:1
-  congruence (exceptions could be e.g. parameter values that are derived upon
-  instantiation).  Similarly, all new module structure must have reasonable
-  compliance with this paradigm.
-1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
-  hierarchy must be shared via reference rather than multiple, separate copies
-  that can get out of sync.
 1. <a id="rule-pydantic-schemas"></a>All class attributes representing simulation config or persisted/
   serialized state must be defined in pydantic schemas. Orchestration/wiring
   internals, runtime state governed by `LockedState` ([rule: LockedState](#rule-locked-state)), and framework

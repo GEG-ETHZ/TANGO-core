@@ -70,25 +70,51 @@ test *args:
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
 
-# Smoke-test every demo/example/application script. --slow: real multi-thousand-design grids, not --smoke.
+# Smoke-test every demo/example/application script — fast, not full sweeps.
+# applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
+# matrix, written to a fresh OS tempdir every run — never outputs/) instead
+# of their real multi-thousand-design grids — this checks the pipeline code
+# still runs end to end, not that every design converges (some corner
+# designs are expected to fail physically/numerically, same as in a real
+# sweep — that's fine, a non-zero *script* exit code is the failure signal
+# this target cares about). --slow drops --smoke to run the real grids
+# instead — much longer, and DOES write to outputs/.
+#
+# Also runs every examples/tango_next/*.yml file through `tango_next_cli run`
+# (not just the two explicitly-named demo scripts above) so a new example
+# YAML gets smoke coverage automatically without a justfile edit.
+# `-p N` (unix only) controls how many of those YAML runs go in parallel —
+# `just demos -p 4`; omit for sequential (default). Windows has no `-p` or
+# `--slow` support yet (sequential, --smoke only) — see `_setup-direnv`
+# above for the same unix/windows split pattern.
+[unix]
 demos *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
-    # matrix, written to a fresh OS tempdir every run — never outputs/) instead
-    # of their real multi-thousand-design grids — this checks the pipeline code
-    # still runs end to end, not that every design converges (some corner
-    # designs are expected to fail physically/numerically, same as in a real
-    # sweep — that's fine, a non-zero *script* exit code is the failure signal
-    # this target cares about). --slow drops --smoke to run the real grids
-    # instead — much longer, and DOES write to outputs/.
+    #!/usr/bin/env sh
+    set -eu
+    p=1
     smoke_flag="--smoke"
-    if [[ "{{args}}" == *"--slow"* ]]; then
-        smoke_flag=""
-    fi
+    set -- {{args}}
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -p) p="$2"; shift 2 ;;
+            --slow) smoke_flag=""; shift ;;
+            *) shift ;;
+        esac
+    done
     uv run python examples/tango_next/demo_flexible_sf.py
     uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
     uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_AGS_sweep/run_AGS_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py $smoke_flag --n-workers 2 --quiet
+    find examples/tango_next -maxdepth 1 -name '*.yml' -print0 | xargs -0 -n1 -P "$p" uv run tango_next_cli --log-level WARNING run
+
+[windows]
+demos:
+    uv run python examples/tango_next/demo_flexible_sf.py
+    uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
+    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_AGS_sweep/run_AGS_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
+    uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
+    Get-ChildItem examples/tango_next/*.yml | ForEach-Object { uv run tango_next_cli --log-level WARNING run $_.FullName }
