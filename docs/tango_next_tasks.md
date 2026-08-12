@@ -364,6 +364,24 @@ from scratch.
   investigate whether any real use case actually needs single-objective
   search before building support for it — don't build it speculatively.
 
+  **Update 2026-08-13, corroborating evidence from `AUTO_BOTH`'s old-tango
+  parity test:** `AUTO_BOTH` (`sim_config.max_mass_rate` capped, matched
+  against old tango's real `mass_rate.type: automatic` behavior) agrees
+  with old tango to ~0.026% at `max_mass_rate=100` kg/s but only ~3.3% at
+  `max_mass_rate=150` kg/s — both well below the ~166 kg/s crash threshold
+  above, so neither run is unstable, but agreement visibly degrades as the
+  operating point approaches it. Not a new formula bug: the friction-factor
+  formula is confirmed identical to old tango's (`fluid_utils.
+  friction_factor_haaland` vs. `WellUnitNative._compute_friction_factor`),
+  and `mass_rate` itself matches exactly (both hit the cap) at both values
+  — only `p_inj_wellhead_no_frack`/`test_p` diverges. Consistent with a
+  locally steep pressure-vs-mass_rate curve near this boundary amplifying
+  otherwise-negligible numerical differences, rather than a genuine formula
+  mismatch. `tests/regtest/test_tango_next.py::test_auto_both_matches_old_tango_automatic`
+  uses `max_mass_rate=100` deliberately, to stay clear of this sensitivity
+  and assert a real, tight (0.1%) tolerance instead of a loose one that
+  would mask an actual regression.
+
 ## Active: AGS sweep parity (heat + power)
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new

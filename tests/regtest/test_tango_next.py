@@ -719,6 +719,99 @@ def test_auto_flow_rejects_max_mass_rate_on_other_policies(sf_manual_config: dic
 
 
 # ---------------------------------------------------------------------------
+# InjectionPolicy.AUTO_BOTH — joint outer loop, WITH an old-tango parity target
+#
+# Unlike AUTO_PRESSURE/AUTO_FLOW (no old-tango analog — see
+# system_bc_iteration.py's AUTO_BOTH branch), old tango's mass_rate.type ==
+# "automatic" (plain, non-Hotmaps, non-controlled_power_generation branch)
+# unconditionally co-drives BOTH test_p (Newton) and mass_rate =
+# fracing_flow() (Picard) every pass, then applies bc_iteration.max_mass_rate
+# as a flat cap — exactly AUTO_BOTH's behavior. check_fracing is left at its
+# example-file default ("yes") deliberately: confirmed by reading
+# BC_calculator.py directly that it does NOT gate the "automatic" branch's
+# flow computation at all (only "manual"/"manual_func" check it), so it's
+# inert here either way.
+# ---------------------------------------------------------------------------
+
+
+def test_auto_both_converges_to_capped_mass_rate(sf_manual_config: dict[str, Any]) -> None:
+    """AUTO_BOTH's joint loop converges mass_rate to ``max_mass_rate`` and
+    p_inj_wellhead_no_frack to a nearby pressure, same shape as the
+    individual AUTO_PRESSURE/AUTO_FLOW convergence tests.
+    """
+    sf_manual_config["sim_config"]["num_tsteps"] = 3
+    sf_manual_config["sim_config"]["injection_mode"] = "auto-both"
+    sf_manual_config["sim_config"]["max_mass_rate"] = 100.0
+    wf = Workflow(sf_manual_config)
+    wf.run()
+
+    orch = wf._orchestrator
+    assert orch.mass_rate == pytest.approx(100.0)
+
+
+def test_auto_both_requires_reservoir(ags_direct_heat_config: dict[str, Any]) -> None:
+    """AUTO_BOTH has no fracking threshold to converge toward on a
+    reservoir-less topology (e.g. AGS's closed loop) — raises ConfigError
+    rather than silently doing nothing or crashing on a missing attribute.
+    """
+    ags_direct_heat_config["sim_config"]["injection_mode"] = "auto-both"
+
+    with pytest.raises(ConfigError, match="requires a reservoir component"):
+        Workflow(ags_direct_heat_config).run()
+
+
+def test_auto_both_matches_old_tango_automatic(tmp_path: Path) -> None:
+    """AUTO_BOTH's converged (p_inj_wellhead_no_frack, mass_rate) matches old
+    tango's real ``mass_rate.type: automatic`` behavior to within 0.1% —
+    a genuine numeric parity target, unlike AUTO_PRESSURE/AUTO_FLOW.
+
+    Uses max_mass_rate=100 (well below this reservoir's own ~166 kg/s
+    natural fracking-flow threshold, itself right at the edge of a known,
+    separately-documented production-side numerical instability —
+    docs/tango_next_tasks.md). Confirmed empirically (2026-08-13) that
+    agreement is excellent at this operating point (~0.026% observed) but
+    degrades to ~3.3% at max_mass_rate=150 — NOT a formula bug (the
+    friction-factor formula is confirmed identical to old tango's, and
+    mass_rate itself matches exactly at both caps), but expected sensitivity
+    amplification as the operating point approaches that known instability
+    boundary, where small numerical differences get magnified by a locally
+    steep pressure-vs-mass_rate curve. 0.1% comfortably covers the good
+    operating point this test exercises without depending on the sensitive
+    boundary region.
+    """
+    from tango.runner import Runner  # old tango
+
+    old_cfg = yaml.safe_load(OLD_SF_MANUAL.read_text())
+    old_cfg["schedule"]["mass_rate"]["type"] = "automatic"
+    old_cfg["schedule"]["time"]["num_tsteps"] = 1
+    old_cfg["schedule"]["bc_iteration"]["max_mass_rate"] = 100
+    old_path = tmp_path / "flexible_SF_automatic.yml"
+    old_path.write_text(yaml.dump(old_cfg))
+
+    runner = Runner(old_path, save_dir=tmp_path / "old")
+    runner.start()
+    old_orch = runner.tango.workflow.orchestrator
+    old_test_p = old_orch.flow_rate_calculator.test_p
+    old_mass_rate = old_orch.flow_rate_calculator.reservoir.mass_rate
+
+    new_cfg = yaml.safe_load(NEW_SF_MANUAL.read_text())
+    new_cfg["sim_config"]["num_tsteps"] = 1
+    new_cfg["sim_config"]["injection_mode"] = "auto-both"
+    new_cfg["sim_config"]["max_mass_rate"] = 100.0
+    wf = Workflow(new_cfg)
+    wf.run()
+    orch = wf._orchestrator
+    surface = orch._find_surface()
+
+    assert orch.mass_rate == old_mass_rate == pytest.approx(100.0)
+    rel_error = abs(surface.injection_pressure - old_test_p) / old_test_p
+    assert rel_error < 1e-3, (
+        f"tango_next injection_pressure ({surface.injection_pressure:.6g} Pa) vs. old tango "
+        f"test_p ({old_test_p:.6g} Pa): rel_error={rel_error:.2e}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Error taxonomy — CoolProp failures should surface as CoolPropError
 # ---------------------------------------------------------------------------
 

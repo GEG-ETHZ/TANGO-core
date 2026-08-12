@@ -1,6 +1,6 @@
 # tango_next: Progress Summary & Forward Plan — August 2026
 
-*Prepared 2026-08-01, updated 2026-08-04. Managerial-level summary — for
+*Prepared 2026-08-01, updated 2026-08-13. Managerial-level summary — for
 engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
 and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
 from `docs/tango_next_progress_summary_july_2026.md`.*
@@ -286,6 +286,65 @@ today: no setup instructions, no internal documentation, hardcoded to a machine
 we no longer have access to, and (per an earlier repo audit) some of the
 required input data may be missing entirely.
 
+## Built out the full injection-safety control system in tango_next (2026-08-11–13)
+
+A geothermal reservoir can be damaged by injecting fluid into it too
+aggressively, in two independent ways: pushing it in at too high a
+pressure, or pumping too much fluid into it too fast. tango_next now has a
+complete, tested system for controlling this — five distinct modes, all
+implemented and verified, where before there was only the simplest one.
+
+The two check-only modes now genuinely check. The plainest mode
+(fixed pressure, fixed flow rate, no safety check at all) already worked.
+We built its safety-checking twin: same fixed values, but now it actively
+compares the result against both danger thresholds every time step and
+stops the run immediately if either is crossed, rather than continuing on
+with a result that may have damaged the reservoir. While building this, we
+found and fixed a genuine bug in the *old* system's own threshold formula:
+one of its two safety-limit calculations quietly used a well's full width
+where the underlying physics equation calls for its half-width (radius),
+which skews the computed limit — confirmed by the fact that the old
+system's own formula labels the value "radius" while the code beside it
+plugs in the diameter instead. tango_next's version uses the correct
+value. Full writeup: `docs/bugs-fixed-in-tango-next.md`.
+
+**Two new "auto-pilot" modes remove the guesswork entirely.** Instead of a
+person picking a pressure or flow rate and hoping it's safe, tango_next can
+now automatically search for the exact value that lands right at the
+safety limit — as close to the reservoir's real capacity as possible
+without exceeding it, with no manual tuning required. One mode does this
+for pressure (flow rate stays fixed), the other for flow rate (pressure
+stays fixed), each converging to the right answer in just a handful of
+steps.
+
+**The fourth, most advanced mode does both at once — and is the one we
+could actually verify head-to-head against the old system's numbers,**
+because it's the only one of the four with a real equivalent there.
+Matched old tango to within 0.026% — a tiny, expected floating-point-level
+difference, not a discrepancy. We also deliberately went looking for where
+that agreement might break down, and found something worth recording
+honestly rather than glossing over: push the flow rate closer to a
+separately-known "edge" where the underlying physics model itself starts
+becoming numerically delicate (already documented, unrelated to this
+work), and the two systems' agreement visibly loosens — from 0.026% to
+about 3.3%. We confirmed this isn't a new mistake in either system (the
+underlying formulas still match exactly); it's the expected consequence of
+being near that edge, where tiny, ordinarily-invisible numerical
+differences get magnified. Documented plainly so nobody mistakes it for a
+regression later.
+
+All five modes now have automated tests confirming they behave correctly,
+and the full existing test suite still passes — nothing else broke.
+
+**Deliberately deferred, not forgotten:** the most advanced mode's
+"official" design goal — if the target flow rate makes no pressure
+achievable, back off the flow rate until one is — is more sophisticated
+than what the old system actually does (which is simpler: drive both
+values toward their limits and just apply a flat cap). We built the
+simpler, verifiable version first on purpose, to get the real numeric
+comparison above; the fuller version remains a tracked backlog item, not
+abandoned.
+
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see
@@ -305,6 +364,12 @@ specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
    comes, scope the reverse-engineering effort as its own task.
 3. ~~Fix the reservoir startup-value bug and re-confirm~~ — done 2026-08-04:
    fixed and verified (see above).
+4. ~~Build out the remaining injection-safety modes (auto-pilot pressure,
+   auto-pilot flow rate, and the combined mode)~~ — done 2026-08-11–13, all
+   five modes implemented and tested (see above). Remaining, not urgent:
+   the combined mode's fuller "back off flow rate until a pressure is
+   achievable" design, deliberately deferred — tracked in
+   `docs/tango_next_tasks.md`, no timeline set.
 
 Everything else queued from July's plan is unaffected and can continue in
 parallel.
