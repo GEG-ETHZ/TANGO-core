@@ -3,7 +3,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=48
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem-per-cpu=500M
 #SBATCH --output=opt_hydro_df_electric_%j.out
 #SBATCH --error=opt_hydro_df_electric_%j.err
 
