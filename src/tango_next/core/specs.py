@@ -80,7 +80,23 @@ class SimConfig(BaseModel):
     """Absent selects SystemDirect (no BC iteration); present selects
     SystemBCIteration."""
     mass_rate: float | None = None
-    """Required unless injection_mode is absent, or is AUTO_FLOW/AUTO_BOTH
-    (mass rate computed from fracking_flow() instead)."""
+    """Required whenever injection_mode is present. For MANUAL/
+    MANUAL_FRACKING_CHECK/AUTO_PRESSURE this is the fixed mass rate used
+    every timestep. For AUTO_FLOW/AUTO_BOTH it is instead the INITIAL GUESS
+    for the Picard iteration that converges mass_rate = fracking_flow()
+    each pass (mirrors injection_pressure's role as AUTO_PRESSURE's initial
+    guess). Do not default this to 0.0 or another near-zero value for
+    AUTO_FLOW/AUTO_BOTH: the numerical well model is genuinely degenerate at
+    near-zero flow, and the resulting first Picard step can overshoot into
+    a mass rate the circuit can't solve from a cold start (confirmed
+    empirically 2026-08-13 — see SystemBCIteration._converge_injection_flow's
+    docstring)."""
+    max_mass_rate: float | None = None
+    """Optional cap (kg/s) on the mass rate AUTO_FLOW/AUTO_BOTH's Picard
+    iteration converges to — ``mass_rate = min(fracking_flow(...),
+    max_mass_rate)`` each pass, mirroring old tango's field of the same
+    name and purpose. None (default) means uncapped: mass_rate converges to
+    whatever fracking_flow() actually computes. Must be omitted for every
+    other injection_mode — there is nothing for it to cap."""
     bc_checkpoint_idx: int | None = None
     """Required when injection_mode is present."""
