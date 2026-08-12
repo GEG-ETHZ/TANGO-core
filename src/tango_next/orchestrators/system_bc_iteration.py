@@ -44,7 +44,7 @@ See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration
    outer iteration and reaches its own convergence before the outer loop
    checks its criterion.
 
-━━━ Status — AUTO_PRESSURE/AUTO_FLOW implemented, AUTO_BOTH not yet ━━━
+━━━ Status — all InjectionPolicy variants implemented ━━━
 
 ``AUTO_PRESSURE`` (``_converge_injection_pressure``) drives the update rule
 above by writing ``surface.injection_pressure`` directly — a plain field
@@ -90,15 +90,29 @@ for ``AUTO_FLOW``/``AUTO_BOTH`` too, not the ``0.0`` placeholder this used
 to default to. See ``_converge_injection_flow``'s docstring for the full
 mechanism and how this was confirmed.
 
+``AUTO_BOTH`` (``_converge_injection_both``) runs both update rules every
+pass, from the same solved state, rather than holding one variable fixed
+like the other two — matching old tango's real ``mass_rate.type ==
+"automatic"`` behavior (confirmed by reading ``BC_calculator.py`` directly:
+it unconditionally recomputes both ``mass_rate = fracing_flow()`` and the
+``test_p`` Newton step every pass, then caps ``mass_rate`` at
+``max_mass_rate`` afterward). This is simpler than ``AUTO_BOTH``'s own enum
+docstring's aspirational "reduce flow rate until a feasible pressure
+exists" search — deliberately matching old tango's simpler behavior for
+now so this policy gets a real numeric parity test; the fuller
+infeasibility-handling search is deferred, not abandoned. Converges only
+once BOTH relative changes settle within ``self.tolerance``.
+
 ``MANUAL_FRACKING_CHECK`` does NOT iterate ``p_inj_wellhead_no_frack`` at all
 (single pass, same as ``MANUAL``, then ``_check_fracking`` compares the
 solved result against both thresholds and raises ``FrackingViolationError``
 on violation, with no pre-emptive correction of either value — see
 ``FrackingViolationError``'s docstring for the rationale). ``AUTO_PRESSURE``/
-``AUTO_FLOW`` each also call ``_check_fracking`` once, after outer
-convergence — each loop drives ITS OWN side to (approximately) the
-threshold by construction, but the OTHER variable is user-fixed under that
-policy and is not otherwise checked, so both directions still need the
+``AUTO_FLOW``/``AUTO_BOTH`` each also call ``_check_fracking`` once, after
+outer convergence — each loop drives its own (or, for ``AUTO_BOTH``, both)
+side(s) to (approximately) the threshold by construction, but at least one
+variable is either user-fixed or only approximately converged, so both
+directions still need the
 same explicit check as a safety net.
 
 ━━━ Planned: inner pump loop ━━━
@@ -160,8 +174,9 @@ class SystemBCIteration(SystemDirect):
     (``self._ordered``, ``_wire_one_stream``) as the building block.
     ``MANUAL``/``MANUAL_FRACKING_CHECK`` drive a temperature-convergence loop
     (``_converge_injection_T``) that re-solves the whole circuit every
-    iteration; iterative pressure policies (``AUTO_*``) will additionally
-    wrap that in an outer Newton-step loop (not yet implemented).
+    iteration; the ``AUTO_*`` policies additionally wrap that in an outer
+    Newton- and/or Picard-step loop (``_converge_injection_pressure``/
+    ``_converge_injection_flow``/``_converge_injection_both``).
     ``InjectionPolicy`` is the sole authority over how many passes a timestep
     takes; the choice between ``SystemDirect`` and ``SystemBCIteration`` is a
     topology question (does this graph declare a circuit with a BC variable to
@@ -361,8 +376,16 @@ class SystemBCIteration(SystemDirect):
             t: Zero-based timestep index.
 
         Raises:
-            NotImplementedError: For any policy not yet implemented.
-            ConvergenceError: (AUTO_* modes, once implemented) if convergence is not reached.
+            NotImplementedError: Defensive-only — every current
+                ``InjectionPolicy`` member has an explicit branch below; this
+                only fires if a future enum member is added without a
+                matching branch here.
+            ConfigError: (``AUTO_*`` modes) if the topology lacks a surface,
+                injection well, or reservoir the policy needs.
+            ConvergenceError: (``AUTO_*`` modes) if outer BC iteration doesn't
+                converge within ``self.max_iter_no_frack``.
+            FrackingViolationError: If either fracking threshold is exceeded
+                (``MANUAL_FRACKING_CHECK`` and every ``AUTO_*`` mode).
 
         """
         from tango_next.components.well.base import WellComponent  # noqa: PLC0415
@@ -431,40 +454,136 @@ class SystemBCIteration(SystemDirect):
             self._check_fracking(reservoir, inj_well)
             return
 
-        # AUTO_BOTH — not yet implemented. Needs a joint update rule
-        # (co-iterate p_inj_wellhead_no_frack via _converge_injection_pressure's
-        # Newton step AND mass_rate via _converge_injection_flow's Picard step,
-        # each pass, until both stabilize), plus — per its own enum
-        # docstring — "if no feasible injection pressure exists at the target
-        # flow rate, the flow rate is reduced until a feasible pressure can be
-        # achieved," which is a real design question neither of the other two
-        # policies needs to answer (they each hold one variable fixed).
-        # Confirmed (2026-06-16) to raise NotImplementedError until that joint
-        # update rule is implemented.
-        #
-        # This is the ONE InjectionPolicy variant with a genuine old-tango
-        # analog (per the class docstring's mapping table) — worth building
-        # its old-vs-new numeric parity test alongside it, unlike
-        # AUTO_PRESSURE/AUTO_FLOW which have none. Confirmed by reading
-        # BC_calculator.py's iterator() directly (2026-08-13): under
-        # mass_rate.type == "automatic" (plain, non-Hotmaps, non-
-        # controlled_power_generation branch), old tango unconditionally sets
-        # mass_rate = self.fracing_flow() every pass — check_fracing does NOT
-        # gate this for "automatic" (it only gates the cap for "manual"/
-        # "manual_func"). Combined with test_p's Newton step running whenever
-        # mass_rate.type != "manual", "automatic" ALWAYS co-drives pressure
-        # AND flow simultaneously — there is no way to configure old tango to
-        # iterate pressure alone with a fixed mass rate (ruling out any
-        # AUTO_PRESSURE-only parity target), nor flow alone with a fixed
-        # pressure (ruling out AUTO_FLOW). A separate, unconditional
-        # `mass_rate >= bc_iteration["max_mass_rate"]` cap also applies AFTER
-        # whichever branch computes mass_rate, regardless of type — this is
-        # sim_config.max_mass_rate's real old-tango analog, distinct from
-        # check_fracing's per-type cap.
-        raise NotImplementedError(
-            f"InjectionPolicy.{self.policy.name} requires a joint pressure/flow-rate "
-            "update rule (not yet implemented).",
+        if self.policy == InjectionPolicy.AUTO_BOTH:
+            if surface is None or not isinstance(inj_well, WellComponent):
+                raise ConfigError(
+                    "InjectionPolicy.AUTO_BOTH requires a surface (BC checkpoint) "
+                    "and an injection well (component_idx 0).",
+                )
+            reservoir = self._find_reservoir()
+            if reservoir is None:
+                raise ConfigError(
+                    "InjectionPolicy.AUTO_BOTH requires a reservoir component — "
+                    "there is no fracking threshold to converge toward without one.",
+                )
+            self._converge_injection_both(surface, inj_well, reservoir)
+            self._check_fracking(reservoir, inj_well)
+            return
+
+        raise NotImplementedError(f"InjectionPolicy.{self.policy.name} is not implemented.")
+
+    def _converge_injection_both(
+        self,
+        surface: SurfaceComponent,
+        inj_well: WellComponent,
+        reservoir: ReservoirComponent,
+    ) -> None:
+        """Outer joint Newton/Picard loop driving BOTH ``p_inj_wellhead_no_frack``
+        and ``mass_rate`` toward their respective fracking thresholds
+        simultaneously (``AUTO_BOTH`` only).
+
+        Matches old tango's real ``mass_rate.type == "automatic"`` behavior
+        (confirmed by reading ``BC_calculator.py``'s ``iterator()`` directly,
+        2026-08-13): each pass, unconditionally recompute BOTH
+        ``mass_rate = fracking_flow(...)`` (Picard, optionally capped at
+        ``self.max_mass_rate`` — old tango's own field/cap) AND
+        ``p_inj_wellhead_no_frack += target_reservoir_P - inj_well.outlet.P``
+        (Newton) from the SAME solved state, then re-solve. This is simpler
+        than ``AUTO_BOTH``'s own enum docstring's aspirational description
+        ("if no feasible injection pressure exists at the target flow rate,
+        the flow rate is reduced until a feasible pressure can be
+        achieved") — old tango has no such search, it just co-drives both
+        variables and caps mass_rate afterward. Deliberately matching old
+        tango's simpler behavior for now (Chad's call, 2026-08-13): gets a
+        real numeric parity test; the fuller infeasibility-handling search
+        is deferred, not abandoned — revisit once parity against old tango
+        has actually been checked.
+
+        Combines ``_converge_injection_pressure``'s and
+        ``_converge_injection_flow``'s mechanisms directly — see each of
+        their docstrings for the individual gotchas (fresh per-iteration
+        snapshot required for ``injection_pressure``, required
+        physically-reasonable initial ``mass_rate`` guess). Converges only
+        once BOTH relative changes fall under ``self.tolerance`` — a
+        timestep where one variable has stabilized but the other hasn't is
+        not converged.
+
+        Args:
+            surface: BC-checkpoint component (``sim_config.bc_checkpoint_idx``).
+            inj_well: Injection well (``component_idx == 0``).
+            reservoir: The circuit's reservoir component.
+
+        Raises:
+            ConfigError: If the reservoir/well combination doesn't declare
+                ``well_spacing``/``common.fluid_name`` — ``fracking_flow()``
+                cannot be computed without them.
+            ConvergenceError: If ``self.max_iter_no_frack`` outer iterations
+                are exhausted without BOTH ``p_inj_wellhead_no_frack`` and
+                ``mass_rate`` settling within ``self.tolerance`` (relative).
+
+        """
+        well_spacing = getattr(reservoir, "well_spacing", None)
+        fluid_name = getattr(getattr(inj_well, "common", None), "fluid_name", None)
+        if well_spacing is None or fluid_name is None:
+            raise ConfigError(
+                "InjectionPolicy.AUTO_BOTH requires the reservoir to declare well_spacing "
+                "and the injection well to declare common.fluid_name — fracking_flow() "
+                "cannot be computed without them.",
+            )
+
+        target_reservoir_P = fluid_utils.target_reservoir_pressure(
+            reservoir.hydro_static_pressure,
+            reservoir.over_pressure_percentage,
         )
+        p_inj_wellhead_no_frack = surface.injection_pressure
+        mass_rate = self.mass_rate
+
+        for bc_iter in range(self.max_iter_no_frack):
+            surface.injection_pressure = p_inj_wellhead_no_frack
+            inj_well.inlet.mass_rate = mass_rate
+            snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
+            self._converge_injection_T(surface, snapshot)
+
+            mu = fluid_utils.fluid_viscosity(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
+            rho = fluid_utils.fluid_density(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
+            new_mass_rate = fluid_utils.fracking_flow(
+                thickness=reservoir.thickness,
+                permeability=reservoir.permeability,
+                hydro_static_pressure=reservoir.hydro_static_pressure,
+                over_pressure_percentage=reservoir.over_pressure_percentage,
+                well_spacing=well_spacing,
+                wellbore_diameter=inj_well.diameter,
+                mu=mu,
+                rho=rho,
+            )
+            if self.max_mass_rate is not None:
+                new_mass_rate = min(new_mass_rate, self.max_mass_rate)
+            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_well.outlet.P)
+
+            rel_change_p = abs(p_new - p_inj_wellhead_no_frack) / abs(p_inj_wellhead_no_frack)
+            rel_change_mass = abs(new_mass_rate - mass_rate) / max(abs(mass_rate), 1e-8)
+            logger.debug(
+                "AUTO_BOTH: outer iter %d, p_inj_wellhead_no_frack=%.6g Pa (rel_change=%.2e), "
+                "mass_rate=%.6g kg/s (rel_change=%.2e)",
+                bc_iter + 1,
+                p_new,
+                rel_change_p,
+                new_mass_rate,
+                rel_change_mass,
+            )
+            p_inj_wellhead_no_frack = p_new
+            mass_rate = new_mass_rate
+            if rel_change_p < self.tolerance and rel_change_mass < self.tolerance:
+                break
+        else:
+            raise ConvergenceError(
+                f"AUTO_BOTH: max outer iterations ({self.max_iter_no_frack}) reached "
+                f"without convergence (final p_inj_wellhead_no_frack={p_inj_wellhead_no_frack:.6g} Pa "
+                f"rel_change={rel_change_p:.2e}, mass_rate={mass_rate:.6g} kg/s "
+                f"rel_change={rel_change_mass:.2e}, tol={self.tolerance:.2e})",
+            )
+
+        self.mass_rate = mass_rate
 
     def _converge_injection_pressure(
         self,
