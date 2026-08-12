@@ -82,16 +82,19 @@ class InjectionPolicy(enum.StrEnum):
     )
     MANUAL_FRACKING_CHECK = (
         "manual-fracking-check",
-        "Both user-specified. Both fracking directions checked; any violation raises "
-        "an error. Pressure reduced if initial value causes pressure-induced fracking; "
-        "rate capped if it causes flow-induced fracking. Single solver pass per timestep.",
+        "Both mass flow rate and injection wellhead pressure are user-specified. "
+        "Single solver pass per timestep, same as MANUAL — then both fracking "
+        "directions are checked against the solved result. Any violation raises "
+        "FrackingViolationError; neither the pressure nor the rate is "
+        "pre-emptively corrected or re-solved.",
     )
     # TODO: make it so that this finds the exact pressure (within some tolerance parameter with a reasonable default) at which fracking does not occur
     AUTO_PRESSURE = (
         "auto-pressure",
-        "Mass flow rate user-specified. Injection wellhead pressure iterated via "
-        "Newton step (test_p += target_reservoir_P - inj_well.outlet.P) until "
-        "reservoir inlet converges to the fracking threshold. "
+        "Mass flow rate user-specified. Injection wellhead pressure "
+        "(p_inj_wellhead_no_frack) iterated via Newton step "
+        "(p_inj_wellhead_no_frack += target_reservoir_P - inj_well.outlet.P) "
+        "until reservoir inlet converges to the fracking threshold. "
         "Flow-induced fracking raises an error.",
     )
     # TODO: make it so that this finds the exact mass flow rate (within some tolerance parameter with a reasonable default) at which fracking does not occur

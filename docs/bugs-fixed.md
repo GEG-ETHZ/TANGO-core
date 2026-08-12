@@ -135,6 +135,33 @@ name.
 **Fixed:** `6f66171` (2026-06-12) — "docs + tango_next: InjectionPolicy
 enum, BC iteration design, AI error agent vision."
 
+## `fracing_flow` mixes a wellbore diameter into a term that should be a radius
+
+`src/tango/orchestrators/BC_calculator.py::fracing_flow()` computes the
+flow-induced fracking threshold via the standard Thiem/Darcy steady-state
+radial-flow equation, `q = 2πhkΔP / (μ·ln(re/rw))`, where both `re` and `rw`
+are radii. Old tango halves `well_spacing` to get `re` (`re =
+self.reservoir.specs.well_spacing / 2.0`) but does **not** halve the
+wellbore term — `rw = self.inj_well._specs.diameter`, the full diameter.
+`diameter` is confirmed elsewhere in old tango
+(`units/native/well/base.py`, e.g. `0.25·π·diameter²` for cross-sectional
+area, `epsilon / diameter` for relative roughness) to be a genuine full
+diameter, not a radius stored under a misleading name — and the method's
+own docstring labels the term "\\(r_w\\): Wellbore radius (m)" while the
+code assigns it the diameter. `ln(re/rw)` therefore mixes a true radius
+with a true diameter, which is off by a flat `-ln(2)` relative to the
+correct radius-only form — not one of the legitimate alternate Darcy forms
+(e.g. `ln(2·re/D)`), which stay internally consistent by keeping both
+terms in the same units.
+
+`tango_next`'s `fluid_utils.fracking_flow()` halves both consistently:
+`re = well_spacing / 2.0`, `rw = wellbore_diameter / 2.0`.
+
+**Fixed:** introduced directly in `tango_next` (no old-tango behavior
+carried forward to later correct) as part of `InjectionPolicy.
+MANUAL_FRACKING_CHECK`, 2026-08-11 (uncommitted as of 2026-08-12 — update
+this hash once committed).
+
 ## Non-convergence silently swallowed instead of raised
 
 `src/tango` has this exact pattern in more than one place:

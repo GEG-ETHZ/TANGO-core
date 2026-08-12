@@ -4,22 +4,26 @@ Auto-selected when sim_config.injection_mode is present in the input file.
 
 ━━━ What this solver is doing ━━━
 
-The BC variable is ``test_p`` — the injection wellhead pressure (Pa). <--- `test_p` seems like kind of a vague name (TODO: fix this line)
-The physical question: *what injection wellhead pressure is required so that,
-after hydrostatic head and friction losses in the injection well, the fluid
-arrives at the reservoir inlet at the target pressure?*
+The BC variable is ``p_inj_wellhead_no_frack`` — the injection wellhead
+pressure (Pa) whose current best estimate, once it propagates through
+hydrostatic head and friction losses down the injection well, lands the
+reservoir inlet exactly at the fracking-safety ceiling (not above it, and
+not needlessly below it either). The physical question: *what injection
+wellhead pressure is required so that the fluid arrives at the reservoir
+inlet at the target pressure?*
 
 Target reservoir inlet pressure::
 
     target_reservoir_P = hydrostatic_pressure × (1 + overpressure_pct / 100)
 
-Update rule (explicit, matches src/tango/ FlowRateCalculator.iterator)::
+Update rule (explicit Newton step on the mismatch at the reservoir inlet)::
 
-    test_p += target_reservoir_P − inj_well.outlet.P
+    p_inj_wellhead_no_frack += target_reservoir_P − inj_well.outlet.P
 
 Outer convergence criterion (relative, must ALL be satisfied)::
 
-    |test_p[N] − test_p[N-1]| / test_p[N-1]           < tolerance
+    |p_inj_wellhead_no_frack[N] − p_inj_wellhead_no_frack[N-1]|
+        / p_inj_wellhead_no_frack[N-1]                      < tolerance
     |mass_rate[N] − mass_rate[N-1]| / mass_rate[N-1]   < tolerance   (AUTO_FLOW / AUTO_BOTH)
     |inj_well.inlet.P[N] − inj_well.inlet.P[N-1]| / …  < tolerance
 
@@ -44,23 +48,28 @@ See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration
 
 Currently, the surface component's ``solve()`` (currently ``GraphSurface``) sets
 ``outlet.P = self.injection_pressure`` (the current BC guess), so the loop
-trivially converges in 1 iteration because ``test_p`` never changes.  The BC
-machinery is correct in structure but not yet driven by real physics.
+trivially converges in 1 iteration because ``p_inj_wellhead_no_frack`` never
+changes.  The BC machinery is correct in structure but not yet driven by
+real physics.
 
 ━━━ Planned: real BC-iteration physics ━━━
 
 Replace the current placeholder with the explicit update rule above.
 The surface must NOT set ``outlet.P = _injection_pressure``; instead:
-  - Feed ``test_p`` as ``injection_well.inlet.P`` directly (not via surface).
-  - After ``injection_well.solve()``, compute the new ``test_p`` from the update rule.
+  - Feed ``p_inj_wellhead_no_frack`` as ``injection_well.inlet.P`` directly
+    (not via surface).
+  - After ``injection_well.solve()``, compute the new
+    ``p_inj_wellhead_no_frack`` from the update rule.
   - The surface gets its inlet from the production pump outlet (fixed at
     ``target_extraction_P``) and its outlet pressure comes from TESPy pump2.
 
-In ``MANUAL_FRACKING_CHECK`` mode (src/tango/ ``type: manual, check_fracking: True``):
-when ``target_reservoir_P > inj_well.outlet.P``, the update is skipped — the
-reservoir inlet is below the fracking threshold, so no pressure adjustment is
-needed.  This is correct behaviour.  ``test_p`` is only reduced when the initial
-value drives the reservoir inlet above the fracking threshold.
+This section describes the ``AUTO_*`` outer Newton loop specifically —
+``MANUAL_FRACKING_CHECK`` does NOT iterate ``p_inj_wellhead_no_frack`` at all
+(implemented: single pass, same as ``MANUAL``, then ``_check_fracking``
+compares the solved result against both thresholds and raises
+``FrackingViolationError`` on violation, with no pre-emptive correction of
+either value — see
+``FrackingViolationError``'s docstring for the rationale).
 
 ━━━ Planned: inner pump loop ━━━
 
@@ -87,14 +96,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from tango_next.core import fluid_utils
 from tango_next.core.constants import PA_TO_MPA, W_TO_MW
-from tango_next.core.errors import ConvergenceError
+from tango_next.core.errors import ConvergenceError, FrackingViolationError
 from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
     from tango_next.components.economic.base import EconomicComponent
+    from tango_next.components.reservoir.base import ReservoirComponent
     from tango_next.components.surface.base import SurfaceComponent
+    from tango_next.components.well.base import WellComponent
     from tango_next.core.component import Component
 
 logger = logging.getLogger(__name__)
@@ -203,6 +215,77 @@ class SystemBCIteration(SystemDirect):
             return None
         return component
 
+    def _find_reservoir(self) -> ReservoirComponent | None:
+        """Return the circuit's reservoir component, or None if absent.
+
+        Duck-typed via ``isinstance`` against the abstract ``ReservoirComponent``
+        base, same pattern as ``_find_surface`` — works for any concrete
+        reservoir type (today just ``LumpedReservoir``), not one hardcoded
+        class. A topology with no reservoir at all (e.g. AGS's closed loop)
+        legitimately has no fracking physics to check; callers must treat
+        ``None`` as "nothing to check," not an error.
+        """
+        from tango_next.components.reservoir.base import ReservoirComponent  # noqa: PLC0415
+
+        for component in self._ordered:
+            if isinstance(component, ReservoirComponent):
+                return component
+        return None
+
+    def _check_fracking(self, reservoir: ReservoirComponent, inj_well: WellComponent) -> None:
+        """Raise ``FrackingViolationError`` if either fracking threshold is exceeded.
+
+        Checks both independent mechanisms (see ``InjectionPolicy``'s class
+        docstring): pressure-induced (``inj_well.outlet.P`` vs.
+        ``fluid_utils.target_reservoir_pressure()``) and flow-induced
+        (``self.mass_rate`` vs. ``fluid_utils.fracking_flow()``). Called
+        against whatever state the circuit is in *right now* — callers are
+        responsible for calling this only once a pass has actually been
+        solved (``inj_well.outlet`` populated).
+
+        Args:
+            reservoir: The circuit's reservoir component.
+            inj_well: The circuit's injection well (``component_idx == 0``).
+
+        Raises:
+            FrackingViolationError: If either threshold is exceeded.
+
+        """
+        p_res_in_no_frack = fluid_utils.target_reservoir_pressure(
+            reservoir.hydro_static_pressure,
+            reservoir.over_pressure_percentage,
+        )
+        if p_res_in_no_frack < inj_well.outlet.P:
+            raise FrackingViolationError(
+                f"Pressure-induced fracking: injection well outlet pressure "
+                f"({inj_well.outlet.P * PA_TO_MPA:.4g} MPa) exceeds the reservoir "
+                f"fracking threshold ({p_res_in_no_frack * PA_TO_MPA:.4g} MPa).",
+            )
+
+        well_spacing = getattr(reservoir, "well_spacing", None)
+        fluid_name = getattr(getattr(inj_well, "common", None), "fluid_name", None)
+        if well_spacing is None or fluid_name is None:
+            # No known way to compute the flow-induced threshold for this
+            # reservoir/well combination — skip rather than guess. Every
+            # concrete reservoir type today (LumpedReservoir) declares
+            # well_spacing, and every concrete well type declares common.
+            return
+        max_flow = fluid_utils.fracking_flow(
+            thickness=reservoir.thickness,
+            permeability=reservoir.permeability,
+            hydro_static_pressure=reservoir.hydro_static_pressure,
+            over_pressure_percentage=reservoir.over_pressure_percentage,
+            well_spacing=well_spacing,
+            wellbore_diameter=inj_well.diameter,
+            mu=fluid_utils.fluid_viscosity(fluid_name, inj_well.outlet.T, inj_well.outlet.P),
+            rho=fluid_utils.fluid_density(fluid_name, inj_well.outlet.T, inj_well.outlet.P),
+        )
+        if self.mass_rate > max_flow:
+            raise FrackingViolationError(
+                f"Flow-induced fracking: mass rate ({self.mass_rate:.3g} kg/s) exceeds "
+                f"the reservoir fracking threshold ({max_flow:.3g} kg/s).",
+            )
+
     def _seed_circuit_inlet(self) -> None:
         """Seed the circuit-first component's inlet on the very first timestep.
 
@@ -240,13 +323,15 @@ class SystemBCIteration(SystemDirect):
             ConvergenceError: (AUTO_* modes, once implemented) if convergence is not reached.
 
         """
+        from tango_next.components.well.base import WellComponent  # noqa: PLC0415
+
         self._seed_circuit_inlet()
         surface: SurfaceComponent | None = self._find_surface()
         inj_well = self._by_idx.get(0)
         if inj_well is not None:
             inj_well.inlet.mass_rate = self.mass_rate
 
-        if self.policy == InjectionPolicy.MANUAL:
+        if self.policy in (InjectionPolicy.MANUAL, InjectionPolicy.MANUAL_FRACKING_CHECK):
             # Snapshot every component's convergence-sensitive state (see
             # Component.snapshot_convergence_state's docstring) as it stood
             # at the end of the PREVIOUS calendar timestep, before this
@@ -260,29 +345,34 @@ class SystemBCIteration(SystemDirect):
             if surface is not None:
                 self._converge_injection_T(surface, snapshot)
 
-            return
+            if self.policy == InjectionPolicy.MANUAL_FRACKING_CHECK:
+                # Single pass already ran above (same as MANUAL) — check both
+                # fracking directions against the result. No pre-emptive
+                # correction: a violation raises, it does not get nudged
+                # back under the threshold and silently re-solved (see
+                # FrackingViolationError's docstring).
+                reservoir = self._find_reservoir()
+                if reservoir is not None and isinstance(inj_well, WellComponent):
+                    self._check_fracking(reservoir, inj_well)
 
-        if self.policy == InjectionPolicy.MANUAL_FRACKING_CHECK:
-            # Phase 2: add fracking_flow() and threshold checks before/after the pass.
-            raise NotImplementedError(
-                "InjectionPolicy.MANUAL_FRACKING_CHECK requires Phase 2 fracking logic "
-                "(fracking_flow() Darcy calculation and reservoir threshold access).",
-            )
+            return
 
         # AUTO_* modes — Phase 2: outer Newton-step convergence loop.
         # Sketch of the intended structure:
         #
         #   for bc_iter in range(self.max_iterations):
         #       super().run_timestep(t)  # one circuit pass, inherited from SystemDirect
-        #       test_p_new = test_p_old + (target_reservoir_P - inj_well.outlet.P)
+        #       p_inj_wellhead_no_frack_new = p_inj_wellhead_no_frack_old + (
+        #           target_reservoir_P - inj_well.outlet.P
+        #       )
         #       if converged: break
         #   else:
         #       raise ConvergenceError(...)
         #
         # AUTO_FLOW and AUTO_BOTH also update mass_rate = fracking_flow() each pass.
-        # AUTO_BOTH additionally co-iterates test_p and mass_rate jointly — confirmed
-        # (2026-06-16) to raise NotImplementedError below like the other AUTO_* modes
-        # until that joint update rule is implemented.
+        # AUTO_BOTH additionally co-iterates p_inj_wellhead_no_frack and mass_rate
+        # jointly — confirmed (2026-06-16) to raise NotImplementedError below like
+        # the other AUTO_* modes until that joint update rule is implemented.
         raise NotImplementedError(
             f"InjectionPolicy.{self.policy.name} requires Phase 2 BC iteration "
             "(Newton-step pressure/flow-rate updates not yet implemented).",
