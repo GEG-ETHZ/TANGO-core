@@ -88,7 +88,6 @@ class InjectionPolicy(enum.StrEnum):
         "FrackingViolationError; neither the pressure nor the rate is "
         "pre-emptively corrected or re-solved.",
     )
-    # TODO: make it so that this finds the exact pressure (within some tolerance parameter with a reasonable default) at which fracking does not occur
     AUTO_PRESSURE = (
         "auto-pressure",
         "Mass flow rate user-specified. Injection wellhead pressure "
