@@ -357,6 +357,13 @@ from scratch.
   component/node destabilizes first) — worth revisiting if a real
   `AUTO_FLOW`/`max_mass_rate`-cap use case needs to actually operate near
   this boundary rather than just detect it after the fact.
+- **Single-objective search support in `tango_next.pymoo_api`** — old
+  tango's `optimizerr.py` offers several single-objective algorithms (GA,
+  DE, PSO, CMA-ES, etc.) alongside NSGA2/NSGA3; `Minimization` only
+  supports multi-objective (Pareto-front) search today. Non-urgent:
+  investigate whether any real use case actually needs single-objective
+  search before building support for it — don't build it speculatively.
+
 ## Active: AGS sweep parity (heat + power)
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new

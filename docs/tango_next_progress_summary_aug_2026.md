@@ -170,44 +170,88 @@ tango_next's design rules this out categorically — every value used in
 any calculation always comes from the same, fully up-to-date pass, by
 construction. See `docs/bugs-fixed-in-tango-next.md`.
 
-## Built a real cost model in tango_next, then a working optimizer on top of it (2026-08-07)
+## Economic model and multi-objective optimizer (MOO) (2026-08-07, extended 2026-08-12)
 
 We can now compute a real, defensible levelized cost of energy (LCOE) in
-tango_next — not a placeholder — and use it to automatically search for
-the best-performing design, rather than only running one scenario at a
-time by hand.
+tango_next — not a placeholder — and feed it into a real multi-objective
+optimizer that maps out the full range of cost-vs-output tradeoffs across
+many designs at once, rather than only running one scenario at a time by
+hand. Built on the same underlying search algorithm family as our legacy
+optimizer, but not a like-for-like port — several real gaps and one real
+bug turned up along the way, covered below.
 
-This started as a request to build an optimizer that tunes a plant's flow
-rate and injection pressure to get the best combination of low cost and
-high energy output. Partway in, we hit a real gap: tango_next had no cost
-model at all — every existing sweep tool already showed "LCOE: null"
-because nothing computed it. Rather than fake the number, we built the
-real thing: ported the actual well-cost, permitting, exploration, pipe,
-and power-plant cost formulas from the old system into tango_next, wired
-up to run automatically once a simulation finishes.
+**What it can do.**
 
-**Verified against the old system, not just self-consistent.** Three of
-the five cost categories (permitting, exploration, surface piping) match
-the old system's numbers *exactly, to the dollar* — strong confirmation the
-formulas were ported correctly, not just plausibly. The other two (well
-cost, power-plant equipment cost) don't match as tightly, and we tracked
-down exactly why: the old system's own reference file has a data-entry
-mistake (a well-length value copy-pasted from the wrong well) that quietly
-changes its own cost calculation, and a separate, already-known minor
-timing difference between the two systems' physics amplifies through the
-power-plant formulas. Neither is a bug in the new cost model — both are
-explained, documented, and accounted for with appropriately-sized
-tolerances in a new automated test that will catch any future regression.
+- Searches over any number of tunable inputs at once — three for our
+  double-flash example today (flow rate, injection pressure, and the
+  surface plant's minimum required inlet pressure), up from two
+  originally, with no ceiling on adding more.
+- **Parallelization and HPC runs — verified, not just designed for.**
+  Scales across every core on a single machine the same way the legacy
+  optimizer does, but now also runs as a real unattended job on Euler:
+  submit it, and it automatically sizes its own worker count to whatever
+  CPU allocation the cluster actually granted that job, no hand-editing
+  required. Tested end-to-end against a real (simulated) cluster
+  submission, not just locally. The legacy optimizer has no equivalent
+  cluster job wired up anywhere in this codebase today.
 
-With a working cost number in hand, we built the optimizer on top of it: a
-reusable search tool (using the same genetic-algorithm approach as our
-legacy optimization code) that automatically tries different combinations
-of flow rate and injection pressure, discards any combination that fails
-to run rather than crashing the whole search, and returns the best
-tradeoffs between cost and energy output as a ranked set of designs — each
-one saved so it can be re-loaded and re-run individually. The example
-script for our double-flash plant now runs this search end-to-end and
-produces a chart showing the full tradeoff space at a glance.
+**Features that make it easier to use and more robust.**
+
+- Saves its progress after every single generation, not just at the end
+  — if a long unattended run gets killed or crashes partway (a real risk
+  on a shared cluster with time limits), whatever it found up to that
+  point is already safely on disk, not lost.
+- Can pick up and warm-start from a previous run's results instead of
+  always starting from scratch — useful for resuming or extending a run
+  that was cut short.
+- Every design on the full tradeoff set is saved as its own ready-to-run
+  file, not just numbers in a log — any one of them can be reloaded and
+  re-run individually, and the choice of "which one do we actually
+  build" is left to a person looking at the real tradeoff. The legacy
+  optimizer computes the same kind of full tradeoff set internally, but
+  then collapses it down to a single "recommended" design via a scoring
+  formula, discarding data that a human could use to downselect a best
+  design.
+- Every setting behind a given run is tracked in a version-controlled,
+  repeatable pipeline — the same one already used for our large sweep
+  runs elsewhere in this codebase — so a months-old result can be
+  reproduced exactly. The legacy optimizer has no equivalent pipeline
+  around it today.
+- **Distinguishes "this design doesn't work" from "our own code is
+  broken."** The legacy optimizer treats any failure at all — for any
+  reason whatsoever — the same way: logged as "failed," and the search
+  moves on. Fine when the failure is a genuine physical one (e.g. a
+  candidate design would damage the reservoir); dangerous when it's
+  actually a bug in the setup code, since a long unattended search could
+  spend hours quietly recording every design as "failed" without ever
+  surfacing that something upstream is broken. This optimizer only treats
+  three specific, known physical failure modes that way — anything else
+  stops the run immediately and loudly instead of getting absorbed.
+
+**Design that makes it harder to misuse.** Both the legacy optimizer's tunable
+inputs *and* its user-defined limits are wired up by feeding a complicated,
+thinly documented, arcane string of Python code, built from a translated
+parameter name, straight into Python's own `eval` — extending it to a new input,
+measured outcome, or limit means trusting a piece of free-form, code-executing
+text at runtime. This optimizer's equivalent is a small, fixed-shape function
+for each one instead — "given the current settings, change exactly this one
+thing" or "given a finished run, read exactly this one number" — composable and
+extensible without ever executing arbitrary code, and without needing to touch
+the search engine itself to add a new one.
+
+**Cost model verified against the old system, not just self-consistent.**
+Three of the five cost categories (permitting, exploration, surface
+piping) match the old system's numbers *exactly, to the dollar* — strong
+confirmation the formulas were ported correctly, not just plausibly. The
+other two (well cost, power-plant equipment cost) don't match as tightly,
+and we tracked down exactly why: the old system's own reference file has
+a data-entry mistake (a well-length value copy-pasted from the wrong
+well) that quietly changes its own cost calculation, and a separate,
+already-known minor timing difference between the two systems' physics
+amplifies through the power-plant formulas. Neither is a bug in the new
+cost model — both are explained, documented, and accounted for with
+appropriately-sized tolerances in a new automated test that will catch
+any future regression.
 
 **A related point worth recording on its own merits.** While tracing one
 of the cost formulas, we found that the old system's own well-pump and
