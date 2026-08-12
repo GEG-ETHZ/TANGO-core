@@ -140,6 +140,20 @@ def build_parser() -> argparse.ArgumentParser:
             "for part of the current result."
         ),
     )
+    parser.add_argument(
+        "--seed-from",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a previous run's pareto_results.csv (or "
+            "pareto_results_partial.csv from an interrupted run) to "
+            "warm-start the initial population from, instead of pymoo's "
+            "default random/LHS init. NOT a true resume (fresh RNG state, "
+            "restarts at generation 1) -- see Minimization's seed_from "
+            "docstring for the full tradeoff. Remaining population slots "
+            "beyond what the file provides are filled via LHS."
+        ),
+    )
     return parser
 
 
@@ -228,7 +242,14 @@ def plot_pareto_parallel_coordinates(df: pd.DataFrame, out_path: Path, color_col
     (``Minimization`` only returns the pareto front, which by definition
     excludes constraint-violating designs), so there's no "undefined color"
     case to handle the way that sweep-grid plot does.
+
+    Prepends a ``design_number`` axis on the far left (0-based, matching
+    ``pareto_configs/design_NNN.yml``'s numbering) so a line can be traced
+    back to its saved config — operates on a COPY, doesn't mutate the
+    caller's ``df``.
     """
+    df = df.copy()
+    df.insert(0, "design_number", range(len(df)))
     cols = list(df.columns)
     data = df[cols].to_numpy(dtype=float)
     mins = data.min(axis=0)
@@ -287,6 +308,89 @@ def plot_pareto_parallel_coordinates(df: pd.DataFrame, out_path: Path, color_col
     plt.close(fig)
 
 
+def _diagonal_label_offset(x: pd.Series, y: pd.Series) -> tuple[tuple[float, float], str]:
+    """Pick a point-label offset perpendicular to the data's dominant diagonal.
+
+    A pareto front's points lie roughly along a diagonal; offsetting labels
+    along THAT diagonal drives them into the next point, while offsetting
+    across it clears neighbors. Which diagonal the front follows depends on
+    the sign of the correlation between x and y (not r^2, which discards
+    the sign): positive -> front runs bottom-left to upper-right -> offset
+    upper-left. Negative -> front runs upper-left to bottom-right -> offset
+    upper-right. Falls back to upper-left (this module's common case) if
+    the correlation is undefined, e.g. a constant x or y.
+    """
+    with np.errstate(invalid="ignore"):
+        r = np.corrcoef(x, y)[0, 1]
+    if np.isnan(r) or r >= 0:
+        return (-5, 5), "right"
+    return (5, 5), "left"
+
+
+def plot_pareto_scatter(df: pd.DataFrame, out_path: Path) -> None:
+    """2D scatter of the two objectives (LCOE vs. mean net power), each point
+    labeled by its design number.
+
+    With exactly two objectives, this is a more direct view of the actual
+    tradeoff curve than the parallel-coordinates plot -- every point on
+    this plot IS a point on the pareto front, in objective space, no
+    normalization or projection involved. Labels match
+    pareto_configs/design_NNN.yml's numbering: df's row order comes
+    straight from pymoo's res.X/res.F with no reordering in between, and
+    Minimization._write_pareto() writes design files in that same order.
+    """
+    power_mw = df["mean_power_W"] / 1.0e6
+    lcoe = df["LCOE"]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(lcoe, power_mw, s=40, color="tab:blue", zorder=3)
+    xytext, ha = _diagonal_label_offset(lcoe, power_mw)
+    for i, (x, y) in enumerate(zip(lcoe, power_mw, strict=True)):
+        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
+
+    ax.set_xlabel("LCOE ($/kWh)")
+    ax.set_ylabel("Mean net power (MW)")
+    ax.set_title("hydro_df_electric — pareto front (objective space, labeled by design number)")
+    ax.grid(visible=True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_pareto_scatter_zscore(df: pd.DataFrame, out_path: Path) -> None:
+    """Z-score-normalized variant of ``plot_pareto_scatter``.
+
+    Both axes standardized (``(x - mean) / std``) instead of raw units, so
+    the visual spread of each objective reflects its RELATIVE variation
+    across the front, not whatever units it happens to be measured in —
+    LCOE (~0.2-0.4) and mean power (~3-3.7 MW) look very differently
+    "spread out" in raw units purely because of arbitrary unit choice;
+    z-score removes that distortion. Same normalization
+    ``pymoo_api.Minimization``'s ``euclidean`` column already uses.
+    Zero-lines mark the mean of each objective across the front.
+    """
+    lcoe = df["LCOE"]
+    power = df["mean_power_W"]
+    lcoe_z = (lcoe - lcoe.mean()) / (lcoe.std() or 1.0)
+    power_z = (power - power.mean()) / (power.std() or 1.0)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.axhline(0, color="grey", linewidth=0.8, zorder=1)
+    ax.axvline(0, color="grey", linewidth=0.8, zorder=1)
+    ax.scatter(lcoe_z, power_z, s=40, color="tab:orange", zorder=3)
+    xytext, ha = _diagonal_label_offset(lcoe_z, power_z)
+    for i, (x, y) in enumerate(zip(lcoe_z, power_z, strict=True)):
+        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
+
+    ax.set_xlabel("LCOE (z-score)")
+    ax.set_ylabel("Mean net power (z-score)")
+    ax.set_title("hydro_df_electric — pareto front (z-score-normalized objective space)")
+    ax.grid(visible=True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def plot_pareto_parallel_coordinates_interactive(
     df: pd.DataFrame,
     out_path: Path,
@@ -298,6 +402,11 @@ def plot_pareto_parallel_coordinates_interactive(
     prints a note instead of raising) if plotly isn't installed, so the
     rest of the pipeline still runs for a base install — same fallback
     ``applications/run_AGS_sweep/plot.py`` uses.
+
+    Prepends a ``design_number`` axis on the far left (0-based, matching
+    ``pareto_configs/design_NNN.yml``'s numbering) so a line can be traced
+    back to its saved config — operates on a COPY, doesn't mutate the
+    caller's ``df``.
     """
     try:
         import plotly.graph_objects as go  # noqa: PLC0415
@@ -305,6 +414,8 @@ def plot_pareto_parallel_coordinates_interactive(
         print(f"plotly not installed — skipping {out_path.name} (install with `uv sync --group dev`)")
         return False
 
+    df = df.copy()
+    df.insert(0, "design_number", range(len(df)))
     cols = list(df.columns)
     color_values = df[color_col].to_numpy(dtype=float)
     c_min, c_max = np.percentile(color_values, [5, 95])
@@ -391,6 +502,8 @@ def main(args: argparse.Namespace) -> None:
 
     plot_pareto_parallel_coordinates(plot_df, args.save_dir / "pareto_parallel_coordinates.png")
     plot_pareto_parallel_coordinates_interactive(plot_df, args.save_dir / "pareto_parallel_coordinates.html")
+    plot_pareto_scatter(plot_df, args.save_dir / "pareto_scatter.png")
+    plot_pareto_scatter_zscore(plot_df, args.save_dir / "pareto_scatter_zscore.png")
 
 
 if __name__ == "__main__":

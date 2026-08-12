@@ -41,14 +41,33 @@ NEW_AGS_DIRECT_HEAT = EXAMPLES_DIR / "tango_next" / "AGS_direct_heat.yml"
 REFERENCE_LCOE = 0.7740618821220107
 N_TSTEPS = 20  # sim_config.time.num_tsteps in the tango_next YAML
 
+N_TSTEPS_FAST = 8
+"""Timestep cap for structural/qualitative checks below (monotonicity, sign,
+shape — NOT precise numeric goldens) — these don't care how many years the
+run covers, so there's no reason to pay for the full N_TSTEPS run. Tests
+that DO assert precise numeric values against a full-length reference
+(test_lcoe_parity) are marked @pytest.mark.slow and left at the real
+N_TSTEPS instead — see pytest.ini for why old_tango/perf/slow are
+deselected by default."""
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _run_tango_next(path: Path) -> Workflow:
-    wf = Workflow.from_file(path)
+def _run_tango_next(path: Path, num_tsteps: int | None = None) -> Workflow:
+    """Run the given config. ``num_tsteps``, if given, overrides
+    ``sim_config.num_tsteps`` (e.g. ``N_TSTEPS_FAST``) without touching the
+    YAML file on disk — other callers/examples using the same file are
+    unaffected.
+    """
+    if num_tsteps is None:
+        wf = Workflow.from_file(path)
+    else:
+        cfg = yaml.safe_load(Path(path).read_text())
+        cfg["sim_config"]["num_tsteps"] = num_tsteps
+        wf = Workflow(cfg)
     wf.run()
     return wf
 
@@ -178,9 +197,9 @@ def test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache() -> None:
 
 def test_smoke() -> None:
     """tango_next runs hydro_sf_electric.yml to completion without raising."""
-    wf = _run_tango_next(NEW_SF_MANUAL)
-    # If we get here without exception, the circuit completed all 20 timesteps.
-    assert wf._orchestrator.n_tsteps == N_TSTEPS
+    wf = _run_tango_next(NEW_SF_MANUAL, num_tsteps=N_TSTEPS_FAST)
+    # If we get here without exception, the circuit completed all N_TSTEPS_FAST timesteps.
+    assert wf._orchestrator.n_tsteps == N_TSTEPS_FAST
 
 
 def test_ags_direct_heat_smoke() -> None:
@@ -191,7 +210,7 @@ def test_ags_direct_heat_smoke() -> None:
     the ``horizontal_well``/``numerical`` registry entry (the base
     ``NumericalWell`` used directly with ``angle_from_vert_deg: 90``).
     """
-    wf = _run_tango_next(NEW_AGS_DIRECT_HEAT)
+    wf = _run_tango_next(NEW_AGS_DIRECT_HEAT, num_tsteps=N_TSTEPS_FAST)
     surface = _components(wf)["surface"]
 
     # t=0 is a known cold-start transient (circuit seeded at surface_temperature
@@ -209,6 +228,7 @@ def test_ags_direct_heat_smoke() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 def test_lcoe_parity() -> None:
     """tango_next LCOE matches the canonical src/tango reference.
 

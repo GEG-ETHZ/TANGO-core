@@ -259,7 +259,7 @@ PARITY_CASES: list[ParityCase] = [
 # ---------------------------------------------------------------------------
 
 
-def _run_old_tango(yml_path: Path) -> dict[str, Any]:
+def _run_old_tango(yml_path: Path, num_tsteps: int | None = None) -> dict[str, Any]:
     """Run old tango and return per-timestep history arrays.
 
     Returns a dict with keys:
@@ -270,6 +270,11 @@ def _run_old_tango(yml_path: Path) -> dict[str, Any]:
     Uses ``workflow.results``, which is a flat dict of per-timestep lists
     keyed as ``<component>_<quantity>``.  Temperatures are in °C in old tango
     results — converted to K here.  Power is in W (``turbine_power_real``).
+
+    ``num_tsteps``, if given, overrides ``schedule.time.num_tsteps`` via
+    ``Runner``'s own ``parameter_overrides`` mechanism (dot-path
+    ``"section.parameter=value"`` strings) — used by the FAST parity case
+    below, without touching the YAML file on disk.
     """
     import tempfile  # noqa: PLC0415
 
@@ -279,8 +284,9 @@ def _run_old_tango(yml_path: Path) -> dict[str, Any]:
     finally:
         logging.disable(logging.NOTSET)
 
+    overrides = [f"schedule.time.num_tsteps={num_tsteps}"] if num_tsteps is not None else None
     with tempfile.TemporaryDirectory() as tmp:
-        runner = Runner(yml_path, save_dir=tmp)
+        runner = Runner(yml_path, save_dir=tmp, parameter_overrides=overrides)
         runner.start()
 
     results = runner.tango.workflow.results
@@ -292,14 +298,23 @@ def _run_old_tango(yml_path: Path) -> dict[str, Any]:
     }
 
 
-def _run_tango_next(yml_path: Path) -> dict[str, Any]:
+def _run_tango_next(yml_path: Path, num_tsteps: int | None = None) -> dict[str, Any]:
     """Run tango_next and return per-timestep history arrays.
 
-    Returns the same key layout as ``_run_old_tango``.
+    Returns the same key layout as ``_run_old_tango``. ``num_tsteps``, if
+    given, overrides ``sim_config.num_tsteps`` without touching the YAML
+    file on disk.
     """
+    import yaml  # noqa: PLC0415
+
     from tango_next.workflows.workflow import Workflow  # noqa: PLC0415
 
-    wf = Workflow.from_file(yml_path)
+    if num_tsteps is None:
+        wf = Workflow.from_file(yml_path)
+    else:
+        cfg = yaml.safe_load(Path(yml_path).read_text())
+        cfg["sim_config"]["num_tsteps"] = num_tsteps
+        wf = Workflow(cfg)
     wf.run()
     c = wf._orchestrator.components
     surface = c["surface"]
@@ -341,6 +356,7 @@ def _load_golden(new_yml: str) -> dict[str, list[float]]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "case",
     PARITY_CASES,
@@ -351,6 +367,10 @@ def test_old_new_parity(case: ParityCase) -> None:
 
     For stub cases (new_yml=None) this calls ``pytest.xfail()`` — create
     the tango_next YAML and fill in the ParityCase to activate the test.
+
+    Full-length (20-timestep) run — see ``test_old_new_parity_fast`` below
+    for the 8-timestep companion that actually runs by default (deselected
+    via ``-m "not slow"``, see pytest.ini).
     """
     if case.new_yml is None:
         pytest.xfail(
@@ -400,5 +420,66 @@ def test_old_new_parity(case: ParityCase) -> None:
                 f"tango_next '{key}' drifted from its golden snapshot ({case.notes}). "
                 "If this drift is intentional, review the diff and regenerate with "
                 "tools/update_tango_next_golden.py."
+            ),
+        )
+
+
+N_TSTEPS_FAST = 8
+"""See test_tango_next.py's N_TSTEPS_FAST docstring for the general
+rationale. Specific to THIS case: the SF case's documented worst-deviation
+region is "the steepest part of the depletion transition (t~5-7)" — 8
+timesteps fully captures that region, so the fast case below measures
+essentially the SAME max deviations as the full 20-timestep run (confirmed
+empirically: res_T 0.20 K vs 0.20 K, prod_T 0.18 K vs 0.18 K, power 0.34%
+vs 0.34%) — hence reusing the exact same tolerances, not looser ones."""
+
+
+def test_old_new_parity_fast() -> None:
+    """8-timestep companion to ``test_old_new_parity`` — runs by default.
+
+    Only covers the SF case (the one real implemented ``ParityCase`` today;
+    the rest are stubs) since that's the only one with anything to check.
+    Tolerances are the SAME as the slow (20-timestep) version's SF case —
+    see ``N_TSTEPS_FAST``'s docstring for why that's correct here, not an
+    oversight.
+    """
+    old = _run_old_tango(EXAMPLES_OLD / "flexible_SF_manual.yml", num_tsteps=N_TSTEPS_FAST)
+    new = _run_tango_next(EXAMPLES_NEW / "hydro_sf_electric.yml", num_tsteps=N_TSTEPS_FAST)
+
+    n = len(old["res_T_out"])
+    assert len(new["res_T_out"]) == n == N_TSTEPS_FAST
+
+    np.testing.assert_allclose(
+        new["res_T_out"],
+        old["res_T_out"],
+        atol=2.0,
+        rtol=0,
+        err_msg="Reservoir outlet T mismatch (fast/8yr SF)",
+    )
+    np.testing.assert_allclose(
+        new["prod_T_out"],
+        old["prod_T_out"],
+        atol=3.0,
+        rtol=0,
+        err_msg="Production well outlet T mismatch (fast/8yr SF)",
+    )
+    np.testing.assert_allclose(
+        new["gross_W"],
+        old["gross_W"],
+        atol=0,
+        rtol=0.08,
+        err_msg="Gross power mismatch (fast/8yr SF)",
+    )
+
+    golden = _load_golden("hydro_sf_electric_8yr")  # stem-only; no such YAML file, just the golden JSON key
+    for key in ("res_T_out", "prod_T_out", "gross_W"):
+        np.testing.assert_allclose(
+            new[key],
+            golden[key],
+            rtol=GOLDEN_RTOL,
+            atol=0,
+            err_msg=(
+                f"tango_next '{key}' drifted from its golden snapshot (fast/8yr SF). "
+                "If this drift is intentional, regenerate golden_tango_next/hydro_sf_electric_8yr.json."
             ),
         )

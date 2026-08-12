@@ -7,7 +7,12 @@ This ensures that the `_process_specs` logic correctly filters and assigns param
 
 from pathlib import Path
 
+import pytest
+
 from tango.runner import Runner
+
+pytestmark = pytest.mark.old_tango
+"""Pure old-tango coverage, zero tango_next involvement — see pytest.ini."""
 
 
 def test_data_leakage_in_common_specs(tmp_path: Path):

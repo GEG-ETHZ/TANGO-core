@@ -17,10 +17,15 @@
 # overrides it, so this wrapper's whole job is turning "however many CPUs
 # SLURM gave this job" into the right -p value.
 #
+# Outputs default to /cluster/scratch/$USER/opt_hydro_df_electric/outputs
+# (scratch: fast, high-quota, and keeps job output out of the actual repo
+# checkout) rather than opt_hydro_df_electric.py's own default (relative
+# to its own location, meant for local/interactive use).
+#
 # Any extra arguments are forwarded directly to opt_hydro_df_electric.py,
 # appended AFTER this script's own defaults below -- argparse keeps the
-# LAST occurrence of a repeated flag, so passing e.g. -p yourself here
-# still overrides the computed default.
+# LAST occurrence of a repeated flag, so passing e.g. -p or --save-dir
+# yourself here still overrides the computed defaults.
 #
 # Examples:
 #   sbatch opt_hydro_df_electric_job.sh
@@ -28,7 +33,24 @@
 #   sbatch --cpus-per-task=16 opt_hydro_df_electric_job.sh -p 12 --clean
 # ---------------------------------------------------------------------------
 
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+# NOT git-based (unlike the sibling sweep job scripts' `git -C ... rev-parse
+# --show-toplevel`) -- that assumes a git clone, but the documented Euler
+# workflow (README.md's "Running on Euler") is rsync-based and doesn't
+# necessarily bring `.git` along, which made REPO_ROOT resolve to an empty
+# string and `uv run --project ""` fail with a useless error.
+#
+# Also NOT `dirname "$0"`-based, despite this script's own location
+# relative to the repo root being fixed: `sbatch` COPIES the submitted
+# script into a spool directory (e.g. /var/spool/slurm/...) and executes
+# THAT copy, so `$0` inside a real sbatch job does not point at this
+# script's actual location at all (confirmed the hard way: worked when
+# tested by running the script directly, broke under a real `sbatch`
+# submission with "can't open file '/var/spool/slurm/applications/...'").
+# $SLURM_SUBMIT_DIR is the reliable one -- SLURM sets it to the directory
+# `sbatch` was invoked FROM, which the documented workflow always is
+# (this script's own directory). Falls back to `dirname "$0"` only for
+# local testing outside SLURM, where $SLURM_SUBMIT_DIR is unset.
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
 
 CPUS="${SLURM_CPUS_PER_TASK:-48}"
 N_WORKERS=$(( CPUS - 3 ))
@@ -50,10 +72,13 @@ echo "CPU info: $(lscpu | grep 'Model name' | head -1)"
 echo "Memory info: $(free -h | grep 'Mem:')"
 echo ""
 
+SCRATCH_OUTPUT_DIR="/cluster/scratch/$USER/opt_hydro_df_electric/outputs"
+
 cd "$REPO_ROOT"
 uv run --project "$REPO_ROOT" python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py \
   -p "$N_WORKERS" \
   --verbose \
+  --save-dir "$SCRATCH_OUTPUT_DIR" \
   "$@"
 
 echo ""

@@ -1,6 +1,6 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-# One-time setup after cloning: install deps, approve .envrc (macOS/Linux), and install git hooks
+# One-time (idempotent) setup after cloning: install deps, approve .envrc (macOS/Linux), and install git hooks
 setup: _setup-direnv
     uv sync
     uv run prek install --hook-type pre-commit --hook-type pre-push --hook-type post-checkout --overwrite
@@ -44,14 +44,28 @@ fmt:
 lint:
     uv run ruff check .
 
-# Type-check with mypy
-# TODO: expand to `uv run mypy .` once src/tango/ and tests/ are clean
+# Type-check tango_next (src/tango/ isn't clean enough for mypy yet)
 typecheck:
+    # TODO: expand to `uv run mypy .` once src/tango/ and tests/ are clean
     uv run mypy src/tango_next/
 
-# Run test suite
-test:
-    uv run pytest -v
+# Run test suite. No args/--fast: fast subset (matches pre-push). --perf: perf tests only. --all: everything.
+test *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # For anything else, pass your own -m straight through, e.g.
+    # `just test -m "perf"` or `just test -m "slow or old_tango"`.
+    args="{{args}}"
+    if [[ "$args" == *"--all"* ]]; then
+        args="${args/--all/}"
+        uv run pytest -v $args
+    elif [[ "$args" == *"--perf"* ]]; then
+        args="${args/--perf/}"
+        uv run pytest -v -m "perf" $args
+    else
+        args="${args/--fast/}"
+        uv run pytest -v -m "not old_tango and not perf and not slow" $args
+    fi
 
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
@@ -63,33 +77,36 @@ check: fmt lint typecheck test
 # still runs end to end, not that every design converges (some corner
 # designs are expected to fail physically/numerically, same as in a real
 # sweep — that's fine, a non-zero *script* exit code is the failure signal
-# this target cares about).
+# this target cares about). --slow drops --smoke to run the real grids
+# instead — much longer, and DOES write to outputs/.
 #
 # Also runs every examples/tango_next/*.yml file through `tango_next_cli run`
 # (not just the two explicitly-named demo scripts above) so a new example
 # YAML gets smoke coverage automatically without a justfile edit.
 # `-p N` (unix only) controls how many of those YAML runs go in parallel —
-# `just demos -p 4`; omit for sequential (default). Windows has no `-p`
-# support yet (sequential only) — see `_setup-direnv` above for the same
-# unix/windows split pattern.
+# `just demos -p 4`; omit for sequential (default). Windows has no `-p` or
+# `--slow` support yet (sequential, --smoke only) — see `_setup-direnv`
+# above for the same unix/windows split pattern.
 [unix]
 demos *args:
     #!/usr/bin/env sh
     set -eu
     p=1
+    smoke_flag="--smoke"
     set -- {{args}}
     while [ $# -gt 0 ]; do
         case "$1" in
             -p) p="$2"; shift 2 ;;
+            --slow) smoke_flag=""; shift ;;
             *) shift ;;
         esac
     done
     uv run python examples/tango_next/demo_flexible_sf.py
     uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
-    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_AGS_sweep/run_AGS_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
+    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
+    uv run python applications/run_AGS_sweep/run_AGS_sweep.py $smoke_flag --n-workers 4 --quiet
+    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
+    uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py $smoke_flag --n-workers 2 --quiet
     find examples/tango_next -maxdepth 1 -name '*.yml' -print0 | xargs -0 -n1 -P "$p" uv run tango_next_cli --log-level WARNING run
 
 [windows]
