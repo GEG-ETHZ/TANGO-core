@@ -32,7 +32,7 @@ fixing the production-well pump-power formula, see below)
   exact match** in both cases (rtol=1e-6). The first three don't depend on
   any physics state at all (pure functions of config + hardcoded PPI/
   multiplier constants). ``CAPEX_well`` matching exactly took a real fix
-  (see ``docs/bugs-fixed.md``'s "NativeEconomicComponent double-counted
+  (see ``docs/bugs-fixed-in-tango-next.md``'s "NativeEconomicComponent double-counted
   well mobilization cost across split physics sub-components" entry):
   tango_next originally combined every production-side ``WellComponent``
   by summing each one's INDEPENDENTLY-costed gengeo formula (double/

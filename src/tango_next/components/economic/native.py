@@ -32,7 +32,7 @@ formula ever runs. Verified to 7 significant figures: the mean of old
 tango's own 20-timestep turbine-power history for
 ``flexible_SF_manual.yml`` is 1,782,871.45 W — exactly the number this
 component's earlier (wrong) final-timestep-only implementation had
-mistaken for old tango's *final*-timestep value. See ``docs/bugs-fixed.md``
+mistaken for old tango's *final*-timestep value. See ``docs/bugs-fixed-in-tango-next.md``
 for the full writeup.
 
 Sign-convention note (see ``project_economic_model_wackiness`` memory for
@@ -288,7 +288,7 @@ class NativeEconomicComponent(EconomicComponent):
         design (confirmed with Chad, and via ``examples/flexible_DF_manual.yml``'s
         ``production_well.well_length_seq: [5000.]`` — the combined 4000 m
         + 1000 m total, NOT a separate per-sub-component cost — see
-        ``docs/bugs-fixed.md`` for the investigation that got this wrong
+        ``docs/bugs-fixed-in-tango-next.md`` for the investigation that got this wrong
         the first time). Costing each sub-component as an independent well
         would double- (or triple-) count the gengeo formula's fixed
         mobilization term (``+275300``) once per sub-component, which

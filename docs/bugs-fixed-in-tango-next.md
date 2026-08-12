@@ -173,10 +173,13 @@ this hash once committed).
   `logging.warning(...)` and returns `True` to exit the loop when the
   iteration budget is exhausted — no exception, just a log line, and the
   caller proceeds using whatever state the last iteration left behind.
-- `orchestrators/BC_calculator.py:288` and `:369` (the `AUTO_FLOW`/
-  `AUTO_BOTH`-style mass-rate fracing loops) are worse still: `if
-  iter_count == max_iterations - 1: mass_rate = mass_rate_guess` — not
-  even a warning, just silently using the last, unconverged guess.
+- `orchestrators/BC_calculator.py:288` and `:369` (the `controlled_power_generation`
+  mass-rate search — a Hotmaps-only mechanism that targets a thermal power
+  output via `mass_rate_test`/`averaged_df`, unrelated to fracing and not
+  represented by `InjectionPolicy` at all, per that enum's own docstring)
+  are worse still: `if iter_count == max_iterations - 1: mass_rate =
+  mass_rate_guess` — not even a warning, just silently using the last,
+  unconverged guess.
 
 `tango_next`'s `SystemBCIteration._converge_injection_T` originally
 mirrored this same pattern (`logger.warning(...)` on exhaustion, no
