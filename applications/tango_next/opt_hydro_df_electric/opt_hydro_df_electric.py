@@ -308,6 +308,25 @@ def plot_pareto_parallel_coordinates(df: pd.DataFrame, out_path: Path, color_col
     plt.close(fig)
 
 
+def _diagonal_label_offset(x: pd.Series, y: pd.Series) -> tuple[tuple[float, float], str]:
+    """Pick a point-label offset perpendicular to the data's dominant diagonal.
+
+    A pareto front's points lie roughly along a diagonal; offsetting labels
+    along THAT diagonal drives them into the next point, while offsetting
+    across it clears neighbors. Which diagonal the front follows depends on
+    the sign of the correlation between x and y (not r^2, which discards
+    the sign): positive -> front runs bottom-left to upper-right -> offset
+    upper-left. Negative -> front runs upper-left to bottom-right -> offset
+    upper-right. Falls back to upper-left (this module's common case) if
+    the correlation is undefined, e.g. a constant x or y.
+    """
+    with np.errstate(invalid="ignore"):
+        r = np.corrcoef(x, y)[0, 1]
+    if np.isnan(r) or r >= 0:
+        return (-5, 5), "right"
+    return (5, 5), "left"
+
+
 def plot_pareto_scatter(df: pd.DataFrame, out_path: Path) -> None:
     """2D scatter of the two objectives (LCOE vs. mean net power), each point
     labeled by its design number.
@@ -325,8 +344,9 @@ def plot_pareto_scatter(df: pd.DataFrame, out_path: Path) -> None:
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(lcoe, power_mw, s=40, color="tab:blue", zorder=3)
+    xytext, ha = _diagonal_label_offset(lcoe, power_mw)
     for i, (x, y) in enumerate(zip(lcoe, power_mw, strict=True)):
-        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
 
     ax.set_xlabel("LCOE ($/kWh)")
     ax.set_ylabel("Mean net power (MW)")
@@ -358,8 +378,9 @@ def plot_pareto_scatter_zscore(df: pd.DataFrame, out_path: Path) -> None:
     ax.axhline(0, color="grey", linewidth=0.8, zorder=1)
     ax.axvline(0, color="grey", linewidth=0.8, zorder=1)
     ax.scatter(lcoe_z, power_z, s=40, color="tab:orange", zorder=3)
+    xytext, ha = _diagonal_label_offset(lcoe_z, power_z)
     for i, (x, y) in enumerate(zip(lcoe_z, power_z, strict=True)):
-        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+        ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
 
     ax.set_xlabel("LCOE (z-score)")
     ax.set_ylabel("Mean net power (z-score)")
