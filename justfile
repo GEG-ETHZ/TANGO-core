@@ -70,27 +70,27 @@ test *args:
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
 
-# Smoke-test every demo/example/application script — fast, not full sweeps.
-# applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
-# matrix, written to a fresh OS tempdir every run — never outputs/) instead
-# of their real multi-thousand-design grids — this checks the pipeline code
-# still runs end to end, not that every design converges (some corner
-# designs are expected to fail physically/numerically, same as in a real
-# sweep — that's fine, a non-zero *script* exit code is the failure signal
-# this target cares about). --slow drops --smoke to run the real grids
-# instead — much longer, and DOES write to outputs/.
-#
-# Also runs every examples/tango_next/*.yml file through `tango_next_cli run`
-# (not just the two explicitly-named demo scripts above) so a new example
-# YAML gets smoke coverage automatically without a justfile edit.
-# `-p N` (unix only) controls how many of those YAML runs go in parallel —
-# `just demos -p 4`; omit for sequential (default). Windows has no `-p` or
-# `--slow` support yet (sequential, --smoke only) — see `_setup-direnv`
-# above for the same unix/windows split pattern.
+# Smoke-test every demo/example/application script. --slow: real multi-thousand-design grids, not --smoke.
 [unix]
 demos *args:
     #!/usr/bin/env sh
     set -eu
+    # applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
+    # matrix, written to a fresh OS tempdir every run — never outputs/) instead
+    # of their real multi-thousand-design grids — this checks the pipeline code
+    # still runs end to end, not that every design converges (some corner
+    # designs are expected to fail physically/numerically, same as in a real
+    # sweep — that's fine, a non-zero *script* exit code is the failure signal
+    # this target cares about). --slow drops --smoke to run the real grids
+    # instead — much longer, and DOES write to outputs/.
+    #
+    # Also runs every examples/tango_next/*.yml file through `tango_next_cli run`
+    # (not just the two explicitly-named demo scripts above) so a new example
+    # YAML gets smoke coverage automatically without a justfile edit.
+    # `-p N` (unix only) controls how many of those YAML runs go in parallel —
+    # `just demos -p 4`; omit for sequential (default). Windows has no `-p` or
+    # `--slow` support yet (sequential, --smoke only) — see `_setup-direnv`
+    # above for the same unix/windows split pattern.
     p=1
     smoke_flag="--smoke"
     set -- {{args}}
@@ -108,6 +108,13 @@ demos *args:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py $smoke_flag --n-workers 2 --quiet
     find examples/tango_next -maxdepth 1 -name '*.yml' -print0 | xargs -0 -n1 -P "$p" uv run tango_next_cli --log-level WARNING run
+    # opt_hydro_df_electric.py has no --smoke flag of its own (not a
+    # generate/sweep pipeline) -- tiny --n-max-gen/--pop-size + a fresh
+    # tempdir --save-dir gets the same "pipeline still runs end to end"
+    # coverage without the real ~200-gen/40-pop search or touching outputs/.
+    # Not tied to --slow: there's no "real" variant to switch to here (that's
+    # what the Euler job script / `dvc repro` are for).
+    uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$(mktemp -d)" --log-level ERROR
 
 [windows]
 demos:
@@ -118,3 +125,4 @@ demos:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
     Get-ChildItem examples/tango_next/*.yml | ForEach-Object { uv run tango_next_cli --log-level WARNING run $_.FullName }
+    $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp --log-level ERROR
