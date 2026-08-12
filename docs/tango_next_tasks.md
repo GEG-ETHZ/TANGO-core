@@ -326,6 +326,37 @@ from scratch.
 - Untracked repo-root files (`CLAUDE.md`, `deployment_analysis_questions.md`,
   `tango_diagramming_workflow.md`) — left as-is; could be `.gitignore`d
   instead of tracked, still an open call.
+- **Production-side circuit numerically unstable near/above ~166 kg/s for
+  `hydro_sf_electric.yml`** — found 2026-08-12 while testing
+  `InjectionPolicy.MANUAL_FRACKING_CHECK`'s flow-induced pathway. Raising
+  `sim_config.mass_rate` even slightly above the config's own
+  `fluid_utils.fracking_flow()` threshold (confirmed: crashes starting at
+  166.5 kg/s, i.e. essentially at the threshold, not comfortably past it)
+  makes some downstream node's CoolProp state solve go negative-pressure
+  (`updateHP(...)` failing at a near-constant enthalpy ~768-770 kJ/kg
+  across every mass rate/injection-pressure combination tried — 18 total
+  permutations, all failed the same way). The near-constant enthalpy
+  regardless of `components.surface.injection_pressure` indicates this is
+  on the **production side** of the circuit (friction-driven pressure drop
+  from the elevated mass rate through the production wells/surface plant),
+  not the injection side that `injection_pressure` controls — so raising
+  injection pressure can't rescue it. Net effect: for this example file,
+  there is no numerically-stable mass rate high enough to actually trigger
+  `MANUAL_FRACKING_CHECK`'s flow-induced check through a genuine full-circuit
+  `Workflow.run()` — the circuit breaks (for an unrelated reason) at or
+  below the fracking threshold itself. Worked around, not fixed:
+  `tests/regtest/test_tango_next.py::test_manual_fracking_check_raises_on_flow_induced_violation`
+  solves once at the nominal (safe) mass rate, then calls
+  `SystemBCIteration._check_fracking()` directly with a boosted
+  `orch.mass_rate` — exercising the same comparison `run_timestep` makes,
+  without a second, numerically-unstable full solve. The pressure-induced
+  pathway doesn't have this problem (a modest `injection_pressure` bump at
+  the *nominal* mass rate triggers it cleanly via a real `run()`, see the
+  test above it) — this gap is specific to pushing mass rate itself past
+  the threshold. Root cause not investigated further (which specific
+  component/node destabilizes first) — worth revisiting if a real
+  `AUTO_FLOW`/`max_mass_rate`-cap use case needs to actually operate near
+  this boundary rather than just detect it after the fact.
 ## Active: AGS sweep parity (heat + power)
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new

@@ -10,13 +10,13 @@
 #
 # Known simplification vs. old tango: old tango's EGS sweep uses
 # `check_fracking: yes` (MANUAL_FRACKING_CHECK-equivalent) plus a
-# `max_mass_rate` cap. tango_next only implements InjectionPolicy.MANUAL
-# today (MANUAL_FRACKING_CHECK/AUTO_* raise NotImplementedError — see
-# docs/TANGO_vision_and_roadmap.md's "BC iteration mode" section), so this
-# file uses `injection_mode: manual` with no fracking safety check performed.
-# This is the same category of documented Phase 2 gap as AGS_direct_heat.yml,
-# just for a topology that actually has a reservoir/fracking physics to check
-# (AGS's closed loop has none).
+# `max_mass_rate` cap. tango_next has no `max_mass_rate`-equivalent cap yet
+# (AUTO_FLOW/AUTO_BOTH aren't implemented — see
+# docs/TANGO_vision_and_roadmap.md's "BC iteration mode" section), but
+# MANUAL_FRACKING_CHECK itself is implemented, so this file uses
+# `injection_mode: manual-fracking-check` — same single pass as `manual`,
+# but raises FrackingViolationError if either fracking threshold is
+# exceeded rather than performing no check at all.
 #
 # Site parameters (Triemli, Zurich):
 #   surface temperature : 11 degC (284.15 K)
@@ -45,7 +45,7 @@ sim_config:
   target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
-  injection_mode: manual       # see note above: no fracking check performed yet
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
   mass_rate: 30                 # kg/s
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 

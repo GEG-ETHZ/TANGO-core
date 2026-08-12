@@ -26,7 +26,7 @@ import numpy as np
 import pytest
 import yaml
 
-from tango_next.core.errors import ConfigError, CoolPropError, TangoNextError
+from tango_next.core.errors import ConfigError, CoolPropError, FrackingViolationError, TangoNextError
 from tango_next.workflows.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -556,6 +556,64 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     assert components["injection_well"].inlet.T == 300.0
     components["surface"].injection_pressure = 2.5e6
     assert components["surface"].injection_pressure == 2.5e6
+
+
+# ---------------------------------------------------------------------------
+# InjectionPolicy.MANUAL_FRACKING_CHECK — both violation pathways
+# ---------------------------------------------------------------------------
+
+
+def test_manual_fracking_check_raises_on_pressure_induced_violation(
+    sf_manual_config: dict[str, Any],
+) -> None:
+    """Pushing the injection wellhead pressure high enough that the reservoir
+    inlet lands above ``fluid_utils.target_reservoir_pressure()`` raises
+    ``FrackingViolationError`` — full circuit run, no post-hoc mutation
+    needed (unlike the flow-induced case below, a modest pressure bump
+    doesn't push CoolProp/TESPy into an unrelated failure elsewhere).
+    """
+    sf_manual_config["sim_config"]["num_tsteps"] = 1
+    sf_manual_config["sim_config"]["injection_mode"] = "manual-fracking-check"
+    sf_manual_config["components"]["surface"]["injection_pressure"] = 8_000_000  # baseline: 2_000_000
+
+    with pytest.raises(FrackingViolationError, match="Pressure-induced fracking"):
+        Workflow(sf_manual_config).run()
+
+
+def test_manual_fracking_check_raises_on_flow_induced_violation(
+    sf_manual_config: dict[str, Any],
+) -> None:
+    """Exceeding ``fluid_utils.fracking_flow()``'s threshold mass rate raises
+    ``FrackingViolationError``.
+
+    Not exercised via a boosted ``sim_config.mass_rate`` + full ``run()``
+    the way the pressure-induced case above is: at or even slightly below
+    this config's own fracking threshold (~166 kg/s), the production side
+    of the circuit is already numerically unstable (a downstream node's
+    CoolProp state solve goes negative-pressure — confirmed across 18
+    mass-rate/injection-pressure combinations, unrelated to fracking and
+    not rescuable by raising injection pressure). See
+    ``docs/tango_next_tasks.md``'s "Open items" entry "Production-side
+    circuit numerically unstable near/above ~166 kg/s for
+    `hydro_sf_electric.yml`" for the full investigation. Instead, this
+    solves the circuit once at the nominal (safe) mass rate,
+    then calls ``_check_fracking`` directly against a boosted
+    ``orch.mass_rate`` — exercising the exact same comparison
+    ``run_timestep`` makes, without going through a second, physically
+    extreme TESPy/CoolProp solve.
+    """
+    sf_manual_config["sim_config"]["num_tsteps"] = 1
+    sf_manual_config["sim_config"]["injection_mode"] = "manual-fracking-check"
+    wf = Workflow(sf_manual_config)
+    wf.run()
+
+    orch = wf._orchestrator
+    reservoir = orch._find_reservoir()
+    inj_well = orch._by_idx[0]
+    orch.mass_rate = 200.0  # baseline: 50 kg/s; threshold at this solved state is ~166 kg/s
+
+    with pytest.raises(FrackingViolationError, match="Flow-induced fracking"):
+        orch._check_fracking(reservoir, inj_well)
 
 
 # ---------------------------------------------------------------------------

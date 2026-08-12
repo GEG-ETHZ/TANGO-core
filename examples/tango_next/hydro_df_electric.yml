@@ -43,8 +43,7 @@ sim_config:
   target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
-  injection_mode: manual     # see EGS_direct_heat.yml's note: MANUAL_FRACKING_CHECK
-                             # (old tango's check_fracking: yes) isn't implemented yet
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
   mass_rate: 50              # kg/s
   bc_checkpoint_idx: 4       # component_idx of the surface (below)
 
