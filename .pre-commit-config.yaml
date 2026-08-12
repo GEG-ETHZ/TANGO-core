@@ -49,7 +49,7 @@ repos:
   - repo: local
     hooks:
       - id: pytest
-        name: Run test suite
+        name: Run test suite (fast)
         # not old_tango: deselects pure old-tango coverage (test_native.py,
         # test_data_leakage.py — parametrized over the full examples/*.yml
         # corpus, the dominant contributor to full-suite runtime) while
@@ -57,7 +57,11 @@ repos:
         # the old-vs-new parity tests, which use old tango as a reference
         # oracle for tango_next and stay in the default run. Run with
         # `uv run pytest -m old_tango` explicitly if old tango changes.
-        entry: uv run pytest -m "not perf and not old_tango"
+        # not slow: full-N_TSTEPS numeric parity/reference checks — a fast
+        # companion at a reduced timestep count covers the same code path
+        # and stays in this hook. Run `just test --all` (or `-m slow`)
+        # before merging changes that could affect long-run numerics.
+        entry: uv run pytest -m "not perf and not old_tango and not slow"
         language: system
         files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false
