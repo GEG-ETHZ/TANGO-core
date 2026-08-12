@@ -26,6 +26,7 @@ import numpy as np
 import pytest
 import yaml
 
+from tango_next.core import fluid_utils
 from tango_next.core.errors import ConfigError, CoolPropError, FrackingViolationError, TangoNextError
 from tango_next.workflows.workflow import Workflow
 
@@ -417,6 +418,17 @@ def sf_manual_config() -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+@pytest.fixture
+def ags_direct_heat_config() -> dict[str, Any]:
+    """Fresh parsed dict of AGS_direct_heat.yml — safe for a test to mutate.
+
+    A reservoir-less (closed-loop) topology — useful for tests that need to
+    confirm behavior when there's no ``ReservoirComponent`` to find.
+    """
+    with NEW_AGS_DIRECT_HEAT.open() as f:
+        return yaml.safe_load(f)
+
+
 def test_pressure_monotonicity_passes_on_valid_config(sf_manual_config: dict[str, Any]) -> None:
     """hydro_sf_electric.yml's plant (valve 0.05 MPa -> turbine/condenser 0.005 MPa,
     monotonically decreasing) builds without GraphSurface's validation raising.
@@ -614,6 +626,47 @@ def test_manual_fracking_check_raises_on_flow_induced_violation(
 
     with pytest.raises(FrackingViolationError, match="Flow-induced fracking"):
         orch._check_fracking(reservoir, inj_well)
+
+
+# ---------------------------------------------------------------------------
+# InjectionPolicy.AUTO_PRESSURE — outer Newton loop on injection pressure
+# ---------------------------------------------------------------------------
+
+
+def test_auto_pressure_converges_to_fracking_threshold(sf_manual_config: dict[str, Any]) -> None:
+    """AUTO_PRESSURE's outer Newton loop drives the reservoir inlet pressure to
+    (approximately) ``fluid_utils.target_reservoir_pressure()`` — the whole
+    point of the policy — within a few outer iterations, without raising.
+    """
+    sf_manual_config["sim_config"]["num_tsteps"] = 3
+    sf_manual_config["sim_config"]["injection_mode"] = "auto-pressure"
+    wf = Workflow(sf_manual_config)
+    wf.run()
+
+    orch = wf._orchestrator
+    reservoir = orch._find_reservoir()
+    inj_well = orch._by_idx[0]
+    target_reservoir_P = fluid_utils.target_reservoir_pressure(
+        reservoir.hydro_static_pressure,
+        reservoir.over_pressure_percentage,
+    )
+
+    rel_error = abs(inj_well.outlet.P - target_reservoir_P) / target_reservoir_P
+    assert rel_error < 1e-3, (
+        f"inj_well.outlet.P ({inj_well.outlet.P:.6g} Pa) should have converged near "
+        f"target_reservoir_P ({target_reservoir_P:.6g} Pa), rel_error={rel_error:.2e}"
+    )
+
+
+def test_auto_pressure_requires_reservoir(ags_direct_heat_config: dict[str, Any]) -> None:
+    """AUTO_PRESSURE has no fracking-safety target to converge toward on a
+    reservoir-less topology (e.g. AGS's closed loop) — raises ConfigError
+    rather than silently doing nothing or crashing on a missing attribute.
+    """
+    ags_direct_heat_config["sim_config"]["injection_mode"] = "auto-pressure"
+
+    with pytest.raises(ConfigError, match="requires a reservoir component"):
+        Workflow(ags_direct_heat_config).run()
 
 
 # ---------------------------------------------------------------------------

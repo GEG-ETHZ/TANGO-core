@@ -44,32 +44,43 @@ See ``InjectionPolicy`` (``tango_next.core.policies``, vision doc §BC iteration
    outer iteration and reaches its own convergence before the outer loop
    checks its criterion.
 
-━━━ Current status — placeholder only ━━━
+━━━ Status — AUTO_PRESSURE implemented, AUTO_FLOW/AUTO_BOTH not yet ━━━
 
-Currently, the surface component's ``solve()`` (currently ``GraphSurface``) sets
-``outlet.P = self.injection_pressure`` (the current BC guess), so the loop
-trivially converges in 1 iteration because ``p_inj_wellhead_no_frack`` never
-changes.  The BC machinery is correct in structure but not yet driven by
-real physics.
+``AUTO_PRESSURE`` (``_converge_injection_pressure``) drives the update rule
+above by writing ``surface.injection_pressure`` directly — a plain field
+already declared on the abstract ``SurfaceComponent`` base specifically for
+this ("Updated in-place by SystemBCIteration each convergence pass" — see
+``components/surface/base.py``). This is the same mechanism ``MANUAL``/
+``MANUAL_FRACKING_CHECK`` already solve through (``GraphSurface.solve()``
+always pins its TESPy outlet connection's pressure to whatever
+``injection_pressure`` currently holds); ``AUTO_PRESSURE`` just writes a new
+value each outer iteration instead of leaving it at its YAML-configured
+initial guess forever, and re-solves to T-convergence
+(``_converge_injection_T``) after each pressure update. No topology- or
+component-type-specific wiring is needed: ``surface.outlet`` -> ``inj_well.
+inlet`` propagation already happens generically via ``_wire_one_stream``.
 
-━━━ Planned: real BC-iteration physics ━━━
+The one non-obvious requirement: each outer iteration must take a *fresh*
+``snapshot_convergence_state()`` **after** writing ``injection_pressure``,
+not once for the whole outer loop. ``injection_pressure`` is an ordinary
+declared field, so it is itself captured/restored by
+``_converge_injection_T``'s inner-loop snapshot/restore — a single upfront
+snapshot would have the inner loop silently reset it back to its original
+value on the very first inner iteration, and the outer loop's pressure
+update would never actually reach the circuit. See
+``_converge_injection_pressure``'s docstring for the full mechanism and how
+this was confirmed.
 
-Replace the current placeholder with the explicit update rule above.
-The surface must NOT set ``outlet.P = _injection_pressure``; instead:
-  - Feed ``p_inj_wellhead_no_frack`` as ``injection_well.inlet.P`` directly
-    (not via surface).
-  - After ``injection_well.solve()``, compute the new
-    ``p_inj_wellhead_no_frack`` from the update rule.
-  - The surface gets its inlet from the production pump outlet (fixed at
-    ``target_extraction_P``) and its outlet pressure comes from TESPy pump2.
-
-This section describes the ``AUTO_*`` outer Newton loop specifically —
 ``MANUAL_FRACKING_CHECK`` does NOT iterate ``p_inj_wellhead_no_frack`` at all
-(implemented: single pass, same as ``MANUAL``, then ``_check_fracking``
-compares the solved result against both thresholds and raises
-``FrackingViolationError`` on violation, with no pre-emptive correction of
-either value — see
-``FrackingViolationError``'s docstring for the rationale).
+(single pass, same as ``MANUAL``, then ``_check_fracking`` compares the
+solved result against both thresholds and raises ``FrackingViolationError``
+on violation, with no pre-emptive correction of either value — see
+``FrackingViolationError``'s docstring for the rationale). ``AUTO_PRESSURE``
+also calls ``_check_fracking`` once, after outer convergence — the Newton
+loop drives the pressure-induced side to (approximately) the threshold by
+construction, but mass rate is user-fixed under this policy and is not
+otherwise checked, so the flow-induced side still needs the same explicit
+check.
 
 ━━━ Planned: inner pump loop ━━━
 
@@ -98,7 +109,7 @@ from typing import TYPE_CHECKING, Any
 
 from tango_next.core import fluid_utils
 from tango_next.core.constants import PA_TO_MPA, W_TO_MW
-from tango_next.core.errors import ConvergenceError, FrackingViolationError
+from tango_next.core.errors import ConfigError, ConvergenceError, FrackingViolationError
 from tango_next.core.policies import InjectionPolicy
 from tango_next.orchestrators.system_direct import SystemDirect
 
@@ -357,26 +368,117 @@ class SystemBCIteration(SystemDirect):
 
             return
 
-        # AUTO_* modes — Phase 2: outer Newton-step convergence loop.
-        # Sketch of the intended structure:
+        if self.policy == InjectionPolicy.AUTO_PRESSURE:
+            if surface is None or not isinstance(inj_well, WellComponent):
+                raise ConfigError(
+                    "InjectionPolicy.AUTO_PRESSURE requires a surface (BC checkpoint) "
+                    "and an injection well (component_idx 0).",
+                )
+            reservoir = self._find_reservoir()
+            if reservoir is None:
+                raise ConfigError(
+                    "InjectionPolicy.AUTO_PRESSURE requires a reservoir component — "
+                    "there is no fracking-safety target to converge toward without one.",
+                )
+            self._converge_injection_pressure(surface, inj_well, reservoir)
+            self._check_fracking(reservoir, inj_well)
+            return
+
+        # AUTO_FLOW and AUTO_BOTH — not yet implemented. Sketch of the intended
+        # structure (mirrors _converge_injection_pressure above, but iterates
+        # mass_rate = fracking_flow() each pass instead of/in addition to
+        # p_inj_wellhead_no_frack):
         #
         #   for bc_iter in range(self.max_iterations):
-        #       super().run_timestep(t)  # one circuit pass, inherited from SystemDirect
-        #       p_inj_wellhead_no_frack_new = p_inj_wellhead_no_frack_old + (
-        #           target_reservoir_P - inj_well.outlet.P
-        #       )
+        #       self.mass_rate = fluid_utils.fracking_flow(...)  # re-evaluated each pass
+        #       <re-solve, e.g. via _converge_injection_T>
         #       if converged: break
         #   else:
         #       raise ConvergenceError(...)
         #
-        # AUTO_FLOW and AUTO_BOTH also update mass_rate = fracking_flow() each pass.
         # AUTO_BOTH additionally co-iterates p_inj_wellhead_no_frack and mass_rate
         # jointly — confirmed (2026-06-16) to raise NotImplementedError below like
-        # the other AUTO_* modes until that joint update rule is implemented.
+        # AUTO_FLOW until that joint update rule is implemented.
         raise NotImplementedError(
             f"InjectionPolicy.{self.policy.name} requires Phase 2 BC iteration "
-            "(Newton-step pressure/flow-rate updates not yet implemented).",
+            "(Newton-step flow-rate updates not yet implemented).",
         )
+
+    def _converge_injection_pressure(
+        self,
+        surface: SurfaceComponent,
+        inj_well: WellComponent,
+        reservoir: ReservoirComponent,
+    ) -> None:
+        """Outer Newton-step loop driving ``p_inj_wellhead_no_frack`` to the
+        pressure-induced fracking threshold (``AUTO_PRESSURE`` only).
+
+        The BC variable is fed to the circuit by writing ``surface.injection_pressure``
+        directly (not by writing ``inj_well.inlet.P`` directly) — ``GraphSurface.
+        solve()`` forces its TESPy outlet connection to this value, and the
+        existing per-component wiring (``_wire_one_stream``) carries it from
+        ``surface.outlet`` to ``inj_well.inlet`` the same way any other
+        component-to-component quantity propagates. No topology- or
+        component-type-specific code is needed for this to work.
+
+        Each outer iteration re-snapshots every component's convergence state
+        (see ``Component.snapshot_convergence_state``) **after** writing
+        ``injection_pressure`` — this is required, not just tidy:
+        ``injection_pressure`` is an ordinary declared field, so it is itself
+        captured (and restored) by the snapshot/restore mechanism
+        ``_converge_injection_T``'s inner loop uses every iteration. Taking one
+        snapshot before the whole outer loop (as ``MANUAL``/``MANUAL_FRACKING_CHECK``
+        do once per timestep) would have the inner loop's very first
+        ``restore_convergence_state`` call silently reset ``injection_pressure``
+        straight back to whatever it was when that single snapshot was taken —
+        the outer loop would then update its own ``p_inj_wellhead_no_frack``
+        variable every iteration while the circuit itself kept re-solving at the
+        *original* pressure forever. Confirmed empirically (2026-08-13): with a
+        single upfront snapshot, ``inj_well.outlet.P`` never moves past its
+        first-iteration value no matter how many outer iterations run; with a
+        fresh per-outer-iteration snapshot taken after writing
+        ``injection_pressure``, the same config converges in 2-3 outer iterations.
+
+        Args:
+            surface: BC-checkpoint component (``sim_config.bc_checkpoint_idx``).
+            inj_well: Injection well (``component_idx == 0``).
+            reservoir: The circuit's reservoir component.
+
+        Raises:
+            ConvergenceError: If ``self.max_iterations`` outer iterations are
+                exhausted without ``p_inj_wellhead_no_frack`` settling within
+                ``self.tolerance`` (relative).
+
+        """
+        target_reservoir_P = fluid_utils.target_reservoir_pressure(
+            reservoir.hydro_static_pressure,
+            reservoir.over_pressure_percentage,
+        )
+        p_inj_wellhead_no_frack = surface.injection_pressure
+
+        for bc_iter in range(self.max_iterations):
+            surface.injection_pressure = p_inj_wellhead_no_frack
+            snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
+            self._converge_injection_T(surface, snapshot)
+
+            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_well.outlet.P)
+            rel_change = abs(p_new - p_inj_wellhead_no_frack) / abs(p_inj_wellhead_no_frack)
+            logger.debug(
+                "AUTO_PRESSURE: outer iter %d, p_inj_wellhead_no_frack=%.6g Pa, rel_change=%.2e",
+                bc_iter + 1,
+                p_new,
+                rel_change,
+            )
+            p_inj_wellhead_no_frack = p_new
+            if rel_change < self.tolerance:
+                break
+        else:
+            raise ConvergenceError(
+                f"AUTO_PRESSURE: max outer iterations ({self.max_iterations}) reached "
+                f"without convergence (final p_inj_wellhead_no_frack="
+                f"{p_inj_wellhead_no_frack:.6g} Pa, rel_change={rel_change:.2e} > "
+                f"tol={self.tolerance:.2e})",
+            )
 
     def _converge_injection_T(
         self,
