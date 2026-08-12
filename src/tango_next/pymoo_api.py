@@ -1,8 +1,6 @@
 r"""Multi-objective optimization API for tango_next, built on pymoo.
 
-Modeled on ``fastsim.pymoo_api``'s ``ModelObjectives``/``CalibrationProblem``/
-``run_minimize`` shape (``~/git/nrel/fastsim/python/fastsim/pymoo_api.py``),
-adapted to tango_next's actual seams:
+Adapted to tango_next's actual seams:
 
 - **Parameters mutate config dicts, not live objects.** ``Workflow.to_dict()``'s
   own class docstring already shows this exact pattern (``cfg =
@@ -11,31 +9,38 @@ adapted to tango_next's actual seams:
   every evaluation, rather than trying to mutate a live, already-solved
   ``Workflow`` in place.
 - **Constraint violations are real pymoo constraints, not objective-space
-  penalties.** fastsim's ``ModelObjectives.get_errors`` falls back to a
-  fixed huge objective value (``1.02e12``) on simulation failure — that
-  value has to be large enough to dominate every real objective, which
-  makes it scale-dependent and easy to get wrong. Here, a failed evaluation
+  penalties.** A common alternative pattern falls back to a fixed huge
+  objective value (e.g. ``1.02e12``) on simulation failure — that value has
+  to be large enough to dominate every real objective, which makes it
+  scale-dependent and easy to get wrong. Here, a failed evaluation
   instead sets a real ``out["G"]`` constraint violation (``> 0``); pymoo's
   own constraint-domination ranking (feasible always beats infeasible,
   regardless of ``F``) means the objective fallback value's magnitude is
   irrelevant, so it can just be ``0.0`` rather than a magic huge number.
+- **Only specific, known-physical failure modes become a CV — everything
+  else raises.** ``_evaluate_one`` catches exactly ``_CV_EXCEPTIONS``
+  (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``) —
+  the ``tango_next`` errors that genuinely mean "this sampled design is
+  infeasible," not "something is broken." A bare ``except Exception``
+  would also swallow ``ConfigError`` (almost always a bug in a
+  ``ParamSpec.apply``, not an infeasible design) and the
+  ``LockedStateError`` family (internal contract violations), silently
+  poisoning results across a long unattended search instead of crashing
+  loudly where the bug actually is.
 
 ``InjectionPolicy`` restriction: only ``MANUAL`` and ``MANUAL_FRACKING_CHECK``
-are accepted (see ``Minimization.__init__``). Every other policy either
-isn't implemented yet (``AUTO_*`` all raise ``NotImplementedError`` from
-``SystemBCIteration.run_timestep``) or doesn't make sense as an *inner* loop
-underneath an *outer* pymoo search (whole-horizon objectives like this one
-already are the outer loop — see ``InjectionPolicy``'s own docstring on
-why ``MIN_LCOE``-style problems need a different solver shape).
-
-**Caveat on ``MANUAL_FRACKING_CHECK``**: it is accepted here architecturally
-(and the CV-on-exception path is written generically, catching whatever
-``SystemBCIteration`` raises), but it currently raises
-``NotImplementedError`` unconditionally in ``tango_next`` today (Phase 2
-work, not yet landed) — every evaluation under this policy would register
-as a constraint violation, not a mix of feasible/infeasible designs. This
-is intentional forward-compatibility, not a bug: once the real fracking
-check lands, this module needs no changes to start using it correctly.
+are accepted (see ``Minimization.__init__``). ``AUTO_FLOW``/``AUTO_BOTH``
+still raise ``NotImplementedError`` from ``SystemBCIteration.run_timestep``
+(as of 2026-08-12). ``AUTO_PRESSURE`` IS now implemented, but is deliberately
+NOT accepted here: it drives its own inner Newton loop that actively
+overwrites ``components.<surface>.injection_pressure`` every timestep — the
+EXACT field ``injection_pressure_param`` hands to pymoo as a decision
+variable. Accepting it would mean pymoo's outer search and
+``SystemBCIteration``'s own inner solver fighting over the same parameter,
+with whichever one writes last silently winning — not a "maybe investigate
+this," a real correctness hazard any future policy widening must design
+around (e.g. rejecting the combination of a policy that owns a field and a
+``ParamSpec`` that also targets it), not just re-check informally.
 """
 
 from __future__ import annotations
@@ -45,7 +50,7 @@ import logging
 import multiprocessing
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -59,14 +64,33 @@ from pymoo.core.initialization import Initialization
 from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation, StarmapParallelization
 from pymoo.core.result import Result
 from pymoo.core.sampling import Sampling
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
 
+from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
 from tango_next.core.policies import InjectionPolicy
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
+
+# The only tango_next-specific exceptions actually reachable under
+# MANUAL/MANUAL_FRACKING_CHECK as of 2026-08-12 (see _evaluate_one) that represent a
+# genuine "this sampled design is physically/numerically infeasible"
+# outcome, as opposed to a real bug: CoolPropError (fluid-property lookup
+# fails for this design's T/P), FrackingViolationError (design exceeds a
+# real hydraulic-fracking threshold), ConvergenceError (injection-T guess
+# doesn't settle within budget). Deliberately NOT ConfigError (raised
+# almost entirely during config loading/parsing — hitting it from a
+# ParamSpec-mutated config points at a bug in a ParamSpec.apply, not an
+# infeasible design) or the LockedStateError family (internal get/set-
+# ordering contract violations, i.e. real bugs in tango_next's state
+# management) -- those, and any bare Python exception, should crash the
+# whole run rather than silently poison results across an unattended
+# search.
+_CV_EXCEPTIONS: tuple[type[Exception], ...] = (CoolPropError, FrackingViolationError, ConvergenceError)
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +109,16 @@ DEFAULT_SAVE_DIR = Path("outputs/pymoo")
 _DEFAULT_XTOL = 0.0005
 _DEFAULT_FTOL = 0.005
 
-# A failed evaluation's objective fallback — see module docstring for why
-# the magnitude doesn't matter (pymoo's constraint-domination ranking
-# always ranks a feasible design ahead of an infeasible one regardless of
-# F), unlike fastsim's scale-dependent 1e12-style penalty constants.
+# A failed evaluation's objective fallback — the magnitude genuinely does
+# not matter, unlike a scale-dependent huge-penalty-constant approach.
+# Thoroughly checked, not just asserted from reading pymoo's source: ran
+# the actual RankAndCrowding survival operator NSGA2 uses (not a
+# hypothetical) against a synthetic population with this fallback set to
+# 0.0, 1e12, and -1e12 in turn -- identical rank/CV/survival outcome every
+# time, including the -1e12 case, which would trivially "win" a naive
+# F-comparison if F's magnitude were actually being used. Confirms
+# Dominator.get_relation decides purely from CV when CV differs between
+# individuals, never inspecting F at all in that case (2026-08-12).
 _CV_OBJECTIVE_FALLBACK = 0.0
 _FEASIBLE_G = -1.0
 _INFEASIBLE_G = 1.0
@@ -118,9 +148,20 @@ class PymooConfig:
     and uses pymoo's ``StarmapParallelization``."""
     seed: int | None = 1
     """Random seed passed to ``pymoo.optimize.minimize`` — fixes it for
-    reproducibility by default (matches pymoo's/fastsim's own convention of
-    a fixed default rather than a random one); pass ``None`` for a
-    non-reproducible (system-entropy-seeded) run instead."""
+    reproducibility by default (matches pymoo's own convention of a fixed
+    default rather than a random one); pass ``None`` for a non-reproducible
+    (system-entropy-seeded) run instead."""
+    crossover_prob: float | None = None
+    """Probability two parents actually recombine (pymoo's default
+    crossover operator, ``SBX``, calls this ``prob`` — default ``0.9`` if
+    left ``None`` here). Only applied when ``Minimization`` builds the
+    DEFAULT algorithm itself (no explicit ``algorithm=`` passed) — same
+    rule as ``pop_size`` above: a caller-supplied ``algorithm`` already
+    has its own operators configured and this is ignored, not merged in."""
+    mutation_prob: float | None = None
+    """Probability each variable gets mutated (pymoo's default mutation
+    operator, ``PM``, calls this ``prob`` — default ``1/n_var`` if left
+    ``None`` here). Same ``algorithm=`` caveat as ``crossover_prob`` above."""
 
 
 @dataclass
@@ -131,8 +172,7 @@ class ParamSpec:
         name: Column name in the results dataframe.
         apply: ``(config_dict, value) -> config_dict`` — mutates (and
             returns) a copy of the base config with this parameter set to
-            ``value``. Mirrors ``fastsim.pymoo_api.ModelObjectives``'s
-            ``param_fns`` — see ``mass_rate_param``/``injection_pressure_param``
+            ``value``. See ``mass_rate_param``/``injection_pressure_param``
             below for the two built-in ones.
         bounds: ``(lower, upper)`` bound pymoo searches within.
 
@@ -208,6 +248,30 @@ def injection_pressure_param(bounds: tuple[float, float], surface_name: str = "s
 
 
 @dataclass
+class _TargetExtractionPressureApply:
+    """Picklable ``ParamSpec.apply`` for ``target_extraction_pressure_param`` — see ``_MassRateApply``."""
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["sim_config"]["target_extraction_pressure"] = float(value)
+        return cfg
+
+
+def target_extraction_pressure_param(bounds: tuple[float, float]) -> ParamSpec:
+    """Minimum required extraction pressure at the surface inlet
+    (``sim_config.target_extraction_pressure``, Pa) — the SINGLE shared
+    source threaded to every component declaring this field (surface,
+    pump-bearing production wells; see ``Workflow``'s ``_LAYOUT_EXTRA_KEYS``
+    docstring). Deliberately NOT ``components.<surface_name>.*`` — that was
+    the pre-fix duplication bug this field's docstring warns about.
+    """
+    return ParamSpec(
+        name="target_extraction_pressure_Pa",
+        apply=_TargetExtractionPressureApply(),
+        bounds=bounds,
+    )
+
+
+@dataclass
 class _LcoeEvaluate:
     """Picklable ``ObjectiveSpec.evaluate`` for ``lcoe_objective`` — see ``_MassRateApply``."""
 
@@ -257,23 +321,21 @@ def negative_mean_power_objective(surface_name: str = "surface") -> ObjectiveSpe
 class ParetoProgressOutput(Output):
     """Per-generation progress table for ``Minimization.run()`` (``verbose=True``).
 
-    Loosely modeled on ``fastsim.pymoo_api``'s ``CustomOutput`` (nested
-    inside ``run_minimize``) — fixes two real issues found there, not
-    copied as-is:
+    Two design choices worth calling out explicitly:
 
-    1. **Scale mixing.** fastsim's ``euclid_min`` sums RAW, unnormalized
-       objective values before taking the norm — only meaningful if every
-       objective is on a comparable scale. Not true here (LCOE ~0.1-1,
+    1. **Scale mixing.** Summing RAW, unnormalized objective values before
+       taking a norm is only meaningful if every objective is on a
+       comparable scale. Not true here (LCOE ~0.1-1,
        ``negative_mean_power_W`` ~1e6-1e7): the larger-magnitude objective would
        completely dominate, making the metric say almost nothing about the
        smaller one. Z-score normalizing each objective column (subtract
        its mean, divide by its std, both computed fresh from the CURRENT
        front every generation) puts them on equal footing before summing.
-    2. **Inconsistent solution set.** fastsim's ``n_nds`` column reports on
-       ``algorithm.opt`` (the non-dominated front) while its adjacent
-       ``euclid_min`` column computes over ``algorithm.pop`` (the WHOLE
-       population, including dominated individuals) — two columns
-       describing different sets. Both columns here use ``algorithm.opt``.
+    2. **Consistent solution set.** ``n_nds`` and ``euclid_min`` both report
+       on ``algorithm.opt`` (the non-dominated front), not a mix of
+       ``algorithm.opt`` for one column and ``algorithm.pop`` (the WHOLE
+       population, including dominated individuals) for the other — two
+       columns should describe the same set, not different ones.
 
     This only changes what prints during a run (nothing here touches the
     saved results dataframe, which already reports on the final pareto
@@ -311,6 +373,7 @@ class ParetoProgressOutput(Output):
 # ---------------------------------------------------------------------------
 
 
+@dataclass
 class Minimization:
     """Multi-objective optimization over a tango_next ``Workflow``, via pymoo.
 
@@ -335,10 +398,6 @@ class Minimization:
             ``*_param`` factories above for the two built-in ones).
         objectives: Objectives to minimize (see ``ObjectiveSpec``, and the
             ``*_objective`` factories above).
-        policy: Injection control policy — restricted to ``MANUAL``/
-            ``MANUAL_FRACKING_CHECK`` (see module docstring for why).
-            Overwrites ``sim_config.injection_mode`` on every evaluation's
-            config, so the base config's own value doesn't matter.
         pymoo_config: Hyperparameters — see ``PymooConfig``. Defaults to
             ``PymooConfig()`` if omitted.
         algorithm: Any pymoo ``GeneticAlgorithm`` instance — defaults to
@@ -377,47 +436,80 @@ class Minimization:
             "fill in the rest" role. Only used if ``seed_from`` is given.
 
     Raises:
-        ValueError: If ``policy`` is not one of the two allowed policies.
+        ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
+            is not one of the two allowed policies (see module docstring).
 
     """
 
-    def __init__(
-        self,
-        base_workflow: Workflow,
-        params: list[ParamSpec],
-        objectives: list[ObjectiveSpec],
-        policy: InjectionPolicy = InjectionPolicy.MANUAL,
-        pymoo_config: PymooConfig | None = None,
-        algorithm: GeneticAlgorithm | None = None,
-        verbose: bool = False,
-        save_results: bool = True,
-        save_pareto_configs: bool = True,
-        save_dir: Path | str = DEFAULT_SAVE_DIR,
-        seed_from: Path | str | None = None,
-        pad_sampling: Sampling | None = None,
-    ) -> None:
-        """See class docstring for argument details."""
+    base_workflow: Workflow
+    params: list[ParamSpec]
+    objectives: list[ObjectiveSpec]
+    pymoo_config: PymooConfig | None = None
+    algorithm: GeneticAlgorithm | None = None
+    verbose: bool = False
+    save_results: bool = True
+    save_pareto_configs: bool = True
+    save_dir: Path | str = DEFAULT_SAVE_DIR
+    seed_from: Path | str | None = None
+    pad_sampling: Sampling | None = None
+
+    # Derived/internal state, not constructor args -- set in __post_init__.
+    base_cfg: dict[str, Any] = field(init=False, repr=False)
+    policy: InjectionPolicy = field(init=False)
+    n_failures: int = field(init=False, default=0)
+    """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+
+    def __post_init__(self) -> None:
+        """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
+
+        NOTE for readers cross-checking against method bodies below: mypy
+        does NOT treat these resolved-in-place values (``pymoo_config``,
+        ``algorithm``, ``save_dir``, ``pad_sampling`` — every field here
+        whose declared type admits ``None``/``str`` but is always resolved
+        to a concrete value by the time ``__post_init__`` returns) as
+        narrowed everywhere else in the class the way a plain `__init__`'s
+        inferred-per-assignment attribute types would be — a dataclass
+        field's declared type is fixed from its class-level annotation, full
+        stop (confirmed empirically: even re-annotating the assignment
+        target here doesn't change what mypy sees in OTHER methods).
+        ``_elementwise_runner``/``run``/``_save_intermediate``/
+        ``_write_pareto`` each carry a short ``assert``/``isinstance`` at
+        the top to re-narrow -- see their docstrings/comments, not repeated
+        here.
+        """
+        self.base_cfg = self.base_workflow.to_dict()
+        # No policy= override -- always the base config's OWN choice.
+        # Confirmed the hard way: an earlier override param let a caller
+        # (opt_hydro_df_electric.py) never pass it at all, silently forcing
+        # MANUAL and skipping hydro_df_electric.yml's own
+        # manual-fracking-check setting entirely, with no error to catch it.
+        # An unsupported policy (AUTO_*) is a real setup error -- raise
+        # rather than silently coercing it to something else.
+        policy = InjectionPolicy(self.base_cfg["sim_config"]["injection_mode"])
         if policy not in ALLOWED_POLICIES:
             raise ValueError(
                 f"Minimization only supports {[p.value for p in ALLOWED_POLICIES]!r}, got {policy.value!r} — "
-                "AUTO_* policies raise NotImplementedError in SystemBCIteration today (Phase 2 work), and "
-                "whole-horizon objectives like this one ARE the outer loop, not something to nest under one.",
+                "AUTO_FLOW/AUTO_BOTH raise NotImplementedError in SystemBCIteration (as of 2026-08-12); "
+                "AUTO_PRESSURE is implemented but not yet accepted here either (see module docstring).",
             )
-        self.base_cfg: dict[str, Any] = base_workflow.to_dict()
-        self.base_cfg["sim_config"]["injection_mode"] = policy.value
-        self.params = list(params)
-        self.objectives = list(objectives)
         self.policy = policy
-        self.pymoo_config = pymoo_config or PymooConfig()
-        self.algorithm = algorithm or NSGA2(pop_size=self.pymoo_config.pop_size)
-        self.verbose = verbose
-        self.save_results = save_results
-        self.save_pareto_configs = save_pareto_configs
-        self.save_dir = Path(save_dir)
-        self.seed_from = Path(seed_from) if seed_from is not None else None
-        self.pad_sampling: Sampling = pad_sampling if pad_sampling is not None else LHS()
-        self.n_failures = 0
-        """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+        self.params = list(self.params)
+        self.objectives = list(self.objectives)
+        self.pymoo_config = self.pymoo_config or PymooConfig()
+        if self.algorithm is None:
+            # Only pass crossover/mutation to NSGA2 if actually overridden --
+            # NSGA2's own kwarg defaults are already fully-configured SBX()/
+            # PM() instances, not None, so passing crossover=None here would
+            # override them with a real None instead of falling back.
+            default_algo_kwargs: dict[str, Any] = {}
+            if self.pymoo_config.crossover_prob is not None:
+                default_algo_kwargs["crossover"] = SBX(prob=self.pymoo_config.crossover_prob)
+            if self.pymoo_config.mutation_prob is not None:
+                default_algo_kwargs["mutation"] = PM(prob=self.pymoo_config.mutation_prob)
+            self.algorithm = NSGA2(pop_size=self.pymoo_config.pop_size, **default_algo_kwargs)
+        self.save_dir = Path(self.save_dir)
+        self.seed_from = Path(self.seed_from) if self.seed_from is not None else None
+        self.pad_sampling = self.pad_sampling if self.pad_sampling is not None else LHS()
 
     def _load_seed_x(self, path: Path) -> npt.NDArray[np.float64]:
         """Read a previous run's results CSV, return its param columns as an ``(n, n_var)`` array.
@@ -445,12 +537,12 @@ class Minimization:
         return cfg
 
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
-        """Build, run, and score one design — CV on any exception (see module docstring)."""
+        """Build, run, and score one design — CV on _CV_EXCEPTIONS, raise on anything else."""
         cfg = self._build_config(x)
         try:
             wf = Workflow(cfg)
             wf.run()
-        except Exception as exc:  # noqa: BLE001 — any simulation failure is a real CV, not a crash
+        except _CV_EXCEPTIONS as exc:
             self.n_failures += 1
             if self.verbose:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
@@ -458,6 +550,7 @@ class Minimization:
         return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G]
 
     def _elementwise_runner(self) -> LoopedElementwiseEvaluation | StarmapParallelization:
+        assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
         if self.pymoo_config.n_processes <= 1:
             return LoopedElementwiseEvaluation()
         pool = multiprocessing.Pool(self.pymoo_config.n_processes)
@@ -484,6 +577,14 @@ class Minimization:
             ``_build_results_df``).
 
         """
+        # __post_init__ always resolves these (see its docstring) — asserts
+        # narrow mypy's view back down from the constructor-facing
+        # Optional/str types to what they're actually guaranteed to be here.
+        assert self.pymoo_config is not None
+        assert self.algorithm is not None
+        assert self.pad_sampling is not None
+        assert isinstance(self.save_dir, Path)
+
         problem = _Problem(self)
         termination = DMOT(
             xtol=self.pymoo_config.xtol,
@@ -505,6 +606,10 @@ class Minimization:
         # in principle be .run() more than once without carrying state over.
         algorithm = copy.deepcopy(self.algorithm)
         if self.seed_from is not None:
+            # __post_init__ always normalizes a given str to a Path (or
+            # leaves it None) -- `is not None` alone only narrows away the
+            # None branch, not the constructor-facing str possibility.
+            assert isinstance(self.seed_from, Path)
             seed_x = self._load_seed_x(self.seed_from)
             pop_size = algorithm.pop_size
             if len(seed_x) > pop_size:
@@ -575,6 +680,7 @@ class Minimization:
         completed run's real output is never ambiguous with a leftover
         partial one from an interrupted run.
         """
+        assert isinstance(self.save_dir, Path)  # __post_init__ always resolves this
         opt = algorithm.opt
         x = None if opt is None or len(opt) == 0 else opt.get("X")
         f = None if opt is None or len(opt) == 0 else opt.get("F")
@@ -601,10 +707,9 @@ class Minimization:
 
         ``euclidean`` is a Z-SCORE-NORMALIZED Euclidean distance
         (``sqrt(Σ z_i²)``, ``z_i = (objective_i - mean) / std`` across the
-        pareto front) — NOT ``fastsim.pymoo_api.run_minimize``'s
-        ``res_df["euclidean"]`` construction, which sums RAW objective
-        values and is therefore dominated by whichever objective happens
-        to have the largest units (e.g. here, ``negative_mean_power_W`` ~1e6-1e7 vs.
+        pareto front) — deliberately NOT a sum of RAW objective values,
+        which would be dominated by whichever objective happens to have the
+        largest units (e.g. here, ``negative_mean_power_W`` ~1e6-1e7 vs.
         LCOE ~0.1-1 — the raw version would make LCOE contribute nothing).
         Normalization is computed fresh from this call's own pareto front
         and used ONLY inline, in the expression below — every column saved
@@ -636,6 +741,7 @@ class Minimization:
         configs_dir: Path | None,
     ) -> None:
         """Write ``df`` to ``csv_path`` and, if ``configs_dir`` given, one YAML per row of ``x``."""
+        assert isinstance(self.save_dir, Path)  # __post_init__ always resolves this
         self.save_dir.mkdir(parents=True, exist_ok=True)
         df.to_csv(csv_path, index=False)
         logger.info("Wrote %s", csv_path)
@@ -653,8 +759,7 @@ class Minimization:
 class _Problem(ElementwiseProblem):
     """pymoo ``ElementwiseProblem`` wrapping one ``Minimization``.
 
-    Private: users construct ``Minimization``, not this class directly —
-    mirrors ``fastsim.pymoo_api.CalibrationProblem`` wrapping ``ModelObjectives``.
+    Private: users construct ``Minimization``, not this class directly.
     """
 
     def __init__(self, mgr: Minimization) -> None:

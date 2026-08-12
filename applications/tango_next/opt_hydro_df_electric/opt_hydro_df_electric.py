@@ -1,9 +1,10 @@
 """Multi-objective optimization demo for the double-flash hydrothermal example.
 
-Runs the manual-flow-rate baseline once, then searches mass flow rate +
-injection wellhead pressure with NSGA2 to minimize LCOE and maximize mean
-net electric power (``tango_next.pymoo_api.Minimization``), saving the
-pareto results/configs and parallel-coordinates plots.
+Runs the manual-flow-rate baseline once, then searches mass flow rate,
+injection wellhead pressure, and target extraction pressure with NSGA2 to
+minimize LCOE and maximize mean net electric power
+(``tango_next.pymoo_api.Minimization``), saving the pareto results/configs
+and parallel-coordinates plots.
 
 Usage: uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py
 """
@@ -19,6 +20,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 from pymoo.core.result import Result
 
 from tango_next.pymoo_api import (
@@ -28,6 +30,7 @@ from tango_next.pymoo_api import (
     lcoe_objective,
     mass_rate_param,
     negative_mean_power_objective,
+    target_extraction_pressure_param,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -42,62 +45,104 @@ HERE = Path(__file__).parent
 # this script's own subdirectory.
 CONFIG_DIR = HERE.parents[2] / "examples/tango_next/"
 DEFAULT_OUTPUT_DIR = HERE / "outputs"
+PARAMS_FILE = HERE / "params.yaml"
+
+
+def load_params() -> dict[str, Any]:
+    """Load parameters from params.yaml if it exists alongside the script.
+
+    Same pattern as ``run_hydro_df_electric_sweep/common.py``'s
+    ``load_params()`` — DVC's ``dvc.yaml`` declares which of these keys it
+    tracks for staleness, but the script itself is what actually reads
+    them; DVC doesn't inject values into the command line.
+    """
+    if PARAMS_FILE.exists():
+        return yaml.safe_load(PARAMS_FILE.read_text()) or {}
+    return {}
+
 
 # Hyperparameter defaults for --help text and argparse defaults come from
 # this single instance, not hardcoded numbers repeated in the parser — so
-# "the default" always means PymooConfig's own default, one source of truth.
+# "the default" always means PymooConfig's own default, one source of truth,
+# overridden by params.yaml (if present), in turn overridden by an explicit
+# CLI flag.
 _DEFAULT_PYMOO_CONFIG = PymooConfig()
+_PARAMS = load_params()
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """CLI for tuning the pymoo search — modeled loosely on
-    ``fastsim.pymoo_api.get_parser()``, adapted to tango_next's
-    ``PymooConfig`` fields (not copied 1:1 — fastsim's script externalizes
-    its own ``multiprocessing.Pool``/``StarmapParallelization`` wiring into
-    the calling script and threads a `--skip-minimize` flag through a
-    previous-results cache; neither exists here: ``Minimization`` already
-    manages its own worker pool internally via ``PymooConfig.n_processes``,
-    and there's no cached-results-loading feature to expose a flag for).
+    """CLI for tuning the pymoo search, exposing ``PymooConfig``'s fields.
+
+    No ``--skip-minimize``-style flag threading a previous-results cache:
+    ``Minimization`` already manages its own worker pool internally via
+    ``PymooConfig.n_processes``, and there's no cached-results-loading
+    feature to expose a flag for.
     """
     parser = argparse.ArgumentParser(
         description="Multi-objective optimization demo for the double-flash hydrothermal example.",
     )
+    n_max_gen_default = _PARAMS.get("n_max_gen", _DEFAULT_PYMOO_CONFIG.n_max_gen)
+    pop_size_default = _PARAMS.get("pop_size", _DEFAULT_PYMOO_CONFIG.pop_size)
+    ftol_default = _PARAMS.get("ftol", _DEFAULT_PYMOO_CONFIG.ftol)
+    xtol_default = _PARAMS.get("xtol", _DEFAULT_PYMOO_CONFIG.xtol)
+    seed_default = _PARAMS.get("seed", _DEFAULT_PYMOO_CONFIG.seed)
     parser.add_argument(
         "--n-max-gen",
         type=int,
-        default=_DEFAULT_PYMOO_CONFIG.n_max_gen,
-        help=f"Max generations (hard cap). Defaults to {_DEFAULT_PYMOO_CONFIG.n_max_gen}.",
+        default=n_max_gen_default,
+        help=f"Max generations (hard cap). Defaults to {n_max_gen_default} (params.yaml/PymooConfig).",
     )
     parser.add_argument(
         "--pop-size",
         type=int,
-        default=_DEFAULT_PYMOO_CONFIG.pop_size,
-        help=f"Population size per generation. Defaults to {_DEFAULT_PYMOO_CONFIG.pop_size}.",
+        default=pop_size_default,
+        help=f"Population size per generation. Defaults to {pop_size_default} (params.yaml/PymooConfig).",
     )
     parser.add_argument(
         "--ftol",
         type=float,
-        default=_DEFAULT_PYMOO_CONFIG.ftol,
-        help=f"Objective-space convergence tolerance. Defaults to {_DEFAULT_PYMOO_CONFIG.ftol}.",
+        default=ftol_default,
+        help=f"Objective-space convergence tolerance. Defaults to {ftol_default} (params.yaml/PymooConfig).",
     )
     parser.add_argument(
         "--xtol",
         type=float,
-        default=_DEFAULT_PYMOO_CONFIG.xtol,
-        help=f"Design-space convergence tolerance. Defaults to {_DEFAULT_PYMOO_CONFIG.xtol}.",
+        default=xtol_default,
+        help=f"Design-space convergence tolerance. Defaults to {xtol_default} (params.yaml/PymooConfig).",
     )
+    crossover_prob_default = _PARAMS.get("crossover_prob", _DEFAULT_PYMOO_CONFIG.crossover_prob)
+    mutation_prob_default = _PARAMS.get("mutation_prob", _DEFAULT_PYMOO_CONFIG.mutation_prob)
+    parser.add_argument(
+        "--crossover-prob",
+        type=float,
+        default=crossover_prob_default,
+        help=(
+            f"Probability two parents recombine (pymoo SBX's own prob). Defaults to "
+            f"{crossover_prob_default} (params.yaml/PymooConfig; None -> pymoo's own default)."
+        ),
+    )
+    parser.add_argument(
+        "--mutation-prob",
+        type=float,
+        default=mutation_prob_default,
+        help=(
+            f"Probability each variable mutates (pymoo PM's own prob). Defaults to "
+            f"{mutation_prob_default} (params.yaml/PymooConfig; None -> pymoo's own 1/n_var default)."
+        ),
+    )
+    n_processes_default = _PARAMS.get("n_processes", _DEFAULT_PYMOO_CONFIG.n_processes)
     parser.add_argument(
         "-p",
         "--n-processes",
         type=int,
-        default=_DEFAULT_PYMOO_CONFIG.n_processes,
-        help=f"Worker processes for parallel evaluation (1 = serial). Defaults to {_DEFAULT_PYMOO_CONFIG.n_processes}.",
+        default=n_processes_default,
+        help=f"Worker processes for parallel evaluation (1 = serial). Defaults to {n_processes_default} (params.yaml/PymooConfig).",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=_DEFAULT_PYMOO_CONFIG.seed,
-        help=f"Random seed for reproducibility. Defaults to {_DEFAULT_PYMOO_CONFIG.seed}. Ignored if --no-seed is given.",
+        default=seed_default,
+        help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
     )
     parser.add_argument(
         "--no-seed",
@@ -202,7 +247,8 @@ def build_baseline() -> tuple[Workflow, Workflow]:
 
 
 def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Result, pd.DataFrame]:
-    """Search mass flow rate + injection pressure to minimize LCOE / maximize mean power.
+    """Search mass flow rate + injection pressure + target extraction pressure
+    to minimize LCOE / maximize mean power.
 
     Args:
         base_wf: UNRUN template workflow — see ``build_baseline``'s docstring
@@ -215,6 +261,10 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
         params=[
             mass_rate_param(bounds=(10.0, 100.0)),
             injection_pressure_param(bounds=(1.0e6, 8.0e6)),
+            # (0.7, 1.5)x the base YAML's 7.0 MPa — same scale factor already
+            # used for this field in run_hydro_df_electric_sweep/common.py's
+            # LHS sweep bounds, not a fresh guess.
+            target_extraction_pressure_param(bounds=(4.9e6, 10.5e6)),
         ],
         objectives=[lcoe_objective(), negative_mean_power_objective()],
         pymoo_config=PymooConfig(
@@ -224,6 +274,8 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
             xtol=args.xtol,
             n_processes=args.n_processes,
             seed=None if args.no_seed else args.seed,
+            crossover_prob=args.crossover_prob,
+            mutation_prob=args.mutation_prob,
         ),
         verbose=args.verbose,
         save_dir=args.save_dir,
