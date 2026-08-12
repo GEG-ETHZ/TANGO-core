@@ -168,7 +168,7 @@ its own right: old tango's convergence loop can, in principle, declare
 value rather than the fully up-to-date one from that same pass.
 tango_next's design rules this out categorically — every value used in
 any calculation always comes from the same, fully up-to-date pass, by
-construction. See `docs/bugs-fixed.md`.
+construction. See `docs/bugs-fixed-in-tango-next.md`.
 
 ## Built a real cost model in tango_next, then a working optimizer on top of it (2026-08-07)
 
