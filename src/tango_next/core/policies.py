@@ -102,12 +102,15 @@ class InjectionPolicy(enum.StrEnum):
         "fracking_flow() each pass; co-evolves with pressure until both stabilize. "
         "Pressure-induced fracking raises an error.",
     )
-    # This needs to do something fancier than the above two options and requires thought
     AUTO_BOTH = (
         "auto-both",
-        "Both flow rate and pressure are iterated simultaneously. If no feasible injection pressure exists at "
-        "the target flow rate, the flow rate is reduced until a feasible pressure "
-        "can be achieved. Most robust mode for high-flow or low-permeability reservoirs.",
+        "Placeholder for iterating both flow rate and pressure simultaneously. "
+        "Because this is currently not implemented, raises NotImplementedError "
+        "from SystemBCIteration.run_timestep — see examples/tests demonstrating "
+        "the failure at applications/tango_next/demo_auto_both_slow_convergence/, "
+        "which documents the specific old-tango-parity, verified-to-fail-near-the-"
+        "feasibility-boundary case this was punted on (docs/tango_next_tasks.md's "
+        "backlog entry has the full writeup).",
     )
 
 

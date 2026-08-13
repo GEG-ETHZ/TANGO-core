@@ -455,20 +455,17 @@ class SystemBCIteration(SystemDirect):
             return
 
         if self.policy == InjectionPolicy.AUTO_BOTH:
-            if surface is None or not isinstance(inj_well, WellComponent):
-                raise ConfigError(
-                    "InjectionPolicy.AUTO_BOTH requires a surface (BC checkpoint) "
-                    "and an injection well (component_idx 0).",
-                )
-            reservoir = self._find_reservoir()
-            if reservoir is None:
-                raise ConfigError(
-                    "InjectionPolicy.AUTO_BOTH requires a reservoir component — "
-                    "there is no fracking threshold to converge toward without one.",
-                )
-            self._converge_injection_both(surface, inj_well, reservoir)
-            self._check_fracking(reservoir, inj_well)
-            return
+            # Deliberately NOT dispatched to _converge_injection_both (still
+            # present below, unreachable from here) — see InjectionPolicy.AUTO_BOTH's
+            # own docstring (core/policies.py) and docs/tango_next_tasks.md's
+            # backlog entry: old-tango-parity-only, unverified/verified-to-fail
+            # near the reservoir's feasibility boundary (InvalidPowerStateError
+            # on an intermediate iterate), and not a capability tango_next needs
+            # going forward. Punted, not under active development.
+            raise NotImplementedError(
+                "InjectionPolicy.AUTO_BOTH is not implemented — see its docstring "
+                "(core/policies.py) and docs/tango_next_tasks.md's backlog entry.",
+            )
 
         raise NotImplementedError(f"InjectionPolicy.{self.policy.name} is not implemented.")
 
@@ -825,7 +822,7 @@ class SystemBCIteration(SystemDirect):
                 timestep pass as if it were a real answer.
 
         """
-        T_inj_prev: float | None = None
+        T_inj_prev: float | None = None  # TODO: reuse the value from previous time step, when available
 
         for inner_iter in range(self.max_inner_iterations):
             for component in self._ordered:
@@ -837,11 +834,17 @@ class SystemBCIteration(SystemDirect):
             T_inj_new = surface.outlet.T
             if T_inj_prev is not None and abs(T_inj_new - T_inj_prev) < _DT_SURFACE_TOL:
                 logger.debug(
-                    "T-convergence: inner iter %d, dT=%.4f K",
-                    inner_iter + 1,
+                    "T-convergence finished: inner iter %d, T_inj_new =%.4f K, dT=%.4f K",
+                    inner_iter + 1,  # e.g. print 1 when `inner_iter` is 0
+                    T_inj_new,
                     abs(T_inj_new - T_inj_prev),
                 )
                 break
+            logger.debug(
+                "T-convergence in progress: inner iter %d, T_inj_new =%.4f K",
+                inner_iter + 1,  # e.g. print 1 when `inner_iter` is 0
+                T_inj_new,
+            )
             T_inj_prev = T_inj_new
         else:
             raise ConvergenceError(

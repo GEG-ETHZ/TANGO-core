@@ -1214,6 +1214,52 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
+- **OPTIONAL, NO URGENCY — `InjectionPolicy.AUTO_BOTH`'s outer Picard loop
+  can hit `InvalidPowerStateError` on an intermediate (not final) iterate
+  near the reservoir's feasibility boundary.** Found 2026-08-13 building
+  `applications/tango_next/demo_auto_both_slow_convergence/` (reproduces
+  the same slow-convergence case traced earlier that day — `hydro_sf_electric.yml`,
+  `max_mass_rate=150`, ~34 outer iterations expected). After `d078e4e`
+  ("guard against silently-invalid negative power states") landed
+  same-day, this scenario now raises `InvalidPowerStateError` at outer
+  iteration 2 — a pump asked to boost from well under 1 MPa up to a 7 MPa
+  target, a transient/intermediate state the Picard walk passes through en
+  route to its eventual answer, not the converged result itself (that
+  distinguishes it from the bug `d078e4e` was actually built to catch — a
+  bad *final* design silently corrupting an LCOE average).
+
+  **Considered and explicitly rejected, 2026-08-13:**
+  1. Making the Picard loop robust to bad intermediate states (damped/
+     globalized stepping so it "pivots" instead of crashing).
+  2. Deferring the `InvalidPowerStateError` check until final convergence
+     instead of every intermediate pass — rejected specifically because
+     there's no reason to trust a Picard iteration to reliably self-correct
+     out of an already-wacky intermediate state; tolerating it mid-loop
+     would likely just delay the same failure, not avoid it.
+
+  **Why neither is worth building: `AUTO_BOTH` exists mainly/only for
+  old-tango parity, not as a capability tango_next needs going forward.**
+  Chad's reasoning: a real design should run one constant mass flow rate
+  across its whole operational lifetime without causing fracking, not a
+  yearly-adjusted one — runtime auto-control logic (which is what
+  `AUTO_BOTH` effectively is, an in-simulation control loop) is out of
+  scope for a techno-economic analysis tool. And critically: not-fracking
+  is a CONSTRAINT, not the objective — what we actually care about is
+  minimizing LCOE and maximizing power, which is exactly pymoo's job
+  (`opt_*` apps), with fracking-avoidance enforced as a constraint/CV
+  exception (`FrackingViolationError`, already in `pymoo_api.py`'s
+  `_CV_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
+  loop needs to hunt for live. Consistent with `pymoo_api.py`'s own module
+  docstring, which already explains why `AUTO_*` policies aren't wired
+  into `Minimization` at all — `MANUAL`/`MANUAL_FRACKING_CHECK` plus
+  pymoo's own search is the intended path for finding good operating
+  points, not `AUTO_*`.
+
+  Left as-is, not fixed. `demo_auto_both_slow_convergence.py` catches
+  `InvalidPowerStateError` and reports it as an expected, documented
+  finding rather than crashing uninformatively — revisit only if `AUTO_BOTH`
+  ever needs to become more than a parity fixture.
+
 - **PAUSED 2026-08-13 — `opt_AGS_direct_heat/` blocked on
   `NativeEconomicComponent`'s single-diameter well-costing assumption.**
   **Correction, same day: `opt_EGS_direct_heat/` is NOT blocked by this** —
