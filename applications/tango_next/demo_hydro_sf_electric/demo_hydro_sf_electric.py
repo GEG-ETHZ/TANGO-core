@@ -12,9 +12,11 @@ Runs ``examples/tango_next/hydro_sf_electric.yml`` and generates four figures:
 
 Run from the repo root::
 
-    uv run python examples/tango_next/demo_flexible_sf.py
+    uv run python applications/tango_next/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
-Pass ``--no-show`` to write SVGs to ``examples/tango_next/`` without opening windows.
+Default: writes SVGs to this script's own ``outputs/`` directory without
+opening windows. Pass ``--show`` for interactive windows instead (nothing
+is saved in that mode).
 """
 
 from __future__ import annotations
@@ -31,14 +33,19 @@ import numpy as np
 # Path setup — allow running from anywhere in the repo
 # ---------------------------------------------------------------------------
 
-_REPO_ROOT = Path(__file__).parents[2]
+HERE = Path(__file__).parent
+_REPO_ROOT = Path(__file__).parents[3]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from tango_next.workflows.workflow import Workflow  # noqa: E402
 
-YAML_PATH = Path(__file__).parent / "hydro_sf_electric.yml"
-SAVE_DIR = Path(__file__).parent
+# hydro_sf_electric.yml lives in examples/tango_next/ (configs only, shared
+# with tests/regtest/test_tango_next.py and `just demos`'s YAML smoke sweep) —
+# not colocated with this script, unlike the old examples/tango_next/ layout.
+YAML_PATH = _REPO_ROOT / "examples" / "tango_next" / "hydro_sf_electric.yml"
+SAVE_DIR = HERE / "outputs"
+SAVE_DIR.mkdir(exist_ok=True)
 
 
 # ---------------------------------------------------------------------------

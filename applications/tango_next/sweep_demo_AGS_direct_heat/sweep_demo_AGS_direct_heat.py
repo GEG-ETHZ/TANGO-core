@@ -18,7 +18,7 @@ generate/sweep/summarize/plot pipeline — see docs/tango_next_tasks.md
 
 Run from the repo root::
 
-    uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
+    uv run python applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
 """
 
 from __future__ import annotations
@@ -26,13 +26,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).parents[2]
+_REPO_ROOT = Path(__file__).parents[3]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from tango_next.workflows.workflow import Workflow  # noqa: E402
 
-YAML_PATH = Path(__file__).parent / "AGS_direct_heat.yml"
+# AGS_direct_heat.yml lives in examples/tango_next/ (configs only) — not
+# colocated with this script, unlike the old examples/tango_next/ layout.
+YAML_PATH = _REPO_ROOT / "examples" / "tango_next" / "AGS_direct_heat.yml"
 
 ROCK_K_SWEEP_W_PER_MK = [1.5, 2.1, 3.0, 4.0]
 

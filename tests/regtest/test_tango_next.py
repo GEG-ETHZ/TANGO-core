@@ -545,7 +545,7 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     `Field(frozen=True)` on each Component subclass. The only supported way
     to change one is the dict-modify-then-reinstantiate pattern
     (`Workflow.to_dict()` -> mutate the copy -> `Workflow(cfg)`), matching
-    `examples/tango_next/sweep_demo_AGS_direct_heat.py`. Fields that are
+    `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py`. Fields that are
     legitimately reassigned during simulation (`inlet`/`outlet`,
     `surface.injection_pressure`) must remain mutable — checked here too.
     """

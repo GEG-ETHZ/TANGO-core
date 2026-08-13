@@ -1246,7 +1246,7 @@ baseline; the refactor is applied to all input configurations.
       objective, mirroring `cal_bev.py`'s `perturb_params()`). `src/tango/`'s
       `optimizerr.py` is NOT the reference for this — see
       `docs/tango_next_tasks.md`'s optimizerr.py review (2026-07-24) for why.
-      `examples/tango_next/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
+      `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
       small working precedent for the underlying mechanism this API would
       build on: it sweeps `common.rock_k` by mutating a copy of
       `Workflow.to_dict()` and reinstantiating, rather than mutating a live

@@ -488,7 +488,7 @@ against old tango, and locked in with golden-snapshot regression coverage.
       edge-of-range failures that a single design point won't catch.
 
 ### 3a. DONE 2026-07-24 — small demo sweep, not the full port below
-Built as `examples/tango_next/sweep_demo_AGS_direct_heat.py`. Sweeps
+Built as `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py`. Sweeps
 `common.rock_k` (deliberately a `common:` field, not component-local) over
 `[1.5, 2.1, 3.0, 4.0]` W/(m·K) against `AGS_direct_heat.yml`, using exactly
 the `cfg = base_wf.to_dict(); cfg["common"]["rock_k"] = x; Workflow(cfg).run()`
@@ -944,7 +944,7 @@ verified, then this fix popped back in and re-checked).
           `test_frozen_common_rejects_runtime_mutation`. Full
           `tests/regtest`+`tests/unit` suite green (36 passed, 1 xfailed);
           `mypy src/`, `ruff check`, `ruff format --check` all clean;
-          `examples/tango_next/sweep_demo_AGS_direct_heat.py` re-run and
+          `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` re-run and
           confirmed byte-identical output to before this change.
 - [ ] **NEXT SESSION — Chad wants to understand the shared-reference
       mechanics more deeply before this is considered settled.** Raised
@@ -1213,6 +1213,21 @@ reasoning doesn't have to be re-derived next session.
       but budget it as its own task, not a quick add-on.
 
 ## Backlog (queued, not yet started)
+
+- **Rename/move `examples/tango_next/` → `example_configs/` at the repo
+  root.** Flagged 2026-08-13, not started. Deliberately held until old
+  `src/tango` is fully stripped out (targeted late August 2026) — drops
+  both the `tango_next` qualifier (no more legacy `tango` to disambiguate
+  from) and the `examples/` name (by then, YAML-only, so "configs" is the
+  accurate name). Precondition already done as of 2026-08-13:
+  `examples/tango_next/` now holds only `.yml` configs — its two demo/sweep
+  scripts (`demo_flexible_sf.py`, `sweep_demo_AGS_direct_heat.py`) moved to
+  their own directories under `applications/tango_next/`
+  (`demo_hydro_sf_electric/`, `sweep_demo_AGS_direct_heat/`), matching the
+  `run_*_sweep/`/`opt_*` layout, with `demo_flexible_sf.py` itself renamed
+  to `demo_hydro_sf_electric.py` to match its config's actual name instead
+  of old tango's `flexible_sf` terminology. So this backlog item is now a
+  pure directory rename whenever it happens, not a restructure.
 
 - **GitLab pipeline (likely release-triggered) that generates and publishes
   documentation.** Flagged 2026-08-13, not started. Deliberately held until

@@ -32,17 +32,30 @@ You can run anything in the `./examples/` folder with, e.g. `uv run tango_cli -f
     ├── pyproject.toml
     ├── .gitignore
     ├── .python-version
-    ├── examples/    # Example TANGO configurations and scripts
-    ├── scripts/     # Utility scripts
-    ├── src/         # Installable Python package source code
+    ├── applications/  # Multi-run pipelines (sweeps, optimizations, demos) — scripts only
+    ├── examples/      # Example TANGO configurations — `tango_next/` is YAML-only
+    ├── scripts/       # Utility scripts
+    ├── src/           # Installable Python package source code
     │   └── tango
     │       └── ...
-    ├── tests/       # Unit and regression tests
+    ├── tests/         # Unit and regression tests
     └── uv.lock
 ```
 
 **Tip:** To regenerate this tree, run:
 `tree -I '__pycache__|.venv|*.egg-info|.git'`
+
+**Planned:** once old `src/tango` is fully stripped out (targeted late
+August 2026), `examples/tango_next/` will be renamed/moved to
+`example_configs/` at the repo root — dropping both the `tango_next`
+qualifier (no more legacy `tango` to disambiguate from) and the `examples/`
+name (by then it holds only configs, no scripts, so "configs" is the
+accurate name). Demo/sweep/optimization scripts that used to live
+alongside configs in `examples/tango_next/` now live under
+`applications/tango_next/<script-name>/` instead, one directory per
+script/pipeline, matching the layout already used by `run_*_sweep/` and
+`opt_*` — see "What's in `tests/`, `examples/`, and `applications/`"
+below.
 
 ## What's in `tests/`, `examples/`, and `applications/`
 

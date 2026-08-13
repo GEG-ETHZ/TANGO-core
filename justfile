@@ -101,8 +101,8 @@ demos *args:
             *) shift ;;
         esac
     done
-    uv run python examples/tango_next/demo_flexible_sf.py
-    uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
+    uv run python applications/tango_next/demo_hydro_sf_electric/demo_hydro_sf_electric.py
+    uv run python applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_AGS_sweep/run_AGS_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
@@ -118,8 +118,8 @@ demos *args:
 
 [windows]
 demos:
-    uv run python examples/tango_next/demo_flexible_sf.py
-    uv run python examples/tango_next/sweep_demo_AGS_direct_heat.py
+    uv run python applications/tango_next/demo_hydro_sf_electric/demo_hydro_sf_electric.py
+    uv run python applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_AGS_sweep/run_AGS_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
