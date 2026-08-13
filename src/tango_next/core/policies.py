@@ -106,11 +106,13 @@ class InjectionPolicy(enum.StrEnum):
         "auto-both",
         "Placeholder for iterating both flow rate and pressure simultaneously. "
         "Because this is currently not implemented, raises NotImplementedError "
-        "from SystemBCIteration.run_timestep — see examples/tests demonstrating "
-        "the failure at applications/tango_next/demo_auto_both_slow_convergence/, "
-        "which documents the specific old-tango-parity, verified-to-fail-near-the-"
-        "feasibility-boundary case this was punted on (docs/tango_next_tasks.md's "
-        "backlog entry has the full writeup).",
+        "from SystemBCIteration.run_timestep — see examples in applications/ "
+        "demonstrating how to find a good (mass_rate, injection_pressure) "
+        "operating point via pymoo instead (applications/tango_next/"
+        "opt_hydro_df_electric/, applications/tango_next/opt_hydro_sf_electric/), "
+        "with fracking-avoidance enforced as a search constraint rather than an "
+        "in-simulation auto-adjustment loop (docs/tango_next_tasks.md's backlog "
+        "entry has the full writeup on why this was punted).",
     )
 
 

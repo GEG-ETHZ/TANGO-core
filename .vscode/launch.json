@@ -9,12 +9,14 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "Python: hydro_double_flash_electric.yml",
+            "name": "Python: hydro_df_electric.yml",
             "type": "debugpy",
             "request": "launch",
-            "program": "tango_next_cli",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "program": "${workspaceFolder}/.venv/bin/tango_next_cli",
             "args": [
-                "examples/tango_next/hydro_double_flash_electric.yml"
+                "run",
+                "examples/tango_next/hydro_df_electric.yml"
             ],
             "console": "integratedTerminal"
         },
