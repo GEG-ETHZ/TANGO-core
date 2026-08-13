@@ -208,9 +208,11 @@ Top of the queue for the next session, in order:
      must be implemented before any CPG case can be trusted**, not just
      as a nice-to-have physics upgrade. Treat this as a hard prerequisite
      for CPG parity/validation work, not an independent backlog item.
-2. **Flesh out `InjectionPolicy` variants** (today only `MANUAL` is fully
-   implemented; see `docs/tango_next_t_convergence.md` for how `MANUAL`'s
-   convergence loop works as the reference case).
+2. **DONE — `InjectionPolicy` variants in good shape.** `MANUAL`,
+   `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH`
+   are all real, implemented policies in `orchestrators/system_bc_iteration.py`.
+   See `docs/tango_next_t_convergence.md` for how `MANUAL`'s convergence
+   loop works as the reference case.
 
    **Follow-up once pressure convergence lands, agreed 2026-08-04**: after
    implementing real BC-iteration pressure physics (the "Planned: real
@@ -264,8 +266,11 @@ Top of the queue for the next session, in order:
    cases closer to a phase boundary — re-check if a future case exercises
    that regime. Not fixing this in old tango; noted here only so the
    "is this negligible?" question doesn't have to be re-derived.
-3. **Implement the `pymoo_api` concept** (optimizer-facing API, per
-   `optimizerr.py`/`function_evaluator.py` prior art in old tango).
+3. **DONE — `pymoo_api` in good shape.** Built (`src/tango_next/pymoo_api.py`),
+   deliberately restricted to `MANUAL`/`MANUAL_FRACKING_CHECK` only — the
+   `AUTO_*` policies are intentionally NOT wired in (Picard/BC-iteration
+   convergence loops don't mix safely with an external optimizer driving
+   the same state); do not treat this as a gap to fill.
 
 **Explicit non-goal:** do **not** fix the old-tango AGS
 `system_name()`/no-time-marching bug (see "Open items — tracked, not
@@ -326,8 +331,13 @@ from scratch.
 - Untracked repo-root files (`CLAUDE.md`, `deployment_analysis_questions.md`,
   `tango_diagramming_workflow.md`) — left as-is; could be `.gitignore`d
   instead of tracked, still an open call.
-- **Production-side circuit numerically unstable near/above ~166 kg/s for
-  `hydro_sf_electric.yml`** — found 2026-08-12 while testing
+- **RESOLVED (explained, not fixed) 2026-08-13 — production-side circuit
+  numerically unstable near/above ~166 kg/s for `hydro_sf_electric.yml`.**
+  Chad's assessment: the elevated mass rate drives enough production-side
+  pressure drop that the fluid crosses its phase-change pressure on the
+  way back up, which is exactly consistent with the near-constant-enthalpy
+  CoolProp failure signature below. Not worth digging into further.
+  Original note, found 2026-08-12 while testing
   `InjectionPolicy.MANUAL_FRACKING_CHECK`'s flow-induced pathway. Raising
   `sim_config.mass_rate` even slightly above the config's own
   `fluid_utils.fracking_flow()` threshold (confirmed: crashes starting at
@@ -364,25 +374,89 @@ from scratch.
   investigate whether any real use case actually needs single-objective
   search before building support for it — don't build it speculatively.
 
-  **Update 2026-08-13, corroborating evidence from `AUTO_BOTH`'s old-tango
-  parity test:** `AUTO_BOTH` (`sim_config.max_mass_rate` capped, matched
-  against old tango's real `mass_rate.type: automatic` behavior) agrees
-  with old tango to ~0.026% at `max_mass_rate=100` kg/s but only ~3.3% at
-  `max_mass_rate=150` kg/s — both well below the ~166 kg/s crash threshold
-  above, so neither run is unstable, but agreement visibly degrades as the
-  operating point approaches it. Not a new formula bug: the friction-factor
-  formula is confirmed identical to old tango's (`fluid_utils.
-  friction_factor_haaland` vs. `WellUnitNative._compute_friction_factor`),
-  and `mass_rate` itself matches exactly (both hit the cap) at both values
-  — only `p_inj_wellhead_no_frack`/`test_p` diverges. Consistent with a
-  locally steep pressure-vs-mass_rate curve near this boundary amplifying
-  otherwise-negligible numerical differences, rather than a genuine formula
-  mismatch. `tests/regtest/test_tango_next.py::test_auto_both_matches_old_tango_automatic`
-  uses `max_mass_rate=100` deliberately, to stay clear of this sensitivity
-  and assert a real, tight (0.1%) tolerance instead of a loose one that
-  would mask an actual regression.
+- **TRACED 2026-08-13 — root cause found for `AUTO_BOTH` parity degrading
+  from ~0.026% (`max_mass_rate=100`) to ~3.3% (`max_mass_rate=150`) vs.
+  old tango.** Previous note here speculated "locally steep
+  pressure-vs-mass_rate curve amplifying numerical noise" — **wrong,
+  ruled out directly**: computed `drho/dP` and `drho/dT` via
+  `fluid_utils.fluid_density` across 349-360 K at 55 MPa (the actual
+  operating window) and both derivatives are smooth, varying <2% across
+  the whole range — no property steepening, this is plain dense liquid
+  water, nowhere near a phase boundary. (Separate from, and not the same
+  mechanism as, the ~166 kg/s CoolProp crash above, which *is* a genuine
+  phase-change crossing — that one's on the production side, this is the
+  injection side.)
 
-## Active: AGS sweep parity (heat + power)
+  **Actual mechanism, found by instrumenting both codebases and logging
+  every outer-iteration's `(injection_pressure, mass_rate, outlet_T)`
+  side by side** (`fracing_flow`/`fracking_flow` patched to record state
+  in both `BC_calculator.py` and `fluid_utils.py`, plus DEBUG-level
+  `AUTO_BOTH`/`T-convergence` logging):
+  - `mass_rate` is **not** the source of divergence — it locks to the cap
+    (150 kg/s) within 1-2 outer iterations in both codebases, confirmed
+    identical.
+  - The divergence is 100% in `p_inj_wellhead_no_frack`/`test_p`. At
+    `max_mass_rate=150`, tango_next's outer loop takes **34 iterations**
+    to converge (old tango: 5), with `rel_change_p` shrinking by a
+    near-constant ~0.91-0.93 ratio per iteration — a slow *linear*
+    (Picard) contraction, not the fast convergence a true Newton step
+    would give — and lands on a **genuinely different final value**
+    (~7.338 MPa vs. old tango's ~7.103 MPa, a real ~3.3% gap, not rounding
+    noise). At `max_mass_rate=100` both converge in ~4-5 iterations to
+    the same value (~7.03-7.05 MPa, matching to 0.026%).
+  - **Root cause: the two codebases solve genuinely different fixed-point
+    equations for `p_inj_wellhead_no_frack`, not the same equation at
+    different speeds.** tango_next's `_converge_injection_both` calls
+    `_converge_injection_T` every single outer iteration, which restores
+    the *entire circuit* to its start-of-timestep snapshot and
+    fully re-converges injection temperature to tight tolerance
+    (`_DT_SURFACE_TOL`) before the pressure residual is computed — so
+    tango_next's outer Picard step operates on the *exact* composed map
+    `p → T*(p) → outlet.P(T*(p))`. Old tango's `iterator()` does no such
+    T sub-convergence at all: `T` is set directly from
+    `surface.outlet_fluid.T`, which just carries forward from whatever
+    the *previous* outer iteration's single forward pass left it at — a
+    lagged, under-relaxed joint Picard update on `(P, T)` together, not a
+    nested/exact one.
+  - **Why it only shows up at `max_mass_rate=150` and not `100`:** at
+    `max_mass_rate=100`, the cap is deeply active — old tango and
+    tango_next's own uncapped `fracking_flow()` estimate stays around
+    ~163-180 kg/s the entire time, far above the 100 kg/s cap, so the
+    constraint is robustly binding and both iteration schemes land on the
+    same well-separated fixed point regardless of how T is handled. At
+    `max_mass_rate=150`, the uncapped estimate hovers much closer to the
+    cap itself (~162-178 kg/s vs. a 150 kg/s cap) — operating right at
+    the edge where the `min(new_mass_rate, max_mass_rate)` constraint is
+    only marginally active. That's the classic ill-conditioned regime for
+    a coupled iterative solve, and it's exactly where the "exact nested
+    T-reconvergence" vs. "lagged single-pass T" difference between the
+    two codebases stops being negligible and starts mattering.
+  - **Open question, not yet resolved:** which answer is actually
+    correct physically. tango_next's slow crawl is consistent with
+    genuinely finding the self-consistent solution (T fully converged at
+    every step); old tango's fast convergence never confirms T is
+    self-consistent at all, so its speed may be masking a real (if small)
+    inaccuracy rather than reflecting a better-conditioned problem. Ties
+    directly into the still-undecided "Newton/secant acceleration of the
+    T-convergence loop" discussion (injection-T-guess robustness section,
+    top of this file) — accelerating tango_next's outer loop would also
+    make it cheap to check whether more iterations change the answer
+    further, which would settle this.
+  - `tests/regtest/test_tango_next.py::test_auto_both_matches_old_tango_automatic`'s
+    choice of `max_mass_rate=100` (deliberately clear of this regime) and
+    0.1% tolerance both still stand — no change needed there.
+
+## CLOSED 2026-08-13: AGS sweep parity (heat + power)
+
+**Decision: not pursuing further.** Old tango's AGS handling is confirmed
+broken (see the `system_name()` no-time-marching bug below) — comparing
+tango_next's AGS output against a reference that never actually advances
+time isn't worth chasing. Rely on tango_next's own smoke tests and
+golden-snapshot self-consistency for AGS instead of an old-vs-new
+comparison. History kept below for context; treat everything in this
+section as abandoned, not queued.
+
+---
 
 Started 2026-07-22. Scope: get both AGS sweep apps (direct-heat and the new
 power-generation counterpart) verified in old tango, fully ported to
@@ -1139,6 +1213,12 @@ reasoning doesn't have to be re-derived next session.
       but budget it as its own task, not a quick add-on.
 
 ## Backlog (queued, not yet started)
+
+- **GitLab pipeline (likely release-triggered) that generates and publishes
+  documentation.** Flagged 2026-08-13, not started. Deliberately held until
+  `tango_next` fully replaces old tango and the legacy code is stripped out
+  — building doc-generation tooling around a module structure that's about
+  to be deleted isn't worth the effort now.
 
 - **`Workflow.to_dataframe()` — flatten per-timestep history into a single
   dataframe, modeled on fastsim's `to_dataframe()`/`to_pydict(flatten=True)`

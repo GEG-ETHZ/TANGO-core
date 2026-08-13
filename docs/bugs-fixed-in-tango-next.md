@@ -285,3 +285,79 @@ direction the (wrong) example-file edit happened to push it.
 explicitly-optional future feature in `docs/tango_next_tasks.md`'s open
 items, defaulting to today's single-combined-section behavior when
 unspecified.
+
+## Auto mass flow rate convergence never re-solves temperature
+
+`src/tango`'s `FlowRateCalculator.iterator()` (`BC_calculator.py`), under
+`mass_rate.type: automatic`, jointly updates injection wellhead pressure
+(`test_p += target_p - inj_well.outlet_fluid.P`, a Newton-style step) and
+mass rate (`mass_rate = self.fracing_flow()`, a Picard step) every outer
+iteration — but injection temperature is never independently re-solved
+for the new `(test_p, mass_rate)` pair. Instead, `T` is read straight from
+`self.surface.outlet_fluid.T`, i.e. whatever the *previous* outer
+iteration's single forward pass happened to leave it at. The outer loop's
+own convergence check (`iterator()`'s `rel_tol_test_p`/`rel_tol_mass_rate`/
+`rel_tol_inlet_p`, tolerance `1e-4`) never tests whether temperature is
+actually self-consistent with the pressure/mass-rate pair it just
+converged — it can and does declare "converged" while `T` is still
+catching up.
+
+This is wrong, not a reasonable time-saving shortcut: a genuine
+fixed-point solution requires every state variable that depends on the
+others to be simultaneously self-consistent. Pressure and mass rate both
+change every iteration, and temperature depends on both (via density and
+viscosity in `fracing_flow()`, and via the whole circuit's stream
+solve) — carrying `T` forward uncorrected is silently solving a *different,
+easier* problem (a lagged, under-relaxed joint update) rather than the
+real one, with no signal that it's happening.
+
+**Confirmed by direct instrumentation (2026-08-13):** traced every outer
+iteration's `(test_p, mass_rate, outlet_T)` in both codebases side by side
+against `flexible_SF_manual.yml`/`hydro_sf_electric.yml`'s `automatic`/
+`AUTO_BOTH` mode. At `max_mass_rate=100` (fracing-driven flow, ~163-180
+kg/s, stays comfortably clear of the cap the whole time) both codebases
+land on the same fixed point (`test_p` to within 0.026%) — the lagged-T
+shortcut happens not to matter there. At `max_mass_rate=150` (fracing-driven
+flow hovers close enough to the cap, ~162-178 kg/s, that the constraint is
+only marginally active) old tango's loop "converges" in 5 outer iterations
+to `test_p ≈ 7.103 MPa`; solving the real, temperature-self-consistent
+problem (below) converges — more slowly, 34 iterations, since it's a
+strictly harder problem — to `test_p ≈ 7.338 MPa`. A genuine ~3.3%
+discrepancy, not rounding noise: ruled out property-derivative
+steepening directly (`dρ/dP`, `dρ/dT` both smooth across the whole
+349-360 K / 55 MPa operating window, varying <2%) before concluding this
+is an algorithmic gap rather than a sensitive-physics artifact.
+
+`tango_next`'s `SystemBCIteration._converge_injection_both`
+(`orchestrators/system_bc_iteration.py`) calls `_converge_injection_T`
+every single outer iteration: restore the entire circuit to its
+start-of-timestep snapshot, fully re-solve, and iterate until injection
+temperature itself stabilizes (`_DT_SURFACE_TOL`) — *before* computing the
+pressure residual or the new `fracking_flow()` estimate. The outer Picard
+step therefore operates on the true composed map
+`p → T*(p) → outlet.P(T*(p))`, not an approximation of it. This is the
+same structural guarantee already documented in "Convergence loop can
+commit a result computed from mixed fresh/stale state" above — this entry
+is a second, independently-discovered instance of that same bug class,
+this time affecting the auto-mass-rate/pressure solve rather than
+cumulative energy extraction.
+
+**Not fixed in old tango** (established policy: legacy numerics aren't
+being patched) — **avoided by design in `tango_next` since `5a46894`**
+(2026-08-12, "feat(tango_next): implement InjectionPolicy.AUTO_BOTH").
+`tests/regtest/test_tango_next.py::test_auto_both_matches_old_tango_automatic`
+deliberately uses `max_mass_rate=100` to stay clear of this gap and assert
+a tight (0.1%) parity tolerance; it is not evidence the two codebases
+agree in general, only that they agree where old tango's shortcut happens
+not to bite.
+
+**Open follow-up:** which of the two converged values is physically
+correct hasn't been independently confirmed — `tango_next`'s slower
+answer is consistent with genuinely finding the self-consistent solution,
+but that hasn't been verified beyond "old tango never checks, so its
+speed isn't evidence of correctness." An intern is implementing Aitken's
+process to accelerate `tango_next`'s T-convergence loop
+(`docs/tango_next_tasks.md`'s injection-T-guess-robustness section); once
+that lands, it becomes cheap to confirm the slow crawl has actually
+reached its true fixed point rather than just satisfying `self.tolerance`
+prematurely.
