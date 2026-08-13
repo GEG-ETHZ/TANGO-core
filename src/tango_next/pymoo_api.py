@@ -46,6 +46,7 @@ around (e.g. rejecting the combination of a policy that owns a field and a
 from __future__ import annotations
 
 import copy
+import json
 import logging
 import multiprocessing
 import time
@@ -71,18 +72,29 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
 
-from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
+from tango_next.core.errors import (
+    ConvergenceError,
+    CoolPropError,
+    FrackingViolationError,
+    InvalidPowerStateError,
+)
 from tango_next.core.policies import InjectionPolicy
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
 
 # The only tango_next-specific exceptions actually reachable under
-# MANUAL/MANUAL_FRACKING_CHECK as of 2026-08-12 (see _evaluate_one) that represent a
+# MANUAL/MANUAL_FRACKING_CHECK as of 2026-08-13 (see _evaluate_one) that represent a
 # genuine "this sampled design is physically/numerically infeasible"
 # outcome, as opposed to a real bug: CoolPropError (fluid-property lookup
 # fails for this design's T/P), FrackingViolationError (design exceeds a
 # real hydraulic-fracking threshold), ConvergenceError (injection-T guess
-# doesn't settle within budget). Deliberately NOT ConfigError (raised
+# doesn't settle within budget), InvalidPowerStateError (a pump or the
+# surface plant reports physically-impossible negative power near a
+# design's feasibility boundary — see core/errors.py's docstring; without
+# this CV, that negative value would get averaged into
+# NativeEconomicComponent.net_power_W and could flip a subtraction into an
+# addition, silently producing a deceptively low LCOE for an infeasible
+# design instead of excluding it). Deliberately NOT ConfigError (raised
 # almost entirely during config loading/parsing — hitting it from a
 # ParamSpec-mutated config points at a bug in a ParamSpec.apply, not an
 # infeasible design) or the LockedStateError family (internal get/set-
@@ -90,7 +102,12 @@ from tango_next.workflows.workflow import Workflow
 # management) -- those, and any bare Python exception, should crash the
 # whole run rather than silently poison results across an unattended
 # search.
-_CV_EXCEPTIONS: tuple[type[Exception], ...] = (CoolPropError, FrackingViolationError, ConvergenceError)
+_CV_EXCEPTIONS: tuple[type[Exception], ...] = (
+    CoolPropError,
+    FrackingViolationError,
+    ConvergenceError,
+    InvalidPowerStateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -434,6 +451,17 @@ class Minimization:
             beyond what ``seed_from`` provides. Default ``LHS()`` — better
             design-space coverage than plain random sampling for the
             "fill in the rest" role. Only used if ``seed_from`` is given.
+        log_failures: Append one JSON line per constraint-violating
+            evaluation (see ``_CV_EXCEPTIONS``) to ``save_dir /
+            "failures.jsonl"`` — the mutated parameter values plus the
+            exception type/message. No objective values are logged for a
+            failure: a design either fully evaluates (all objectives
+            computed) or raises before any of them are — there's no partial
+            objective to save. Off by default (extra I/O on every
+            failure); turn on when characterizing WHERE/WHY a search is
+            failing (e.g. mapping which parameter region a given
+            ``InvalidPowerStateError``/``CoolPropError`` clusters in)
+            instead of re-deriving it from ad hoc scratch scripts each time.
 
     Raises:
         ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
@@ -452,6 +480,7 @@ class Minimization:
     save_dir: Path | str = DEFAULT_SAVE_DIR
     seed_from: Path | str | None = None
     pad_sampling: Sampling | None = None
+    log_failures: bool = False
 
     # Derived/internal state, not constructor args -- set in __post_init__.
     base_cfg: dict[str, Any] = field(init=False, repr=False)
@@ -536,6 +565,18 @@ class Minimization:
             cfg = spec.apply(cfg, value)
         return cfg
 
+    def _log_failure(self, x: list[float], exc: Exception) -> None:
+        """Append one JSON line to ``save_dir / "failures.jsonl"`` — see ``log_failures`` docstring."""
+        assert isinstance(self.save_dir, Path)  # __post_init__ always resolves this
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        record = {
+            "params": {p.name: value for p, value in zip(self.params, x, strict=True)},
+            "error_type": type(exc).__name__,
+            "error_message": str(exc),
+        }
+        with (self.save_dir / "failures.jsonl").open("a") as f:
+            f.write(json.dumps(record) + "\n")
+
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
         """Build, run, and score one design — CV on _CV_EXCEPTIONS, raise on anything else."""
         cfg = self._build_config(x)
@@ -546,6 +587,8 @@ class Minimization:
             self.n_failures += 1
             if self.verbose:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
+            if self.log_failures:
+                self._log_failure(x, exc)
             return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [_INFEASIBLE_G]
         return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G]
 

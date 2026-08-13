@@ -33,7 +33,38 @@ from tango_next.workflows.workflow import Workflow
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the top-level argument parser with sub-commands."""
+    """Build the top-level argument parser with sub-commands.
+
+    ``--log-level`` is accepted BOTH before and after the subcommand
+    (``tango_next_cli --log-level DEBUG run f.yml`` and
+    ``tango_next_cli run f.yml --log-level DEBUG`` both work). The
+    top-level parser owns an INDEPENDENT copy with a real default
+    (``"INFO"``) — NOT inherited via ``parents``, and NOT combined with
+    ``set_defaults()`` — while each subparser gets a separate copy (via a
+    shared parent parser) with ``default=argparse.SUPPRESS``, so it only
+    overrides the top-level value when the user actually gives
+    ``--log-level`` after the subcommand.
+
+    Both pieces of that split matter, confirmed empirically: giving the
+    subparser copy a real default (no ``SUPPRESS``) makes argparse
+    re-apply IT unconditionally when dispatching to the subparser,
+    silently discarding a top-level ``--log-level DEBUG`` back to
+    ``"INFO"`` even though the user never touched ``--log-level`` after
+    the subcommand. And making the TOP-level parser inherit the same
+    ``SUPPRESS``-defaulted parent (instead of an independent, real-default
+    copy) reproduces the exact same silent-discard bug the other
+    direction — confirmed with an isolated repro, `argparse`'s subparser
+    dispatch does not treat ``parents``-inherited actions the way a
+    naive reading of ``SUPPRESS``'s docs would suggest.
+    """
+    log_level_parent = argparse.ArgumentParser(add_help=False)
+    log_level_parent.add_argument(
+        "--log-level",
+        default=argparse.SUPPRESS,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help=("Logging verbosity.  Use DEBUG to see per-iteration convergence output. Default: INFO."),
+    )
+
     parser = argparse.ArgumentParser(
         prog="tango_next_cli",
         description=(
@@ -45,6 +76,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  tango_next_cli run examples/tango_next/hydro_sf_electric.yml\n"
             "  tango_next_cli run my_config.yml --log-level DEBUG\n"
+            "  tango_next_cli --log-level DEBUG run my_config.yml\n"
             "  tango_next_cli validate my_config.yml\n"
         ),
     )
@@ -72,6 +104,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "and execute the simulation.  Logs a one-line summary per timestep."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[log_level_parent],
     )
     run_p.add_argument(
         "input_file",
@@ -88,6 +121,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "fields are present, all component types are registered, and all "
             "Pydantic specs are satisfied.  Does not execute any physics."
         ),
+        parents=[log_level_parent],
     )
     val_p.add_argument(
         "input_file",

@@ -42,6 +42,23 @@ class FrackingViolationError(TangoNextError):
     """
 
 
+class InvalidPowerStateError(TangoNextError):
+    """Raised when a component reports a power value that is physically invalid.
+
+    Covers two known-fragile spots near a design's feasibility boundary:
+    a passive downhole pump reporting *negative* power draw (``pump_power_watts
+    < 0`` — a pump cannot generate power), and a surface plant reporting
+    negative net electric output for a timestep (``net_power_W < 0`` fed into
+    an averaged economic calculation). Both were observed silently producing
+    a deceptively low LCOE (a negative pump term was fed into
+    ``NativeEconomicComponent._read_net_power`` unclamped, flipping a
+    subtraction into an addition) rather than an explicit failure. Deliberately
+    raised rather than clamped to zero, for the same reason as
+    ``FrackingViolationError``: a silent correction would let a caller mistake
+    a corrected-but-different run for the one they actually asked for.
+    """
+
+
 class CoolPropError(TangoNextError):
     """Wraps a CoolProp failure raised by *our own* direct property lookup.
 

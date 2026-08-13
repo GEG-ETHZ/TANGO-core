@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
+from tango_next.core.errors import InvalidPowerStateError
 from tango_next.core.fluid_utils import (
     fluid_density,
     fluid_enthalpy,
@@ -331,6 +332,15 @@ class LumpedProductionWellWithPump(WellComponent):
             h_before = fluid_enthalpy(self.common.fluid_name, T_out, P_after_wellbore)
             h_after = fluid_enthalpy(self.common.fluid_name, T_out, target_Pa)
             pump_pwr = s.mass_rate.get_fresh() * (h_after - h_before) / self.pump_efficiency
+            if pump_pwr < 0:
+                raise InvalidPowerStateError(
+                    f"well component_idx={self.component_idx}: pump_power_watts={pump_pwr:.1f} W "
+                    f"is negative despite boosting P_after_wellbore={P_after_wellbore:.1f} Pa up to "
+                    f"target_Pa={target_Pa:.1f} Pa -- a passive pump cannot report negative power "
+                    "draw. This happens when the isothermal enthalpy rise used for pump work "
+                    "(h_after - h_before) goes negative even though pressure increases (dH/dP|_T can "
+                    "be negative for a liquid whose thermal expansivity term dominates)",
+                )
         else:
             pump_dp = 0.0
             pump_pwr = 0.0

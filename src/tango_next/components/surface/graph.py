@@ -71,7 +71,7 @@ from tango_next.core.constants import (
     K_TO_C_OFFSET,
     PA_TO_BAR,
 )
-from tango_next.core.errors import ConfigError
+from tango_next.core.errors import ConfigError, InvalidPowerStateError
 from tango_next.core.fluid_utils import (
     fluid_density,
     fluid_viscosity,
@@ -517,6 +517,12 @@ class GraphSurface(SurfaceComponent):
         # ---- Net power / thermal (see module docstring for sign convention) ----
         net_power_W = sum(-node.P.val for node in self._net_electric_nodes)
         net_thermal_W = sum(-node.Q.val for node in self._net_thermal_nodes)
+        if net_power_W < 0:
+            raise InvalidPowerStateError(
+                f"surface plant net_power_W={net_power_W:.1f} W is negative -- the surface plant "
+                "is a net consumer, not producer, of electricity this timestep (turbine output no "
+                "longer covers its own surface pump parasitic load).",
+            )
         s.net_power_W.update(net_power_W)
         s.net_thermal_W.update(net_thermal_W)
 
