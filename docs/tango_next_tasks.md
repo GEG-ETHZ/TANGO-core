@@ -1214,6 +1214,51 @@ reasoning doesn't have to be re-derived next session.
 
 ## Backlog (queued, not yet started)
 
+- **PAUSED 2026-08-13 — `opt_AGS_direct_heat/` blocked on
+  `NativeEconomicComponent`'s single-diameter well-costing assumption;
+  `opt_EGS_direct_heat/` not started, same topology, will hit the same
+  wall.** Built `applications/tango_next/opt_AGS_direct_heat/
+  opt_AGS_direct_heat.py` (mirrors `opt_hydro_df_electric.py`'s shape;
+  decision variables copied verbatim from the existing brute-force sweep's
+  own axes — `run_AGS_direct_heat_sweep/common.py`'s `WELL_DEPTHS_M`/
+  `LOOP_LENGTHS_M`/`LOOP_DIAMETERS_M`/`MASS_FLOW_RATES_KG_S` — plus a
+  locally-defined `negative_mean_thermal_power_objective()`, since AGS is
+  direct-heat (`history.net_thermal_W`, not the electric
+  `negative_mean_power_objective`'s `history.net_power_W`); this objective
+  belongs in the app script, not `pymoo_api.py` itself, which is
+  deliberately generic — see [[feedback_pymoo_api_objectives_belong_in_app_scripts]] memory.
+  One real bug fixed along the way: the first draft copied old tango's
+  `sweep.py`'s `_apply_loop_length` verbatim, which also sets
+  `components.surface.well_spacing` — `tango_next` rejects that
+  (`well_spacing` is sourced only from `layout.well_spacing`, per
+  `AGS_direct_heat.yml`'s own comment); fixed to set `layout.well_spacing`
+  only.
+
+  **Actual blocker, confirmed via smoke test** (`--n-max-gen 2 --pop-size
+  6`): sweeping `loop_diameter` on `horizontal_well` alone (matching the
+  brute-force sweep's own precedent — `production_well`'s casing diameter
+  is a separate, fixed 0.311 m assumption, untouched by that axis)
+  collides with `NativeEconomicComponent._combined_production_length_and_diameter`,
+  which requires all production-side wells to share one uniform diameter
+  and raises a hard `ValueError` otherwise — NOT one of `pymoo_api.py`'s
+  caught constraint-violation exceptions (`CoolPropError`/
+  `FrackingViolationError`/`ConvergenceError`), so it crashes the whole
+  NSGA2 run rather than marking one design infeasible. This is the same
+  multi-segment-costing limitation already tracked below (see
+  "Multi-segment well CAPEX" in "Open items — tracked, not scheduled")
+  — hit here via diameter instead of length, but the same root cause.
+  Since almost every candidate design has `loop_diameter != 0.311`, this
+  isn't a rare corner, it fires on nearly every evaluation.
+
+  **Chad's call (2026-08-13): pause, don't work around it.** Picking one
+  of "drop loop_diameter as a decision variable" or "drop LCOE, optimize
+  thermal power alone" would both mask the real gap (multi-segment well
+  costing) rather than fix it. `opt_AGS_direct_heat.py` is left in place,
+  mostly built and passing lint/format, but not smoke-tested end to end —
+  do not add it to `just demos` until this is resolved. Revisit once
+  multi-segment well CAPEX (or some other real fix) lands; `opt_hydro_sf_electric/`
+  (electric, no diameter-sweep/economic conflict) proceeded instead.
+
 - **Rename/move `examples/tango_next/` → `example_configs/` at the repo
   root.** Flagged 2026-08-13, not started. Deliberately held until old
   `src/tango` is fully stripped out (targeted late August 2026) — drops
@@ -1712,3 +1757,18 @@ reasoning doesn't have to be re-derived next session.
   parameter-setting/objective-extraction mechanism (eval/exec) is a real
   problem to leave behind entirely, not a style nitpick, and fastsim's
   `pymoo_api.py` is the actual pattern to follow instead.
+
+- **Per-swept-variable scatter plots for every pareto set and brute-force
+  sweep.** Flagged 2026-08-13, not started — do not begin until the
+  currently in-flight work (`opt_*` subfolder restructuring for the
+  remaining `examples/tango_next/*.yml` configs, the Picard-iteration
+  check on `hydro_sf_electric.yml`, and everything else already queued
+  ahead of this) is finished first. For every `opt_*` app (pareto-front
+  optimization, e.g. `opt_hydro_df_electric`) and every `run_*_sweep`
+  brute-force sweep app, generate a scatter plot of each objective/
+  dependent variable against each independent variable being swept/
+  modulated — i.e. the full objective × independent-variable grid, not
+  just the existing parallel-coordinates/aggregate views each app already
+  produces. Scope not yet worked out: whether this is a shared plotting
+  helper both `opt_*` and `run_*_sweep` apps call, or per-app-family
+  logic; revisit when this is actually picked up.

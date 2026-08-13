@@ -115,6 +115,8 @@ demos *args:
     # Not tied to --slow: there's no "real" variant to switch to here (that's
     # what the Euler job script / `dvc repro` are for).
     uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$(mktemp -d)" --log-level ERROR
+    # Same rationale as opt_hydro_df_electric.py above.
+    uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$(mktemp -d)" --log-level ERROR
 
 [windows]
 demos:
@@ -126,3 +128,4 @@ demos:
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
     Get-ChildItem examples/tango_next/*.yml | ForEach-Object { uv run tango_next_cli --log-level WARNING run $_.FullName }
     $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp --log-level ERROR
+    $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR
