@@ -63,7 +63,6 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import yaml
 from pymoo.core.result import Result
 
 from tango_next.pymoo_api import (
@@ -71,6 +70,8 @@ from tango_next.pymoo_api import (
     ObjectiveSpec,
     ParamSpec,
     PymooConfig,
+    build_pymoo_parser,
+    load_params,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -235,134 +236,17 @@ def negative_mean_thermal_power_objective(surface_name: str = "surface") -> Obje
 # ---------------------------------------------------------------------------
 
 
-def load_params() -> dict[str, Any]:
-    """Load parameters from params.yaml if it exists alongside the script."""
-    if PARAMS_FILE.exists():
-        return yaml.safe_load(PARAMS_FILE.read_text()) or {}
-    return {}
-
-
-_DEFAULT_PYMOO_CONFIG = PymooConfig()
-_PARAMS = load_params()
-
-
 def build_parser() -> argparse.ArgumentParser:
-    """CLI for tuning the pymoo search, exposing ``PymooConfig``'s fields."""
-    parser = argparse.ArgumentParser(
+    """CLI for tuning the pymoo search — thin wrapper around
+    ``pymoo_api.build_pymoo_parser``, the shared, non-domain-specific half
+    (see its own docstring for why this lives in ``pymoo_api.py`` while
+    ``ParamSpec``/``ObjectiveSpec`` do not).
+    """
+    return build_pymoo_parser(
         description="Multi-objective optimization demo for the AGS direct-heat example.",
+        default_output_dir=DEFAULT_OUTPUT_DIR,
+        params=load_params(PARAMS_FILE),
     )
-    n_max_gen_default = _PARAMS.get("n_max_gen", _DEFAULT_PYMOO_CONFIG.n_max_gen)
-    pop_size_default = _PARAMS.get("pop_size", _DEFAULT_PYMOO_CONFIG.pop_size)
-    ftol_default = _PARAMS.get("ftol", _DEFAULT_PYMOO_CONFIG.ftol)
-    xtol_default = _PARAMS.get("xtol", _DEFAULT_PYMOO_CONFIG.xtol)
-    seed_default = _PARAMS.get("seed", _DEFAULT_PYMOO_CONFIG.seed)
-    parser.add_argument(
-        "--n-max-gen",
-        type=int,
-        default=n_max_gen_default,
-        help=f"Max generations (hard cap). Defaults to {n_max_gen_default} (params.yaml/PymooConfig).",
-    )
-    parser.add_argument(
-        "--pop-size",
-        type=int,
-        default=pop_size_default,
-        help=f"Population size per generation. Defaults to {pop_size_default} (params.yaml/PymooConfig).",
-    )
-    parser.add_argument(
-        "--ftol",
-        type=float,
-        default=ftol_default,
-        help=f"Objective-space convergence tolerance. Defaults to {ftol_default} (params.yaml/PymooConfig).",
-    )
-    parser.add_argument(
-        "--xtol",
-        type=float,
-        default=xtol_default,
-        help=f"Design-space convergence tolerance. Defaults to {xtol_default} (params.yaml/PymooConfig).",
-    )
-    crossover_prob_default = _PARAMS.get("crossover_prob", _DEFAULT_PYMOO_CONFIG.crossover_prob)
-    mutation_prob_default = _PARAMS.get("mutation_prob", _DEFAULT_PYMOO_CONFIG.mutation_prob)
-    parser.add_argument(
-        "--crossover-prob",
-        type=float,
-        default=crossover_prob_default,
-        help=(
-            f"Probability two parents recombine (pymoo SBX's own prob). Defaults to "
-            f"{crossover_prob_default} (params.yaml/PymooConfig; None -> pymoo's own default)."
-        ),
-    )
-    parser.add_argument(
-        "--mutation-prob",
-        type=float,
-        default=mutation_prob_default,
-        help=(
-            f"Probability each variable mutates (pymoo PM's own prob). Defaults to "
-            f"{mutation_prob_default} (params.yaml/PymooConfig; None -> pymoo's own 1/n_var default)."
-        ),
-    )
-    n_processes_default = _PARAMS.get("n_processes", _DEFAULT_PYMOO_CONFIG.n_processes)
-    parser.add_argument(
-        "-p",
-        "--n-processes",
-        type=int,
-        default=n_processes_default,
-        help=f"Worker processes for parallel evaluation (1 = serial). Defaults to {n_processes_default} (params.yaml/PymooConfig).",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=seed_default,
-        help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
-    )
-    parser.add_argument(
-        "--no-seed",
-        action="store_true",
-        help="Pass seed=None instead (non-reproducible run) — overrides --seed.",
-    )
-    parser.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help=(
-            "Suppress pymoo's per-generation progress table (printed by default — "
-            "useful for seeing a long unattended run, e.g. a SLURM job, is actually "
-            "progressing rather than stalled)."
-        ),
-    )
-    parser.add_argument(
-        "--log-level",
-        default="WARNING",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help=(
-            "Python logging level for tango_next's own loggers. Defaults to "
-            "WARNING. INFO/DEBUG print on EVERY evaluation across the whole run."
-        ),
-    )
-    parser.add_argument(
-        "--save-dir",
-        type=Path,
-        default=DEFAULT_OUTPUT_DIR,
-        help=f"Where to write results/plots. Defaults to {DEFAULT_OUTPUT_DIR}.",
-    )
-    parser.add_argument(
-        "--clean",
-        action="store_true",
-        help=(
-            "Delete --save-dir entirely before running. Without this, a run "
-            "producing FEWER pareto designs than a previous run leaves the "
-            "previous run's extra pareto_configs/design_NNN.yml files behind."
-        ),
-    )
-    parser.add_argument(
-        "--seed-from",
-        type=Path,
-        default=None,
-        help=(
-            "Path to a previous run's pareto_results.csv to warm-start the "
-            "initial population from, instead of pymoo's default random/LHS init."
-        ),
-    )
-    return parser
 
 
 def build_baseline() -> tuple[Workflow, Workflow]:

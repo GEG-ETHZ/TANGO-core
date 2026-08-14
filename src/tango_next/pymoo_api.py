@@ -48,6 +48,7 @@ around (e.g. rejecting the combination of a policy that owns a field and a
 
 from __future__ import annotations
 
+import argparse
 import copy
 import json
 import logging
@@ -182,6 +183,180 @@ class PymooConfig:
     """Probability each variable gets mutated (pymoo's default mutation
     operator, ``PM``, calls this ``prob`` — default ``1/n_var`` if left
     ``None`` here). Same ``algorithm=`` caveat as ``crossover_prob`` above."""
+
+
+def load_params(params_file: Path) -> dict[str, Any]:
+    """Load optimization hyperparameters from a ``params.yaml`` file, if present.
+
+    Same pattern across every ``opt_*`` app script: DVC's ``dvc.yaml``
+    declares which of these keys it tracks for staleness, but the calling
+    script is what actually reads the values — DVC doesn't inject them
+    into the command line.
+    """
+    if params_file.exists():
+        return yaml.safe_load(params_file.read_text()) or {}
+    return {}
+
+
+def build_pymoo_parser(
+    description: str,
+    default_output_dir: Path,
+    params: dict[str, Any] | None = None,
+) -> argparse.ArgumentParser:
+    """Build the shared CLI for ``opt_*`` pymoo-optimization app scripts.
+
+    Every ``opt_*`` script needs the exact same mechanical plumbing:
+    exposing ``PymooConfig``'s own fields as CLI flags (an explicit CLI
+    flag overrides ``params``, which overrides ``PymooConfig``'s own
+    default — one source of truth for "the default"), plus a handful of
+    generic execution-control flags (``--quiet``, ``--log-level``,
+    ``--save-dir``, ``--clean``, ``--seed-from``). None of that is
+    domain-specific — unlike ``ParamSpec``/``ObjectiveSpec`` (see their
+    own docstrings), which DO stay in the calling script because they
+    encode assumptions about a specific physical system. This function is
+    the shared, non-domain-specific half of an ``opt_*`` script's CLI;
+    each script calls it, then can ``.add_argument(...)`` on the returned
+    parser for anything script-specific it ever needs.
+
+    No ``--skip-minimize``-style flag threading a previous-results cache:
+    ``Minimization`` already manages its own worker pool internally via
+    ``PymooConfig.n_processes``, and there's no cached-results-loading
+    feature to expose a flag for.
+
+    Args:
+        description: This script's own one-line description (shown in
+            ``--help``).
+        default_output_dir: Default ``--save-dir`` value.
+        params: Already-loaded ``params.yaml`` dict (see ``load_params``).
+
+    """
+    params = params or {}
+    default_pymoo_config = PymooConfig()
+    parser = argparse.ArgumentParser(description=description)
+
+    n_max_gen_default = params.get("n_max_gen", default_pymoo_config.n_max_gen)
+    pop_size_default = params.get("pop_size", default_pymoo_config.pop_size)
+    ftol_default = params.get("ftol", default_pymoo_config.ftol)
+    xtol_default = params.get("xtol", default_pymoo_config.xtol)
+    seed_default = params.get("seed", default_pymoo_config.seed)
+    parser.add_argument(
+        "--n-max-gen",
+        type=int,
+        default=n_max_gen_default,
+        help=f"Max generations (hard cap). Defaults to {n_max_gen_default} (params.yaml/PymooConfig).",
+    )
+    parser.add_argument(
+        "--pop-size",
+        type=int,
+        default=pop_size_default,
+        help=f"Population size per generation. Defaults to {pop_size_default} (params.yaml/PymooConfig).",
+    )
+    parser.add_argument(
+        "--ftol",
+        type=float,
+        default=ftol_default,
+        help=f"Objective-space convergence tolerance. Defaults to {ftol_default} (params.yaml/PymooConfig).",
+    )
+    parser.add_argument(
+        "--xtol",
+        type=float,
+        default=xtol_default,
+        help=f"Design-space convergence tolerance. Defaults to {xtol_default} (params.yaml/PymooConfig).",
+    )
+    crossover_prob_default = params.get("crossover_prob", default_pymoo_config.crossover_prob)
+    mutation_prob_default = params.get("mutation_prob", default_pymoo_config.mutation_prob)
+    parser.add_argument(
+        "--crossover-prob",
+        type=float,
+        default=crossover_prob_default,
+        help=(
+            f"Probability two parents recombine (pymoo SBX's own prob). Defaults to "
+            f"{crossover_prob_default} (params.yaml/PymooConfig; None -> pymoo's own default)."
+        ),
+    )
+    parser.add_argument(
+        "--mutation-prob",
+        type=float,
+        default=mutation_prob_default,
+        help=(
+            f"Probability each variable mutates (pymoo PM's own prob). Defaults to "
+            f"{mutation_prob_default} (params.yaml/PymooConfig; None -> pymoo's own 1/n_var default)."
+        ),
+    )
+    n_processes_default = params.get("n_processes", default_pymoo_config.n_processes)
+    parser.add_argument(
+        "-p",
+        "--n-processes",
+        type=int,
+        default=n_processes_default,
+        help=f"Worker processes for parallel evaluation (1 = serial). Defaults to {n_processes_default} (params.yaml/PymooConfig).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=seed_default,
+        help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
+    )
+    parser.add_argument(
+        "--no-seed",
+        action="store_true",
+        help="Pass seed=None instead (non-reproducible run) — overrides --seed.",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help=(
+            "Suppress pymoo's per-generation progress table (printed by default — "
+            "useful for seeing a long unattended run, e.g. a SLURM job, is actually "
+            "progressing rather than stalled)."
+        ),
+    )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help=(
+            "Python logging level for tango_next's own loggers (workflow "
+            "loading, per-timestep orchestrator state) — independent of "
+            "--quiet, which only controls pymoo's own progress table. "
+            "Defaults to WARNING. INFO/DEBUG print on EVERY evaluation "
+            "across the whole run, not just once."
+        ),
+    )
+    parser.add_argument(
+        "--save-dir",
+        type=Path,
+        default=default_output_dir,
+        help=f"Where to write results/plots. Defaults to {default_output_dir}.",
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help=(
+            "Delete --save-dir entirely before running. Without this, a run "
+            "producing FEWER pareto designs than a previous run leaves the "
+            "previous run's extra pareto_configs/design_NNN.yml files behind "
+            "(Minimization._save() only overwrites indices that exist in the "
+            "CURRENT result, it doesn't clear stale ones) — easy to mistake "
+            "for part of the current result."
+        ),
+    )
+    parser.add_argument(
+        "--seed-from",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a previous run's pareto_results.csv (or "
+            "pareto_results_partial.csv from an interrupted run) to "
+            "warm-start the initial population from, instead of pymoo's "
+            "default random/LHS init. NOT a true resume (fresh RNG state, "
+            "restarts at generation 1) -- see Minimization's seed_from "
+            "docstring for the full tradeoff. Remaining population slots "
+            "beyond what the file provides are filled via LHS."
+        ),
+    )
+    return parser
 
 
 @dataclass
