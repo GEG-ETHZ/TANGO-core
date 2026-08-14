@@ -6,6 +6,15 @@ minimize LCOE and maximize mean net electric power
 (``tango_next.pymoo_api.Minimization``), saving the pareto results/configs
 and parallel-coordinates plots.
 
+The ``*_param``/``*_objective`` factories below are defined LOCALLY in this
+script, not imported from ``pymoo_api.py`` — that module is deliberately
+generic (see its ``ParamSpec``/``ObjectiveSpec`` docstrings) and must not
+assume every future system looks like this one. A coupled reservoir model
+with its own inlet/outlet mass-flow mismatch, for instance, won't have a
+single constant global mass flow rate the way this DOUBLET topology does —
+so ``mass_rate_param`` belongs here, scoped to what THIS system actually
+needs, not baked into the shared API as if it applied universally.
+
 Usage: uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py
 """
 
@@ -14,6 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +35,9 @@ from pymoo.core.result import Result
 
 from tango_next.pymoo_api import (
     Minimization,
+    ObjectiveSpec,
+    ParamSpec,
     PymooConfig,
-    injection_pressure_param,
-    lcoe_objective,
-    mass_rate_param,
-    negative_mean_power_objective,
-    target_extraction_pressure_param,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -46,6 +53,119 @@ HERE = Path(__file__).parent
 CONFIG_DIR = HERE.parents[2] / "examples/tango_next/"
 DEFAULT_OUTPUT_DIR = HERE / "outputs"
 PARAMS_FILE = HERE / "params.yaml"
+
+
+# ---------------------------------------------------------------------------
+# Local ParamSpec/ObjectiveSpec factories — specific to this system, not in
+# pymoo_api.py (see this module's own docstring, and pymoo_api.py's
+# ParamSpec/ObjectiveSpec docstrings, for why).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _MassRateApply:
+    """Picklable ``ParamSpec.apply`` for ``mass_rate_param``.
+
+    A LOCAL closure (``def apply(...): ...`` nested inside a factory
+    function) can't be pickled — ``pickle``/``multiprocessing`` serialize
+    callables by module + qualified name and can't re-import a
+    runtime-only local closure. That only breaks in the ``n_processes > 1``
+    path (``multiprocessing.Pool.starmap`` requires every argument,
+    including this callable, to pickle). A module-level dataclass with
+    ``__call__`` pickles fine (by class reference + simple field values),
+    so every factory below uses this pattern instead of a closure.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["sim_config"]["mass_rate"] = float(value)
+        return cfg
+
+
+def mass_rate_param(bounds: tuple[float, float]) -> ParamSpec:
+    """Mass flow rate (``sim_config.mass_rate``, kg/s) as a decision variable."""
+    return ParamSpec(name="mass_rate_kg_s", apply=_MassRateApply(), bounds=bounds)
+
+
+@dataclass
+class _InjectionPressureApply:
+    """Picklable ``ParamSpec.apply`` for ``injection_pressure_param`` — see ``_MassRateApply``."""
+
+    surface_name: str = "surface"
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["components"][self.surface_name]["injection_pressure"] = float(value)
+        return cfg
+
+
+def injection_pressure_param(bounds: tuple[float, float], surface_name: str = "surface") -> ParamSpec:
+    """Injection wellhead pressure (``components.<surface_name>.injection_pressure``, Pa)."""
+    return ParamSpec(name="injection_pressure_Pa", apply=_InjectionPressureApply(surface_name), bounds=bounds)
+
+
+@dataclass
+class _TargetExtractionPressureApply:
+    """Picklable ``ParamSpec.apply`` for ``target_extraction_pressure_param`` — see ``_MassRateApply``."""
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["sim_config"]["target_extraction_pressure"] = float(value)
+        return cfg
+
+
+def target_extraction_pressure_param(bounds: tuple[float, float]) -> ParamSpec:
+    """Minimum required extraction pressure at the surface inlet
+    (``sim_config.target_extraction_pressure``, Pa) — the SINGLE shared
+    source threaded to every component declaring this field (surface,
+    pump-bearing production wells; see ``Workflow``'s ``_LAYOUT_EXTRA_KEYS``
+    docstring). Deliberately NOT ``components.<surface_name>.*`` — that was
+    a pre-fix duplication bug this field's docstring warns about.
+    """
+    return ParamSpec(
+        name="target_extraction_pressure_Pa",
+        apply=_TargetExtractionPressureApply(),
+        bounds=bounds,
+    )
+
+
+@dataclass
+class _LcoeEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``lcoe_objective`` — see ``_MassRateApply``."""
+
+    def __call__(self, wf: Workflow) -> float:
+        return float(wf.to_dict()["economic"]["state"]["LCOE"])
+
+
+def lcoe_objective() -> ObjectiveSpec:
+    """LCOE ($/kWh), from ``NativeEconomicComponent`` — requires an ``economic:`` block."""
+    return ObjectiveSpec(name="LCOE", evaluate=_LcoeEvaluate())
+
+
+@dataclass
+class _NegativeMeanPowerEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_mean_power_objective`` — see ``_MassRateApply``."""
+
+    surface_name: str = "surface"
+
+    def __call__(self, wf: Workflow) -> float:
+        surface = wf._orchestrator.components[self.surface_name]  # noqa: SLF001
+        history = getattr(surface, "history", None)
+        net_power_w_history: list[float] = getattr(history, "net_power_W", [])
+        mean_w = sum(net_power_w_history) / len(net_power_w_history) if net_power_w_history else 0.0
+        return -mean_w
+
+
+def negative_mean_power_objective(surface_name: str = "surface") -> ObjectiveSpec:
+    """``-`` mean net electric power over the run (W) — minimizing this maximizes power.
+
+    Mean, not total energy: a human reading the results has direct
+    intuition for "1.3 MW average" but none for "1.1e15 J total" — and
+    since every timestep has the SAME duration in tango_next today
+    (``dt_years`` is a single scalar for the whole run), the mean of
+    ``history.net_power_W`` and the time-integrated total energy differ
+    only by that one shared, constant scale factor (``dt_years *
+    YEAR_TO_SECOND``) — the mean carries exactly the same optimization
+    signal, it's just a friendlier unit to look at.
+    """
+    return ObjectiveSpec(name="negative_mean_power_W", evaluate=_NegativeMeanPowerEvaluate(surface_name))
 
 
 def load_params() -> dict[str, Any]:

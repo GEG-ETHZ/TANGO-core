@@ -36,13 +36,17 @@ NSGA2 naturally steers away from infeasible corners of the depth/pressure
 space without needing that formula duplicated here. Revisit only if the
 infeasible-design rate turns out too high in practice.
 
-``negative_mean_thermal_power_objective`` is defined LOCALLY in this file,
-not added to ``pymoo_api.py`` — that module is deliberately generic and
-doesn't need to anticipate every downstream system's history fields (see
-``pymoo_api.py``'s own ``ParamSpec``/``ObjectiveSpec`` docstrings). AGS is
-a direct-heat topology (``role: net_thermal`` in the YAML), so its surface
-component's history has ``net_thermal_W``, not the electric
-``net_power_W`` the existing ``negative_mean_power_objective`` reads.
+Every ``*_param``/``*_objective`` factory below is defined LOCALLY in this
+file, including ``mass_rate_param``/``lcoe_objective`` (which happen to be
+identical to ``opt_hydro_df_electric.py``'s/``opt_hydro_sf_electric.py``'s
+own local copies) — none are imported from ``pymoo_api.py``, which is
+deliberately generic and must not assume every system shares a param or
+objective just because these three currently do (see ``pymoo_api.py``'s
+own ``ParamSpec``/``ObjectiveSpec`` docstrings).
+``negative_mean_thermal_power_objective`` specifically exists because AGS
+is a direct-heat topology (``role: net_thermal`` in the YAML), so its
+surface component's history has ``net_thermal_W``, not the electric
+``net_power_W`` the other two scripts' ``negative_mean_power_objective`` reads.
 
 Usage: uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py
 """
@@ -67,8 +71,6 @@ from tango_next.pymoo_api import (
     ObjectiveSpec,
     ParamSpec,
     PymooConfig,
-    lcoe_objective,
-    mass_rate_param,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -157,6 +159,47 @@ class _LoopDiameterApply:
 def loop_diameter_param(bounds: tuple[float, float]) -> ParamSpec:
     """Horizontal loop diameter (m)."""
     return ParamSpec(name="loop_diameter_m", apply=_LoopDiameterApply(), bounds=bounds)
+
+
+@dataclass
+class _MassRateApply:
+    """Picklable ``ParamSpec.apply`` for ``mass_rate_param``.
+
+    Same definition as ``opt_hydro_df_electric.py``'s/``opt_hydro_sf_electric.py``'s
+    — duplicated deliberately, not shared via ``pymoo_api.py``, since this
+    field means the same thing (``sim_config.mass_rate``, kg/s) across all
+    three systems today. That overlap isn't evidence it belongs in the
+    shared API instead — a future coupled reservoir model with its own
+    inlet/outlet mass-flow mismatch won't have a single constant global
+    mass flow rate the way these three do.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["sim_config"]["mass_rate"] = float(value)
+        return cfg
+
+
+def mass_rate_param(bounds: tuple[float, float]) -> ParamSpec:
+    """Mass flow rate (``sim_config.mass_rate``, kg/s) as a decision variable."""
+    return ParamSpec(name="mass_rate_kg_s", apply=_MassRateApply(), bounds=bounds)
+
+
+@dataclass
+class _LcoeEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``lcoe_objective`` — see ``_MassRateApply``."""
+
+    def __call__(self, wf: Workflow) -> float:
+        return float(wf.to_dict()["economic"]["state"]["LCOE"])
+
+
+def lcoe_objective() -> ObjectiveSpec:
+    """LCOE ($/kWh), from ``NativeEconomicComponent`` — requires an ``economic:`` block.
+
+    Works for AGS's direct-heat topology too, despite its ``main_product:
+    heat``/LCOH framing — confirmed empirically: ``economic.state`` still
+    stores the value under the key ``LCOE`` regardless of product type.
+    """
+    return ObjectiveSpec(name="LCOE", evaluate=_LcoeEvaluate())
 
 
 @dataclass
