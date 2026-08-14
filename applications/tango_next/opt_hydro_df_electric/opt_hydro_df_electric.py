@@ -379,7 +379,7 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
     m = Minimization(
         base_workflow=base_wf,
         params=[
-            mass_rate_param(bounds=(10.0, 100.0)),
+            mass_rate_param(bounds=(10.0, 200.0)),
             injection_pressure_param(bounds=(1.0e6, 8.0e6)),
             # (0.7, 1.5)x the base YAML's 7.0 MPa — same scale factor already
             # used for this field in run_hydro_df_electric_sweep/common.py's
