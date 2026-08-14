@@ -40,7 +40,7 @@
 #
 # Sweep axes (see sweep.py / common.py):
 #   well_depth_m    : 2000 – 6500 m  (10 values)
-#   mass_flow_kg_s  : 5   – 100 kg/s  (10 values)
+#   mass_flow_kg_per_s  : 5   – 100 kg/s  (10 values)
 #   loop_length_m   : 707 – 2500 m    (5 values)
 #
 # The horizontal loop length used to be held fixed at 2500 m, an unreconciled

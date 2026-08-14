@@ -181,7 +181,7 @@ class _MassRateApply:
 
 def mass_rate_param(bounds: tuple[float, float]) -> ParamSpec:
     """Mass flow rate (``sim_config.mass_rate``, kg/s) as a decision variable."""
-    return ParamSpec(name="mass_rate_kg_s", apply=_MassRateApply(), bounds=bounds)
+    return ParamSpec(name="mass_rate_kg_per_s", apply=_MassRateApply(), bounds=bounds)
 
 
 @dataclass

@@ -21,7 +21,7 @@ T_PROD_THRESHOLD_C = 105.0
 # results.parquet and the <row_idx>.json filename in outputs/results/) by
 # hovering/dragging on that axis instead of having to reverse-engineer it
 # from the other seven values.
-# Then inputs (well_depth_m, mass_flow_kg_s, loop_length_m, loop_diameter_m),
+# Then inputs (well_depth_m, mass_flow_kg_per_s, loop_length_m, loop_diameter_m),
 # then outputs chosen to tell the design story end to end:
 #   - T_prod_C            whether the district-heating temperature target is met
 #   - thermal_power_kW    how much useful heat the design actually delivers
@@ -30,7 +30,7 @@ T_PROD_THRESHOLD_C = 105.0
 _PARCOORD_COLUMNS: list[tuple[str, str]] = [
     ("row_idx", "Design\nindex"),
     ("well_depth_m", "Well depth\n[m]"),
-    ("mass_flow_kg_s", "Mass flow\n[kg/s]"),
+    ("mass_flow_kg_per_s", "Mass flow\n[kg/s]"),
     ("loop_length_m", "Loop length\n[m]"),
     ("loop_diameter_m", "Loop diameter\n[m]"),
     ("T_prod_C", "T production\n[degC]"),
@@ -88,14 +88,14 @@ def plot_success_scatter(df: pl.DataFrame, out_path: Path) -> None:
             misses = sub.filter(pl.col("T_prod_C") < T_PROD_THRESHOLD_C)
 
             ax.scatter(
-                misses["mass_flow_kg_s"],
+                misses["mass_flow_kg_per_s"],
                 misses["well_depth_m"],
                 marker="x",
                 color="tab:red",
                 s=35,
             )
             ax.scatter(
-                meets["mass_flow_kg_s"],
+                meets["mass_flow_kg_per_s"],
                 meets["well_depth_m"],
                 marker="o",
                 color="tab:green",
@@ -194,7 +194,7 @@ def plot_lcoe_grid(df: pl.DataFrame, out_path: Path, color_col: str = "LCOE_USD_
             n_undefined_total += misses_undefined.height
 
             ax.scatter(
-                misses_undefined["mass_flow_kg_s"],
+                misses_undefined["mass_flow_kg_per_s"],
                 misses_undefined["well_depth_m"],
                 marker="x",
                 color="lightgrey",
@@ -202,7 +202,7 @@ def plot_lcoe_grid(df: pl.DataFrame, out_path: Path, color_col: str = "LCOE_USD_
                 zorder=1,
             )
             ax.scatter(
-                misses_defined["mass_flow_kg_s"],
+                misses_defined["mass_flow_kg_per_s"],
                 misses_defined["well_depth_m"],
                 c=misses_defined[color_col],
                 cmap=cmap,
@@ -212,7 +212,7 @@ def plot_lcoe_grid(df: pl.DataFrame, out_path: Path, color_col: str = "LCOE_USD_
                 zorder=2,
             )
             ax.scatter(
-                meets["mass_flow_kg_s"],
+                meets["mass_flow_kg_per_s"],
                 meets["well_depth_m"],
                 c=meets[color_col],
                 cmap=cmap,

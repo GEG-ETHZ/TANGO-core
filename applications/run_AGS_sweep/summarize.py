@@ -50,7 +50,7 @@ def pivot_table(
         successful.with_columns(
             [
                 pl.col("well_depth_m").round(0).cast(pl.Int64).alias("depth"),
-                pl.col("mass_flow_kg_s").round(1).alias("mdot"),
+                pl.col("mass_flow_kg_per_s").round(1).alias("mdot"),
                 pl.col(value_col),
             ],
         )
@@ -169,7 +169,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
                 qualified.select(
                     [
                         "well_depth_m",
-                        "mass_flow_kg_s",
+                        "mass_flow_kg_per_s",
                         "loop_length_m",
                         "loop_diameter_m",
                         "T_prod_C",
@@ -177,7 +177,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
                         "CAPEX_total_USD",
                         "LCOE_USD_per_kWh",
                     ],
-                ).sort(["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m"]),
+                ).sort(["well_depth_m", "mass_flow_kg_per_s", "loop_length_m", "loop_diameter_m"]),
             )
 
     # ── failed runs ───────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         with pl.Config(tbl_rows=20):
             print(
                 df.filter(pl.col("error").is_not_null()).select(
-                    ["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m", "error"],
+                    ["well_depth_m", "mass_flow_kg_per_s", "loop_length_m", "loop_diameter_m", "error"],
                 ),
             )
 

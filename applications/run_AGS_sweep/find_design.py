@@ -39,7 +39,7 @@ _DEFAULT_TOP_N = 5
 def find_design(
     df: pl.DataFrame,
     well_depth_m: float | None = None,
-    mass_flow_kg_s: float | None = None,
+    mass_flow_kg_per_s: float | None = None,
     loop_length_m: float | None = None,
     loop_diameter_m: float | None = None,
     top_n: int = _DEFAULT_TOP_N,
@@ -54,7 +54,7 @@ def find_design(
     """
     provided = {
         "well_depth_m": well_depth_m,
-        "mass_flow_kg_s": mass_flow_kg_s,
+        "mass_flow_kg_per_s": mass_flow_kg_per_s,
         "loop_length_m": loop_length_m,
         "loop_diameter_m": loop_diameter_m,
     }
@@ -90,7 +90,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if all(
-        v is None for v in [args.well_depth_m, args.mass_flow_kg_s, args.loop_length_m, args.loop_diameter_m]
+        v is None
+        for v in [args.well_depth_m, args.mass_flow_kg_per_s, args.loop_length_m, args.loop_diameter_m]
     ):
         parser.error(
             "Provide at least one of --well-depth-m/--mass-flow-kg-s/--loop-length-m/--loop-diameter-m",
@@ -102,7 +103,7 @@ def main() -> None:
     matches = find_design(
         df,
         well_depth_m=args.well_depth_m,
-        mass_flow_kg_s=args.mass_flow_kg_s,
+        mass_flow_kg_per_s=args.mass_flow_kg_per_s,
         loop_length_m=args.loop_length_m,
         loop_diameter_m=args.loop_diameter_m,
         top_n=args.top_n,
@@ -112,7 +113,7 @@ def main() -> None:
         "row_idx",
         "_match_distance",
         "well_depth_m",
-        "mass_flow_kg_s",
+        "mass_flow_kg_per_s",
         "loop_length_m",
         "loop_diameter_m",
         "T_prod_C",

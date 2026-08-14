@@ -62,14 +62,14 @@ def run_single_simulation(args: tuple) -> None:
     df = pl.read_parquet(design_matrix_file)
     row = df.filter(pl.col("row_idx") == row_idx).to_dicts()[0]
     depth_m: float = row["well_depth_m"]
-    mdot: float = row["mass_flow_kg_s"]
+    mdot: float = row["mass_flow_kg_per_s"]
 
     runner = Runner(input_file=BASE_YAML, no_save=True, log_level=log_level)
 
     result: dict = {
         "row_idx": row_idx,
         "well_depth_m": depth_m,
-        "mass_flow_kg_s": mdot,
+        "mass_flow_kg_per_s": mdot,
         # Physics outputs
         "T_prod_K": None,
         "T_prod_C": None,

@@ -59,7 +59,7 @@ def pivot_table(
         successful.with_columns(
             [
                 pl.col("well_depth_m").round(0).cast(pl.Int64).alias("depth"),
-                pl.col("mass_flow_kg_s").round(1).alias("mdot"),
+                pl.col("mass_flow_kg_per_s").round(1).alias("mdot"),
                 pl.col(value_col),
             ],
         )
@@ -106,7 +106,7 @@ _PIVOT_SPECS: list[tuple[str, str, str]] = [
 
 _PIVOT_LABELS: dict[str, str] = {
     "T_prod_C": "Production temperature",
-    "specific_enthalpy_kJ_kg": "Specific enthalpy  (derived from thermal_power_kW / mass_flow_kg_s)",
+    "specific_enthalpy_kJ_kg": "Specific enthalpy  (derived from thermal_power_kW / mass_flow_kg_per_s)",
     "thermal_power_kW": "Thermal power  (TESPy-solved dh_hx duty, net_thermal_W / 1000)",
 }
 
@@ -175,14 +175,14 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
                 qualified.select(
                     [
                         "well_depth_m",
-                        "mass_flow_kg_s",
+                        "mass_flow_kg_per_s",
                         "loop_length_m",
                         "loop_diameter_m",
                         "T_prod_C",
                         "specific_enthalpy_kJ_kg",
                         "thermal_power_kW",
                     ],
-                ).sort(["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m"]),
+                ).sort(["well_depth_m", "mass_flow_kg_per_s", "loop_length_m", "loop_diameter_m"]),
             )
 
     # ── failed runs ───────────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         with pl.Config(tbl_rows=20):
             print(
                 df.filter(pl.col("error").is_not_null()).select(
-                    ["well_depth_m", "mass_flow_kg_s", "loop_length_m", "loop_diameter_m", "error"],
+                    ["well_depth_m", "mass_flow_kg_per_s", "loop_length_m", "loop_diameter_m", "error"],
                 ),
             )
 

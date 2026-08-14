@@ -39,7 +39,7 @@ def generate_design_matrix(output_file: Path, quiet: bool = False, smoke: bool =
                         {
                             "row_idx": row_idx,
                             "well_depth_m": depth,
-                            "mass_flow_kg_s": mdot,
+                            "mass_flow_kg_per_s": mdot,
                             "loop_length_m": loop_length,
                             "loop_diameter_m": loop_diameter,
                         },

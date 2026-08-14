@@ -140,7 +140,7 @@ def run_single_simulation(args: tuple) -> None:
     df = pl.read_parquet(design_matrix_file)
     row = df.filter(pl.col("row_idx") == row_idx).to_dicts()[0]
     depth_m: float = row["well_depth_m"]
-    mdot: float = row["mass_flow_kg_s"]
+    mdot: float = row["mass_flow_kg_per_s"]
     loop_length_m: float = row["loop_length_m"]
     loop_diameter_m: float = row["loop_diameter_m"]
 
@@ -149,7 +149,7 @@ def run_single_simulation(args: tuple) -> None:
     result: dict = {
         "row_idx": row_idx,
         "well_depth_m": depth_m,
-        "mass_flow_kg_s": mdot,
+        "mass_flow_kg_per_s": mdot,
         "loop_length_m": loop_length_m,
         "loop_diameter_m": loop_diameter_m,
         # Physics outputs

@@ -41,7 +41,7 @@ _DEFAULT_TOP_N = 5
 def find_design(
     df: pl.DataFrame,
     well_depth_m: float | None = None,
-    mass_flow_kg_s: float | None = None,
+    mass_flow_kg_per_s: float | None = None,
     top_n: int = _DEFAULT_TOP_N,
 ) -> pl.DataFrame:
     """Return the top_n designs nearest the given (possibly partial) parameter values.
@@ -54,7 +54,7 @@ def find_design(
     """
     provided = {
         "well_depth_m": well_depth_m,
-        "mass_flow_kg_s": mass_flow_kg_s,
+        "mass_flow_kg_per_s": mass_flow_kg_per_s,
     }
     provided = {col: value for col, value in provided.items() if value is not None}
     if not provided:
@@ -85,7 +85,7 @@ def main() -> None:
     parser.add_argument("--sweep-dir", type=Path, default=None)
     args = parser.parse_args()
 
-    if all(v is None for v in [args.well_depth_m, args.mass_flow_kg_s]):
+    if all(v is None for v in [args.well_depth_m, args.mass_flow_kg_per_s]):
         parser.error("Provide at least one of --well-depth-m/--mass-flow-kg-s")
 
     sweep_dir = args.sweep_dir or DEFAULT_SWEEP_DIR
@@ -94,7 +94,7 @@ def main() -> None:
     matches = find_design(
         df,
         well_depth_m=args.well_depth_m,
-        mass_flow_kg_s=args.mass_flow_kg_s,
+        mass_flow_kg_per_s=args.mass_flow_kg_per_s,
         top_n=args.top_n,
     )
 
@@ -102,7 +102,7 @@ def main() -> None:
         "row_idx",
         "_match_distance",
         "well_depth_m",
-        "mass_flow_kg_s",
+        "mass_flow_kg_per_s",
         "T_prod_C",
         "thermal_power_kW",
         "error",

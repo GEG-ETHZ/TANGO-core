@@ -32,7 +32,7 @@ T_PROD_THRESHOLD_C = 105.0
 # results.parquet and the <row_idx>.json filename in outputs/results/) by
 # hovering/dragging on that axis instead of having to reverse-engineer it
 # from the other values.
-# Then inputs (well_depth_m, mass_flow_kg_s, loop_length_m, loop_diameter_m),
+# Then inputs (well_depth_m, mass_flow_kg_per_s, loop_length_m, loop_diameter_m),
 # then outputs: T_prod_C (whether the district-heating temperature target is
 # met) and thermal_power_kW (how much useful heat the design actually
 # delivers). CAPEX_total_USD/LCOE_USD_per_kWh are omitted — always null in
@@ -40,7 +40,7 @@ T_PROD_THRESHOLD_C = 105.0
 _PARCOORD_COLUMNS: list[tuple[str, str]] = [
     ("row_idx", "Design\nindex"),
     ("well_depth_m", "Well depth\n[m]"),
-    ("mass_flow_kg_s", "Mass flow\n[kg/s]"),
+    ("mass_flow_kg_per_s", "Mass flow\n[kg/s]"),
     ("loop_length_m", "Loop length\n[m]"),
     ("loop_diameter_m", "Loop diameter\n[m]"),
     ("T_prod_C", "T production\n[degC]"),
@@ -90,14 +90,14 @@ def plot_success_scatter(df: pl.DataFrame, out_path: Path) -> None:
             misses = sub.filter(pl.col("T_prod_C") < T_PROD_THRESHOLD_C)
 
             ax.scatter(
-                misses["mass_flow_kg_s"],
+                misses["mass_flow_kg_per_s"],
                 misses["well_depth_m"],
                 marker="x",
                 color="tab:red",
                 s=35,
             )
             ax.scatter(
-                meets["mass_flow_kg_s"],
+                meets["mass_flow_kg_per_s"],
                 meets["well_depth_m"],
                 marker="o",
                 color="tab:green",
@@ -157,7 +157,7 @@ def plot_parallel_coordinates(df: pl.DataFrame, out_path: Path, color_col: str =
     its min/max, so a handful of outliers don't collapse the gradient for
     everyone else. Designs with `color_col` null (not expected for
     thermal_power_kW on a successful run, but handled defensively — see
-    sweep.py, which sets it to NaN only if mass_flow_kg_s is zero, which
+    sweep.py, which sets it to NaN only if mass_flow_kg_per_s is zero, which
     never occurs in this sweep) are drawn in flat grey with reduced opacity.
     """
     successful = df.filter(pl.col("error").is_null())

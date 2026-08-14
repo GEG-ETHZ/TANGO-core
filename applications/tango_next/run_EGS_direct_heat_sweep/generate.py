@@ -34,7 +34,7 @@ def generate_design_matrix(output_file: Path, quiet: bool = False, smoke: bool =
     row_idx = 0
     for depth in depths:
         for mdot in mdots:
-            rows.append({"row_idx": row_idx, "well_depth_m": depth, "mass_flow_kg_s": mdot})
+            rows.append({"row_idx": row_idx, "well_depth_m": depth, "mass_flow_kg_per_s": mdot})
             row_idx += 1
 
     df = pl.DataFrame(rows)
