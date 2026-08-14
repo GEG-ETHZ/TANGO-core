@@ -86,22 +86,52 @@ in-flight multi-step work across sessions.
   priorities" entry below. Full `tests/unit`+`tests/regtest` suite: 123
   passed, 0 failed (up from 5 pre-existing failures before this fix) —
   `ruff`/`mypy` clean.
-- [ ] **Near-term TODO (flagged 2026-08-11, not started): iterate to achieve
-  `target_extraction_pressure` instead of directly solving for it.**
-  `NumericalProductionWellWithPump`/`LumpedProductionWellWithPump`'s pump
-  boost currently computes the required enthalpy rise via a single
-  closed-form CoolProp lookup at the target pressure — correct for a
-  well-behaved (single-phase, monotonic) liquid, but doesn't handle cases
-  where that assumption breaks down (e.g. approaching a phase boundary,
-  or any other place a single-shot solve isn't actually valid). Old
-  tango's own approach (`BC_calculator.py`'s 5-fixed-iteration pump_dp
-  loop) is genuinely worse in some ways (see the "isothermal enthalpy
-  rise" investigation above — no efficiency term, fixed iteration count
-  with no real tolerance check) but the STRUCTURE (iterate to convergence
-  rather than trust one direct solve) is the right idea to borrow, done
-  properly this time (a real tolerance-based loop, not a fixed 5-shot
-  fixed-point scheme). Chad's explicit call: don't implement yet, keep as
-  tracked backlog.
+- [ ] **SCOPED 2026-08-14, ready to implement: re-architect the production-well
+  pump boost as a Secant-converged iteration over the segment's INLET
+  pressure, not a value tacked onto an already-completed march.**
+  `NumericalProductionWellWithPump`/`LumpedProductionWellWithPump` currently
+  march the entire upper wellbore segment first (`super().solve()`, using
+  the fluid's natural, un-boosted pressure trajectory the whole way), THEN
+  apply the pump boost as a single closed-form enthalpy correction tacked
+  onto the very last step — implicitly treating the pump as sitting exactly
+  at the wellhead, with zero pipe between the pump and the surface. There is
+  no `pump_depth` field anywhere in either component. If the pump physically
+  sits lower in the segment (realistic for an ESP), every cell genuinely
+  above the pump is being marched with the WRONG density: friction/heat-loss
+  per cell depends on local fluid density, and the marching solve computed
+  that density from the natural (un-boosted, lower-pressure) trajectory
+  instead of the boosted one — a small error for a liquid far from its
+  critical point, but potentially a real one exactly in the "approaching a
+  phase boundary" regime this was originally flagged for.
+
+  **Two closed-form sub-questions got resolved along the way, NEITHER of
+  which needs iteration on its own:**
+  1. Accounting for imperfect pump efficiency does NOT require root-finding:
+     entropy at the inlet state → isentropic enthalpy at the target pressure
+     (needs a new `FluidState.with_PS`, straightforward CoolProp PSmass
+     call) → efficiency-derated actual enthalpy via
+     `h_actual = h_in + (h_isentropic - h_in) / pump_efficiency` (pure
+     algebra — efficiency only scales a linear interpolation, no
+     nonlinearity) → actual outlet temperature via the already-existing
+     `FluidState.with_HP`. Four direct property evaluations, no iteration.
+  2. Inverting enthalpy back to temperature does NOT require root-finding
+     either — `FluidState.with_HP` already does this directly.
+
+  **What DOES require iteration, and why cloning is unavoidable:** the
+  segment's own friction/gravity pressure drop is a function of the
+  boosted pressure profile, which is exactly what we're solving for — a
+  genuine fixed-point problem, not a scalar property inversion. Design:
+  guess a boosted inlet pressure, clone `production_well_upper` (a full
+  re-solve mutates ~100 cells' worth of `LockedState` fields — trying a
+  candidate on the live component would either violate the "written once
+  per timestep" contract or require repeatedly mark-staling every cell,
+  neither of which belongs on the real object mid-search), re-march the
+  WHOLE segment with that guessed inlet, compare the resulting outlet
+  pressure to `target_extraction_pressure`, Secant-update the inlet-pressure
+  guess, repeat with a real tolerance check (not a fixed iteration count).
+  Early-exit without a second iteration if the first guess already
+  converges. Commit the final converged state to the real component once
+  done, exactly once per field.
 - [x] **DONE 2026-08-11 — `pymoo_api.Minimization` now saves the current
   non-dominated front after every generation**, not just at the end.
   `Minimization.run()` was refactored from pymoo's `minimize()`
@@ -116,26 +146,20 @@ in-flight multi-step work across sessions.
   interrupted run) plus an `n_gen` provenance column. If a run gets
   killed (SLURM time limit, Ctrl-C, crash), whatever the front looked
   like as of the last completed generation is already on disk.
-- [ ] **Idea to consider, NOT committed to yet: stop/resume for
-  `Minimization.run()`.** Chad's ask, prompted by the above — being able
-  to pause a long HPC run and later continue it from where it left off,
-  rather than restarting from scratch. Researched (not implemented): the
-  same `algorithm.setup()`/`.next()` loop the save-every-generation
-  feature above already uses is also pymoo's own documented checkpoint
-  mechanism — confirmed empirically (pickled a real pymoo `Algorithm`
-  mid-run on a synthetic problem, reloaded it, and `.next()` continued
-  correctly: same generation counter, same population, same
-  non-dominated front — genuine continuation, not a restart). The real
-  complication is `n_processes > 1`: the algorithm holds a live
-  `multiprocessing.Pool` (via `StarmapParallelization`), and pool objects
-  can't be pickled at all (OS-level resources, not serializable) — a real
-  implementation needs to strip the pool out of `problem.elementwise_runner`
-  before pickling and rebuild a fresh one after reloading, not naively
-  pickle the whole algorithm object. Would need new CLI flags
-  (`--checkpoint-every`/`--resume-from`, roughly) and a checkpoint file
-  format decision. Meaningfully more surface area than the
-  save-every-generation feature above — flagged as worth doing, not
-  scheduled.
+- [x] **DONE (superseded) — stop/resume for `Minimization.run()`.** Chad's
+  ask, prompted by the save-every-generation feature above — being able to
+  pause a long HPC run and later continue it from where it left off, rather
+  than restarting from scratch. True checkpoint/resume (pickling the live
+  `algorithm` mid-run, including its `multiprocessing.Pool`) was researched
+  but never implemented — see git history for the removed writeup. Instead,
+  `Minimization` gained `seed_from`/`pad_sampling`: `seed_from` points at a
+  previous run's `pareto_results.csv` (or `_partial` variant), its
+  non-dominated designs become the initial population, and `pad_sampling`
+  (default `LHS()`) fills the rest of `pop_size`. Not a true resume (fresh
+  RNG state, restarts at generation 1), but it gets the practical benefit —
+  a new run picks up from where the old front left off instead of from
+  scratch — without the pool-pickling complication. Good enough that true
+  checkpoint/resume is no longer planned.
 
 ## Next session priorities (set 2026-08-03)
 
@@ -1213,6 +1237,29 @@ reasoning doesn't have to be re-derived next session.
       but budget it as its own task, not a quick add-on.
 
 ## Backlog (queued, not yet started)
+
+- **Errors should include more context, where possible.** Flagged
+  2026-08-14 (Chad, mid-session), not started. When an error can be tied
+  to a specific component or interface between components, the specific
+  convergence iteration/loop it occurred in, and/or the timestep, the
+  error message should say so — makes failures in a long unattended run
+  (SLURM job, optimization search) actually diagnosable from the log
+  alone rather than needing a debugger session to figure out WHERE in the
+  circuit/timeline something went wrong. Needs a survey pass across
+  `core/errors.py`'s raise sites (`ConvergenceError`, `InvalidPowerStateError`,
+  `CoolPropError`, etc.) to see which already carry this and which don't —
+  not a one-shot fix, likely touches many call sites incrementally.
+
+- **Assess how many numerical cells wells actually need.** Flagged
+  2026-08-14, not started. `NumericalWell.num_cells` defaults to 100
+  (`components/well/numerical.py`) and every current example config uses
+  that default uniformly, for every well, regardless of well length or
+  physical regime — never deliberately chosen per case. Chad's suspicion:
+  a lot fewer cells would likely hold accuracy within an acceptable
+  tolerance. Needs an actual convergence study (compare key outputs —
+  outlet T/P, pump power, etc. — across a range of `num_cells` values
+  against the current 100-cell baseline) before picking a new default;
+  don't just guess a smaller number.
 
 - **OPTIONAL, NO URGENCY — `InjectionPolicy.AUTO_BOTH`'s outer Picard loop
   can hit `InvalidPowerStateError` on an intermediate (not final) iterate

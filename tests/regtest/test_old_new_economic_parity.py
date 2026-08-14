@@ -128,9 +128,9 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 6308653.687447036,
-            "CAPEX_total": 46136936.56174025,
-            "LCOE": 0.765906066960226,
+            "CAPEX_surface_plant": 6341613.475133107,
+            "CAPEX_total": 46169896.34942632,
+            "LCOE": 0.8240688318863874,
         },
     ),
     EconomicParityCase(
@@ -143,16 +143,29 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             "CAPEX_well": 1e-6,
             "CAPEX_surface_plant": 0.25,
             "CAPEX_total": 0.05,
-            "LCOE": 0.03,
+            # 0.03 -> 0.05 (2026-08-14): NumericalProductionWellWithPump's pump
+            # work moved from an isothermal CoolProp enthalpy-rise formula to
+            # an isentropic-efficiency one (see that class's solve() docstring).
+            # For a liquid, dH|_S = V*dP is genuinely larger than
+            # dH|_T = [V - T*(dV/dT)_P]*dP -- the isothermal path is missing
+            # the PV-work term a real, adiabatic pump stroke actually does on
+            # the fluid. Confirmed by direct comparison this is what moved
+            # the number (285,318 W isentropic vs. 185,975 W isothermal for
+            # this config, evaluated on the SAME natural-march state -- the
+            # OTHER part of this fix, re-marching with boosted density,
+            # contributes under 0.1% on top). Old tango's own pump model is
+            # ALSO isothermal, so this is tango_next deliberately diverging
+            # from a known simplification in old tango's physics, not drift.
+            "LCOE": 0.05,
         },
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 7771532.120013647,
-            "CAPEX_total": 47599814.99430686,
-            "LCOE": 0.600686319234813,
+            "CAPEX_surface_plant": 7810178.483363787,
+            "CAPEX_total": 47638461.357657,
+            "LCOE": 0.633224098583723,
         },
     ),
 ]

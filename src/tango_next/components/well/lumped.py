@@ -25,9 +25,9 @@ from pydantic import Field
 
 from tango_next.components.well.base import WellComponent
 from tango_next.core.errors import InvalidPowerStateError
+from tango_next.core.fluid_state import FluidState
 from tango_next.core.fluid_utils import (
     fluid_density,
-    fluid_enthalpy,
     fluid_viscosity,
     friction_factor_darcy,
     hydrostatic_pressure,
@@ -36,6 +36,7 @@ from tango_next.core.fluid_utils import (
     reynolds_number,
 )
 from tango_next.core.locked_state import LockedState
+from tango_next.core.numerics import PUMP_BOOST_MAX_ITER, PUMP_BOOST_TOL_PA, secant_solve
 from tango_next.core.specs import Common
 
 # ---------------------------------------------------------------------------
@@ -272,13 +273,10 @@ class LumpedProductionWellWithPump(WellComponent):
     independent copy. See core/specs.py."""
     pump_efficiency: float = Field(default=1.0, frozen=True)
     """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
-    derating) to match old tango's BC_calculator.py pump-power calculation,
-    which applies no efficiency correction at all. TODO: lower this
-    default to ~0.9 once a real efficiency figure is settled on (Chad's
-    call, deliberately deferred — parity with old tango comes first). See
-    NumericalProductionWellWithPump.solve()'s docstring for the full
-    derivation of why this uses an isothermal CoolProp enthalpy rise
-    rather than mass_rate*ΔP/ρ."""
+    derating). TODO: lower this default to ~0.9 once a real efficiency
+    figure is settled on — deliberately deferred until then. See
+    ``solve()``'s docstring for the isentropic-efficiency pump model this
+    scales."""
     target_extraction_pressure: float = Field(default=0.0, frozen=True)
     """Target outlet pressure from the pump (Pa). 0 means no active pump.
     Sourced from ``sim_config.target_extraction_pressure`` — the SAME
@@ -296,62 +294,129 @@ class LumpedProductionWellWithPump(WellComponent):
         if timestep % self.save_interval == 0:
             self.history.record(self.state)
 
+    def _wellbore_losses(self, mdot: float, P_start: float, T_start: float) -> tuple[float, ...]:
+        """Pure calc: friction + hydrostatic loss over this segment from a given starting state.
+
+        No state writes — used both for the natural (no-pump) case and for
+        every trial evaluation inside the pump-boost search in ``solve()``.
+
+        Returns:
+            ``(P_outlet, rho, mu, vel, re, ff, dp_f, dp_h)``.
+
+        """
+        rho = fluid_density(self.common.fluid_name, T_start, P_start)
+        mu = fluid_viscosity(self.common.fluid_name, T_start, P_start)
+        vel = mean_velocity(mdot, rho, self.diameter)
+        re = reynolds_number(mdot, self.diameter, mu)
+        ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
+        dp_f = pressure_drop_friction(ff, self.well_length, self.diameter, rho, vel)
+        dp_h = hydrostatic_pressure(rho, self.well_length, self.gravity)
+        P_outlet = P_start - dp_h - dp_f
+        return P_outlet, rho, mu, vel, re, ff, dp_f, dp_h
+
     def solve(self) -> None:
-        """Compute wellhead T and P including wellbore losses and pump boost."""
+        """Compute wellhead T and P including wellbore losses and pump boost.
+
+        If a pump boost is needed, the boosted pump-discharge pressure is
+        found by iterating (Secant method) rather than applied as a
+        closed-form correction tacked onto the natural (un-boosted) result:
+        this segment's OWN friction/hydrostatic loss depends on fluid
+        density, which in turn depends on the (boosted) pressure — a
+        genuine fixed-point problem, not a one-shot calculation. Pump work
+        uses a standard isentropic-efficiency model (entropy at the true
+        inlet state, isentropic enthalpy at the candidate discharge
+        pressure, efficiency-derated to get the actual enthalpy rise, then
+        flashed back to temperature) rather than assuming the compression
+        is perfectly isothermal — that assumption breaks down exactly in
+        the regime (near a phase boundary) this fix was motivated by.
+        """
         s = self.state
 
         s.T_inlet.update(self.inlet.T)
         s.P_inlet.update(self.inlet.P)
         s.mass_rate.update(self.inlet.mass_rate)
 
-        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
+
+        P_after_natural, rho_n, mu_n, vel_n, re_n, ff_n, dp_f_n, dp_h_n = self._wellbore_losses(
+            mdot,
+            P_in,
+            T_in,
+        )
+        target_Pa = self.target_extraction_pressure
+
+        if target_Pa <= P_after_natural:
+            s.rho.update(rho_n)
+            s.mu.update(mu_n)
+            s.velocity.update(vel_n)
+            s.Re.update(re_n)
+            s.friction_factor.update(ff_n)
+            s.delta_p_friction.update(dp_f_n)
+            s.delta_p_hydrostatic.update(dp_h_n)
+            s.pump_delta_p.update(0.0)
+            s.pump_power_watts.update(0.0)
+            s.P_outlet.update(P_after_natural)
+            s.T_outlet.update(T_in)  # simplified: insulated + no pump T rise (Phase 2)
+
+            self.outlet.T = T_in
+            self.outlet.P = P_after_natural
+            self.outlet.mass_rate = mdot
+            self.outlet.rho = rho_n
+            self.outlet.mu = mu_n
+            return
+
+        before = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
+
+        def _discharge_state(P_pump_out: float) -> tuple[float, float]:
+            """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
+            h_isentropic = FluidState.with_PS(self.common.fluid_name, P_pump_out, before.S).H
+            h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
+            t_pump_out = FluidState.with_HP(self.common.fluid_name, h_actual, P_pump_out).T
+            return h_actual, t_pump_out
+
+        def _residual(P_pump_out: float) -> float:
+            _, t_pump_out = _discharge_state(P_pump_out)
+            p_outlet, *_ = self._wellbore_losses(mdot, P_pump_out, t_pump_out)
+            return p_outlet - target_Pa
+
+        P_pump_out = secant_solve(
+            _residual,
+            x0=P_in,
+            x1=P_in + (target_Pa - P_after_natural),
+            tol=PUMP_BOOST_TOL_PA,
+            max_iter=PUMP_BOOST_MAX_ITER,
+            error_context=f"well component_idx={self.component_idx}: pump-boost pressure convergence",
+        )
+        h_actual, T_pump_out = _discharge_state(P_pump_out)
+        P_outlet, rho, mu, vel, re, ff, dp_f, dp_h = self._wellbore_losses(mdot, P_pump_out, T_pump_out)
+
+        pump_pwr = mdot * (h_actual - before.H)
+        if pump_pwr < 0:
+            raise InvalidPowerStateError(
+                f"well component_idx={self.component_idx}: pump_power_watts={pump_pwr:.1f} W "
+                f"is negative despite boosting to P_pump_out={P_pump_out:.1f} Pa (target "
+                f"P_outlet={target_Pa:.1f} Pa) -- a passive pump cannot report negative power "
+                "draw. This happens when the isentropic enthalpy rise used for pump work goes "
+                "negative even though pressure increases (dH/dP|_S can be negative for a liquid "
+                "whose thermal expansivity term dominates).",
+            )
+
         s.rho.update(rho)
         s.mu.update(mu)
-
-        vel = mean_velocity(s.mass_rate.get_fresh(), rho, self.diameter)
-        re = reynolds_number(s.mass_rate.get_fresh(), self.diameter, mu)
-        ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
-        dp_f = pressure_drop_friction(ff, self.well_length, self.diameter, rho, vel)
-        dp_h = hydrostatic_pressure(rho, self.well_length, self.gravity)
         s.velocity.update(vel)
         s.Re.update(re)
         s.friction_factor.update(ff)
         s.delta_p_friction.update(dp_f)
         s.delta_p_hydrostatic.update(dp_h)
-
-        P_after_wellbore = s.P_inlet.get_fresh() - dp_h - dp_f
-        target_Pa = self.target_extraction_pressure
-        if target_Pa > P_after_wellbore:
-            pump_dp = target_Pa - P_after_wellbore
-            # Isothermal CoolProp enthalpy rise, not mass_rate*ΔP/ρ — see
-            # NumericalProductionWellWithPump.solve()'s docstring for why
-            # (water's thermal expansivity, not compressibility, is what
-            # matters for dH/dP|_T at typical wellhead conditions).
-            T_out = s.T_inlet.get_fresh()  # isothermal across this simplified segment
-            h_before = fluid_enthalpy(self.common.fluid_name, T_out, P_after_wellbore)
-            h_after = fluid_enthalpy(self.common.fluid_name, T_out, target_Pa)
-            pump_pwr = s.mass_rate.get_fresh() * (h_after - h_before) / self.pump_efficiency
-            if pump_pwr < 0:
-                raise InvalidPowerStateError(
-                    f"well component_idx={self.component_idx}: pump_power_watts={pump_pwr:.1f} W "
-                    f"is negative despite boosting P_after_wellbore={P_after_wellbore:.1f} Pa up to "
-                    f"target_Pa={target_Pa:.1f} Pa -- a passive pump cannot report negative power "
-                    "draw. This happens when the isothermal enthalpy rise used for pump work "
-                    "(h_after - h_before) goes negative even though pressure increases (dH/dP|_T can "
-                    "be negative for a liquid whose thermal expansivity term dominates)",
-                )
-        else:
-            pump_dp = 0.0
-            pump_pwr = 0.0
-        s.pump_delta_p.update(pump_dp)
+        s.pump_delta_p.update(P_pump_out - P_in)
         s.pump_power_watts.update(pump_pwr)
+        s.P_outlet.update(P_outlet)
+        s.T_outlet.update(T_pump_out)
 
-        s.P_outlet.update(P_after_wellbore + pump_dp)
-        s.T_outlet.update(s.T_inlet.get_fresh())  # simplified: insulated + no pump T rise (Phase 2)
-
-        self.outlet.T = s.T_outlet.get_fresh()
-        self.outlet.P = s.P_outlet.get_fresh()
-        self.outlet.mass_rate = s.mass_rate.get_fresh()
+        self.outlet.T = T_pump_out
+        self.outlet.P = P_outlet
+        self.outlet.mass_rate = mdot
         self.outlet.rho = rho
         self.outlet.mu = mu

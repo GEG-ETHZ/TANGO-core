@@ -1,9 +1,10 @@
 """FluidState — thin CoolProp wrapper for tango_next.
 
 Mirrors the minimal surface of ``src/tango/core/fluidstate.py`` (a CoolProp
-``AbstractState`` wrapper) needed so far: PT/HP construction, in-place update,
-and the property accessors used by the discretized wellbore models. Extend as
-additional components need more CoolProp input pairs (PS, PQ, QT, ...).
+``AbstractState`` wrapper) needed so far: PT/HP/PS construction, in-place
+update, and the property accessors used by the discretized wellbore models
+and isentropic-efficiency pump/compressor calcs. Extend as additional
+components need more CoolProp input pairs (PQ, QT, ...).
 
 Every CoolProp failure is wrapped as ``CoolPropError`` (see ``core/errors.py``)
 so callers can identify a property-lookup failure without parsing traceback
@@ -40,6 +41,17 @@ class FluidState:
         return fs
 
     @staticmethod
+    def with_PS(fluid_name: str, P: float, S: float) -> FluidState:
+        """Construct a FluidState from pressure (Pa) and specific entropy (J/(kg·K)).
+
+        Used for isentropic-efficiency pump/compressor models: the isentropic
+        outlet state at a target pressure, given the inlet state's entropy.
+        """
+        fs = FluidState(fluid_name)
+        fs.update_PS(P, S)
+        return fs
+
+    @staticmethod
     def copy(other: FluidState) -> FluidState:
         """Construct a new FluidState with the same fluid and (P, T) as ``other``."""
         return FluidState.with_PT(other.fluid_name, other.P, other.T)
@@ -62,6 +74,15 @@ class FluidState:
                 f"updateHP(H={H:.6g} J/kg, P={P:.6g} Pa) failed for {self.fluid_name}: {exc}",
             ) from exc
 
+    def update_PS(self, P: float, S: float) -> None:
+        """Update this state in place from pressure (Pa) and specific entropy (J/(kg·K))."""
+        try:
+            self._state.update(CoolProp.PSmass_INPUTS, P, S)
+        except ValueError as exc:
+            raise CoolPropError(
+                f"updatePS(P={P:.6g} Pa, S={S:.6g} J/(kg*K)) failed for {self.fluid_name}: {exc}",
+            ) from exc
+
     @property
     def P(self) -> float:
         """Pressure (Pa)."""
@@ -76,6 +97,11 @@ class FluidState:
     def H(self) -> float:
         """Specific enthalpy (J/kg)."""
         return self._state.hmass()
+
+    @property
+    def S(self) -> float:
+        """Specific entropy (J/(kg·K))."""
+        return self._state.smass()
 
     @property
     def rho(self) -> float:

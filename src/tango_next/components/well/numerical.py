@@ -65,8 +65,9 @@ from tango_next.components.well.base import WellComponent
 from tango_next.core.constants import YEAR_TO_SECOND
 from tango_next.core.errors import InvalidPowerStateError
 from tango_next.core.fluid_state import FluidState
-from tango_next.core.fluid_utils import fluid_enthalpy, reynolds_number
+from tango_next.core.fluid_utils import reynolds_number
 from tango_next.core.locked_state import LockedState
+from tango_next.core.numerics import PUMP_BOOST_MAX_ITER, PUMP_BOOST_TOL_PA, secant_solve
 from tango_next.core.physics_models import (
     FrictionModel,
     HeatTransferModel,
@@ -279,24 +280,29 @@ class NumericalWell(WellComponent):
         if timestep % self.save_interval == 0:
             self.history.record(self.state)
 
-    def solve(self) -> None:
-        """March the discretized wellbore from inlet to outlet conditions."""
-        s = self.state
+    def _march(
+        self,
+        T_in: float,
+        P_in: float,
+        mdot: float,
+        t_d: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Pure cell-by-cell march from a given starting state — no state writes.
+
+        Takes the starting (temperature, pressure, mass rate) and
+        dimensionless time explicitly, rather than reading ``self.inlet``/
+        ``self.t_d_old`` directly, so it can be called repeatedly with a
+        TRIAL starting state (e.g. a candidate pump-discharge condition in
+        ``NumericalProductionWellWithPump.solve()``) without mutating any
+        ``LockedState`` field. ``solve()`` below is the only place that
+        commits a march's result to ``state``/``outlet``.
+
+        Returns:
+            ``(P, h, T_f, rho, mu, u)`` — one value per cell, index 0 is the
+            starting state itself.
+
+        """
         n = self.num_cells
-
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
-
-        del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        t_d = self.t_d_old.get_stale() + del_t
-        s.t_d.update(t_d)
-        self.t_d_old.update(t_d)
-
-        T_in = s.T_inlet.get_fresh()
-        P_in = s.P_inlet.get_fresh()
-        mdot = s.mass_rate.get_fresh()
-
         P = np.zeros(n)
         h = np.zeros(n)
         T_f = np.zeros(n)
@@ -341,6 +347,27 @@ class NumericalWell(WellComponent):
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T
             u[i] = mdot / A / rho[i]
+
+        return P, h, T_f, rho, mu, u
+
+    def solve(self) -> None:
+        """March the discretized wellbore from inlet to outlet conditions."""
+        s = self.state
+
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
+
+        del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
+        t_d = self.t_d_old.get_stale() + del_t
+        s.t_d.update(t_d)
+        self.t_d_old.update(t_d)
+
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
+
+        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
 
         s.P_cells.update(P.tolist())
         s.h_cells.update(h.tolist())
@@ -410,11 +437,10 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
 
     pump_efficiency: float = 1.0
     """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
-    derating) to match old tango's BC_calculator.py pump-power calculation,
-    which applies no efficiency correction at all — see the isothermal
-    enthalpy-rise note below. TODO: lower this default to ~0.9 once a real
-    efficiency figure is settled on (Chad's call, deliberately deferred —
-    parity with old tango comes first)."""
+    derating). TODO: lower this default to ~0.9 once a real efficiency
+    figure is settled on — deliberately deferred until then. See
+    ``solve()``'s docstring for the isentropic-efficiency pump model this
+    scales."""
     target_extraction_pressure: float = 0.0
     """Target outlet pressure after pump boost (Pa). 0 = no active pump.
     Sourced from ``sim_config.target_extraction_pressure`` — the SAME
@@ -423,55 +449,100 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
     for the duplicated-value bug this replaced)."""
 
     def solve(self) -> None:
-        """March wellbore heat loss, then apply pump pressure boost.
+        """March wellbore heat loss, then apply a pump boost if needed.
 
-        Pump work is the ISOTHERMAL CoolProp enthalpy rise between the
-        wellbore outlet and the boosted (target) pressure, at the wellbore
-        outlet temperature — matching old tango's ``BC_calculator.py``
-        inline calculation (``-(inlet.H - outlet.H) * mass_rate`` after an
-        isothermal ``updatePT`` pump boost) exactly in form.
+        If the natural (un-boosted) march already reaches
+        ``target_extraction_pressure``, this is identical to
+        ``NumericalWell.solve()``. Otherwise, the pump-discharge pressure is
+        found by ITERATING (Secant method) rather than tacking a closed-form
+        correction onto the already-completed natural march: this segment's
+        own friction/gravity loss depends on fluid density, which in turn
+        depends on the (boosted) pressure profile — a genuine fixed-point
+        problem. Concretely: guess a discharge pressure at the pump, re-run
+        the ENTIRE march (``_march()``) from that boosted starting state,
+        compare the resulting outlet pressure to the target, and refine —
+        because the density used for friction/heat-loss over the whole
+        segment must reflect the boosted pressure, not the natural
+        (lower-pressure) one a pump sitting anywhere below the very last
+        cell would actually see.
 
-        Deliberately NOT ``mass_rate * ΔP / ρ`` (the previous formula here):
-        verified against a live old-tango run that this hydraulic estimate
-        overstates the true isothermal enthalpy rise by ~53% at typical
-        production wellhead conditions (~400 K) — water is nearly
-        incompressible (``(∂V/∂P)_T`` is tiny, as expected) but NOT
-        thermally inert, and it's the thermal expansivity term in
-        ``dH/dP|_T = V - T·(∂V/∂T)_P`` that matters here, not
-        compressibility. Confirmed via CoolProp's own isobaric expansion
-        coefficient: predicted ``dH/dP`` from the exact identity matched
-        the measured value from a live run to 4 significant figures. See
-        docs/tango_next_tasks.md for the full derivation.
+        Pump work uses a standard isentropic-efficiency model — entropy at
+        the true inlet state, isentropic enthalpy at the candidate discharge
+        pressure, efficiency-derated to the actual enthalpy rise, then
+        flashed back to temperature — rather than assuming the compression
+        is perfectly isothermal. That assumption is what this whole
+        redesign was motivated by: it breaks down exactly in the
+        "approaching a phase boundary" regime a single-point isothermal
+        lookup can't represent.
         """
-        super().solve()
-
         s = self.state
-        # super().solve() already marked all fields stale then updated them;
-        # pump_power_watts was set to 0.0. Override P_outlet and pump_power_watts
-        # if a pump boost is needed — use update_unchecked equivalent: mark stale first.
+
+        s.T_inlet.update(self.inlet.T)
+        s.P_inlet.update(self.inlet.P)
+        s.mass_rate.update(self.inlet.mass_rate)
+
+        del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
+        t_d = self.t_d_old.get_stale() + del_t
+
+        T_in = s.T_inlet.get_fresh()
+        P_in = s.P_inlet.get_fresh()
+        mdot = s.mass_rate.get_fresh()
         target_Pa = self.target_extraction_pressure
-        P_wellbore = s.P_outlet.get_fresh()
-        if target_Pa > P_wellbore:
-            T_out = s.T_outlet.get_fresh()
-            h_before = s.h_cells.get_fresh()[-1]
-            h_after = fluid_enthalpy(self.common.fluid_name, T_out, target_Pa)
-            pump_pwr = s.mass_rate.get_fresh() * (h_after - h_before) / self.pump_efficiency
+
+        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
+
+        if target_Pa <= P[-1]:
+            pump_pwr = 0.0
+        else:
+            before = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
+
+            def _discharge_state(P_pump_out: float) -> tuple[float, float]:
+                """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
+                h_isentropic = FluidState.with_PS(self.common.fluid_name, P_pump_out, before.S).H
+                h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
+                t_pump_out = FluidState.with_HP(self.common.fluid_name, h_actual, P_pump_out).T
+                return h_actual, t_pump_out
+
+            def _residual(P_pump_out: float) -> float:
+                _, t_pump_out = _discharge_state(P_pump_out)
+                p_trial, *_ = self._march(t_pump_out, P_pump_out, mdot, t_d)
+                return p_trial[-1] - target_Pa
+
+            P_pump_out = secant_solve(
+                _residual,
+                x0=P_in,
+                x1=P_in + (target_Pa - P[-1]),
+                tol=PUMP_BOOST_TOL_PA,
+                max_iter=PUMP_BOOST_MAX_ITER,
+                error_context=f"well component_idx={self.component_idx}: pump-boost pressure convergence",
+            )
+            h_actual, T_pump_out = _discharge_state(P_pump_out)
+            P, h, T_f, rho, mu, u = self._march(T_pump_out, P_pump_out, mdot, t_d)
+            pump_pwr = mdot * (h_actual - before.H)
             if pump_pwr < 0:
                 raise InvalidPowerStateError(
                     f"well component_idx={self.component_idx}: pump_power_watts={pump_pwr:.1f} W "
-                    "is negative despite "
-                    f"boosting P_wellbore={P_wellbore:.1f} Pa up to target_Pa={target_Pa:.1f} Pa "
-                    "-- a passive pump cannot report negative power draw. This happens when the "
-                    "isothermal enthalpy rise used for pump work (h_after - h_before) goes negative "
-                    "even though pressure increases (dH/dP|_T can be negative for a liquid whose "
-                    "thermal expansivity term dominates).",
+                    f"is negative despite boosting to P_pump_out={P_pump_out:.1f} Pa (target "
+                    f"P_outlet={target_Pa:.1f} Pa) -- a passive pump cannot report negative power "
+                    "draw. This happens when the isentropic enthalpy rise used for pump work goes "
+                    "negative even though pressure increases (dH/dP|_S can be negative for a liquid "
+                    "whose thermal expansivity term dominates).",
                 )
-            s.P_outlet.mark_stale()
-            s.P_outlet.update(target_Pa)
-            s.pump_power_watts.mark_stale()
-            s.pump_power_watts.update(pump_pwr)
-            self.outlet.P = target_Pa
-        # T_outlet is unchanged — the pump boost is isothermal by construction
-        # (matches old tango, which also holds T fixed and only raises P).
-        # T_outlet is unchanged — isentropic enthalpy rise is negligible for
-        # liquid water at these pressures (~0.05 K per 10 MPa boost).
+
+        s.t_d.update(t_d)
+        self.t_d_old.update(t_d)
+        s.P_cells.update(P.tolist())
+        s.h_cells.update(h.tolist())
+        s.T_cells.update(T_f.tolist())
+        s.rho_cells.update(rho.tolist())
+        s.mu_cells.update(mu.tolist())
+        s.u_cells.update(u.tolist())
+        s.P_outlet.update(P[-1])
+        s.T_outlet.update(T_f[-1])
+        s.pump_power_watts.update(pump_pwr)
+
+        self.outlet.T = T_f[-1]
+        self.outlet.P = P[-1]
+        self.outlet.mass_rate = mdot
+        self.outlet.rho = rho[-1]
+        self.outlet.mu = mu[-1]
