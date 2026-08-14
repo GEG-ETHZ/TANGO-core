@@ -270,10 +270,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pass seed=None instead (non-reproducible run) — overrides --seed.",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
+        "-q",
+        "--quiet",
         action="store_true",
-        help="Print pymoo's per-generation progress table.",
+        help=(
+            "Suppress pymoo's per-generation progress table (printed by default — "
+            "useful for seeing a long unattended run, e.g. a SLURM job, is actually "
+            "progressing rather than stalled)."
+        ),
     )
     parser.add_argument(
         "--log-level",
@@ -282,7 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Python logging level for tango_next's own loggers (workflow "
             "loading, per-timestep orchestrator state) — independent of "
-            "--verbose, which only controls pymoo's own progress table. "
+            "--quiet, which only controls pymoo's own progress table. "
             "Defaults to WARNING. INFO/DEBUG print on EVERY evaluation "
             "across the whole run, not just once."
         ),
@@ -397,7 +401,7 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
             crossover_prob=args.crossover_prob,
             mutation_prob=args.mutation_prob,
         ),
-        verbose=args.verbose,
+        verbose=not args.quiet,
         save_dir=args.save_dir,
     )
     return m.run()
@@ -643,13 +647,13 @@ def main(args: argparse.Namespace) -> None:
     # optimization phase specifically began.
     print("opt_hydro_df_electric.py starting at")
     print_dt()
-    # --verbose controls pymoo's OWN per-generation progress table (printed
+    # --quiet suppresses pymoo's OWN per-generation progress table (printed
     # directly by pymoo/Minimization, not via `logging` at all) — kept
     # separate from Python's logging level (--log-level) on purpose:
     # tying them together would flood the console with every module's
     # INFO logs (workflow loading, per-timestep orchestrator state) on
     # EVERY evaluation across an entire NSGA2 run (hundreds to thousands
-    # of them), which is not what --verbose is for.
+    # of them), which --quiet has nothing to do with.
     logging.basicConfig(level=args.log_level)
     if args.clean and args.save_dir.exists():
         shutil.rmtree(args.save_dir)

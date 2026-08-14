@@ -320,10 +320,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pass seed=None instead (non-reproducible run) — overrides --seed.",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
+        "-q",
+        "--quiet",
         action="store_true",
-        help="Print pymoo's per-generation progress table.",
+        help=(
+            "Suppress pymoo's per-generation progress table (printed by default — "
+            "useful for seeing a long unattended run, e.g. a SLURM job, is actually "
+            "progressing rather than stalled)."
+        ),
     )
     parser.add_argument(
         "--log-level",
@@ -410,7 +414,7 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
             crossover_prob=args.crossover_prob,
             mutation_prob=args.mutation_prob,
         ),
-        verbose=args.verbose,
+        verbose=not args.quiet,
         save_dir=args.save_dir,
     )
     return m.run()
