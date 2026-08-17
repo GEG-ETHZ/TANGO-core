@@ -1911,16 +1911,40 @@ reasoning doesn't have to be re-derived next session.
   `pymoo_api.py` is the actual pattern to follow instead.
 
 - **Per-swept-variable scatter plots for every pareto set and brute-force
-  sweep.** Flagged 2026-08-13, not started — do not begin until the
-  currently in-flight work (`opt_*` subfolder restructuring for the
-  remaining `examples/tango_next/*.yml` configs, the Picard-iteration
-  check on `hydro_sf_electric.yml`, and everything else already queued
-  ahead of this) is finished first. For every `opt_*` app (pareto-front
-  optimization, e.g. `opt_hydro_df_electric`) and every `run_*_sweep`
-  brute-force sweep app, generate a scatter plot of each objective/
-  dependent variable against each independent variable being swept/
-  modulated — i.e. the full objective × independent-variable grid, not
-  just the existing parallel-coordinates/aggregate views each app already
-  produces. Scope not yet worked out: whether this is a shared plotting
-  helper both `opt_*` and `run_*_sweep` apps call, or per-app-family
-  logic; revisit when this is actually picked up.
+  sweep.** Flagged 2026-08-13.
+  **DONE for `opt_*` (2026-08-17):** every `opt_*` app now calls
+  ``pymoo_api.plot_objective_vs_param_scatter`` (objective × parameter
+  grid) and ``pymoo_api.plot_param_pair_vs_objective_scatter`` (parameter
+  × parameter grid, colored by objective — a visual cross-correlation
+  view) from its own ``main()``, writing `pareto_scatter_by_param.png`/
+  `pareto_scatter_param_pairs.png`. Both are generic, shared helpers in
+  `pymoo_api.py` (plain column-name lists in, no domain assumptions),
+  not duplicated per app.
+  **STILL OPEN — `run_*_sweep` apps.** Same idea, not started.
+  **LOW PRIORITY, ADD ALONGSIDE — statistical (not raw-scatter)
+  cross-correlation for sweep post-processing (flagged 2026-08-17).**
+  Chad's ask, prompted by ESTECO modeFRONTIER's analysis views: a
+  parameter-pair-vs-objective view that shows the STATISTICAL
+  relationship rather than a cloud of raw points (too much to take in
+  visually at a glance). Candidate techniques, roughly in order of
+  effort: (1) a correlation matrix/heatmap (Pearson or Spearman) across
+  every parameter/objective pair — cheap, but linear-only, won't catch a
+  genuine two-parameter interaction; (2) an ANOVA/regression effect
+  decomposition (`objective ~ p1 + p2 + ... + p1×p2 + ...`), interaction
+  terms plotted as a tornado/Pareto bar chart; (3) Sobol variance-based
+  sensitivity indices (first-order + second-order/interaction), the
+  statistically rigorous version of (2), needs either many samples or a
+  fitted surrogate; (4) a response-surface/partial-dependence contour
+  plot (fit a smooth surrogate over a parameter pair, draw filled
+  contours, no raw points shown) — visual but smoothed, closest match to
+  "not the actual data points."
+  **Important scoping note, already confirmed with Chad:** this
+  shouldn't run against an `opt_*` app's own Pareto-front output — a
+  Pareto front is a thin, non-representative slice of the design space
+  (in `opt_hydro_df_electric`'s current front, `mass_rate`/
+  `injection_pressure` barely vary at all), so any of the above run
+  against it would likely just report "no interaction" from lack of
+  variance to explain, not genuine physics. This wants the broader
+  `run_*_sweep` LHS/full-factorial data instead — which is also why this
+  is filed as an addition to the `run_*_sweep` half of this same item,
+  not the (already-done) `opt_*` half.

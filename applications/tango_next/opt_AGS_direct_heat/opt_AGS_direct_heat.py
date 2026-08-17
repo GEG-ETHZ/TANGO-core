@@ -72,6 +72,8 @@ from tango_next.pymoo_api import (
     PymooConfig,
     build_pymoo_parser,
     load_params,
+    plot_objective_vs_param_scatter,
+    plot_param_pair_vs_objective_scatter,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -231,6 +233,13 @@ def negative_mean_thermal_power_objective(surface_name: str = "surface") -> Obje
     )
 
 
+# Single source of truth for the "negate for a human-friendly plot/print label"
+# rename applied in main() — keyed off negative_mean_thermal_power_objective()'s
+# own ``.name`` rather than a second, independently-typed copy of that string,
+# so a future rename of the objective itself can't silently desync from this.
+DISPLAY_RENAME = {negative_mean_thermal_power_objective().name: "mean_thermal_power_W"}
+
+
 # ---------------------------------------------------------------------------
 # CLI / baseline / optimization — same shape as opt_hydro_df_electric.py
 # ---------------------------------------------------------------------------
@@ -265,7 +274,10 @@ def build_baseline() -> tuple[Workflow, Workflow]:
     return wf, wf_manual
 
 
-def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Result, pd.DataFrame]:
+def run_optimization(
+    base_wf: Workflow,
+    args: argparse.Namespace,
+) -> tuple[Result, pd.DataFrame, Minimization]:
     """Search depth + loop length + loop diameter + mass flow rate to minimize
     LCOE / maximize mean thermal power.
 
@@ -277,6 +289,12 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
     Args:
         base_wf: UNRUN template workflow — see ``build_baseline``'s docstring.
         args: Parsed CLI args from ``build_parser()``.
+
+    Returns:
+        ``(res, df, m)`` — ``m`` (the ``Minimization`` instance) is returned
+        alongside ``res``/``df`` so callers can read ``m.params``/
+        ``m.objectives`` for their own ``.name`` values (e.g. for plot axis
+        labels) instead of re-typing those same strings a second time.
 
     """
     m = Minimization(
@@ -301,7 +319,8 @@ def run_optimization(base_wf: Workflow, args: argparse.Namespace) -> tuple[Resul
         verbose=not args.quiet,
         save_dir=args.save_dir,
     )
-    return m.run()
+    res, df = m.run()
+    return res, df, m
 
 
 # ---------------------------------------------------------------------------
@@ -484,17 +503,33 @@ def main(args: argparse.Namespace) -> None:
     baseline_lcoe = wf_manual.to_dict()["economic"]["state"]["LCOE"]
     print(f"Baseline (manual design point): LCOE={baseline_lcoe:.4f} $/kWh")
 
-    _res, df = run_optimization(wf, args)
+    _res, df, m = run_optimization(wf, args)
     print(f"Pareto front: {len(df)} designs")
     print(df)
 
-    plot_df = df.rename(columns={"negative_mean_thermal_power_W": "mean_thermal_power_W"})
+    plot_df = df.rename(columns=DISPLAY_RENAME)
     plot_df["mean_thermal_power_W"] = -plot_df["mean_thermal_power_W"]
 
     plot_pareto_parallel_coordinates(plot_df, args.save_dir / "pareto_parallel_coordinates.png")
     plot_pareto_parallel_coordinates_interactive(plot_df, args.save_dir / "pareto_parallel_coordinates.html")
     plot_pareto_scatter(plot_df, args.save_dir / "pareto_scatter.png")
     plot_pareto_scatter_zscore(plot_df, args.save_dir / "pareto_scatter_zscore.png")
+    plot_objective_vs_param_scatter(
+        plot_df,
+        # Derived from the actual ParamSpec/ObjectiveSpec instances Minimization
+        # was built with, not re-typed — see run_optimization's docstring for why.
+        param_cols=[p.name for p in m.params],
+        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
+        out_path=args.save_dir / "pareto_scatter_by_param.png",
+        title="AGS_direct_heat — objectives vs. parameters",
+    )
+    plot_param_pair_vs_objective_scatter(
+        plot_df,
+        param_cols=[p.name for p in m.params],
+        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
+        out_path=args.save_dir / "pareto_scatter_param_pairs.png",
+        title="AGS_direct_heat — objective vs. parameter pairs",
+    )
 
 
 if __name__ == "__main__":

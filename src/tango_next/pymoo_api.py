@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import itertools
 import json
 import logging
 import multiprocessing
@@ -59,10 +60,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import yaml
+from matplotlib.ticker import MaxNLocator
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.initialization import Initialization
@@ -357,6 +360,131 @@ def build_pymoo_parser(
         ),
     )
     return parser
+
+
+def plot_objective_vs_param_scatter(
+    df: pd.DataFrame,
+    param_cols: list[str],
+    objective_cols: list[str],
+    out_path: Path,
+    title: str = "Pareto front — objectives vs. parameters",
+) -> None:
+    """Grid of 2D scatter plots: one subplot per (objective, parameter) pair.
+
+    Complements the parallel-coordinates/objective-space plots every
+    ``opt_*`` script already builds — those show the pareto front as a
+    whole, but don't make it easy to read off "how does this ONE
+    parameter move THIS ONE objective" at a glance, especially once a
+    front has 3+ decision variables. One row per objective, one column
+    per parameter, so a scan down any column shows that parameter's
+    effect on every objective, and a scan across any row shows every
+    parameter's effect on that objective. Deliberately generic (plain
+    column-name lists, no assumption about how many params/objectives
+    or what they're called) — same reasoning as ``build_pymoo_parser``,
+    not ``ParamSpec``/``ObjectiveSpec``: this is mechanical plotting
+    plumbing, not a domain-specific choice, so it belongs here rather
+    than duplicated in every ``opt_*`` script.
+    """
+    n_rows = len(objective_cols)
+    n_cols = len(param_cols)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(3.6 * n_cols, 3.2 * n_rows),
+        squeeze=False,
+    )
+    for i, obj_col in enumerate(objective_cols):
+        for j, param_col in enumerate(param_cols):
+            ax = axes[i][j]
+            ax.scatter(df[param_col], df[obj_col], s=25, color="tab:blue", alpha=0.7, zorder=3)
+            ax.grid(visible=True, alpha=0.3)
+            # A pareto front commonly bunches a parameter into a narrow band
+            # (e.g. a converged-to-one-value decision variable) -- the
+            # default tick count/rotation then overlaps into an unreadable
+            # smear of overlapping labels. Capping to 4 ticks and rotating
+            # gives each label room regardless of how narrow the column's
+            # actual data range is.
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+            for label in ax.get_xticklabels():
+                label.set_rotation(30)
+                label.set_ha("right")
+            if i == n_rows - 1:
+                ax.set_xlabel(param_col)
+            if j == 0:
+                ax.set_ylabel(obj_col)
+
+    fig.suptitle(title, y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_param_pair_vs_objective_scatter(
+    df: pd.DataFrame,
+    param_cols: list[str],
+    objective_cols: list[str],
+    out_path: Path,
+    title: str = "Pareto front — objective vs. parameter pairs",
+) -> None:
+    """Grid of 2D parameter-pair scatter plots, each point colored by an objective.
+
+    ``plot_objective_vs_param_scatter`` only shows one parameter's MARGINAL
+    effect on an objective at a time — it can't reveal an interaction, e.g.
+    "high LCOE only when mass rate AND injection pressure are BOTH high,"
+    where neither parameter alone would show the pattern in its own
+    marginal plot. Here, each subplot's (x, y) axes are a PAIR of
+    parameters and the point COLOR is one objective's value — a visual
+    cross-correlation view an ordinary 1D scatter can't provide. One row
+    per parameter pair (every 2-combination of ``param_cols``, via
+    ``itertools.combinations`` — order-independent, no duplicate/reversed
+    pairs), one column per objective.
+
+    With only 2 parameters there is exactly one pair (one row); with N
+    parameters there are N*(N-1)/2 pairs/rows, growing quickly — fine for
+    the 3-4 parameter searches this module's ``opt_*`` callers currently
+    run, but a caller with a much larger parameter count should expect a
+    correspondingly tall figure.
+
+    Same generic, column-name-list design as
+    ``plot_objective_vs_param_scatter`` (see that function's docstring for
+    why this lives here rather than duplicated per ``opt_*`` script).
+    """
+    pairs = list(itertools.combinations(param_cols, 2))
+    n_rows = len(pairs)
+    n_cols = len(objective_cols)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(4.2 * n_cols, 3.6 * n_rows),
+        squeeze=False,
+    )
+    for i, (param_x, param_y) in enumerate(pairs):
+        for j, obj_col in enumerate(objective_cols):
+            ax = axes[i][j]
+            sc = ax.scatter(
+                df[param_x],
+                df[param_y],
+                c=df[obj_col],
+                cmap="viridis",
+                s=35,
+                zorder=3,
+            )
+            fig.colorbar(sc, ax=ax, label=obj_col, pad=0.02)
+            ax.grid(visible=True, alpha=0.3)
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+            for label in ax.get_xticklabels():
+                label.set_rotation(30)
+                label.set_ha("right")
+            ax.set_xlabel(param_x)
+            ax.set_ylabel(param_y)
+            if i == 0:
+                ax.set_title(obj_col)
+
+    fig.suptitle(title, y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
 
 
 @dataclass
