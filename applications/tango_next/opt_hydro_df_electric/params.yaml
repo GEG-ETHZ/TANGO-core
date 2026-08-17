@@ -14,7 +14,7 @@ pop_size: 45
 ftol: 0.005
 xtol: 0.0005
 seed: 1
-n_processes: 1
+n_processes: 45
 crossover_prob: 0.9  # pymoo SBX's own default -- a genuine constant, safe to pin here
 mutation_prob: null  # pymoo PM's own default is 1/n_var (varies with param count) --
                       # null defers to that instead of hardcoding a value that would
