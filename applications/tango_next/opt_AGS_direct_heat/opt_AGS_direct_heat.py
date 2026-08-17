@@ -1,40 +1,39 @@
 """Multi-objective optimization demo for the AGS direct-heat example.
 
-STATUS (2026-08-13): PAUSED, NOT SMOKE-TESTED END TO END, NOT WIRED INTO
-`just demos`. Sweeping ``loop_diameter`` on ``horizontal_well`` alone
-(matching the brute-force sweep's own precedent) collides with
+STATUS (2026-08-17): unblocked, actively developed. The original blocker
+(sweeping ``loop_diameter`` on ``horizontal_well`` alone collided with
 ``DoubletEconomicComponent._combined_production_length_and_diameter``,
-which requires all production-side wells to share one uniform diameter
-and raises a hard ``ValueError`` (not a caught constraint-violation
-exception) on nearly every candidate design. Same root cause as the
-"Multi-segment well CAPEX" backlog item in ``docs/tango_next_tasks.md``.
-Chad's call: pause and fix the real gap rather than drop a decision
-variable or drop LCOE to route around it — see that file's PAUSED entry
-for the full writeup before touching this further.
+which required all production-side wells to share one uniform diameter)
+was fixed by excluding the horizontal well from that combination entirely
+and costing it as its own well section — see ``docs/tango_next_tasks.md``'s
+DONE entry for the full writeup. Not yet wired into `just demos`.
 
 Runs the manual baseline once, then searches well depth, horizontal loop
-length, horizontal loop diameter, and mass flow rate with NSGA2 to minimize
-LCOE and maximize mean net thermal power
-(``tango_next.pymoo_api.Minimization``), saving the pareto results/configs
-and parallel-coordinates plots.
+length, horizontal loop diameter, vertical well diameter, injection
+pressure, and mass flow rate with NSGA2 to minimize LCOE and maximize mean
+net thermal power (``tango_next.pymoo_api.Minimization``), saving the
+pareto results/configs and parallel-coordinates plots.
 
-Decision-variable bounds and physical meaning mirror the existing brute-force
-sweep (``applications/tango_next/run_AGS_direct_heat_sweep/common.py``'s
+Decision-variable bounds and physical meaning for depth/loop length/loop
+diameter/mass flow mirror the existing brute-force sweep
+(``applications/tango_next/run_AGS_direct_heat_sweep/common.py``'s
 ``WELL_DEPTHS_M``/``LOOP_LENGTHS_M``/``LOOP_DIAMETERS_M``/
 ``MASS_FLOW_RATES_KG_S``), rather than inventing a different design space —
 the sweep's own field paths (``sweep.py``'s ``_apply_depth``/
 ``_apply_loop_length``/``_apply_loop_diameter``) are copied verbatim into
-the local ``ParamSpec`` factories below.
+the local ``ParamSpec`` factories below. ``vertical_well_diameter_param``/
+``injection_pressure_param`` are new (2026-08-17, Chad's call) — see their
+own factory docstrings for why each is a real, consequential parameter
+worth exposing here.
 
-Deliberately does NOT replicate the sweep's depth-coupled
-``target_extraction_pressure`` scaling (``sweep.py``'s
-``_apply_target_extraction_pressure``): ``pymoo_api.Minimization`` already
-treats a ``CoolPropError`` from a physically-invalid combination (e.g. a
-deep design at too low a target extraction pressure) as a constraint
-violation, not a crash — see ``_CV_EXCEPTIONS`` in ``pymoo_api.py`` — so
-NSGA2 naturally steers away from infeasible corners of the depth/pressure
-space without needing that formula duplicated here. Revisit only if the
-infeasible-design rate turns out too high in practice.
+Deliberately does NOT expose ``target_extraction_pressure`` as a decision
+variable: confirmed by grepping every consumer of it in ``src/tango_next/``
+that it's read ONLY by ``LumpedProductionWellWithPump``/
+``NumericalProductionWellWithPump`` — AGS's ``production_well`` is a plain
+``NumericalProductionWell`` (no pump), so this value is declared but
+completely inert for this topology. Sweeping it would waste evaluations on
+a parameter with zero effect on either objective; revisit only if AGS's
+production well becomes a pump-bearing variant.
 
 Every ``*_param``/``*_objective`` factory below is defined LOCALLY in this
 file, including ``mass_rate_param``/``lcoe_objective`` (which happen to be
@@ -165,6 +164,59 @@ def loop_diameter_param(bounds: tuple[float, float]) -> ParamSpec:
 
 
 @dataclass
+class _VerticalWellDiameterApply:
+    """Picklable ``ParamSpec.apply`` for ``vertical_well_diameter_param``.
+
+    Sets ``injection_well.diameter`` and ``production_well.diameter`` to
+    the SAME value — one decision variable, not two independent ones, per
+    Chad's call to avoid the complexity of the two vertical wells having
+    different casing diameters. Deliberately independent of
+    ``loop_diameter_param`` (the horizontal segment's own diameter): this
+    also means ``DoubletEconomicComponent``'s uniform-diameter requirement
+    for the combined vertical-production well is trivially satisfied by
+    construction (there's only one vertical production-side component for
+    AGS — ``production_well`` — so "uniform" is automatic here regardless
+    of what this parameter is set to).
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["components"]["injection_well"]["diameter"] = float(value)
+        cfg["components"]["production_well"]["diameter"] = float(value)
+        return cfg
+
+
+def vertical_well_diameter_param(bounds: tuple[float, float]) -> ParamSpec:
+    """Injection + production (vertical) well diameter (m), shared by both."""
+    return ParamSpec(name="vertical_well_diameter_m", apply=_VerticalWellDiameterApply(), bounds=bounds)
+
+
+@dataclass
+class _InjectionPressureApply:
+    """Picklable ``ParamSpec.apply`` for ``injection_pressure_param``.
+
+    ``components.<surface_name>.injection_pressure`` is a real, consequential
+    parameter for AGS's closed loop under ``injection_mode: manual`` — it's
+    used directly as the loop's actual boundary condition (not iteratively
+    refined; see the base YAML's own "Phase 1 limitation: this guess isn't
+    yet solved for" comment), unlike ``target_extraction_pressure`` (see
+    module docstring for why THAT one is excluded). Same field
+    ``opt_hydro_df_electric.py``/``opt_hydro_sf_electric.py`` already expose
+    as a decision variable for their own topologies.
+    """
+
+    surface_name: str = "surface"
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        cfg["components"][self.surface_name]["injection_pressure"] = float(value)
+        return cfg
+
+
+def injection_pressure_param(bounds: tuple[float, float], surface_name: str = "surface") -> ParamSpec:
+    """Injection wellhead pressure (``components.<surface_name>.injection_pressure``, Pa)."""
+    return ParamSpec(name="injection_pressure_Pa", apply=_InjectionPressureApply(surface_name), bounds=bounds)
+
+
+@dataclass
 class _MassRateApply:
     """Picklable ``ParamSpec.apply`` for ``mass_rate_param``.
 
@@ -278,13 +330,16 @@ def run_optimization(
     base_wf: Workflow,
     args: argparse.Namespace,
 ) -> tuple[Result, pd.DataFrame, Minimization]:
-    """Search depth + loop length + loop diameter + mass flow rate to minimize
-    LCOE / maximize mean thermal power.
+    """Search depth + loop length + loop diameter + vertical well diameter +
+    injection pressure + mass flow rate to minimize LCOE / maximize mean
+    thermal power.
 
-    Bounds match the existing brute-force sweep's own axis ranges
-    (``run_AGS_direct_heat_sweep/common.py``'s ``WELL_DEPTHS_M``/
-    ``LOOP_LENGTHS_M``/``LOOP_DIAMETERS_M``/``MASS_FLOW_RATES_KG_S``), not
-    freshly-guessed values.
+    Depth/loop length/loop diameter/mass flow bounds match the existing
+    brute-force sweep's own axis ranges (``run_AGS_direct_heat_sweep/
+    common.py``'s ``WELL_DEPTHS_M``/``LOOP_LENGTHS_M``/``LOOP_DIAMETERS_M``/
+    ``MASS_FLOW_RATES_KG_S``), not freshly-guessed values. Vertical well
+    diameter/injection pressure have no sweep precedent — see their own
+    ``ParamSpec`` factories' docstrings for bounds rationale.
 
     Args:
         base_wf: UNRUN template workflow — see ``build_baseline``'s docstring.
@@ -303,6 +358,12 @@ def run_optimization(
             depth_param(bounds=(2000.0, 8000.0)),
             loop_length_param(bounds=(1000.0, 8000.0)),
             loop_diameter_param(bounds=(0.2, 0.75)),
+            # Same range as loop_diameter_param — no other precedent to
+            # match (the brute-force sweep never varies vertical-well
+            # diameter independently), flagged for Chad to adjust if a
+            # different casing-diameter range is more realistic.
+            vertical_well_diameter_param(bounds=(0.2, 0.75)),
+            injection_pressure_param(bounds=(0.5e6, 3.0e6)),
             mass_rate_param(bounds=(3.5, 40.0)),
         ],
         objectives=[lcoe_objective(), negative_mean_thermal_power_objective()],
