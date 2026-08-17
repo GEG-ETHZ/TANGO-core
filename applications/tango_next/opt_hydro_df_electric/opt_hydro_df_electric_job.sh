@@ -78,6 +78,17 @@ echo "CPU info: $(lscpu | grep 'Model name' | head -1)"
 echo "Memory info: $(free -h | grep 'Mem:')"
 echo ""
 
+# Without this, Python fully block-buffers stdout when it isn't a TTY
+# (exactly what SLURM's --output redirection is) -- pymoo's own
+# per-generation progress table (and every plain print()) sits in an
+# unflushed buffer and doesn't show up in the .out file until it fills or
+# the process exits, making a long-running job look stalled even though
+# outputs/pareto_results_partial.csv proves it's progressing fine.
+# Confirmed the hard way on a real Euler run (2026-08-14): opt_*.py's own
+# --quiet defaults to off, so this was purely a buffering artifact, not a
+# verbosity setting.
+export PYTHONUNBUFFERED=1
+
 cd "$REPO_ROOT"
 uv run --project "$REPO_ROOT" dvc repro applications/tango_next/opt_hydro_df_electric/dvc.yaml
 
