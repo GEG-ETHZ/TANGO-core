@@ -19,8 +19,22 @@
 #   sbatch --cpus-per-task=16 run_EGS_direct_heat_sweep_job.sh
 # ---------------------------------------------------------------------------
 
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-PARAMS_FILE="$(dirname "$0")/params.yaml"
+# NOT git-based (`git -C ... rev-parse --show-toplevel`) -- that assumes a
+# git checkout, which isn't confirmed for every Euler checkout of this repo
+# (the documented workflow (README.md's "Running on Euler") is rsync-based
+# and doesn't necessarily bring `.git` along), and it fails under a real
+# sbatch job regardless: `sbatch` COPIES the submitted script into a spool
+# directory and executes THAT copy, so `$0`/its dirname point at the spool
+# copy, not this script's real location -- confirmed the hard way on a real
+# Euler submission ("fatal: not a git repository" + the resulting empty
+# REPO_ROOT breaking everything downstream). $SLURM_SUBMIT_DIR is the
+# reliable one -- SLURM sets it to the directory `sbatch` was invoked FROM,
+# which is always this script's own directory in the documented workflow.
+# Falls back to `dirname "$0"` only for local testing outside SLURM, where
+# $SLURM_SUBMIT_DIR is unset.
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+APP_DIR="$REPO_ROOT/applications/tango_next/run_EGS_direct_heat_sweep"
+PARAMS_FILE="$APP_DIR/params.yaml"
 
 CPUS="${SLURM_CPUS_PER_TASK:-48}"
 N_WORKERS=$(( CPUS - 3 ))

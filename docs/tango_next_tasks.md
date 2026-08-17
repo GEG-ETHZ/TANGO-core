@@ -2001,6 +2001,19 @@ reasoning doesn't have to be re-derived next session.
   `injection_pressure` barely vary at all), so any of the above run
   against it would likely just report "no interaction" from lack of
   variance to explain, not genuine physics. This wants the broader
-  `run_*_sweep` LHS/full-factorial data instead — which is also why this
-  is filed as an addition to the `run_*_sweep` half of this same item,
-  not the (already-done) `opt_*` half.
+  `run_*_sweep` sweep data instead — which is also why this is filed as
+  an addition to the `run_*_sweep` half of this same item, not the
+  (already-done) `opt_*` half.
+
+- **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
+  (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
+  (`docs/diagrams/*.drawio`, e.g.
+  `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
+  walkthrough" item above) and the vision doc's own diagram set
+  (`docs/TANGO_vision_and_roadmap.md`, already migrated to `.drawio` for
+  Confluence — see `project_vision_doc_diagrams` memory) should be
+  reconciled against tango_next's CURRENT actual architecture/solve order
+  (e.g. `component_idx: 0` is now the injection well with the surface
+  solved last, not whatever an older diagram version assumed) before
+  relying on any of them for a walkthrough or onboarding. Revisit scope
+  when this is actually picked up.
