@@ -470,10 +470,16 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         the true inlet state, isentropic enthalpy at the candidate discharge
         pressure, efficiency-derated to the actual enthalpy rise, then
         flashed back to temperature — rather than assuming the compression
-        is perfectly isothermal. That assumption is what this whole
-        redesign was motivated by: it breaks down exactly in the
-        "approaching a phase boundary" regime a single-point isothermal
-        lookup can't represent.
+        is perfectly isothermal. The gap between an isothermal and an
+        isentropic-efficiency result is driven by TEMPERATURE, not pressure
+        level or the size of the pressure rise: ``dH|_S - dH|_T =
+        T*alpha*V*dP``, where ``alpha`` is the fluid's thermal expansion
+        coefficient. Because ``alpha`` grows as temperature rises toward
+        the fluid's own critical point, the same pressure boost applied at
+        a higher temperature produces a larger isothermal/isentropic
+        divergence than the identical boost applied near ambient
+        temperature — the effect is set by how warm the fluid runs relative
+        to its own critical point, not by the absolute pressure level.
         """
         s = self.state
 

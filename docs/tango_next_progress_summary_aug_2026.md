@@ -1,6 +1,6 @@
 # tango_next: Progress Summary & Forward Plan — August 2026
 
-*Prepared 2026-08-01, updated 2026-08-13. Managerial-level summary — for
+*Prepared 2026-08-01, updated 2026-08-14. Managerial-level summary — for
 engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
 and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
 from `docs/tango_next_progress_summary_july_2026.md`.*
@@ -345,6 +345,87 @@ simpler, verifiable version first on purpose, to get the real numeric
 comparison above; the fuller version remains a tracked backlog item, not
 abandoned.
 
+## Fixed how the production-well pump reaches its target pressure — and tango_next's corrected pump power now runs ~53% above the legacy system's own number, for a real, understood reason (2026-08-14)
+
+In `tango_next`, every one of our production wells that needs a surface
+pump (to guarantee a minimum delivery pressure at the plant) had been
+computing that pump's required boost with a shortcut: run the well's own
+friction/heat-loss calculation first, using the *un-boosted* pressure the
+whole way, then assume that whatever shortfall showed up at the far end
+(the gap between that natural result and the actual target) could simply
+be added, unchanged, right at the pump's own discharge. That shortcut
+quietly assumes the rest of the pipe between the pump and the surface
+doesn't care how hard the pump pushes — but boosting the pump's discharge
+pressure changes the fluid's density the whole way up that pipe, which
+changes the friction loss too, especially for a fluid like supercritical
+CO₂ whose density is highly sensitive to pressure near its critical
+point. The old shortcut ignored that entirely.
+
+**We replaced the shortcut with a real iterative solve.** Instead of
+computing the boost once and hoping it lands close enough, `tango_next`
+now guesses a candidate boost, re-runs the well's own physics from that
+boosted starting point, checks where it actually lands relative to the
+target, and refines the guess — repeating with a genuine convergence
+check (not a fixed number of tries) until it lands within a tight,
+sub-1-Pascal tolerance. This is a small, well-understood piece of applied
+math (the secant method) doing real work here, not decoration.
+
+**While rebuilding this properly, we also fixed a separate, larger
+assumption — one the legacy system carries too, not just an internal
+`tango_next` shortcut.** The pump's own energy cost had been calculated
+assuming the compression happens at *constant temperature* —
+mathematically convenient, but not what a real pump does. A real pump
+does its work fast enough that the fluid has no time to exchange heat
+with its surroundings; the textbook-correct assumption is a compression
+that conserves entropy (with a pump-efficiency penalty applied on top),
+not one that holds temperature fixed. We confirmed the legacy system's
+own downhole-pump code makes the exact same constant-temperature
+assumption explicitly (it raises the fluid's pressure while literally
+passing in the *same* temperature value it had beforehand), so this
+isn't tango_next fixing its own mistake — it's tango_next moving past a
+simplification the legacy system has always carried. We swapped in the
+correct (entropy-conserving) model.
+
+**What actually drives the gap between the two models is temperature,
+not pressure.** It's tempting to assume the constant-temperature
+shortcut breaks down because this fluid is at high pressure, but we
+checked this directly rather than assuming it, and that's not it: at
+this well's real operating temperature (~125°C), the two models
+diverge by the same ~1.5x whether the absolute pressure is low or
+matches the real well (a few MPa to ~7 MPa); held at the same pressures
+but at room temperature instead, the gap nearly disappears (~1.07x).
+The underlying thermodynamics (``dH|entropy − dH|temperature =
+T·α·V·dP``, where α is how much the fluid expands per degree of
+heating) says the gap should grow with temperature, and specifically
+with how close that temperature runs to the fluid's own critical
+point — which is also why this matters even more for a fluid like
+supercritical CO₂ operating near its own critical point than it does
+for this design.
+
+**The consequence is bigger than the legacy system's own number, and we
+traced it against the legacy system directly before accepting it — not
+just against tango_next's own prior output.** For one of our two
+benchmark designs, we pulled the legacy system's actual computed pump
+power from a live run and compared it to tango_next's corrected value, at
+the same final timestep of the same 20-year run: 187,161 W (legacy) vs.
+285,598 W (tango_next) — **~53% higher**, not merely a change relative to
+what tango_next itself used to output. We isolated which of the two
+changes above actually causes it (the temperature assumption, not the
+friction-recalculation piece, which contributes under 0.1% by comparison
+for this design), and independently verified the underlying physics: at
+representative conditions from this well, the entropy-conserving
+enthalpy rise is genuinely **1.5x** the constant-temperature one — a
+first-principles thermodynamic fact about compressing this fluid, not an
+artifact of the code change. This pushed our overall cost figure (LCOE)
+for that design up by a few percent versus the old, less correct number
+— a real, understood, and now-documented shift against the legacy
+system, not unexplained drift. Every test that compares our numbers
+against the legacy system's own pump model was updated with the actual
+traced numbers recorded inline, specifically so this doesn't get
+mistaken for a regression later.
+
+All existing tests pass with the corrected model in place.
+
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see
@@ -370,6 +451,9 @@ specifically the *old-vs-new numeric comparison*, not `tango_next` itself.
    the combined mode's fuller "back off flow rate until a pressure is
    achievable" design, deliberately deferred — tracked in
    `docs/tango_next_tasks.md`, no timeline set.
+5. ~~Replace the production-well pump's one-shot pressure correction with
+   a real iterative solve, and fix its constant-temperature assumption~~ —
+   done 2026-08-14 (see above).
 
 Everything else queued from July's plan is unaffected and can continue in
 parallel.

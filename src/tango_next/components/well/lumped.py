@@ -322,13 +322,22 @@ class LumpedProductionWellWithPump(WellComponent):
         closed-form correction tacked onto the natural (un-boosted) result:
         this segment's OWN friction/hydrostatic loss depends on fluid
         density, which in turn depends on the (boosted) pressure — a
-        genuine fixed-point problem, not a one-shot calculation. Pump work
-        uses a standard isentropic-efficiency model (entropy at the true
-        inlet state, isentropic enthalpy at the candidate discharge
+        genuine fixed-point problem, not a one-shot calculation.
+
+        Pump work uses a standard isentropic-efficiency model (entropy at
+        the true inlet state, isentropic enthalpy at the candidate discharge
         pressure, efficiency-derated to get the actual enthalpy rise, then
         flashed back to temperature) rather than assuming the compression
-        is perfectly isothermal — that assumption breaks down exactly in
-        the regime (near a phase boundary) this fix was motivated by.
+        is perfectly isothermal. The isothermal/isentropic gap is driven by
+        TEMPERATURE, not pressure level or pressure-rise size:
+        ``dH|_S - dH|_T = T*alpha*V*dP``, where ``alpha`` is the fluid's
+        thermal expansion coefficient. Because ``alpha`` grows as
+        temperature rises toward the fluid's own critical point, the same
+        pressure boost applied at a higher temperature produces a larger
+        isothermal/isentropic divergence than the identical boost applied
+        near ambient temperature — the effect is set by how warm the fluid
+        runs relative to its own critical point, not by the absolute
+        pressure level.
         """
         s = self.state
 
