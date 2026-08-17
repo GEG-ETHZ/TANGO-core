@@ -1,32 +1,34 @@
-"""Simulation sweep stage: run each LHS-sampled design point in parallel.
+"""Simulation sweep stage: run each one-at-a-time design point in parallel.
 
 tango_next port of ``applications/run_flexible_DF_manual_sweep/sweep.py``.
 The parameter-mutation mechanics are entirely different from the old-tango
 version: instead of mutating a live ``Runner.tango.specs`` dict in place,
 every design point re-reads ``hydro_df_electric.yml`` fresh
 (``Workflow.from_file(BASE_YAML).to_dict()``), mutates a plain dict copy
-using the scale factors sampled per-row in the design matrix, and builds a
-brand-new ``Workflow`` from it — see ``Workflow``'s class docstring
+using the scale factors read per-row from the design matrix (see
+``generate.py`` for how those rows are built), and builds a brand-new
+``Workflow`` from it — see ``Workflow``'s class docstring
 (``src/tango_next/workflows/workflow.py``) for why a live ``Workflow``/
 ``Component`` must never be mutated in place. Re-reading from the YAML file
 fresh in each worker (rather than passing a pre-built ``Workflow`` between
 processes) also sidesteps any question of whether ``Workflow`` objects are
 picklable — they never cross a process boundary here.
 
-**No economic component in tango_next yet** (Phase 1, bigger deal here than
-for the AGS/EGS ports): ``EconomicComponent`` is an unwired placeholder —
-nothing reads ``economic:`` in the YAML, so old tango's entire point in this
-sweep (an LCOE sensitivity sweep across 23 parameters) can't be replicated
-yet. ``LCOE`` is kept as an explicit ``None`` field (documented, not
-omitted or silently dropped) rather than faked. Instead, this port tracks
-what tango_next CAN produce today: ``net_power_W`` (the double-flash
+Every design point's config includes an ``economic:`` block
+(``DoubletEconomicComponent``), so ``LCOE_USD_per_kWh``/``CAPEX_*_USD`` are
+read from ``wf.to_dict()["economic"]["state"]`` after ``wf.run()`` — the
+same access pattern the ``opt_*`` pymoo apps use. This restores the
+original point of this sweep (an LCOE sensitivity check), which a prior
+version of this port couldn't do. ``net_power_W`` (the double-flash
 topology's actual TESPy-solved net electric power, read from
 ``surface.history.net_power_W[-1]``) and ``T_prod_K`` (from
-``production_well_upper.history.T_outlet[-1]``). The port still validates
-that the double-flash topology holds up (or doesn't) across the same 21-D
-parameter space old tango explored — it just can't yet report the economic
-sensitivity that was the original point, pending tango_next's economic
-component.
+``production_well_upper.history.T_outlet[-1]``) are still tracked as
+before — physical quantities, distinct from ``DoubletEconomicComponent``'s
+own run-averaged, parasitic-netted net electric power (see that class's
+``_read_net_power`` docstring), which isn't separately recorded here.
+``swept_param``/``level`` are copied straight through from the design
+matrix row (see ``generate.py``) so ``summarize.py`` can group results by
+which single parameter each design point actually varied.
 
 The ``specs_hash``/ArangoDB-hash field from old tango's result dict is
 dropped entirely — that was an old-tango-specific integration with no
@@ -81,7 +83,7 @@ def _sync_injection_well_length(cfg: dict) -> None:
 
 
 def run_single_simulation(args: tuple) -> None:
-    """Worker: run one LHS design point and write a JSON result file."""
+    """Worker: run one one-at-a-time design point and write a JSON result file."""
     row_idx, design_matrix_file, results_dir, _log_level = args
     result_file = results_dir / f"{row_idx:06d}.json"
     if result_file.exists():
@@ -92,12 +94,20 @@ def run_single_simulation(args: tuple) -> None:
 
     result: dict = {
         "row_idx": row_idx,
-        # LCOE cannot be computed — no EconomicComponent wired up yet in
-        # tango_next (Phase 1); see module docstring. Kept explicit, not
-        # omitted, so a null does not silently read as "zero cost."
-        "LCOE": None,
+        "swept_param": row["swept_param"],
+        "level": row["level"],
         "net_power_W": None,
         "T_prod_K": None,
+        # CAPEX components [USD] — filled in from DoubletEconomicComponent's
+        # state below if the run succeeds; stays None on a failed design
+        # point (see module docstring).
+        "CAPEX_well_USD": None,
+        "CAPEX_exploration_USD": None,
+        "CAPEX_permitting_USD": None,
+        "CAPEX_surface_pipes_USD": None,
+        "CAPEX_surface_plant_USD": None,
+        "CAPEX_total_USD": None,
+        "LCOE_USD_per_kWh": None,
         "error": None,
     }
 
@@ -116,16 +126,11 @@ def run_single_simulation(args: tuple) -> None:
         # well segments — see _sync_injection_well_length's docstring.
         _sync_injection_well_length(cfg)
 
-        # well_spacing must be kept in sync between layout and the surface
-        # component (same convention as the AGS/EGS ports' well_spacing
-        # handling) — but here layout.well_spacing IS one of the swept
-        # PARAMETERS, so mirror the scaled value onto the surface component
-        # after the loop above rather than sweeping both independently.
-        set_nested_value(
-            cfg,
-            "components.surface.well_spacing",
-            get_nested_value(cfg, "layout.well_spacing"),
-        )
+        # No mirroring of layout.well_spacing onto components.surface here:
+        # well_spacing is sourced only from layout: and rejected as a
+        # per-component override (see Workflow's _PROTECTED_COMPONENT_KEYS)
+        # — layout.well_spacing being one of the swept PARAMETERS is
+        # already enough, nothing else needs to read it.
 
         wf = Workflow(cfg)
         wf.run()
@@ -136,6 +141,15 @@ def run_single_simulation(args: tuple) -> None:
 
         result["net_power_W"] = surface.history.net_power_W[-1]
         result["T_prod_K"] = production_well_upper.history.T_outlet[-1]
+
+        econ_state = wf.to_dict()["economic"]["state"]
+        result["CAPEX_well_USD"] = econ_state["CAPEX_well"]
+        result["CAPEX_exploration_USD"] = econ_state["CAPEX_exploration"]
+        result["CAPEX_permitting_USD"] = econ_state["CAPEX_permitting"]
+        result["CAPEX_surface_pipes_USD"] = econ_state["CAPEX_surface_pipes"]
+        result["CAPEX_surface_plant_USD"] = econ_state["CAPEX_surface_plant"]
+        result["CAPEX_total_USD"] = econ_state["CAPEX_total"]
+        result["LCOE_USD_per_kWh"] = econ_state["LCOE"]
 
     except Exception as e:
         result["error"] = {

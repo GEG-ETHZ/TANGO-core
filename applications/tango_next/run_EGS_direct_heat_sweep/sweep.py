@@ -12,27 +12,25 @@ fresh in each worker (rather than passing a pre-built ``Workflow`` between
 processes) also sidesteps any question of whether ``Workflow`` objects are
 picklable — they never cross a process boundary here.
 
-**No economic component in tango_next yet** (Phase 1): ``EconomicComponent``
-is an unwired placeholder — nothing reads ``economic:`` in the YAML, and
-CAPEX/LCOE cannot be computed. Every CAPEX_*/LCOE_* field below is set to
-``None`` explicitly, not omitted or silently dropped, so a null does not read
-as "the plant is unprofitable" — it means "not computed in this phase."
+Every design point's config includes an ``economic:`` block
+(``DoubletEconomicComponent``), so ``CAPEX_*_USD``/``LCOE_USD_per_kWh``/
+``net_thermal_power_kW`` are read from ``wf.to_dict()["economic"]["state"]``
+after ``wf.run()`` — the same access pattern the ``opt_*`` pymoo apps use.
+These fields start ``None`` in the result dict below and only get
+overwritten if the run succeeds, so a failed design point's JSON still has
+every key present (for a uniform ``results.parquet`` schema) with an
+``error`` block explaining why, rather than a null that could be misread as
+"computed and unprofitable."
 
-**thermal_power_kW / net_thermal_power_kW naming, deviating from old tango's
-literal field semantics:** old tango's ``thermal_power_kW`` was a
-hand-computed ``mdot * (h_prod - h_return)`` estimate, and its
-``net_thermal_power_kW`` came from the *economic* unit's
-``Net_thermal_power_Generated_kWe`` (pump-parasitic-load-adjusted, an
-economic-accounting quantity). tango_next's ``GraphSurface`` computes the
-district-heating heat exchanger's actual duty directly and correctly via
-TESPy (``surface.history.net_thermal_W``, already in watts, already
-``mdot * actual enthalpy drop`` — no manual CoolProp Δh estimate needed) but
-has no economic component to compute a pump-loss-adjusted net figure. So
-here: ``thermal_power_kW`` (the physical, always-available quantity) is
-populated from ``net_thermal_W``, replacing old tango's manual estimate with
-the more accurate TESPy-computed one; ``net_thermal_power_kW`` (the
-economic-accounting quantity) is ``None``, consistent with every other
-economic field, since nothing computes it yet.
+**thermal_power_kW vs. net_thermal_power_kW:** ``thermal_power_kW`` is the
+physical quantity — ``surface.history.net_thermal_W`` (TESPy-solved district-
+heating exchanger duty) at the final timestep, in kW. ``net_thermal_power_kW``
+is the economic-accounting quantity — ``DoubletEconomicComponent``'s own
+run-averaged ``net_thermal_W`` (see that class's ``_read_net_power``
+docstring: unaffected by any parasitic-power netting for this topology, so
+in practice it's close to but not necessarily identical to
+``thermal_power_kW``, since one is a final-timestep read and the other a
+whole-run average).
 
 **No ``_apply_target_extraction_pressure`` here** — unlike the AGS
 direct-heat sweep, old-tango's EGS ``sweep.py``
@@ -125,15 +123,16 @@ def run_single_simulation(args: tuple) -> None:
         "T_inj_K": None,
         "specific_enthalpy_kJ_kg": None,
         "thermal_power_kW": None,
-        # CAPEX components [USD] — None: no EconomicComponent wired up yet in
-        # tango_next (Phase 1); see module docstring.
+        # CAPEX components [USD] — filled in from DoubletEconomicComponent's
+        # state below if the run succeeds; stays None on a failed design
+        # point (see module docstring).
         "CAPEX_well_USD": None,
         "CAPEX_exploration_USD": None,
         "CAPEX_permitting_USD": None,
         "CAPEX_surface_pipes_USD": None,
         "CAPEX_surface_plant_USD": None,
         "CAPEX_total_USD": None,
-        # Economic metrics — None for the same reason.
+        # Economic metrics — same as above.
         "LCOE_USD_per_kWh": None,
         "net_thermal_power_kW": None,
         # Simulation status
@@ -177,10 +176,7 @@ def run_single_simulation(args: tuple) -> None:
 
         # Thermal power: tango_next computes this correctly already (mdot *
         # actual enthalpy drop across dh_hx, solved by TESPy) — no manual
-        # CoolProp Δh estimate needed, unlike old tango. See module
-        # docstring for why this populates thermal_power_kW (not
-        # net_thermal_power_kW, which stays None pending the economic
-        # component).
+        # CoolProp Δh estimate needed, unlike old tango.
         net_thermal_W = surface.history.net_thermal_W[-1]
         thermal_power_kW = net_thermal_W / 1000.0
 
@@ -194,6 +190,16 @@ def run_single_simulation(args: tuple) -> None:
         result["T_inj_K"] = T_inj_K
         result["specific_enthalpy_kJ_kg"] = specific_enthalpy_kJ_kg
         result["thermal_power_kW"] = thermal_power_kW
+
+        econ_state = wf.to_dict()["economic"]["state"]
+        result["CAPEX_well_USD"] = econ_state["CAPEX_well"]
+        result["CAPEX_exploration_USD"] = econ_state["CAPEX_exploration"]
+        result["CAPEX_permitting_USD"] = econ_state["CAPEX_permitting"]
+        result["CAPEX_surface_pipes_USD"] = econ_state["CAPEX_surface_pipes"]
+        result["CAPEX_surface_plant_USD"] = econ_state["CAPEX_surface_plant"]
+        result["CAPEX_total_USD"] = econ_state["CAPEX_total"]
+        result["LCOE_USD_per_kWh"] = econ_state["LCOE"]
+        result["net_thermal_power_kW"] = econ_state["net_thermal_W"] / 1000.0
 
     except Exception as e:
         result["error"] = {

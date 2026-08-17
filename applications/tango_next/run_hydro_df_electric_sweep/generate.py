@@ -1,13 +1,25 @@
-"""Design matrix generation stage for the tango_next double-flash LHS sweep pipeline.
+"""Design matrix generation stage for the tango_next double-flash sensitivity sweep pipeline.
 
-tango_next port of ``applications/run_flexible_DF_manual_sweep/generate.py``.
-This stage's logic is entirely generic — parameter names/bounds come from
-``common.py``, LHS sampling via ``scipy.stats.qmc.LatinHypercube`` is
-unchanged — only the import now points at this directory's local
-``common.py`` (21 tango_next parameters instead of old tango's 23; see
-``common.py``'s docstring for the two dropped parameters), and the
-``tango.utils.print_datetime`` calls are dropped since ``tango_next`` has no
-equivalent helper (plain prints, matching the AGS/EGS tango_next ports).
+One-at-a-time (OFAT) design, not LHS: for each parameter in
+``PARAMETER_BOUNDS``, one row holds it at its low bound and one row holds it
+at its high bound, with every OTHER parameter at baseline (scale factor
+1.0) — plus one pure-baseline row (every parameter at 1.0). This directly
+answers this sweep's actual goal (confirm every parameter has a real effect
+on the outputs) without the combinatorial blow-up of varying all parameters
+at once: an LHS draw across ~30 simultaneously-varied parameters had a near-0%
+feasible-design rate in practice (most combinations pushed some part of the
+plant/well/reservoir model out of its valid range at once), while a single
+parameter moved in isolation from baseline is far more likely to stay
+feasible AND gives a direct, attributable before/after comparison per
+parameter — exactly what "does this variable matter" needs.
+
+Parameters whose bounds are degenerate (``low == high``, i.e. "fixed, no
+variation" — see ``common.py``'s ``PARAMETER_BOUNDS`` comments) are skipped
+entirely: a low/high pair that's identical to baseline tests nothing.
+
+Total design points: ``1 + 2 * (number of non-degenerate parameters)`` —
+small and fixed, not a tunable sample count, so there's no ``--n-samples``/
+``--seed`` here (nothing is randomly sampled).
 """
 
 import argparse
@@ -16,79 +28,75 @@ from pathlib import Path
 
 import polars as pl
 from common import (
-    DEFAULT_N_SAMPLES,
-    DEFAULT_SEED,
     DEFAULT_SWEEP_DIR,
     PARAMETER_BOUNDS,
     PARAMETERS,
     load_params,
 )
-from scipy.stats import qmc  # type: ignore[import-untyped]
 
 
-def generate_design_matrix(n_samples: int, seed: int, output_file: Path) -> pl.DataFrame:
-    """Generate LHS design matrix with per-parameter bounds and save to parquet."""
+def generate_design_matrix(output_file: Path) -> pl.DataFrame:
+    """Generate the one-at-a-time low/high design matrix and save to parquet.
+
+    Each row sets exactly one parameter away from baseline (scale factor
+    1.0 for every other parameter) — see module docstring. ``swept_param``/
+    ``level`` columns identify which parameter and direction each row tests
+    (``"baseline"``/``"low"``/``"high"``), for the per-parameter sensitivity
+    comparison ``summarize.py`` builds from this design.
+    """
     output_file.parent.mkdir(exist_ok=True, parents=True)
 
-    sampler = qmc.LatinHypercube(d=len(PARAMETERS), seed=seed)
-    samples = sampler.random(n=n_samples)
+    baseline = dict.fromkeys(PARAMETERS, 1.0)
+    rows: list[dict] = [{"row_idx": 0, "swept_param": "baseline", "level": "baseline", **baseline}]
 
-    data: dict[str, list[float]] = {}
-    for i, param in enumerate(PARAMETERS):
-        min_scale, max_scale = PARAMETER_BOUNDS[param]
-        data[param] = (samples[:, i] * (max_scale - min_scale) + min_scale).tolist()
-    data["row_idx"] = list(range(n_samples))
+    row_idx = 1
+    for param in PARAMETERS:
+        low_scale, high_scale = PARAMETER_BOUNDS[param]
+        if low_scale == high_scale:
+            continue
+        for level, scale in (("low", low_scale), ("high", high_scale)):
+            row = dict(baseline)
+            row[param] = scale
+            rows.append({"row_idx": row_idx, "swept_param": param, "level": level, **row})
+            row_idx += 1
 
-    df = pl.DataFrame(data)
+    df = pl.DataFrame(rows)
     df.write_parquet(output_file)
-    print(f"Generated design matrix: {output_file} ({n_samples} samples)")
+    print(f"Generated design matrix: {output_file} ({len(df)} rows, one-at-a-time low/high design)")
     return df
 
 
 def main(
-    n_samples: int = DEFAULT_N_SAMPLES,
-    seed: int = DEFAULT_SEED,
     regenerate: bool = False,
     quiet: bool = False,
     sweep_dir: Path | None = None,
 ) -> None:
-    """Generate the LHS design matrix, skipping if it already exists."""
+    """Generate the one-at-a-time design matrix, skipping if it already exists."""
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     design_matrix_file = sweep_dir / "design_matrix.parquet"
     results_dir = sweep_dir / "results"
 
     if not quiet:
-        print(f"Parameters: {len(PARAMETERS)} (per-parameter bounds)")
-        print(f"Samples: {n_samples}, seed: {seed}")
+        n_varied = sum(1 for lo, hi in PARAMETER_BOUNDS.values() if lo != hi)
+        print(f"Parameters: {len(PARAMETERS)} total, {n_varied} varied (rest fixed, low == high)")
+        print(f"Design points: {1 + 2 * n_varied} (1 baseline + 2 per varied parameter)")
 
     if regenerate or not design_matrix_file.exists():
         if regenerate and results_dir.exists():
             shutil.rmtree(results_dir)
             if not quiet:
                 print(f"Cleared old results: {results_dir}")
-        generate_design_matrix(n_samples=n_samples, seed=seed, output_file=design_matrix_file)
+        generate_design_matrix(output_file=design_matrix_file)
     elif not quiet:
         print(f"Design matrix exists: {design_matrix_file}")
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the design matrix generator."""
-    params = load_params()
+    load_params()  # validates params.yaml parses even though nothing here reads it
     parser = argparse.ArgumentParser(
-        description="Generate LHS design matrix for the tango_next double-flash sweep",
+        description="Generate the one-at-a-time low/high design matrix for the tango_next double-flash sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--n-samples",
-        type=int,
-        default=params.get("n_samples", DEFAULT_N_SAMPLES),
-        help="Number of LHS samples to generate",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=params.get("seed", DEFAULT_SEED),
-        help="Random seed for reproducibility",
     )
     parser.add_argument(
         "--regenerate",
@@ -108,8 +116,6 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     main(
-        n_samples=args.n_samples,
-        seed=args.seed,
         regenerate=args.regenerate,
         quiet=args.quiet,
         sweep_dir=args.sweep_dir,

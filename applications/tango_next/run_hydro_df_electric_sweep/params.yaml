@@ -1,8 +1,9 @@
-# Parameters for the tango_next hydro_df_electric LHS sweep.
+# Parameters for the tango_next hydro_df_electric one-at-a-time sensitivity sweep.
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `dvc repro` from the repo root to re-execute stale stages.
+#
+# No n_samples/seed here: the design is a fixed one-at-a-time low/high
+# sweep (see generate.py's module docstring), not a tunable random sample.
 
-n_samples: 12
-seed: 42
 n_workers: 4
 log_level: NONE

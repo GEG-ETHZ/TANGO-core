@@ -1,12 +1,16 @@
-"""Result aggregation stage for the tango_next double-flash LHS sweep pipeline.
+"""Result aggregation stage for the tango_next double-flash sensitivity sweep pipeline.
 
 tango_next port of ``applications/run_flexible_DF_manual_sweep/summarize.py``.
-Structure is unchanged except for what gets summarized: ``LCOE`` is always
-``None`` here (no ``EconomicComponent`` wired up yet — see ``sweep.py``'s
-module docstring), so instead of LCOE distribution stats this reports
-``net_power_W`` distribution stats (mean/std/p25/p50/p75/p95), using the
-exact same structure/quantiles old tango used for LCOE. ``LCOE`` is kept in
-the summary explicitly as ``null`` with a comment, not silently dropped.
+Reports both ``LCOE_USD_per_kWh`` and ``net_power_W`` distribution stats
+(mean/std/p25/p50/p75/p95) — ``LCOE_USD_per_kWh`` is read from each design
+point's ``DoubletEconomicComponent`` state (see ``sweep.py``'s module
+docstring), using the same quantile set old tango used for LCOE.
+
+Also writes ``sensitivity_table.csv``: one row per design point (baseline +
+each parameter's low/high), so it's easy to see at a glance whether a given
+parameter actually moves ``LCOE_USD_per_kWh``/``net_power_W`` away from the
+baseline row — this sweep's actual goal (see ``generate.py``'s module
+docstring), not a full distribution over a huge combined design space.
 """
 
 import argparse
@@ -33,64 +37,80 @@ def aggregate_results(results_dir: Path) -> pl.DataFrame:
     return pl.DataFrame(results)
 
 
-def write_summary(results_df: pl.DataFrame, output_file: Path) -> None:
-    """Write net_power_W summary statistics to YAML for DVC metrics tracking.
+def _distribution_stats(series: pl.Series, prefix: str) -> dict:
+    """Mean/std/p25/p50/p75/p95 of a numeric series, keyed by ``{prefix}_*``.
 
-    LCOE is always null in this port (pending tango_next's economic
-    component — see sweep.py's module docstring) so it is reported as
-    ``null`` here rather than silently omitted, and net_power_W distribution
-    stats are reported in its place using the same stat set old tango used
-    for LCOE.
+    ``std()`` of a single sample is null (undefined), not 0 — guarded
+    separately rather than letting ``float(None)`` raise.
     """
-    net_power = results_df.filter(pl.col("error").is_null())["net_power_W"]
-    n_success = len(net_power)
+    n = len(series)
+    return {
+        f"{prefix}_mean": float(series.mean()),  # type: ignore[arg-type]
+        f"{prefix}_std": float(series.std()) if n > 1 else None,  # type: ignore[arg-type]
+        f"{prefix}_p25": float(series.quantile(0.25)),  # type: ignore[arg-type]
+        f"{prefix}_p50": float(series.quantile(0.50)),  # type: ignore[arg-type]
+        f"{prefix}_p75": float(series.quantile(0.75)),  # type: ignore[arg-type]
+        f"{prefix}_p95": float(series.quantile(0.95)),  # type: ignore[arg-type]
+    }
+
+
+def write_summary(results_df: pl.DataFrame, output_file: Path) -> None:
+    """Write LCOE_USD_per_kWh + net_power_W summary statistics to YAML for DVC metrics tracking."""
+    successful = results_df.filter(pl.col("error").is_null())
+    n_success = len(successful)
     summary: dict = {
         "n_samples": len(results_df),
         "n_success": n_success,
         "n_failed": len(results_df) - n_success,
-        # Always null — no EconomicComponent wired up yet in tango_next
-        # (Phase 1 placeholder); see sweep.py's module docstring. Kept here
-        # explicitly rather than omitted so a reader doesn't mistake its
-        # absence for an oversight.
-        "LCOE": None,
     }
     if n_success > 0:
-        summary.update(
-            {
-                "net_power_W_mean": float(net_power.mean()),  # type: ignore[arg-type]
-                # std() of a single sample is null (undefined), not 0 — guard
-                # separately rather than letting float(None) raise.
-                "net_power_W_std": float(net_power.std()) if n_success > 1 else None,  # type: ignore[arg-type]
-                "net_power_W_p25": float(net_power.quantile(0.25)),  # type: ignore[arg-type]
-                "net_power_W_p50": float(net_power.quantile(0.50)),  # type: ignore[arg-type]
-                "net_power_W_p75": float(net_power.quantile(0.75)),  # type: ignore[arg-type]
-                "net_power_W_p95": float(net_power.quantile(0.95)),  # type: ignore[arg-type]
-            },
-        )
+        summary.update(_distribution_stats(successful["LCOE_USD_per_kWh"], "LCOE_USD_per_kWh"))
+        summary.update(_distribution_stats(successful["net_power_W"], "net_power_W"))
     output_file.parent.mkdir(exist_ok=True, parents=True)
     with open(output_file, "w") as f:
         yaml.dump(summary, f, default_flow_style=False, sort_keys=False)
+
+
+def build_sensitivity_table(results_df: pl.DataFrame) -> pl.DataFrame:
+    """One row per design point, sorted so each parameter's low/high pair sits
+    together — the baseline row, then every (swept_param, level) pair, for
+    reading off each parameter's effect on ``LCOE_USD_per_kWh``/
+    ``net_power_W`` relative to baseline at a glance. Failed design points
+    keep their ``error`` message instead of null outputs, so a parameter
+    that makes the model infeasible at its low or high bound is visible
+    here too, not silently dropped.
+    """
+    cols = ["row_idx", "swept_param", "level", "LCOE_USD_per_kWh", "net_power_W", "T_prod_K", "error"]
+    return results_df.select(cols).sort(
+        pl.col("swept_param") != "baseline",  # baseline row first
+        "swept_param",
+        pl.col("level") != "baseline",  # then low/high in a stable order
+        "level",
+    )
 
 
 def main(
     quiet: bool = False,
     sweep_dir: Path | None = None,
 ) -> None:
-    """Aggregate sweep results and write parquet + YAML summary files."""
+    """Aggregate sweep results and write parquet + YAML summary + sensitivity-table CSV."""
     sweep_dir = sweep_dir if sweep_dir is not None else DEFAULT_SWEEP_DIR
     results_dir = sweep_dir / "results"
     results_file = sweep_dir / "results.parquet"
     summary_file = sweep_dir / "summary.yaml"
+    sensitivity_file = sweep_dir / "sensitivity_table.csv"
 
     results_df = aggregate_results(results_dir)
     results_df.write_parquet(results_file)
     if not quiet:
         print(f"Results saved: {results_file}")
     write_summary(results_df, summary_file)
+    build_sensitivity_table(results_df).write_csv(sensitivity_file)
     if not quiet:
         n_success = results_df.filter(pl.col("error").is_null()).height
         n_failed = results_df.filter(pl.col("error").is_not_null()).height
         print(f"Summary: {n_success} succeeded, {n_failed} failed → {summary_file}")
+        print(f"Sensitivity table: {sensitivity_file}")
 
 
 def parse_args() -> argparse.Namespace:

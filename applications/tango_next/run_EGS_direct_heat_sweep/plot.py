@@ -11,15 +11,11 @@ loop, so there's no loop-length/loop-diameter grid to slice over like the
 AGS direct-heat plot.py does. ``plot_success_scatter`` is therefore a single
 scatter plot, not a grid of subplots.
 
-``plot_lcoe_grid`` is intentionally NOT ported: it colored designs by LCOH
-(``LCOE_USD_per_kWh``), and tango_next has no wired-up ``EconomicComponent``
-yet (Phase 1 placeholder — see ``sweep.py``'s module docstring), so that
-column is always null in this port. A grid colored entirely grey would not
-be a meaningful plot. Port it once a real economic component exists.
-
-The parallel-coordinates plots color by ``thermal_power_kW`` instead of LCOH,
-for the same reason — it's the most informative always-populated output
-column available without an economic component.
+``LCOE_USD_per_kWh``/``CAPEX_total_USD`` are now populated (``sweep.py``
+reads them from ``DoubletEconomicComponent``'s state) but this module
+doesn't use them yet — the parallel-coordinates plots still color by
+``thermal_power_kW``, and there's no LCOE-colored grid — that's queued as
+separate follow-up plotting work, not done in this pass.
 """
 
 from __future__ import annotations
@@ -43,8 +39,9 @@ T_PROD_THRESHOLD_C = 105.0
 # Then inputs (well_depth_m, mass_flow_kg_per_s), then outputs: T_prod_C
 # (whether the district-heating temperature target is met) and
 # thermal_power_kW (how much useful heat the design actually delivers).
-# CAPEX_total_USD/LCOE_USD_per_kWh are omitted — always null in this port
-# (see module docstring).
+# CAPEX_total_USD/LCOE_USD_per_kWh are omitted from these axes for now —
+# populated (see module docstring) but not yet wired into this plot;
+# queued as follow-up plotting work.
 _PARCOORD_COLUMNS: list[tuple[str, str]] = [
     ("row_idx", "Design\nindex"),
     ("well_depth_m", "Well depth\n[m]"),
@@ -112,9 +109,9 @@ def plot_parallel_coordinates(df: pl.DataFrame, out_path: Path, color_col: str =
 
     Each design is one line crossing all axes (min-max normalized per axis so
     columns with very different units/ranges are comparable); lines are
-    colored by `color_col` (default thermal_power_kW — LCOH would be the
-    natural choice, matching old tango, but tango_next has no economic
-    component yet, see module docstring) so the delivered-heat gradient
+    colored by `color_col` (default thermal_power_kW — switching this to
+    LCOE_USD_per_kWh, now that it's populated, is queued as follow-up
+    plotting work, see module docstring) so the delivered-heat gradient
     across the whole design space is visible at a glance.
 
     Color is normalized against the 5th-95th percentile of `color_col`, not
@@ -314,8 +311,9 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
     parcoord_qualified_html_path = sweep_dir / "parallel_coordinates_qualified.html"
 
     plot_success_scatter(df, scatter_path)
-    # No lcoe_grid.png in this port — see module docstring: no economic
-    # component exists yet, so LCOE_USD_per_kWh is always null.
+    # No lcoe_grid.png yet — LCOE_USD_per_kWh is populated now (see module
+    # docstring) but this plot hasn't been built yet; queued as follow-up
+    # plotting work.
     plot_parallel_coordinates(df, parcoord_path)
     wrote_html = plot_parallel_coordinates_interactive(df, parcoord_html_path)
     wrote_qualified_html = plot_parallel_coordinates_interactive_qualified(df, parcoord_qualified_html_path)
@@ -328,8 +326,8 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         if wrote_qualified_html:
             print(f"Wrote {parcoord_qualified_html_path}")
         print(
-            "Skipped lcoe_grid.png — no tango_next EconomicComponent exists yet, "
-            "LCOE_USD_per_kWh is always null (see this module's docstring).",
+            "Skipped lcoe_grid.png — not built yet in this port "
+            "(LCOE_USD_per_kWh is populated; see this module's docstring).",
         )
 
 

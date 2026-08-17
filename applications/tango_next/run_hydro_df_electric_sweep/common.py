@@ -1,12 +1,18 @@
-"""Shared constants and utilities for the tango_next double-flash LHS sweep pipeline.
+"""Shared constants and utilities for the tango_next double-flash sensitivity sweep pipeline.
 
 This is the tango_next port of
-``applications/run_flexible_DF_manual_sweep/common.py``. Unlike the AGS/EGS
-direct-heat ports (full-factorial grids over 2-4 named axes), old tango's DF
-manual sweep is a Latin Hypercube Sample (LHS) over ~23 continuous
-parameters, each varied by a random scale factor within per-parameter
-bounds — see ``generate.py``/``sweep.py`` for the sampling and mutation
-mechanics, which are otherwise unchanged from old tango.
+``applications/run_flexible_DF_manual_sweep/common.py``. Old tango's DF
+manual sweep was a Latin Hypercube Sample (LHS) over ~23 continuous
+parameters, each varied by a random scale factor simultaneously — this port
+initially replicated that, but a full simultaneous LHS draw across this many
+parameters had a near-0% feasible-design rate against tango_next's stricter
+validation (most random combinations pushed some part of the plant/well/
+reservoir model out of its valid range at once). Replaced 2026-08-17 with a
+one-at-a-time (OFAT) design instead: each parameter moved to its low/high
+bound in its own design point, everything else at baseline — see
+``generate.py``'s module docstring for the full rationale. ``PARAMETER_BOUNDS``
+below (the per-parameter low/high scale factors) is unchanged by that switch;
+only how design points are built from it changed.
 
 ``PARAMETER_BOUNDS`` below is old tango's dict translated key-by-key from
 flat ``specs`` dot-paths to tango_next's nested
@@ -65,10 +71,12 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "common.surface_pressure": (0.9, 1.1),  # scale factor, ±10% (base 100kPa)
     "components.surface.pipe_diameter": (0.5, 2.0),  # scale factor, max 5m validation limit
     "components.surface.approach_temperature": (0.5, 2.0),  # scale factor, 3.5-14K range
-    "components.surface.target_extraction_pressure": (
+    "sim_config.target_extraction_pressure": (
         0.7,
         1.5,
-    ),  # scale factor, CoolProp sensitive
+    ),  # scale factor, CoolProp sensitive — sourced from sim_config: (not a
+    # components.surface.* override, which Workflow rejects; see
+    # _PROTECTED_COMPONENT_KEYS in workflows/workflow.py)
     # --- Reservoir parameters ---
     "components.reservoir.reservoir_depth": (0.5, 1.5),  # scale factor, 2.5-7.5km range
     "components.reservoir.thickness": (0.5, 2.0),  # scale factor, 150-600m range
@@ -90,8 +98,9 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "components.production_well_upper.diameter": (0.5, 2.0),  # scale factor
     # --- Schedule parameters ---
     "sim_config.mass_rate": (0.5, 2.0),  # scale factor, 25-100 kg/s
-    "layout.well_spacing": (0.5, 2.0),  # scale factor, 350-1400m — kept in
-    # sync with components.surface.well_spacing, see sweep.py
+    "layout.well_spacing": (0.5, 2.0),  # scale factor, 350-1400m — the sole
+    # source of this value (components.surface.* cannot override it; see
+    # _PROTECTED_COMPONENT_KEYS in workflows/workflow.py)
     # schedule.num_pp dropped — no tango_next Layout field (see docstring).
     # --- Economic parameters (flexible) ---
     # Harmless to keep even though nothing reads economic.* yet — same as
@@ -128,9 +137,7 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
 PARAMETERS = list(PARAMETER_BOUNDS.keys())
 
 # Defaults (overridden by params.yaml if present)
-DEFAULT_N_SAMPLES = 100
 DEFAULT_N_WORKERS = 8
-DEFAULT_SEED = 42
 DEFAULT_LOG_LEVEL = "NONE"
 
 

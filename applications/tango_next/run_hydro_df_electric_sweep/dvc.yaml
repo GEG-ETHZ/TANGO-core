@@ -1,16 +1,14 @@
 stages:
 
-  # Stage 1: generate the design matrix (LHS sampling algorithm lives here).
+  # Stage 1: generate the design matrix (one-at-a-time low/high builder
+  # lives here — no params.yaml entries, the design is fixed by
+  # common.py's PARAMETER_BOUNDS, not a tunable sample count).
   generate:
     cmd: python generate.py
     deps:
       - generate.py
       - common.py
       - ../../../examples/tango_next/hydro_df_electric.yml
-    params:
-      - params.yaml:
-          - n_samples
-          - seed
     outs:
       - outputs/design_matrix.parquet
 
@@ -40,7 +38,8 @@ stages:
     deps:
       - outputs/results
 
-  # Stage 3: aggregate JSONs → parquet, compute summary metrics.
+  # Stage 3: aggregate JSONs → parquet, compute summary metrics + the
+  # per-parameter sensitivity table.
   summarize:
     cmd: python summarize.py
     deps:
@@ -49,6 +48,7 @@ stages:
       - outputs/results
     outs:
       - outputs/results.parquet
+      - outputs/sensitivity_table.csv
     metrics:
       - outputs/summary.yaml:
           cache: true

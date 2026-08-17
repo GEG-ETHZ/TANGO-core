@@ -2,13 +2,11 @@
 
 tango_next port of
 ``applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_analysis.py``.
-Structure is unchanged (success/failure breakdown table, statistics table,
-error-by-module breakdown), but success is now defined by ``error is None``
-rather than ``LCOE is not None`` — ``LCOE`` is always ``None`` in this port
-regardless of success (no ``EconomicComponent`` wired up yet, see
-``sweep.py``'s module docstring), so gating success on it would report every
-run as a failure. The statistics table reports ``net_power_W`` instead of
-``LCOE``.
+Structure is unchanged (success/failure breakdown table, statistics tables,
+error-by-module breakdown). Success is defined by ``error is None``, not by
+``LCOE_USD_per_kWh is not None`` — a run can in principle fail before or
+after the economic component runs, so gating on the error field directly is
+the more general check.
 
 Usage:
     python run_hydro_df_electric_analysis.py
@@ -40,9 +38,8 @@ def generate_result_type_table(results: list[dict]) -> pl.DataFrame:
     """Generate a polars DataFrame of result types (success/error breakdown).
 
     Returns a DataFrame with Result Type, Count, and Percentage columns,
-    including a success row. A run "succeeded" if ``error is None`` — NOT if
-    ``LCOE is not None``, since ``LCOE`` is always ``None`` here regardless
-    of outcome (see module docstring).
+    including a success row. A run "succeeded" if ``error is None`` (see
+    module docstring for why that's the more general check).
     """
     type_counts: Counter[str] = Counter()
 
@@ -70,16 +67,14 @@ def generate_result_type_table(results: list[dict]) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
-def generate_net_power_statistics(results: list[dict]) -> pl.DataFrame:
-    """Generate net_power_W statistics for successful runs as a polars DataFrame."""
+def generate_field_statistics(results: list[dict], field: str) -> pl.DataFrame:
+    """Generate ``field``'s statistics for successful runs as a polars DataFrame."""
     import numpy as np
 
     values = [
-        float(r["net_power_W"])
+        float(r[field])
         for r in results
-        if r["net_power_W"] is not None
-        and not math.isnan(float(r["net_power_W"]))
-        and not math.isinf(float(r["net_power_W"]))
+        if r[field] is not None and not math.isnan(float(r[field])) and not math.isinf(float(r[field]))
     ]
 
     if not values:
@@ -136,7 +131,8 @@ def analyze_sweep(sweep_dir: Path) -> str:
         return "Error: No results found."
 
     result_type_df = generate_result_type_table(results)
-    net_power_stats_df = generate_net_power_statistics(results)
+    lcoe_stats_df = generate_field_statistics(results, "LCOE_USD_per_kWh")
+    net_power_stats_df = generate_field_statistics(results, "net_power_W")
     error_module_df = generate_error_module_breakdown(results)
 
     sections = [
@@ -145,13 +141,13 @@ def analyze_sweep(sweep_dir: Path) -> str:
         f"**Sweep directory**: `{sweep_dir}`",
         f"**Total simulations**: {len(results):,}",
         "",
-        "**Note:** LCOE is always null in this port — no EconomicComponent "
-        "wired up yet in tango_next. net_power_W (TESPy-solved net electric "
-        "power) is reported below instead.",
-        "",
         "## Result Type Breakdown",
         "",
         str(result_type_df),
+        "",
+        "## LCOE_USD_per_kWh Statistics",
+        "",
+        str(lcoe_stats_df),
         "",
         "## net_power_W Statistics [W]",
         "",

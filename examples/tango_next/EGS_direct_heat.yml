@@ -50,7 +50,7 @@ sim_config:
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
-  # Computed by NativeEconomicComponent, but scoped/verified against the
+  # Computed by DoubletEconomicComponent, but scoped/verified against the
   # DOUBLET + turbine/pump/condenser topology (hydro_df_electric.yml), not
   # this one — confirmed CAPEX_surface_plant comes back 0.0 here (not a
   # crash): the district-heating exchanger has no Subtype: cooler/condenser
@@ -58,7 +58,7 @@ economic:
   # formulas. CAPEX_total/LCOH below are real but understate true cost
   # (missing the surface heat exchanger's own equipment cost) until a
   # direct-heat-exchanger cost formula is ported. See
-  # project_economic_model_wackiness memory / NativeEconomicComponent's
+  # project_economic_model_wackiness memory / DoubletEconomicComponent's
   # module docstring for the full scope.
   type: doublet
   project_maturity: green_field

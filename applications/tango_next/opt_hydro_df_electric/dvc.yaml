@@ -38,3 +38,5 @@ stages:
       - outputs/pareto_parallel_coordinates.html
       - outputs/pareto_scatter.png
       - outputs/pareto_scatter_zscore.png
+      - outputs/pareto_scatter_by_param.png
+      - outputs/pareto_scatter_param_pairs.png

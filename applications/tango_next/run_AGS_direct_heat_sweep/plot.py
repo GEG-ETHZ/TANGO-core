@@ -3,15 +3,11 @@
 tango_next port of ``applications/run_AGS_direct_heat_sweep/plot.py``. Run
 after summarize.py has written outputs/results.parquet.
 
-``plot_lcoe_grid`` is intentionally NOT ported: it colored designs by LCOH
-(``LCOE_USD_per_kWh``), and tango_next has no wired-up ``EconomicComponent``
-yet (Phase 1 placeholder — see ``sweep.py``'s module docstring), so that
-column is always null in this port. A grid colored entirely grey would not
-be a meaningful plot. Port it once a real economic component exists.
-
-The parallel-coordinates plots color by ``thermal_power_kW`` instead of LCOH,
-for the same reason — it's the most informative always-populated output
-column available without an economic component.
+``LCOE_USD_per_kWh``/``CAPEX_total_USD`` are now populated (``sweep.py``
+reads them from ``DoubletEconomicComponent``'s state) but this module
+doesn't use them yet — the parallel-coordinates plots still color by
+``thermal_power_kW``, and there's no LCOE-colored grid — that's queued as
+separate follow-up plotting work, not done in this pass.
 """
 
 from __future__ import annotations

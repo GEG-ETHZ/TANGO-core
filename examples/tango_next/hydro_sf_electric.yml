@@ -95,7 +95,7 @@ components:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
-          # Cost-only metadata (NativeEconomicComponent, ignored by GraphSurface's
+          # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
           # physics) — matches old tango's flexible_SF_manual.yml condenser block
           # exactly: a singleton set (no paired cooler), closed/wet cooling tower.
           Subtype: condenser

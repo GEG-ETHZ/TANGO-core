@@ -1,13 +1,12 @@
 """Result aggregation and table generation for the tango_next Triemli direct-heat sweep.
 
 tango_next port of ``applications/run_AGS_direct_heat_sweep/summarize.py``.
-Structure is unchanged except for the CAPEX/LCOE pivots and the qualified-
-designs table: tango_next has no wired-up ``EconomicComponent`` yet (Phase 1
-placeholder — see ``sweep.py``'s module docstring), so every CAPEX_*/LCOE_*
-column in the aggregated results is always null. Rather than crash on an
-all-null pivot or silently print empty tables, those pivots are skipped with
-a printed note, and the qualified-designs table only lists the columns that
-are actually populated (T_prod_C, specific_enthalpy_kJ_kg, thermal_power_kW).
+``CAPEX_total_USD``/``LCOE_USD_per_kWh`` are read from each design point's
+``DoubletEconomicComponent`` state (see ``sweep.py``'s module docstring) and
+get their own pivot tables alongside the physics outputs. The finer-grained
+``CAPEX_well_USD``/``CAPEX_exploration_USD``/etc. line items are in the raw
+``results.parquet`` for custom analysis, but not given dedicated pivot CSVs
+here — ``CAPEX_total_USD`` is the one figure worth a table of its own.
 """
 
 from __future__ import annotations
@@ -94,20 +93,20 @@ def _loop_diameters(df: pl.DataFrame) -> list[float]:
     return sorted(df.select("loop_diameter_m").unique().to_series().to_list())
 
 
-# CAPEX_*/LCOE_* columns are deliberately NOT in this list — every value is
-# None (no EconomicComponent wired up yet in tango_next, see sweep.py's
-# module docstring), so a pivot table over them would be all-null. See
-# main()'s printed note instead of a table for those.
 _PIVOT_SPECS: list[tuple[str, str, str]] = [
     ("T_prod_C", "T_production_degC", "°C"),
     ("specific_enthalpy_kJ_kg", "specific_enthalpy_kJ_kg", "kJ/kg"),
     ("thermal_power_kW", "thermal_power_kW", "kW"),
+    ("CAPEX_total_USD", "CAPEX_total_USD", "USD"),
+    ("LCOE_USD_per_kWh", "LCOE_USD_per_kWh", "USD/kWh"),
 ]
 
 _PIVOT_LABELS: dict[str, str] = {
     "T_prod_C": "Production temperature",
     "specific_enthalpy_kJ_kg": "Specific enthalpy  (derived from thermal_power_kW / mass_flow_kg_per_s)",
     "thermal_power_kW": "Thermal power  (TESPy-solved dh_hx duty, net_thermal_W / 1000)",
+    "CAPEX_total_USD": "Total CAPEX  (DoubletEconomicComponent)",
+    "LCOE_USD_per_kWh": "Levelized cost of heat  (DoubletEconomicComponent)",
 }
 
 
@@ -124,11 +123,6 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
     n_fail = df.filter(pl.col("error").is_not_null()).height
     if not quiet:
         print(f"\nResults: {n_ok} succeeded, {n_fail} failed → {parquet_out}")
-        print(
-            "Note: CAPEX_*/LCOE_USD_per_kWh columns are always null in this "
-            "port — pending tango_next's Phase 2 economic component. No "
-            "pivot tables or plots are generated for them.",
-        )
 
     loop_lengths = _loop_lengths(df)
     loop_diameters = _loop_diameters(df)
@@ -181,6 +175,8 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
                         "T_prod_C",
                         "specific_enthalpy_kJ_kg",
                         "thermal_power_kW",
+                        "CAPEX_total_USD",
+                        "LCOE_USD_per_kWh",
                     ],
                 ).sort(["well_depth_m", "mass_flow_kg_per_s", "loop_length_m", "loop_diameter_m"]),
             )
