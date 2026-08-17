@@ -340,7 +340,10 @@ from scratch.
   optional field on well components, defaulting to the well's existing
   single `well_length`/`diameter` (today's behavior) when unspecified —
   multi-segment costing should be strictly opt-in, not a new required
-  field on every well.
+  field on every well. See the "Needs revisiting" note under the
+  `DoubletEconomicComponent`/`opt_AGS_direct_heat` DONE entry above —
+  the horizontal-vs-vertical well-costing split done there is a narrower
+  structural special-case, not a substitute for this general capability.
 - **AGS sweep-vs-sweep comparison** (old tango vs. tango_next, full sweep)
   — blocked on getting all tango_next sweep scripts DVC-consistent with
   `--clean` flags first; not actioned.
@@ -1375,40 +1378,72 @@ reasoning doesn't have to be re-derived next session.
   (electric, no diameter-sweep/economic conflict) proceeded independently
   in the meantime and is done/wired into `just demos`.
 
-- **Fix `DoubletEconomicComponent`'s well-costing so `opt_AGS_direct_heat/`
-  doesn't crash on an independently-swept horizontal-loop diameter.**
-  Flagged 2026-08-13, redesigned 2026-08-17 (not yet implemented). Chad's
-  call: don't generalize `_combined_production_length_and_diameter`
-  (`components/economic/doublet.py`) to handle multiple diameters —
-  instead, exclude the horizontal well from that combination entirely and
-  cost it as its own, separate well section. `NumericalWell`'s
-  `angle_from_vert_deg` field (90 = horizontal, set explicitly by
-  `horizontal_well` in `AGS_direct_heat.yml`) is the structural signal to
-  split on — everything else stays in the existing single-diameter
-  vertical-production path unchanged (which never actually needed
-  multi-diameter support: `production_well_lower`/`production_well_upper`
-  already share one diameter today). Each horizontal segment gets its own
-  independent `_well_section_cost()` call (own mobilization charge — a
-  separate drilling operation from the vertical production well), folded
-  into the existing `CAPEX_well` total. Open question before implementing:
-  should the horizontal segment reuse the vertical wells' same three
-  formula coefficients, or does horizontal drilling need its own
-  coefficient set? Bundled with this: make the gengeo formula's three
-  coefficients (quadratic-length, diameter-length, fixed mobilization —
-  currently hardcoded in `_well_section_cost`) overridable `Field`s on the
-  component, defaults matching current values. Not the same problem as
-  "Multi-segment well CAPEX" below (that one is genuinely about one well's
-  OWN casing diameter varying by depth segment; this one turned out not to
-  need multi-diameter costing at all once the horizontal well is treated
-  as a separate asset).
+- **DONE 2026-08-17 — fixed `DoubletEconomicComponent`'s well-costing so
+  `opt_AGS_direct_heat/` no longer crashes on an independently-swept
+  horizontal-loop diameter.** Flagged 2026-08-13, redesigned and
+  implemented 2026-08-17. Per Chad's call, did NOT generalize
+  `_combined_production_length_and_diameter` (`components/economic/
+  doublet.py`) to handle multiple diameters — instead, a new
+  `_is_horizontal()` helper (checks `NumericalWell.angle_from_vert_deg ==
+  90`, defaulting to "not horizontal" via `getattr` for well types without
+  that field) excludes any horizontal segment from
+  `_compute_well_capex`'s production-well combination entirely, costing it
+  as its own, independent `_well_section_cost()` call (own mobilization
+  charge — a separate drilling operation from the vertical production
+  well, not a segment of the same one). Everything else stays on the
+  original single-diameter vertical-production path unchanged (which never
+  actually needed multi-diameter support: `production_well_lower`/
+  `production_well_upper` already share one diameter today). Also made the
+  gengeo formula's three coefficients (`gengeo_quadratic_length_coeff`/
+  `gengeo_diameter_length_coeff`/`gengeo_mobilization_cost_usd`) overridable
+  `Field`s on the component, defaults matching the old hardcoded values.
+  Open question resolved by proceeding with the documented default rather
+  than blocking further: the horizontal segment reuses the SAME
+  coefficients as vertical wells (no distinct horizontal-drilling formula
+  exists anywhere in the ported gengeo model to begin with) — cheap to
+  override per-config later if a real horizontal-specific cost basis shows
+  up, via the same new `Field`s. Verified: `opt_AGS_direct_heat.py --n-max-gen
+  2 --pop-size 6` runs end to end across the swept diameter; manually
+  confirmed a differing horizontal-loop diameter (0.55 m vs.
+  `production_well`'s fixed 0.311 m) costs correctly instead of raising;
+  `tests/regtest/test_tango_next.py`/`test_old_new_economic_parity.py`
+  (40 tests) still pass unchanged. Not the same problem as "Multi-segment
+  well CAPEX" below (that one is genuinely about one well's OWN casing
+  diameter varying by depth segment; this one turned out not to need
+  multi-diameter costing at all once the horizontal well is treated as a
+  separate asset). Still open: `opt_AGS_direct_heat` is not yet wired into
+  `just demos` (see the item just below).
 
-- **Revisit `opt_AGS_direct_heat/`; build `opt_EGS_direct_heat/`.**
-  Flagged 2026-08-13. `opt_AGS_direct_heat/` resumes once the
-  multi-diameter economic-component work above lands. `opt_EGS_direct_heat/`
-  is NOT blocked by that work (see the corrected note above — no
-  horizontal loop, no independently-varying diameter) and can be built any
-  time, following `opt_hydro_sf_electric/`'s simple pattern (depth +
-  mass_rate params, a local `negative_mean_thermal_power_objective()`
+  **Needs revisiting: this fix is a structural special-case
+  (horizontal-vs-vertical), not the general multi-diameter well-costing
+  capability old tango actually had.** Chad's recollection (2026-08-17):
+  old tango DID generalize to multiple OUTER/casing diameters affecting
+  economics without affecting the internal flow diameter physics uses —
+  this is exactly the `well_length_seq`/`well_diameter_seq` mechanism
+  described in "Multi-segment well CAPEX" just below, which tango_next has
+  never rebuilt. Today's fix works around the immediate `opt_AGS_direct_heat`
+  crash by excluding the horizontal well from the combination entirely
+  (treating it as a wholly separate wellbore) — it does NOT give
+  tango_next any way to cost, say, a single vertical wellbore whose casing
+  diameter genuinely changes by depth segment while its internal flow
+  diameter stays one value throughout, which old tango's mechanism could
+  apparently do. When "Multi-segment well CAPEX" gets built, revisit
+  whether it should also subsume the horizontal/vertical split done here
+  as a special case of the more general per-segment model, rather than
+  leaving both mechanisms living side by side.
+
+- **`opt_AGS_direct_heat/` unblocked (2026-08-17) — still needs wiring into
+  `just demos` before it's considered done; build `opt_EGS_direct_heat/`.**
+  Flagged 2026-08-13. The economic-component blocker above is fixed and
+  the script smoke-tests clean end to end, but it hasn't been added to
+  `justfile`'s `demos` recipe yet (that recipe's own comment says do not
+  add until this was resolved — it now is; just needs the one-line addition
+  and a Chad confirm, matching the existing `opt_hydro_df_electric.py`/
+  `opt_hydro_sf_electric.py` smoke-run pattern there). `opt_EGS_direct_heat/`
+  was never blocked by any of this (see the corrected note above — no
+  horizontal loop, no independently-varying diameter) and can still be
+  built any time, following `opt_hydro_sf_electric/`'s simple pattern
+  (depth + mass_rate params, a local `negative_mean_thermal_power_objective()`
   mirroring the one already written for AGS) rather than AGS's 4-axis one.
 
 - **DONE 2026-08-17 — renamed `NativeEconomicComponent` to

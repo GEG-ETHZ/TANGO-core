@@ -1,83 +1,53 @@
 r"""Doublet CAPEX/LCOE economic component for tango_next.
 
-Ported from ``src/tango/units/native/economic/{economic,wells,surface,
-permitting,exploration}.py`` (~2877 lines), scoped to what a hydrothermal
-DOUBLET + double-flash (or single-flash) plant actually needs — see
-``docs/tango_next_tasks.md``/the ``DoubletEconomicComponent`` plan for the
-full old-tango reading that produced this scope. Not a general-purpose
-economic engine: only the ``gengeo`` well-cost model, H2O (no CO2 add-ons),
-and the ``flexible_pp``-style generic TESPy-node surface-plant cost engine
-are ported. AGS/5-spot/CPG/ORC-specific cost paths are NOT — this only
-covers what ``examples/tango_next/hydro_df_electric.yml``'s topology needs.
+Computes total CAPEX (wells, permitting, exploration, surface pipes,
+surface plant) and levelized cost (LCOE or LCOH, via ``MainProduct``) for
+a hydrothermal DOUBLET topology — one injection well, one production well
+(itself possibly split across several physics sub-components, or paired
+with a separate horizontal loop segment — see ``_compute_well_capex``),
+and a TESPy-node-based surface plant. Well costs use a single fixed
+formula (the ``gengeo`` model — see ``_well_section_cost``); its three
+coefficients are overridable ``Field``s, but the formula's SHAPE is not
+configurable, and no alternative well-cost model is supported. Only H2O
+is supported (no CO2-specific cost terms). This is not a general-purpose
+economic engine — it covers exactly the well/surface-plant shapes tango_next's
+own example configs use today, nothing broader.
 
-Runs exactly once, after all physical timesteps — see
+Runs exactly once, after every physical timestep completes — see
 ``EconomicComponent``'s (``base.py``) and ``SystemDirect.finalize()``'s
 docstrings for why. Surface-plant CAPEX sizing and the LCOE denominator use
-the RUN-AVERAGED power/heat-duty of each turbine/pump/condenser — the
-simple arithmetic mean over every recorded timestep, NOT any single
-timestep's value. This was initially implemented as final-timestep-only
-(a wrong assumption — "``economic.execute()`` runs once, after the
-timestep loop" was misread as "uses the live network's current value,"
-without checking what it does internally), then corrected 2026-08-10
-after re-tracing old tango's actual call chain for its ``flexible_pp``
-surface-plant cost engine (which is what every topology this component is
-scoped to uses): ``EconUnitSurfacePowerPlant._execute_flexible_pp`` →
-``PowerPlantCost.compute_total_cost_with_averaged_results`` →
-``create_power_plant_with_averaged_results`` — the last of which
-literally overwrites each node's ``P.val``/``Q.val`` with
-``average_fp_result[f"{{label}}_power_real"]`` (or ``_heat_transfer_real``),
-itself the simple mean of that quantity's FULL per-timestep history
-(``EconomicUnitNative.calculate_and_set_average``), before any cost
-formula ever runs. Verified to 7 significant figures: the mean of old
-tango's own 20-timestep turbine-power history for
-``flexible_SF_manual.yml`` is 1,782,871.45 W — exactly the number this
-component's earlier (wrong) final-timestep-only implementation had
-mistaken for old tango's *final*-timestep value. See ``docs/bugs-fixed-in-tango-next.md``
-for the full writeup.
+the RUN-AVERAGED power/heat-duty of each turbine/pump/condenser node — the
+simple arithmetic mean over every recorded timestep, not any single
+timestep's snapshot — since a single timestep's value isn't representative
+of the plant's actual annual output/cost basis the way a full-run average is.
 
-Sign-convention note (see ``project_economic_model_wackiness`` memory for
-the full investigation): old tango's cost formulas hardcode sign-specific
-literals (e.g. ``-1.34 * W_pump``) that assume a particular raw TESPy
-``P.val`` sign — which turned out to be a wiring-convention artifact, not a
-physical constant: verified empirically that tango_next's own
-``GraphSurface`` wiring gives pumps POSITIVE ``P.val`` (consumes energy)
-and turbines NEGATIVE (generates energy) — the OPPOSITE convention from
-whatever old tango's own ``SurfaceUnitFlexiblePP`` network happens to
-produce for pumps. A literal port would either silently zero out (via old
-tango's defensive clamps) or NaN (via ``numpy.float64(negative)**fractional``)
-every pump/turbine cost. This component uses ``abs()`` on every raw node
-power before applying a fractional-exponent formula instead — mathematically
-identical to old tango's result for old tango's own (already
-consistently-signed) values, and correct regardless of which TESPy
-in/out port order a given surface implementation happens to use.
+Sign convention: ``GraphSurface``'s own TESPy wiring gives pumps POSITIVE
+node power (consumes energy) and turbines NEGATIVE (generates energy). Every
+cost formula that takes a fractional-exponent power of a raw node value
+(e.g. a pump/turbine equipment-cost curve) applies ``abs()`` to that value
+first, so it stays correct regardless of a given plant topology's exact
+port wiring — a bare negative number raised to a fractional power would
+otherwise silently NaN.
 
-Not ported (documented, deliberate gaps — see the module docstring
-sections above for why each is safe to omit for this topology):
-- Well-cost models other than ``gengeo`` (halliburton/st_gallen/bavaria/
-  swiss/ppgd) — ``gengeo`` is old tango's own default.
-- CO2-specific add-ons everywhere (wells/permitting/exploration) — this
-  component is H2O-only.
-- The 2-stream ``HeatExchanger`` (preheater/boiler/recuperator) cost path —
-  not present in the target double-flash/single-flash topologies.
-- **Any direct-heat district-heating exchanger's own equipment cost.**
-  Confirmed by running ``AGS_direct_heat.yml``/``EGS_direct_heat.yml``
-  through this component (no crash, but ``CAPEX_surface_plant`` comes back
-  exactly ``0.0``): a plain district-heating ``SimpleHeatExchanger`` node
-  has no ``Subtype: cooler``/``condenser`` tag, so it isn't picked up by
-  ``_cooler_condenser_cost`` (the only ``SimpleHeatExchanger`` cost path
-  ported) — old tango's `flexible_pp` cost engine has no direct-heat
-  exchanger cost formula either (it's a turbine/pump/cooler-condenser
-  model), so there's nothing to port for this case yet. ``CAPEX_total``/
-  LCOH for a direct-heat config is therefore real but understates true
-  cost until a direct-heat-exchanger formula exists somewhere to port.
-- The production-well-pump "lineshaft" cost add-on — old tango only fires
-  it when the average production-pump power is negative; tango_next's own
-  ``LumpedProductionWellWithPump.pump_power_watts`` formula is
-  non-negative by construction (``well/lumped.py``), so the condition can
-  never trigger here.
-- PPI-table/cost-multiplier-table Excel lookup and cost-year interpolation
-  — tango_next has no calendar concept (``SimConfig`` has no ``start_date``),
-  so a fixed 2019-row snapshot is hardcoded instead (``core/economic_constants.py``).
+Known scope limits (real gaps, not oversights — flagged so a caller can
+tell a config is hitting one rather than assume a wrong-looking number is
+a bug):
+- **Direct-heat district-heating exchanger equipment cost is not costed at
+  all.** A plain district-heating ``SimpleHeatExchanger`` node isn't
+  recognized by any surface-plant cost formula here (those only recognize
+  cooler/condenser/turbine/pump-style equipment), so ``CAPEX_surface_plant``
+  comes back exactly ``0.0`` for a pure direct-heat topology (e.g. AGS/EGS
+  direct-heat configs). ``CAPEX_total``/LCOH for such a config is therefore
+  real but understates true cost until a district-heat-exchanger cost
+  formula is added.
+- **No production-well-pump "lineshaft" cost add-on.** Would only ever
+  apply when a production pump's average power is negative;
+  ``LumpedProductionWellWithPump.pump_power_watts`` (``well/lumped.py``) is
+  non-negative by construction, so that condition can never arise here.
+- **No cost-year/PPI-table interpolation.** Uses a single fixed-year
+  cost-index snapshot (``core/economic_constants.py``) rather than
+  interpolating by calendar year, since tango_next has no calendar concept
+  (no ``start_date``) yet.
 """
 
 from __future__ import annotations
@@ -118,6 +88,25 @@ if TYPE_CHECKING:
 # Old tango default (src/tango/units/dataclasses.py's WellSpecs.probability_of_success);
 # not exposed as a tango_next config field since nothing varies it yet.
 _DEFAULT_PROBABILITY_OF_SUCCESS: float = 0.95
+
+# NumericalWell's angle_from_vert_deg convention (0 = injection, 180 =
+# production, 90 = horizontal — see components/well/numerical.py's module
+# docstring). Only NumericalWell carries this field at all; getattr(...,
+# None) below defaults any well type lacking it (e.g. the Lumped* classes,
+# which have no horizontal variant yet) to "not horizontal".
+_HORIZONTAL_ANGLE_DEG: float = 90.0
+
+
+def _is_horizontal(well: WellComponent) -> bool:
+    """True if ``well`` is a horizontal segment (e.g. AGS's ``horizontal_well``).
+
+    Used to exclude horizontal segments from the vertical production well's
+    combined-length/single-diameter costing — see
+    ``DoubletEconomicComponent._compute_well_capex``'s docstring for why a
+    horizontal segment is costed as its own separate well section instead.
+    """
+    return getattr(well, "angle_from_vert_deg", None) == _HORIZONTAL_ANGLE_DEG
+
 
 # Old tango default (src/tango/units/dataclasses.py's temperature_range field, unset by
 # every example this component is scoped to) — see the BAC regression note below.
@@ -215,6 +204,18 @@ class DoubletEconomicComponent(EconomicComponent):
     heat_price: float = Field(default=0.05, frozen=True)
     """By-product heat price ($/kWh) — used only when main_product is ELECTRICITY."""
 
+    gengeo_quadratic_length_coeff: float = Field(default=0.105, frozen=True)
+    """``_well_section_cost``'s ``L^2`` coefficient — economies-of-scale term
+    on a well section's own combined depth. Old tango's gengeo default;
+    override from YAML if a different cost basis is needed."""
+    gengeo_diameter_length_coeff: float = Field(default=1776.0, frozen=True)
+    """``_well_section_cost``'s ``d*L`` coefficient (diameter- and
+    length-dependent casing/material cost). Old tango's gengeo default."""
+    gengeo_mobilization_cost_usd: float = Field(default=275_300.0, frozen=True)
+    """``_well_section_cost``'s fixed mobilization cost, charged once per
+    well SECTION (see ``_compute_well_capex``'s docstring for what counts as
+    one section). Old tango's gengeo default."""
+
     state: EconomicState = Field(default_factory=EconomicState)
 
     def solve(self) -> None:
@@ -260,64 +261,85 @@ class DoubletEconomicComponent(EconomicComponent):
         s.LCOE.update(self._compute_lcoe(capex_total, net_power_w, net_thermal_w))
 
     # ------------------------------------------------------------------
-    # Wells (src/tango/units/native/economic/wells.py, gengeo model only)
+    # Wells (gengeo model only — see module docstring's scope-limit list)
     # ------------------------------------------------------------------
 
     def _well_section_cost(self, length_m: float, diameter_m: float) -> float:
-        """One well "section"'s cost via the gengeo formula (wells.py:262-264).
+        """One well "section"'s cost via the gengeo formula.
 
-        ``C = X_IC * X_PC * PPI_O&G * (0.105*L^2 + 1776*d*L + 275300)``
+        ``C = X_IC * X_PC * PPI_O&G * (a*L^2 + b*d*L + c)``, where
+        ``a``/``b``/``c`` are ``gengeo_quadratic_length_coeff``/
+        ``gengeo_diameter_length_coeff``/``gengeo_mobilization_cost_usd``
         (H2O — the CO2-specific ``dC_CO2_well`` add-on is 0 for this fluid).
         """
         return (
             X_IC_WELLS
             * X_PC_WELLS
             * PPI_O_AND_G
-            * (0.105 * length_m**2 + 1776.0 * diameter_m * length_m + 275_300.0)
+            * (
+                self.gengeo_quadratic_length_coeff * length_m**2
+                + self.gengeo_diameter_length_coeff * diameter_m * length_m
+                + self.gengeo_mobilization_cost_usd
+            )
         )
 
     def _compute_well_capex(self, wells: list[WellComponent]) -> float:
-        """Injection + production well CAPEX, DOUBLET pattern (1 of each).
+        """Injection + horizontal-loop + production well CAPEX, DOUBLET pattern.
 
         The injection well is identified as the ``WellComponent`` at
         ``component_idx == 0`` (the circuit entry — see ``Component``'s
-        class docstring); every other ``WellComponent`` is part of the
-        SAME production well, split across multiple physics sub-components
-        (e.g. a lower section + an upper section with a pump) — combined
-        into one total depth before costing, matching old tango's actual
-        design (confirmed with Chad, and via ``examples/flexible_DF_manual.yml``'s
-        ``production_well.well_length_seq: [5000.]`` — the combined 4000 m
-        + 1000 m total, NOT a separate per-sub-component cost — see
-        ``docs/bugs-fixed-in-tango-next.md`` for the investigation that got this wrong
-        the first time). Costing each sub-component as an independent well
-        would double- (or triple-) count the gengeo formula's fixed
-        mobilization term (``+275300``) once per sub-component, which
-        isn't physically meaningful for what is structurally one wellbore.
+        class docstring). Every other ``WellComponent`` is split further by
+        orientation (``_is_horizontal``): a HORIZONTAL segment (e.g. AGS's
+        ``horizontal_well``, ``angle_from_vert_deg: 90``) is costed as its
+        own, independent well section — it's a physically separate drilling
+        operation from the vertical production well, so its own mobilization
+        charge is correct, not double-counting. Everything remaining
+        (VERTICAL production segments) is combined into one total depth
+        before costing: a single physical production wellbore is sometimes
+        represented by several ``WellComponent`` instances for physics/
+        solve-order reasons (e.g. a lower section plus a separate upper
+        section carrying a pump), and costing each sub-component as an
+        independent well would double- (or triple-) count the gengeo
+        formula's fixed mobilization term once per sub-component — not
+        physically meaningful for what is structurally one wellbore. A
+        horizontal segment does NOT have this double-counting risk with the
+        vertical production well, since it's a genuinely separate wellbore,
+        not a segment of the same one.
         """
         injection = [w for w in wells if w.component_idx == 0]
-        production = [w for w in wells if w.component_idx != 0]
+        others = [w for w in wells if w.component_idx != 0]
+        horizontal = [w for w in others if _is_horizontal(w)]
+        production = [w for w in others if not _is_horizontal(w)]
 
         cost_inj = 0.0
+        cost_horizontal = 0.0
         if self.project_maturity != ProjectMaturity.BROWN_FIELD:
             cost_inj = sum(self._well_section_cost(w.well_length, w.diameter) for w in injection)
             cost_inj /= _DEFAULT_PROBABILITY_OF_SUCCESS
+            cost_horizontal = sum(self._well_section_cost(w.well_length, w.diameter) for w in horizontal)
+            cost_horizontal /= _DEFAULT_PROBABILITY_OF_SUCCESS
 
         prod_length, prod_diameter = self._combined_production_length_and_diameter(production)
         cost_prod = self._well_section_cost(prod_length, prod_diameter)
         cost_prod /= _DEFAULT_PROBABILITY_OF_SUCCESS
 
-        return cost_inj + cost_prod
+        return cost_inj + cost_horizontal + cost_prod
 
     def _combined_production_length_and_diameter(
         self,
         production: list[WellComponent],
     ) -> tuple[float, float]:
-        """Combine every production-side ``WellComponent`` into one well's total depth.
+        """Combine every VERTICAL production-side ``WellComponent`` into one well's total depth.
+
+        ``production`` excludes any horizontal segment (see
+        ``_compute_well_capex``, which costs those separately) — this
+        assumes only the remaining vertical segments of one production
+        wellbore (e.g. a lower section + an upper section with a pump).
 
         Diameter: takes the (assumed uniform) diameter shared by every
-        production-side component — true in every example checked so far.
-        Raises rather than silently picking one if that's ever not true:
-        real multi-segment costing (varying outer/casing diameter by
+        vertical production-side component — true in every example checked
+        so far. Raises rather than silently picking one if that's ever not
+        true: real multi-segment costing (varying outer/casing diameter by
         depth) is a planned tango_next feature, not built yet (see
         ``docs/tango_next_tasks.md``'s open items) — silently ignoring a
         real diameter difference here would misrepresent cost rather than
