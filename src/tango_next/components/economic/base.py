@@ -22,7 +22,7 @@ class EconomicComponent(Component):
     ``_ordered``/``_by_idx`` circuit (no ``prev``/``next``, no ``inlet``/
     ``outlet`` wiring), and instead receives every other component by
     reference (``self._components``, set by the orchestrator immediately
-    before calling ``solve()``) — see ``NativeEconomicComponent`` for the
+    before calling ``solve()``) — see ``DoubletEconomicComponent`` for the
     concrete implementation.
 
     ``_components``/``_total_years`` are declared ``PrivateAttr`` (rather

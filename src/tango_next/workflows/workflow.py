@@ -78,7 +78,7 @@ class Workflow:
     ``sim_config:`` validate against ``Common``/``Layout``/``SimConfig``
     (core/specs.py); ``components:`` and ``economic:`` are each validated
     per-component (every ``Component`` subclass, including
-    ``NativeEconomicComponent``, is its own schema). Unknown keys raise
+    ``DoubletEconomicComponent``, is its own schema). Unknown keys raise
     ConfigError at load time rather than being silently accepted and never
     read by anything. Unlike ``components:``, ``economic:`` is deliberately
     NOT part of the per-timestep circuit — see
@@ -132,7 +132,7 @@ class Workflow:
         n_tsteps = self._sim_config.num_tsteps
         dt_years = self._sim_config.dt_years
         if self._economic is not None:
-            # Total project lifetime (years) — NativeEconomicComponent needs
+            # Total project lifetime (years) — DoubletEconomicComponent needs
             # this for its discount-rate/CRF term but has no sim_config
             # access of its own (see its _total_project_years property).
             self._economic._total_years = n_tsteps * dt_years  # noqa: SLF001
@@ -259,7 +259,7 @@ class Workflow:
             # fixed category label, not a YAML-facing value (unlike physical
             # components, where both tuple elements ARE the YAML-facing
             # values). The economic YAML block's own type field is the
-            # SECOND element (e.g. "native") — see
+            # SECOND element (e.g. "doublet") — see
             # _build_economic_component()'s docstring for why that field
             # plays the role a physical component's unit field plays.
             _comp_category, comp_impl = _REVERSE_REGISTRY[type(self._economic)]
@@ -347,9 +347,10 @@ def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicCo
 
     Uses the same ``(category, implementation)`` registry-key shape as
     physical components' ``(type, unit)``, with the YAML's ``type:`` field
-    (e.g. ``"native"``) playing the role ``unit:`` plays for physical
+    (e.g. ``"doublet"``) playing the role ``unit:`` plays for physical
     components — old tango's ``economic.type`` already selects the concrete
-    implementation the same way (``EconomicUnitNative`` for ``type: native``).
+    implementation the same way (``EconomicUnitNative`` for old tango's own
+    ``type: native``).
 
     Args:
         economic_cfg: Parsed ``economic:`` YAML block, or ``None``/empty if
@@ -365,7 +366,7 @@ def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicCo
     """
     if not economic_cfg:
         return None
-    comp_impl: str = economic_cfg.get("type", "native")
+    comp_impl: str = economic_cfg.get("type", "doublet")
     key = ("economic", comp_impl)
     cls = COMPONENT_REGISTRY.get(key)
     if cls is None:
@@ -452,7 +453,7 @@ def _build_components(
     built: dict[str, Component] = {}
     for name, comp_cfg in components_block.items():
         comp_type: str = comp_cfg.get("type", "")
-        comp_unit: str = comp_cfg.get("unit", "native")
+        comp_unit: str = comp_cfg.get("unit", "lumped")
         key = (comp_type, comp_unit)
 
         cls = COMPONENT_REGISTRY.get(key)

@@ -51,7 +51,7 @@ class InvalidPowerStateError(TangoNextError):
     negative net electric output for a timestep (``net_power_W < 0`` fed into
     an averaged economic calculation). Both were observed silently producing
     a deceptively low LCOE (a negative pump term was fed into
-    ``NativeEconomicComponent._read_net_power`` unclamped, flipping a
+    ``DoubletEconomicComponent._read_net_power`` unclamped, flipping a
     subtraction into an addition) rather than an explicit failure. Deliberately
     raised rather than clamped to zero, for the same reason as
     ``FrackingViolationError``: a silent correction would let a caller mistake

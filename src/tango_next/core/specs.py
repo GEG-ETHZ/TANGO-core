@@ -8,7 +8,7 @@ silently accepted and never read by anything.
 ``economic:`` is deliberately NOT covered here: it's not a top-level
 schema in the same sense as ``common:``/``layout:``/``sim_config:`` — it's
 validated as a ``Component`` subclass in its own right
-(``NativeEconomicComponent``, ``components/economic/native.py``), the same
+(``DoubletEconomicComponent``, ``components/economic/doublet.py``), the same
 way ``components:`` entries are, via ``Workflow._build_economic_component()``.
 """
 

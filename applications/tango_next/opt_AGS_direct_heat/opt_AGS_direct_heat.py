@@ -3,7 +3,7 @@
 STATUS (2026-08-13): PAUSED, NOT SMOKE-TESTED END TO END, NOT WIRED INTO
 `just demos`. Sweeping ``loop_diameter`` on ``horizontal_well`` alone
 (matching the brute-force sweep's own precedent) collides with
-``NativeEconomicComponent._combined_production_length_and_diameter``,
+``DoubletEconomicComponent._combined_production_length_and_diameter``,
 which requires all production-side wells to share one uniform diameter
 and raises a hard ``ValueError`` (not a caught constraint-violation
 exception) on nearly every candidate design. Same root cause as the
@@ -196,7 +196,7 @@ class _LcoeEvaluate:
 
 
 def lcoe_objective() -> ObjectiveSpec:
-    """LCOE ($/kWh), from ``NativeEconomicComponent`` — requires an ``economic:`` block.
+    """LCOE ($/kWh), from ``DoubletEconomicComponent`` — requires an ``economic:`` block.
 
     Works for AGS's direct-heat topology too, despite its ``main_product:
     heat``/LCOH framing — confirmed empirically: ``economic.state`` still

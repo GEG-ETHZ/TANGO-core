@@ -1,4 +1,4 @@
-"""Hardcoded cost-model constants for ``NativeEconomicComponent``.
+"""Hardcoded cost-model constants for ``DoubletEconomicComponent``.
 
 Every CAPEX formula in ``src/tango/units/native/economic/`` multiplies by a
 Producer Price Index (PPI) value and an installation/contingency multiplier
@@ -10,7 +10,7 @@ pair (X_IC, X_PC), both looked up from two real, checked-in tables
 only has ``num_tsteps``/``dt_years``), so there's no dynamic year to look up
 against. This module hardcodes the **2019** row of both tables — matching
 ``examples/flexible_DF_manual.yml``'s ``start_date: 2019-01-01``, the parity
-target for ``NativeEconomicComponent`` — as named constants, pulled directly
+target for ``DoubletEconomicComponent`` — as named constants, pulled directly
 from the real tables (verified via
 ``pandas.read_excel("data/PPI_Table.xlsx", header=1)`` and
 ``pandas.read_excel("data/cost_multiplier_table.xlsx")``).

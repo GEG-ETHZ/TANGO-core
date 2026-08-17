@@ -1,9 +1,9 @@
-r"""Native CAPEX/LCOE economic component for tango_next.
+r"""Doublet CAPEX/LCOE economic component for tango_next.
 
 Ported from ``src/tango/units/native/economic/{economic,wells,surface,
 permitting,exploration}.py`` (~2877 lines), scoped to what a hydrothermal
 DOUBLET + double-flash (or single-flash) plant actually needs — see
-``docs/tango_next_tasks.md``/the ``NativeEconomicComponent`` plan for the
+``docs/tango_next_tasks.md``/the ``DoubletEconomicComponent`` plan for the
 full old-tango reading that produced this scope. Not a general-purpose
 economic engine: only the ``gengeo`` well-cost model, H2O (no CO2 add-ons),
 and the ``flexible_pp``-style generic TESPy-node surface-plant cost engine
@@ -177,7 +177,7 @@ def _ls(value: float = 0.0) -> LockedState[float]:
 
 @dataclass(frozen=True)
 class EconomicState:
-    """Final CAPEX/LCOE result of one ``NativeEconomicComponent.solve()`` call.
+    """Final CAPEX/LCOE result of one ``DoubletEconomicComponent.solve()`` call.
 
     Computed exactly once (see module docstring) — unlike every other
     component's ``state``, this is never recomputed per-timestep, but still
@@ -203,7 +203,7 @@ class EconomicState:
                 value.mark_stale()
 
 
-class NativeEconomicComponent(EconomicComponent):
+class DoubletEconomicComponent(EconomicComponent):
     """CAPEX + LCOE for a hydrothermal DOUBLET plant — see module docstring for scope."""
 
     capacity_factor: float = Field(default=0.9, frozen=True)
@@ -229,7 +229,7 @@ class NativeEconomicComponent(EconomicComponent):
         components: dict[str, Component] | None = getattr(self, "_components", None)
         if components is None:
             raise RuntimeError(
-                "NativeEconomicComponent.solve() requires self._components to be set "
+                "DoubletEconomicComponent.solve() requires self._components to be set "
                 "first — call via SystemDirect.finalize(), not directly.",
             )
         s = self.state
@@ -263,7 +263,7 @@ class NativeEconomicComponent(EconomicComponent):
     # Wells (src/tango/units/native/economic/wells.py, gengeo model only)
     # ------------------------------------------------------------------
 
-    def _gengeo_well_section_cost(self, length_m: float, diameter_m: float) -> float:
+    def _well_section_cost(self, length_m: float, diameter_m: float) -> float:
         """One well "section"'s cost via the gengeo formula (wells.py:262-264).
 
         ``C = X_IC * X_PC * PPI_O&G * (0.105*L^2 + 1776*d*L + 275300)``
@@ -299,11 +299,11 @@ class NativeEconomicComponent(EconomicComponent):
 
         cost_inj = 0.0
         if self.project_maturity != ProjectMaturity.BROWN_FIELD:
-            cost_inj = sum(self._gengeo_well_section_cost(w.well_length, w.diameter) for w in injection)
+            cost_inj = sum(self._well_section_cost(w.well_length, w.diameter) for w in injection)
             cost_inj /= _DEFAULT_PROBABILITY_OF_SUCCESS
 
         prod_length, prod_diameter = self._combined_production_length_and_diameter(production)
-        cost_prod = self._gengeo_well_section_cost(prod_length, prod_diameter)
+        cost_prod = self._well_section_cost(prod_length, prod_diameter)
         cost_prod /= _DEFAULT_PROBABILITY_OF_SUCCESS
 
         return cost_inj + cost_prod
@@ -330,7 +330,7 @@ class NativeEconomicComponent(EconomicComponent):
         if len(diameters) > 1:
             raise ValueError(
                 f"Production-side wells have differing diameters {sorted(diameters)!r} — "
-                "NativeEconomicComponent's well-cost model assumes one uniform diameter "
+                "DoubletEconomicComponent's well-cost model assumes one uniform diameter "
                 "for the combined well until real multi-segment costing is built "
                 "(see docs/tango_next_tasks.md's open items).",
             )

@@ -142,7 +142,7 @@ class _LcoeEvaluate:
 
 
 def lcoe_objective() -> ObjectiveSpec:
-    """LCOE ($/kWh), from ``NativeEconomicComponent`` — requires an ``economic:`` block."""
+    """LCOE ($/kWh), from ``DoubletEconomicComponent`` — requires an ``economic:`` block."""
     return ObjectiveSpec(name="LCOE", evaluate=_LcoeEvaluate())
 
 

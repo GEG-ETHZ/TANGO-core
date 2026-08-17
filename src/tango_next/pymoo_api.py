@@ -99,7 +99,7 @@ from tango_next.workflows.workflow import Workflow
 # surface plant reports physically-impossible negative power near a
 # design's feasibility boundary — see core/errors.py's docstring; without
 # this CV, that negative value would get averaged into
-# NativeEconomicComponent.net_power_W and could flip a subtraction into an
+# DoubletEconomicComponent.net_power_W and could flip a subtraction into an
 # addition, silently producing a deceptively low LCOE for an infeasible
 # design instead of excluding it). Deliberately NOT ConfigError (raised
 # almost entirely during config loading/parsing — hitting it from a

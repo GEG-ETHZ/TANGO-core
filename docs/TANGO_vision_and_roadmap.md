@@ -799,6 +799,59 @@ for generality is prompting a reconsideration of whether the *outer* subsurface 
 also move to an explicit `edges:` block instead of per-node `prev`/`next` — parked, not started,
 but flagged here as in play for future robustness against topologies not yet anticipated.
 
+#### Object-oriented per-component economics (alternative to a centralized economic component) — parked, needs careful thought
+
+Raised 2026-08-17 while fixing `DoubletEconomicComponent`'s (`components/economic/
+doublet.py`) well-costing logic (it was crashing on `opt_AGS_direct_heat`'s
+independently-swept horizontal-loop diameter — see `docs/tango_next_tasks.md`'s
+PAUSED entry for that specific bug). The proposal: instead of one centralized
+economic component that reaches into `WellComponent`/`SurfaceComponent` internals
+and re-derives assumptions about which fields mean what, give each component its
+own `capex()`/`opex()` method (own economic assumptions living next to its own
+physics), and have a top-level recursive function walk the component tree
+collecting from every component that implements this interface/trait — the same
+shape as `save_state`'s mixin pattern.
+
+**Chad's call for now: keep the current centralized-component structure** — it's
+a reasonable way to represent the economic data as it exists today, and the
+concrete, narrower fixes already in flight (the gengeo formula's three
+coefficients as overridable config fields, splitting horizontal-loop costing out
+of the vertical-production-well combination) don't need to wait on this larger
+question. This is filed here as a genuine future variant worth reconsidering
+later, not a rejected idea.
+
+**Where the object-oriented framing clearly wins:** the well-costing bug above
+exists *because* the economic component has to inspect `WellComponent` internals
+(e.g. `angle_from_vert_deg`) from the outside to decide how to cost each one. If
+`NumericalWell` instead owned its own `capex()`, it could cost itself correctly
+using its own fields directly — no external dispatcher guessing at geometry.
+
+**Where it doesn't fully dissolve, and needs real design before it's adopted:**
+the gengeo formula's fixed mobilization cost is charged once per physical
+wellbore, but a single wellbore is sometimes split across multiple `Component`
+instances (e.g. `production_well_lower` + `production_well_upper`) for physics/
+solve-order reasons unrelated to economics. A flat "sum every component's own
+`capex()`" doesn't know these two components represent one economic asset, so
+something still has to prevent double-charging mobilization — that knowledge
+doesn't vanish by moving the formula onto the component, it just needs a new
+home (e.g. components declaring which economic "asset group" they belong to, an
+aggregator that groups before invoking a per-group formula). **This may compose
+well with the "Grouped subsystems (composite components)" design directly above**
+— a `GroupedComponent` wrapping `production_well_lower`/`production_well_upper`
+as one nested black box could plausibly expose ONE `capex()` for the whole group,
+which would resolve the double-counting problem for free rather than needing a
+separate asset-grouping mechanism. Worth designing together, not independently,
+whenever this is picked up.
+
+Also unresolved: the surface-plant cost path is computed from averaged TESPy
+**node** history (turbine/pump/cooler power/heat duty), not from tango_next
+`Component` attributes at all — it's not obvious this joins a per-component
+`capex()` interface cleanly regardless of which design wins. Permitting/
+exploration costs are pure project-level constants with no component to attach
+to either. So even under the object-oriented design, some central economic logic
+almost certainly survives — this becomes a smaller aggregator plus a real
+per-component interface for wells, not a total replacement.
+
 ---
 
 ### Tooling & Process Housekeeping
@@ -899,7 +952,7 @@ full-suite runs, but never automatically on every push.
     (`core/fluid_utils.py::friction_factor_haaland`), Adams et al. (2015)
     transient conductive heat loss, and real CoolProp property lookups via a
     new thin wrapper (`core/fluid_state.py::FluidState`, parity with
-    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`unit: native`) is
+    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`unit: lumped`) is
     kept as the permanent fast/simple variant per its module docstring — not
     replaced.
 

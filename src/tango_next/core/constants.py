@@ -103,7 +103,7 @@ K_TO_C_OFFSET: float = -273.15
 
 YEAR_TO_HOUR: float = 8760.0
 """Hours per (365-day) year. Matches src/tango/core/constants.py exactly —
-used by NativeEconomicComponent's LCOE formula (annual operational hours)."""
+used by DoubletEconomicComponent's LCOE formula (annual operational hours)."""
 
 EULER_CONSTANT: float = 0.5772156649015329
 """The Euler-Mascheroni constant γ, to float64 precision. Used by

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from tango_next.components.economic.native import NativeEconomicComponent
+from tango_next.components.economic.doublet import DoubletEconomicComponent
 from tango_next.components.reservoir.lumped import LumpedReservoir
 from tango_next.components.surface.graph import GraphSurface
 from tango_next.components.well.lumped import (
@@ -34,14 +34,14 @@ if TYPE_CHECKING:
 
 # (component_type, unit) → concrete class with a from_dict() classmethod
 COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
-    ("injection_well", "native"): LumpedInjectionWell,
+    ("injection_well", "lumped"): LumpedInjectionWell,
     ("injection_well", "numerical"): NumericalInjectionWell,
-    ("reservoir", "native"): LumpedReservoir,
-    ("production_well", "native"): LumpedProductionWell,
+    ("reservoir", "lumped"): LumpedReservoir,
+    ("production_well", "lumped"): LumpedProductionWell,
     ("production_well", "numerical"): NumericalProductionWell,
-    ("production_well_with_pump", "native"): LumpedProductionWellWithPump,
+    ("production_well_with_pump", "lumped"): LumpedProductionWellWithPump,
     ("production_well_with_pump", "numerical"): NumericalProductionWellWithPump,
     ("horizontal_well", "numerical"): NumericalWell,
     ("surface", "graph"): GraphSurface,
-    ("economic", "native"): NativeEconomicComponent,
+    ("economic", "doublet"): DoubletEconomicComponent,
 }

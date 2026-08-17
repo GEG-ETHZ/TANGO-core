@@ -45,7 +45,7 @@ sim_config:
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
 
 economic:
-  type: native
+  type: doublet
   project_maturity: green_field  # green_field or brown_field
   discount_rate: 0.095
 
@@ -127,7 +127,7 @@ components:
 
   injection_well:
     type: injection_well
-    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedInjectionWell (single closed-form calc)
+    unit: numerical           # discretized marching solver (parity with src/tango/); "lumped" = LumpedInjectionWell (single closed-form calc)
     component_idx: 0          # first component solved each pass — circuit cut here (matches old tango solve order)
     prev: 4
     next: 1
@@ -138,7 +138,7 @@ components:
 
   reservoir:
     type: reservoir
-    unit: native
+    unit: lumped
     component_idx: 1
     prev: 0
     next: 2
@@ -154,7 +154,7 @@ components:
 
   production_well_lower:
     type: production_well
-    unit: numerical           # discretized marching solver (parity with src/tango/); "native" = LumpedProductionWell (single closed-form calc)
+    unit: numerical           # discretized marching solver (parity with src/tango/); "lumped" = LumpedProductionWell (single closed-form calc)
     component_idx: 2
     prev: 1
     next: 3

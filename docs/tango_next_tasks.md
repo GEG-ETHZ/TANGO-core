@@ -328,7 +328,7 @@ from scratch.
   representing the well's full combined depth, not genuinely varying
   diameter by segment). See `project_economic_model_wackiness` memory:
   this field's poor documentation caused a real, now-fixed double-counting
-  bug in `NativeEconomicComponent` (it briefly seemed like the two active
+  bug in `DoubletEconomicComponent` (it briefly seemed like the two active
   reference files' data was wrong — it wasn't; the port's cost-combining
   logic was). An earlier pass here claimed ~80 old-tango example files had
   stale/mismatched `well_length_seq` values — that check compared against
@@ -1308,7 +1308,7 @@ reasoning doesn't have to be re-derived next session.
   ever needs to become more than a parity fixture.
 
 - **PAUSED 2026-08-13 — `opt_AGS_direct_heat/` blocked on
-  `NativeEconomicComponent`'s single-diameter well-costing assumption.**
+  `DoubletEconomicComponent`'s single-diameter well-costing assumption.**
   **Correction, same day: `opt_EGS_direct_heat/` is NOT blocked by this** —
   initially claimed it would hit the same wall since it's "the same
   topology," which was wrong. Chad caught it: EGS differs from classic
@@ -1326,7 +1326,7 @@ reasoning doesn't have to be re-derived next session.
   `opt_EGS_direct_heat/` should be built the simple way, mirroring
   `opt_hydro_sf_electric/`'s pattern (reuse `depth`/`mass_rate` params +
   a local thermal-power objective), NOT `opt_AGS_direct_heat`'s 4-axis
-  pattern. Not blocked on the `NativeEconomicComponent` fix below — can
+  pattern. Not blocked on the `DoubletEconomicComponent` fix below — can
   proceed independently, any time.
 
   Built `applications/tango_next/opt_AGS_direct_heat/
@@ -1350,7 +1350,7 @@ reasoning doesn't have to be re-derived next session.
   6`): sweeping `loop_diameter` on `horizontal_well` alone (matching the
   brute-force sweep's own precedent — `production_well`'s casing diameter
   is a separate, fixed 0.311 m assumption, untouched by that axis)
-  collides with `NativeEconomicComponent._combined_production_length_and_diameter`,
+  collides with `DoubletEconomicComponent._combined_production_length_and_diameter`,
   which requires all production-side wells to share one uniform diameter
   and raises a hard `ValueError` otherwise — NOT one of `pymoo_api.py`'s
   caught constraint-violation exceptions (`CoolPropError`/
@@ -1369,25 +1369,38 @@ reasoning doesn't have to be re-derived next session.
   `opt_AGS_direct_heat.py` is left in place, mostly built and passing
   lint/format, but not smoke-tested end to end — do not add it to
   `just demos` until this is resolved. See the three near-term items just
-  below ("Extend `NativeEconomicComponent` for multi-diameter wells",
+  below ("Extend `DoubletEconomicComponent` for multi-diameter wells",
   "Revisit `opt_AGS_direct_heat`/build `opt_EGS_direct_heat`", "Rename
-  `NativeEconomicComponent`") for the concrete next steps. `opt_hydro_sf_electric/`
+  `DoubletEconomicComponent`") for the concrete next steps. `opt_hydro_sf_electric/`
   (electric, no diameter-sweep/economic conflict) proceeded independently
   in the meantime and is done/wired into `just demos`.
 
-- **Extend `NativeEconomicComponent` to handle multiple production-side
-  well diameters.** Flagged 2026-08-13, not started. Currently
-  `_combined_production_length_and_diameter` (`components/economic/
-  native.py`) requires all production-side wells to share one uniform
-  diameter and raises a hard `ValueError` otherwise — this is what's
-  blocking `opt_AGS_direct_heat/` above (sweeping `horizontal_well`'s
-  diameter independently of `production_well`'s fixed casing diameter).
-  Same root cause as, and should probably be designed together with, the
-  already-tracked "Multi-segment well CAPEX" item ("Open items — tracked,
-  not scheduled" section) — both are really "the well-costing model
-  assumes one uniform diameter per combined well" wearing different
-  clothes (one triggered by depth-segment casing variation, this one by
-  an independently-swept diameter). Scope not yet worked out.
+- **Fix `DoubletEconomicComponent`'s well-costing so `opt_AGS_direct_heat/`
+  doesn't crash on an independently-swept horizontal-loop diameter.**
+  Flagged 2026-08-13, redesigned 2026-08-17 (not yet implemented). Chad's
+  call: don't generalize `_combined_production_length_and_diameter`
+  (`components/economic/doublet.py`) to handle multiple diameters —
+  instead, exclude the horizontal well from that combination entirely and
+  cost it as its own, separate well section. `NumericalWell`'s
+  `angle_from_vert_deg` field (90 = horizontal, set explicitly by
+  `horizontal_well` in `AGS_direct_heat.yml`) is the structural signal to
+  split on — everything else stays in the existing single-diameter
+  vertical-production path unchanged (which never actually needed
+  multi-diameter support: `production_well_lower`/`production_well_upper`
+  already share one diameter today). Each horizontal segment gets its own
+  independent `_well_section_cost()` call (own mobilization charge — a
+  separate drilling operation from the vertical production well), folded
+  into the existing `CAPEX_well` total. Open question before implementing:
+  should the horizontal segment reuse the vertical wells' same three
+  formula coefficients, or does horizontal drilling need its own
+  coefficient set? Bundled with this: make the gengeo formula's three
+  coefficients (quadratic-length, diameter-length, fixed mobilization —
+  currently hardcoded in `_well_section_cost`) overridable `Field`s on the
+  component, defaults matching current values. Not the same problem as
+  "Multi-segment well CAPEX" below (that one is genuinely about one well's
+  OWN casing diameter varying by depth segment; this one turned out not to
+  need multi-diameter costing at all once the horizontal well is treated
+  as a separate asset).
 
 - **Revisit `opt_AGS_direct_heat/`; build `opt_EGS_direct_heat/`.**
   Flagged 2026-08-13. `opt_AGS_direct_heat/` resumes once the
@@ -1398,18 +1411,26 @@ reasoning doesn't have to be re-derived next session.
   mass_rate params, a local `negative_mean_thermal_power_objective()`
   mirroring the one already written for AGS) rather than AGS's 4-axis one.
 
-- **Rename `NativeEconomicComponent` to drop "Native."** Flagged
-  2026-08-13, not started. Chad's rationale: "Native" is an old-tango
-  naming convention (distinguishing from external-tool-backed
-  components), and now that multiple economic components are plausible
-  (this one, plus whatever OxyPlumeX-style external integrations might
-  eventually need), keeping "Native" in the name is sloppy — it doesn't
-  describe what the class actually does. No new name chosen yet; pick one
-  that describes its role (e.g. something like `GengeoEconomicComponent`
-  or `WellCostEconomicComponent`, TBD) rather than its provenance. Touches
-  `src/tango_next/components/economic/native.py` and every import site —
-  a straightforward rename, but check for docstring/comment mentions too
-  (e.g. this file's own entries above reference it by name repeatedly).
+- **DONE 2026-08-17 — renamed `NativeEconomicComponent` to
+  `DoubletEconomicComponent`, and swept "native"/"Native" out of
+  tango_next generally.** Flagged 2026-08-13 (class rename only); Chad
+  broadened it 2026-08-17 to a full sweep after `_gengeo_well_section_cost`
+  → `_well_section_cost` prompted a closer look at the file itself.
+  Changed: the class (`NativeEconomicComponent` → `DoubletEconomicComponent`,
+  matching its own module docstring's existing "DOUBLET plant" scope) and
+  its file (`components/economic/native.py` → `.../doublet.py`); the
+  registry's `unit`/`type` string values that meant "the Lumped/closed-form
+  model" (`"native"` → `"lumped"` for wells/reservoir, `"native"` →
+  `"doublet"` for economic — including the implicit defaults in
+  `workflow.py`'s `_build_components`/`_build_economic_component`); every
+  example YAML's `unit: native`/`type: native` fields and their inline
+  explanatory comments. Left alone, deliberately: every citation of OLD
+  tango's own real class/file names (`WellUnitNative`, `EconomicUnitNative`,
+  `SystemNative`, `src/tango/units/native/...` paths) — those are facts
+  about a different, soon-to-be-deleted codebase, not tango_next's own
+  naming, and changing them would misrepresent old tango's actual code.
+  Also left alone: incidental correct English usage of "native" (e.g. "a
+  native Python type") that isn't this naming convention at all.
 
 - **Rename/move `examples/tango_next/` → `example_configs/` at the repo
   root.** Flagged 2026-08-13, not started. Deliberately held until old

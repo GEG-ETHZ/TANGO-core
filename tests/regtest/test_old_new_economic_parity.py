@@ -1,7 +1,7 @@
 """Old-tango vs tango_next economic (CAPEX/LCOE) parity test.
 
 Companion to ``test_old_new_parity.py`` (physics), scoped to
-``NativeEconomicComponent`` (``src/tango_next/components/economic/native.py``)
+``DoubletEconomicComponent`` (``src/tango_next/components/economic/doublet.py``)
 vs. old tango's ``src/tango/units/native/economic/``.
 
 Two cases, deliberately chosen to separate "is the port correct" from "how
@@ -32,7 +32,7 @@ fixing the production-well pump-power formula, see below)
   exact match** in both cases (rtol=1e-6). The first three don't depend on
   any physics state at all (pure functions of config + hardcoded PPI/
   multiplier constants). ``CAPEX_well`` matching exactly took a real fix
-  (see ``docs/bugs-fixed-in-tango-next.md``'s "NativeEconomicComponent double-counted
+  (see ``docs/bugs-fixed-in-tango-next.md``'s "DoubletEconomicComponent double-counted
   well mobilization cost across split physics sub-components" entry):
   tango_next originally combined every production-side ``WellComponent``
   by summing each one's INDEPENDENTLY-costed gengeo formula (double/
@@ -40,13 +40,13 @@ fixing the production-well pump-power formula, see below)
   per physics sub-component), instead of combining their lengths into ONE
   total depth and costing that once — the same way old tango's own
   ``production_well.well_length_seq: [5000.]`` (4000 m + 1000 m combined)
-  already does it correctly. Fixed in ``NativeEconomicComponent._compute_well_capex``/
+  already does it correctly. Fixed in ``DoubletEconomicComponent._compute_well_capex``/
   ``_combined_production_length_and_diameter``.
 - **CAPEX_surface_plant / CAPEX_total: close but not exact** (SF: -6.2%/
   -0.9%; DF: -5.1%/-0.9%) — both read RUN-AVERAGED power (mean over
   ``history``, matching old tango's own
   ``create_power_plant_with_averaged_results`` design — see
-  ``NativeEconomicComponent``'s module docstring), so the residual gap
+  ``DoubletEconomicComponent``'s module docstring), so the residual gap
   tracks ordinary old-vs-new physics-trajectory drift over the run, not a
   formula error. Tolerances (0.25 / 0.05) keep generous headroom above
   the measured values rather than being tightened to force agreement.
@@ -203,7 +203,7 @@ def _run_old_tango(old_yml: str) -> dict[str, float]:
 
 
 def _run_tango_next(new_yml: str) -> dict[str, float]:
-    """Run tango_next and return its ``NativeEconomicComponent`` state as a plain dict."""
+    """Run tango_next and return its ``DoubletEconomicComponent`` state as a plain dict."""
     from tango_next.workflows.workflow import Workflow  # noqa: PLC0415
 
     wf = Workflow.from_file(EXAMPLES_NEW / new_yml)
@@ -214,7 +214,7 @@ def _run_tango_next(new_yml: str) -> dict[str, float]:
 
 @pytest.mark.parametrize("case", ECONOMIC_PARITY_CASES, ids=[c.old_yml for c in ECONOMIC_PARITY_CASES])
 def test_old_new_economic_parity(case: EconomicParityCase) -> None:
-    """Compare tango_next's NativeEconomicComponent against old tango's economic model."""
+    """Compare tango_next's DoubletEconomicComponent against old tango's economic model."""
     old = _run_old_tango(case.old_yml)
     new = _run_tango_next(case.new_yml)
 

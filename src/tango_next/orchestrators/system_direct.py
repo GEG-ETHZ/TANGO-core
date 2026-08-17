@@ -44,7 +44,7 @@ class SystemDirect(Orchestrator):
                 ``_ordered``/``_by_idx`` — it must run exactly once, after
                 every physical timestep completes (see ``finalize()``), not
                 once per timestep like every other component. See
-                ``NativeEconomicComponent``'s module docstring for why it
+                ``DoubletEconomicComponent``'s module docstring for why it
                 can't just be component_idx N+1 in the per-timestep loop.
 
         """
@@ -114,7 +114,7 @@ class SystemDirect(Orchestrator):
         Called by ``run()`` after the ``for t in range(self.n_tsteps)`` loop
         finishes — not once per timestep like ``run_timestep()``. Old tango's
         ``EconomicUnitNative.execute()`` runs the same way (once, at the end
-        of the run — see ``NativeEconomicComponent``'s module docstring),
+        of the run — see ``DoubletEconomicComponent``'s module docstring),
         because CAPEX sizing and the LCOE denominator both read the physical
         components' FINAL solved ``state`` (turbine/pump/HX power, net
         power/thermal output), not a time-averaged history.

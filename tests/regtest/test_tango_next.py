@@ -4,7 +4,7 @@ Reference: ``examples/flexible_SF_manual.yml`` run via the old tango ``Runner``
 produces LCOE = 0.7740618821220107. The equivalent tango_next input is
 ``examples/tango_next/hydro_sf_electric.yml``.
 
-``NativeEconomicComponent`` (``src/tango_next/components/economic/native.py``)
+``DoubletEconomicComponent`` (``src/tango_next/components/economic/doublet.py``)
 now computes LCOE for real — ``test_lcoe_parity`` below was written before it
 existed (xfail, `raise NotImplementedError`) and has been promoted to a real
 assertion now that it's wired. See ``tests/regtest/test_old_new_economic_parity.py``

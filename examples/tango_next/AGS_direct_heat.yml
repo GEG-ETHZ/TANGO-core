@@ -70,7 +70,7 @@ economic:
   # direct-heat-exchanger cost formula is ported. See
   # project_economic_model_wackiness memory / NativeEconomicComponent's
   # module docstring for the full scope.
-  type: native
+  type: doublet
   project_maturity: green_field
   discount_rate: 0.095
   main_product: heat
