@@ -108,15 +108,18 @@ demos *args:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py $smoke_flag --n-workers 2 --quiet
     find examples/tango_next -maxdepth 1 -name '*.yml' -print0 | xargs -0 -n1 -P "$p" uv run tango_next_cli --log-level WARNING run
-    # opt_hydro_df_electric.py has no --smoke flag of its own (not a
-    # generate/sweep pipeline) -- tiny --n-max-gen/--pop-size + a fresh
-    # tempdir --save-dir gets the same "pipeline still runs end to end"
-    # coverage without the real ~200-gen/40-pop search or touching outputs/.
-    # Not tied to --slow: there's no "real" variant to switch to here (that's
-    # what the Euler job script / `dvc repro` are for).
-    uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$(mktemp -d)" --log-level ERROR
-    # Same rationale as opt_hydro_df_electric.py above.
-    uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$(mktemp -d)" --log-level ERROR
+    # opt_*.py has no --smoke flag of its own (not a generate/sweep pipeline)
+    # -- tiny --n-max-gen/--pop-size + a fresh tempdir --save-dir gets the
+    # same "pipeline still runs end to end" coverage without the real
+    # ~200-gen/40-pop search or touching outputs/. Not tied to --slow: there's
+    # no "real" variant to switch to here (that's what the Euler job script /
+    # `dvc repro` are for).
+    # Each app runs --no-plot then --plot-only against the same --save-dir,
+    # exercising the two-stage optimize/plot DVC split (see each app's
+    # dvc.yaml) instead of only the default combined path.
+    tmp=$(mktemp -d); uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir "$tmp" --log-level ERROR --plot-only
+    tmp=$(mktemp -d); uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
+    tmp=$(mktemp -d); uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
 
 [windows]
 demos:
@@ -127,5 +130,6 @@ demos:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
     Get-ChildItem examples/tango_next/*.yml | ForEach-Object { uv run tango_next_cli --log-level WARNING run $_.FullName }
-    $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp --log-level ERROR
-    $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR
+    $tmp1 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp1 | Out-Null; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --save-dir $tmp1 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir $tmp1 --log-level ERROR --plot-only
+    $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir $tmp2 --log-level ERROR --plot-only
+    $tmp3 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp3 | Out-Null; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp3 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir $tmp3 --log-level ERROR --plot-only
