@@ -147,5 +147,5 @@ components:
         outlet:
           type: Sink
       edges:
-        1: {source: inlet, target: dh_hx}
-        2: {source: dh_hx, target: outlet}
+        '1': {source: inlet, target: dh_hx}
+        '2': {source: dh_hx, target: outlet}

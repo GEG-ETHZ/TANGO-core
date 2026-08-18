@@ -115,15 +115,15 @@ components:
           type: Sink
 
       edges:
-        1: {source: inlet, target: valve}
-        2: {source: valve, target: droplet_separator}
-        3: {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
-        4: {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
-        5: {source: turbine, target: condenser}
-        6: {source: condenser, target: pump}
-        7: {source: pump, target: mixer, target_port: in1}     # condensate
-        8: {source: pump2, target: mixer, target_port: in2}    # separator liquid
-        9: {source: mixer, target: outlet}
+        '1': {source: inlet, target: valve}
+        '2': {source: valve, target: droplet_separator}
+        '3': {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
+        '4': {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
+        '5': {source: turbine, target: condenser}
+        '6': {source: condenser, target: pump}
+        '7': {source: pump, target: mixer, target_port: in1}     # condensate
+        '8': {source: pump2, target: mixer, target_port: in2}    # separator liquid
+        '9': {source: mixer, target: outlet}
 
   injection_well:
     type: injection_well

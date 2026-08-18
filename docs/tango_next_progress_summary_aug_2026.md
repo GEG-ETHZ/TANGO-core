@@ -426,6 +426,70 @@ mistaken for a regression later.
 
 All existing tests pass with the corrected model in place.
 
+## Gave the AGS closed loop a real circulation pump, and caught it the way a well-designed system should: by finding the actual physical edge case, not by guessing (2026-08-17/18)
+
+Optimizing `tango_next`'s AGS direct-heat model (well depth, loop length,
+loop diameter, well diameter, injection pressure, mass flow rate — a real
+NSGA2 search, not a hand-picked design point) turned up something worth
+paying attention to on its own terms: every one of 45 pareto-optimal
+designs converged to (or right against) the same tight corner of the
+search space — shortest loop, smallest diameter, highest flow, deepest
+well allowed. That's exactly the kind of result that's easy to wave away
+as "the optimizer likes extreme values," so we didn't wave it away —
+we opened up the actual pressure profile at that converged design instead
+of guessing. The production wellhead was delivering only 29,493 Pa, and
+the working fluid's own saturation pressure at that delivered temperature
+was 29,472 Pa — a margin of 21.6 Pa, **0.07%**. The optimizer hadn't found
+a shortcut; it had found the true edge of physical feasibility and parked
+right on top of it, because nothing in the model gave it a reason to stop
+sooner.
+
+**What that traced back to:** this closed loop (injection well → horizontal
+loop → production well → surface → back to injection) had no pump
+anywhere in it — not downhole, not at the surface. It ran entirely on
+thermosiphon effect (the buoyancy created by the density difference
+between the cold descending leg and the hot ascending leg) minus friction,
+with nothing mechanical to fall back on. That's a real, physically
+meaningful gap, not a modeling nicety — and it's one `tango_next` is now
+positioned to close cleanly precisely because of the architecture
+decisions already in place: `GraphSurface`'s generic, YAML-driven node
+graph meant adding a real circulation pump was a config change (one new
+`Compressor` node) plus one small, principled extension to the surface
+component's attribute-translation layer (a `pressure_ratio` spec, needed
+by the heat exchanger now that it isn't the last node before the network
+outlet) — not a rewrite. The pump was placed on the cold, post-heat-exchanger
+leg deliberately: pumping fluid that's already near its flash point (like
+the production wellhead here) risks cavitation, so real closed-loop
+AGS-style systems put their surface circulation pump on the cold leg too.
+
+**Checked whether this was a `tango_next` porting gap before calling it
+one — it wasn't.** The legacy Triemli AGS config
+(`applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml`) has the
+identical shape: a bare `Source → SimpleHeatExchanger → Sink` surface
+plant, no pump. It sets a `production_well.eta_pump` value that looks
+like a pump setting at a glance, but the legacy registry only reads that
+field for a different, unused unit type — the field is dead config there,
+confirmed directly against `src/tango/units/registry.py` and
+`production_well.py`. `tango_next` isn't fixing something it broke; it's
+improving on a gap the legacy system always had, using an architecture
+that made the improvement cheap once the gap was actually found.
+
+**Turned the finding into a standing rule, not a one-off patch.** Added a
+new TANGO Commandment (`CONTRIBUTING.md`): every closed fluid loop needs
+an explicit pump or compressor somewhere in it. Backed that with a real,
+automatic check (`Workflow`'s construction now rejects any closed-loop
+config with no pump anywhere, well-side or surface-side) rather than
+leaving it as a documentation-only rule someone has to remember — the
+exact category of mistake this whole investigation started from. Also
+relaxed a check that was too narrowly scoped to electric topologies
+(`GraphSurface` was rejecting any negative net electric power
+unconditionally, which is correct when a turbine should always outproduce
+its own parasitic pumps, but wrong for a pure direct-heat plant that has
+no generator at all and *should* show negative net power once its own
+circulation pump is accounted for) — now scoped to only fire when a real
+generator is actually present. Full technical writeup, including the
+exact numbers and code paths: `docs/bugs-fixed-in-tango-next.md`.
+
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see

@@ -18,6 +18,7 @@ components.
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 from typing import Any
@@ -152,6 +153,63 @@ def test_workflow_to_file_from_file_roundtrip(tmp_path: Path) -> None:
     wf2 = Workflow.from_file(out)
 
     assert wf2.to_str() == wf.to_str()
+
+
+def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
+    """``power_plant.nodes``/``edges`` survive a to_dict() -> Workflow() round-trip.
+
+    Specifically exercises ``AGS_direct_heat.yml``'s ``circ_pump``
+    (``Compressor``, no ``p_out`` of its own) and ``dh_hx``'s
+    ``pressure_ratio`` — the structure added 2026-08-17/18 (see
+    ``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
+    anywhere" entry) to give the AGS closed loop a real circulation pump.
+    Not just a smoke check that the values are present: rebuilds a second
+    ``Workflow`` from the dumped dict and confirms its own re-dump is
+    byte-for-byte identical, proving the structure is genuinely
+    reconstructible, not merely echoed back once.
+    """
+    wf = Workflow.from_file(NEW_AGS_DIRECT_HEAT)
+    wf.run()
+    dumped = wf.to_dict()
+
+    nodes = dumped["components"]["surface"]["power_plant"]["nodes"]
+    assert nodes["circ_pump"] == {"type": "Compressor", "role": "net_electric", "efficiency": 1.0}
+    assert nodes["dh_hx"]["pressure_ratio"] == 0.99
+    assert "p_out_megapascals" not in nodes["circ_pump"], (
+        "circ_pump must have no pressure target of its own -- injection_pressure already "
+        "pins the network's outlet connection; a second target would over-determine it "
+        "(see AGS_direct_heat.yml's circ_pump comment)."
+    )
+
+    wf2 = Workflow(dumped)
+    assert wf2.to_dict() == dumped
+
+
+def test_workflow_json_roundtrip() -> None:
+    """A ``Workflow``'s config survives a REAL ``json.dumps``/``json.loads``
+    round-trip, not just a plain-Python-dict copy.
+
+    Uses ``AGS_direct_heat.yml`` specifically: its ``power_plant.edges``
+    previously used bare integer YAML keys (``1:``, ``2:``, ...), which
+    JSON cannot represent at all (JSON object keys are always strings) --
+    ``json.dumps``/``json.loads`` silently coerced them to string keys,
+    breaking exact round-trip fidelity even though nothing in
+    ``GraphSurface`` ever reads those keys semantically (confirmed by
+    inspection: every consumer iterates ``edge_cfgs.values()`` only, never
+    the keys). Fixed at the source (2026-08-18) by quoting the edge keys
+    in every example YAML, matching what ``GraphSurface``'s own
+    ``edge_cfgs: dict[str, dict[str, Any]]`` type hint already claimed.
+    This test is the regression guard for that fix actually holding.
+    """
+    wf = Workflow.from_file(NEW_AGS_DIRECT_HEAT)
+    wf.run()
+    dumped = wf.to_dict()
+
+    json_str = json.dumps(dumped)
+    reloaded = json.loads(json_str)
+
+    wf2 = Workflow(reloaded)
+    assert wf2.to_dict() == dumped
 
 
 def test_workflow_sweep_pattern_does_not_mutate_base() -> None:

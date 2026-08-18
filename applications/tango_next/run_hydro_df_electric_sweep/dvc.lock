@@ -5,25 +5,21 @@ stages:
     deps:
     - path: ../../../examples/tango_next/hydro_df_electric.yml
       hash: md5
-      md5: 006031b1610bd05da7436582ed36aa15
-      size: 8557
+      md5: 17376209d37fbc33614d96f969cde127
+      size: 9555
     - path: common.py
       hash: md5
-      md5: 064c9cb6a3682c66f0e62e979328666f
-      size: 9063
+      md5: 6f691c01ebdd11422066debd82003d5d
+      size: 9668
     - path: generate.py
       hash: md5
-      md5: e090a30218d11d894755945cb6f5de74
-      size: 4055
-    params:
-      params.yaml:
-        n_samples: 12
-        seed: 42
+      md5: ea7f0868d38a9bb94a6e608f2ae7eeb4
+      size: 4947
     outs:
     - path: outputs/design_matrix.parquet
       hash: md5
-      md5: 7f361620fbea015c8d47f763d0ebc7f1
-      size: 19162
+      md5: ca9c1a5aa40346a46a0842c98cc097c2
+      size: 18399
   sweep:
     cmd: python sweep.py
     deps:

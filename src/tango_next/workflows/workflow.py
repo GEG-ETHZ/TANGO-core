@@ -60,19 +60,13 @@ class Workflow:
     supported (de)serialization surface — one controlled API for load/dump,
     insulated from which YAML library is used underneath.
 
-    There is deliberately no cached "original config dict" anywhere in this
-    class (no ``self._config``). Caching the construction-time input lets an
-    object and the dict people think it was built from silently drift
-    apart: mutate a live component's non-frozen field and a cached dict
-    would keep reporting the OLD value forever, with no way to tell they'd
-    diverged. Every ``to_dict()`` call instead reconstructs fresh from this
-    Workflow's actual current live state — ``common:``/``layout:``/
-    ``sim_config:`` from their retained, frozen, canonical ``Common``/
-    ``Layout``/``SimConfig`` instances, ``components:`` from each live
-    component's own ``model_dump()`` (which, being Pydantic, is inherently
-    live — no caching possible). A mutation to a genuinely-mutable field
-    (e.g. ``surface.injection_pressure``) is reflected immediately, every
-    time.
+    Every ``to_dict()`` call reconstructs fresh from this Workflow's actual
+    current live state — ``common:``/``layout:``/ ``sim_config:`` from their
+    retained, frozen, canonical ``Common``/ ``Layout``/``SimConfig`` instances,
+    ``components:`` from each live component's own ``model_dump()`` (which,
+    being Pydantic, is inherently live — no caching possible). A mutation to a
+    genuinely-mutable field (e.g. ``surface.injection_pressure``) is reflected
+    immediately, every time.
 
     Every top-level YAML block has a real schema: ``common:``/``layout:``/
     ``sim_config:`` validate against ``Common``/``Layout``/``SimConfig``
@@ -145,6 +139,9 @@ class Workflow:
             self._sim_config.target_extraction_pressure,
         )
         _check_common_identity(components, self._common)
+
+        if self._sim_config.injection_mode is not None:
+            _check_loop_has_pressure_source(config["components"])
 
         if self._sim_config.injection_mode is not None:
             policy = self._sim_config.injection_mode
@@ -333,6 +330,77 @@ def _check_common_identity(components: dict[str, Component], common: Common) -> 
                 "exact same object, not an equal-but-separate copy — this "
                 "indicates a bug in component construction, not a config error.",
             )
+
+
+# TESPy component types that add pressure/work to the fluid — checked
+# against every power_plant node's raw "type" string, not the live TESPy
+# object, so this runs on the parsed config directly (see
+# _check_loop_has_pressure_source). "Pump" isn't a real GraphSurface
+# component type today (see graph.py's _COMPONENT_TYPES) -- TESPy's
+# Compressor class is used to model a liquid pump via its generic
+# pressure-rise abstraction (see hydro_df_electric.yml's pump1/pump2,
+# AGS_direct_heat.yml's circ_pump) -- included here anyway in case a
+# dedicated "Pump" type is ever registered, so this check doesn't need
+# updating the day that happens.
+_PRESSURE_SOURCE_NODE_TYPES = frozenset({"Compressor", "Pump"})
+
+
+def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -> None:
+    """Require at least one pressure-adding device somewhere in a closed loop.
+
+    Called only when ``sim_config.injection_mode`` is present — i.e. this
+    config is a genuine closed circuit (``SystemBCIteration``), not a bare
+    open test fixture. Something has to drive circulation around a closed
+    loop; relying on thermosiphon effect (the density difference between a
+    cold descending leg and a hot ascending leg) alone, with NO mechanical
+    fallback anywhere, is not a simplification a real system can get away
+    with — confirmed the hard way (2026-08-17): a pump-less AGS closed loop
+    let NSGA2 converge on a design whose wellhead pressure sat just 0.07%
+    above the fluid's own saturation pressure, with nothing to fall back on
+    if that margin ran out. See TANGO Commandments (CONTRIBUTING.md) for
+    the rule this enforces.
+
+    Checks TWO places a pressure source can legitimately live: a well
+    component's own ``type`` ending in ``_with_pump`` (the production-side
+    downhole pump, e.g. ``hydro_df_electric.yml``), or any
+    ``power_plant.nodes`` entry whose ``type`` is in
+    ``_PRESSURE_SOURCE_NODE_TYPES`` (a surface circulation pump, e.g.
+    ``AGS_direct_heat.yml``'s ``circ_pump``). Checks the RAW CONFIG dict,
+    not constructed components — cheaper, and avoids reaching into
+    ``GraphSurface``'s internal TESPy node objects for something the YAML
+    already states directly (see TANGO Commandments' config-is-object rule).
+
+    Scoped to the WHOLE workflow, not per-loop: today there is only ever
+    one fluid circuit per ``Workflow`` (no multi-loop/grouped-subsystem
+    support yet — see ``docs/TANGO_vision_and_roadmap.md``'s "Grouped
+    subsystems" open design question), so a whole-workflow check is
+    equivalent to a per-loop one. Revisit this scoping once a config can
+    genuinely contain more than one independent fluid loop (e.g. a future
+    ORC secondary working-fluid loop) — this function would then need to
+    check each loop independently rather than the workflow as a whole.
+
+    Args:
+        components_cfg: The raw, un-constructed ``components:`` config dict
+            (``config["components"]``), keyed by YAML component name.
+
+    Raises:
+        ConfigError: If no pressure source is found anywhere in the config.
+
+    """
+    for comp_cfg in components_cfg.values():
+        if str(comp_cfg.get("type", "")).endswith("_with_pump"):
+            return
+        for node_cfg in comp_cfg.get("power_plant", {}).get("nodes", {}).values():
+            if node_cfg.get("type") in _PRESSURE_SOURCE_NODE_TYPES:
+                return
+    raise ConfigError(
+        "This config forms a closed loop (sim_config.injection_mode is set) but has no "
+        "pressure-adding device anywhere -- no well component's type ends in '_with_pump', "
+        "and no power_plant.nodes entry is a Compressor/Pump. Something must drive "
+        "circulation around a closed loop; thermosiphon effect alone (with nothing "
+        "mechanical to fall back on) is not a valid substitute -- see TANGO Commandments "
+        "(CONTRIBUTING.md) and this function's own docstring for why.",
+    )
 
 
 def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicComponent | None:

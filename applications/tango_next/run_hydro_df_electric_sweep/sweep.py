@@ -33,9 +33,34 @@ which single parameter each design point actually varied.
 The ``specs_hash``/ArangoDB-hash field from old tango's result dict is
 dropped entirely — that was an old-tango-specific integration with no
 tango_next equivalent.
+
+**Thread oversubscription fix (2026-08-17):** each of the ``n_workers``
+worker PROCESSES (spawned by ``multiprocessing.Pool`` in ``run_sweep``)
+independently lets ``polars``/OpenBLAS spin up their OWN internal thread
+pool sized to every available core, unaware they're one of many sibling
+workers. With ``n_workers`` in the dozens, that's ``n_workers`` times as
+many threads as cores — confirmed the hard way on a real Euler run
+(2026-08-17): 45 workers each defaulting to ~48 threads blew through the
+cluster's ``RLIMIT_NPROC`` (4096), and ``polars.read_parquet`` (called by
+every worker at startup) was what finally tripped a Rust panic
+(`ThreadPoolBuildError`), crashing worker processes mid-sweep. The env
+vars below cap every thread-pool-owning library to 1 thread per process
+*before* any of them get imported (spawned workers re-run this module's
+top-level code from scratch under the 'spawn' start method, so setting
+these here applies to every worker, not just this main process) — the
+outer ``multiprocessing.Pool`` is already the parallelism; no worker needs
+its own internal multithreading on top of it.
 """
 
 from __future__ import annotations
+
+import os
+
+os.environ.setdefault("POLARS_MAX_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import argparse
 import json

@@ -157,21 +157,21 @@ components:
           type: Sink
 
       edges:
-        1: {source: inlet, target: valve1}
-        2: {source: valve1, target: droplet_separator1}
-        3: {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
-        4: {source: droplet_separator1, target: valve2, source_port: out1}      # liquid branch (1st flash) -> 2nd flash
-        5: {source: valve2, target: droplet_separator2}
-        6: {source: droplet_separator2, target: turbine2, source_port: out2}    # vapor branch (2nd flash)
-        7: {source: droplet_separator2, target: pump1, source_port: out1}       # liquid branch (2nd flash) -> pumped back
-        8: {source: turbine1, target: condenser1}
-        9: {source: turbine2, target: condenser2}
-        10: {source: condenser1, target: merge1, target_port: in1}
-        11: {source: condenser2, target: merge1, target_port: in2}
-        12: {source: merge1, target: pump2}
-        13: {source: pump1, target: merge2, target_port: in1}
-        14: {source: pump2, target: merge2, target_port: in2}
-        15: {source: merge2, target: outlet}
+        '1': {source: inlet, target: valve1}
+        '2': {source: valve1, target: droplet_separator1}
+        '3': {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
+        '4': {source: droplet_separator1, target: valve2, source_port: out1}      # liquid branch (1st flash) -> 2nd flash
+        '5': {source: valve2, target: droplet_separator2}
+        '6': {source: droplet_separator2, target: turbine2, source_port: out2}    # vapor branch (2nd flash)
+        '7': {source: droplet_separator2, target: pump1, source_port: out1}       # liquid branch (2nd flash) -> pumped back
+        '8': {source: turbine1, target: condenser1}
+        '9': {source: turbine2, target: condenser2}
+        '10': {source: condenser1, target: merge1, target_port: in1}
+        '11': {source: condenser2, target: merge1, target_port: in2}
+        '12': {source: merge1, target: pump2}
+        '13': {source: pump1, target: merge2, target_port: in1}
+        '14': {source: pump2, target: merge2, target_port: in2}
+        '15': {source: merge2, target: outlet}
 
   injection_well:
     type: injection_well

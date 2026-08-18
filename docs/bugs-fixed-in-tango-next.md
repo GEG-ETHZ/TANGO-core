@@ -361,3 +361,105 @@ process to accelerate `tango_next`'s T-convergence loop
 that lands, it becomes cheap to confirm the slow crawl has actually
 reached its true fixed point rather than just satisfying `self.tolerance`
 prematurely.
+
+## AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone
+
+`examples/tango_next/AGS_direct_heat.yml`'s closed loop (`injection_well →
+horizontal_well → production_well → surface → back to injection_well`)
+had no pressure-adding device anywhere in it: `injection_well`/
+`production_well` are both the plain, non-pump well types, and the
+surface plant's `power_plant.nodes` was just `inlet (Source) → dh_hx
+(SimpleHeatExchanger) → outlet (Sink)` — no `Compressor`, no pump. The
+entire loop ran purely on thermosiphon effect (the density difference
+between the cold, dense descending injection column and the hot, lighter
+ascending production column) minus friction, with nothing mechanical to
+fall back on if that natural margin ran thin.
+
+**Confirmed this predates `tango_next` — it is a genuine `src/tango` gap,
+not a porting regression (2026-08-17).** Old tango's own
+`applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml` has the
+identical shape: `power_plant_graph.nodes` is `inlet (Source) → DH
+(SimpleHeatExchanger) → outlet (Sink)`, no pump node at all. That file
+*does* set `production_well.eta_pump: 0.75`, which looks at first glance
+like a pump is configured — but it isn't: old tango's own registry
+(`src/tango/units/registry.py`) only reads `eta_pump` for the separate
+`production_well_pump` unit type (`ProductionWellPumpUnitNative`), and
+this config declares `type: 'production_well'` (the plain
+`ProductionWellUnitNative`, which never reads `eta_pump` at all — checked
+directly in `src/tango/units/native/well/production_well.py`). The field
+is dead, unused config — old tango's Triemli AGS model has never had a
+working pump anywhere, on either the well side or the surface side.
+
+**Implications, confirmed by direct experiment, not assumed:** built
+`opt_AGS_direct_heat.py` (a pymoo NSGA2 search over well depth/loop
+length/loop diameter/vertical well diameter/injection pressure/mass flow
+rate) against the pump-less model and ran it for real. NSGA2 converged
+every one of its 45 pareto designs to (or right against) the same design
+corner: `loop_length_m`/`loop_diameter_m` pinned exactly at their floors,
+`mass_rate_kg_per_s` pinned exactly at its ceiling, `depth_m` clustered
+against its own ceiling. Reading the actual pressure profile at that
+converged optimum: `injection_well` outlet ~78.0 MPa (the ~8000 m
+descent's hydrostatic gain), `production_well` outlet only 29,493 Pa —
+essentially the *entire* hydrostatic gain lost climbing back up, with
+friction eating what little was left. Checked that delivered pressure
+against the fluid's own saturation pressure at the delivered temperature
+(68.7°C): **29,472 Pa — a margin of 21.6 Pa, 0.07%.** NSGA2 hadn't found
+"these parameters are free to push to their bounds" (an earlier, wrong
+hypothesis floated and retracted the same session, once tested directly)
+— it had found the cheapest design that stays *just* above flashing to
+vapor, because CAPEX cost pressure (smaller/shorter/higher-flow is
+cheaper) had nothing else to push against. A razor's-edge mathematical
+optimum, not a physically realistic operating point: real closed-loop
+AGS/Eavor-Loop-style systems use thermosiphon effect to *reduce* required
+pumping power, not eliminate the pump entirely — running a real wellhead
+at 0.07% above its flash point is not something an actual operator would
+ever accept as a safety margin.
+
+**Fixed in `tango_next` (2026-08-18):** added a real circulation pump —
+`AGS_direct_heat.yml`'s `power_plant.nodes` now has `circ_pump`
+(`type: Compressor`, `role: net_electric`) between `dh_hx` and `outlet`,
+on the cold/injection leg (matching where real closed-loop AGS systems
+actually put the surface circulation pump — pumping cold, subcooled
+liquid avoids the cavitation/NPSH risk of pumping fluid already near its
+flash point, exactly the state the production wellhead is in). No
+`p_out_megapascals` on `circ_pump` itself, deliberately: `injection_pressure`
+already hard-sets the pressure on the network's final connection (see
+`GraphSurface.set_injection_pressure`); also constraining `circ_pump`'s
+own outlet would be a second, independent equation pinning the same
+connection — an over-determined system, not a more-constrained one
+(mirrors `hydro_df_electric.yml`'s `pump1`/`pump2`, which have no `p_out`
+of their own for the identical reason). `dh_hx` needed a new
+`pressure_ratio` spec (a *ratio*, not an absolute value, since its actual
+inlet pressure varies enormously by design point) once it was no longer
+the last node before the network's outlet Sink — added generic
+`pressure_ratio` -> TESPy `pr` support to `GraphSurface`'s YAML attribute
+translation for this (`components/surface/graph.py`).
+
+Also relaxed `GraphSurface.solve()`'s `InvalidPowerStateError` guard,
+which unconditionally raised on any negative `net_power_W` — correct for
+a topology that expects net electric *generation* (a turbine that should
+always beat its own parasitic pumps), wrong for a pure direct-heat
+topology with no generator at all, where negative `net_power_W` (a
+circulation pump with nothing generating alongside it) is the only
+possible, entirely correct state. Now only raises when an actual
+`Turbine` is present among the `net_electric`-tagged nodes.
+`DoubletEconomicComponent._compute_lcoe` needed no changes at all — its
+by-product-power term was already hardened for exactly this case (see
+"`NativeEconomicComponent` double-counted well mobilization cost..."
+entry's neighbor further up this file, and that method's own docstring
+referencing "~53/500 designs in the Triemli AGS sweep" with negative net
+power).
+
+**New TANGO Commandment added** (`CONTRIBUTING.md`): every closed fluid
+loop must have an explicit pump/compressor somewhere in it. Partially
+enforced in code: `workflows/workflow.py::_check_loop_has_pressure_source`
+raises `ConfigError` if a config sets `sim_config.injection_mode` (a
+genuine closed loop) but has no well component ending in `_with_pump` and
+no `power_plant.nodes` entry of type `Compressor`/`Pump` anywhere.
+Deliberately scoped to the WHOLE workflow, not per-loop, since
+`tango_next` has no multi-loop/grouped-subsystem support yet (see
+`docs/TANGO_vision_and_roadmap.md`'s "Grouped subsystems" open design
+question) — there is only ever one fluid circuit per `Workflow` today, so
+a whole-workflow check is equivalent to a per-loop one for now. Revisit
+once a config can genuinely contain more than one independent fluid loop
+(e.g. a future ORC secondary working-fluid loop).

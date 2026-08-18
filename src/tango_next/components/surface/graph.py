@@ -41,11 +41,13 @@ Example YAML (AGS direct-heat — the topology that motivated this class):
       power_plant:
         nodes:
           inlet: {type: Source}
-          dh_hx: {type: SimpleHeatExchanger, role: net_thermal, T_out: 323.15}
+          dh_hx: {type: SimpleHeatExchanger, role: net_thermal, T_out: 323.15, pressure_ratio: 0.99}
+          circ_pump: {type: Compressor, role: net_electric, efficiency: 1.0}
           outlet: {type: Sink}
         edges:
           1: {source: inlet, target: dh_hx}
-          2: {source: dh_hx, target: outlet}
+          2: {source: dh_hx, target: circ_pump}
+          3: {source: circ_pump, target: outlet}
 
 Unit conventions (TESPy network created with ``p_unit="bar"``, ``T_unit="C"``):
 
@@ -388,20 +390,29 @@ class GraphSurface(SurfaceComponent):
     def _apply_node_config(node: Any, conns: list[Connection], cfg: dict[str, Any]) -> None:
         """Apply fixed component/connection attributes from one node's YAML config.
 
-        Component-level: ``efficiency`` -> ``eta_s`` (Turbine/Compressor).
-        Connection-level, set on the node's outgoing connection for Source/
-        Valve, incoming connection for Sink: ``T``/``p``/``m``/``fluid``/
-        ``vapor_mass_fraction_out`` -> ``x``, ``p_out_megapascals`` -> ``p``
-        (converted MPa -> bar), ``T_out`` (K) -> ``T`` (converted K -> C).
-        Extend here as new topologies need attributes not yet covered —
-        deliberately not porting src/tango/'s full dynamic attribute list
-        (ttd_u/ttd_l/pr1/pr2, string-function evaluation) until an AGS config
-        actually needs it.
+        Component-level: ``efficiency`` -> ``eta_s`` (Turbine/Compressor);
+        ``pressure_ratio`` -> ``pr`` (any component TESPy gives a ``pr``
+        parameter, e.g. ``SimpleHeatExchanger``/``HeatExchanger`` — a
+        RATIO, not an absolute value, so it scales with whatever pressure
+        actually arrives at this node rather than fixing one; added for
+        ``AGS_direct_heat.yml``'s ``dh_hx``, which needs its own
+        pressure-drop spec once it's no longer the last node before the
+        network's outlet Sink — see that YAML's ``circ_pump`` comment for
+        why). Connection-level, set on the node's outgoing connection for
+        Source/Valve, incoming connection for Sink: ``T``/``p``/``m``/
+        ``fluid``/``vapor_mass_fraction_out`` -> ``x``,
+        ``p_out_megapascals`` -> ``p`` (converted MPa -> bar), ``T_out``
+        (K) -> ``T`` (converted K -> C). Extend here as new topologies need
+        attributes not yet covered — deliberately not porting src/tango/'s
+        full dynamic attribute list (ttd_u/ttd_l/string-function
+        evaluation) until an AGS config actually needs it.
         """
         type_name = type(node).__name__
         component_attrs: dict[str, Any] = {}
         if "efficiency" in cfg:
             component_attrs["eta_s"] = float(cfg["efficiency"])
+        if "pressure_ratio" in cfg:
+            component_attrs["pr"] = float(cfg["pressure_ratio"])
         if component_attrs:
             node.set_attr(**component_attrs)
 
@@ -517,7 +528,20 @@ class GraphSurface(SurfaceComponent):
         # ---- Net power / thermal (see module docstring for sign convention) ----
         net_power_W = sum(-node.P.val for node in self._net_electric_nodes)
         net_thermal_W = sum(-node.Q.val for node in self._net_thermal_nodes)
-        if net_power_W < 0:
+        # Only a genuine generator (Turbine) creates an expectation that
+        # net_power_W should be positive -- a plant with no generator at
+        # all (e.g. AGS_direct_heat.yml's circ_pump-only setup: a pure
+        # electric consumer, no by-product electricity) has NO way to ever
+        # be net-positive, and that's the correct, permanent state, not a
+        # feasibility-boundary artifact. See InvalidPowerStateError's own
+        # docstring for the actual bug this guards against (a negative
+        # value silently corrupting DoubletEconomicComponent's averaged
+        # LCOE calc) -- that risk is specific to a topology that EXPECTS
+        # net generation, confirmed unaffected here: main_product=HEAT's
+        # LCOE formula already treats net_power_W as a by-product term
+        # (_compute_lcoe) and was hardened for a negative value there.
+        has_generator = any(type(node).__name__ == "Turbine" for node in self._net_electric_nodes)
+        if has_generator and net_power_W < 0:
             raise InvalidPowerStateError(
                 f"surface plant net_power_W={net_power_W:.1f} W is negative -- the surface plant "
                 "is a net consumer, not producer, of electricity this timestep (turbine output no "

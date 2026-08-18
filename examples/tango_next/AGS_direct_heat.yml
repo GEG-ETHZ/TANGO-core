@@ -132,8 +132,36 @@ components:
 
     power_plant:
       # Direct-heat surface plant: produced fluid passes through a
-      # district-heating heat exchanger and returns at 50 degC (the
-      # re-injection temperature) — no turbine, no electricity.
+      # district-heating heat exchanger, then a circulation pump boosts it
+      # back up to injection_pressure before it re-enters the ground — no
+      # turbine, no by-product electricity generation, but real electricity
+      # IS consumed here (see circ_pump below).
+      #
+      # circ_pump exists because something has to drive circulation around
+      # this closed loop, and it isn't free: neither well (injection_well/
+      # production_well, both plain non-pump types) nor any prior version
+      # of this surface plant provided one, so the loop ran on thermosiphon
+      # effect (the density difference between the cold descending
+      # injection leg and hot ascending production leg) alone, minus
+      # friction — with NOTHING to fall back on if that natural margin ran
+      # thin. Confirmed empirically (2026-08-17) that it does: at the
+      # NSGA2-found optimum for the old (pump-less) model, the production
+      # wellhead pressure sat just 0.07% above the fluid's own saturation
+      # pressure. Real closed-loop AGS/Eavor-Loop-style systems rely on
+      # thermosiphon effect to REDUCE required pumping power, not eliminate
+      # the pump entirely — the surface, cold/injection leg (this location)
+      # is exactly where real systems put it: pumping cold, subcooled
+      # liquid avoids the cavitation/NPSH risk of pumping fluid that's
+      # already near its flash point (like the production wellhead above).
+      #
+      # No p_out_megapascals here, deliberately: injection_pressure
+      # (below) already hard-sets the pressure on the outlet connection
+      # this pump feeds into (see GraphSurface.set_injection_pressure).
+      # Also specifying a pressure target on circ_pump itself would be a
+      # second, independent equation pinning the SAME connection — an
+      # over-determined system, not a more-constrained one. Mirrors
+      # hydro_df_electric.yml's pump1/pump2, which have no p_out of their
+      # own for the identical reason.
       nodes:
         inlet:
           type: Source
@@ -141,8 +169,26 @@ components:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+          pressure_ratio: 0.99   # dimensionless — small, realistic conductive-HX loss (~1%).
+                                   # A RATIO, not an absolute p_out: dh_hx's actual inlet pressure
+                                   # varies by design point (whatever the well naturally delivers,
+                                   # from ~tens of kPa to tens of MPa across the swept range — see
+                                   # circ_pump comment above), so a fixed absolute p_out would be
+                                   # wrong (or physically impossible, > inlet) for most of that
+                                   # range. Needed now that dh_hx is no longer the last node before
+                                   # the network's outlet Sink -- previously its outlet pressure was
+                                   # implicitly pinned by injection_pressure directly; now that BC
+                                   # sits on circ_pump's outlet instead (see below), so dh_hx needs
+                                   # its own pressure-drop spec to keep the network fully determined.
+        circ_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency).
+                              # Matches hydro_df_electric.yml's pump1/pump2 default; revisit
+                              # if a more realistic circulation-pump efficiency is needed.
         outlet:
           type: Sink
       edges:
-        1: {source: inlet, target: dh_hx}
-        2: {source: dh_hx, target: outlet}
+        '1': {source: inlet, target: dh_hx}
+        '2': {source: dh_hx, target: circ_pump}
+        '3': {source: circ_pump, target: outlet}

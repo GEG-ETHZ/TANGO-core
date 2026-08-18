@@ -49,6 +49,23 @@ with.
   with one that's self-evident from the name alone, no matter where it's
   read out of context.
 1. All private fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
+1. <a id="rule-fluid-loop-needs-pressure-source"></a>Every closed fluid loop must have an explicit pump or compressor
+  driving circulation somewhere in it — a downhole pump-bearing well
+  (`*_with_pump`) or a surface circulation pump (a `Compressor`/`Pump`
+  node in `power_plant.nodes`). Relying on thermosiphon effect (the
+  density difference between a cold descending leg and a hot ascending
+  leg) alone, with nothing mechanical to fall back on, is not a valid
+  simplification — confirmed the hard way (2026-08-17): a pump-less AGS
+  closed loop let an optimizer converge on a design whose wellhead
+  pressure sat just 0.07% above the fluid's own saturation pressure, with
+  no fallback once that margin ran thin. This applies to every fluid loop
+  in a config, not just the first one found — a future multi-loop system
+  (e.g. an ORC's secondary working-fluid loop) needs a real pressure
+  source in EACH loop independently. Partially enforced today by
+  `workflows/workflow.py::_check_loop_has_pressure_source` — see that
+  function's own docstring for its current whole-workflow (not yet
+  per-loop) scope, and revisit once multi-loop/grouped-subsystem support
+  exists.
 
 ## Branching Strategy
 
