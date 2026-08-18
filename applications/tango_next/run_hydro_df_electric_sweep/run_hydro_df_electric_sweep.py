@@ -16,9 +16,9 @@ Every design point's config includes an ``economic:`` block
 computed for real (see ``sweep.py``'s module docstring) alongside
 ``net_power_W``/``T_prod_K``.
 
-Runs generate -> sweep -> summarize in sequence, same as the old-tango
-version. Call individual stage scripts directly (generate.py, sweep.py,
-summarize.py) if you only need one stage.
+Runs generate -> sweep -> summarize -> plot in sequence, same as the
+old-tango version. Call individual stage scripts directly (generate.py,
+sweep.py, summarize.py, plot.py) if you only need one stage.
 
 Usage
 -----
@@ -47,6 +47,7 @@ from common import (
     load_params,
 )
 from generate import main as generate_main
+from plot import main as plot_main
 from summarize import main as summarize_main
 from sweep import main as sweep_main
 
@@ -147,3 +148,5 @@ if __name__ == "__main__":
         sweep_dir=sweep_dir,
     )
     summarize_main(quiet=args.quiet, sweep_dir=sweep_dir)
+    if not args.smoke:
+        plot_main(quiet=args.quiet, sweep_dir=sweep_dir)

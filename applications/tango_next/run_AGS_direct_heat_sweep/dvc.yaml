@@ -50,9 +50,9 @@ stages:
       - outputs/results.parquet
 
   # Stage 4: static + interactive plots for exploring the design space.
-  # No lcoe_grid.png here — tango_next has no wired-up EconomicComponent yet,
-  # so plot.py skips the LCOE plot entirely (see run_AGS_direct_heat_sweep.py's
-  # module docstring).
+  # No lcoe_grid.png here — LCOE_USD_per_kWh is populated (DoubletEconomicComponent
+  # is wired in), but an LCOE-colored grid isn't wired into plot.py yet; queued
+  # as separate follow-up plotting work (see plot.py's module docstring).
   plot:
     cmd: python plot.py
     deps:

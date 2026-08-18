@@ -31,8 +31,9 @@ T_PROD_THRESHOLD_C = 105.0
 # Then inputs (well_depth_m, mass_flow_kg_per_s, loop_length_m, loop_diameter_m),
 # then outputs: T_prod_C (whether the district-heating temperature target is
 # met) and thermal_power_kW (how much useful heat the design actually
-# delivers). CAPEX_total_USD/LCOE_USD_per_kWh are omitted — always null in
-# this port (see module docstring).
+# delivers). CAPEX_total_USD/LCOE_USD_per_kWh are omitted from these axes
+# for now — populated (see module docstring) but not yet wired into this
+# plot; queued as follow-up plotting work.
 _PARCOORD_COLUMNS: list[tuple[str, str]] = [
     ("row_idx", "Design\nindex"),
     ("well_depth_m", "Well depth\n[m]"),
@@ -346,8 +347,9 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
     parcoord_qualified_html_path = sweep_dir / "parallel_coordinates_qualified.html"
 
     plot_success_scatter(df, scatter_path)
-    # No lcoe_grid.png in this port — see module docstring: no economic
-    # component exists yet, so LCOE_USD_per_kWh is always null.
+    # No lcoe_grid.png yet — LCOE_USD_per_kWh is populated now (see module
+    # docstring) but an LCOE-colored grid is queued as separate follow-up
+    # plotting work, not done in this pass.
     plot_parallel_coordinates(df, parcoord_path)
     wrote_html = plot_parallel_coordinates_interactive(df, parcoord_html_path)
     wrote_qualified_html = plot_parallel_coordinates_interactive_qualified(df, parcoord_qualified_html_path)
@@ -360,8 +362,8 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
         if wrote_qualified_html:
             print(f"Wrote {parcoord_qualified_html_path}")
         print(
-            "Skipped lcoe_grid.png — no tango_next EconomicComponent exists yet, "
-            "LCOE_USD_per_kWh is always null (see this module's docstring).",
+            "Skipped lcoe_grid.png — LCOE_USD_per_kWh is populated but an "
+            "LCOE-colored grid isn't wired up yet (see this module's docstring).",
         )
 
 

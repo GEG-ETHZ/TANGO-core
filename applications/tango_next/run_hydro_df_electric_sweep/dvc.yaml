@@ -52,3 +52,16 @@ stages:
     metrics:
       - outputs/summary.yaml:
           cache: true
+
+  # Stage 4: per-parameter sensitivity ("tornado") chart — the visual
+  # companion to outputs/sensitivity_table.csv (see plot.py's module
+  # docstring for why this design gets a tornado chart, not the AGS/EGS
+  # sweeps' parallel-coordinates / success-scatter grid).
+  plot:
+    cmd: python plot.py
+    deps:
+      - plot.py
+      - common.py
+      - outputs/results.parquet
+    outs:
+      - outputs/tornado.png

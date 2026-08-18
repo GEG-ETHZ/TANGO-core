@@ -26,6 +26,7 @@ can support that goal reliably.
     - [Phase 3 — Modularity, Verification & Scale-Out](#phase-3--modularity-verification--scale-out)
 - [Future Direction — Geospatial Viability Analysis with LLM Augmentation](#future-direction--geospatial-viability-analysis-with-llm-augmentation)
 - [Future Direction — AI-Assisted Error Interpretation](#future-direction--ai-assisted-error-interpretation)
+- [Future Direction — Performance & Scalability](#future-direction--performance--scalability)
 - [The Connection: Refactor Enables the Product Vision](#the-connection-refactor-enables-the-product-vision)
 - [Summary](#summary)
 - [Appendix A: TESPy Dependency Assessment](#appendix-a-tespy-dependency-assessment)
@@ -1415,6 +1416,48 @@ routed through a stable `TangoError` exception taxonomy modeled on Rust's
 
 *Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio) — shows the
 AI error agent as a future hook on the right side of the simulation loop.*
+
+---
+
+### Future Direction — Performance & Scalability
+
+Full sweeps and optimization runs (`pymoo_api`-driven NSGA-II, sensitivity sweeps) can
+require thousands of individual TANGO simulations, and each one currently pays the cost
+of a full numerical time-march. As sweep sizes and optimization budgets grow, simulation
+throughput becomes the limiting factor rather than the physics itself. Three
+complementary directions, roughly in order of effort:
+
+**1. Profile first, then cut low-hanging fruit.** Before assuming a rewrite is
+necessary, profile a representative run to find where time actually goes. A likely
+candidate: `NumericalWell`'s marching scheme currently uses 100 cells per well
+regardless of well length or how much spatial resolution the result actually needs —
+it's plausible that far fewer cells (or an adaptive cell count) would give
+indistinguishable accuracy at a fraction of the cost. Any such change needs a
+convergence study (does the answer change materially as cell count drops?) before
+being adopted as a default, not just a speed measurement.
+
+**2. Train ML surrogates for optimization loops.** NSGA-II-style optimization
+evaluates a candidate design, checks dominance, and generates new candidates —
+tolerating an approximate objective function is much cheaper here than in a
+one-shot single simulation, because errors get corrected out over many
+generations. The proposed workflow: run full TANGO simulations across an LHS
+(or other space-filling) design to build a training set, fit a regression model
+(e.g. a random forest) to predict the optimization objectives from the design
+parameters, then run PyMOO's NSGA-II against the trained surrogate instead of
+full TANGO — orders of magnitude cheaper per evaluation. Critically, the
+surrogate-derived Pareto front must be validated with full TANGO runs at the
+final candidate points before being presented as a result; the surrogate finds
+candidates faster, it does not replace verification.
+
+**3. Port hot paths to a faster language.** If profiling identifies a
+genuinely hot inner loop that resists both of the above (e.g. the well
+marching scheme's per-cell physics), porting just that piece to a compiled
+language (Rust and Julia are the natural candidates, given TANGO's existing
+Rust-flavored error-handling direction and Julia's numerical-computing
+ecosystem) is the highest-effort but highest-ceiling option. This should be a
+last resort, scoped narrowly to whatever profiling actually identifies as the
+bottleneck — not a wholesale rewrite — and only after (1) and (2) have been
+tried, since both are cheaper and may make (3) unnecessary.
 
 ---
 
