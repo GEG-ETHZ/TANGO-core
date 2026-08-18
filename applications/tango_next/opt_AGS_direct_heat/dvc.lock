@@ -5,11 +5,11 @@ stages:
     deps:
     - path: ../../../examples/tango_next/AGS_direct_heat.yml
       hash: md5
-      md5: 1e0adea365ec9db99a30ecad1bf49ca8
-      size: 6472
+      md5: a855d92ef1bf4c0b1cf3d83b1b06a9c5
+      size: 9837
     - path: ../../../src/tango_next.hash
       hash: md5
-      md5: 75ac4e2607e873e24ade62548f0521ad
+      md5: b20457cccd2704dc648b7341ee83e107
       size: 41
     - path: opt_AGS_direct_heat.py
       hash: md5
@@ -27,34 +27,34 @@ stages:
     outs:
     - path: outputs/pareto_configs
       hash: md5
-      md5: 2593cbc0988c1aacf6a40f8d4547177c.dir
-      size: 511163
+      md5: 263aeb51d05e0e0a0d33825fa390030f.dir
+      size: 520344
       nfiles: 45
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 46f889bf6e4dbdf0cf7994a425246b6c
-      size: 4576534
+      md5: 532b242d86a61ce30c1dc05eb2c7e4a1
+      size: 4576472
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
-      md5: fec95d82af2e3f4da2c1b22ee2bc2838
-      size: 973347
+      md5: 485a9efb89046bd2139491b79da10557
+      size: 1040743
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 386e534c43c0915e948ae62de10dfba9
-      size: 8034
+      md5: e3f17eb1911ad908e3324974b3c9bb83
+      size: 7984
     - path: outputs/pareto_scatter.png
       hash: md5
-      md5: af9a453f8b67780f1f63df0ea3d12a30
-      size: 89768
+      md5: ff21ead4c10c4dfd4bce205915fabf88
+      size: 75761
     - path: outputs/pareto_scatter_by_param.png
       hash: md5
-      md5: cf0d03d8dd919006efbfc9f13d326b40
-      size: 258297
+      md5: 0ef0fa3f0480fa58a75ec0d9007db926
+      size: 237392
     - path: outputs/pareto_scatter_param_pairs.png
       hash: md5
-      md5: 8bd65ffde4e1cd60fbe9c729f49c9f30
-      size: 1247719
+      md5: 2745f1ce094beec869c45305a50937d3
+      size: 978138
     - path: outputs/pareto_scatter_zscore.png
       hash: md5
-      md5: 12384ea87a6d1d2c152c898caf0bb264
-      size: 72116
+      md5: 10ab67521b286c39a17d9b84e8275313
+      size: 73545

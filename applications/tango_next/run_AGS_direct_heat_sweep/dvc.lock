@@ -5,21 +5,21 @@ stages:
     deps:
     - path: ../../../examples/tango_next/AGS_direct_heat.yml
       hash: md5
-      md5: e19b9e6579dabe42e4cbc4de1a1ec579
-      size: 5735
+      md5: a855d92ef1bf4c0b1cf3d83b1b06a9c5
+      size: 9837
     - path: common.py
       hash: md5
       md5: 29fdcf3d5089d2d0bc1963cf71360d1a
       size: 3812
     - path: generate.py
       hash: md5
-      md5: 24341685dd799ea90d505b89e0ae96fa
-      size: 4159
+      md5: ef42da8b1c2887ace7f0e39ecf56d103
+      size: 4163
     outs:
     - path: outputs/design_matrix.parquet
       hash: md5
-      md5: e264ffb8a2b337675d6cd2a23cb5a1fc
-      size: 27242
+      md5: 5a8d448c5cbc5342779acab0f4e3b7fc
+      size: 27258
   sweep:
     cmd: python sweep.py
     deps:
