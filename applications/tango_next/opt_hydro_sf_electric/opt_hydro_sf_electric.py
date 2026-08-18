@@ -558,8 +558,16 @@ def main(args: argparse.Namespace) -> None:
     plot_df = df.rename(columns=DISPLAY_RENAME)
     plot_df["mean_power_W"] = -plot_df["mean_power_W"]
 
-    plot_pareto_parallel_coordinates(plot_df, args.save_dir / "pareto_parallel_coordinates.png")
-    plot_pareto_parallel_coordinates_interactive(plot_df, args.save_dir / "pareto_parallel_coordinates.html")
+    # n_gen is run provenance (constant across every row of a single optimization
+    # run), not a per-design axis — drop it from the parallel-coordinates plots,
+    # which otherwise plot every df column, since a constant column carries no
+    # visual information there. Still present in pareto_results.csv (via df).
+    parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
+    plot_pareto_parallel_coordinates(parcoord_df, args.save_dir / "pareto_parallel_coordinates.png")
+    plot_pareto_parallel_coordinates_interactive(
+        parcoord_df,
+        args.save_dir / "pareto_parallel_coordinates.html",
+    )
     plot_pareto_scatter(plot_df, args.save_dir / "pareto_scatter.png")
     plot_pareto_scatter_zscore(plot_df, args.save_dir / "pareto_scatter_zscore.png")
     plot_objective_vs_param_scatter(
