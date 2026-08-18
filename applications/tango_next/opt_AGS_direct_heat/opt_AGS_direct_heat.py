@@ -73,6 +73,7 @@ from tango_next.pymoo_api import (
     load_params,
     plot_objective_vs_param_scatter,
     plot_param_pair_vs_objective_scatter,
+    prepare_plot_df,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -526,8 +527,23 @@ def plot_pareto_parallel_coordinates_interactive(
     if c_max <= c_min:
         c_min, c_max = float(color_values.min()), float(color_values.max())
 
+    # "~s" (d3-format SI-prefix style: 1.3G, 823k, ...) is human-readable and
+    # never emits markup (Plotly's default formatter renders scientific
+    # notation as literal "<sup>...</sup>" text here, which Parcoords'
+    # plain-SVG tick labels can't render), but ONLY for magnitude >= 1 — d3
+    # also applies NEGATIVE SI prefixes (milli, micro, ...) below 1, so e.g.
+    # 0.214927 renders as "214.927m", where that "m" means milli, not
+    # meters. That collides badly with an already-"_m"-suffixed column name
+    # like loop_diameter_m, silently misreading a 0.215 m design as 215 m.
+    # Columns with magnitude < 1 get plain fixed-point instead, with no
+    # prefix to misread.
     dimensions: list[dict[str, Any]] = [
-        {"label": c, "values": df[c].to_numpy(), "tickformat": "~s"} for c in cols
+        {
+            "label": c,
+            "values": df[c].to_numpy(),
+            "tickformat": "~s" if np.max(np.abs(df[c].to_numpy())) >= 1 else "~g",
+        }
+        for c in cols
     ]
     fig = go.Figure(
         data=go.Parcoords(
@@ -568,8 +584,7 @@ def main(args: argparse.Namespace) -> None:
     print(f"Pareto front: {len(df)} designs")
     print(df)
 
-    plot_df = df.rename(columns=DISPLAY_RENAME)
-    plot_df["mean_thermal_power_W"] = -plot_df["mean_thermal_power_W"]
+    plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 
     # n_gen is run provenance (constant across every row of a single optimization
     # run), not a per-design axis — drop it from the parallel-coordinates plots,

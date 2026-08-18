@@ -44,6 +44,7 @@ from tango_next.pymoo_api import (
     load_params,
     plot_objective_vs_param_scatter,
     plot_param_pair_vs_objective_scatter,
+    prepare_plot_df,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -484,10 +485,20 @@ def plot_pareto_parallel_coordinates_interactive(
     # notation as literal "<sup>...</sup>" text for large numbers (e.g. the
     # ~1e15 J energy values here) — Parcoords tick labels are plain SVG text,
     # not HTML, so those tags render as garbage instead of superscripts.
-    # "~s" is d3-format's SI-prefix style (1.3G, 823k, ...) — human-readable
-    # and never emits markup, regardless of magnitude.
+    # "~s" (d3-format's SI-prefix style: 1.3G, 823k, ...) fixes that and is
+    # human-readable, but ONLY for magnitude >= 1 — d3 also applies NEGATIVE
+    # SI prefixes (milli, micro, ...) below 1, so e.g. LCOE's 0.349157
+    # renders as "349.157m", where that "m" means milli, not meters (and
+    # collides badly with any already-"_m"-suffixed column, silently
+    # misreading e.g. a 0.215 m design as 215 m). Columns with magnitude < 1
+    # get plain fixed-point instead, with no prefix to misread.
     dimensions: list[dict[str, Any]] = [
-        {"label": c, "values": df[c].to_numpy(), "tickformat": "~s"} for c in cols
+        {
+            "label": c,
+            "values": df[c].to_numpy(),
+            "tickformat": "~s" if np.max(np.abs(df[c].to_numpy())) >= 1 else "~g",
+        }
+        for c in cols
     ]
     fig = go.Figure(
         data=go.Parcoords(
@@ -549,14 +560,7 @@ def main(args: argparse.Namespace) -> None:
     print(f"Pareto front: {len(df)} designs")
     print(df)
 
-    # pymoo minimizes negative_mean_power_W (so maximizing power fits the
-    # minimization framework) — that's the right column for the CSV/raw
-    # results (matches the actual objective), but a human reading the PLOT
-    # cares about mean power PRODUCED, not the sign flip needed to optimize
-    # it. Flip only for the two plots below; df/the CSV keep the objective's
-    # own sign.
-    plot_df = df.rename(columns=DISPLAY_RENAME)
-    plot_df["mean_power_W"] = -plot_df["mean_power_W"]
+    plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 
     # n_gen is run provenance (constant across every row of a single optimization
     # run), not a per-design axis — drop it from the parallel-coordinates plots,

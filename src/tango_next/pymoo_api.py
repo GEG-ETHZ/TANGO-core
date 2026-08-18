@@ -362,6 +362,36 @@ def build_pymoo_parser(
     return parser
 
 
+def prepare_plot_df(df: pd.DataFrame, display_rename: dict[str, str]) -> pd.DataFrame:
+    """Undo pymoo's negated-objective minimization convention, for plotting only.
+
+    A maximization objective (e.g. mean power/thermal power) is expressed to
+    NSGA2 as ``negative_mean_*_W`` so minimizing it maximizes the real
+    quantity — but a human reading a plot cares about power PRODUCED, not
+    the sign flip NSGA2 needed. This renames columns per ``display_rename``
+    (e.g. ``{"negative_mean_power_W": "mean_power_W"}``) and negates any
+    renamed column whose ORIGINAL name started with ``"negative_"`` back to
+    its natural sign — inferred from the name, not a separately-maintained
+    list, so a script can't add/rename an objective without the negation
+    rule automatically following it.
+
+    ``df``/the saved CSV (``pareto_results.csv``) keep the objective's own
+    (negated) sign always — only the returned copy is flipped. Use this
+    (not a hand-rolled ``df.rename(...)`` + manual ``-df[col]`` line) for
+    ANY plot built from pareto results, including one-off replotting from a
+    previously-saved CSV — a hand-rolled version is exactly what silently
+    reintroduced a raw ``negative_mean_thermal_power_W`` axis into
+    ``opt_AGS_direct_heat``'s parallel-coordinates plot once, when a fix
+    unrelated to this renaming/sign convention regenerated the plot
+    straight from the CSV and skipped it.
+    """
+    plot_df = df.rename(columns=display_rename)
+    for original_name, display_name in display_rename.items():
+        if original_name.startswith("negative_") and display_name in plot_df.columns:
+            plot_df[display_name] = -plot_df[display_name]
+    return plot_df
+
+
 def plot_objective_vs_param_scatter(
     df: pd.DataFrame,
     param_cols: list[str],
