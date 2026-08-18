@@ -1,0 +1,32 @@
+# Parameters for the hydro_df_electric surrogate-assisted optimization pipeline
+# (LHS sample -> real-sim sweep -> train random-forest surrogate -> NSGA2
+# against the surrogate -> real-sim validation of its pareto front).
+# Changing any value here marks the dependent DVC stage as stale.
+# Run `uv run dvc repro` from this directory to re-execute stale stages.
+
+# Stage 1/2: LHS sample size + the real-sim sweep that evaluates it.
+n_lhs_samples: 500
+lhs_seed: 1
+n_train_workers: 4 # keep in sync with --cpus-per-task if run via the SLURM job script
+
+# Stage 3: random-forest surrogate (one regressor per objective).
+rf_n_estimators: 300
+rf_cv_folds: 5
+rf_seed: 1
+
+# Stage 4: surrogate-driven NSGA2. Left UNSET (commented) by default —
+# optimize_surrogate.py then falls back to reading n_max_gen/pop_size/ftol/
+# xtol/seed straight from ../opt_hydro_df_electric/params.yaml (see
+# common.py's opt_app_pymoo_params()), so this stage runs the IDENTICAL GA
+# configuration as the real-sim optimization, for a direct timing/quality
+# comparison. Uncomment any of these to deliberately diverge (e.g. explore
+# whether the surrogate lets pop_size/n_max_gen go much higher for free).
+# n_max_gen: 200
+# pop_size: 45
+# ftol: 0.005
+# xtol: 0.0005
+# optimize_seed: 1
+
+# Stage 5: real-sim validation of the surrogate's pareto front.
+validation_tolerance: 0.001
+n_validate_workers: 4

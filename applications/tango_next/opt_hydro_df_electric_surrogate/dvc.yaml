@@ -1,0 +1,95 @@
+stages:
+
+  # Stage 1: draw the LHS design matrix -- no simulation, cheap regardless
+  # of n_lhs_samples.
+  lhs_generate:
+    cmd: python generate_lhs.py
+    deps:
+      - generate_lhs.py
+      - common.py
+      - ../opt_hydro_df_electric/opt_hydro_df_electric.py
+    params:
+      - params.yaml:
+          - n_lhs_samples
+          - lhs_seed
+    outs:
+      - outputs/lhs_design_matrix.csv
+
+  # Stage 2: run the real simulation on every LHS sample, in parallel
+  # (checkpoint/resume built in — see surrogate_api.run_lhs_sweep).
+  lhs_sweep:
+    cmd: python sweep_lhs.py
+    deps:
+      - sweep_lhs.py
+      - common.py
+      - ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      - ../../../examples/tango_next/hydro_df_electric.yml
+      - outputs/lhs_design_matrix.csv
+      # Content hash of src/tango_next/, kept current by the hash-tango-next
+      # pre-commit hook (tools/hash_tango_next.py).
+      - ../../../src/tango_next.hash
+    params:
+      # n_train_workers deliberately excluded -- parallelism, not a
+      # result-affecting param.
+      - params.yaml:
+          - n_lhs_samples
+    outs:
+      - outputs/lhs_training_data.csv
+
+  # Stage 3: fit the random-forest surrogate (one regressor per objective).
+  train_surrogate:
+    cmd: python train_surrogate.py
+    deps:
+      - train_surrogate.py
+      - common.py
+      - outputs/lhs_training_data.csv
+    params:
+      - params.yaml:
+          - rf_n_estimators
+          - rf_cv_folds
+          - rf_seed
+    outs:
+      - outputs/surrogate_model.joblib
+      - outputs/surrogate_diagnostics.csv
+
+  # Stage 4: NSGA2 against the trained surrogate -- see optimize_surrogate.py's
+  # docstring for why its GA config defaults match the real
+  # opt_hydro_df_electric run exactly (direct timing/quality comparison).
+  optimize_surrogate:
+    cmd: python optimize_surrogate.py
+    deps:
+      - optimize_surrogate.py
+      - common.py
+      - outputs/surrogate_model.joblib
+      # NOT tracked via `params:` -- n_max_gen/pop_size/ftol/xtol/optimize_seed
+      # are commented out (absent) in THIS app's own params.yaml by default
+      # (see that file's comment), which DVC's `params:` block can't
+      # reference without erroring on a missing key. Tracking the whole
+      # file as a plain dep instead still invalidates this stage whenever
+      # either params.yaml changes -- this app's own (if uncommented) or
+      # the real app's (whose values this stage falls back to).
+      - params.yaml
+      - ../opt_hydro_df_electric/params.yaml
+    outs:
+      - outputs/surrogate_pareto_results.csv
+      - outputs/pareto_parallel_coordinates.png
+      - outputs/pareto_parallel_coordinates.html
+      - outputs/pareto_scatter.png
+      - outputs/pareto_scatter_zscore.png
+      - outputs/pareto_scatter_by_param.png
+      - outputs/pareto_scatter_param_pairs.png
+
+  # Stage 5: re-run the real simulation on every surrogate pareto design;
+  # fails the pipeline if any objective is off by more than
+  # validation_tolerance for any design.
+  validate_surrogate:
+    cmd: python validate_surrogate.py
+    deps:
+      - validate_surrogate.py
+      - common.py
+      - outputs/surrogate_pareto_results.csv
+    params:
+      - params.yaml:
+          - validation_tolerance
+    outs:
+      - outputs/surrogate_validation.csv

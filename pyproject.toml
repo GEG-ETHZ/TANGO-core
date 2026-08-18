@@ -22,7 +22,7 @@ dependencies = [
     "polars>=1.0,<2.0",
     "matplotlib>=3.10,<4.0",
     "scipy>=1.15,<2.0",
-    # "scikit-learn>=1.6,<2.0", # not being used anywhere
+    "scikit-learn>=1.6,<2.0", # random-forest surrogate models for opt_* apps (surrogate_api.py)
     "seaborn>=0.13,<1.0",
     "openpyxl>=3.1,<4.0",
     "pyyaml>=6.0,<7.0", # needed for (de)serialization
@@ -261,6 +261,9 @@ module = [
     "tango.*", # TODO: fix tango and remove this line
     "CoolProp",
     "tespy.*",
+    "joblib",
+    "scipy.stats",
+    "sklearn.*",
 ]
 ignore_missing_imports = true
 
