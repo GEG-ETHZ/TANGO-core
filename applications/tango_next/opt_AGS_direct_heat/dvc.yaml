@@ -1,16 +1,16 @@
 stages:
 
-  # Single stage: this script computes AND plots in one pass (unlike the
-  # sibling run_*_sweep/ pipelines' generate -> sweep -> summarize -> plot
-  # split) -- there's no intermediate artifact worth caching separately, so
-  # splitting further would just add DVC bookkeeping for no benefit.
+  # Stage 1: run NSGA2, write pareto_results.csv/pareto_configs only.
+  # --no-plot: plotting is the separate `plot` stage below (see
+  # build_pymoo_parser's docstring in src/tango_next/pymoo_api.py) — a
+  # plot-only code change shouldn't force a full search to rerun.
   optimize:
     # --clean: outputs/pareto_configs is a DVC `outs:` directory, so DVC
     # caches whatever's actually in it after this runs. Without --clean, a
     # rerun producing fewer pareto designs than last time leaves stale
     # design_NNN.yml files behind (see the flag's own --help text) and DVC
     # would cache those as if they were still part of the current result.
-    cmd: python opt_AGS_direct_heat.py --clean
+    cmd: python opt_AGS_direct_heat.py --clean --no-plot
     deps:
       - opt_AGS_direct_heat.py
       - ../../../examples/tango_next/AGS_direct_heat.yml
@@ -34,6 +34,15 @@ stages:
     outs:
       - outputs/pareto_results.csv
       - outputs/pareto_configs
+
+  # Stage 2: build every plot from outputs/pareto_results.csv via --plot-only
+  # (no simulation, no Minimization instance — see main()'s docstring).
+  plot:
+    cmd: python opt_AGS_direct_heat.py --plot-only
+    deps:
+      - opt_AGS_direct_heat.py
+      - outputs/pareto_results.csv
+    outs:
       - outputs/pareto_parallel_coordinates.png
       - outputs/pareto_parallel_coordinates.html
       - outputs/pareto_scatter.png

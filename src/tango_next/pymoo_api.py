@@ -359,6 +359,29 @@ def build_pymoo_parser(
             "beyond what the file provides are filled via LHS."
         ),
     )
+    plot_group = parser.add_mutually_exclusive_group()
+    plot_group.add_argument(
+        "--plot-only",
+        action="store_true",
+        help=(
+            "Skip the baseline/optimization entirely and only (re)generate "
+            "plots from an existing --save-dir/pareto_results.csv. Lets a "
+            "DVC 'plot' stage depend on plotting code alone (a plot-only "
+            "code change reruns just this, not a full NSGA2 search) — the "
+            "companion 'optimize' stage uses --no-plot below."
+        ),
+    )
+    plot_group.add_argument(
+        "--no-plot",
+        action="store_true",
+        help=(
+            "Run the baseline/optimization as normal but skip plotting "
+            "afterward. For a DVC 'optimize' stage whose outs are only "
+            "pareto_results.csv/pareto_configs — a separate 'plot' stage "
+            "(--plot-only) owns the plot files, so this stage shouldn't "
+            "also produce (and immediately make stale) copies of them."
+        ),
+    )
     return parser
 
 

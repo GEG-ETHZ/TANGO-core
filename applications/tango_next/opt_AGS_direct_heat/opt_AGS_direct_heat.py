@@ -327,13 +327,9 @@ def build_baseline() -> tuple[Workflow, Workflow]:
     return wf, wf_manual
 
 
-def run_optimization(
-    base_wf: Workflow,
-    args: argparse.Namespace,
-) -> tuple[Result, pd.DataFrame, Minimization]:
-    """Search depth + loop length + loop diameter + vertical well diameter +
-    injection pressure + mass flow rate to minimize LCOE / maximize mean
-    thermal power.
+def _param_specs() -> list[ParamSpec]:
+    """Decision variables: depth, loop length, loop diameter, vertical well
+    diameter, injection pressure, mass flow rate.
 
     Depth/loop length/loop diameter/mass flow bounds match the existing
     brute-force sweep's own axis ranges (``run_AGS_direct_heat_sweep/
@@ -341,6 +337,41 @@ def run_optimization(
     ``MASS_FLOW_RATES_KG_S``), not freshly-guessed values. Vertical well
     diameter/injection pressure have no sweep precedent — see their own
     ``ParamSpec`` factories' docstrings for bounds rationale.
+
+    Extracted as its own function (rather than inlined in
+    ``run_optimization``) so the DVC ``plot`` stage can recover each
+    column's ``.name`` for plot axis labels without needing a
+    ``Minimization`` instance or rerunning any simulation — see ``main``'s
+    ``--plot-only`` path.
+    """
+    return [
+        depth_param(bounds=(2000.0, 8000.0)),
+        loop_length_param(bounds=(500.0, 8000.0)),
+        loop_diameter_param(bounds=(0.2, 0.75)),
+        # Same range as loop_diameter_param — no other precedent to
+        # match (the brute-force sweep never varies vertical-well
+        # diameter independently), flagged for Chad to adjust if a
+        # different casing-diameter range is more realistic.
+        vertical_well_diameter_param(bounds=(0.2, 0.75)),
+        injection_pressure_param(bounds=(0.5e6, 3.0e6)),
+        mass_rate_param(bounds=(3.5, 40.0)),
+    ]
+
+
+def _objective_specs() -> list[ObjectiveSpec]:
+    """Objectives: minimize LCOE, maximize mean net thermal power — see
+    ``_param_specs``' docstring for why this is its own function.
+    """
+    return [lcoe_objective(), negative_mean_thermal_power_objective()]
+
+
+def run_optimization(
+    base_wf: Workflow,
+    args: argparse.Namespace,
+) -> tuple[Result, pd.DataFrame, Minimization]:
+    """Search depth + loop length + loop diameter + vertical well diameter +
+    injection pressure + mass flow rate to minimize LCOE / maximize mean
+    thermal power.
 
     Args:
         base_wf: UNRUN template workflow — see ``build_baseline``'s docstring.
@@ -355,19 +386,8 @@ def run_optimization(
     """
     m = Minimization(
         base_workflow=base_wf,
-        params=[
-            depth_param(bounds=(2000.0, 8000.0)),
-            loop_length_param(bounds=(1000.0, 8000.0)),
-            loop_diameter_param(bounds=(0.2, 0.75)),
-            # Same range as loop_diameter_param — no other precedent to
-            # match (the brute-force sweep never varies vertical-well
-            # diameter independently), flagged for Chad to adjust if a
-            # different casing-diameter range is more realistic.
-            vertical_well_diameter_param(bounds=(0.2, 0.75)),
-            injection_pressure_param(bounds=(0.5e6, 3.0e6)),
-            mass_rate_param(bounds=(3.5, 40.0)),
-        ],
-        objectives=[lcoe_objective(), negative_mean_thermal_power_objective()],
+        params=_param_specs(),
+        objectives=_objective_specs(),
         pymoo_config=PymooConfig(
             n_max_gen=args.n_max_gen,
             pop_size=args.pop_size,
@@ -567,23 +587,14 @@ def plot_pareto_parallel_coordinates_interactive(
     return True
 
 
-def main(args: argparse.Namespace) -> None:
-    """Run the baseline, optimize, and write results/plots."""
-    print("opt_AGS_direct_heat.py starting at")
-    print_dt()
-    logging.basicConfig(level=args.log_level)
-    if args.clean and args.save_dir.exists():
-        shutil.rmtree(args.save_dir)
-    args.save_dir.mkdir(parents=True, exist_ok=True)
+def make_plots(df: pd.DataFrame, save_dir: Path, param_cols: list[str], objective_cols: list[str]) -> None:
+    """Build every plot from a pareto-front dataframe — the DVC ``plot`` stage's
+    entire job, shared with the direct (non-``--plot-only``) code path.
 
-    wf, wf_manual = build_baseline()
-    baseline_lcoe = wf_manual.to_dict()["economic"]["state"]["LCOE"]
-    print(f"Baseline (manual design point): LCOE={baseline_lcoe:.4f} $/kWh")
-
-    _res, df, m = run_optimization(wf, args)
-    print(f"Pareto front: {len(df)} designs")
-    print(df)
-
+    ``param_cols``/``objective_cols`` are passed in (derived from
+    ``_param_specs``/``_objective_specs``) rather than read off a live
+    ``Minimization`` instance, since ``--plot-only`` never builds one.
+    """
     plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 
     # n_gen is run provenance (constant across every row of a single optimization
@@ -591,29 +602,63 @@ def main(args: argparse.Namespace) -> None:
     # which otherwise plot every df column, since a constant column carries no
     # visual information there. Still present in pareto_results.csv (via df).
     parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
-    plot_pareto_parallel_coordinates(parcoord_df, args.save_dir / "pareto_parallel_coordinates.png")
+    plot_pareto_parallel_coordinates(parcoord_df, save_dir / "pareto_parallel_coordinates.png")
     plot_pareto_parallel_coordinates_interactive(
         parcoord_df,
-        args.save_dir / "pareto_parallel_coordinates.html",
+        save_dir / "pareto_parallel_coordinates.html",
     )
-    plot_pareto_scatter(plot_df, args.save_dir / "pareto_scatter.png")
-    plot_pareto_scatter_zscore(plot_df, args.save_dir / "pareto_scatter_zscore.png")
+    plot_pareto_scatter(plot_df, save_dir / "pareto_scatter.png")
+    plot_pareto_scatter_zscore(plot_df, save_dir / "pareto_scatter_zscore.png")
     plot_objective_vs_param_scatter(
         plot_df,
-        # Derived from the actual ParamSpec/ObjectiveSpec instances Minimization
-        # was built with, not re-typed — see run_optimization's docstring for why.
-        param_cols=[p.name for p in m.params],
-        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
-        out_path=args.save_dir / "pareto_scatter_by_param.png",
+        param_cols=param_cols,
+        objective_cols=objective_cols,
+        out_path=save_dir / "pareto_scatter_by_param.png",
         title="AGS_direct_heat — objectives vs. parameters",
     )
     plot_param_pair_vs_objective_scatter(
         plot_df,
-        param_cols=[p.name for p in m.params],
-        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
-        out_path=args.save_dir / "pareto_scatter_param_pairs.png",
+        param_cols=param_cols,
+        objective_cols=objective_cols,
+        out_path=save_dir / "pareto_scatter_param_pairs.png",
         title="AGS_direct_heat — objective vs. parameter pairs",
     )
+
+
+def main(args: argparse.Namespace) -> None:
+    """Run the baseline + optimize, then plot — or only one half, via
+    ``--plot-only``/``--no-plot`` (see ``build_pymoo_parser``'s docstring).
+
+    This split lets the DVC pipeline (``dvc.yaml``) treat "run NSGA2" and
+    "build plots from the result" as separate stages: a plotting-only code
+    change reruns just the ``plot`` stage instead of a full search.
+    """
+    print("opt_AGS_direct_heat.py starting at")
+    print_dt()
+    logging.basicConfig(level=args.log_level)
+
+    param_cols = [p.name for p in _param_specs()]
+    objective_cols = [DISPLAY_RENAME.get(o.name, o.name) for o in _objective_specs()]
+
+    if args.plot_only:
+        df = pd.read_csv(args.save_dir / "pareto_results.csv")
+    else:
+        if args.clean and args.save_dir.exists():
+            shutil.rmtree(args.save_dir)
+        args.save_dir.mkdir(parents=True, exist_ok=True)
+
+        wf, wf_manual = build_baseline()
+        baseline_lcoe = wf_manual.to_dict()["economic"]["state"]["LCOE"]
+        print(f"Baseline (manual design point): LCOE={baseline_lcoe:.4f} $/kWh")
+
+        _res, df, _m = run_optimization(wf, args)
+        print(f"Pareto front: {len(df)} designs")
+        print(df)
+
+        if args.no_plot:
+            return
+
+    make_plots(df, args.save_dir, param_cols, objective_cols)
 
 
 if __name__ == "__main__":

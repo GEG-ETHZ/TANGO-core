@@ -240,6 +240,36 @@ def build_baseline() -> tuple[Workflow, Workflow]:
     return wf, wf_manual
 
 
+def _param_specs() -> list[ParamSpec]:
+    """Decision variables: mass flow rate, injection pressure, target
+    extraction pressure.
+
+    Extracted as its own function (rather than inlined in
+    ``run_optimization``) so the DVC ``plot`` stage can recover each
+    column's ``.name`` for plot axis labels without needing a
+    ``Minimization`` instance or rerunning any simulation — see ``main``'s
+    ``--plot-only`` path.
+    """
+    return [
+        mass_rate_param(bounds=(10.0, 100.0)),
+        injection_pressure_param(bounds=(1.0e6, 8.0e6)),
+        # (0.7, 1.5)x the base YAML's 7.0 MPa — same scale factor used for
+        # this field in run_hydro_df_electric_sweep/common.py's LHS sweep
+        # bounds. hydro_sf_electric.yml shares the identical base value
+        # (target_extraction_pressure: 7_000_000) and well/reservoir
+        # topology (only the surface plant differs, SF vs. DF), so the
+        # same bounds apply directly rather than being a fresh guess.
+        target_extraction_pressure_param(bounds=(4.9e6, 10.5e6)),
+    ]
+
+
+def _objective_specs() -> list[ObjectiveSpec]:
+    """Objectives: minimize LCOE, maximize mean net power — see
+    ``_param_specs``' docstring for why this is its own function.
+    """
+    return [lcoe_objective(), negative_mean_power_objective()]
+
+
 def run_optimization(
     base_wf: Workflow,
     args: argparse.Namespace,
@@ -261,18 +291,8 @@ def run_optimization(
     """
     m = Minimization(
         base_workflow=base_wf,
-        params=[
-            mass_rate_param(bounds=(10.0, 100.0)),
-            injection_pressure_param(bounds=(1.0e6, 8.0e6)),
-            # (0.7, 1.5)x the base YAML's 7.0 MPa — same scale factor used for
-            # this field in run_hydro_df_electric_sweep/common.py's LHS sweep
-            # bounds. hydro_sf_electric.yml shares the identical base value
-            # (target_extraction_pressure: 7_000_000) and well/reservoir
-            # topology (only the surface plant differs, SF vs. DF), so the
-            # same bounds apply directly rather than being a fresh guess.
-            target_extraction_pressure_param(bounds=(4.9e6, 10.5e6)),
-        ],
-        objectives=[lcoe_objective(), negative_mean_power_objective()],
+        params=_param_specs(),
+        objectives=_objective_specs(),
         pymoo_config=PymooConfig(
             n_max_gen=args.n_max_gen,
             pop_size=args.pop_size,
@@ -522,8 +542,51 @@ def plot_pareto_parallel_coordinates_interactive(
     return True
 
 
+def make_plots(df: pd.DataFrame, save_dir: Path, param_cols: list[str], objective_cols: list[str]) -> None:
+    """Build every plot from a pareto-front dataframe — the DVC ``plot`` stage's
+    entire job, shared with the direct (non-``--plot-only``) code path.
+
+    ``param_cols``/``objective_cols`` are passed in (derived from
+    ``_param_specs``/``_objective_specs``) rather than read off a live
+    ``Minimization`` instance, since ``--plot-only`` never builds one.
+    """
+    plot_df = prepare_plot_df(df, DISPLAY_RENAME)
+
+    # n_gen is run provenance (constant across every row of a single optimization
+    # run), not a per-design axis — drop it from the parallel-coordinates plots,
+    # which otherwise plot every df column, since a constant column carries no
+    # visual information there. Still present in pareto_results.csv (via df).
+    parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
+    plot_pareto_parallel_coordinates(parcoord_df, save_dir / "pareto_parallel_coordinates.png")
+    plot_pareto_parallel_coordinates_interactive(
+        parcoord_df,
+        save_dir / "pareto_parallel_coordinates.html",
+    )
+    plot_pareto_scatter(plot_df, save_dir / "pareto_scatter.png")
+    plot_pareto_scatter_zscore(plot_df, save_dir / "pareto_scatter_zscore.png")
+    plot_objective_vs_param_scatter(
+        plot_df,
+        param_cols=param_cols,
+        objective_cols=objective_cols,
+        out_path=save_dir / "pareto_scatter_by_param.png",
+        title="hydro_sf_electric — objectives vs. parameters",
+    )
+    plot_param_pair_vs_objective_scatter(
+        plot_df,
+        param_cols=param_cols,
+        objective_cols=objective_cols,
+        out_path=save_dir / "pareto_scatter_param_pairs.png",
+        title="hydro_sf_electric — objective vs. parameter pairs",
+    )
+
+
 def main(args: argparse.Namespace) -> None:
-    """Run the baseline, optimize, and write results/plots.
+    """Run the baseline + optimize, then plot — or only one half, via
+    ``--plot-only``/``--no-plot`` (see ``build_pymoo_parser``'s docstring).
+
+    This split lets the DVC pipeline (``dvc.yaml``) treat "run NSGA2" and
+    "build plots from the result" as separate stages: a plotting-only code
+    change reruns just the ``plot`` stage instead of a full search.
 
     Nothing in this module runs any workflow (or does anything expensive)
     until THIS is called with already-parsed args — ``--help`` exits via
@@ -548,48 +611,29 @@ def main(args: argparse.Namespace) -> None:
     # EVERY evaluation across an entire NSGA2 run (hundreds to thousands
     # of them), which --quiet has nothing to do with.
     logging.basicConfig(level=args.log_level)
-    if args.clean and args.save_dir.exists():
-        shutil.rmtree(args.save_dir)
-    args.save_dir.mkdir(parents=True, exist_ok=True)
 
-    wf, wf_manual = build_baseline()
-    baseline_lcoe = wf_manual.to_dict()["economic"]["state"]["LCOE"]
-    print(f"Baseline (manual flow rate): LCOE={baseline_lcoe:.4f} $/kWh")
+    param_cols = [p.name for p in _param_specs()]
+    objective_cols = [DISPLAY_RENAME.get(o.name, o.name) for o in _objective_specs()]
 
-    _res, df, m = run_optimization(wf, args)
-    print(f"Pareto front: {len(df)} designs")
-    print(df)
+    if args.plot_only:
+        df = pd.read_csv(args.save_dir / "pareto_results.csv")
+    else:
+        if args.clean and args.save_dir.exists():
+            shutil.rmtree(args.save_dir)
+        args.save_dir.mkdir(parents=True, exist_ok=True)
 
-    plot_df = prepare_plot_df(df, DISPLAY_RENAME)
+        wf, wf_manual = build_baseline()
+        baseline_lcoe = wf_manual.to_dict()["economic"]["state"]["LCOE"]
+        print(f"Baseline (manual flow rate): LCOE={baseline_lcoe:.4f} $/kWh")
 
-    # n_gen is run provenance (constant across every row of a single optimization
-    # run), not a per-design axis — drop it from the parallel-coordinates plots,
-    # which otherwise plot every df column, since a constant column carries no
-    # visual information there. Still present in pareto_results.csv (via df).
-    parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
-    plot_pareto_parallel_coordinates(parcoord_df, args.save_dir / "pareto_parallel_coordinates.png")
-    plot_pareto_parallel_coordinates_interactive(
-        parcoord_df,
-        args.save_dir / "pareto_parallel_coordinates.html",
-    )
-    plot_pareto_scatter(plot_df, args.save_dir / "pareto_scatter.png")
-    plot_pareto_scatter_zscore(plot_df, args.save_dir / "pareto_scatter_zscore.png")
-    plot_objective_vs_param_scatter(
-        plot_df,
-        # Derived from the actual ParamSpec/ObjectiveSpec instances Minimization
-        # was built with, not re-typed — see run_optimization's docstring for why.
-        param_cols=[p.name for p in m.params],
-        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
-        out_path=args.save_dir / "pareto_scatter_by_param.png",
-        title="hydro_sf_electric — objectives vs. parameters",
-    )
-    plot_param_pair_vs_objective_scatter(
-        plot_df,
-        param_cols=[p.name for p in m.params],
-        objective_cols=[DISPLAY_RENAME.get(o.name, o.name) for o in m.objectives],
-        out_path=args.save_dir / "pareto_scatter_param_pairs.png",
-        title="hydro_sf_electric — objective vs. parameter pairs",
-    )
+        _res, df, _m = run_optimization(wf, args)
+        print(f"Pareto front: {len(df)} designs")
+        print(df)
+
+        if args.no_plot:
+            return
+
+    make_plots(df, args.save_dir, param_cols, objective_cols)
 
 
 if __name__ == "__main__":
