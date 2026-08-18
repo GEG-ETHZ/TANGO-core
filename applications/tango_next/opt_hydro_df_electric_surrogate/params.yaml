@@ -5,9 +5,9 @@
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
 
 # Stage 1/2: LHS sample size + the real-sim sweep that evaluates it.
-n_lhs_samples: 500
+n_lhs_samples: 2000
 lhs_seed: 1
-n_train_workers: 4 # keep in sync with --cpus-per-task if run via the SLURM job script
+n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
 
 # Stage 3: random-forest surrogate (one regressor per objective).
 rf_n_estimators: 300
@@ -29,4 +29,4 @@ rf_seed: 1
 
 # Stage 5: real-sim validation of the surrogate's pareto front.
 validation_tolerance: 0.001
-n_validate_workers: 4
+n_validate_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
