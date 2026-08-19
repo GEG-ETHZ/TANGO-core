@@ -4,7 +4,7 @@ Raises (non-zero exit) if any objective is off by more than ``--tolerance``
 (default 0.1%) for any design — ``surrogate_validation.csv`` (the full
 predicted-vs-actual comparison) and ``corrected_pareto_results.csv`` (the
 genuinely trustworthy result: real-feasible designs only, REAL simulated
-objective values, non-dominance re-derived from those real values — see
+objective values, non-dominated status re-derived from those real values — see
 ``surrogate_api.corrected_pareto_front``'s docstring) are BOTH written
 first regardless, so a tolerance failure still leaves both on disk.
 
@@ -67,7 +67,7 @@ def _write_corrected_front(
     save_dir: Path,
     make_plot: bool,
 ) -> None:
-    """Filter to real-feasible designs, re-derive non-dominance, write + (optionally) plot.
+    """Filter to real-feasible designs, re-derive non-dominated status, write + (optionally) plot.
 
     ``corrected_pareto_results.csv`` lives directly under ``save_dir`` (like
     ``surrogate_pareto_results.csv``), but its PLOTS go in a ``corrected/``

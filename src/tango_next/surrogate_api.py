@@ -568,7 +568,7 @@ def corrected_pareto_front(
        includes designs the classifier/regressors predicted were good but
        the real simulation actually rejects; those have no real objective
        values to report at all.
-    2. Re-derives non-dominance from the ACTUAL (not predicted) objective
+    2. Re-derives non-dominated status from the ACTUAL (not predicted) objective
        values. A design that looked non-dominated under the surrogate's
        predictions is not guaranteed to still be non-dominated once its
        real values are known — e.g. two designs the surrogate ranked as
