@@ -69,6 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--save-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--no-plot", action="store_true")
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress pymoo's per-generation progress table (printed by default, "
+        "same as the real opt_hydro_df_electric.py run — see run_surrogate_optimization's "
+        "docstring for why this matters for a fair time comparison).",
+    )
     return parser
 
 
@@ -95,7 +103,7 @@ def main(args: argparse.Namespace) -> None:
     print("run_surrogate_optimization() starting at")
     print_dt()
     start = time.monotonic()
-    df = run_surrogate_optimization(surrogate, params, pymoo_config)
+    df = run_surrogate_optimization(surrogate, params, pymoo_config, verbose=not args.quiet)
     elapsed = time.monotonic() - start
     print(f"Pareto front: {len(df)} designs")
     print(f"run_surrogate_optimization() finished in {elapsed:.1f}s")

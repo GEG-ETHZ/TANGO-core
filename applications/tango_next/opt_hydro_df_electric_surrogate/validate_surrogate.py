@@ -9,6 +9,21 @@ Usage: uv run python validate_surrogate.py
 
 from __future__ import annotations
 
+import os
+
+# Same thread-oversubscription fix as sweep_lhs.py -- this stage's
+# validate_surrogate_pareto() re-runs the real simulation via the SAME
+# multiprocessing.Pool-per-worker-process pattern (surrogate_api.run_lhs_sweep),
+# so it needs the identical cap: without it, each worker process independently
+# lets numpy/OpenBLAS spin up its own thread pool sized to every available
+# core, oversubscribing badly with n_workers workers running concurrently
+# (confirmed the hard way locally: a handful of designs took 10+ minutes of
+# wall-clock with 4 workers each pegged near 400% CPU on an 8-core machine).
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 import argparse
 import sys
 import time

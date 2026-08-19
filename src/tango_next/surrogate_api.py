@@ -304,6 +304,7 @@ def run_surrogate_optimization(
     surrogate: SurrogateModel,
     params: list[ParamSpec],
     pymoo_config: PymooConfig,
+    verbose: bool = True,
 ) -> pd.DataFrame:
     """NSGA2 search using ``surrogate`` as the evaluator instead of the real simulation.
 
@@ -312,6 +313,14 @@ def run_surrogate_optimization(
     per-generation checkpointing: a killed surrogate run is cheap enough to
     just rerun from scratch, unlike a real-sim optimization that
     ``Minimization.run()`` protects against a SLURM kill mid-run).
+
+    ``verbose=True`` by default (unlike a bare ``minimize()`` call) so
+    pymoo's own per-generation table (``n_gen``/``n_eval``/``f_opt``/etc.)
+    prints exactly like the real ``Minimization.run()``'s does — without it,
+    there's no way to tell from the log whether a fast run converged early
+    via ``ftol``/``xtol`` after a handful of generations or actually ran
+    every one of ``n_max_gen``, which matters for a fair time comparison
+    against the real-sim optimization.
 
     Returns a DataFrame with the same column shape as ``Minimization``'s own
     (param columns + objective columns), so it's plottable with any app's
@@ -324,7 +333,7 @@ def run_surrogate_optimization(
         ftol=pymoo_config.ftol,
         n_max_gen=pymoo_config.n_max_gen,
     )
-    res = minimize(problem, algorithm, termination, seed=pymoo_config.seed, verbose=False)
+    res = minimize(problem, algorithm, termination, seed=pymoo_config.seed, verbose=verbose)
 
     x = res.X if res.X is not None else np.empty((0, len(params)))
     f = res.F if res.F is not None else np.empty((0, len(surrogate.objective_names)))
@@ -333,7 +342,19 @@ def run_surrogate_optimization(
 
     x_df = pd.DataFrame(x, columns=[p.name for p in params])
     f_df = pd.DataFrame(f, columns=surrogate.objective_names)
-    return pd.concat([x_df, f_df], axis=1)
+    df = pd.concat([x_df, f_df], axis=1)
+
+    # Same z-score-normalized Euclidean-distance column
+    # Minimization._build_results_df computes (see that method's docstring
+    # for why it's z-score, not raw-unit, normalized) — required for
+    # make_plots' plot_pareto_parallel_coordinates/plot_pareto_scatter_zscore,
+    # which color by this column and KeyError without it (confirmed the hard
+    # way on a real Euler run: optimize_surrogate.py wrote
+    # surrogate_pareto_results.csv successfully, then crashed in make_plots).
+    std = f_df.std().replace(0.0, 1.0)
+    z = (f_df - f_df.mean()) / std
+    df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    return df
 
 
 class SurrogateValidationError(Exception):
