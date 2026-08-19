@@ -25,6 +25,7 @@ from tango_next.pymoo_api import PymooConfig
 from tango_next.surrogate_api import (
     SurrogateValidationError,
     classifier_diagnostics_df,
+    corrected_pareto_front,
     diagnostics_df,
     generate_lhs_samples,
     run_lhs_sweep,
@@ -136,3 +137,11 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
         assert f"actual_{name}" in comparison.columns
         assert f"rel_error_{name}" in comparison.columns
     assert "real_success" in comparison.columns
+
+    corrected = corrected_pareto_front(comparison, param_names, objective_names)
+    # Schema-only: at this tiny scale the corrected front may legitimately be
+    # empty (few/no real-feasible designs among a 6-pop, 2-gen surrogate
+    # search) -- only assert column shape, not that it's non-empty.
+    for col in [*param_names, *objective_names, "euclidean"]:
+        assert col in corrected.columns
+    assert len(corrected) <= int(comparison["real_success"].sum())

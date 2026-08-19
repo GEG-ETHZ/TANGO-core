@@ -45,6 +45,7 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from scipy.stats import qmc
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score, recall_score
@@ -547,3 +548,57 @@ def validate_surrogate_pareto(
         exc.comparison = comparison  # type: ignore[attr-defined]
         raise exc
     return comparison
+
+
+def corrected_pareto_front(
+    comparison: pd.DataFrame,
+    param_names: list[str],
+    objective_names: list[str],
+) -> pd.DataFrame:
+    """The genuinely trustworthy result: real-feasible designs, REAL simulated objective values.
+
+    ``comparison`` is ``validate_surrogate_pareto``'s return value (or a
+    ``SurrogateValidationError``'s ``.comparison`` attribute — this is
+    meant to be called EITHER way, tolerance violations don't make the
+    underlying real-sim reruns any less real).
+
+    Two corrections happen here, not just one:
+
+    1. Filters to ``real_success`` rows — the surrogate's raw pareto front
+       includes designs the classifier/regressors predicted were good but
+       the real simulation actually rejects; those have no real objective
+       values to report at all.
+    2. Re-derives non-dominance from the ACTUAL (not predicted) objective
+       values. A design that looked non-dominated under the surrogate's
+       predictions is not guaranteed to still be non-dominated once its
+       real values are known — e.g. two designs the surrogate ranked as
+       a genuine tradeoff might, in reality, have one strictly beat the
+       other on every objective. Re-running non-dominated sorting (pymoo's
+       own ``NonDominatedSorting``, same convention as everywhere else in
+       this codebase — minimize every objective) is what makes this the
+       actual corrected front, not just a filtered copy of the surrogate's.
+
+    Returns a DataFrame in the same column shape as ``Minimization``'s own
+    results (param columns + objective columns, using the PLAIN objective
+    names — not ``actual_<name>`` — plus ``euclidean``), so it's directly
+    plottable with any app's existing ``make_plots()``.
+    """
+    real = comparison[comparison["real_success"]].copy()
+    result = real[param_names].copy()
+    for name in objective_names:
+        result[name] = real[f"actual_{name}"].to_numpy(dtype=float)
+    result = result.reset_index(drop=True)
+
+    if len(result) == 0:
+        result["euclidean"] = pd.Series(dtype=float)
+        return result
+
+    f = result[objective_names].to_numpy(dtype=float)
+    front_idx = NonDominatedSorting().do(f, only_non_dominated_front=True)
+    result = result.iloc[front_idx].reset_index(drop=True)
+
+    f_df = result[objective_names]
+    std = f_df.std().replace(0.0, 1.0)
+    z = (f_df - f_df.mean()) / std
+    result["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    return result
