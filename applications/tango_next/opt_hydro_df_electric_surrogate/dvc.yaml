@@ -36,7 +36,9 @@ stages:
     outs:
       - outputs/lhs_training_data.csv
 
-  # Stage 3: fit the random-forest surrogate (one regressor per objective).
+  # Stage 3: fit the random-forest surrogate (one regressor per objective,
+  # plus a feasibility classifier -- see train_surrogate.py's docstring for
+  # why the classifier exists).
   train_surrogate:
     cmd: python train_surrogate.py
     deps:
@@ -48,9 +50,11 @@ stages:
           - rf_n_estimators
           - rf_cv_folds
           - rf_seed
+          - classifier_threshold
     outs:
       - outputs/surrogate_model.joblib
       - outputs/surrogate_diagnostics.csv
+      - outputs/surrogate_classifier_diagnostics.csv
 
   # Stage 4: NSGA2 against the trained surrogate -- see optimize_surrogate.py's
   # docstring for why its GA config defaults match the real

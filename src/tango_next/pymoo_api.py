@@ -740,6 +740,19 @@ class Minimization:
             failing (e.g. mapping which parameter region a given
             ``InvalidPowerStateError``/``CoolPropError`` clusters in)
             instead of re-deriving it from ad hoc scratch scripts each time.
+        extra_cv_exceptions: Additional exception TYPES (beyond the
+            built-in ``_CV_EXCEPTIONS`` — ``CoolPropError``/
+            ``FrackingViolationError``/``ConvergenceError``/
+            ``InvalidPowerStateError``) that ``_evaluate_one`` also treats
+            as a constraint violation rather than letting crash the whole
+            run. EXTENDS the built-in set (merged into ``self._cv_exceptions``
+            in ``__post_init__``), never replaces it — a caller widens what
+            counts as "this design is infeasible," it doesn't get to narrow
+            the base physical-failure modes. Meant for a caller-specific
+            exception type not (yet) common enough to belong in the shared
+            base tuple — e.g. a surrogate-model evaluator's own "classifier
+            predicts infeasible" signal (see ``tango_next.surrogate_api``).
+            Default ``()`` (no change from the base set).
 
     Raises:
         ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
@@ -759,12 +772,15 @@ class Minimization:
     seed_from: Path | str | None = None
     pad_sampling: Sampling | None = None
     log_failures: bool = False
+    extra_cv_exceptions: tuple[type[Exception], ...] = ()
 
     # Derived/internal state, not constructor args -- set in __post_init__.
     base_cfg: dict[str, Any] = field(init=False, repr=False)
     policy: InjectionPolicy = field(init=False)
     n_failures: int = field(init=False, default=0)
     """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+    _cv_exceptions: tuple[type[Exception], ...] = field(init=False, repr=False)
+    """``_CV_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
 
     def __post_init__(self) -> None:
         """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
@@ -818,6 +834,7 @@ class Minimization:
         self.save_dir = Path(self.save_dir)
         self.seed_from = Path(self.seed_from) if self.seed_from is not None else None
         self.pad_sampling = self.pad_sampling if self.pad_sampling is not None else LHS()
+        self._cv_exceptions = _CV_EXCEPTIONS + tuple(self.extra_cv_exceptions)
 
     def _load_seed_x(self, path: Path) -> npt.NDArray[np.float64]:
         """Read a previous run's results CSV, return its param columns as an ``(n, n_var)`` array.
@@ -857,12 +874,12 @@ class Minimization:
             f.write(json.dumps(record) + "\n")
 
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
-        """Build, run, and score one design — CV on _CV_EXCEPTIONS, raise on anything else."""
+        """Build, run, and score one design — CV on self._cv_exceptions, raise on anything else."""
         cfg = self._build_config(x)
         try:
             wf = Workflow(cfg)
             wf.run()
-        except _CV_EXCEPTIONS as exc:
+        except self._cv_exceptions as exc:
             self.n_failures += 1
             if self.verbose:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)

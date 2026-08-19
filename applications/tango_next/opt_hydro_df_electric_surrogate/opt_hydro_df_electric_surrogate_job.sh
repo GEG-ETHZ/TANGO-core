@@ -63,7 +63,7 @@ echo ""
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
-uv run --project "$REPO_ROOT" dvc repro applications/tango_next/opt_hydro_df_electric_surrogate/dvc.yaml
+uv run --project "$REPO_ROOT" dvc repro --force applications/tango_next/opt_hydro_df_electric_surrogate/dvc.yaml
 
 echo ""
 echo "=========================================="

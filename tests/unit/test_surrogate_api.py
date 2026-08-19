@@ -24,6 +24,7 @@ import pytest
 from tango_next.pymoo_api import PymooConfig
 from tango_next.surrogate_api import (
     SurrogateValidationError,
+    classifier_diagnostics_df,
     diagnostics_df,
     generate_lhs_samples,
     run_lhs_sweep,
@@ -68,8 +69,9 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
 
     base_wf, _wf_manual = app.build_baseline()
 
-    x = generate_lhs_samples(params, n_samples=8, seed=1)
-    assert x.shape == (8, len(params))
+    n_samples = 20
+    x = generate_lhs_samples(params, n_samples=n_samples, seed=1)
+    assert x.shape == (n_samples, len(params))
 
     training_df = run_lhs_sweep(
         base_wf,
@@ -80,10 +82,14 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
         results_dir=tmp_path / "lhs_results",
         quiet=True,
     )
-    assert len(training_df) == 8
+    assert len(training_df) == n_samples
     for col in [*param_names, *objective_names, "success", "error_type", "error_message", "row_idx"]:
         assert col in training_df.columns
-    assert training_df["success"].sum() >= 1, "expected at least one feasible LHS sample"
+    # Need >= 2 of each class for train_surrogate's StratifiedKFold(cv_folds=2)
+    # feasibility-classifier CV below -- n_samples=20 makes an all-one-class
+    # LHS draw very unlikely for this system's ~50/50 feasible split.
+    assert training_df["success"].sum() >= 2, "expected several feasible LHS samples"
+    assert (~training_df["success"]).sum() >= 2, "expected several infeasible LHS samples"
 
     surrogate = train_surrogate(
         training_df,
@@ -96,6 +102,9 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     diag = diagnostics_df(surrogate)
     assert list(diag["objective"]) == objective_names
     assert {"cv_r2", "cv_mae"}.issubset(diag.columns)
+
+    classifier_diag = classifier_diagnostics_df(surrogate)
+    assert {"classifier_threshold", "cv_accuracy", "cv_recall_infeasible"}.issubset(classifier_diag.columns)
 
     pareto_df = run_surrogate_optimization(
         surrogate,

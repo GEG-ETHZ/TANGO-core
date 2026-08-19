@@ -42,13 +42,13 @@ import joblib
 import numpy as np
 import pandas as pd
 from pymoo.algorithms.moo.nsga2 import NSGA2
-from pymoo.core.problem import Problem
+from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from scipy.stats import qmc
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score, recall_score
+from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 
 from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
 from tango_next.workflows.workflow import Workflow
@@ -66,6 +66,30 @@ _INFEASIBLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     FrackingViolationError,
     ConvergenceError,
 )
+
+# Same shape as pymoo_api.py's _CV_OBJECTIVE_FALLBACK/_FEASIBLE_G/_INFEASIBLE_G
+# (private there, redefined here rather than imported — pymoo_api.py isn't
+# touched by this module's own evaluation path). See that module's docstring
+# for why the fallback objective value's magnitude doesn't matter: pymoo's
+# constraint-domination ranking decides purely from G when G differs.
+_CV_OBJECTIVE_FALLBACK = 0.0
+_FEASIBLE_G = -1.0
+_INFEASIBLE_G = 1.0
+
+
+class SurrogateInfeasibleError(Exception):
+    """Raised by ``SurrogateModel.evaluate_one`` when the feasibility classifier predicts failure.
+
+    Mirrors ``pymoo_api.Minimization``'s ``_CV_EXCEPTIONS`` pattern (a
+    specific, anticipated "this design doesn't work" signal, not a crash) —
+    ``_SurrogateProblem._evaluate`` catches exactly this and turns it into a
+    real pymoo constraint violation (``G > 0``), the same way
+    ``Minimization._evaluate_one`` turns a real ``_CV_EXCEPTIONS`` into one.
+    A caller building their OWN ``Minimization`` against a hybrid classifier-
+    gated evaluator (rather than this module's independent surrogate driver)
+    can pass this type via ``Minimization(..., extra_cv_exceptions=(SurrogateInfeasibleError,))``
+    to get the identical treatment there.
+    """
 
 
 def generate_lhs_samples(
@@ -201,17 +225,60 @@ def run_lhs_sweep(
 
 @dataclass
 class SurrogateModel:
-    """One ``RandomForestRegressor`` per objective, plus cross-validated diagnostics."""
+    """One ``RandomForestRegressor`` per objective, a feasibility classifier, plus CV diagnostics.
+
+    The regressors alone have no notion of "this design doesn't physically
+    work" — trained only on FEASIBLE rows, they extrapolate smooth-looking
+    (but meaningless) objective values into infeasible regions of the design
+    space, which an unconstrained surrogate NSGA2 search then exploits
+    (confirmed the hard way on a real Euler run: 74% of the surrogate's
+    "optimal" pareto front turned out to fail the real simulation outright).
+    ``classifier`` (trained on ALL rows — both classes are needed to learn
+    the feasible/infeasible boundary, unlike the regressors) is what
+    ``evaluate_one`` checks FIRST, raising ``SurrogateInfeasibleError``
+    before ever consulting the regressors for a design it predicts won't
+    work — see that method's docstring.
+    """
 
     param_names: list[str]
     objective_names: list[str]
     models: dict[str, RandomForestRegressor]
     cv_r2: dict[str, float]
     cv_mae: dict[str, float]
+    classifier: RandomForestClassifier
+    classifier_cv_accuracy: float
+    classifier_cv_recall_infeasible: float
+    classifier_threshold: float = 0.5
 
     def predict(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """``(n, n_var) -> (n, n_obj)``, columns in ``self.objective_names`` order."""
+        """``(n, n_var) -> (n, n_obj)``, columns in ``self.objective_names`` order.
+
+        Regressor predictions ONLY — does not consult ``classifier`` at all.
+        Used by diagnostics/plotting over already-selected points; live NSGA2
+        evaluation goes through ``evaluate_one`` instead, which gates on the
+        classifier first.
+        """
         return np.column_stack([self.models[name].predict(x) for name in self.objective_names])
+
+    def predict_feasible(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
+        """``(n, n_var) -> (n,)`` bool — classifier's feasibility call at ``self.classifier_threshold``."""
+        proba_feasible = self.classifier.predict_proba(x)[:, list(self.classifier.classes_).index(True)]
+        return proba_feasible >= self.classifier_threshold
+
+    def evaluate_one(self, x: list[float]) -> list[float]:
+        """Classifier first; only run the regressors if it predicts feasible.
+
+        Raises ``SurrogateInfeasibleError`` (rather than returning a
+        fallback value) when the classifier predicts infeasible — mirrors
+        ``pymoo_api.Minimization._evaluate_one``'s try/raise/except shape
+        exactly, so ``_SurrogateProblem._evaluate`` (below) can turn it into
+        a real pymoo constraint violation the same way.
+        """
+        x_arr = np.asarray(x, dtype=float).reshape(1, -1)
+        if not self.predict_feasible(x_arr)[0]:
+            msg = f"feasibility classifier predicts infeasible for x={x}"
+            raise SurrogateInfeasibleError(msg)
+        return [self.models[name].predict(x_arr)[0] for name in self.objective_names]
 
 
 def train_surrogate(
@@ -221,19 +288,31 @@ def train_surrogate(
     n_estimators: int = 300,
     cv_folds: int = 5,
     seed: int | None = 1,
+    classifier_threshold: float = 0.5,
 ) -> SurrogateModel:
-    """Fit one ``RandomForestRegressor`` per objective on the FEASIBLE rows of ``training_df``.
+    """Fit one ``RandomForestRegressor`` per objective, plus a feasibility ``RandomForestClassifier``.
 
-    Reports k-fold cross-validated R²/MAE per objective as a trustworthiness
-    signal (computed via ``cross_val_predict`` against a fresh, unfit
-    estimator per fold — not read off the final model, which is refit on
-    every feasible row afterward so no expensive real-sim data is thrown
-    away on the model actually used downstream).
+    The regressors train on the FEASIBLE rows only (an infeasible row has no
+    ``y``). The classifier trains on EVERY row (both classes needed to learn
+    the feasible/infeasible boundary at all — see ``SurrogateModel``'s
+    docstring for why this classifier exists).
+
+    Reports k-fold cross-validated R²/MAE per objective, and CV accuracy/
+    infeasible-recall for the classifier, as trustworthiness signals
+    (computed via ``cross_val_predict`` against a fresh, unfit estimator per
+    fold — not read off the final models, which are refit on the full
+    dataset afterward so no expensive real-sim data is thrown away on the
+    models actually used downstream). Infeasible-recall (not overall
+    accuracy) is the number to watch: a classifier that's 90% accurate but
+    only catches half of true infeasible designs still lets NSGA2 exploit
+    the other half — same failure mode the classifier exists to prevent.
     """
     feasible = training_df[training_df["success"]]
     n_dropped = len(training_df) - len(feasible)
     if n_dropped:
-        print(f"train_surrogate: dropping {n_dropped}/{len(training_df)} infeasible LHS samples")
+        print(
+            f"train_surrogate: dropping {n_dropped}/{len(training_df)} infeasible LHS samples for the regressors",
+        )
     if len(feasible) < cv_folds:
         msg = f"Only {len(feasible)} feasible training rows, need >= cv_folds ({cv_folds})"
         raise ValueError(msg)
@@ -254,12 +333,31 @@ def train_surrogate(
         model.fit(x, y)
         models[name] = model
 
+    x_all = training_df[param_names].to_numpy(dtype=float)
+    y_feasible_all = training_df["success"].to_numpy(dtype=bool)
+    if len(np.unique(y_feasible_all)) < 2:  # noqa: PLR2004
+        msg = "training_df has only one class (all feasible or all infeasible) -- can't train a classifier"
+        raise ValueError(msg)
+
+    stratified_kfold = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=seed)
+    cv_classifier = RandomForestClassifier(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
+    y_feasible_pred = cross_val_predict(cv_classifier, x_all, y_feasible_all, cv=stratified_kfold)
+    classifier_cv_accuracy = accuracy_score(y_feasible_all, y_feasible_pred)
+    classifier_cv_recall_infeasible = recall_score(y_feasible_all, y_feasible_pred, pos_label=False)
+
+    classifier = RandomForestClassifier(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
+    classifier.fit(x_all, y_feasible_all)
+
     return SurrogateModel(
         param_names=param_names,
         objective_names=objective_names,
         models=models,
         cv_r2=cv_r2,
         cv_mae=cv_mae,
+        classifier=classifier,
+        classifier_cv_accuracy=classifier_cv_accuracy,
+        classifier_cv_recall_infeasible=classifier_cv_recall_infeasible,
+        classifier_threshold=classifier_threshold,
     )
 
 
@@ -274,6 +372,17 @@ def diagnostics_df(surrogate: SurrogateModel) -> pd.DataFrame:
     )
 
 
+def classifier_diagnostics_df(surrogate: SurrogateModel) -> pd.DataFrame:
+    """One row: the feasibility classifier's CV accuracy/infeasible-recall — see ``train_surrogate``."""
+    return pd.DataFrame(
+        {
+            "classifier_threshold": [surrogate.classifier_threshold],
+            "cv_accuracy": [surrogate.classifier_cv_accuracy],
+            "cv_recall_infeasible": [surrogate.classifier_cv_recall_infeasible],
+        },
+    )
+
+
 def save_surrogate(surrogate: SurrogateModel, path: Path) -> None:
     """Persist ``surrogate`` (every per-objective forest + diagnostics) via joblib."""
     joblib.dump(surrogate, path)
@@ -284,20 +393,36 @@ def load_surrogate(path: Path) -> SurrogateModel:
     return joblib.load(path)
 
 
-class _SurrogateProblem(Problem):
-    """Batch (not elementwise) pymoo ``Problem`` — a whole population predicted in one call."""
+class _SurrogateProblem(ElementwiseProblem):
+    """One design at a time: classifier first, regressors only if it predicts feasible.
+
+    Elementwise (not batch) specifically so a per-design ``SurrogateInfeasibleError``
+    can be caught and turned into a per-design constraint violation — a
+    batch/vectorized ``_evaluate`` (predicting the whole population in one
+    call) can't express "this ONE row is infeasible, the rest aren't" via a
+    raised exception. Still fast: no real simulation, no multiprocessing —
+    every evaluation is just a couple of already-fit sklearn ``predict``
+    calls, negligible next to what running a full generation of real physics
+    would cost.
+    """
 
     def __init__(self, surrogate: SurrogateModel, params: list[ParamSpec]) -> None:
         super().__init__(
             n_var=len(params),
             n_obj=len(surrogate.objective_names),
+            n_ieq_constr=1,
             xl=np.array([p.bounds[0] for p in params]),
             xu=np.array([p.bounds[1] for p in params]),
         )
         self.surrogate = surrogate
 
     def _evaluate(self, x: npt.NDArray[np.float64], out: dict[str, Any], *args: Any, **kwargs: Any) -> None:
-        out["F"] = self.surrogate.predict(x)
+        try:
+            out["F"] = self.surrogate.evaluate_one(list(x))
+            out["G"] = [_FEASIBLE_G]
+        except SurrogateInfeasibleError:
+            out["F"] = [_CV_OBJECTIVE_FALLBACK] * len(self.surrogate.objective_names)
+            out["G"] = [_INFEASIBLE_G]
 
 
 def run_surrogate_optimization(
@@ -313,6 +438,14 @@ def run_surrogate_optimization(
     per-generation checkpointing: a killed surrogate run is cheap enough to
     just rerun from scratch, unlike a real-sim optimization that
     ``Minimization.run()`` protects against a SLURM kill mid-run).
+
+    ``_SurrogateProblem`` gives NSGA2 a real constraint violation (via
+    ``surrogate.evaluate_one``'s feasibility-classifier gate) for any design
+    predicted infeasible, the same way ``Minimization``'s own ``_Problem``
+    does for a real physical failure — WITHOUT this, NSGA2 has no reason to
+    avoid the surrogate's blind spots (regions with no feasible training
+    data, where the regressors still confidently — and wrongly — predict
+    plausible objective values) and will actively search into them.
 
     ``verbose=True`` by default (unlike a bare ``minimize()`` call) so
     pymoo's own per-generation table (``n_gen``/``n_eval``/``f_opt``/etc.)

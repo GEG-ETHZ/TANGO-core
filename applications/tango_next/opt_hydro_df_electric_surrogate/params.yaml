@@ -9,10 +9,16 @@ n_lhs_samples: 2000
 lhs_seed: 1
 n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
 
-# Stage 3: random-forest surrogate (one regressor per objective).
+# Stage 3: random-forest surrogate (one regressor per objective, plus a
+# feasibility classifier -- see train_surrogate.py's docstring). Raise
+# classifier_threshold (e.g. 0.7) if outputs/surrogate_classifier_diagnostics.csv's
+# cv_recall_infeasible looks too low -- missing a true-infeasible design
+# (predicting it feasible) is the costly error here, not over-rejecting a
+# feasible one.
 rf_n_estimators: 300
 rf_cv_folds: 5
 rf_seed: 1
+classifier_threshold: 0.5
 
 # Stage 4: surrogate-driven NSGA2. Left UNSET (commented) by default —
 # optimize_surrogate.py then falls back to reading n_max_gen/pop_size/ftol/
