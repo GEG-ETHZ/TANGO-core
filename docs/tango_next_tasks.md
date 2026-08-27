@@ -1838,7 +1838,7 @@ reasoning doesn't have to be re-derived next session.
      every physical property as if it were water.
   2. **Confirmed**: the inlet→outlet `fluid_name` copy-through was
      byte-identical in every component, plus a second orchestrator-level
-     copy in `SystemDirect._wire_one_stream`/`SystemBCIteration` — two
+     copy in `SystemDirect._update_stream`/`SystemBCIteration` — two
      redundant layers of the same fact, both unvalidated, both drift-prone,
      neither ever actually needed since every fluid-consuming component
      already holds a reference to the Workflow's single shared `Common`
@@ -1869,7 +1869,7 @@ reasoning doesn't have to be re-derived next session.
      inlet→outlet copy in every component's `solve()`
      (`well/lumped.py` ×3, `reservoir/lumped.py`, `surface/graph.py`,
      `well/numerical.py`) and the orchestrator-level copy
-     (`SystemDirect._wire_one_stream`, `SystemBCIteration`'s
+     (`SystemDirect._update_stream`, `SystemBCIteration`'s
      `fluid_name` param/attribute and its stream-seeding assignments).
      `GraphSurface`'s TESPy `fluid={...}` dict now reads
      `self.common.fluid_name` instead of `self.inlet.fluid_name`.

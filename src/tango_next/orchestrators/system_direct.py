@@ -65,7 +65,7 @@ class SystemDirect(Orchestrator):
         """Return the named component dict."""
         return self._components
 
-    def _wire_one_stream(self, component: Component) -> None:
+    def _update_stream(self, component: Component) -> None:
         """Copy ``component.outlet`` to its immediate downstream component's inlet.
 
         Called once per component immediately after its ``solve()``, so each
@@ -93,7 +93,7 @@ class SystemDirect(Orchestrator):
         for component in self._ordered:
             component.mark_all_stale()
             component.solve()
-            self._wire_one_stream(component)
+            self._update_stream(component)
 
     def _after_timestep(self, t: int) -> None:
         """Hook called after each timestep in ``run()``; no-op by default.

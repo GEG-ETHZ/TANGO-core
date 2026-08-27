@@ -58,7 +58,7 @@ value each outer iteration instead of leaving it at its YAML-configured
 initial guess forever, and re-solves to T-convergence
 (``_converge_injection_T``) after each pressure update. No topology- or
 component-type-specific wiring is needed: ``surface.outlet`` -> ``inj_well.
-inlet`` propagation already happens generically via ``_wire_one_stream``.
+inlet`` propagation already happens generically via ``_update_stream``.
 
 Each outer iteration takes a *fresh* ``snapshot_convergence_state()`` after
 writing ``injection_pressure``, not once for the whole outer loop —
@@ -172,7 +172,7 @@ class SystemBCIteration(SystemDirect):
     """Convergence-loop orchestrator for injection-pressure BC iteration.
 
     Subclasses ``SystemDirect``, reusing its component ordering/wiring
-    (``self._ordered``, ``_wire_one_stream``) as the building block.
+    (``self._ordered``, ``_update_stream``) as the building block.
     ``MANUAL``/``MANUAL_FRACKING_CHECK`` drive a temperature-convergence loop
     (``_converge_injection_T``) that re-solves the whole circuit every
     iteration; the ``AUTO_*`` policies additionally wrap that in an outer
@@ -595,7 +595,7 @@ class SystemBCIteration(SystemDirect):
         The BC variable is fed to the circuit by writing ``surface.injection_pressure``
         directly (not by writing ``inj_well.inlet.P`` directly) — ``GraphSurface.
         solve()`` forces its TESPy outlet connection to this value, and the
-        existing per-component wiring (``_wire_one_stream``) carries it from
+        existing per-component wiring (``_update_stream``) carries it from
         ``surface.outlet`` to ``inj_well.inlet`` the same way any other
         component-to-component quantity propagates. No topology- or
         component-type-specific code is needed for this to work.
@@ -832,7 +832,7 @@ class SystemBCIteration(SystemDirect):
                 component.restore_convergence_state(snapshot[component.component_idx])
                 component.mark_all_stale()
                 component.solve()
-                self._wire_one_stream(component)
+                self._update_stream(component)
 
             T_inj_new = surface.outlet.T
             if T_inj_prev is not None and abs(T_inj_new - T_inj_prev) < _DT_SURFACE_TOL:
