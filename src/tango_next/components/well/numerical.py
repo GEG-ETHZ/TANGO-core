@@ -113,7 +113,14 @@ class NumericalWellState:
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
     mass_rate: LockedState[float] = field(default_factory=_ls_nan)
     t_d: LockedState[float] = field(default_factory=_ls_zero)
-    """Dimensionless time at the end of this solve step (see module docstring)."""
+    """Dimensionless time at the end of this solve step (see module docstring).
+    Also read via ``get_stale()`` at the start of the NEXT ``solve()`` call to
+    get the value carried over from the previous timestep — a genuine
+    cross-timestep accumulator, same as ``LumpedReservoir.state.energy_extracted``,
+    which is exactly why it lives in ``state``: a within-timestep re-solve
+    (an injection-temperature convergence loop) restores the whole of
+    ``state`` first, so this always advances from the last converged value,
+    never from a discarded re-solve attempt."""
     P_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
     h_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
     T_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
@@ -218,15 +225,6 @@ class NumericalWell(WellComponent):
     T_r: list[float] = Field(default_factory=list)
     """Rock temperature profile along well axis (K), one value per cell."""
 
-    # LockedState-wrapped, but deliberately kept as a bare Component field
-    # rather than moved into `state`: `state.t_d` is excluded from
-    # snapshot_convergence_state()/restore_convergence_state() because it's
-    # unconditionally recomputed from t_d_old each solve() call, but
-    # t_d_old itself depends on its own prior value, so it needs that
-    # restore — see Component's class docstring.
-    t_d_old: LockedState[float] = Field(default_factory=_ls_zero)
-    """Dimensionless time carried over from the previous timestep."""
-
     # ---- Runtime state / history ----
     state: NumericalWellState = Field(default_factory=NumericalWellState)
     history: NumericalWellHistory = Field(default_factory=NumericalWellHistory)
@@ -291,7 +289,7 @@ class NumericalWell(WellComponent):
 
         Takes the starting (temperature, pressure, mass rate) and
         dimensionless time explicitly, rather than reading ``self.inlet``/
-        ``self.t_d_old`` directly, so it can be called repeatedly with a
+        ``self.state.t_d`` directly, so it can be called repeatedly with a
         TRIAL starting state (e.g. a candidate pump-discharge condition in
         ``NumericalProductionWellWithPump.solve()``) without mutating any
         ``LockedState`` field. ``solve()`` below is the only place that
@@ -359,9 +357,8 @@ class NumericalWell(WellComponent):
         s.mass_rate.update(self.inlet.mass_rate)
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        t_d = self.t_d_old.get_stale() + del_t
+        t_d = s.t_d.get_stale() + del_t
         s.t_d.update(t_d)
-        self.t_d_old.update(t_d)
 
         T_in = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -488,7 +485,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         s.mass_rate.update(self.inlet.mass_rate)
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
-        t_d = self.t_d_old.get_stale() + del_t
+        t_d = s.t_d.get_stale() + del_t
 
         T_in = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -536,7 +533,6 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
                 )
 
         s.t_d.update(t_d)
-        self.t_d_old.update(t_d)
         s.P_cells.update(P.tolist())
         s.h_cells.update(h.tolist())
         s.T_cells.update(T_f.tolist())

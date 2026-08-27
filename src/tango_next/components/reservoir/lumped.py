@@ -104,6 +104,38 @@ class LumpedReservoirState:
     """Depletion factor γ ∈ [0, 1]. T_outlet = T_inj + γ·(T₀ − T_inj)."""
     T_outlet: LockedState[float] = field(default_factory=_ls)
     P_outlet: LockedState[float] = field(default_factory=_ls)
+    p1: LockedState[float] = field(default_factory=_ls)
+    """Adams 2015 depletion curve coefficient p1 — recomputed every ``solve()``
+    call from the current fluid properties (see ``_recompute_depletion_coeffs``)."""
+    p2: LockedState[float] = field(default_factory=_ls)
+    """Adams 2015 depletion curve coefficient p2."""
+    p3: LockedState[float] = field(default_factory=_ls)
+    """Adams 2015 depletion curve coefficient p3."""
+    energy_extracted: LockedState[float] = field(default_factory=lambda: _ls(0.0))
+    """Cumulative thermal energy extracted from the reservoir (J), across all
+    timesteps so far. Updated via ``increment()`` (see ``solve()``), not
+    ``update()`` — it's a running total, not a value recomputed from scratch
+    each timestep. Genuinely depends on its own value from the previous
+    *converged* timestep, which is exactly why it lives in ``state``: a
+    within-timestep re-solve (an injection-temperature convergence loop)
+    restores the whole of ``state`` first, so this always increments from
+    the last converged value, never from a discarded re-solve attempt."""
+    ever_solved: LockedState[bool] = field(default_factory=lambda: _locked(value=False))
+    """Whether ``solve()`` has ever completed for this component instance.
+
+    ``solve()`` needs to know whether ``T_outlet``/``P_outlet`` hold a real
+    previous-timestep value or are still at their unsolved NaN default. Read
+    via the normal ``get_stale()`` (before this call) / ``update()`` (for
+    the next call) cycle — not via ``is_stale()``/``is_fresh()`` directly,
+    which would break across a ``Workflow.to_dict()`` → mutate →
+    ``Workflow(cfg)`` sweep-point reconstruction (``LockedState``'s Pydantic
+    validator always starts a reconstructed instance **fresh** — see
+    ``LockedState.__get_pydantic_core_schema__``'s docstring — so the
+    *status* can't be trusted as the signal post-reconstruction). The
+    *value* round-trips correctly regardless of status, so reading it the
+    same way every other ``LockedState`` field is read sidesteps the
+    problem entirely.
+    """
 
     def mark_all_stale(self) -> None:
         """Mark every field stale — call at the start of each ``solve()``."""
@@ -167,10 +199,12 @@ class LumpedReservoir(ReservoirComponent):
     net_to_gross_ratio: float = Field(default=1.0, frozen=True)
     """Net-to-gross ratio for effective reservoir thickness (dimensionless)."""
 
-    # ---- Derived constants (computed by init(), serialized for save/restore) ----
-    # Deliberately NOT frozen — init()/_recompute_depletion_coeffs() reassign
-    # these directly (plain floats, not LockedState) each call; see
-    # Component's class docstring for why fields like this stay mutable.
+    # ---- Derived constants (computed once by init(), never touched by solve()) ----
+    # Deliberately NOT frozen — init() assigns these directly (plain floats,
+    # not LockedState) once; see Component's class docstring for why fields
+    # like this stay mutable rather than Field(frozen=True). Unlike p1/p2/p3
+    # (now in `state` — see LumpedReservoirState), solve() never reassigns
+    # these, so they have no need to live in `state` either.
     T_initial: float = 0.0
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
     P_initial: float = 0.0
@@ -182,50 +216,22 @@ class LumpedReservoir(ReservoirComponent):
     """Rock (non-fluid) volume = thickness × area × (1 − porosity) (m³)."""
     rock_C_v: float = 0.0  # noqa: N815
     """Volumetric heat capacity of rock = rock_density × rock_cp (J/(m³·K))."""
-    p1: float = 0.0
-    """Adams 2015 depletion curve coefficient p1."""
-    p2: float = 0.0
-    """Adams 2015 depletion curve coefficient p2."""
-    p3: float = 0.0
-    """Adams 2015 depletion curve coefficient p3."""
-
-    # ---- Persistent across timesteps ----
-    # LockedState-wrapped like any other state, but deliberately kept as
-    # bare Component fields rather than moved into `state`: `state` is
-    # excluded from snapshot_convergence_state()/restore_convergence_state()
-    # (see Component's class docstring) because its fields are all
-    # unconditionally recomputed from scratch each solve() call. These two
-    # are not — each depends on its own prior value — so they need that
-    # restore, to avoid double-accumulating across SystemBCIteration's
-    # inner re-solve iterations.
-    energy_extracted: LockedState[float] = Field(default_factory=lambda: _ls(0.0))
-    """Cumulative thermal energy extracted from the reservoir (J). Updated via
-    ``increment()`` (see ``solve()``), not ``update()`` — it's a running total,
-    not a value recomputed from scratch each timestep."""
-    ever_solved: LockedState[bool] = Field(default_factory=lambda: _locked(value=False))
-    """Whether ``solve()`` has ever completed for this component instance.
-
-    ``solve()`` needs to know whether ``state.T_outlet``/``state.P_outlet``
-    hold a real previous-timestep value or are still at their unsolved NaN
-    default. Read via the normal ``get_stale()`` (before this call) /
-    ``update()`` (for the next call) cycle — not via
-    ``is_stale()``/``is_fresh()`` directly, which would break across a
-    ``Workflow.to_dict()`` → mutate → ``Workflow(cfg)`` sweep-point
-    reconstruction (``LockedState``'s Pydantic validator always starts a
-    reconstructed instance **fresh** — see
-    ``LockedState.__get_pydantic_core_schema__``'s docstring — so the
-    *status* can't be trusted as the signal post-reconstruction). The
-    *value* round-trips correctly regardless of status, so reading it the
-    same way every other ``LockedState`` field is read sidesteps the
-    problem entirely.
-    """
 
     # ---- Runtime state / history ----
     state: LumpedReservoirState = Field(default_factory=LumpedReservoirState)
     history: LumpedReservoirHistory = Field(default_factory=LumpedReservoirHistory)
 
     def init(self) -> None:
-        """Pre-compute geometry and depletion coefficients from validated fields."""
+        """Pre-compute geometry constants from validated fields.
+
+        Deliberately does NOT prime ``state.p1``/``p2``/``p3`` here (unlike
+        the pre-``state`` version of this method): every ``state`` field
+        starts stale from construction and gets its first real write from
+        ``solve()``, same as ``T_outlet``/every other field — priming these
+        three from ``init()`` too would leave them already fresh before the
+        first ``solve()`` call, which would then raise ``DoubleWriteError``
+        trying to write them again.
+        """
         self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
         self.P_initial = self.brine_density * self.gravity * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
@@ -233,14 +239,14 @@ class LumpedReservoir(ReservoirComponent):
         fluid_volume = self.porosity * volume
         self.rock_volume = volume - fluid_volume
         self.rock_C_v = self.common.rock_density * self.common.rock_cp
-        self._recompute_depletion_coeffs(
-            m_dot=self.inlet.mass_rate if self.inlet.mass_rate > 0 else 50.0,
-            rho_fluid=fluid_density(self.common.fluid_name, self.T_initial, self.P_initial),
-            cp_fluid=fluid_cp(self.common.fluid_name, self.T_initial, self.P_initial),
-        )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
-        """Update the thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.
+        """Update ``state``'s thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.
+
+        Writes straight to ``self.state.p1``/``p2``/``p3``. Called once per
+        ``solve()`` call, so these values never persist stale across a
+        within-timestep re-solve (see ``LumpedReservoirState.p1``'s
+        docstring).
 
         Reference: Adams, B.M. et al. (2015). A comparison of electric power
         output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
@@ -256,9 +262,12 @@ class LumpedReservoir(ReservoirComponent):
         coeff1 = b * k_rock * rho_fluid / m_dot / rho_rock / cp_rock
         coeff2 = k_rock * R * rho_fluid / rho_rock / cp_fluid / m_dot
 
-        self.p1 = min(-890.97 * coeff1 - 1.30, -1.3)
-        self.p2 = 0.4095 * math.exp(-0.7815 * self.p1)
-        self.p3 = float(np.clip(1.0 - 1.4646 * math.exp(-377.3 * coeff2), 0.0, 1.0))
+        p1 = min(-890.97 * coeff1 - 1.30, -1.3)
+        p2 = 0.4095 * math.exp(-0.7815 * p1)
+        p3 = float(np.clip(1.0 - 1.4646 * math.exp(-377.3 * coeff2), 0.0, 1.0))
+        self.state.p1.update(p1)
+        self.state.p2.update(p2)
+        self.state.p3.update(p3)
 
     def _depletion_curve(self, psi: float) -> float:
         """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
@@ -267,7 +276,8 @@ class LumpedReservoir(ReservoirComponent):
         https://doi.org/10.1016/j.apenergy.2014.11.043 (same curve-fit as
         ``_recompute_depletion_coeffs`` above — see its docstring).
         """
-        p1, p2, p3 = self.p1, self.p2, self.p3
+        s = self.state
+        p1, p2, p3 = s.p1.get_fresh(), s.p2.get_fresh(), s.p3.get_fresh()
         if psi <= -p1 / p2:
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * float(erfc(p2 * psi + p1)))
         else:
@@ -295,8 +305,8 @@ class LumpedReservoir(ReservoirComponent):
         # unsolved base config — see its docstring for why this, not
         # s.T_outlet.is_stale()/s.P_outlet.is_stale(), is the reliable check
         # here) — fall back to T_initial / the hydrostatic guess.
-        was_solved_before = self.ever_solved.get_stale()
-        self.ever_solved.update(True)
+        was_solved_before = s.ever_solved.get_stale()
+        s.ever_solved.update(True)
         T_out_prev = self.T_initial if not was_solved_before else s.T_outlet.get_stale()
         P_out_prev = self.P_initial if not was_solved_before else s.P_outlet.get_stale()
 
@@ -346,10 +356,13 @@ class LumpedReservoir(ReservoirComponent):
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         dt_seconds = self.dt_years * YEAR_TO_SECOND
-        self.energy_extracted.increment(mdot * (h_prod_prev - h_in) * dt_seconds)
+        s.energy_extracted.increment(mdot * (h_prod_prev - h_in) * dt_seconds)
 
         E_reservoir = self.rock_volume * self.rock_C_v * dT if dT > 0 else 1.0
-        psi = self.energy_extracted.get_fresh() / E_reservoir if dT > 0 else 0.0
+        # psi = fractional energy extraction: cumulative energy pulled from the
+        # reservoir so far, relative to the reservoir's total extractable
+        # thermal energy at the current (T_initial - T_inj) driving delta.
+        psi = s.energy_extracted.get_fresh() / E_reservoir if dT > 0 else 0.0
         gamma = self._depletion_curve(psi) if dT > 0 else 1.0
         s.psi.update(psi)
         s.gamma.update(gamma)

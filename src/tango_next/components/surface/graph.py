@@ -111,6 +111,12 @@ def _ls() -> LockedState[float]:
     return ls
 
 
+def _ls_dict() -> LockedState[dict[str, dict[str, float]]]:
+    ls: LockedState[dict[str, dict[str, float]]] = LockedState({})
+    ls.mark_stale()
+    return ls
+
+
 # ---------------------------------------------------------------------------
 # State / History
 # ---------------------------------------------------------------------------
@@ -120,8 +126,10 @@ def _ls() -> LockedState[float]:
 class GraphSurfaceState:
     """Full simulation state for one graph-surface solve step.
 
-    Scalar fields are ``LockedState[float]`` — writable exactly once per
-    timestep. ``mark_all_stale()`` is called by the orchestrator (via
+    Every field is ``LockedState``-wrapped — writable exactly once per
+    timestep, ``LockedState[float]`` for scalars and
+    ``LockedState[dict[str, dict[str, float]]]`` for ``node_detail``.
+    ``mark_all_stale()`` is called by the orchestrator (via
     ``Component.mark_all_stale()``) immediately before each ``solve()``.
     """
 
@@ -144,23 +152,23 @@ class GraphSurfaceState:
     rho: LockedState[float] = field(default_factory=_ls)
     mu: LockedState[float] = field(default_factory=_ls)
 
-    node_detail: dict[str, dict[str, float]] = field(default_factory=dict)
+    node_detail: LockedState[dict[str, dict[str, float]]] = field(default_factory=_ls_dict)
     """Per-node diagnostic snapshot, keyed by node name then quantity
     (``P``/``Q`` in W where the component has them, ``T``/``p``/``m`` in
     SI units off that node's outgoing connection where one exists).
-    Rebuilt fresh every ``solve()`` (not a ``LockedState`` — there's no
-    write-once concern since it's fully recomputed, not accumulated).
-    Empty dict if ``record_node_detail=False`` on the component. This is a
-    generic replacement for hardcoded per-component named fields — works for
-    any topology, at the cost of dict-key access instead of attribute access.
+    Rebuilt fresh every ``solve()`` via whole-value ``update()`` (there's no
+    write-once concern to protect since it's fully recomputed, not
+    accumulated, but it's still ``LockedState``-wrapped like every other
+    field here for uniformity — see ``mark_all_stale()``). ``{}`` if
+    ``record_node_detail=False`` on the component. This is a generic
+    replacement for hardcoded per-component named fields — works for any
+    topology, at the cost of dict-key access instead of attribute access.
     """
 
     def mark_all_stale(self) -> None:
-        """Mark every ``LockedState`` field stale — call at the start of each ``solve()``."""
+        """Mark every field stale — call at the start of each ``solve()``."""
         for f in dataclasses.fields(self):
-            value = getattr(self, f.name)
-            if isinstance(value, LockedState):
-                value.mark_stale()
+            getattr(self, f.name).mark_stale()
 
 
 @dataclass
@@ -188,7 +196,7 @@ class GraphSurfaceHistory:
         self.net_power_W.append(state.net_power_W.get_fresh())
         self.net_thermal_W.append(state.net_thermal_W.get_fresh())
 
-        for node_name, values in state.node_detail.items():
+        for node_name, values in state.node_detail.get_fresh().items():
             node_hist = self.node_history.setdefault(node_name, {})
             for quantity, value in values.items():
                 node_hist.setdefault(quantity, []).append(value)
@@ -551,9 +559,11 @@ class GraphSurface(SurfaceComponent):
         s.net_thermal_W.update(net_thermal_W)
 
         # ---- Per-node diagnostic detail (see GraphSurfaceState.node_detail) ----
-        if self.record_node_detail:
-            s.node_detail.clear()
-            s.node_detail.update(self._collect_node_detail())
+        # Always update() — even {} when disabled — so node_detail is fresh
+        # exactly once per solve() like every other state field; leaving it
+        # un-written when record_node_detail=False would make the later
+        # get_fresh() read in GraphSurfaceHistory.record() raise.
+        s.node_detail.update(self._collect_node_detail() if self.record_node_detail else {})
 
         # ---- Fluid properties for injection stream ----
         rho_out = fluid_density(self.common.fluid_name, T_out, P_out)

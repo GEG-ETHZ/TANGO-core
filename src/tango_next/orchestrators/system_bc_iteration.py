@@ -60,16 +60,17 @@ initial guess forever, and re-solves to T-convergence
 component-type-specific wiring is needed: ``surface.outlet`` -> ``inj_well.
 inlet`` propagation already happens generically via ``_wire_one_stream``.
 
-The one non-obvious requirement: each outer iteration must take a *fresh*
-``snapshot_convergence_state()`` **after** writing ``injection_pressure``,
-not once for the whole outer loop. ``injection_pressure`` is an ordinary
-declared field, so it is itself captured/restored by
-``_converge_injection_T``'s inner-loop snapshot/restore — a single upfront
-snapshot would have the inner loop silently reset it back to its original
-value on the very first inner iteration, and the outer loop's pressure
-update would never actually reach the circuit. See
-``_converge_injection_pressure``'s docstring for the full mechanism and how
-this was confirmed.
+Each outer iteration takes a *fresh* ``snapshot_convergence_state()`` after
+writing ``injection_pressure``, not once for the whole outer loop —
+``injection_pressure`` itself is unaffected either way (it lives outside
+``state``, so ``_converge_injection_T``'s inner-loop snapshot/restore never
+touches it — see ``Component.snapshot_convergence_state``), but each outer
+iteration's inner T-loop still needs a baseline that reflects ``state`` as
+committed at the end of the *previous* outer iteration's converged solve,
+not timestep-start. See ``_converge_injection_pressure``'s docstring for
+the full mechanism and its empirical confirmation (2026-08-13, back when
+the snapshot mechanism covered more than ``state`` and this requirement was
+load-bearing for ``injection_pressure`` too, not just for ``state``).
 
 ``AUTO_FLOW`` (``_converge_injection_flow``) mirrors this but as a
 fixed-point (Picard) iteration, not a Newton step: each pass recomputes
@@ -601,21 +602,19 @@ class SystemBCIteration(SystemDirect):
 
         Each outer iteration re-snapshots every component's convergence state
         (see ``Component.snapshot_convergence_state``) **after** writing
-        ``injection_pressure`` — this is required, not just tidy:
-        ``injection_pressure`` is an ordinary declared field, so it is itself
-        captured (and restored) by the snapshot/restore mechanism
-        ``_converge_injection_T``'s inner loop uses every iteration. Taking one
-        snapshot before the whole outer loop (as ``MANUAL``/``MANUAL_FRACKING_CHECK``
-        do once per timestep) would have the inner loop's very first
+        ``injection_pressure``, so that each outer iteration's inner T-loop
+        restores from ``state`` as committed at the end of the *previous*
+        outer iteration's converged solve, not from timestep-start. (Historical
+        note, 2026-08-13: at the time this was confirmed empirically,
+        ``snapshot_convergence_state()`` also captured ``injection_pressure``
+        itself — a single upfront snapshot then made the inner loop's first
         ``restore_convergence_state`` call silently reset ``injection_pressure``
-        straight back to whatever it was when that single snapshot was taken —
-        the outer loop would then update its own ``p_inj_wellhead_no_frack``
-        variable every iteration while the circuit itself kept re-solving at the
-        *original* pressure forever. Confirmed empirically (2026-08-13): with a
-        single upfront snapshot, ``inj_well.outlet.P`` never moves past its
-        first-iteration value no matter how many outer iterations run; with a
-        fresh per-outer-iteration snapshot taken after writing
-        ``injection_pressure``, the same config converges in 2-3 outer iterations.
+        back to its original value, so the outer loop's own
+        ``p_inj_wellhead_no_frack`` bookkeeping advanced while the circuit kept
+        re-solving at the *original* pressure forever. The snapshot mechanism
+        now scopes to ``state`` only, so ``injection_pressure`` — never part of
+        ``state`` — is unaffected either way; the fresh-per-outer-iteration
+        snapshot is kept because ``state`` genuinely does need it, per above.)
 
         Args:
             surface: BC-checkpoint component (``sim_config.bc_checkpoint_idx``).
@@ -684,12 +683,16 @@ class SystemBCIteration(SystemDirect):
         ``_converge_injection_T`` call, same idea as ``_converge_injection_pressure``
         writing ``surface.injection_pressure`` — but simpler: mass rate is
         conserved through the whole circuit each pass (no splits/merges
-        affecting the total), so unlike ``injection_pressure`` it never gets
-        silently reset by ``_converge_injection_T``'s inner-loop snapshot/
-        restore (``inlet`` is unconditionally excluded from that mechanism —
-        see ``Component.snapshot_convergence_state``), and a single snapshot
+        affecting the total), and ``inlet`` (like ``injection_pressure``) is
+        never touched by ``_converge_injection_T``'s inner-loop snapshot/
+        restore (that mechanism scopes to ``state`` only — see
+        ``Component.snapshot_convergence_state``), so a single snapshot
         taken once before the whole outer loop is correct here (no
-        per-outer-iteration re-snapshot needed, unlike the pressure case).
+        per-outer-iteration re-snapshot needed, unlike the pressure case —
+        the pressure case's per-outer-iteration re-snapshot is about
+        ``state`` needing a fresh baseline each outer iteration, not about
+        protecting ``injection_pressure`` itself; see
+        ``_converge_injection_pressure``'s docstring).
 
         **The initial guess (``self.mass_rate`` at call time) matters a lot,
         for a real numerical reason, confirmed empirically (2026-08-13):**

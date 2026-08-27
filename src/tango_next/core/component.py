@@ -64,29 +64,25 @@ freezing these would break ``init()``/``solve()``, not protect anything:
 - ``SurfaceComponent.injection_pressure`` — the BC-iteration guess,
   explicitly updated in place by ``SystemBCIteration`` every convergence
   pass (see its docstring).
-- A handful of subclass-specific "derived, recomputed every timestep"
+- A handful of subclass-specific "derived, computed once by ``init()``"
   fields that happen to be plain floats rather than ``LockedState``, e.g.
   ``NumericalWell.cell_length``/``relative_roughness``/``T_r`` and
-  ``LumpedReservoir.T_initial``/``rock_volume``/``rock_C_v``/``p1``/``p2``/
-  ``p3`` — these are pure functions of already-restored inputs, recomputed
-  identically however many times ``solve()`` runs in a timestep, so there
-  is nothing for write-once enforcement to protect. See each class's own
-  comments for why.
+  ``LumpedReservoir.T_initial``/``rock_volume``/``rock_C_v`` — these are
+  pure functions of frozen config fields, computed exactly once in
+  ``init()`` and never reassigned by ``solve()``, so there is nothing for
+  write-once enforcement to protect and no reason for them to live in
+  ``state`` (next paragraph) either. See each class's own comments for why.
 
-``NumericalWell.t_d_old``, ``LumpedReservoir.energy_extracted``, and
-``LumpedReservoir.ever_solved`` are genuine cross-timestep accumulator/
-sticky-flag state, so unlike the fields above they ARE ``LockedState``-
-wrapped (``t_d_old``/``energy_extracted`` via ``LockedState.increment()``,
-``ever_solved`` via the normal ``get_stale()``/``update()`` cycle) — but
-deliberately kept as plain ``Component`` fields rather than moved into
-``state``, specifically so they stay in scope for
-``snapshot_convergence_state()``/``restore_convergence_state()``'s
-categorical restore. ``state`` itself is excluded from that restore
-(next paragraph) because every one of *its* fields is unconditionally
-recomputed from scratch each ``solve()`` call; these three are not — they
-depend on their own prior value — so they need the restore that ``state``
-is exempt from, in order to avoid double-accumulating across
-``SystemBCIteration``'s inner re-solve iterations.
+Every field that IS reassigned by ``solve()`` — every call, or only some
+calls, doesn't matter — belongs in ``state``, not as a bare ``Component``
+field, no matter whether it also happens to be a pure function of already-
+restored inputs (e.g. ``LumpedReservoir``'s ``p1``/``p2``/``p3``) or a
+genuine cross-timestep accumulator that depends on its own prior value
+(e.g. ``LumpedReservoir.energy_extracted``/``ever_solved``,
+``NumericalWell.state.t_d``). ``state`` is restored in full before every
+re-solve (next paragraph) precisely so this one rule has no exceptions to
+track per-field: anything ``solve()`` writes is protected the same way,
+accumulator or not.
 """
 
 from __future__ import annotations
@@ -99,20 +95,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from tango_next.core.locked_state import LockedState
 from tango_next.core.stream import Stream
-
-_CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS = frozenset({"inlet", "outlet", "state", "history"})
-"""Fields excluded from Component.snapshot_convergence_state()/restore_convergence_state().
-
-- inlet/outlet: must evolve iteration-to-iteration during a convergence loop
-  (e.g. the injection-temperature guess literally propagates through them
-  around the circuit) — restoring them would prevent any loop from moving.
-- state: every solve() unconditionally rewrites every one of its LockedState
-  fields each call, so restoring it first is always discarded work.
-- history: only touched by record(), called once per timestep after any
-  convergence loop finishes, never during it — and it grows every timestep,
-  so repeatedly deep-copying it inside a convergence loop gets more
-  expensive over the course of a run for zero benefit.
-"""
 
 
 class Component(BaseModel, ABC):
@@ -210,35 +192,33 @@ class Component(BaseModel, ABC):
             if callable(candidate):
                 candidate()
 
-    def snapshot_convergence_state(self) -> dict[str, Any]:
-        """Deep-copy every field that must not leak across a within-timestep re-solve.
+    def snapshot_convergence_state(self) -> Any:
+        """Deep-copy ``state`` — the only thing that must not leak across a within-timestep re-solve.
 
         Used by orchestrators that re-solve a component more than once for
         the same calendar timestep (e.g. an injection-temperature
         convergence loop): restore this snapshot before every re-solve so
         each attempt starts from "state as committed at the end of the
-        previous timestep," not from whatever the last attempt left behind.
+        previous timestep," not from whatever the last attempt left behind
+        (whether that's an unconverged re-solve's own output, or a stale
+        read of a cross-timestep accumulator via last attempt's leftovers).
 
-        Scope: every non-frozen *declared Pydantic field* except ``inlet``/
-        ``outlet``/``state``/``history`` (see
-        ``_CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS``) — categorical, not a
-        hand-maintained list of field names, so a future field of the same
-        kind (persists across timesteps, mutated by ``solve()``) is
-        protected automatically. Deliberately scoped to
-        ``type(self).model_fields`` rather than ``vars(self)``: some
-        components (e.g. ``GraphSurface``) keep private, non-field
-        attributes (a live TESPy network/connections) that ``init()``
-        builds once and ``solve()`` mutates through TESPy's own machinery —
-        those must never be snapshotted/deep-copied/replaced.
+        Scope: ``self.state`` only. Every field a component's ``solve()``
+        writes — whether recomputed from scratch each call or a genuine
+        cross-timestep accumulator that depends on its own prior value —
+        lives in ``state`` by convention (see the class docstring's "Frozen
+        config fields" section); nothing outside ``state`` is ever mutated
+        by ``solve()``. ``inlet``/``outlet`` are excluded implicitly (they
+        aren't part of ``state``) because they must evolve iteration-to-
+        iteration during a convergence loop — restoring them would prevent
+        any loop from moving. ``history`` is excluded the same way — only
+        ``record()`` touches it, once per timestep after any convergence
+        loop finishes, never during it.
         """
-        return {
-            name: copy.deepcopy(getattr(self, name))
-            for name, info in type(self).model_fields.items()
-            if not info.frozen and name not in _CONVERGENCE_SNAPSHOT_EXCLUDED_FIELDS
-        }
+        return copy.deepcopy(self.state)
 
-    def restore_convergence_state(self, snapshot: dict[str, Any]) -> None:
-        """Write a fresh deep copy of a ``snapshot_convergence_state()`` snapshot back onto self.
+    def restore_convergence_state(self, snapshot: Any) -> None:
+        """Write a fresh deep copy of a ``snapshot_convergence_state()`` snapshot back onto ``self.state``.
 
         Deep-copies again at restore time, not just at snapshot time — the
         snapshot must stay pristine across repeated restores within the
@@ -246,8 +226,7 @@ class Component(BaseModel, ABC):
         was handed out on one attempt must not corrupt what the next
         attempt reads back.
         """
-        for name, value in snapshot.items():
-            setattr(self, name, copy.deepcopy(value))
+        self.state = copy.deepcopy(snapshot)
 
     def record(self, timestep: int) -> None:
         """Append the current ``state`` to ``history`` if ``save_interval`` permits.

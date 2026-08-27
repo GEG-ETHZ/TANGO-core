@@ -156,18 +156,18 @@ def test_lumped_reservoir_roundtrip_values() -> None:
     T_out = res.state.T_outlet.get_fresh()
     P_out = res.state.P_outlet.get_fresh()
     psi = res.state.psi.get_fresh()
-    energy = res.energy_extracted.get_fresh()
+    energy = res.state.energy_extracted.get_fresh()
 
     dump = res.model_dump()
     assert isinstance(dump["state"]["T_outlet"], float)
     assert dump["state"]["T_outlet"] == pytest.approx(T_out)
-    assert isinstance(dump["energy_extracted"], float)
+    assert isinstance(dump["state"]["energy_extracted"], float)
 
     res2 = LumpedReservoir.from_dict(dump, skip_init=True)
     _assert_locked_float(res2.state.T_outlet, T_out, "T_outlet")
     _assert_locked_float(res2.state.P_outlet, P_out, "P_outlet")
     _assert_locked_float(res2.state.psi, psi, "psi")
-    _assert_locked_float(res2.energy_extracted, energy, "energy_extracted")
+    _assert_locked_float(res2.state.energy_extracted, energy, "energy_extracted")
 
 
 def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
@@ -183,10 +183,10 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
             res.mark_all_stale()
         res.solve()
 
-    energy_before = res.energy_extracted.get_fresh()
+    energy_before = res.state.energy_extracted.get_fresh()
     dump = res.model_dump()
     res2 = LumpedReservoir.from_dict(dump, skip_init=True)
-    assert res2.energy_extracted.get_fresh() == pytest.approx(energy_before)
+    assert res2.state.energy_extracted.get_fresh() == pytest.approx(energy_before)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
 
     T_out = surface.state.T_outlet.get_fresh()
     net_thermal = surface.state.net_thermal_W.get_fresh()
-    node_detail = dict(surface.state.node_detail)
+    node_detail = dict(surface.state.node_detail.get_fresh())
 
     dump = surface.model_dump()
 
@@ -296,7 +296,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
     surface2 = GraphSurface.from_dict(dump, skip_init=True)
     _assert_locked_float(surface2.state.T_outlet, T_out, "T_outlet")
     _assert_locked_float(surface2.state.net_thermal_W, net_thermal, "net_thermal_W")
-    assert surface2.state.node_detail == node_detail
+    assert surface2.state.node_detail.get_fresh() == node_detail
     assert surface2.history.node_history == surface.history.node_history
 
 
