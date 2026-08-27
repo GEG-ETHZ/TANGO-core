@@ -1,0 +1,147 @@
+schema: '2.0'
+stages:
+  lhs_generate:
+    cmd: python generate_lhs.py
+    deps:
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: generate_lhs.py
+      hash: md5
+      md5: 63b50f5de424d8d579e1a51412ac781a
+      size: 1740
+    params:
+      params.yaml:
+        lhs_seed: 1
+        n_lhs_samples: 2000
+    outs:
+    - path: outputs/lhs_design_matrix.csv
+      hash: md5
+      md5: 3bb14bc5a04a71444378b70fa663affc
+      size: 118395
+  lhs_sweep:
+    cmd: python sweep_lhs.py
+    deps:
+    - path: ../../../examples/tango_next/hydro_df_electric.yml
+      hash: md5
+      md5: 78827d5e4a76e55ace203ac7a549aee9
+      size: 9585
+    - path: ../../../src/tango_next.hash
+      hash: md5
+      md5: b7d4d9882f31b819a58d3a13c32696fe
+      size: 41
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: outputs/lhs_design_matrix.csv
+      hash: md5
+      md5: 3bb14bc5a04a71444378b70fa663affc
+      size: 118395
+    - path: sweep_lhs.py
+      hash: md5
+      md5: 0e2d17d280cfd207464727a5dc7ca2d6
+      size: 3092
+    params:
+      params.yaml:
+        n_lhs_samples: 2000
+    outs:
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: eab11255f0ddc89622afaac4aa2c7d7c
+      size: 452832
+  train_surrogate:
+    cmd: python train_surrogate.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: eab11255f0ddc89622afaac4aa2c7d7c
+      size: 452832
+    - path: train_surrogate.py
+      hash: md5
+      md5: f4ee68dcd1c2488f31d098d41a5b5c81
+      size: 2829
+    params:
+      params.yaml:
+        classifier_threshold: 0.5
+        rf_cv_folds: 5
+        rf_n_estimators: 300
+        rf_seed: 1
+    outs:
+    - path: outputs/surrogate_classifier_diagnostics.csv
+      hash: md5
+      md5: 55bbf63c31d40976c689d8e9a5ad1081
+      size: 84
+    - path: outputs/surrogate_diagnostics.csv
+      hash: md5
+      md5: 529d399d37115694c9955b4b56fbf9d4
+      size: 127
+    - path: outputs/surrogate_model.joblib
+      hash: md5
+      md5: 9f4a7f613ee3065a71cd9338c7218262
+      size: 54961640
+  optimize_surrogate:
+    cmd: python optimize_surrogate.py
+    deps:
+    - path: ../opt_hydro_df_electric/params.yaml
+      hash: md5
+      md5: 19718660d2a1c4ecd684e6b464156843
+      size: 1003
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: optimize_surrogate.py
+      hash: md5
+      md5: 7f17a51ddd1154f3115c980481fda75d
+      size: 4501
+    - path: outputs/surrogate_model.joblib
+      hash: md5
+      md5: 9f4a7f613ee3065a71cd9338c7218262
+      size: 54961640
+    - path: params.yaml
+      hash: md5
+      md5: 2d575e372ca9e0098d1c80f8401e6338
+      size: 1796
+    outs:
+    - path: outputs/pareto_parallel_coordinates.html
+      hash: md5
+      md5: 3441ece177b8dd19af87804064104f27
+      size: 4572949
+    - path: outputs/pareto_parallel_coordinates.png
+      hash: md5
+      md5: 90d236574e6a8ab7ce707fe372d2a54f
+      size: 381449
+    - path: outputs/pareto_scatter.png
+      hash: md5
+      md5: 96c9b78d1db1326130ac7554ce3eb7d0
+      size: 58283
+    - path: outputs/pareto_scatter_by_param.png
+      hash: md5
+      md5: f965d2596d347475c8ef51a3a250cd14
+      size: 103919
+    - path: outputs/pareto_scatter_param_pairs.png
+      hash: md5
+      md5: 37286f826219b6fccb0d76cf6c3002b7
+      size: 204605
+    - path: outputs/pareto_scatter_zscore.png
+      hash: md5
+      md5: 09a44c4ff62c49156e602625f2cdbd9d
+      size: 52124
+    - path: outputs/surrogate_pareto_results.csv
+      hash: md5
+      md5: 886ffce126698fffa9574a57647e0e38
+      size: 4698
