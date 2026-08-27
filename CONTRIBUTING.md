@@ -9,9 +9,11 @@ with.
   congruence (exceptions could be e.g. parameter values that are derived upon
   instantiation).  Similarly, all new module structure must have reasonable
   compliance with this paradigm.
-1. <a id="rule-locked-state"></a>All new state variables must be wrapped in
+1. <a id="rule-locked-state"></a>All state variables (i.e. any variables
+  that mutate through temporal/time iterations) must be wrapped in
   `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
-  that enforces exactly one `update()` per time step.
+  that enforces exactly one `update()` per time step, AND must live inside the
+  component's `state` dataclass field — never as a bare `Component` attribute.
 1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
