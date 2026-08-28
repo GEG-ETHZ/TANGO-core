@@ -52,7 +52,7 @@ typecheck:
 # Run test suite. No args/--fast: fast subset (matches pre-push). --perf: perf tests only. --all: everything.
 test *args:
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -uo pipefail
     # For anything else, pass your own -m straight through, e.g.
     # `just test -m "perf"` or `just test -m "slow or old_tango"`.
     args="{{args}}"
@@ -66,6 +66,17 @@ test *args:
         args="${args/--fast/}"
         uv run pytest -v -m "not old_tango and not perf and not slow" $args
     fi
+    status=$?
+    # pytest's own arg parser is the only thing that can validate free-form
+    # pytest flags (-m/-k/-x/file paths/...) — exit 4 is specifically its
+    # USAGE_ERROR code (a bad/unrecognized flag, as opposed to a real test
+    # failure = 1), so only THIS case gets an extra line pointing back at
+    # `just test`, not every failure.
+    if [ "$status" -eq 4 ]; then
+        echo "" >&2
+        echo "just test: pytest rejected an argument above (usage error) — check for a typo of --all/--perf/--fast, or an invalid pytest flag." >&2
+    fi
+    exit "$status"
 
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
@@ -98,7 +109,7 @@ demos *args:
         case "$1" in
             -p) p="$2"; shift 2 ;;
             --slow) smoke_flag=""; shift ;;
-            *) shift ;;
+            *) echo "just demos: unrecognized argument: $1 (accepts only -p N / --slow)" >&2; exit 1 ;;
         esac
     done
     uv run python applications/tango_next/demo_hydro_sf_electric/demo_hydro_sf_electric.py
