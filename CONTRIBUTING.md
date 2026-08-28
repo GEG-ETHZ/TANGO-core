@@ -14,6 +14,13 @@ with.
   `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
   that enforces exactly one `update()` per time step, AND must live inside the
   component's `state` dataclass field — never as a bare `Component` attribute.
+1. <a id="rule-state-history-parity"></a>All attributes in `*State` classes must have analogs in `*History`
+  classes (a `list[T]` field, appended to in `record()`) — a value worth
+  protecting as per-timestep state is worth keeping a time series of.
+  Exception: `EconomicComponent`'s `EconomicState` has no `*History` class
+  at all, since it isn't per-timestep state — the component runs exactly
+  once (via `finalize()`), never through `record()`. Revisit if that
+  changes.
 1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
@@ -51,6 +58,14 @@ with.
   with one that's self-evident from the name alone, no matter where it's
   read out of context.
 1. All private fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
+1. <a id="rule-encapsulated-mutation"></a>A class instance's fields must only be modified by the instance
+  itself — via methods it defines, whether those methods are called
+  internally or by external code — never by direct external assignment
+  (`obj.field = value`). `state` (and `state`-shaped containers like
+  `Stream`, whose own `LockedState` fields are directly `.update()`-able
+  by external callers — see [rule: LockedState](#rule-locked-state)) is
+  the one exception. **Not yet verified applied uniformly** — see
+  `docs/tango_next_tasks.md`'s open-items list for the audit task.
 1. <a id="rule-fluid-loop-needs-pressure-source"></a>Every closed fluid loop must have an explicit pump or compressor
   driving circulation somewhere in it — a downhole pump-bearing well
   (`*_with_pump`) or a surface circulation pump (a `Compressor`/`Pump`
