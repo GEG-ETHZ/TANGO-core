@@ -369,6 +369,19 @@ Real, still-open items that are deliberately **not** being worked next
 session. Kept here so they don't get silently dropped or re-discovered
 from scratch.
 
+- **Audit encapsulated-mutation rule (`CONTRIBUTING.md`'s TANGO
+  Commandments) for uniform application, 2026-08-27.** New rule: a class
+  instance's fields must only be modified by the instance itself (via its
+  own methods, called internally or externally), never by direct external
+  assignment — `state` (and `state`-shaped containers like `Stream`) is
+  the one exception. Added retroactively, prompted by the `inlet`/
+  `outlet` `Stream` refactor (same session: `Stream` fields became
+  `LockedState`-wrapped, `inlet` became a `solve()` parameter instead of a
+  stored field — see `Component.solve()`'s docstring). Not yet swept
+  across the rest of `src/tango_next/` for other direct external
+  `obj.field = value` writes that predate the rule (e.g. anything on
+  `SurfaceComponent.injection_pressure`, orchestrator-level bookkeeping,
+  or elsewhere) — deliberately deferred, not urgent.
 - **Old-tango AGS no-time-marching bug** (`system_name()` routing in
   `src/tango/utils.py` sends AGS-shaped configs to a no-op `SystemNative`,
   so old tango never advances time for AGS configs). Confirmed real,
