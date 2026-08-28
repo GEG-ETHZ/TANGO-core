@@ -257,6 +257,28 @@ class LockedState(Generic[T]):
         """Mark as stale, opening the write slot for the next timestep."""
         self.__status = _Status.STALE
 
+    def mark_fresh(self) -> None:
+        """Assert stale, then mark fresh WITHOUT writing a new value.
+
+        For the case where a value is being treated as already-current by
+        some other means (e.g. restored from a snapshot/reconstruction that
+        doesn't go through the normal ``solve()`` write path) and just
+        needs its write-once guard opened up for reading, not recomputed.
+        Distinct from ``update()``, which requires (and consumes) a new
+        value. ``StateMethods.mark_fresh()`` (``core/state_methods.py``)
+        calls this recursively; ``LockedState`` itself has no dependency on
+        that module.
+
+        Raises:
+            FreshAccessError: The value is already fresh — mirrors
+                ``update()``'s own guard, since forcing an already-fresh
+                value fresh again would silently mask a real double-write.
+
+        """
+        if self.__status is _Status.FRESH:
+            raise FreshAccessError("LockedState is already fresh — call mark_stale() before mark_fresh().")
+        self.__status = _Status.FRESH
+
     def check_and_reset(self) -> None:
         """Assert fresh, then mark stale.
 

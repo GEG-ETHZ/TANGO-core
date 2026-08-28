@@ -620,10 +620,12 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
         components["surface"].pipe_diameter = 1.0
 
     # Fields that are legitimately reassigned during simulation stay mutable.
-    from tango_next.core.stream import Stream
-
-    components["injection_well"].inlet = Stream(T=300.0, P=1e6, mass_rate=10.0)
-    assert components["injection_well"].inlet.T == 300.0
+    # `outlet` is LockedState-wrapped (like any `state` field) — write via
+    # update(), not direct assignment (there's no `inlet` field at all
+    # anymore; it's a solve() call parameter — see Component.solve()'s
+    # docstring).
+    components["injection_well"].outlet.T.update(300.0)
+    assert components["injection_well"].outlet.T.get_fresh() == 300.0
     components["surface"].injection_pressure = 2.5e6
     assert components["surface"].injection_pressure == 2.5e6
 
@@ -709,9 +711,10 @@ def test_auto_pressure_converges_to_fracking_threshold(sf_manual_config: dict[st
         reservoir.over_pressure_percentage,
     )
 
-    rel_error = abs(inj_well.outlet.P - target_reservoir_P) / target_reservoir_P
+    inj_outlet_P = inj_well.outlet.P.get_fresh()
+    rel_error = abs(inj_outlet_P - target_reservoir_P) / target_reservoir_P
     assert rel_error < 1e-3, (
-        f"inj_well.outlet.P ({inj_well.outlet.P:.6g} Pa) should have converged near "
+        f"inj_well.outlet.P ({inj_outlet_P:.6g} Pa) should have converged near "
         f"target_reservoir_P ({target_reservoir_P:.6g} Pa), rel_error={rel_error:.2e}"
     )
 

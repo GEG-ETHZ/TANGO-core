@@ -8,6 +8,7 @@ from pydantic import Field
 
 from tango_next.core.component import Component
 from tango_next.core.specs import Common
+from tango_next.core.stream import Stream
 
 
 class SurfaceComponent(Component):
@@ -52,5 +53,5 @@ class SurfaceComponent(Component):
     that explicitly)."""
 
     @abstractmethod
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute power plant outputs and reinjection state from production inlet."""

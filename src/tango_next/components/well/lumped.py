@@ -18,7 +18,6 @@ Simplified-physics TODOs are marked throughout; upgrade path for each is noted.
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
 
 from pydantic import Field
@@ -38,6 +37,8 @@ from tango_next.core.fluid_utils import (
 from tango_next.core.locked_state import LockedState
 from tango_next.core.numerics import PUMP_BOOST_MAX_ITER, PUMP_BOOST_TOL_PA, secant_solve
 from tango_next.core.specs import Common
+from tango_next.core.state_methods import StateMethods
+from tango_next.core.stream import Stream
 
 # ---------------------------------------------------------------------------
 # State dataclasses
@@ -52,15 +53,16 @@ def _ls(v: float = float("nan")) -> LockedState[float]:
 
 
 @dataclass(frozen=True)
-class WellboreState:
+class WellboreState(StateMethods):
     """Full simulation state for one wellbore solve step.
 
     All fields are ``LockedState[float]`` so that each is writable exactly once
     per timestep.  The dataclass is ``frozen=True`` to prevent replacing the
     wrapper objects themselves (the LockedState invariant is enforced on the
-    value inside).  ``mark_all_stale()`` is called by the orchestrator (via
-    ``Component.mark_all_stale()``) immediately before each ``solve()`` to
-    open the write slot for the new timestep.
+    value inside).  ``mark_all_stale()`` (inherited from ``StateMethods``) is
+    called by the orchestrator (via ``Component.mark_all_stale()``)
+    immediately before each ``solve()`` to open the write slot for the new
+    timestep.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
@@ -75,11 +77,6 @@ class WellboreState:
     delta_p_hydrostatic: LockedState[float] = field(default_factory=_ls)
     T_outlet: LockedState[float] = field(default_factory=_ls)
     P_outlet: LockedState[float] = field(default_factory=_ls)
-
-    def mark_all_stale(self) -> None:
-        """Mark every field stale — call at the start of each ``solve()``."""
-        for f in dataclasses.fields(self):
-            getattr(self, f.name).mark_stale()
 
 
 @dataclass(frozen=True)
@@ -97,12 +94,25 @@ class ProductionWellWithPumpState(WellboreState):
 
 @dataclass
 class WellboreHistory:
-    """Per-timestep history of scalar wellbore state (inlet → outlet)."""
+    """Per-timestep history of scalar wellbore state (inlet → outlet).
+
+    One list field per ``WellboreState`` attribute (TANGO Commandment: every
+    ``*State`` attribute must have an analog in its ``*History`` class) —
+    see ``record()``.
+    """
 
     T_inlet: list[float] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
     P_inlet: list[float] = field(default_factory=list)
     P_outlet: list[float] = field(default_factory=list)
+    mass_rate: list[float] = field(default_factory=list)
+    rho: list[float] = field(default_factory=list)
+    mu: list[float] = field(default_factory=list)
+    velocity: list[float] = field(default_factory=list)
+    Re: list[float] = field(default_factory=list)  # noqa: N815
+    friction_factor: list[float] = field(default_factory=list)
+    delta_p_friction: list[float] = field(default_factory=list)
+    delta_p_hydrostatic: list[float] = field(default_factory=list)
 
     def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot."""
@@ -110,18 +120,28 @@ class WellboreHistory:
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
         self.P_outlet.append(state.P_outlet.get_fresh())
+        self.mass_rate.append(state.mass_rate.get_fresh())
+        self.rho.append(state.rho.get_fresh())
+        self.mu.append(state.mu.get_fresh())
+        self.velocity.append(state.velocity.get_fresh())
+        self.Re.append(state.Re.get_fresh())
+        self.friction_factor.append(state.friction_factor.get_fresh())
+        self.delta_p_friction.append(state.delta_p_friction.get_fresh())
+        self.delta_p_hydrostatic.append(state.delta_p_hydrostatic.get_fresh())
 
 
 @dataclass
 class ProductionWellWithPumpHistory(WellboreHistory):
-    """Extends WellboreHistory with pump power for LumpedProductionWellWithPump."""
+    """Extends WellboreHistory with pump data for LumpedProductionWellWithPump."""
 
+    pump_delta_p: list[float] = field(default_factory=list)
     pump_power_watts: list[float] = field(default_factory=list)
 
     def record(self, state: WellboreState) -> None:  # type: ignore[override]
-        """Append one timestep snapshot, including pump power."""
+        """Append one timestep snapshot, including pump data."""
         super().record(state)
         pump_state = state if isinstance(state, ProductionWellWithPumpState) else None
+        self.pump_delta_p.append(pump_state.pump_delta_p.get_fresh() if pump_state else 0.0)
         self.pump_power_watts.append(pump_state.pump_power_watts.get_fresh() if pump_state else 0.0)
 
 
@@ -149,20 +169,13 @@ class LumpedInjectionWell(WellComponent):
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
         mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
@@ -183,11 +196,9 @@ class LumpedInjectionWell(WellComponent):
         s.P_outlet.update(s.P_inlet.get_fresh() + dp_h - dp_f)
         s.T_outlet.update(s.T_inlet.get_fresh() + self.common.thermal_gradient * self.well_length)
 
-        self.outlet.T = s.T_outlet.get_fresh()
-        self.outlet.P = s.P_outlet.get_fresh()
-        self.outlet.mass_rate = s.mass_rate.get_fresh()
-        self.outlet.rho = rho
-        self.outlet.mu = mu
+        self.outlet.T.update(s.T_outlet.get_fresh())
+        self.outlet.P.update(s.P_outlet.get_fresh())
+        self.outlet.mass_rate.update(s.mass_rate.get_fresh())
 
 
 # ---------------------------------------------------------------------------
@@ -214,20 +225,13 @@ class LumpedProductionWell(WellComponent):
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
         mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
@@ -248,11 +252,9 @@ class LumpedProductionWell(WellComponent):
         s.P_outlet.update(s.P_inlet.get_fresh() - dp_h - dp_f)
         s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Adams 2015
 
-        self.outlet.T = s.T_outlet.get_fresh()
-        self.outlet.P = s.P_outlet.get_fresh()
-        self.outlet.mass_rate = s.mass_rate.get_fresh()
-        self.outlet.rho = rho
-        self.outlet.mu = mu
+        self.outlet.T.update(s.T_outlet.get_fresh())
+        self.outlet.P.update(s.P_outlet.get_fresh())
+        self.outlet.mass_rate.update(s.mass_rate.get_fresh())
 
 
 # ---------------------------------------------------------------------------
@@ -287,13 +289,6 @@ class LumpedProductionWellWithPump(WellComponent):
     state: ProductionWellWithPumpState = Field(default_factory=ProductionWellWithPumpState)
     history: ProductionWellWithPumpHistory = Field(default_factory=ProductionWellWithPumpHistory)
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
     def _wellbore_losses(self, mdot: float, P_start: float, T_start: float) -> tuple[float, ...]:
         """Pure calc: friction + hydrostatic loss over this segment from a given starting state.
 
@@ -314,7 +309,7 @@ class LumpedProductionWellWithPump(WellComponent):
         P_outlet = P_start - dp_h - dp_f
         return P_outlet, rho, mu, vel, re, ff, dp_f, dp_h
 
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute wellhead T and P including wellbore losses and pump boost.
 
         If a pump boost is needed, the boosted pump-discharge pressure is
@@ -341,9 +336,9 @@ class LumpedProductionWellWithPump(WellComponent):
         """
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         T_in = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -369,11 +364,9 @@ class LumpedProductionWellWithPump(WellComponent):
             s.P_outlet.update(P_after_natural)
             s.T_outlet.update(T_in)  # simplified: insulated + no pump T rise (Phase 2)
 
-            self.outlet.T = T_in
-            self.outlet.P = P_after_natural
-            self.outlet.mass_rate = mdot
-            self.outlet.rho = rho_n
-            self.outlet.mu = mu_n
+            self.outlet.T.update(T_in)
+            self.outlet.P.update(P_after_natural)
+            self.outlet.mass_rate.update(mdot)
             return
 
         before = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
@@ -424,8 +417,6 @@ class LumpedProductionWellWithPump(WellComponent):
         s.P_outlet.update(P_outlet)
         s.T_outlet.update(T_pump_out)
 
-        self.outlet.T = T_pump_out
-        self.outlet.P = P_outlet
-        self.outlet.mass_rate = mdot
-        self.outlet.rho = rho
-        self.outlet.mu = mu
+        self.outlet.T.update(T_pump_out)
+        self.outlet.P.update(P_outlet)
+        self.outlet.mass_rate.update(mdot)

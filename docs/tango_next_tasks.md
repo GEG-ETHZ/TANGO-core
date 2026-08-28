@@ -618,6 +618,17 @@ old tango's apps — that's task 3 below, still blocked/deferred.
       component, or a `GraphSurface` subgraph (turbine/condenser/pump) that
       reproduces what `native_ORC` builds internally. Scope this as its
       own design discussion before writing YAML.
+      **Revisit `Stream.port` when this is scoped** (removed 2026-08-28 —
+      see `core/stream.py`'s class docstring and git history): it was
+      carried over from old tango's TESPy port-addressing scheme
+      (`flexible_pp.py`'s `source_port`/`target_port`, e.g. a separator's
+      distinct vapor/liquid outlets) but never wired to anything, since
+      every `Component` boundary is single-port regardless of how many
+      ports its internal TESPy network has. An ORC's condenser (or any
+      future multi-outlet component) may be the first real case where a
+      `Component`'s own `inlet`/`outlet` boundary is genuinely multi-port
+      — if so, design the field fresh against that concrete need rather
+      than resurrecting the removed one blind.
 - [ ] Decide app structure: one shared `tango_next` sweep pipeline
       parameterized by product (heat/electricity), or two directories
       mirroring old tango's split. Leaning toward shared, since the

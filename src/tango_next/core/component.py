@@ -4,13 +4,14 @@ Components are Pydantic models — the instantiated object is 1:1 with the YAML
 input file.  All fields, including runtime state, history, and derived quantities,
 are public Pydantic fields so that solved models can be serialized and restored.
 
-Fields that are absent from YAML (state, history, inlet, outlet, derived quantities)
+Fields that are absent from YAML (state, history, outlet, derived quantities)
 use ``default_factory`` and are populated when ``init()`` runs or, in the case of
-state/history, when ``solve()``/``record()`` run.
+state/history/outlet, when ``solve()``/``record()`` run. ``inlet`` is NOT a
+field — see ``solve()``'s docstring for why.
 
 Serialization design
 --------------------
-``model_dump()`` returns all fields, including state, history, inlet, and outlet.
+``model_dump()`` returns all fields, including state, history, and outlet.
 This allows a solved model to be saved and later restored via ``from_dict()``.
 
 Round-trip test pattern (config-only, skip_init=True)::
@@ -33,10 +34,13 @@ History / save_interval
 - ``1``     — record every timestep (default)
 - ``n > 1`` — record every n-th timestep
 
-Each component's ``record(timestep)`` is called by the orchestrator after
-every ``solve()``; the component decides whether to append to history based
-on ``save_interval``.  Orchestrator.record() cascades downward so callers
-can call it at the top level and know it propagates.
+Each component's ``record(timestep)`` (inherited from ``StateMethods`` — see
+``core/state_methods.py``) is called by the orchestrator after every
+``solve()``; it checks ``save_interval`` and, if due, pushes every
+``(state, history)`` pair returned by ``_state_history_pairs()`` (``state``/
+``history`` plus ``outlet``/``outlet_history``). Orchestrator.record()
+cascades downward so callers can call it at the top level and know it
+propagates.
 
 Frozen config fields
 ---------------------
@@ -56,8 +60,7 @@ Pydantic fields (not ``LockedState``-wrapped) that are legitimately
 reassigned during the simulation itself, not by a user tweaking config —
 freezing these would break ``init()``/``solve()``, not protect anything:
 
-- ``inlet``/``outlet`` — reassigned by the orchestrator/``solve()`` every
-  timestep.
+- ``outlet`` — reassigned by ``solve()`` every timestep.
 - ``state``/``history`` — the object itself is never reassigned (its
   fields mutate internally instead), so freezing the container field would
   add nothing.
@@ -93,19 +96,23 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from tango_next.core.locked_state import LockedState
-from tango_next.core.stream import Stream
+from tango_next.core.state_methods import StateMethods
+from tango_next.core.stream import Stream, StreamHistory
 
 
-class Component(BaseModel, ABC):
+class Component(BaseModel, ABC, StateMethods):
     """Abstract base for all tango_next physical components.
 
     Subclass this and declare YAML-configuration fields as normal Pydantic
     fields.  Override ``init()`` to compute derived quantities.
-    Override ``record(timestep)`` to append to history.
+    ``record(timestep)`` (inherited from ``StateMethods``) already appends
+    to history generically — override ``_state_history_pairs()`` instead if
+    a subclass has more ``(state, history)``-shaped pairs to push than the
+    base class's ``state``/``history`` and ``outlet``/``outlet_history``.
 
-    The orchestrator sets ``inlet`` before calling ``solve()``;
-    ``solve()`` reads ``inlet`` and writes ``outlet``.
+    The orchestrator passes ``inlet`` directly into ``solve(inlet)`` — it is
+    NOT a stored ``Component`` field (see ``solve()``'s docstring for why);
+    ``solve()`` writes ``outlet``, which IS a stored field.
 
     The orchestrator also calls ``mark_all_stale()`` immediately before every
     ``solve()`` call — ``solve()`` itself does not do this. A component fresh
@@ -135,12 +142,18 @@ class Component(BaseModel, ABC):
     """
 
     # ------------------------------------------------------------------
-    # Runtime streams — set by the orchestrator before/after solve()
+    # Runtime stream — written by solve()
     # ------------------------------------------------------------------
-    inlet: Stream = Field(default_factory=Stream)
-    """Upstream stream — written by the orchestrator before solve()."""
     outlet: Stream = Field(default_factory=Stream)
-    """Downstream stream — written by solve()."""
+    """Downstream stream — written by solve(), once per call, same
+    write-once-per-solve pattern as ``state`` (``outlet``'s fields are
+    ``LockedState``-wrapped — see ``core/stream.py``). There is no
+    corresponding ``inlet`` field: see ``solve()``'s docstring."""
+    outlet_history: StreamHistory = Field(default_factory=StreamHistory)
+    """Per-timestep history of ``outlet`` — pushed alongside ``state``'s own
+    history every ``record()`` call (see ``_state_history_pairs()``).
+    TANGO Commandment: every ``*State``-shaped attribute (``outlet``
+    included) needs a ``*History`` analog."""
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -170,27 +183,42 @@ class Component(BaseModel, ABC):
         """
 
     @abstractmethod
-    def solve(self) -> None:
-        """Compute outlet stream state from the current inlet stream state."""
+    def solve(self, inlet: Stream) -> None:
+        """Compute outlet stream state from the given inlet stream state.
 
-    def mark_all_stale(self) -> None:
-        """Mark every ``LockedState`` field, and every ``state``-like container, stale.
+        ``inlet`` is passed as an explicit call parameter — never a stored
+        ``Component`` field — so that what feeds a component is always
+        traceable to one place: the orchestrator's wiring code
+        (``SystemDirect._next_inlet()``/``_record_outlet()``, tracked in
+        ``_pending_inlets``), which computes each ``inlet`` from a named
+        upstream component's ``outlet`` and hands it directly to this call.
+        Reading ``solve()``'s signature plus that one wiring site tells you
+        exactly which upstream component a given component's output causally
+        depends on, for a given pass — there is no separate, independently-
+        timed write to chase through a mutable field to answer that
+        question. Every concrete ``solve()`` immediately records ``inlet``
+        into its own ``state.T_inlet``/``P_inlet``/``mass_rate`` — already
+        ``LockedState``-protected, already correctly restored by
+        ``restore_convergence_state()`` — which is the durable, inspectable
+        record of "what this component's inlet was, this solve," e.g. for
+        history/debugging; the parameter itself is transient, never touched
+        again after that.
 
-        Called by the orchestrator immediately before each ``solve()`` —
-        staleness is owned by whatever dispatches ``solve()``, not by
-        ``solve()`` itself. Walks this component's own attributes rather
-        than hardcoding field names, so any future ``LockedState`` field —
-        whether a bare ``Component`` attribute (e.g. ``energy_extracted``)
-        or nested inside a container exposing its own ``mark_all_stale()``
-        (e.g. ``state``) — is picked up for free.
+        ``EconomicComponent.solve()`` overrides this with the same
+        signature for Liskov compatibility but never reads ``inlet`` — it
+        has no concept of a fluid inlet (see its own class docstring).
         """
-        for value in vars(self).values():
-            if isinstance(value, LockedState):
-                value.mark_stale()
-                continue
-            candidate = getattr(value, "mark_all_stale", None)
-            if callable(candidate):
-                candidate()
+
+    def _state_history_pairs(self) -> list[tuple[Any, Any]]:
+        """Add ``(outlet, outlet_history)`` to ``StateMethods``'s default ``(state, history)`` pair.
+
+        Every concrete ``Component`` gets this for free from the base
+        class — no per-subclass override needed, since ``outlet``/
+        ``outlet_history`` are declared here, not per-subclass.
+        """
+        pairs = super()._state_history_pairs()
+        pairs.append((self.outlet, self.outlet_history))
+        return pairs
 
     def snapshot_convergence_state(self) -> Any:
         """Deep-copy ``state`` — the only thing that must not leak across a within-timestep re-solve.
@@ -227,14 +255,3 @@ class Component(BaseModel, ABC):
         attempt reads back.
         """
         self.state = copy.deepcopy(snapshot)
-
-    def record(self, timestep: int) -> None:
-        """Append the current ``state`` to ``history`` if ``save_interval`` permits.
-
-        Called by the orchestrator after every ``solve()``.  Override in
-        subclasses that track history.
-
-        Args:
-            timestep: Zero-based timestep index.
-
-        """

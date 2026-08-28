@@ -33,7 +33,6 @@ Thermal depletion (cumulative-energy / γ(ψ) fitting function):
 
 from __future__ import annotations
 
-import dataclasses
 import math
 from dataclasses import dataclass, field
 
@@ -51,6 +50,8 @@ from tango_next.core.fluid_utils import (
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.specs import Common
+from tango_next.core.state_methods import StateMethods
+from tango_next.core.stream import Stream
 
 # ---------------------------------------------------------------------------
 # State dataclass
@@ -72,12 +73,13 @@ def _locked(value: bool) -> LockedState[bool]:  # noqa: FBT001
 
 
 @dataclass(frozen=True)
-class LumpedReservoirState:
+class LumpedReservoirState(StateMethods):
     """Full simulation state for one reservoir solve step.
 
     All fields are ``LockedState[float]`` so each is writable exactly once per
-    timestep.  ``mark_all_stale()`` is called by the orchestrator (via
-    ``Component.mark_all_stale()``) immediately before each ``solve()``.
+    timestep.  ``mark_all_stale()`` (inherited from ``StateMethods``) is
+    called by the orchestrator (via ``Component.mark_all_stale()``)
+    immediately before each ``solve()``.
     T_outlet and P_outlet start stale with NaN; use ``is_stale()`` rather than
     ``math.isnan()`` to detect "not yet solved" on the first call.
     """
@@ -111,9 +113,17 @@ class LumpedReservoirState:
     """Adams 2015 depletion curve coefficient p2."""
     p3: LockedState[float] = field(default_factory=_ls)
     """Adams 2015 depletion curve coefficient p3."""
+    energy_extraction_rate: LockedState[float] = field(default_factory=_ls)
+    """Instantaneous thermal power extracted from the reservoir this solve
+    (W) — ``mdot * (h_prod_prev - h_in)``. Written by ``solve()`` before
+    calling ``set_cumulative()``, which reads it back to increment
+    ``energy_extracted``. Mirrors fastsim-core's ``SetCumulative`` pattern
+    (e.g. ``Vehicle.set_cumulative()`` reading ``state.speed_ach`` to
+    increment ``state.dist``): the rate is a fresh, ordinary state field;
+    only the accumulation step is special."""
     energy_extracted: LockedState[float] = field(default_factory=lambda: _ls(0.0))
     """Cumulative thermal energy extracted from the reservoir (J), across all
-    timesteps so far. Updated via ``increment()`` (see ``solve()``), not
+    timesteps so far. Updated via ``set_cumulative()`` (see below), not
     ``update()`` — it's a running total, not a value recomputed from scratch
     each timestep. Genuinely depends on its own value from the previous
     *converged* timestep, which is exactly why it lives in ``state``: a
@@ -137,10 +147,24 @@ class LumpedReservoirState:
     problem entirely.
     """
 
-    def mark_all_stale(self) -> None:
-        """Mark every field stale — call at the start of each ``solve()``."""
-        for f in dataclasses.fields(self):
-            getattr(self, f.name).mark_stale()
+    def set_cumulative(self, dt_years: float) -> None:
+        """Increment ``energy_extracted`` from ``energy_extraction_rate * dt``.
+
+        Mirrors fastsim-core's ``SetCumulative`` trait: no automatic
+        derivation exists there either (every ``impl SetCumulative`` is
+        hand-written physics) — this is tango_next's one leaf
+        implementation, called from ``solve()`` right where the inline
+        ``energy_extracted.increment(...)`` call used to be.
+        """
+        dt_seconds = dt_years * YEAR_TO_SECOND
+        self.energy_extracted.increment(self.energy_extraction_rate.get_fresh() * dt_seconds)
+        super().set_cumulative(dt_years)
+
+    def reset_cumulative(self) -> None:
+        """Reset ``energy_extracted`` to zero (e.g. re-running from t=0 without reconstructing)."""
+        self.energy_extracted.mark_stale()
+        self.energy_extracted.update(0.0)
+        super().reset_cumulative()
 
 
 # ---------------------------------------------------------------------------
@@ -150,14 +174,34 @@ class LumpedReservoirState:
 
 @dataclass
 class LumpedReservoirHistory:
-    """Per-timestep history of lumped reservoir scalar state."""
+    """Per-timestep history of lumped reservoir scalar state.
+
+    One list field per ``LumpedReservoirState`` attribute (TANGO
+    Commandment: every ``*State`` attribute must have an analog in its
+    ``*History`` class) — see ``record()``.
+    """
 
     T_inlet: list[float] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
     P_inlet: list[float] = field(default_factory=list)
     P_outlet: list[float] = field(default_factory=list)
+    mass_rate: list[float] = field(default_factory=list)
+    T_reservoir_initial: list[float] = field(default_factory=list)
+    P_reservoir: list[float] = field(default_factory=list)
+    rho: list[float] = field(default_factory=list)
+    mu: list[float] = field(default_factory=list)
+    impedance: list[float] = field(default_factory=list)
+    delta_p_darcy: list[float] = field(default_factory=list)
+    h_inlet: list[float] = field(default_factory=list)
+    h_outlet: list[float] = field(default_factory=list)
     psi: list[float] = field(default_factory=list)
     gamma: list[float] = field(default_factory=list)
+    p1: list[float] = field(default_factory=list)
+    p2: list[float] = field(default_factory=list)
+    p3: list[float] = field(default_factory=list)
+    energy_extraction_rate: list[float] = field(default_factory=list)
+    energy_extracted: list[float] = field(default_factory=list)
+    ever_solved: list[bool] = field(default_factory=list)
 
     def record(self, state: LumpedReservoirState) -> None:
         """Append one timestep snapshot."""
@@ -165,6 +209,21 @@ class LumpedReservoirHistory:
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
         self.P_outlet.append(state.P_outlet.get_fresh())
+        self.mass_rate.append(state.mass_rate.get_fresh())
+        self.T_reservoir_initial.append(state.T_reservoir_initial.get_fresh())
+        self.P_reservoir.append(state.P_reservoir.get_fresh())
+        self.rho.append(state.rho.get_fresh())
+        self.mu.append(state.mu.get_fresh())
+        self.impedance.append(state.impedance.get_fresh())
+        self.delta_p_darcy.append(state.delta_p_darcy.get_fresh())
+        self.h_inlet.append(state.h_inlet.get_fresh())
+        self.h_outlet.append(state.h_outlet.get_fresh())
+        self.p1.append(state.p1.get_fresh())
+        self.p2.append(state.p2.get_fresh())
+        self.p3.append(state.p3.get_fresh())
+        self.energy_extraction_rate.append(state.energy_extraction_rate.get_fresh())
+        self.energy_extracted.append(state.energy_extracted.get_fresh())
+        self.ever_solved.append(state.ever_solved.get_fresh())
         self.psi.append(state.psi.get_fresh())
         self.gamma.append(state.gamma.get_fresh())
 
@@ -284,14 +343,7 @@ class LumpedReservoir(ReservoirComponent):
             C = 1.13
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * math.exp(-C * (p2 * psi + p1)))
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
 
@@ -310,9 +362,9 @@ class LumpedReservoir(ReservoirComponent):
         T_out_prev = self.T_initial if not was_solved_before else s.T_outlet.get_stale()
         P_out_prev = self.P_initial if not was_solved_before else s.P_outlet.get_stale()
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         T_inj = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -355,8 +407,8 @@ class LumpedReservoir(ReservoirComponent):
         cp_avg = 0.5 * (fluid_cp(fluid_name, T_inj, P_in) + fluid_cp(fluid_name, T_out_prev, P_out_prev))
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
-        dt_seconds = self.dt_years * YEAR_TO_SECOND
-        s.energy_extracted.increment(mdot * (h_prod_prev - h_in) * dt_seconds)
+        s.energy_extraction_rate.update(mdot * (h_prod_prev - h_in))
+        s.set_cumulative(self.dt_years)
 
         E_reservoir = self.rock_volume * self.rock_C_v * dT if dT > 0 else 1.0
         # psi = fractional energy extraction: cumulative energy pulled from the
@@ -371,8 +423,6 @@ class LumpedReservoir(ReservoirComponent):
         s.T_outlet.update(T_out)
         s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out))
 
-        self.outlet.T = T_out
-        self.outlet.P = P_out
-        self.outlet.mass_rate = mdot
-        self.outlet.rho = fluid_density(fluid_name, T_out, P_out)
-        self.outlet.mu = fluid_viscosity(fluid_name, T_out, P_out)
+        self.outlet.T.update(T_out)
+        self.outlet.P.update(P_out)
+        self.outlet.mass_rate.update(mdot)

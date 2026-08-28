@@ -13,8 +13,8 @@ wiring to the rest of the simulation, not plant layout, so it has to be an
 explicit, documented contract rather than inferred from graph shape):
 
 - Exactly one ``Source`` node named ``"inlet"`` — ``solve()`` writes
-  ``T``/``p``/``m``/``fluid`` onto its outgoing connection from ``self.inlet``
-  each timestep.
+  ``T``/``p``/``m``/``fluid`` onto its outgoing connection from its
+  ``inlet`` parameter each timestep.
 - Exactly one ``Sink`` node named ``"outlet"`` — ``solve()`` forces its
   incoming connection's pressure to ``self.injection_pressure`` (the BC
   variable ``SystemBCIteration`` iterates), and reads ``self.outlet`` back
@@ -59,7 +59,6 @@ Unit conventions (TESPy network created with ``p_unit="bar"``, ``T_unit="C"``):
 
 from __future__ import annotations
 
-import dataclasses
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -84,6 +83,8 @@ from tango_next.core.fluid_utils import (
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.policies import ComponentRole
+from tango_next.core.state_methods import StateMethods
+from tango_next.core.stream import Stream
 
 if TYPE_CHECKING:
     from tespy.connections import Connection
@@ -123,14 +124,15 @@ def _ls_dict() -> LockedState[dict[str, dict[str, float]]]:
 
 
 @dataclass(frozen=True)
-class GraphSurfaceState:
+class GraphSurfaceState(StateMethods):
     """Full simulation state for one graph-surface solve step.
 
     Every field is ``LockedState``-wrapped — writable exactly once per
     timestep, ``LockedState[float]`` for scalars and
     ``LockedState[dict[str, dict[str, float]]]`` for ``node_detail``.
-    ``mark_all_stale()`` is called by the orchestrator (via
-    ``Component.mark_all_stale()``) immediately before each ``solve()``.
+    ``mark_all_stale()`` (inherited from ``StateMethods``) is called by the
+    orchestrator (via ``Component.mark_all_stale()``) immediately before
+    each ``solve()``.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
@@ -165,19 +167,31 @@ class GraphSurfaceState:
     topology, at the cost of dict-key access instead of attribute access.
     """
 
-    def mark_all_stale(self) -> None:
-        """Mark every field stale — call at the start of each ``solve()``."""
-        for f in dataclasses.fields(self):
-            getattr(self, f.name).mark_stale()
-
 
 @dataclass
 class GraphSurfaceHistory:
-    """Per-timestep history of graph-surface scalar and per-node state."""
+    """Per-timestep history of graph-surface scalar and per-node state.
+
+    One list field per ``GraphSurfaceState`` attribute (TANGO Commandment:
+    every ``*State`` attribute must have an analog in its ``*History``
+    class) — see ``record()``. ``node_detail`` is the one field whose
+    analog is NOT a same-named, same-shaped list: it's a
+    ``dict[node][quantity] -> value`` snapshot, so its time-series analog
+    is ``node_history`` (``dict[node][quantity] -> list[value]``, transposed
+    by node/quantity rather than by timestep) — a flat
+    ``node_detail: list[dict]`` would just duplicate ``node_history`` in a
+    clumsier shape.
+    """
 
     T_inlet: list[float] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
+    P_inlet: list[float] = field(default_factory=list)
     P_outlet: list[float] = field(default_factory=list)
+    mass_rate: list[float] = field(default_factory=list)
+    dP_pipe: list[float] = field(default_factory=list)  # noqa: N815
+    P_tespy_inlet: list[float] = field(default_factory=list)
+    rho: list[float] = field(default_factory=list)
+    mu: list[float] = field(default_factory=list)
     net_power_W: list[float] = field(default_factory=list)  # noqa: N815
     net_thermal_W: list[float] = field(default_factory=list)  # noqa: N815
 
@@ -192,7 +206,13 @@ class GraphSurfaceHistory:
         """Append a snapshot of ``state`` as one timestep entry."""
         self.T_inlet.append(state.T_inlet.get_fresh())
         self.T_outlet.append(state.T_outlet.get_fresh())
+        self.P_inlet.append(state.P_inlet.get_fresh())
         self.P_outlet.append(state.P_outlet.get_fresh())
+        self.mass_rate.append(state.mass_rate.get_fresh())
+        self.dP_pipe.append(state.dP_pipe.get_fresh())
+        self.P_tespy_inlet.append(state.P_tespy_inlet.get_fresh())
+        self.rho.append(state.rho.get_fresh())
+        self.mu.append(state.mu.get_fresh())
         self.net_power_W.append(state.net_power_W.get_fresh())
         self.net_thermal_W.append(state.net_thermal_W.get_fresh())
 
@@ -483,20 +503,13 @@ class GraphSurface(SurfaceComponent):
     # record / solve
     # ------------------------------------------------------------------
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         T_in = s.T_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
@@ -571,8 +584,6 @@ class GraphSurface(SurfaceComponent):
         s.rho.update(rho_out)
         s.mu.update(mu_out)
 
-        self.outlet.T = T_out
-        self.outlet.P = P_out
-        self.outlet.mass_rate = mdot
-        self.outlet.rho = rho_out
-        self.outlet.mu = mu_out
+        self.outlet.T.update(T_out)
+        self.outlet.P.update(P_out)
+        self.outlet.mass_rate.update(mdot)

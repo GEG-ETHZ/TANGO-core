@@ -54,7 +54,6 @@ performance; results are converted to lists before storing in state.
 
 from __future__ import annotations
 
-import dataclasses
 import math
 from dataclasses import dataclass, field
 
@@ -75,6 +74,8 @@ from tango_next.core.physics_models import (
     compute_heat_loss,
 )
 from tango_next.core.specs import Common
+from tango_next.core.state_methods import StateMethods
+from tango_next.core.stream import Stream
 
 # ---------------------------------------------------------------------------
 # Shared state / history types (injection and production use same shape)
@@ -100,13 +101,14 @@ def _ls_cells() -> LockedState[list[float]]:
 
 
 @dataclass(frozen=True)
-class NumericalWellState:
+class NumericalWellState(StateMethods):
     """Full discretized simulation state for one numerical-well solve step.
 
     All scalar fields are ``LockedState[float]`` and cell arrays are
     ``LockedState[list[float]]``, each writable exactly once per timestep.
-    ``mark_all_stale()`` is called by the orchestrator (via
-    ``Component.mark_all_stale()``) immediately before each ``solve()``.
+    ``mark_all_stale()`` (inherited from ``StateMethods``) is called by the
+    orchestrator (via ``Component.mark_all_stale()``) immediately before
+    each ``solve()``.
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
@@ -132,11 +134,6 @@ class NumericalWellState:
     pump_power_watts: LockedState[float] = field(default_factory=_ls_zero)
     """Pump shaft power (W). Non-zero only for pump-equipped well components."""
 
-    def mark_all_stale(self) -> None:
-        """Mark every field stale — call at the start of each ``solve()``."""
-        for f in dataclasses.fields(self):
-            getattr(self, f.name).mark_stale()
-
 
 # Back-compat aliases so existing code that references the old specific names works.
 NumericalInjectionWellState = NumericalWellState
@@ -149,9 +146,14 @@ class NumericalWellHistory:
 
     Shape: ``history.T_cells[timestep]`` is the full axial temperature
     list for that timestep — one entry per timestep, each entry holds
-    the complete spatial list.
+    the complete spatial list. One list field per ``NumericalWellState``
+    attribute (TANGO Commandment: every ``*State`` attribute must have an
+    analog in its ``*History`` class).
     """
 
+    T_inlet: list[float] = field(default_factory=list)
+    P_inlet: list[float] = field(default_factory=list)
+    mass_rate: list[float] = field(default_factory=list)
     t_d: list[float] = field(default_factory=list)
     P_cells: list[list[float]] = field(default_factory=list)
     h_cells: list[list[float]] = field(default_factory=list)
@@ -166,6 +168,9 @@ class NumericalWellHistory:
 
     def record(self, state: NumericalWellState) -> None:
         """Append a copy of ``state`` as one timestep entry."""
+        self.T_inlet.append(state.T_inlet.get_fresh())
+        self.P_inlet.append(state.P_inlet.get_fresh())
+        self.mass_rate.append(state.mass_rate.get_fresh())
         self.t_d.append(state.t_d.get_fresh())
         self.P_cells.append(list(state.P_cells.get_fresh()))
         self.h_cells.append(list(state.h_cells.get_fresh()))
@@ -271,13 +276,6 @@ class NumericalWell(WellComponent):
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
         return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
 
-    def record(self, timestep: int) -> None:
-        """Append state to history if save_interval permits."""
-        if self.save_interval is None:
-            return
-        if timestep % self.save_interval == 0:
-            self.history.record(self.state)
-
     def _march(
         self,
         T_in: float,
@@ -288,8 +286,8 @@ class NumericalWell(WellComponent):
         """Pure cell-by-cell march from a given starting state — no state writes.
 
         Takes the starting (temperature, pressure, mass rate) and
-        dimensionless time explicitly, rather than reading ``self.inlet``/
-        ``self.state.t_d`` directly, so it can be called repeatedly with a
+        dimensionless time explicitly, rather than reading ``solve()``'s
+        ``inlet`` parameter/``self.state.t_d`` directly, so it can be called repeatedly with a
         TRIAL starting state (e.g. a candidate pump-discharge condition in
         ``NumericalProductionWellWithPump.solve()``) without mutating any
         ``LockedState`` field. ``solve()`` below is the only place that
@@ -348,13 +346,13 @@ class NumericalWell(WellComponent):
 
         return P, h, T_f, rho, mu, u
 
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
         t_d = s.t_d.get_stale() + del_t
@@ -376,11 +374,9 @@ class NumericalWell(WellComponent):
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(0.0)
 
-        self.outlet.T = T_f[-1]
-        self.outlet.P = P[-1]
-        self.outlet.mass_rate = mdot
-        self.outlet.rho = rho[-1]
-        self.outlet.mu = mu[-1]
+        self.outlet.T.update(T_f[-1])
+        self.outlet.P.update(P[-1])
+        self.outlet.mass_rate.update(mdot)
 
 
 # ---------------------------------------------------------------------------
@@ -445,7 +441,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
     ``_build_components`` (see that field's docstring in ``core/specs.py``
     for the duplicated-value bug this replaced)."""
 
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """March wellbore heat loss, then apply a pump boost if needed.
 
         If the natural (un-boosted) march already reaches
@@ -480,9 +476,9 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         """
         s = self.state
 
-        s.T_inlet.update(self.inlet.T)
-        s.P_inlet.update(self.inlet.P)
-        s.mass_rate.update(self.inlet.mass_rate)
+        s.T_inlet.update(inlet.T.get_fresh())
+        s.P_inlet.update(inlet.P.get_fresh())
+        s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
         t_d = s.t_d.get_stale() + del_t
@@ -543,8 +539,6 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(pump_pwr)
 
-        self.outlet.T = T_f[-1]
-        self.outlet.P = P[-1]
-        self.outlet.mass_rate = mdot
-        self.outlet.rho = rho[-1]
-        self.outlet.mu = mu[-1]
+        self.outlet.T.update(T_f[-1])
+        self.outlet.P.update(P[-1])
+        self.outlet.mass_rate.update(mdot)

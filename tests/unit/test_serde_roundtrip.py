@@ -94,8 +94,7 @@ def test_lumped_injection_well_roundtrip() -> None:
 
     cfg = _well_cfg(1)
     well = LumpedInjectionWell.from_dict(cfg)
-    well.inlet = Stream(T=295.0, P=5e6, mass_rate=50.0)
-    well.solve()
+    well.solve(Stream.fresh(T=295.0, P=5e6, mass_rate=50.0))
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -125,8 +124,7 @@ def test_lumped_production_well_roundtrip() -> None:
 
     cfg = _well_cfg(3)
     well = LumpedProductionWell.from_dict(cfg)
-    well.inlet = Stream(T=450.0, P=4e7, mass_rate=50.0)
-    well.solve()
+    well.solve(Stream.fresh(T=450.0, P=4e7, mass_rate=50.0))
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -150,8 +148,7 @@ def test_lumped_reservoir_roundtrip_values() -> None:
 
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
-    res.inlet = Stream(T=350.0, P=5.1e7, mass_rate=50.0)
-    res.solve()
+    res.solve(Stream.fresh(T=350.0, P=5.1e7, mass_rate=50.0))
 
     T_out = res.state.T_outlet.get_fresh()
     P_out = res.state.P_outlet.get_fresh()
@@ -178,10 +175,9 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
     res = LumpedReservoir.from_dict(cfg)
 
     for i in range(3):
-        res.inlet = Stream(T=350.0, P=5.1e7, mass_rate=50.0)
         if i > 0:
             res.mark_all_stale()
-        res.solve()
+        res.solve(Stream.fresh(T=350.0, P=5.1e7, mass_rate=50.0))
 
     energy_before = res.state.energy_extracted.get_fresh()
     dump = res.model_dump()
@@ -208,8 +204,7 @@ def test_numerical_well_cell_arrays_roundtrip() -> None:
         **_WELL_FIELDS,
     )
     well = NumericalInjectionWell.from_dict(cfg)
-    well.inlet = Stream(T=295.0, P=5e6, mass_rate=50.0)
-    well.solve()
+    well.solve(Stream.fresh(T=295.0, P=5e6, mass_rate=50.0))
 
     T_cells = well.state.T_cells.get_fresh()
     P_cells = well.state.P_cells.get_fresh()
@@ -273,8 +268,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
     from tango_next.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.inlet = Stream(mass_rate=50.0, P=8.5e6, T=423.15)
-    surface.solve()
+    surface.solve(Stream.fresh(mass_rate=50.0, P=8.5e6, T=423.15))
     surface.record(0)
 
     T_out = surface.state.T_outlet.get_fresh()
@@ -309,20 +303,19 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     from tango_next.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.inlet = Stream(mass_rate=50.0, P=8.5e6, T=423.15)
-    surface.solve()
+    surface.solve(Stream.fresh(mass_rate=50.0, P=8.5e6, T=423.15))
 
     dump = surface.model_dump()
 
     # skip_init defaults to False -> init() runs -> TESPy network rebuilt.
     surface2 = GraphSurface.from_dict(dump)
-    surface2.inlet = Stream(mass_rate=45.0, P=8.5e6, T=423.15)
     # dump captured surface's already-solved (fresh) state, so surface2's
     # restored state starts fresh too — mark it stale first, exactly like
     # the orchestrator would immediately before each solve().
     surface2.mark_all_stale()
-    surface2.solve()  # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
+    # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
+    surface2.solve(Stream.fresh(mass_rate=45.0, P=8.5e6, T=423.15))
 
-    assert pytest.approx(323.15, abs=1e-6) == surface2.outlet.T  # fixed by T_out config
-    assert pytest.approx(7.0e6) == surface2.outlet.P  # fixed by injection_pressure BC
+    assert pytest.approx(323.15, abs=1e-6) == surface2.outlet.T.get_fresh()  # fixed by T_out config
+    assert pytest.approx(7.0e6) == surface2.outlet.P.get_fresh()  # fixed by injection_pressure BC
     assert surface2.state.net_thermal_W.get_fresh() > 0
