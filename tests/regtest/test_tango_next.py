@@ -292,14 +292,16 @@ def test_lcoe_parity() -> None:
     """tango_next LCOE matches the canonical src/tango reference.
 
     Granular comparison helpers are in ``compare_against_old_tango()`` below.
-    ``rel=0.08`` matches the measured ~6.6% gap for this case with headroom
+    ``rel=0.10`` matches the measured ~8.1% gap for this case with headroom
+    (re-measured 2026-08-28, was ~6.6%/rel=0.08 — a convergence-loop bug fix
+    in the shared physics engine widened it; CAPEX itself is unaffected)
     — see ``test_old_new_economic_parity.py``'s module docstring for the
     full per-CAPEX-category breakdown and why this gap traces to
     final-timestep physics drift, not an economics-formula error.
     """
     wf = _run_tango_next(NEW_SF_MANUAL)
     lcoe = wf.to_dict()["economic"]["state"]["LCOE"]
-    assert lcoe == pytest.approx(REFERENCE_LCOE, rel=0.08)
+    assert lcoe == pytest.approx(REFERENCE_LCOE, rel=0.10)
 
 
 # ---------------------------------------------------------------------------

@@ -50,23 +50,42 @@ fixing the production-well pump-power formula, see below)
   tracks ordinary old-vs-new physics-trajectory drift over the run, not a
   formula error. Tolerances (0.25 / 0.05) keep generous headroom above
   the measured values rather than being tightened to force agreement.
-- **LCOE: SF -1.1%, DF -1.0%.** This used to be far worse (+16.1%/+11.5%)
-  even though CAPEX_total already agreed to within 1% — the culprit was
-  ``NumericalProductionWellWithPump``'s pump-power formula, which used a
-  naive ``mass_rate * ΔP / ρ`` hydraulic estimate. Verified against a live
-  old-tango run (``BC_calculator.py``'s inline
-  ``-(inlet.H - outlet.H) * mass_rate``, no efficiency term) that this
-  overstates the true ISOTHERMAL CoolProp enthalpy rise by ~53% at
-  typical wellhead conditions (~400 K): water is nearly incompressible
-  but not thermally inert, and it's the thermal-expansivity term in
-  ``dH/dP|_T = V - T*(∂V/∂T)_P`` that matters, not compressibility.
-  Fixed by switching to the same isothermal-enthalpy-rise formula old
-  tango uses (see ``NumericalProductionWellWithPump.solve()``'s
-  docstring for the full derivation) — this alone closed nearly the
-  entire LCOE gap without touching CAPEX at all, confirming the
-  diagnosis. ``pump_efficiency`` now defaults to 1.0 (matches old tango's
-  formula, which applies no efficiency derating) — planned to drop to
-  ~0.9 later once a real figure is settled on, deliberately deferred.
+- **LCOE: closed from +16.1%/+11.5% down to -1.1%/-1.0% (2026-08-10), then
+  deliberately reopened to a still-small residual gap (2026-08-14).** The
+  original gap's culprit was ``NumericalProductionWellWithPump``'s
+  pump-power formula, which used a naive ``mass_rate * ΔP / ρ`` hydraulic
+  estimate. Verified against a live old-tango run (``BC_calculator.py``'s
+  inline ``-(inlet.H - outlet.H) * mass_rate``, no efficiency term) that
+  this overstates old tango's own (isothermal) CoolProp enthalpy rise by
+  ~53% at typical wellhead conditions (~400 K). First fix (2026-08-10):
+  switch to the SAME isothermal-enthalpy-rise formula old tango uses,
+  which closed nearly the entire LCOE gap and confirmed the diagnosis.
+  Second fix (2026-08-14, a deliberate divergence from old tango, not a
+  bug in the port): old tango's isothermal pump model is itself physically
+  wrong — a real pump's inefficiency shows up as heat, not just pressure,
+  and holding temperature fixed silently discards that heat (see
+  ``docs/bugs-fixed-in-tango-next.md``'s "Old tango's downhole production
+  pump is modeled as perfectly isothermal" entry). Switched to a standard
+  isentropic-efficiency model (entropy at the true inlet state, isentropic
+  enthalpy at the candidate discharge pressure, efficiency-derated, then
+  flashed back to a real outlet temperature — see
+  ``NumericalProductionWellWithPump.solve()``'s docstring for the full
+  derivation). Quantified directly on this DF config's natural-march
+  state: 285,318 W isentropic vs. 185,975 W isothermal — a ~53% pump-work
+  difference, matching the earlier CoolProp-derivation estimate almost
+  exactly. ``pump_efficiency`` defaults to 1.0 (no derating yet) —
+  planned to drop to ~0.9 later once a real figure is settled on,
+  deliberately deferred.
+- **Re-measured 2026-08-28, LCOE now SF +8.1%, DF +5.9%** (rtol 0.08→0.10,
+  0.05→0.075) — CAPEX didn't move (CAPEX_total drift is still <1%; the
+  ``old_vs_new_rtol`` values above for CAPEX fields are unchanged and
+  still hold with headroom). The LCOE gap widened because a real
+  convergence-loop bug got fixed in the shared physics engine
+  (``LumpedReservoir.state`` wasn't restored across a within-timestep
+  re-solve — see ``test_old_new_parity.py``'s module docstring for the
+  full mechanism), which changed the reservoir's late-run temperature
+  trajectory and, through it, the run-averaged power LCOE's denominator
+  depends on. Not a change to any economics formula.
 """
 
 from __future__ import annotations
@@ -121,16 +140,19 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             "CAPEX_well": 1e-6,
             "CAPEX_surface_plant": 0.25,
             "CAPEX_total": 0.05,
-            "LCOE": 0.08,
+            # 0.08 -> 0.10 (2026-08-28): re-measured at 8.08% after fixing a
+            # convergence-loop bug in the shared physics engine (see module
+            # docstring's LCOE rationale) -- CAPEX itself didn't move.
+            "LCOE": 0.10,
         },
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 6341613.475133107,
-            "CAPEX_total": 46169896.34942632,
-            "LCOE": 0.8240688318863874,
+            "CAPEX_surface_plant": 6289215.993273648,
+            "CAPEX_total": 46117498.86756686,
+            "LCOE": 0.836601402650501,
         },
     ),
     EconomicParityCase(
@@ -156,16 +178,19 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             # contributes under 0.1% on top). Old tango's own pump model is
             # ALSO isothermal, so this is tango_next deliberately diverging
             # from a known simplification in old tango's physics, not drift.
-            "LCOE": 0.05,
+            # 0.05 -> 0.075 (2026-08-28): re-measured at 5.95% after fixing a
+            # convergence-loop bug in the shared physics engine (see module
+            # docstring's LCOE rationale) -- CAPEX itself didn't move.
+            "LCOE": 0.075,
         },
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 7810178.483363787,
-            "CAPEX_total": 47638461.357657,
-            "LCOE": 0.633224098583723,
+            "CAPEX_surface_plant": 7748660.360259245,
+            "CAPEX_total": 47576943.23455246,
+            "LCOE": 0.6428609958311917,
         },
     ),
 ]
