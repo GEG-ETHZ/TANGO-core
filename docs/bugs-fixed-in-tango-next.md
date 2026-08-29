@@ -222,28 +222,112 @@ from a mix of this-iteration and prior-iteration state.
 **Note on scope**: this is documented here as a real, structurally-avoided
 bug class. It was originally checked against `flexible_SF_manual.yml` and
 described as leaving "stale" and "current" injection temperature
-identical to 6+ decimal places — that description was wrong. Direct
-instrumentation of `src/tango`'s live `BC_calculator.py` on
-`flexible_SF_manual.yml` (2026-08-28) shows the outer loop does converge
-in 2 iterations, but the reservoir-facing injection temperature it uses
-still moves measurably between the last two iterations at later
-timesteps — roughly 0.03-0.15 K by timestep 4-7 of an 8-step run, growing
-with reservoir depletion. That's real, not noise.
+identical to 6+ decimal places — that description was wrong, and so was
+a follow-up estimate (below, for the record) that this bug's effect was
+small.
 
-However, a direct sensitivity test against `tango_next`'s own reservoir
-formula (perturbing injection temperature by 0.1 K at a comparably
-depleted state) measured `dT_out/dT_inj ≈ -0.71` — i.e. this specific
-pathway *damps* rather than amplifies a stale injection temperature. At
-the measured 0.03-0.15 K of staleness, this bug class alone accounts for
-on the order of 0.02-0.1 K of reservoir outlet temperature difference —
-nowhere near sufficient by itself to explain the several-Kelvin-scale
-gaps `tests/regtest/test_old_new_parity.py`'s widened tolerances allow
-for. It remains a real, structurally-avoided defect, just not the
-dominant explanation for those tolerances — see
-[Old tango's downhole production pump is modeled as perfectly isothermal](#old-tangos-downhole-production-pump-is-modeled-as-perfectly-isothermal)
-below for the substantially larger contributor, and that entry's
-"Why the effect is so uneven across timesteps" for the actual
-amplification mechanism shared by both bugs.
+Direct instrumentation of `src/tango`'s live `BC_calculator.py` on
+`flexible_SF_manual.yml` (2026-08-28) first showed the outer loop
+converges in 2-3 iterations, with the reservoir-facing *injection*
+temperature moving only 0.03-0.15 K between the last two iterations at
+later timesteps. A sensitivity test against `tango_next`'s own reservoir
+formula (perturbing *injection* temperature by 0.1 K) measured
+`dT_out/dT_inj ≈ -0.71` (damping, not amplifying), suggesting this bug
+contributes only ~0.02-0.1 K of reservoir-outlet difference — nowhere
+near the several-Kelvin gaps observed. **That estimate measured the
+wrong quantity.** The reservoir's impedance (pressure) and
+depletion-coefficient (temperature) calculations don't read the
+*injection* temperature's staleness — they read `self.outlet_fluid`,
+i.e. the reservoir's *own* previous output, which old tango's
+`process_stream()` uses *before* that same call's `stream_interface()`
+overwrites it. Within a single timestep's Gauss-Seidel loop, that means
+every iteration (including the final, "converged" one) computes its
+result from `self.outlet_fluid` as it stood after the *previous*
+iteration — never from the value the current iteration is about to
+produce. The quantity that actually gets committed each timestep (and
+carried forward to seed the next one) is therefore never a true fixed
+point of the reservoir's own formula, no matter how many Gauss-Seidel
+iterations run.
+
+This was confirmed exactly, not approximately: feeding `tango_next`'s
+standalone `LumpedReservoir` old tango's *actual* previous-iteration
+`outlet_fluid` state (extracted from live instrumentation, one
+Gauss-Seidel iteration before old tango's own final/committed iteration
+each timestep) as `T_out_prev`/`P_out_prev`, together with that same
+final iteration's `(T_inj, P_inj, mass_rate)`, reproduces old tango's
+committed `T_out` **and** `P_out` to displayed precision at every one of
+8 timesteps:
+
+```
+ t      old_T_out       tn_T_out      diffT        old_P_out       tn_P_out      diffP
+ 1     463.000000     463.000000   0.000000     47969025.083   47969025.083      0.000
+ 2     462.999953     462.999953   0.000000     47966319.165   47966319.165      0.000
+ 3     462.982810     462.982810   0.000000     47964879.775   47964879.775      0.000
+ 4     461.888600     461.888600   0.000000     47960768.568   47960768.568      0.000
+ 5     449.447383     449.447383   0.000000     47920329.639   47920329.639      0.000
+ 6     424.074284     424.074284   0.000000     47814886.130   47814886.130     -0.000
+ 7     413.708583     413.708583   0.000000     47759702.949   47759702.949     -0.000
+ 8     409.351072     409.351072   0.000000     47733781.525   47733781.525      0.000
+```
+
+This is a complete, exact explanation, not a partial or approximate one:
+`tango_next`'s reservoir formula (coefficients, `_depletion_curve`
+piecewise erfc/exp, CoolProp backend/call convention) is bit-identical
+to old tango's own — confirmed directly, including a standalone
+side-by-side CoolProp property comparison at matched `(P, T)` returning
+zero difference to full float64 precision — so once fed the exact state
+old tango's own formula actually used, there is *nothing left to
+diverge*. The entire several-Kelvin gap between old tango and
+`tango_next` on this case originates here, not from any separate,
+undiscovered formula bug and not primarily from the isothermal-pump
+issue documented below (whose direct effect on reservoir temperature
+was separately isolated and found to be about two orders of magnitude
+smaller — see that entry).
+
+**Why the effect is so uneven across timesteps**: the reservoir's outlet
+temperature is `T_out = γ(ψ)·ΔT + T_inj`, where `ψ` (cumulative fractional
+energy extraction) is exactly the accumulator this staleness perturbs
+every timestep, and `γ(ψ)` (`LumpedReservoir._depletion_curve`,
+`src/tango_next/components/reservoir/lumped.py`) is the Adams-2015
+depletion curve — a sigmoid that sits flat near 1.0 (no depletion) for
+small `ψ`, falls steeply through a "thermal breakthrough" transition,
+then flattens onto a lower plateau. Computing `dγ/dψ` directly from
+`tango_next`'s own reservoir at the actual `ψ` this run traces through
+shows exactly why the divergence appears where it does and nowhere else:
+
+```
+ t      psi      gamma    dgamma/dpsi   diff(T_out, tango_next vs old tango)
+ 1    0.0366    1.0000      -0.0000        -0.000000
+ 2    0.0732    1.0000      -0.0001        -0.000000
+ 3    0.1097    0.9998      -0.0212        -0.000123
+ 4    0.1462    0.9899      -0.9233        -0.026586
+ 5    0.1837    0.8647      -6.4985        -1.558634
+ 6    0.2184    0.6019      -4.7430        -4.770431
+ 7    0.2416    0.5151      -1.8772        -3.551869
+ 8    0.2609    0.4882      -0.9485        -1.971310
+```
+
+The shape of `|dγ/dψ|` — near-zero, then a sharp peak (~6.5, a
+65,000×-larger sensitivity than at t=1-2) around t=5, then decaying —
+tracks the shape of the observed divergence almost exactly, one step
+ahead of it (`ψ` at timestep `t` sets `T_out` at `t`, so a sensitivity
+peak at t=5 shows up as maximal *divergence* once it's compounded
+through one more step, at t=6). Away from breakthrough, `γ` is
+essentially flat, so the one-iteration-stale `outlet_fluid` this bug
+introduces every timestep gets multiplied by ~zero and is invisible;
+during breakthrough, the identical per-timestep staleness gets
+multiplied by a derivative orders of magnitude larger, purely because of
+where on the curve the run happens to sit — not because the underlying
+staleness itself grew. This is why the earlier isolated `dT_out/dT_inj`
+sensitivity test (which perturbs *injection* temperature, an input the
+reservoir formula barely uses for anything except this same `ψ`
+pathway) still measured meaningful damping at a single perturbation,
+while the real bug — a standing, uncorrected offset in `outlet_fluid`
+present from the very first timestep's *pressure* channel onward (a
+~250 Pa impedance-driven seed at t=1, confirmed to trace to a ~1 MPa gap
+between the reservoir's cold-start pressure and its actual
+first-iteration output, not any config or CoolProp discrepancy) —
+compounds through the accumulator every single step regardless.
 
 **Avoided by design since:** `2ae784e` (2026-08-03) — "refactor(tango_next):
 cascade mark_all_stale(), let reservoir converge with the circuit," the
@@ -299,68 +383,42 @@ residual gap (LCOE re-measured 2026-08-28 at SF +8.1%, DF +5.9% — the
 larger part of that widening is the convergence-loop fix described
 above, not this pump change alone).
 
-**Why it matters for cumulative comparisons**: the production well's
-outlet temperature feeds the surface component, which (for closed-loop
-configs) feeds the injection well and, one timestep later, the
-reservoir's own injection temperature — and the reservoir's
-`energy_extracted` accumulator (see the entry above) integrates that
-temperature's effect on enthalpy *every timestep, cumulatively*, for the
-life of the simulation. A per-timestep temperature deficit here compounds
-in `tango_next`/`src/tango` comparisons the same way the mixed
-fresh/stale bug's staleness does, except this one has no damping bound
-found so far and applies at every timestep rather than only near
-convergence — a structurally larger and steadily-growing contributor to
-the reservoir-temperature and downstream LCOE gaps that motivated
-`tests/regtest/test_old_new_parity.py`'s and
-`tests/regtest/test_old_new_economic_parity.py`'s widened tolerances for
-`flexible_SF_manual.yml`/`flexible_DF_manual.yml` (both configs have a
-`production_well_with_pump`).
-
-**Why the effect is so uneven across timesteps**: the reservoir's outlet
-temperature is `T_out = γ(ψ)·ΔT + T_inj`, where `ψ` (fractional energy
-extraction) is exactly the cumulative accumulator both this bug and the
-mixed fresh/stale bug perturb, and `γ(ψ)` (`LumpedReservoir._depletion_curve`,
-`src/tango_next/components/reservoir/lumped.py`) is the Adams-2015
-depletion curve — a sigmoid that sits flat near 1.0 (no depletion) for
-small `ψ`, falls steeply through a "thermal breakthrough" transition, then
-flattens onto a lower plateau. Computing `dγ/dψ` directly from
-`tango_next`'s own reservoir at the actual `ψ` this run traces through
-(`flexible_SF_manual.yml`/`hydro_sf_electric.yml`, same 8-timestep run as
-above) shows exactly why the divergence appears where it does and nowhere
-else:
+**Why it matters — and why it's smaller than it first looked**: the
+production well's outlet temperature feeds the surface component, so a
+first guess was that a warmer isentropic-pump outlet would propagate
+through the injection well into a warmer reservoir injection temperature
+every timestep, compounding cumulatively into a large, steadily-growing
+reservoir-temperature difference the way the entry above's staleness
+does. **A direct, isolated test contradicts this.** Monkeypatching
+`tango_next`'s pump model back to old tango's isothermal formula (holding
+everything else in `tango_next` fixed — same config, same
+surface/injection-well/reservoir code) and re-running
+`hydro_sf_electric.yml` end-to-end shows the isentropic pump's actual,
+isolated effect on reservoir temperature is tiny (≲0.02 K, plateauing)
+and runs in the *opposite* direction from the naive story:
 
 ```
- t      psi      gamma    dgamma/dpsi   diff(T_out, tango_next vs old tango)
- 1    0.0366    1.0000      -0.0000        -0.000000
- 2    0.0732    1.0000      -0.0001        -0.000000
- 3    0.1097    0.9998      -0.0212        -0.000123
- 4    0.1462    0.9899      -0.9233        -0.026586
- 5    0.1837    0.8647      -6.4985        -1.558634
- 6    0.2184    0.6019      -4.7430        -4.770431
- 7    0.2416    0.5151      -1.8772        -3.551869
- 8    0.2609    0.4882      -0.9485        -1.971310
+     pump_T isen   pump_T isot   T_inj isen   T_inj isot   Eext isen   Eext isot
+t=6    411.5857      411.1535     353.5208     353.5575    4.284e15    4.283e15
 ```
 
-The shape of `|dγ/dψ|` — near-zero, then a sharp peak (~6.5, a
-65,000×-larger sensitivity than at t=1-2) around t=5, then decaying —
-tracks the shape of the observed divergence almost exactly, one step
-ahead of it (`ψ` at timestep `t` sets `T_out` at `t`, so a sensitivity
-peak at t=5 shows up as maximal *divergence* once it's compounded through
-one more step, at t=6). This is the actual amplification mechanism: away
-from breakthrough, `γ` is essentially flat, so any small `ψ` contamination
-— from either bug — gets multiplied by ~zero and is invisible; during
-breakthrough, the same tiny per-timestep contamination gets multiplied by
-a derivative that is orders of magnitude larger, purely because of where
-on the curve the run happens to sit, not because the underlying error in
-`ψ` itself grew. Neither bug needs to be individually large to produce a
-multi-Kelvin discrepancy — they only need to perturb `ψ` at all, every
-timestep, while the run crosses this transition. Confirmed to be the full
-explanation (not a symptom of some third, undiscovered formula bug) by
-feeding `tango_next`'s own standalone `LumpedReservoir` the EXACT
-converged `(T_inj, P_inj, mass_rate)` sequence a live, instrumented old
-tango run actually used at each timestep — bypassing any upstream feed
-difference entirely — which still reproduces this same divergence
-trajectory to the decimal place shown above.
+The isentropic pump does make the produced fluid warmer at the wellhead
+(411.59 K vs. 411.15 K, as expected — it adds real heat). But this
+config's surface power plant then extracts *more* energy from that
+warmer stream, so the fluid returning down the injection well ends up
+*colder*, not warmer (353.52 K vs. 353.56 K) — meaning the isentropic
+pump makes `tango_next`'s reservoir deplete *very slightly faster* than
+an isothermal pump would, not slower. This is a real, config-dependent
+effect, but it is roughly two orders of magnitude too small to be a
+major contributor to the reservoir-temperature gap — see
+[Convergence loop can commit a result computed from mixed fresh/stale state](#convergence-loop-can-commit-a-result-computed-from-mixed-freshstale-state)
+above, which was proven (by exact reconstruction of old tango's actual
+internal state) to be the complete explanation for that gap instead.
+
+What this bug *does* still substantially affect is the pump-power number
+itself (quantified above at ~53%), which feeds directly into LCOE
+through the parasitic-load and economic calculations — that part of the
+original diagnosis holds; it just isn't the reservoir-depletion story.
 
 **Avoided by design since:** `tango_next`'s
 `NumericalProductionWellWithPump.solve()`
