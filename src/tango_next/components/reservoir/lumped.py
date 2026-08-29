@@ -117,9 +117,7 @@ class LumpedReservoirState(StateMethods):
     """Instantaneous thermal power extracted from the reservoir this solve
     (W) — ``mdot * (h_prod_prev - h_in)``. Written by ``solve()`` before
     calling ``set_cumulative()``, which reads it back to increment
-    ``energy_extracted``. Mirrors fastsim-core's ``SetCumulative`` pattern
-    (e.g. ``Vehicle.set_cumulative()`` reading ``state.speed_ach`` to
-    increment ``state.dist``): the rate is a fresh, ordinary state field;
+    ``energy_extracted``: the rate is a fresh, ordinary state field;
     only the accumulation step is special."""
     energy_extracted: LockedState[float] = field(default_factory=lambda: _ls(0.0))
     """Cumulative thermal energy extracted from the reservoir (J), across all
@@ -150,10 +148,9 @@ class LumpedReservoirState(StateMethods):
     def set_cumulative(self, dt_years: float) -> None:
         """Increment ``energy_extracted`` from ``energy_extraction_rate * dt``.
 
-        Mirrors fastsim-core's ``SetCumulative`` trait: no automatic
-        derivation exists there either (every ``impl SetCumulative`` is
-        hand-written physics) — this is tango_next's one leaf
-        implementation, called from ``solve()`` right where the inline
+        No automatic derivation exists for this — every accumulator is
+        hand-written physics — this is tango_next's one leaf implementation,
+        called from ``solve()`` right where the inline
         ``energy_extracted.increment(...)`` call used to be.
         """
         dt_seconds = dt_years * YEAR_TO_SECOND

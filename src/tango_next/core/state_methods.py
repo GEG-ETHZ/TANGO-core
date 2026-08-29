@@ -1,40 +1,28 @@
-"""StateMethods — Python analog of fastsim-core's ``StateMethods`` trait.
-
-Mirrors ``~/git/nrel/fastsim/fastsim-core/src/traits.rs``'s
-``StateMethods: SetCumulative + SaveState + Step + TrackedStateMethods``
-and its derive macro, ``fastsim-proc-macros/src/sm_derive.rs`` —
-deliberately WITHOUT ``Step`` (tango_next has no per-struct index-counter
-concept to increment/reset; nothing here needs it).
+"""StateMethods — mixin providing recursive state-lifecycle operations.
 
 Any class that either IS a ``*State``/``Stream``-shaped leaf (its own
 fields are ``LockedState``) or CONTAINS such state (``Component``, which
 holds ``state``/``outlet``) inherits this mixin. Recursion targets are
 found generically — by ``isinstance`` check against ``LockedState`` or
 ``StateMethods`` — never by field name (``"state"``) or class name
-(``"...State"``). This is the fix for a real design flaw in the Rust
-macro this mirrors: ``sm_derive.rs`` has to fall back to
-``ident_str.contains("State")`` to guess whether a struct IS a leaf state,
-because Rust has no runtime type introspection to ask "does this value's
-class inherit the state-methods trait?" — Python does, so the SAME
-mechanism (inheriting ``StateMethods``) serves as both "this class
-participates in state tracking" and "here is where recursion should
-continue," with no separate naming convention or field-attribute marker
-(Rust's ``#[has_state]``) needed.
+(``"...State"``). This one mechanism (inheriting ``StateMethods``) serves
+as both "this class participates in state tracking" and "here is where
+recursion should continue," with no separate naming convention or
+field-attribute marker needed.
 
-Method-by-method mapping to the Rust trait:
+The lifecycle operations provided:
 
-- ``TrackedStateMethods`` (``mark_fresh``/``check_and_reset``) → same
-  names here, recursive instead of macro-generated per field.
-- ``SaveState.save_state`` → ``record(timestep)`` here, matching
-  tango_next's existing name (every concrete ``Component.record()``
-  already did this by hand before this mixin existed — see
-  ``_state_history_pairs()``).
-- ``SetCumulative`` → ``set_cumulative``/``reset_cumulative`` here. In
-  Rust this trait has NO automatic derivation either — every
-  ``impl SetCumulative`` in fastsim-core is hand-written per struct
-  (it needs physics-specific knowledge of which fields accumulate from a
-  rate × dt) and just propagates to children generically. Same shape
-  here: the mixin's default only recurses; a leaf class with a genuine
+- ``mark_fresh``/``check_and_reset`` — recursive freshness tracking, one
+  set of names covering every nested ``LockedState``/``StateMethods``
+  field.
+- ``record(timestep)`` — pushes ``(state, history)`` pairs, honoring
+  ``save_interval`` when present. Matches tango_next's existing name
+  (every concrete ``Component.record()`` already did this by hand before
+  this mixin existed — see ``_state_history_pairs()``).
+- ``set_cumulative``/``reset_cumulative`` — no automatic derivation is
+  possible here: accumulating a rate × dt into a running total needs
+  physics-specific knowledge of which field is the rate and which is the
+  total. The mixin's default only recurses; a leaf class with a genuine
   accumulator (e.g. ``LumpedReservoirState.energy_extracted``) overrides
   it with real physics.
 """
@@ -142,9 +130,7 @@ class StateMethods:
 
         Honors ``self.save_interval`` if the attribute exists (``None``
         disables recording entirely; otherwise records every Nth
-        timestep) — matches fastsim-core's ``SaveState`` derive's two
-        branches (with/without a ``save_interval`` field), collapsed into
-        one runtime check instead of two macro-generated impls.
+        timestep).
         """
         if hasattr(self, "save_interval"):
             save_interval = self.save_interval

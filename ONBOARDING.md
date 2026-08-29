@@ -27,7 +27,6 @@ Write Docs       ██░░░░░░░░░░░░░░░░░░  ~
 ### Codebases
 - [ ] tango-core — main simulation framework
 - [ ] tango-super — monorepo wrapper / integration layer
-- [ ] [fastsim](https://github.com/NatLabRockies/fastsim) — reference implementation (Rust); used for design patterns
 - [ ] python-template — team project scaffolding template
 - [ ] GEOPHIRES-X — geothermal resource estimation tool
 - [ ] geg-dvc-data-registry — DVC-backed data registry (GCS remote)
