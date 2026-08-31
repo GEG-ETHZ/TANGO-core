@@ -51,6 +51,9 @@ stages:
           - regressor
           - gpr_n_restarts_optimizer
           - regressor_rf_n_estimators
+          - mlp_hidden_layer_sizes
+          - mlp_alpha
+          - mlp_max_iter
           - classifier_n_estimators
           - cv_folds
           - surrogate_seed

@@ -15,7 +15,11 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 # Stage 3: surrogate (one regressor per objective, swappable -- see
 # surrogate_api.REGRESSOR_FACTORIES -- plus a RandomForestClassifier for
 # feasibility). `regressor: gaussian_process` (default) predicts a smooth
-# surface, which keeps NSGA2 able to distinguish nearby designs; `random_forest`
+# surface, which keeps NSGA2 able to distinguish nearby designs, but its
+# O(n^3) fit cost (CV folds x hyperparameter-optimizer restarts) gets slow
+# past a few thousand feasible rows. `mlp` is also smooth without that
+# scaling problem (fits by gradient descent instead) -- worth trying if GP
+# training time becomes a bottleneck as n_lhs_samples grows. `random_forest`
 # is this app's original choice (piecewise-constant predictions can stall
 # the search on plateaus -- see surrogate_api.SurrogateModel's docstring),
 # kept here for an apples-to-apples comparison, not recommended as the
@@ -26,6 +30,9 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 regressor: gaussian_process
 gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
 regressor_rf_n_estimators: 300 # only used when regressor: random_forest
+mlp_hidden_layer_sizes: "64,64" # only used when regressor: mlp
+mlp_alpha: 0.001 # only used when regressor: mlp
+mlp_max_iter: 2000 # only used when regressor: mlp
 classifier_n_estimators: 300
 cv_folds: 5
 surrogate_seed: 1

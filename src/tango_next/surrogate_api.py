@@ -59,6 +59,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score, recall_score
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
+from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
 from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
@@ -252,8 +253,13 @@ class SurrogateModel:
     since every nearby point predicts the identical objective value and
     there is no local gradient to climb. A GP predicts a smooth,
     differentiable surface instead, which keeps a gradient-free search like
-    NSGA2 actually able to distinguish nearby designs. ``random_forest_regressor_factory``
-    is still available (e.g. for an apples-to-apples comparison) via
+    NSGA2 actually able to distinguish nearby designs. A GP's fit cost is
+    O(n^3) though (repeated across CV folds and hyperparameter-optimizer
+    restarts), which gets expensive past a few thousand feasible rows --
+    ``mlp_regressor_factory`` is a smooth alternative without that scaling
+    problem (fits by gradient descent instead), and ``random_forest_regressor_factory``
+    (this module's original choice) is still available for an apples-to-apples
+    comparison -- see each factory's own docstring, all registered in
     ``REGRESSOR_FACTORIES``. Inputs are always standardized through
     ``x_scaler`` (fit on the same rows as the regressors) before every
     predict call — harmless for a scale-invariant regressor like a random
@@ -376,12 +382,43 @@ def random_forest_regressor_factory(
     return factory
 
 
+def mlp_regressor_factory(
+    hidden_layer_sizes: tuple[int, ...] = (64, 64),
+    alpha: float = 1e-3,
+    max_iter: int = 2000,
+    seed: int | None = 1,
+) -> RegressorFactory:
+    """Alternative ``regressor_factory``: smooth like a GP, but fits by gradient descent.
+
+    No O(n^3) matrix decomposition (see ``gaussian_process_regressor_factory``'s
+    docstring for why that gets expensive) -- an ``MLPRegressor`` fit scales
+    far better as ``n_lhs_samples`` grows, at the cost of needing more manual
+    care to land on a genuinely smooth (not overfit/jagged) fit: ``alpha``
+    (L2 regularization) and ``hidden_layer_sizes`` are the two knobs worth
+    tuning first if predictions look wrong. Also has no native per-prediction
+    uncertainty, unlike the GP -- irrelevant here since ``SurrogateModel``'s
+    separate ``RandomForestClassifier`` already handles feasibility gating
+    regardless of which regressor_factory trains the objectives.
+    """
+
+    def factory(n_dims: int) -> MLPRegressor:  # noqa: ARG001 -- n_dims unused, MLPRegressor infers input width from X at fit time
+        return MLPRegressor(
+            hidden_layer_sizes=hidden_layer_sizes,
+            alpha=alpha,
+            max_iter=max_iter,
+            random_state=seed,
+        )
+
+    return factory
+
+
 # Name -> factory-of-factories, so a caller (e.g. an app's train_surrogate.py
 # CLI/params.yaml) can select a regressor by a plain string instead of
 # importing the factory function directly.
 REGRESSOR_FACTORIES: dict[str, Callable[..., RegressorFactory]] = {
     "gaussian_process": gaussian_process_regressor_factory,
     "random_forest": random_forest_regressor_factory,
+    "mlp": mlp_regressor_factory,
 }
 
 

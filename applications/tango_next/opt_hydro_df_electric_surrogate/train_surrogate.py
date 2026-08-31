@@ -16,10 +16,16 @@ from tango_next.surrogate_api import (
     classifier_diagnostics_df,
     diagnostics_df,
     gaussian_process_regressor_factory,
+    mlp_regressor_factory,
     random_forest_regressor_factory,
     save_surrogate,
     train_surrogate,
 )
+
+
+def _parse_hidden_layer_sizes(value: str) -> tuple[int, ...]:
+    """``"64,64"`` -> ``(64, 64)`` -- argparse type for ``--mlp-hidden-layer-sizes``."""
+    return tuple(int(n) for n in value.split(","))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,11 +37,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--regressor",
-        choices=["gaussian_process", "random_forest"],
+        choices=["gaussian_process", "random_forest", "mlp"],
         default=params.get("regressor", "gaussian_process"),
         help="Per-objective regressor. gaussian_process (default) predicts a smooth surface, "
         "which keeps NSGA2 able to distinguish nearby designs -- see surrogate_api.SurrogateModel's "
-        "docstring. random_forest is this app's original choice, kept for comparison.",
+        "docstring. mlp is also smooth but scales better to large n_lhs_samples (no O(n^3) fit "
+        "cost). random_forest is this app's original choice, kept for comparison.",
     )
     parser.add_argument(
         "--gpr-n-restarts-optimizer",
@@ -48,6 +55,24 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=params.get("regressor_rf_n_estimators", 300),
         help="Only used when --regressor=random_forest.",
+    )
+    parser.add_argument(
+        "--mlp-hidden-layer-sizes",
+        type=_parse_hidden_layer_sizes,
+        default=_parse_hidden_layer_sizes(params.get("mlp_hidden_layer_sizes", "64,64")),
+        help="Comma-separated layer widths, e.g. '64,64'. Only used when --regressor=mlp.",
+    )
+    parser.add_argument(
+        "--mlp-alpha",
+        type=float,
+        default=params.get("mlp_alpha", 1e-3),
+        help="L2 regularization strength. Only used when --regressor=mlp.",
+    )
+    parser.add_argument(
+        "--mlp-max-iter",
+        type=int,
+        default=params.get("mlp_max_iter", 2000),
+        help="Only used when --regressor=mlp.",
     )
     parser.add_argument(
         "--classifier-n-estimators",
@@ -78,6 +103,13 @@ def main(args: argparse.Namespace) -> None:
     if args.regressor == "gaussian_process":
         regressor_factory = gaussian_process_regressor_factory(
             n_restarts_optimizer=args.gpr_n_restarts_optimizer,
+            seed=args.seed,
+        )
+    elif args.regressor == "mlp":
+        regressor_factory = mlp_regressor_factory(
+            hidden_layer_sizes=args.mlp_hidden_layer_sizes,
+            alpha=args.mlp_alpha,
+            max_iter=args.mlp_max_iter,
             seed=args.seed,
         )
     else:
