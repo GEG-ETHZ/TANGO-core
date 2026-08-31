@@ -1,4 +1,4 @@
-"""Stage 3: fit a random-forest surrogate (regressors + feasibility classifier) on the LHS training data.
+"""Stage 3: fit a surrogate (regressors + feasibility classifier) on the LHS training data.
 
 Usage: uv run python train_surrogate.py
 """
@@ -15,21 +15,47 @@ from tango_next.pymoo_api import load_params
 from tango_next.surrogate_api import (
     classifier_diagnostics_df,
     diagnostics_df,
+    gaussian_process_regressor_factory,
+    random_forest_regressor_factory,
     save_surrogate,
     train_surrogate,
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """CLI for the random-forest hyperparameters."""
+    """CLI for the regressor choice and its hyperparameters, plus the feasibility classifier's."""
     params = load_params(PARAMS_FILE)
     parser = argparse.ArgumentParser(
-        description="Fit a random-forest surrogate (regressors + feasibility classifier) on the LHS training data.",
+        description="Fit a surrogate (regressors + feasibility classifier) on the LHS training data.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--n-estimators", type=int, default=params.get("rf_n_estimators", 300))
-    parser.add_argument("--cv-folds", type=int, default=params.get("rf_cv_folds", 5))
-    parser.add_argument("--seed", type=int, default=params.get("rf_seed", 1))
+    parser.add_argument(
+        "--regressor",
+        choices=["gaussian_process", "random_forest"],
+        default=params.get("regressor", "gaussian_process"),
+        help="Per-objective regressor. gaussian_process (default) predicts a smooth surface, "
+        "which keeps NSGA2 able to distinguish nearby designs -- see surrogate_api.SurrogateModel's "
+        "docstring. random_forest is this app's original choice, kept for comparison.",
+    )
+    parser.add_argument(
+        "--gpr-n-restarts-optimizer",
+        type=int,
+        default=params.get("gpr_n_restarts_optimizer", 5),
+        help="Only used when --regressor=gaussian_process.",
+    )
+    parser.add_argument(
+        "--regressor-rf-n-estimators",
+        type=int,
+        default=params.get("regressor_rf_n_estimators", 300),
+        help="Only used when --regressor=random_forest.",
+    )
+    parser.add_argument(
+        "--classifier-n-estimators",
+        type=int,
+        default=params.get("classifier_n_estimators", 300),
+    )
+    parser.add_argument("--cv-folds", type=int, default=params.get("cv_folds", 5))
+    parser.add_argument("--seed", type=int, default=params.get("surrogate_seed", 1))
     parser.add_argument(
         "--classifier-threshold",
         type=float,
@@ -49,11 +75,23 @@ def main(args: argparse.Namespace) -> None:
     param_names = [p.name for p in param_specs()]
     objective_names = [o.name for o in objective_specs()]
 
+    if args.regressor == "gaussian_process":
+        regressor_factory = gaussian_process_regressor_factory(
+            n_restarts_optimizer=args.gpr_n_restarts_optimizer,
+            seed=args.seed,
+        )
+    else:
+        regressor_factory = random_forest_regressor_factory(
+            n_estimators=args.regressor_rf_n_estimators,
+            seed=args.seed,
+        )
+
     surrogate = train_surrogate(
         training_df,
         param_names,
         objective_names,
-        n_estimators=args.n_estimators,
+        regressor_factory=regressor_factory,
+        classifier_n_estimators=args.classifier_n_estimators,
         cv_folds=args.cv_folds,
         seed=args.seed,
         classifier_threshold=args.classifier_threshold,

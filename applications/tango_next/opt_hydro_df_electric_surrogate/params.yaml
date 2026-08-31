@@ -1,23 +1,34 @@
 # Parameters for the hydro_df_electric surrogate-assisted optimization pipeline
-# (LHS sample -> real-sim sweep -> train random-forest surrogate -> NSGA2
+# (LHS sample -> real-sim sweep -> train GP-regressor surrogate -> NSGA2
 # against the surrogate -> real-sim validation of its pareto front).
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
 
 # Stage 1/2: LHS sample size + the real-sim sweep that evaluates it.
-n_lhs_samples: 2000
+# Bumped 2000 -> 5000 (2026-08-31, Chad's call): cheap on Euler (~15-40 min
+# given 45 workers), improves regressor/classifier resolution everywhere,
+# especially the sparser higher-LCOE/power corner.
+n_lhs_samples: 5000
 lhs_seed: 1
 n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
 
-# Stage 3: random-forest surrogate (one regressor per objective, plus a
-# feasibility classifier -- see train_surrogate.py's docstring). Raise
-# classifier_threshold (e.g. 0.7) if outputs/surrogate_classifier_diagnostics.csv's
-# cv_recall_infeasible looks too low -- missing a true-infeasible design
-# (predicting it feasible) is the costly error here, not over-rejecting a
-# feasible one.
-rf_n_estimators: 300
-rf_cv_folds: 5
-rf_seed: 1
+# Stage 3: surrogate (one regressor per objective, swappable -- see
+# surrogate_api.REGRESSOR_FACTORIES -- plus a RandomForestClassifier for
+# feasibility). `regressor: gaussian_process` (default) predicts a smooth
+# surface, which keeps NSGA2 able to distinguish nearby designs; `random_forest`
+# is this app's original choice (piecewise-constant predictions can stall
+# the search on plateaus -- see surrogate_api.SurrogateModel's docstring),
+# kept here for an apples-to-apples comparison, not recommended as the
+# default. Raise classifier_threshold (e.g. 0.7) if
+# outputs/surrogate_classifier_diagnostics.csv's cv_recall_infeasible looks
+# too low -- missing a true-infeasible design (predicting it feasible) is
+# the costly error here, not over-rejecting a feasible one.
+regressor: gaussian_process
+gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
+regressor_rf_n_estimators: 300 # only used when regressor: random_forest
+classifier_n_estimators: 300
+cv_folds: 5
+surrogate_seed: 1
 classifier_threshold: 0.5
 
 # Stage 4: surrogate-driven NSGA2. Left UNSET (commented) by default —

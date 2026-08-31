@@ -96,7 +96,7 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
         training_df,
         param_names,
         objective_names,
-        n_estimators=10,
+        classifier_n_estimators=10,
         cv_folds=2,
         seed=1,
     )

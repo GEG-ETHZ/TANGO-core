@@ -16,8 +16,9 @@ workflow this enables:
    in parallel, mirroring ``run_hydro_df_electric_sweep/sweep.py``'s
    spawn-context/``imap_unordered``/atomic-per-row-JSON pattern (this is a
    real, possibly-long, Euler-scale job — resumability matters here).
-3. ``train_surrogate`` — one ``RandomForestRegressor`` per objective, fit on
-   the successful rows from step 2.
+3. ``train_surrogate`` — one regressor per objective (default:
+   ``GaussianProcessRegressor``, swappable via ``regressor_factory`` -- see
+   ``REGRESSOR_FACTORIES``), fit on the successful rows from step 2.
 4. ``run_surrogate_optimization`` — an NSGA2 search using the trained
    surrogate as the evaluator (classifier-gated, elementwise — see
    ``_SurrogateProblem``), not the real sim — cheap enough to run far
@@ -38,6 +39,7 @@ import copy
 import json
 import multiprocessing
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -52,8 +54,11 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from scipy.stats import qmc
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score, recall_score
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
+from sklearn.preprocessing import StandardScaler
 
 from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
 from tango_next.pymoo_api import ParetoProgressOutput
@@ -231,7 +236,26 @@ def run_lhs_sweep(
 
 @dataclass
 class SurrogateModel:
-    """One ``RandomForestRegressor`` per objective, a feasibility classifier, plus CV diagnostics.
+    """One swappable per-objective regressor, a feasibility classifier, plus CV diagnostics.
+
+    ``models`` holds whatever ``regressor_factory`` (see ``train_surrogate``)
+    produced — any scikit-learn-compatible regressor (``.fit``/``.predict``)
+    works, not just one hardcoded type. The default factory,
+    ``gaussian_process_regressor_factory``, was chosen over
+    ``RandomForestRegressor`` (this module's original choice) because a
+    random forest's predictions are piecewise-constant (flat within each
+    leaf's training-data region) — NSGA2 searching against that surface
+    repeatedly collapses onto whichever plateau looks best and stalls there,
+    since every nearby point predicts the identical objective value and
+    there is no local gradient to climb. A GP predicts a smooth,
+    differentiable surface instead, which keeps a gradient-free search like
+    NSGA2 actually able to distinguish nearby designs. ``random_forest_regressor_factory``
+    is still available (e.g. for an apples-to-apples comparison) via
+    ``REGRESSOR_FACTORIES``. Inputs are always standardized through
+    ``x_scaler`` (fit on the same rows as the regressors) before every
+    predict call — harmless for a scale-invariant regressor like a random
+    forest, but required for one like a GP that fits a per-dimension length
+    scale, so it's applied unconditionally rather than per-factory.
 
     The regressors alone have no notion of "this design doesn't physically
     work" — trained only on FEASIBLE rows, they extrapolate smooth-looking
@@ -243,12 +267,15 @@ class SurrogateModel:
     the feasible/infeasible boundary, unlike the regressors) is what
     ``evaluate_one`` checks FIRST, raising ``SurrogateInfeasibleError``
     before ever consulting the regressors for a design it predicts won't
-    work — see that method's docstring.
+    work — see that method's docstring. The classifier stays a
+    ``RandomForestClassifier`` regardless of ``regressor_factory`` — only
+    the objective regressors are swappable.
     """
 
     param_names: list[str]
     objective_names: list[str]
-    models: dict[str, RandomForestRegressor]
+    models: dict[str, Any]
+    x_scaler: StandardScaler
     cv_r2: dict[str, float]
     cv_mae: dict[str, float]
     classifier: RandomForestClassifier
@@ -264,7 +291,8 @@ class SurrogateModel:
         evaluation goes through ``evaluate_one`` instead, which gates on the
         classifier first.
         """
-        return np.column_stack([self.models[name].predict(x) for name in self.objective_names])
+        x_scaled = self.x_scaler.transform(x)
+        return np.column_stack([self.models[name].predict(x_scaled) for name in self.objective_names])
 
     def predict_feasible(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
         """``(n, n_var) -> (n,)`` bool — classifier's feasibility call at ``self.classifier_threshold``."""
@@ -284,19 +312,92 @@ class SurrogateModel:
         if not self.predict_feasible(x_arr)[0]:
             msg = f"feasibility classifier predicts infeasible for x={x}"
             raise SurrogateInfeasibleError(msg)
-        return [self.models[name].predict(x_arr)[0] for name in self.objective_names]
+        x_scaled = self.x_scaler.transform(x_arr)
+        return [self.models[name].predict(x_scaled)[0] for name in self.objective_names]
+
+
+# n_dims -> a fresh, UNFITTED sklearn-style regressor (bare `.fit`/`.predict`).
+# `train_surrogate` calls this twice per objective (once for the CV model,
+# once for the final model refit on all feasible rows) -- a factory, not a
+# shared instance, because several regressor types (e.g. a GP's kernel)
+# mutate their own hyperparameters in place during `.fit`, so reusing one
+# instance would leak the CV fold's fitted state into the final model's
+# starting point. `n_dims` is threaded through even though most regressor
+# types ignore it, because a GP's kernel needs to know the input
+# dimensionality up front to size its per-dimension length-scale vector.
+RegressorFactory = Callable[[int], Any]
+
+
+def gaussian_process_regressor_factory(
+    n_restarts_optimizer: int = 5,
+    seed: int | None = 1,
+) -> RegressorFactory:
+    """Default ``regressor_factory``: a smooth, differentiable surface (see ``SurrogateModel``'s
+    docstring for why this replaced ``RandomForestRegressor`` as the default).
+
+    Kernel is ``ConstantKernel * RBF + WhiteKernel``, with a per-dimension
+    (not scalar) ``length_scale`` so the GP can learn that some standardized
+    parameters matter more than others (ARD).
+    """
+
+    def factory(n_dims: int) -> GaussianProcessRegressor:
+        kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
+            length_scale=np.ones(n_dims),
+            length_scale_bounds=(1e-2, 1e2),
+        ) + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-10, 1e1))
+        return GaussianProcessRegressor(
+            kernel=kernel,
+            normalize_y=True,
+            n_restarts_optimizer=n_restarts_optimizer,
+            random_state=seed,
+        )
+
+    return factory
+
+
+def random_forest_regressor_factory(
+    n_estimators: int = 300,
+    seed: int | None = 1,
+) -> RegressorFactory:
+    """Alternative ``regressor_factory``: this module's original choice.
+
+    Piecewise-constant predictions can stall a surrogate-driven NSGA2 search
+    on plateaus (see ``SurrogateModel``'s docstring) -- kept here for an
+    apples-to-apples comparison against the GP default, not recommended as
+    the default itself.
+    """
+
+    def factory(n_dims: int) -> RandomForestRegressor:  # noqa: ARG001 -- n_dims unused, RF doesn't need it
+        return RandomForestRegressor(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
+
+    return factory
+
+
+# Name -> factory-of-factories, so a caller (e.g. an app's train_surrogate.py
+# CLI/params.yaml) can select a regressor by a plain string instead of
+# importing the factory function directly.
+REGRESSOR_FACTORIES: dict[str, Callable[..., RegressorFactory]] = {
+    "gaussian_process": gaussian_process_regressor_factory,
+    "random_forest": random_forest_regressor_factory,
+}
 
 
 def train_surrogate(
     training_df: pd.DataFrame,
     param_names: list[str],
     objective_names: list[str],
-    n_estimators: int = 300,
+    regressor_factory: RegressorFactory | None = None,
+    classifier_n_estimators: int = 300,
     cv_folds: int = 5,
     seed: int | None = 1,
     classifier_threshold: float = 0.5,
 ) -> SurrogateModel:
-    """Fit one ``RandomForestRegressor`` per objective, plus a feasibility ``RandomForestClassifier``.
+    """Fit one per-objective regressor (default: ``GaussianProcessRegressor``), plus a feasibility ``RandomForestClassifier``.
+
+    ``regressor_factory`` defaults to ``gaussian_process_regressor_factory()``
+    (seeded with this call's own ``seed``) when omitted -- pass e.g.
+    ``random_forest_regressor_factory()``, or ``REGRESSOR_FACTORIES["random_forest"]()``,
+    to swap it. See ``SurrogateModel``'s docstring for the tradeoff.
 
     The regressors train on the FEASIBLE rows only (an infeasible row has no
     ``y``). The classifier trains on EVERY row (both classes needed to learn
@@ -313,6 +414,9 @@ def train_surrogate(
     only catches half of true infeasible designs still lets NSGA2 exploit
     the other half — same failure mode the classifier exists to prevent.
     """
+    if regressor_factory is None:
+        regressor_factory = gaussian_process_regressor_factory(seed=seed)
+
     feasible = training_df[training_df["success"]]
     n_dropped = len(training_df) - len(feasible)
     if n_dropped:
@@ -324,19 +428,21 @@ def train_surrogate(
         raise ValueError(msg)
 
     x = feasible[param_names].to_numpy(dtype=float)
-    models: dict[str, RandomForestRegressor] = {}
+    x_scaler = StandardScaler().fit(x)
+    x_scaled = x_scaler.transform(x)
+    models: dict[str, Any] = {}
     cv_r2: dict[str, float] = {}
     cv_mae: dict[str, float] = {}
     kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     for name in objective_names:
         y = feasible[name].to_numpy(dtype=float)
-        cv_model = RandomForestRegressor(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
-        y_pred = cross_val_predict(cv_model, x, y, cv=kfold)
+        cv_model = regressor_factory(x.shape[1])
+        y_pred = cross_val_predict(cv_model, x_scaled, y, cv=kfold)
         cv_r2[name] = r2_score(y, y_pred)
         cv_mae[name] = mean_absolute_error(y, y_pred)
 
-        model = RandomForestRegressor(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
-        model.fit(x, y)
+        model = regressor_factory(x.shape[1])
+        model.fit(x_scaled, y)
         models[name] = model
 
     x_all = training_df[param_names].to_numpy(dtype=float)
@@ -346,17 +452,18 @@ def train_surrogate(
         raise ValueError(msg)
 
     stratified_kfold = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=seed)
-    cv_classifier = RandomForestClassifier(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
+    cv_classifier = RandomForestClassifier(n_estimators=classifier_n_estimators, random_state=seed, n_jobs=-1)
     y_feasible_pred = cross_val_predict(cv_classifier, x_all, y_feasible_all, cv=stratified_kfold)
     classifier_cv_accuracy = accuracy_score(y_feasible_all, y_feasible_pred)
     classifier_cv_recall_infeasible = recall_score(y_feasible_all, y_feasible_pred, pos_label=False)
 
-    classifier = RandomForestClassifier(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
+    classifier = RandomForestClassifier(n_estimators=classifier_n_estimators, random_state=seed, n_jobs=-1)
     classifier.fit(x_all, y_feasible_all)
 
     return SurrogateModel(
         param_names=param_names,
         objective_names=objective_names,
+        x_scaler=x_scaler,
         models=models,
         cv_r2=cv_r2,
         cv_mae=cv_mae,
