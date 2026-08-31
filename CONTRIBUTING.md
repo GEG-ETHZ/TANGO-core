@@ -4,50 +4,50 @@
 These are strict rules that all TANGO developers must follow.  These rules are
 intended to prevent problems that TANGO users and developers have struggled
 with.
-1. <a id="rule-object-is-config"></a>All new code objects and attributes must comply with the object-is-config, config-is-object
+1. <a id="rule-object-is-config"></a>**object == config**: All new code objects and attributes must comply with the object-is-config, config-is-object
   paradigm in which code objects and config (e.g. yaml files) have near 1:1
   congruence (exceptions could be e.g. parameter values that are derived upon
   instantiation).  Similarly, all new module structure must have reasonable
   compliance with this paradigm.
-1. <a id="rule-locked-state"></a>All state variables (i.e. any variables
+1. <a id="rule-locked-state"></a>**Mutation is guarded**: All state variables (i.e. any variables
   that mutate through temporal/time iterations) must be wrapped in
   `src/tango_next/core/locked_state.py::LockedState`, the single-value wrapper
   that enforces exactly one `update()` per time step, AND must live inside the
   component's `state` dataclass field — never as a bare `Component` attribute.
-1. <a id="rule-state-history-parity"></a>All attributes in `*State` classes must have analogs in `*History`
+1. <a id="rule-state-history-parity"></a>**History is recordable**: All attributes in `*State` classes must have analogs in `*History`
   classes (a `list[T]` field, appended to in `record()`) — a value worth
   protecting as per-timestep state is worth keeping a time series of.
   Exception: `EconomicComponent`'s `EconomicState` has no `*History` class
   at all, since it isn't per-timestep state — the component runs exactly
   once (via `finalize()`), never through `record()`. Revisit if that
   changes.
-1. <a id="rule-shared-by-reference"></a>Any shared data that must be available within multiple objects in the
+1. <a id="rule-shared-by-reference"></a>**Single source of truth**: Any shared data that must be available within multiple objects in the
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
-1. <a id="rule-ci-checks"></a>All new code additions must pass:
+1. <a id="rule-ci-checks"></a>**Deterministic quality checks**: All new code additions must pass:
     - `mypy --strict` type checking, as handled in the pyproject.toml file
     - `ruff` format checking
     - `pytest` tests
 
     All tests are automated through git hooks and GitLab pipelines and can optionally be run with `just check`.
-1. <a id="rule-docstrings"></a>All doc strings must be formatted in Google style and explain what the
+1. <a id="rule-docstrings"></a>**Doc string formatting**: All doc strings must be formatted in Google style and explain what the
   documented object does, arguments, class attributes, outputs, ...
-1. <a id="rule-pydantic-schemas"></a>All class attributes representing simulation config or persisted/
+1. <a id="rule-pydantic-schemas"></a>**Schemas defined in code**: All class attributes representing simulation config or persisted/
   serialized state must be defined in pydantic schemas. Orchestration/wiring
   internals, runtime state governed by `LockedState` ([rule: LockedState](#rule-locked-state)), and framework
   primitives (e.g. `LockedState` itself) are exempt — they're never loaded
   from or dumped to config, so pydantic's validation/serialization contract
   doesn't apply to them.
-1. <a id="rule-no-eval"></a>There shall not be any `eval` functions!
-1. <a id="rule-unit-conversion-factors"></a>All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
-1. <a id="rule-finite-values-strenum"></a>Any parameter that can take on a small, finite set of values should be
+1. <a id="rule-no-eval"></a>**See no `eval`**: There shall not be any `eval` functions!
+1. <a id="rule-unit-conversion-factors"></a>**Unit conversions**: All unit conversion factors shall be defined in and imported from src/tango_next/core/constants.py
+1. <a id="rule-finite-values-strenum"></a>**Enums for finite variants**: Any parameter that can take on a small, finite set of values should be
   handled as `StrEnum` so that we explicitly document and enforce these values.
-1. <a id="rule-no-silent-pass"></a>Unimplemented base-class methods must `raise NotImplementedError` (or a
+1. <a id="rule-no-silent-pass"></a>**Guard against misused base classes**: Unimplemented base-class methods must `raise NotImplementedError` (or a
   more specific error), never a silent `pass`. A no-op placeholder is
   indistinguishable from "correctly does nothing" until someone goes
   looking, and can let real bugs run silently for a long time before
   anyone notices.
-1. <a id="rule-unit-suffix-naming"></a>Any variable or YAML field whose value is in a non-SI unit must name that
+1. <a id="rule-unit-suffix-naming"></a>**Unit naming convention**: Any variable or YAML field whose value is in a non-SI unit must name that
   unit explicitly as a suffix (e.g. `p_out_megapascals`, not `p_out`) —
   converted to/from SI at the point the field is read, using the factors
   from [rule: unit conversion factors](#rule-unit-conversion-factors). Fields already in SI units (`T_out` in Kelvin, pressures in
@@ -57,8 +57,8 @@ with.
   `Network(p_unit='bar', ...)`, so a bare `p_out: 0.05` silently meant bar)
   with one that's self-evident from the name alone, no matter where it's
   read out of context.
-1. All private fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
-1. <a id="rule-encapsulated-mutation"></a>A class instance's fields must only be modified by the instance
+1. **Document private attributes/fields**: All private attributes/fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
+1. <a id="rule-encapsulated-mutation"></a>**Encapsulated mutation**: A class instance's fields must only be modified by the instance
   itself — via methods it defines, whether those methods are called
   internally or by external code — never by direct external assignment
   (`obj.field = value`). `state` (and `state`-shaped containers like
@@ -66,7 +66,7 @@ with.
   by external callers — see [rule: LockedState](#rule-locked-state)) is
   the one exception. **Not yet verified applied uniformly** — see
   `docs/tango_next_tasks.md`'s open-items list for the audit task.
-1. <a id="rule-fluid-loop-needs-pressure-source"></a>Every closed fluid loop must have an explicit pump or compressor
+1. <a id="rule-fluid-loop-needs-pressure-source"></a>**No perpetual motion machines**: Every closed fluid loop must have an explicit pump or compressor
   driving circulation somewhere in it — a downhole pump-bearing well
   (`*_with_pump`) or a surface circulation pump (a `Compressor`/`Pump`
   node in `power_plant.nodes`). Relying on thermosiphon effect (the
