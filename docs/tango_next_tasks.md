@@ -300,12 +300,88 @@ Top of the queue for the next session, in order:
 `system_name()`/no-time-marching bug (see "Open items — tracked, not
 scheduled" below) — old tango is not being patched.
 
+## Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open 2026-08-19
+
+Built `tango_next.surrogate_api` + `applications/tango_next/opt_hydro_df_electric_surrogate/`
+(LHS sample → real-sim sweep → train a `RandomForestRegressor` per
+objective + a `RandomForestClassifier` feasibility gate → NSGA2 against
+the surrogate → real-sim validation of the result). Confirmed on a real
+2000-sample Euler run:
+
+- **Speed: ~10x faster end to end** (whole pipeline ≈1763s vs. the real
+  `opt_hydro_df_electric` run's 19,116s) — the surrogate-driven NSGA2
+  step itself is negligible; most of the pipeline's own time is the LHS
+  real-sim sweep (~330s) and the constrained NSGA2 search (~1365s at
+  `n_ieq_constr=1`, elementwise evaluation — see gap below).
+- **Feasibility classifier worked as intended**: 100% of the returned
+  pareto designs are real-feasible now (up from 26%, i.e. 11/43, before
+  the classifier gate was added) — CV accuracy 97.6%, recall on
+  infeasible designs 98%.
+- **But the result is not yet usable as-is.** Re-deriving genuine
+  non-domination from the REAL (not predicted) objective values
+  (`surrogate_api.corrected_pareto_front`) collapses the returned
+  41-design front down to only **3** genuinely non-dominated designs —
+  the other 38 are near-duplicates that only *looked* distinct under the
+  surrogate's ~1-3% prediction noise. That surviving 3-design front also
+  only spans a narrow low-LCOE corner (LCOE 0.3496–0.3498, power
+  4591–4599 kW) vs. the real optimization's much broader 45-design front
+  (LCOE 0.3463–0.4622, power 4691–4865 kW) — the higher-LCOE/higher-power
+  half of the real tradeoff curve is missing entirely.
+- **Working theory** (not confirmed): `RandomForestRegressor` predictions
+  are piecewise-constant (flat per-leaf plateaus). NSGA2 can converge a
+  whole population onto tiny variations within one lucky plateau, which
+  looks like many distinct non-dominated tradeoffs to the surrogate but
+  collapses once real values disambiguate them — and starves exploration
+  of parts of the space with thinner training-data signal (only 926/2000
+  LHS samples were feasible).
+
+**Next steps, Chad's stated order (2026-08-19, prioritized this way
+deliberately — do not reorder without checking with him):**
+
+1. **Switch to a smooth predictor** instead of `RandomForestRegressor`
+   (top candidate discussed: Gaussian Process Regression — standard
+   choice for few decision variables + expensive real evaluations, and
+   gives a native per-prediction uncertainty that could replace/augment
+   the separate classifier). Chad also floated plain scikit-learn
+   `DecisionTreeClassifier`/`DecisionTreeRegressor` (DTC/DTR) as an
+   option — flag before trying: a single decision tree's plateaus are
+   LARGER/coarser than a random forest's (a forest is an average over
+   many trees, which already smooths the staircase somewhat), so DTC/DTR
+   would likely make the plateau-collapse problem WORSE, not better, on
+   the smoothness dimension specifically — worth confirming/refuting
+   empirically rather than assuming, but that's the a priori expectation.
+2. **Bump `n_lhs_samples` from 2000 to 5000** — cheap on Euler (~15-40 min
+   given 45 workers), improves regressor/classifier resolution
+   everywhere, especially the sparser higher-LCOE/power corner.
+3. **Only if 1+2 don't work well: an active-learning loop** (retrain the
+   surrogate on `validate_surrogate`'s real-evaluated designs each round,
+   re-optimize, repeat a few times). Chad's explicit call: this is
+   deprioritized — "overly complicated and risks giving away performance
+   benefit" (each round adds a full real-sim validation pass, eating into
+   the ~10x speedup) — don't reach for it first.
+
+Status: paused here (Chad's call, 2026-08-19) — picking back up next
+session, not mid-fix.
+
 ## Open items — tracked, not scheduled
 
 Real, still-open items that are deliberately **not** being worked next
 session. Kept here so they don't get silently dropped or re-discovered
 from scratch.
 
+- **Audit encapsulated-mutation rule (`CONTRIBUTING.md`'s TANGO
+  Commandments) for uniform application, 2026-08-27.** New rule: a class
+  instance's fields must only be modified by the instance itself (via its
+  own methods, called internally or externally), never by direct external
+  assignment — `state` (and `state`-shaped containers like `Stream`) is
+  the one exception. Added retroactively, prompted by the `inlet`/
+  `outlet` `Stream` refactor (same session: `Stream` fields became
+  `LockedState`-wrapped, `inlet` became a `solve()` parameter instead of a
+  stored field — see `Component.solve()`'s docstring). Not yet swept
+  across the rest of `src/tango_next/` for other direct external
+  `obj.field = value` writes that predate the rule (e.g. anything on
+  `SurfaceComponent.injection_pressure`, orchestrator-level bookkeeping,
+  or elsewhere) — deliberately deferred, not urgent.
 - **Old-tango AGS no-time-marching bug** (`system_name()` routing in
   `src/tango/utils.py` sends AGS-shaped configs to a no-op `SystemNative`,
   so old tango never advances time for AGS configs). Confirmed real,
@@ -542,6 +618,17 @@ old tango's apps — that's task 3 below, still blocked/deferred.
       component, or a `GraphSurface` subgraph (turbine/condenser/pump) that
       reproduces what `native_ORC` builds internally. Scope this as its
       own design discussion before writing YAML.
+      **Revisit `Stream.port` when this is scoped** (removed 2026-08-28 —
+      see `core/stream.py`'s class docstring and git history): it was
+      carried over from old tango's TESPy port-addressing scheme
+      (`flexible_pp.py`'s `source_port`/`target_port`, e.g. a separator's
+      distinct vapor/liquid outlets) but never wired to anything, since
+      every `Component` boundary is single-port regardless of how many
+      ports its internal TESPy network has. An ORC's condenser (or any
+      future multi-outlet component) may be the first real case where a
+      `Component`'s own `inlet`/`outlet` boundary is genuinely multi-port
+      — if so, design the field fresh against that concrete need rather
+      than resurrecting the removed one blind.
 - [ ] Decide app structure: one shared `tango_next` sweep pipeline
       parameterized by product (heat/electricity), or two directories
       mirroring old tango's split. Leaning toward shared, since the
@@ -774,9 +861,7 @@ verified, then this fix popped back in and re-checked).
          attribute or holding onto the original raw dict yourself. Added
          `Workflow.to_dict()` (fresh `deepcopy`, safe regardless of how
          the `Workflow` was built), plus `from_str()`/`to_str()`/`to_file()`
-         alongside the existing `from_file()` — modeled on fastsim-core's
-         `SerdeAPI` trait pattern (see
-         [[project_phase2_architecture_lessons]]). 5 new round-trip tests
+         alongside the existing `from_file()`. 5 new round-trip tests
          in `test_tango_next.py` (`test_workflow_to_config_*`,
          `test_workflow_from_str_to_str_roundtrip`,
          `test_workflow_to_file_from_file_roundtrip`,
@@ -891,10 +976,9 @@ verified, then this fix popped back in and re-checked).
          so `to_dict()` doesn't lose it — explicitly documented as a
          temporary passthrough to remove once a real economic schema
          exists. Matches the one class of exception Chad said was
-         acceptable, citing fastsim's `Option<...>`-then-`Some(...)`
-         pattern for derived fields (`eff_interp_at_max_input` in
-         fastsim-core's `electric_machine.rs`) — a handful of clearly-labeled
-         exceptions is fine; an undocumented, ambiguous cache is not.
+         acceptable, for a derived-optional-field pattern — a handful of
+         clearly-labeled exceptions is fine; an undocumented, ambiguous
+         cache is not.
       8. **`brine_density` and `well_pattern`/`well_pattern_dimens` —
          confirmed dead, handled differently.** `brine_density` (present in
          every example file's `common:` block) is consumed by nothing in
@@ -973,7 +1057,7 @@ verified, then this fix popped back in and re-checked).
           `mypy src/`, `ruff check`, `ruff format --check` all clean;
           `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` re-run and
           confirmed byte-identical output to before this change.
-- [ ] **NEXT SESSION — Chad wants to understand the shared-reference
+- [x] **NEXT SESSION — Chad wants to understand the shared-reference
       mechanics more deeply before this is considered settled.** Raised
       2026-07-23 at the very end of a long session ("brain is smoking"),
       explicitly deferred — do not just answer inline next time, treat as
@@ -996,7 +1080,7 @@ verified, then this fix popped back in and re-checked).
          confirm `Workflow(wf.to_dict())` still gives every component the
          SAME `common` object, not just equal ones.)
       3. Chad's intuition is that Python reference semantics here would
-         NOT translate directly to Rust (fastsim-core is Rust) — wants this
+         NOT translate directly to Rust — wants this
          explained explicitly: `Rc<RefCell<Common>>`/`Arc<Mutex<Common>>`
          vs. Python's default pass-by-object-reference, why Rust's ownership
          model wouldn't let multiple structs hold an unsynchronized shared
@@ -1489,73 +1573,45 @@ reasoning doesn't have to be re-derived next session.
   to be deleted isn't worth the effort now.
 
 - **`Workflow.to_dataframe()` — flatten per-timestep history into a single
-  dataframe, modeled on fastsim's `to_dataframe()`/`to_pydict(flatten=True)`
-  (`~/git/nrel/fastsim/python/fastsim/__init__.py`).** Flagged 2026-08-11,
-  not started. Goal: one row per recorded timestep, one column per
-  time-varying leaf value, column names dot-joined through the full
-  hierarchy (e.g. `components.production_well_upper.history.T_outlet`,
+  dataframe.** Flagged 2026-08-11, not started. Goal: one row per recorded
+  timestep, one column per time-varying leaf value, column names dot-joined
+  through the full hierarchy (e.g.
+  `components.production_well_upper.history.T_outlet`,
   `components.surface.history.node_history.turbine.P`).
 
-  **How this differs from fastsim's version, concretely — don't port the
-  fastsim algorithm verbatim:**
-  1. fastsim's `to_pydict(flatten=True)` exists because Rust structs have no
-     native "give me a plain nested dict" — it round-trips through
-     msgpack/yaml/json first. `tango_next` already has this:
-     `Workflow.to_dict()` (`workflows/workflow.py`) is the live, canonical,
-     never-stale nested dict (`common`/`layout`/`sim_config`/`title`/
-     `components`/`economic`, each component's own `model_dump()` nested
-     under `components.<name>`). Start from that, not a new pydict layer.
-  2. fastsim's `get_flattened()` has to *infer* which list-valued leaves are
-     genuine per-timestep history vs. static config, via a length-matching
-     heuristic (`len(v) == hist_len`) — because in a Rust vehicle model
-     "history" isn't always cleanly delimited from config in the flattened
-     view. **Chad (who wrote that heuristic) confirmed 2026-08-11 it's
-     known-fragile, not a stable design to imitate** — he flagged it at the
-     time as something to fix later in fastsim itself. Don't treat it as
-     prior art worth matching; it's included above only to explain why
-     fastsim needed inference at all. `tango_next` doesn't have that
-     ambiguity in the first place: every component's
-     `history` field is a dedicated dataclass
-     (`WellboreHistory`/`LumpedReservoirHistory`/`GraphSurfaceHistory`/
-     `NumericalWellHistory`, per-component-type in `components/*/`) whose
-     fields are *always* per-timestep lists, and `state` fields are always
-     scalars (`LockedState.get_fresh()`, one value for the current
-     timestep). So the flatten pass only needs to recurse into dicts
-     (component name → `history` →, for `GraphSurface`, two more levels:
-     `node_history[node_name][quantity]`) and treat any list found under a
-     `.history.` path segment as a column — no length-based guessing
-     needed, `history.` prefix is sufficient. (Non-history list-shaped YAML
-     config, if any ever exists, would need excluding explicitly, but none
-     is known to exist today — check before generalizing this rule.)
-  3. **Real complication — confirmed NOT unique to tango_next, fastsim has
-     the identical open gap at the Rust level, just not yet hit in
-     practice.** `Component` has a per-component `save_interval`
-     (`core/component.py`, default `1`, frozen config field) — every
-     component decides independently whether to append to its own
-     `history` on a given timestep, so two components in the same
-     `Workflow` with different `save_interval` values genuinely produce
-     different-length history lists. Checked fastsim's Rust side
-     (`fastsim-core/src/traits.rs`, `HistoryMethods` trait) for how it
-     handles this: `set_save_interval()` cascades recursively down every
-     nested struct, but the getter's own doc comment admits the gap
-     outright — *"Returns save interval for `self` but does not guarantee
-     recursive consistency in nested objects"* — i.e. nothing stops a
-     child's `save_interval` from later diverging from its parent's
-     cascaded value, and the getter doesn't check. fastsim's Python
-     `to_dataframe()` papers over exactly this with its
-     `allow_partial`/`cutoff = min(...)` fallback — worth reading that
-     fallback path literally before ever copying it: it looks like it
-     takes `min()` of the history arrays themselves, not
-     `min(len(v) for v in ...)`, which is almost certainly a latent bug
-     there, not something to reproduce.
+  **Design notes:**
+  1. `tango_next` already has a live, canonical, never-stale nested dict:
+     `Workflow.to_dict()` (`workflows/workflow.py`) — `common`/`layout`/
+     `sim_config`/`title`/`components`/`economic`, each component's own
+     `model_dump()` nested under `components.<name>`. Start from that, not
+     a new pydict layer.
+  2. No length-matching heuristic is needed to tell history apart from
+     static config: every component's `history` field is a dedicated
+     dataclass (`WellboreHistory`/`LumpedReservoirHistory`/
+     `GraphSurfaceHistory`/`NumericalWellHistory`, per-component-type in
+     `components/*/`) whose fields are *always* per-timestep lists, and
+     `state` fields are always scalars (`LockedState.get_fresh()`, one
+     value for the current timestep). So the flatten pass only needs to
+     recurse into dicts (component name → `history` →, for `GraphSurface`,
+     two more levels: `node_history[node_name][quantity]`) and treat any
+     list found under a `.history.` path segment as a column — no
+     length-based guessing needed, `history.` prefix is sufficient.
+     (Non-history list-shaped YAML config, if any ever exists, would need
+     excluding explicitly, but none is known to exist today — check before
+     generalizing this rule.)
+  3. **Real complication to design for up front.** `Component` has a
+     per-component `save_interval` (`core/component.py`, default `1`,
+     frozen config field) — every component decides independently whether
+     to append to its own `history` on a given timestep, so two components
+     in the same `Workflow` with different `save_interval` values
+     genuinely produce different-length history lists.
 
-     **tango_next has no such get/set mechanism at all today** —
-     `save_interval` is a plain frozen-at-construction Pydantic field, set
-     once per component via YAML, not a runtime-settable cascading
-     property the way fastsim's mixin trait provides. So this isn't "port
-     fastsim's setter," it's "design the equivalent from scratch, and this
-     time make the getter actually detect divergence instead of silently
-     reporting only `self`."
+     `tango_next` has no get/set mechanism for this today — `save_interval`
+     is a plain frozen-at-construction Pydantic field, set once per
+     component via YAML, not a runtime-settable cascading property. So
+     this needs a getter designed from scratch that actually detects
+     divergence across the tree instead of silently reporting only
+     `self`.
 
      **Proposed API** (discussed with Chad 2026-08-11 — his sketch was a
      Rust sum type, `enum SaveInterval { Uniform(usize), NonUniform }`;
@@ -1610,16 +1666,13 @@ reasoning doesn't have to be re-derived next session.
      time-series columns entirely (there's nothing to align it to
      row-per-timestep with); if a combined view is wanted later, that's a
      second, separate one-row dataframe/dict, not mixed into this one.
-  5. No time/index column exists implicitly the way fastsim's `cyc.` history
-     does (fastsim's own drive cycle carries `time_seconds` for free).
-     `to_dataframe()` should prepend an explicit index column (row `i` →
-     calendar timestep `i * save_interval`, then `* dt_years` if a
-     years-since-start column is wanted) rather than leaving rows
-     positionally implicit.
+  5. No time/index column exists implicitly. `to_dataframe()` should
+     prepend an explicit index column (row `i` → calendar timestep
+     `i * save_interval`, then `* dt_years` if a years-since-start column
+     is wanted) rather than leaving rows positionally implicit.
   6. `pandas`/`polars` are both already base dependencies (`pyproject.toml`)
-     — unlike a hypothetical fresh port, no new dependency decision is
-     needed; mirroring fastsim's dual-`backend` parameter is just a
-     preference call, not a dependency question.
+     — no new dependency decision is needed; supporting both via a
+     `backend` parameter is a preference call, not a dependency question.
 
   **Proposed signature**: `Workflow.to_dataframe(backend: Literal["pandas",
   "polars"] = "pandas") -> pd.DataFrame | pl.DataFrame`, implemented as a
@@ -1775,7 +1828,7 @@ reasoning doesn't have to be re-derived next session.
      every physical property as if it were water.
   2. **Confirmed**: the inlet→outlet `fluid_name` copy-through was
      byte-identical in every component, plus a second orchestrator-level
-     copy in `SystemDirect._wire_one_stream`/`SystemBCIteration` — two
+     copy in `SystemDirect._update_stream`/`SystemBCIteration` — two
      redundant layers of the same fact, both unvalidated, both drift-prone,
      neither ever actually needed since every fluid-consuming component
      already holds a reference to the Workflow's single shared `Common`
@@ -1806,7 +1859,7 @@ reasoning doesn't have to be re-derived next session.
      inlet→outlet copy in every component's `solve()`
      (`well/lumped.py` ×3, `reservoir/lumped.py`, `surface/graph.py`,
      `well/numerical.py`) and the orchestrator-level copy
-     (`SystemDirect._wire_one_stream`, `SystemBCIteration`'s
+     (`SystemDirect._update_stream`, `SystemBCIteration`'s
      `fluid_name` param/attribute and its stream-seeding assignments).
      `GraphSurface`'s TESPy `fluid={...}` dict now reads
      `self.common.fluid_name` instead of `self.inlet.fluid_name`.
@@ -1901,15 +1954,14 @@ reasoning doesn't have to be re-derived next session.
   started 2026-07-24. Explicitly parked, not planned; not blocking
   anything above.
 - **pymoo optimization API for `tango_next`** — see the vision doc's Phase 3
-  task list (2026-07-24). Not started; modeled on fastsim's `pymoo_api.py`.
+  task list (2026-07-24). Not started.
 
   **`src/tango/optimizerr.py` review (2026-07-24)** — read in full (1229
   lines) before answering whether it's worth reusing. Verdict: the overall
   shape (`Optimizer` → `BaseOptimizer` → `{SOOOptimizer, MOOOptimizer}`,
   each defining a pymoo `Problem` and wiring `minimize()`) is a reasonable
-  scaffold, similar in spirit to fastsim's `ModelObjectives`/
-  `CalibrationProblem` split — but the plumbing inside has real problems,
-  not just style complaints:
+  scaffold — but the plumbing inside has real problems, not just style
+  complaints:
   - **`set_parameter()` (line 232) uses `exec(f"{param_path} = {value}")`,
     and `objective_func()` (line 134) uses `eval(target)`** to read/write
     arbitrary attribute paths built from string templates
@@ -1917,11 +1969,9 @@ reasoning doesn't have to be re-derived next session.
     genuine anti-pattern, not just ugly: no type checking, no useful error
     location, and a real (if currently low-probability, since the string
     templates are developer-authored, not user input) code-injection shape
-    if that ever changes. fastsim's `pymoo_api.py` solves the identical
-    problem — set a parameter by name, extract an objective by name —
-    with plain `Callable` functions operating directly on a dict (see
-    `new_cab_length_m`/`get_mod_soc` in `cal_bev.py`). That's the pattern
-    to actually follow, not `optimizerr.py`.
+    if that ever changes. The pattern to actually follow instead: set a
+    parameter by name, extract an objective by name, with plain `Callable`
+    functions operating directly on a dict.
   - **Broad `except Exception: print(...); return inf`** (lines 143-149,
     252-257, 277-282) swallows real bugs during optimization and silently
     treats them as "bad but valid" objective values — matches the
@@ -1963,8 +2013,8 @@ reasoning doesn't have to be re-derived next session.
   **Bottom line**: not "garbage" outright — the architecture shape and
   the Pareto-selection math are worth keeping conceptually — but the
   parameter-setting/objective-extraction mechanism (eval/exec) is a real
-  problem to leave behind entirely, not a style nitpick, and fastsim's
-  `pymoo_api.py` is the actual pattern to follow instead.
+  problem to leave behind entirely, not a style nitpick. Plain `Callable`
+  functions operating on a dict is the actual pattern to follow instead.
 
 - **Per-swept-variable scatter plots for every pareto set and brute-force
   sweep.** Flagged 2026-08-13.

@@ -1,9 +1,13 @@
 """Surrogate-model-assisted NSGA2 for tango_next's ``opt_*`` pymoo apps.
 
-Deliberately independent of ``tango_next.pymoo_api`` internals — this module
+Deliberately independent of ``tango_next.pymoo_api`` INTERNALS — this module
 only imports its PUBLIC names (``ParamSpec``, ``ObjectiveSpec``,
-``PymooConfig``) and pymoo's own library APIs directly, and does not touch
-``Minimization``/``_evaluate_one``/etc. at all. The workflow this enables:
+``PymooConfig``, ``ParetoProgressOutput``) and pymoo's own library APIs
+directly, and does not touch ``Minimization``/``_evaluate_one``/etc. at all.
+``ParetoProgressOutput`` specifically is reused (not reimplemented) so the
+real-sim and surrogate-driven runs print an IDENTICAL per-generation
+progress table — see ``run_surrogate_optimization``'s docstring. The
+workflow this enables:
 
 1. ``generate_lhs_samples`` — a generous Latin Hypercube sample over an app's
    ``ParamSpec`` bounds (this module's own LHS, not ``pymoo_api``'s ``LHS``
@@ -15,9 +19,9 @@ only imports its PUBLIC names (``ParamSpec``, ``ObjectiveSpec``,
 3. ``train_surrogate`` — one ``RandomForestRegressor`` per objective, fit on
    the successful rows from step 2.
 4. ``run_surrogate_optimization`` — an NSGA2 search using the trained
-   surrogate as the evaluator (a batch ``pymoo.core.problem.Problem``, not
-   the real sim) — cheap enough to run far larger population/generation
-   counts than a real-sim search.
+   surrogate as the evaluator (classifier-gated, elementwise — see
+   ``_SurrogateProblem``), not the real sim — cheap enough to run far
+   larger population/generation counts than a real-sim search.
 5. ``validate_surrogate_pareto`` — re-run the REAL simulation on the
    surrogate's pareto front and raise ``SurrogateValidationError`` if any
    objective is off by more than a tolerance (default 0.1%) for any design.
@@ -45,12 +49,14 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from scipy.stats import qmc
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score, recall_score
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 
 from tango_next.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
+from tango_next.pymoo_api import ParetoProgressOutput
 from tango_next.workflows.workflow import Workflow
 
 if TYPE_CHECKING:
@@ -447,20 +453,23 @@ def run_surrogate_optimization(
     data, where the regressors still confidently — and wrongly — predict
     plausible objective values) and will actively search into them.
 
-    ``verbose=True`` by default (unlike a bare ``minimize()`` call) so
-    pymoo's own per-generation table (``n_gen``/``n_eval``/``f_opt``/etc.)
-    prints exactly like the real ``Minimization.run()``'s does — without it,
-    there's no way to tell from the log whether a fast run converged early
-    via ``ftol``/``xtol`` after a handful of generations or actually ran
-    every one of ``n_max_gen``, which matters for a fair time comparison
-    against the real-sim optimization.
+    ``verbose=True`` by default (unlike a bare ``minimize()`` call) so a
+    per-generation progress table prints, via ``pymoo_api.ParetoProgressOutput``
+    — the exact SAME ``Output`` class ``Minimization.run()`` itself uses, not
+    a second, independently-shaped one — so the real-sim and surrogate-driven
+    runs print IDENTICAL tables (``n_gen``/``n_eval``/``n_nds``/``t [s]``/
+    ``euclid_min (z)``), directly comparable line for line. Without the
+    elapsed-time column specifically, there's no way to tell from the log
+    whether a fast run converged early via ``ftol``/``xtol`` after a handful
+    of generations or actually ran every one of ``n_max_gen``, which matters
+    for a fair time comparison against the real-sim optimization.
 
     Returns a DataFrame with the same column shape as ``Minimization``'s own
     (param columns + objective columns), so it's plottable with any app's
     existing ``make_plots()`` unchanged.
     """
     problem = _SurrogateProblem(surrogate, params)
-    algorithm = NSGA2(pop_size=pymoo_config.pop_size)
+    algorithm = NSGA2(pop_size=pymoo_config.pop_size, output=ParetoProgressOutput())
     termination = DMOT(
         xtol=pymoo_config.xtol,
         ftol=pymoo_config.ftol,
@@ -547,3 +556,57 @@ def validate_surrogate_pareto(
         exc.comparison = comparison  # type: ignore[attr-defined]
         raise exc
     return comparison
+
+
+def corrected_pareto_front(
+    comparison: pd.DataFrame,
+    param_names: list[str],
+    objective_names: list[str],
+) -> pd.DataFrame:
+    """The genuinely trustworthy result: real-feasible designs, REAL simulated objective values.
+
+    ``comparison`` is ``validate_surrogate_pareto``'s return value (or a
+    ``SurrogateValidationError``'s ``.comparison`` attribute — this is
+    meant to be called EITHER way, tolerance violations don't make the
+    underlying real-sim reruns any less real).
+
+    Two corrections happen here, not just one:
+
+    1. Filters to ``real_success`` rows — the surrogate's raw pareto front
+       includes designs the classifier/regressors predicted were good but
+       the real simulation actually rejects; those have no real objective
+       values to report at all.
+    2. Re-derives non-dominated status from the ACTUAL (not predicted) objective
+       values. A design that looked non-dominated under the surrogate's
+       predictions is not guaranteed to still be non-dominated once its
+       real values are known — e.g. two designs the surrogate ranked as
+       a genuine tradeoff might, in reality, have one strictly beat the
+       other on every objective. Re-running non-dominated sorting (pymoo's
+       own ``NonDominatedSorting``, same convention as everywhere else in
+       this codebase — minimize every objective) is what makes this the
+       actual corrected front, not just a filtered copy of the surrogate's.
+
+    Returns a DataFrame in the same column shape as ``Minimization``'s own
+    results (param columns + objective columns, using the PLAIN objective
+    names — not ``actual_<name>`` — plus ``euclidean``), so it's directly
+    plottable with any app's existing ``make_plots()``.
+    """
+    real = comparison[comparison["real_success"]].copy()
+    result = real[param_names].copy()
+    for name in objective_names:
+        result[name] = real[f"actual_{name}"].to_numpy(dtype=float)
+    result = result.reset_index(drop=True)
+
+    if len(result) == 0:
+        result["euclidean"] = pd.Series(dtype=float)
+        return result
+
+    f = result[objective_names].to_numpy(dtype=float)
+    front_idx = NonDominatedSorting().do(f, only_non_dominated_front=True)
+    result = result.iloc[front_idx].reset_index(drop=True)
+
+    f_df = result[objective_names]
+    std = f_df.std().replace(0.0, 1.0)
+    z = (f_df - f_df.mean()) / std
+    result["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    return result

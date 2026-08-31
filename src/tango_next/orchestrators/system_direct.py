@@ -20,6 +20,7 @@ from __future__ import annotations
 from tango_next.components.economic.base import EconomicComponent
 from tango_next.core.component import Component
 from tango_next.core.orchestrator import Orchestrator
+from tango_next.core.stream import Stream
 
 
 class SystemDirect(Orchestrator):
@@ -60,18 +61,47 @@ class SystemDirect(Orchestrator):
         # Build idx → component lookup for stream wiring.
         self._by_idx: dict[int, Component] = {c.component_idx: c for c in self._ordered}
 
+        self._pending_inlets: dict[int, Stream] = {}
+        """Most-recently-computed inlet ``Stream`` for each ``component_idx``,
+        keyed by ``component_idx`` — this is what replaces ``inlet`` as a
+        stored ``Component`` field (see ``Component.solve()``'s docstring
+        for why ``inlet`` is a call parameter, not a field): the persisted
+        "what feeds this component next" record now lives on the
+        ORCHESTRATOR, which owns wiring, not on the component itself.
+        Populated by ``_record_outlet()`` immediately after a component
+        solves; read (via ``_next_inlet()``, falling back to an all-zero
+        ``Stream`` if a component_idx was never wired — matching a
+        never-wired component's implicit day-0 input under the old
+        stored-field design) at the top of each pass. One dict, keyed
+        generically by ``component_idx``, handles BOTH a straight-pipe edge
+        (its entry is consumed later in THIS pass) and a wraparound edge —
+        e.g. the surface's ``next`` pointing back to the circuit's own
+        entry component_idx (consumed on the NEXT pass) — with the same
+        code path; no special-casing needed for either shape.
+        """
+
     @property
     def components(self) -> dict[str, Component]:
         """Return the named component dict."""
         return self._components
 
-    def _wire_one_stream(self, component: Component) -> None:
-        """Copy ``component.outlet`` to its immediate downstream component's inlet.
+    def _next_inlet(self, component: Component) -> Stream:
+        """Return the ``Stream`` to feed into ``component``'s next ``solve()`` call.
 
-        Called once per component immediately after its ``solve()``, so each
-        component in the circuit receives fresh upstream state within the same
-        pass. Contrast with a batch wire-all-at-end approach, which would leave
-        components 1-N reading stale (default-zero) inlet state on the first pass.
+        Falls back to ``Stream.fresh()`` (all fields freshly zero) for a
+        component_idx never yet wired — matching what a never-written
+        ``inlet`` field defaulted to before ``inlet`` became a ``solve()``
+        parameter.
+        """
+        return self._pending_inlets.get(component.component_idx, Stream.fresh())
+
+    def _record_outlet(self, component: Component) -> None:
+        """Convert ``component.outlet`` into its downstream neighbor's next inlet.
+
+        Stores into ``self._pending_inlets[next_idx]`` rather than writing
+        directly to the downstream component (``inlet`` is no longer a
+        stored field — see ``_pending_inlets``'s docstring), so this
+        correctly handles a wraparound edge the same way as a straight one.
 
         Components without a ``next`` field in their spec (e.g. EconomicComponent)
         are silently skipped — they receive no downstream wiring.
@@ -79,21 +109,19 @@ class SystemDirect(Orchestrator):
         next_idx: int | None = getattr(component, "next", None)
         if next_idx is None or next_idx not in self._by_idx:
             return
-        downstream = self._by_idx[next_idx]
         src = component.outlet
-        dst = downstream.inlet
-        dst.T = src.T
-        dst.P = src.P
-        dst.mass_rate = src.mass_rate
-        dst.rho = src.rho
-        dst.mu = src.mu
+        self._pending_inlets[next_idx] = Stream.fresh(
+            T=src.T.get_fresh(),
+            P=src.P.get_fresh(),
+            mass_rate=src.mass_rate.get_fresh(),
+        )
 
     def run_timestep(self, t: int) -> None:
         """Execute one circuit pass: solve each component in order and wire streams."""
         for component in self._ordered:
             component.mark_all_stale()
-            component.solve()
-            self._wire_one_stream(component)
+            component.solve(self._next_inlet(component))
+            self._record_outlet(component)
 
     def _after_timestep(self, t: int) -> None:
         """Hook called after each timestep in ``run()``; no-op by default.
@@ -130,7 +158,11 @@ class SystemDirect(Orchestrator):
             return
         self._economic._components = self._components  # noqa: SLF001
         self._economic.mark_all_stale()
-        self._economic.solve()
+        # Stream() (unused) — EconomicComponent.solve() ignores `inlet`
+        # entirely; see EconomicComponent.solve()'s docstring for why the
+        # signature still requires one (Liskov compatibility with
+        # Component.solve()).
+        self._economic.solve(Stream())
 
     def run(self) -> None:
         """Execute all timesteps, then the economic finalize step (if any)."""

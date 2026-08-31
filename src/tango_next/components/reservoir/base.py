@@ -8,6 +8,7 @@ from pydantic import Field
 
 from tango_next.core.component import Component
 from tango_next.core.constants import GRAVITY
+from tango_next.core.stream import Stream
 
 
 class ReservoirComponent(Component):
@@ -51,5 +52,5 @@ class ReservoirComponent(Component):
     GRAVITY, overridable per reservoir since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute reservoir outlet state from injection inlet state."""

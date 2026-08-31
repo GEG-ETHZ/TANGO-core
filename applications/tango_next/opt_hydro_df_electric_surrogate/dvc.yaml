@@ -91,9 +91,18 @@ stages:
     deps:
       - validate_surrogate.py
       - common.py
+      - ../opt_hydro_df_electric/opt_hydro_df_electric.py
       - outputs/surrogate_pareto_results.csv
     params:
       - params.yaml:
           - validation_tolerance
     outs:
       - outputs/surrogate_validation.csv
+      # The genuinely trustworthy result: real-feasible designs only, REAL
+      # simulated objective values, non-dominance re-derived from those real
+      # values -- see surrogate_api.corrected_pareto_front's docstring.
+      # outputs/corrected/ (its plots) is NOT tracked here -- it's only
+      # written when the corrected front is non-empty and --no-plot isn't
+      # passed, and DVC `outs:` expects a declared path to always exist
+      # after the stage runs.
+      - outputs/corrected_pareto_results.csv

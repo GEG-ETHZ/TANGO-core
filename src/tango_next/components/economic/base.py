@@ -8,6 +8,7 @@ from pydantic import Field, PrivateAttr
 
 from tango_next.core.component import Component
 from tango_next.core.policies import MainProduct, ProjectMaturity
+from tango_next.core.stream import Stream
 
 
 class EconomicComponent(Component):
@@ -51,12 +52,16 @@ class EconomicComponent(Component):
     """Which output is the plant's primary product — determines LCOE vs LCOH."""
 
     @abstractmethod
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute economic metrics from the other components' final solved state.
 
         Unlike every other ``Component`` subclass, this reads sibling
         components via ``self._components`` (a private, non-Pydantic
         attribute set by the orchestrator right before this call — see the
-        class docstring), not ``self.inlet``.
+        class docstring). ``inlet`` is accepted (unused) purely for Liskov
+        compatibility with ``Component.solve()``'s signature — an economic
+        component has no fluid inlet of its own (see the class docstring's
+        "no ``inlet``/``outlet`` wiring" note); ``SystemDirect.finalize()``
+        passes ``Stream()`` (the empty default) as a documented no-op value.
         """
         ...

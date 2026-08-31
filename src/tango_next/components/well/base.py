@@ -8,6 +8,7 @@ from pydantic import Field
 
 from tango_next.core.component import Component
 from tango_next.core.constants import GRAVITY
+from tango_next.core.stream import Stream
 
 
 class WellComponent(Component):
@@ -34,5 +35,5 @@ class WellComponent(Component):
     GRAVITY, overridable per well since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:
         """Compute outlet fluid state from inlet state through the wellbore."""

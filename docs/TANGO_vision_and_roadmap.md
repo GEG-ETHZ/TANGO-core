@@ -900,6 +900,26 @@ full-suite runs, but never automatically on every push.
 
 ---
 
+#### Research-software quality assessment (EVERSE `resqui`) — revisit later
+
+Flagged 2026-08-31 from a Swiss RSE conference: EVERSE's
+[QualityPipelines](https://github.com/EVERSE-ResearchSoftware/QualityPipelines)
+project (`resqui`) is a CLI + GitHub Action that runs a configurable,
+plugin-based set of quality indicators against a repo (GitHub URL, Zenodo
+DOI, or local path) and emits a report against an EVERSE research-software
+quality schema. It ties into a broader ecosystem (RSQKit for best-practice
+guidance, TechRadar for tool discovery, DashVERSE for dashboarding results).
+
+Not a near-term priority — it's early-stage community tooling with thin
+docs, and TANGO's current quality gaps (physics parity, typed error
+handling, test coverage) are already being worked directly rather than
+needing a badge/report tool to surface them. Worth a proper look once the
+refactor settles down, particularly if there's ever a need to demonstrate
+research-software quality externally (e.g. for a grant or an ETH
+software-sustainability review).
+
+---
+
 ### Refactor Phases
 
 *Diagram: [Refactor Phases](diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
@@ -1180,15 +1200,13 @@ all congruent with each other.
   (0-D) component the inner vec has length 1, so lumped and numerical models share the same
   history structure with no special-casing.
 - **Cascading calculations** — computations should propagate down the component hierarchy,
-  not be assembled piecemeal at higher levels.  The model is fastsim's
-  `SimDrive::solve_step` → `Vehicle::solve_powertrain` → `PowertrainType::solve` → …
-  where each level owns its own state and delegates to children; the parent only reads
-  child state after the child has solved.  In TANGO terms: `Orchestrator.run_timestep`
-  calls `component.solve()`; `SurfacePlant.solve()` calls `PowerPlant.solve()`, which
-  calls `Turbine.solve()`, `Pump.solve()`, etc.  Net power is then read upward from
-  the fully-solved hierarchy — not assembled by passing lists (`prod_pump_w_list`) or
-  adding corrections at a separate economic layer.  This is the fix for the
-  `surface.w_net` ≠ economic-layer inconsistency described above.
+  not be assembled piecemeal at higher levels.  Each level owns its own state and delegates
+  to children; the parent only reads child state after the child has solved.  In TANGO
+  terms: `Orchestrator.run_timestep` calls `component.solve()`; `SurfacePlant.solve()`
+  calls `PowerPlant.solve()`, which calls `Turbine.solve()`, `Pump.solve()`, etc.  Net
+  power is then read upward from the fully-solved hierarchy — not assembled by passing
+  lists (`prod_pump_w_list`) or adding corrections at a separate economic layer.  This is
+  the fix for the `surface.w_net` ≠ economic-layer inconsistency described above.
 - **Serialization:** Pydantic's `model_dump()` / `model_validate()` serve as the
   serialization layer for all `Component` subclasses — no separate mixin needed.
   `Component.from_dict()` handles YAML-dict → object construction; `Workflow.from_file()`
@@ -1196,11 +1214,6 @@ all congruent with each other.
   verify that `LockedState` fields survive `model_dump()` → `from_dict()` correctly.
   If binary formats (MessagePack) are ever needed, extend at that point — don't add
   the abstraction speculatively.
-- most of these points have examples in https://github.com/NatLabRockies/fastsim
-  (~/git/nrel/fastsim as of 2026-06-08 on Chad's computer). In fastsim,
-  `TrackedState` is the analog for `LockedState`, but since we're (at least
-  initially) doing this in Python, we may need to account for the slower
-  attribute accessing and use slots or similar.
 
 **Tasks:**
 - [x] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass` —
@@ -1225,7 +1238,7 @@ all congruent with each other.
     feature. Revisit if a concrete need for recorded (not just
     step-through) per-iteration state actually comes up.
 - [x] Serialization: Pydantic `model_dump()` / `model_validate()` on `Component`
-    subsumes the `SerdeAPI` role from fastsim — no separate mixin needed. Round-trip
+    handles the serde role directly — no separate mixin needed. Round-trip
     tests cover `LockedState` field fidelity (`tests/unit/test_serde_roundtrip.py`).
 - [ ] Make sure that all parameters and state variables have comments (or doc
     strings if there's a way to do this, like in Rust) explaining what they are
@@ -1288,16 +1301,14 @@ baseline; the refactor is applied to all input configurations.
       `tango_next` (decoupled from the Hotmaps-specific `HotmapsDispatchDT` in
       `src/tango/`) before treating any pure-heat or cogeneration example as
       representative — see the note above.
-- [ ] **A clean pymoo optimization API for `tango_next`, modeled on fastsim's
-      `pymoo_api.py`/`ModelObjectives` pattern** (`~/git/nrel/fastsim/python/fastsim/pymoo_api.py`,
-      used e.g. in `cal_and_val/thermal/cal_bev.py`) — parameters set via a list
-      of explicit functions operating on a config dict, objectives extracted the
-      same way, dict-modify-then-reinstantiate throughout (never mutating a live
-      `Workflow`/component), wrapped so users don't need to understand pymoo's
-      `*args`/`**kwargs`-heavy `Problem` API directly. Should ship with a couple
-      of worked examples and lightweight test coverage (not full optimization
-      runs — sanity-check that parameter-setting functions actually perturb the
-      objective, mirroring `cal_bev.py`'s `perturb_params()`). `src/tango/`'s
+- [ ] **A clean pymoo optimization API for `tango_next`** — parameters set via a
+      list of explicit functions operating on a config dict, objectives extracted
+      the same way, dict-modify-then-reinstantiate throughout (never mutating a
+      live `Workflow`/component), wrapped so users don't need to understand
+      pymoo's `*args`/`**kwargs`-heavy `Problem` API directly. Should ship with a
+      couple of worked examples and lightweight test coverage (not full
+      optimization runs — sanity-check that parameter-setting functions actually
+      perturb the objective). `src/tango/`'s
       `optimizerr.py` is NOT the reference for this — see
       `docs/tango_next_tasks.md`'s optimizerr.py review (2026-07-24) for why.
       `applications/tango_next/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
@@ -1323,11 +1334,10 @@ baseline; the refactor is applied to all input configurations.
       is going to be applied regardless, a weighted-sum scalarization fed to a
       single-objective optimizer gets to the same kind of single answer with
       far less machinery — the point of running MOO is to *not* pre-commit to
-      that. fastsim's `pymoo_api.py` gets this right already: `run_minimize`
-      writes every point on the returned front to a dataframe/CSV (plus one
-      `euclidean`-distance column as a sort hint, not a filter) and leaves the
-      choice to the human. `tango_next`'s pymoo API should default to the same
-      — return the full front. The ASF/pseudo-weights *math* from
+      that. `tango_next`'s pymoo API should write every point on the returned
+      front to a dataframe/CSV (plus one `euclidean`-distance column as a sort
+      hint, not a filter) and leave the choice to the human — return the full
+      front by default. The ASF/pseudo-weights *math* from
       `optimizerr.py` is still worth keeping (see the `docs/tango_next_tasks.md`
       review) — just re-scoped as a separate, explicitly-invoked, opt-in
       helper that operates on an already-returned front

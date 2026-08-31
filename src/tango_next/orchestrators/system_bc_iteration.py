@@ -57,19 +57,21 @@ always pins its TESPy outlet connection's pressure to whatever
 value each outer iteration instead of leaving it at its YAML-configured
 initial guess forever, and re-solves to T-convergence
 (``_converge_injection_T``) after each pressure update. No topology- or
-component-type-specific wiring is needed: ``surface.outlet`` -> ``inj_well.
-inlet`` propagation already happens generically via ``_wire_one_stream``.
+component-type-specific wiring is needed: ``surface.outlet`` -> ``inj_well``'s
+next ``solve()`` call propagation already happens generically via
+``SystemDirect._pending_inlets``/``_record_outlet()``/``_next_inlet()``.
 
-The one non-obvious requirement: each outer iteration must take a *fresh*
-``snapshot_convergence_state()`` **after** writing ``injection_pressure``,
-not once for the whole outer loop. ``injection_pressure`` is an ordinary
-declared field, so it is itself captured/restored by
-``_converge_injection_T``'s inner-loop snapshot/restore — a single upfront
-snapshot would have the inner loop silently reset it back to its original
-value on the very first inner iteration, and the outer loop's pressure
-update would never actually reach the circuit. See
-``_converge_injection_pressure``'s docstring for the full mechanism and how
-this was confirmed.
+Each outer iteration takes a *fresh* ``snapshot_convergence_state()`` after
+writing ``injection_pressure``, not once for the whole outer loop —
+``injection_pressure`` itself is unaffected either way (it lives outside
+``state``, so ``_converge_injection_T``'s inner-loop snapshot/restore never
+touches it — see ``Component.snapshot_convergence_state``), but each outer
+iteration's inner T-loop still needs a baseline that reflects ``state`` as
+committed at the end of the *previous* outer iteration's converged solve,
+not timestep-start. See ``_converge_injection_pressure``'s docstring for
+the full mechanism and its empirical confirmation (2026-08-13, back when
+the snapshot mechanism covered more than ``state`` and this requirement was
+load-bearing for ``injection_pressure`` too, not just for ``state``).
 
 ``AUTO_FLOW`` (``_converge_injection_flow``) mirrors this but as a
 fixed-point (Picard) iteration, not a Newton step: each pass recomputes
@@ -144,6 +146,7 @@ from tango_next.core import fluid_utils
 from tango_next.core.constants import PA_TO_MPA, W_TO_MW
 from tango_next.core.errors import ConfigError, ConvergenceError, FrackingViolationError
 from tango_next.core.policies import InjectionPolicy
+from tango_next.core.stream import Stream
 from tango_next.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
@@ -171,7 +174,8 @@ class SystemBCIteration(SystemDirect):
     """Convergence-loop orchestrator for injection-pressure BC iteration.
 
     Subclasses ``SystemDirect``, reusing its component ordering/wiring
-    (``self._ordered``, ``_wire_one_stream``) as the building block.
+    (``self._ordered``, ``_pending_inlets``/``_record_outlet``/``_next_inlet``)
+    as the building block.
     ``MANUAL``/``MANUAL_FRACKING_CHECK`` drive a temperature-convergence loop
     (``_converge_injection_T``) that re-solves the whole circuit every
     iteration; the ``AUTO_*`` policies additionally wrap that in an outer
@@ -308,14 +312,15 @@ class SystemBCIteration(SystemDirect):
             FrackingViolationError: If either threshold is exceeded.
 
         """
+        inj_outlet_P = inj_well.outlet.P.get_fresh()
         p_res_in_no_frack = fluid_utils.target_reservoir_pressure(
             reservoir.hydro_static_pressure,
             reservoir.over_pressure_percentage,
         )
-        if p_res_in_no_frack < inj_well.outlet.P:
+        if p_res_in_no_frack < inj_outlet_P:
             raise FrackingViolationError(
                 f"Pressure-induced fracking: injection well outlet pressure "
-                f"({inj_well.outlet.P * PA_TO_MPA:.4g} MPa) exceeds the reservoir "
+                f"({inj_outlet_P * PA_TO_MPA:.4g} MPa) exceeds the reservoir "
                 f"fracking threshold ({p_res_in_no_frack * PA_TO_MPA:.4g} MPa).",
             )
 
@@ -327,6 +332,7 @@ class SystemBCIteration(SystemDirect):
             # concrete reservoir type today (LumpedReservoir) declares
             # well_spacing, and every concrete well type declares common.
             return
+        inj_outlet_T = inj_well.outlet.T.get_fresh()
         max_flow = fluid_utils.fracking_flow(
             thickness=reservoir.thickness,
             permeability=reservoir.permeability,
@@ -334,8 +340,8 @@ class SystemBCIteration(SystemDirect):
             over_pressure_percentage=reservoir.over_pressure_percentage,
             well_spacing=well_spacing,
             wellbore_diameter=inj_well.diameter,
-            mu=fluid_utils.fluid_viscosity(fluid_name, inj_well.outlet.T, inj_well.outlet.P),
-            rho=fluid_utils.fluid_density(fluid_name, inj_well.outlet.T, inj_well.outlet.P),
+            mu=fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P),
+            rho=fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P),
         )
         if self.mass_rate > max_flow:
             raise FrackingViolationError(
@@ -348,22 +354,54 @@ class SystemBCIteration(SystemDirect):
 
         The circuit is cut at the injection well (component_idx=0), which reads
         from the previous timestep's surface outlet.  On the very first pass
-        there is no prior surface outlet, so we pre-populate the injection well
-        inlet with cold injection conditions derived from the surface config.
+        there is no prior surface outlet, so we pre-populate
+        ``self._pending_inlets[0]`` with cold injection conditions derived
+        from the surface config.
 
         This matches old tango's behaviour: injection well is solved first, and
         on timestep 0 the surface outlet has not yet been computed, so the cold
         initial guess is used.
+
+        Guarded by ``0 not in self._pending_inlets`` — component_idx 0 gets an
+        entry either from this seed (once, ever) or from the circuit's own
+        wraparound wiring (every pass thereafter, via ``_record_outlet``);
+        this checks which of those has already happened, replacing the old
+        stored-field design's ``inj_well.inlet.mass_rate == 0.0`` heuristic
+        (fragile — a real mass rate could coincidentally be 0.0) with an
+        exact "has this ever been wired" check.
         """
+        if 0 in self._pending_inlets:
+            return
         inj_well = self._by_idx.get(0)
         if inj_well is None:
             return
-        if inj_well.inlet.mass_rate == 0.0:
-            surface = self._find_surface()
-            if surface is not None:
-                inj_well.inlet.T = surface.common.surface_temperature
-                inj_well.inlet.P = getattr(surface, "injection_pressure", surface.common.surface_pressure)
-            inj_well.inlet.mass_rate = self.mass_rate
+        surface = self._find_surface()
+        T = surface.common.surface_temperature if surface is not None else 0.0
+        P = (
+            getattr(surface, "injection_pressure", surface.common.surface_pressure)
+            if surface is not None
+            else 0.0
+        )
+        self._pending_inlets[0] = Stream.fresh(T=T, P=P, mass_rate=self.mass_rate)
+
+    def _set_circuit_entry_mass_rate(self, mass_rate: float) -> None:
+        """Overwrite ``self._pending_inlets[0]``'s mass rate, preserving T/P.
+
+        Used everywhere the old stored-field design did
+        ``inj_well.inlet.mass_rate = value`` directly: T/P for
+        component_idx 0 come from the circuit's own wraparound wiring (the
+        surface's outlet, via ``_record_outlet``) or the initial cold-start
+        seed — never reassigned here — while mass rate is independently
+        pinned to the configured/converged operating value at several
+        distinct points (every timestep, and per-outer-iteration for
+        ``AUTO_FLOW``/``AUTO_BOTH``).
+        """
+        current = self._pending_inlets.get(0, Stream.fresh())
+        self._pending_inlets[0] = Stream.fresh(
+            T=current.T.get_fresh(),
+            P=current.P.get_fresh(),
+            mass_rate=mass_rate,
+        )
 
     # ------------------------------------------------------------------
     # Timestep execution
@@ -394,7 +432,7 @@ class SystemBCIteration(SystemDirect):
         surface: SurfaceComponent | None = self._find_surface()
         inj_well = self._by_idx.get(0)
         if inj_well is not None:
-            inj_well.inlet.mass_rate = self.mass_rate
+            self._set_circuit_entry_mass_rate(self.mass_rate)
 
         if self.policy in (InjectionPolicy.MANUAL, InjectionPolicy.MANUAL_FRACKING_CHECK):
             # Snapshot every component's convergence-sensitive state (see
@@ -537,12 +575,14 @@ class SystemBCIteration(SystemDirect):
 
         for bc_iter in range(self.max_iter_no_frack):
             surface.injection_pressure = p_inj_wellhead_no_frack
-            inj_well.inlet.mass_rate = mass_rate
+            self._set_circuit_entry_mass_rate(mass_rate)
             snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
             self._converge_injection_T(surface, snapshot)
 
-            mu = fluid_utils.fluid_viscosity(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
-            rho = fluid_utils.fluid_density(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
+            inj_outlet_T = inj_well.outlet.T.get_fresh()
+            inj_outlet_P = inj_well.outlet.P.get_fresh()
+            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P)
+            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P)
             new_mass_rate = fluid_utils.fracking_flow(
                 thickness=reservoir.thickness,
                 permeability=reservoir.permeability,
@@ -555,7 +595,7 @@ class SystemBCIteration(SystemDirect):
             )
             if self.max_mass_rate is not None:
                 new_mass_rate = min(new_mass_rate, self.max_mass_rate)
-            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_well.outlet.P)
+            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_outlet_P)
 
             rel_change_p = abs(p_new - p_inj_wellhead_no_frack) / abs(p_inj_wellhead_no_frack)
             rel_change_mass = abs(new_mass_rate - mass_rate) / max(abs(mass_rate), 1e-8)
@@ -592,30 +632,29 @@ class SystemBCIteration(SystemDirect):
         pressure-induced fracking threshold (``AUTO_PRESSURE`` only).
 
         The BC variable is fed to the circuit by writing ``surface.injection_pressure``
-        directly (not by writing ``inj_well.inlet.P`` directly) — ``GraphSurface.
-        solve()`` forces its TESPy outlet connection to this value, and the
-        existing per-component wiring (``_wire_one_stream``) carries it from
-        ``surface.outlet`` to ``inj_well.inlet`` the same way any other
-        component-to-component quantity propagates. No topology- or
-        component-type-specific code is needed for this to work.
+        directly (not by writing ``inj_well``'s inlet pressure directly) —
+        ``GraphSurface.solve()`` forces its TESPy outlet connection to this
+        value, and the existing per-component wiring
+        (``SystemDirect._record_outlet``/``_next_inlet``) carries it from
+        ``surface.outlet`` to ``inj_well``'s next ``solve(inlet)`` call the
+        same way any other component-to-component quantity propagates. No
+        topology- or component-type-specific code is needed for this to work.
 
         Each outer iteration re-snapshots every component's convergence state
         (see ``Component.snapshot_convergence_state``) **after** writing
-        ``injection_pressure`` — this is required, not just tidy:
-        ``injection_pressure`` is an ordinary declared field, so it is itself
-        captured (and restored) by the snapshot/restore mechanism
-        ``_converge_injection_T``'s inner loop uses every iteration. Taking one
-        snapshot before the whole outer loop (as ``MANUAL``/``MANUAL_FRACKING_CHECK``
-        do once per timestep) would have the inner loop's very first
+        ``injection_pressure``, so that each outer iteration's inner T-loop
+        restores from ``state`` as committed at the end of the *previous*
+        outer iteration's converged solve, not from timestep-start. (Historical
+        note, 2026-08-13: at the time this was confirmed empirically,
+        ``snapshot_convergence_state()`` also captured ``injection_pressure``
+        itself — a single upfront snapshot then made the inner loop's first
         ``restore_convergence_state`` call silently reset ``injection_pressure``
-        straight back to whatever it was when that single snapshot was taken —
-        the outer loop would then update its own ``p_inj_wellhead_no_frack``
-        variable every iteration while the circuit itself kept re-solving at the
-        *original* pressure forever. Confirmed empirically (2026-08-13): with a
-        single upfront snapshot, ``inj_well.outlet.P`` never moves past its
-        first-iteration value no matter how many outer iterations run; with a
-        fresh per-outer-iteration snapshot taken after writing
-        ``injection_pressure``, the same config converges in 2-3 outer iterations.
+        back to its original value, so the outer loop's own
+        ``p_inj_wellhead_no_frack`` bookkeeping advanced while the circuit kept
+        re-solving at the *original* pressure forever. The snapshot mechanism
+        now scopes to ``state`` only, so ``injection_pressure`` — never part of
+        ``state`` — is unaffected either way; the fresh-per-outer-iteration
+        snapshot is kept because ``state`` genuinely does need it, per above.)
 
         Args:
             surface: BC-checkpoint component (``sim_config.bc_checkpoint_idx``).
@@ -639,7 +678,7 @@ class SystemBCIteration(SystemDirect):
             snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
             self._converge_injection_T(surface, snapshot)
 
-            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_well.outlet.P)
+            p_new = p_inj_wellhead_no_frack + (target_reservoir_P - inj_well.outlet.P.get_fresh())
             rel_change = abs(p_new - p_inj_wellhead_no_frack) / abs(p_inj_wellhead_no_frack)
             logger.debug(
                 "AUTO_PRESSURE: outer iter %d, p_inj_wellhead_no_frack=%.6g Pa, rel_change=%.2e",
@@ -679,17 +718,24 @@ class SystemBCIteration(SystemDirect):
         fracking-flow threshold is inconveniently high (or numerically
         unreachable — see below) can still be run at a user-chosen ceiling.
 
-        ``self.mass_rate`` (not a snapshotted Component field) is written
-        directly to ``inj_well.inlet.mass_rate`` before each
-        ``_converge_injection_T`` call, same idea as ``_converge_injection_pressure``
-        writing ``surface.injection_pressure`` — but simpler: mass rate is
-        conserved through the whole circuit each pass (no splits/merges
-        affecting the total), so unlike ``injection_pressure`` it never gets
-        silently reset by ``_converge_injection_T``'s inner-loop snapshot/
-        restore (``inlet`` is unconditionally excluded from that mechanism —
-        see ``Component.snapshot_convergence_state``), and a single snapshot
+        ``self.mass_rate`` is written into the circuit's entry inlet via
+        ``self._set_circuit_entry_mass_rate()`` (``SystemDirect._pending_inlets``
+        bookkeeping — not a stored ``Component`` field; see
+        ``Component.solve()``'s docstring for why ``inlet`` is a call
+        parameter) before each ``_converge_injection_T`` call, same idea as
+        ``_converge_injection_pressure`` writing ``surface.injection_pressure``
+        — but simpler: mass rate is conserved through the whole circuit each
+        pass (no splits/merges affecting the total), and
+        ``_pending_inlets`` — like ``injection_pressure`` — is never touched
+        by ``_converge_injection_T``'s inner-loop snapshot/restore (that
+        mechanism scopes to ``state`` only — see
+        ``Component.snapshot_convergence_state``), so a single snapshot
         taken once before the whole outer loop is correct here (no
-        per-outer-iteration re-snapshot needed, unlike the pressure case).
+        per-outer-iteration re-snapshot needed, unlike the pressure case —
+        the pressure case's per-outer-iteration re-snapshot is about
+        ``state`` needing a fresh baseline each outer iteration, not about
+        protecting ``injection_pressure`` itself; see
+        ``_converge_injection_pressure``'s docstring).
 
         **The initial guess (``self.mass_rate`` at call time) matters a lot,
         for a real numerical reason, confirmed empirically (2026-08-13):**
@@ -739,11 +785,13 @@ class SystemBCIteration(SystemDirect):
         mass_rate = self.mass_rate
 
         for bc_iter in range(self.max_iter_no_frack):
-            inj_well.inlet.mass_rate = mass_rate
+            self._set_circuit_entry_mass_rate(mass_rate)
             self._converge_injection_T(surface, snapshot)
 
-            mu = fluid_utils.fluid_viscosity(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
-            rho = fluid_utils.fluid_density(fluid_name, inj_well.outlet.T, inj_well.outlet.P)
+            inj_outlet_T = inj_well.outlet.T.get_fresh()
+            inj_outlet_P = inj_well.outlet.P.get_fresh()
+            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P)
+            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P)
             new_mass_rate = fluid_utils.fracking_flow(
                 thickness=reservoir.thickness,
                 permeability=reservoir.permeability,
@@ -783,7 +831,7 @@ class SystemBCIteration(SystemDirect):
     def _converge_injection_T(
         self,
         surface: Component,
-        snapshot: dict[int, dict[str, Any]],
+        snapshot: dict[int, Any],
     ) -> None:
         """Converge injection temperature, re-solving the whole circuit every iteration.
 
@@ -828,10 +876,10 @@ class SystemBCIteration(SystemDirect):
             for component in self._ordered:
                 component.restore_convergence_state(snapshot[component.component_idx])
                 component.mark_all_stale()
-                component.solve()
-                self._wire_one_stream(component)
+                component.solve(self._next_inlet(component))
+                self._record_outlet(component)
 
-            T_inj_new = surface.outlet.T
+            T_inj_new = surface.outlet.T.get_fresh()
             if T_inj_prev is not None and abs(T_inj_new - T_inj_prev) < _DT_SURFACE_TOL:
                 logger.debug(
                     "T-convergence finished: inner iter %d, T_inj_new =%.4f K, dT=%.4f K",
@@ -850,7 +898,7 @@ class SystemBCIteration(SystemDirect):
             raise ConvergenceError(
                 f"T-convergence: max inner iterations ({self.max_inner_iterations}) "
                 f"reached without convergence (final dT="
-                f"{abs(surface.outlet.T - (T_inj_prev if T_inj_prev is not None else float('nan'))):.4f} "
+                f"{abs(surface.outlet.T.get_fresh() - (T_inj_prev if T_inj_prev is not None else float('nan'))):.4f} "
                 f"K > tol={_DT_SURFACE_TOL:.4f} K)",
             )
 
@@ -899,10 +947,15 @@ class SystemBCIteration(SystemDirect):
         net_power = getattr(state, "net_power_W", None)
         net_thermal = getattr(state, "net_thermal_W", None)
         p_outlet = getattr(state, "P_outlet", None)
+        t_inlet = getattr(state, "T_inlet", None)
         power_mw = net_power.get_fresh() * W_TO_MW if net_power is not None else float("nan")
         thermal_mw = net_thermal.get_fresh() * W_TO_MW if net_thermal is not None else float("nan")
         P_inj = p_outlet.get_fresh() if p_outlet is not None else float("nan")
-        T_prod = surface.inlet.T
+        # T_prod: the production T arriving at the surface — read from the
+        # surface's OWN state.T_inlet (set from solve()'s `inlet` parameter,
+        # see Component.solve()'s docstring), not a `surface.inlet` field —
+        # `inlet` is no longer a stored Component field.
+        T_prod = t_inlet.get_fresh() if t_inlet is not None else float("nan")
         logger.info(
             "t=%3d | T_prod=%.1f K | P_inj=%.4g MPa | net_power=%.3f MW | net_thermal=%.3f MW",
             t,

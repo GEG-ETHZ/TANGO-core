@@ -52,7 +52,6 @@ a bug):
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -81,9 +80,11 @@ from tango_next.core.economic_constants import (
 )
 from tango_next.core.locked_state import LockedState
 from tango_next.core.policies import MainProduct, ProjectMaturity
+from tango_next.core.state_methods import StateMethods
 
 if TYPE_CHECKING:
     from tango_next.core.component import Component
+    from tango_next.core.stream import Stream
 
 # Old tango default (src/tango/units/dataclasses.py's WellSpecs.probability_of_success);
 # not exposed as a tango_next config field since nothing varies it yet.
@@ -165,13 +166,16 @@ def _ls(value: float = 0.0) -> LockedState[float]:
 
 
 @dataclass(frozen=True)
-class EconomicState:
+class EconomicState(StateMethods):
     """Final CAPEX/LCOE result of one ``DoubletEconomicComponent.solve()`` call.
 
     Computed exactly once (see module docstring) — unlike every other
     component's ``state``, this is never recomputed per-timestep, but still
     uses ``LockedState`` for consistency with the rest of tango_next's
-    write-once-per-solve convention.
+    write-once-per-solve convention. Deliberately has no ``*History``
+    analog (see ``CONTRIBUTING.md``'s ``*State``/``*History`` parity
+    commandment for this exception) — ``EconomicComponent`` runs exactly
+    once, via ``finalize()``, never through ``record()``.
     """
 
     CAPEX_well: LockedState[float] = field(default_factory=_ls)  # noqa: N815
@@ -183,13 +187,6 @@ class EconomicState:
     net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     LCOE: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
-
-    def mark_all_stale(self) -> None:
-        """Mark every ``LockedState`` field stale."""
-        for f in dataclasses.fields(self):
-            value = getattr(self, f.name)
-            if isinstance(value, LockedState):
-                value.mark_stale()
 
 
 class DoubletEconomicComponent(EconomicComponent):
@@ -218,8 +215,10 @@ class DoubletEconomicComponent(EconomicComponent):
 
     state: EconomicState = Field(default_factory=EconomicState)
 
-    def solve(self) -> None:
+    def solve(self, inlet: Stream) -> None:  # noqa: ARG002
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).
+
+        ``inlet`` is unused — see ``EconomicComponent.solve()``'s docstring.
 
         Raises:
             RuntimeError: If called without ``self._components`` having been
