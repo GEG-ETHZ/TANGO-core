@@ -228,7 +228,9 @@ def run_lhs_sweep(
             for _ in pool.imap_unordered(_evaluate_and_write, worker_args):
                 done += 1
                 if not quiet and done % max(1, n_workers) == 0:
-                    print(f"LHS sweep progress: {done}/{len(pending)}")
+                    print(
+                        f"LHS sweep progress: {len(completed) + done}/{n_samples} ({done}/{len(pending)} this run)",
+                    )
 
     rows = [json.loads(f.read_text()) for f in sorted(results_dir.glob("*.json"))]
     return pd.DataFrame(rows).sort_values("row_idx").reset_index(drop=True)
