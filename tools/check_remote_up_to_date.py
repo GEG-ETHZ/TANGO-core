@@ -33,7 +33,9 @@ def main() -> int:
 
     branch = remote_branch_ref.removeprefix("refs/heads/")
 
-    subprocess.run(["git", "fetch", "--quiet", remote, branch], check=True)
+    fetch = subprocess.run(["git", "fetch", "--quiet", remote, branch], capture_output=True)
+    if fetch.returncode != 0:
+        return 0  # new branch -- no remote ref yet to fetch at all
 
     tracking_ref = subprocess.run(
         ["git", "rev-parse", f"{remote}/{branch}"],
