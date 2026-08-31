@@ -39,6 +39,7 @@ import copy
 import json
 import multiprocessing
 import tempfile
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -393,6 +394,7 @@ def train_surrogate(
     cv_folds: int = 5,
     seed: int | None = 1,
     classifier_threshold: float = 0.5,
+    quiet: bool = False,
 ) -> SurrogateModel:
     """Fit one per-objective regressor (default: ``GaussianProcessRegressor``), plus a feasibility ``RandomForestClassifier``.
 
@@ -415,6 +417,13 @@ def train_surrogate(
     accuracy) is the number to watch: a classifier that's 90% accurate but
     only catches half of true infeasible designs still lets NSGA2 exploit
     the other half — same failure mode the classifier exists to prevent.
+
+    Unless ``quiet``, prints one line per objective (CV, then final fit) and
+    one for the classifier, each with elapsed seconds -- a ``GaussianProcessRegressor``
+    fit is silent and can run for minutes on a few thousand feasible rows
+    (cross-validated AND refit, per objective, each with several
+    hyperparameter-optimizer restarts), so without this a slow but healthy
+    fit is indistinguishable from a hang in a SLURM job's log.
     """
     if regressor_factory is None:
         regressor_factory = gaussian_process_regressor_factory(seed=seed)
@@ -438,14 +447,25 @@ def train_surrogate(
     kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     for name in objective_names:
         y = feasible[name].to_numpy(dtype=float)
+
+        start = time.perf_counter()
+        if not quiet:
+            print(f"train_surrogate: cross-validating regressor for {name!r} ({len(feasible)} rows)...")
         cv_model = regressor_factory(x.shape[1])
         y_pred = cross_val_predict(cv_model, x_scaled, y, cv=kfold)
         cv_r2[name] = r2_score(y, y_pred)
         cv_mae[name] = mean_absolute_error(y, y_pred)
+        if not quiet:
+            print(
+                f"train_surrogate: {name!r} CV done in {time.perf_counter() - start:.1f}s (r2={cv_r2[name]:.4f})",
+            )
 
+        start = time.perf_counter()
         model = regressor_factory(x.shape[1])
         model.fit(x_scaled, y)
         models[name] = model
+        if not quiet:
+            print(f"train_surrogate: {name!r} final fit done in {time.perf_counter() - start:.1f}s")
 
     x_all = training_df[param_names].to_numpy(dtype=float)
     y_feasible_all = training_df["success"].to_numpy(dtype=bool)
@@ -453,11 +473,16 @@ def train_surrogate(
         msg = "training_df has only one class (all feasible or all infeasible) -- can't train a classifier"
         raise ValueError(msg)
 
+    start = time.perf_counter()
+    if not quiet:
+        print(f"train_surrogate: cross-validating feasibility classifier ({len(training_df)} rows)...")
     stratified_kfold = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     cv_classifier = RandomForestClassifier(n_estimators=classifier_n_estimators, random_state=seed, n_jobs=-1)
     y_feasible_pred = cross_val_predict(cv_classifier, x_all, y_feasible_all, cv=stratified_kfold)
     classifier_cv_accuracy = accuracy_score(y_feasible_all, y_feasible_pred)
     classifier_cv_recall_infeasible = recall_score(y_feasible_all, y_feasible_pred, pos_label=False)
+    if not quiet:
+        print(f"train_surrogate: classifier CV done in {time.perf_counter() - start:.1f}s")
 
     classifier = RandomForestClassifier(n_estimators=classifier_n_estimators, random_state=seed, n_jobs=-1)
     classifier.fit(x_all, y_feasible_all)
