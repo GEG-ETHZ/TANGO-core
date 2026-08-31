@@ -900,6 +900,26 @@ full-suite runs, but never automatically on every push.
 
 ---
 
+#### Research-software quality assessment (EVERSE `resqui`) — revisit later
+
+Flagged 2026-08-31 from a Swiss RSE conference: EVERSE's
+[QualityPipelines](https://github.com/EVERSE-ResearchSoftware/QualityPipelines)
+project (`resqui`) is a CLI + GitHub Action that runs a configurable,
+plugin-based set of quality indicators against a repo (GitHub URL, Zenodo
+DOI, or local path) and emits a report against an EVERSE research-software
+quality schema. It ties into a broader ecosystem (RSQKit for best-practice
+guidance, TechRadar for tool discovery, DashVERSE for dashboarding results).
+
+Not a near-term priority — it's early-stage community tooling with thin
+docs, and TANGO's current quality gaps (physics parity, typed error
+handling, test coverage) are already being worked directly rather than
+needing a badge/report tool to surface them. Worth a proper look once the
+refactor settles down, particularly if there's ever a need to demonstrate
+research-software quality externally (e.g. for a grant or an ETH
+software-sustainability review).
+
+---
+
 ### Refactor Phases
 
 *Diagram: [Refactor Phases](diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
