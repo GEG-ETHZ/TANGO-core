@@ -42,11 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--regressor",
         choices=["gaussian_process", "random_forest", "mlp"],
-        default=params.get("regressor", "gaussian_process"),
-        help="Per-objective regressor. gaussian_process (default) predicts a smooth surface, "
-        "which keeps NSGA2 able to distinguish nearby designs -- see surrogate_api.SurrogateModel's "
-        "docstring. mlp is also smooth but scales better to large n_lhs_samples (no O(n^3) fit "
-        "cost). random_forest is this app's original choice, kept for comparison.",
+        default=params.get("regressor", "mlp"),
+        help="Per-objective regressor. mlp (default since 2026-09-01) predicts a smooth surface "
+        "and scales well to large n_lhs_samples -- confirmed on a real Euler run to beat "
+        "gaussian_process on both training speed and pareto-edge accuracy, see "
+        "surrogate_api.SurrogateModel's docstring. gaussian_process is the smooth-surface "
+        "reference case. random_forest is this app's original choice, kept for comparison.",
     )
     parser.add_argument(
         "--gpr-n-restarts-optimizer",

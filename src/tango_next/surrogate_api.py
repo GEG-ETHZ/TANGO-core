@@ -17,7 +17,7 @@ workflow this enables:
    spawn-context/``imap_unordered``/atomic-per-row-JSON pattern (this is a
    real, possibly-long, Euler-scale job — resumability matters here).
 3. ``train_surrogate`` — one regressor per objective (default:
-   ``GaussianProcessRegressor``, swappable via ``regressor_factory`` -- see
+   ``MLPRegressor``, swappable via ``regressor_factory`` -- see
    ``REGRESSOR_FACTORIES``), fit on the successful rows from step 2.
 4. ``run_surrogate_optimization`` — an NSGA2 search using the trained
    surrogate as the evaluator (classifier-gated, elementwise — see
@@ -283,19 +283,23 @@ class SurrogateModel:
     ``models`` holds whatever ``regressor_factory`` (see ``train_surrogate``)
     produced — any scikit-learn-compatible regressor (``.fit``/``.predict``)
     works, not just one hardcoded type. The default factory,
-    ``gaussian_process_regressor_factory``, was chosen over
-    ``RandomForestRegressor`` (this module's original choice) because a
-    random forest's predictions are piecewise-constant (flat within each
-    leaf's training-data region) — NSGA2 searching against that surface
-    repeatedly collapses onto whichever plateau looks best and stalls there,
-    since every nearby point predicts the identical objective value and
-    there is no local gradient to climb. A GP predicts a smooth,
-    differentiable surface instead, which keeps a gradient-free search like
-    NSGA2 actually able to distinguish nearby designs. A GP's fit cost is
-    O(n^3) though (repeated across CV folds and hyperparameter-optimizer
-    restarts), which gets expensive past a few thousand feasible rows --
-    ``mlp_regressor_factory`` is a smooth alternative without that scaling
-    problem (fits by gradient descent instead), and ``random_forest_regressor_factory``
+    ``mlp_regressor_factory``, was chosen over ``RandomForestRegressor``
+    (this module's original choice) because a random forest's predictions
+    are piecewise-constant (flat within each leaf's training-data region) —
+    NSGA2 searching against that surface repeatedly collapses onto whichever
+    plateau looks best and stalls there, since every nearby point predicts
+    the identical objective value and there is no local gradient to climb.
+    An MLP predicts a smooth, differentiable surface instead, which keeps a
+    gradient-free search like NSGA2 actually able to distinguish nearby
+    designs. ``gaussian_process_regressor_factory`` predicts an equally
+    smooth surface and was this module's default until 2026-09-01, but a
+    real Euler run showed it losing to the MLP on both speed (its O(n^3) fit
+    cost, repeated across CV folds and hyperparameter-optimizer restarts,
+    gets expensive past a few thousand feasible rows) and on accuracy where
+    it actually matters (NSGA2 exploited a region where its predictions were
+    off by up to 35%, vs. the MLP's max 4.3% in the same region) — see
+    ``mlp_regressor_factory``'s and ``gaussian_process_regressor_factory``'s
+    own docstrings for the full comparison. ``random_forest_regressor_factory``
     (this module's original choice) is still available for an apples-to-apples
     comparison -- see each factory's own docstring, all registered in
     ``REGRESSOR_FACTORIES``. Inputs are always standardized through
@@ -404,8 +408,19 @@ def gaussian_process_regressor_factory(
     n_restarts_optimizer: int = 5,
     seed: int | None = 1,
 ) -> RegressorFactory:
-    """Default ``regressor_factory``: a smooth, differentiable surface (see ``SurrogateModel``'s
-    docstring for why this replaced ``RandomForestRegressor`` as the default).
+    """Alternative ``regressor_factory``: a smooth, differentiable surface.
+
+    Was this module's default until 2026-09-01 (replacing
+    ``RandomForestRegressor`` as the default in the first place -- see
+    ``SurrogateModel``'s docstring for why piecewise-constant predictions are
+    a problem). Demoted to an alternative after a real Euler run (5000 LHS
+    samples) showed ``mlp_regressor_factory`` beats it on THIS problem, not
+    just on speed: this GP's cross-validated R^2 looked excellent (LCOE
+    0.9985), but NSGA2 still exploited a region where its actual predictions
+    were off by up to 35%, leaving only 3/43 predicted-pareto designs
+    genuinely non-dominated after real-sim correction -- vs. the MLP's
+    12/45. Still useful as the smooth-surface reference case, e.g. if a
+    future problem's regressor comparison should be re-run from scratch.
 
     Kernel is ``ConstantKernel * RBF + WhiteKernel``, with a per-dimension
     (not scalar) ``length_scale`` so the GP can learn that some standardized
@@ -444,8 +459,8 @@ def random_forest_regressor_factory(
 
     Piecewise-constant predictions can stall a surrogate-driven NSGA2 search
     on plateaus (see ``SurrogateModel``'s docstring) -- kept here for an
-    apples-to-apples comparison against the GP default, not recommended as
-    the default itself.
+    apples-to-apples comparison against the default (``mlp_regressor_factory``),
+    not recommended as the default itself.
 
     Args:
         n_estimators: Number of trees in the forest.
@@ -465,7 +480,7 @@ def mlp_regressor_factory(
     max_iter: int = 2000,
     seed: int | None = 1,
 ) -> RegressorFactory:
-    """Alternative ``regressor_factory``: smooth like a GP, but fits by gradient descent.
+    """Default ``regressor_factory`` (since 2026-09-01): smooth, but fits by gradient descent.
 
     An MLP (multi-layer perceptron) is a small feedforward neural network --
     one or more "hidden" layers of neurons, each a weighted sum of the
@@ -475,6 +490,13 @@ def mlp_regressor_factory(
     gradient descent rather than an O(n^3) matrix decomposition (see
     ``gaussian_process_regressor_factory``'s docstring for why that gets
     expensive), so it scales far better as ``n_lhs_samples`` grows.
+    Confirmed empirically, not just theoretically: on a real Euler run
+    (5000 LHS samples) this trained in ~15s (vs. the GP's ~36 min) AND held
+    up far better at the pareto edge (LCOE relative error: median 1.4%, max
+    4.3%, vs. the GP's median ~9.8%/max 35%), leaving 12/45 predicted-pareto
+    designs genuinely non-dominated after real-sim correction vs. the GP's
+    3/43 -- see ``gaussian_process_regressor_factory``'s docstring for that
+    comparison's other side.
 
     The tradeoff is needing more manual care to land on a genuinely smooth
     (not overfit/jagged) fit: ``alpha`` (L2 regularization) and
@@ -536,11 +558,11 @@ def train_surrogate(
     classifier_threshold: float = 0.5,
     quiet: bool = False,
 ) -> SurrogateModel:
-    """Fit one per-objective regressor (default: ``GaussianProcessRegressor``), plus a feasibility ``RandomForestClassifier``.
+    """Fit one per-objective regressor (default: ``MLPRegressor``), plus a feasibility ``RandomForestClassifier``.
 
-    ``regressor_factory`` defaults to ``gaussian_process_regressor_factory()``
+    ``regressor_factory`` defaults to ``mlp_regressor_factory()``
     (seeded with this call's own ``seed``) when omitted -- pass e.g.
-    ``random_forest_regressor_factory()``, or ``REGRESSOR_FACTORIES["random_forest"]()``,
+    ``gaussian_process_regressor_factory()``, or ``REGRESSOR_FACTORIES["gaussian_process"]()``,
     to swap it. See ``SurrogateModel``'s docstring for the tradeoff.
 
     The regressors train on the FEASIBLE rows only (an infeasible row has no
@@ -560,13 +582,13 @@ def train_surrogate(
 
     Unless ``quiet``, prints one line per objective (CV, then final fit) and
     one for the classifier, each with elapsed seconds -- a ``GaussianProcessRegressor``
-    fit is silent and can run for minutes on a few thousand feasible rows
-    (cross-validated AND refit, per objective, each with several
-    hyperparameter-optimizer restarts), so without this a slow but healthy
-    fit is indistinguishable from a hang in a SLURM job's log.
+    fit in particular is silent and can run for minutes on a few thousand
+    feasible rows (cross-validated AND refit, per objective, each with
+    several hyperparameter-optimizer restarts), so without this a slow but
+    healthy fit is indistinguishable from a hang in a SLURM job's log.
     """
     if regressor_factory is None:
-        regressor_factory = gaussian_process_regressor_factory(seed=seed)
+        regressor_factory = mlp_regressor_factory(seed=seed)
 
     feasible = training_df[training_df["success"]]
     n_dropped = len(training_df) - len(feasible)

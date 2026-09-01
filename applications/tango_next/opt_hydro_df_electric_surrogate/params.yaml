@@ -1,5 +1,5 @@
 # Parameters for the hydro_df_electric surrogate-assisted optimization pipeline
-# (LHS sample -> real-sim sweep -> train GP-regressor surrogate -> NSGA2
+# (LHS sample -> real-sim sweep -> train MLP-regressor surrogate -> NSGA2
 # against the surrogate -> real-sim validation of its pareto front).
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
@@ -14,16 +14,22 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 
 # Stage 3: surrogate (one regressor per objective, swappable -- see
 # surrogate_api.REGRESSOR_FACTORIES -- plus a RandomForestClassifier for
-# feasibility). `regressor: gaussian_process` (default) predicts a smooth
-# surface, which keeps NSGA2 able to distinguish nearby designs, but its
-# O(n^3) fit cost (CV folds x hyperparameter-optimizer restarts) gets slow
-# past a few thousand feasible rows. `mlp` is also smooth without that
-# scaling problem (fits by gradient descent instead) -- worth trying if GP
-# training time becomes a bottleneck as n_lhs_samples grows. `random_forest`
-# is this app's original choice (piecewise-constant predictions can stall
-# the search on plateaus -- see surrogate_api.SurrogateModel's docstring),
-# kept here for an apples-to-apples comparison, not recommended as the
-# default. Raise classifier_threshold (e.g. 0.7) if
+# feasibility). `regressor: mlp` (default, changed from gaussian_process
+# 2026-09-01) -- confirmed empirically on a real Euler run (n_lhs_samples
+# 5000) to be objectively better on THIS problem, not just faster: GP's
+# cross-validated R^2 looked excellent (LCOE 0.9985) but NSGA2 still
+# exploited a region where its actual predictions were off by up to 35%,
+# leaving only 3/43 predicted-pareto designs genuinely non-dominated after
+# real-sim correction; MLP trained in ~15s (vs GP's ~36 min -- GP's O(n^3)
+# fit cost, repeated across CV folds and hyperparameter-optimizer restarts,
+# gets slow past a few thousand feasible rows) AND held up far better at
+# the pareto edge (LCOE relative error: median 1.4%, max 4.3%), leaving
+# 12/45 genuinely non-dominated designs. `gaussian_process` remains
+# available as the smooth-surface reference case. `random_forest` is this
+# app's original choice (piecewise-constant predictions can stall the
+# search on plateaus -- see surrogate_api.SurrogateModel's docstring), kept
+# for an apples-to-apples comparison, not recommended. Raise
+# classifier_threshold (e.g. 0.7) if
 # outputs/surrogate_classifier_diagnostics.csv's cv_recall_infeasible looks
 # too low -- missing a true-infeasible design (predicting it feasible) is
 # the costly error here, not over-rejecting a feasible one.
