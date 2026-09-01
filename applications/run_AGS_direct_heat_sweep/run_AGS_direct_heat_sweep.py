@@ -200,8 +200,7 @@ re-run.
    grid dispatch, not a fixed thermal demand curve, is the usual driver
    there.
 
-Notes
------
+Notes:
 8000 m depth tier needed target_extraction_pressure to scale with depth
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 When the depth axis was extended to 8000 m, every single design at that

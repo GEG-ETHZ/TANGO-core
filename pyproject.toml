@@ -189,7 +189,6 @@ ignore = [
     "N802",   # function name should be lowercase (57 instances)
     "F405",   # may be undefined from star import (38 instances)
     "ARG002", # unused method argument (24 instances)
-    "D417",   # missing argument descriptions in docstring (24 instances)
     # D101/102/103/104/105/107: moved to src/tango/ per-file-ignores;
     # enforced in src/tango_next/ from the start.
     "N816",   # mixed-case variable in global scope (18 instances)
@@ -227,12 +226,12 @@ ignore = [
     "N807",
 ]
 
-# [tool.ruff.lint.pydocstyle]
-# convention = "numpy"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"src/tango/**" = ["D101", "D102", "D103", "D104", "D105", "D107"]
+"src/tango/**" = ["D101", "D102", "D103", "D104", "D105", "D107", "D416", "D417"]
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
 # https://mypy.readthedocs.io/en/stable/config_file.html#example-pyproject-toml

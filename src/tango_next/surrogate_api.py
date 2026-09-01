@@ -347,6 +347,14 @@ def gaussian_process_regressor_factory(
     Kernel is ``ConstantKernel * RBF + WhiteKernel``, with a per-dimension
     (not scalar) ``length_scale`` so the GP can learn that some standardized
     parameters matter more than others (ARD).
+
+    Args:
+        n_restarts_optimizer: Number of restarts of the kernel hyperparameter
+            optimizer, each from a different random starting point, on top of
+            the one from the kernel's own initial values -- guards against
+            landing in a bad local optimum. Higher is slower (each restart is
+            a full O(n^3) refit) but more reliable.
+        seed: Random seed for the optimizer's restart points.
     """
 
     def factory(n_dims: int) -> GaussianProcessRegressor:
@@ -374,6 +382,10 @@ def random_forest_regressor_factory(
     on plateaus (see ``SurrogateModel``'s docstring) -- kept here for an
     apples-to-apples comparison against the GP default, not recommended as
     the default itself.
+
+    Args:
+        n_estimators: Number of trees in the forest.
+        seed: Random seed for tree bootstrapping/feature selection.
     """
 
     def factory(n_dims: int) -> RandomForestRegressor:  # noqa: ARG001 -- n_dims unused, RF doesn't need it
@@ -399,6 +411,16 @@ def mlp_regressor_factory(
     uncertainty, unlike the GP -- irrelevant here since ``SurrogateModel``'s
     separate ``RandomForestClassifier`` already handles feasibility gating
     regardless of which regressor_factory trains the objectives.
+
+    Args:
+        hidden_layer_sizes: Number of neurons in each hidden layer, e.g.
+            ``(64, 64)`` for two 64-neuron layers.
+        alpha: L2 regularization strength -- raise it if the fit looks
+            jagged/overfit, lower it if predictions look too flat to track
+            genuine features of the response surface.
+        max_iter: Maximum optimizer iterations; raise it if sklearn warns the
+            fit didn't converge.
+        seed: Random seed for weight initialization and training.
     """
 
     def factory(n_dims: int) -> MLPRegressor:  # noqa: ARG001 -- n_dims unused, MLPRegressor infers input width from X at fit time

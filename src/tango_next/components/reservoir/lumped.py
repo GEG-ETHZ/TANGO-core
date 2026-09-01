@@ -16,8 +16,7 @@ Temperature model (thermal depletion — parity with src/tango/):
 
 where T₀ = initial reservoir temperature, T_inj = current injection temperature.
 
-References
-----------
+References:
 Doublet impedance:
     Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
     geothermal simulator, v0.0.1 [Software]. Zenodo.
