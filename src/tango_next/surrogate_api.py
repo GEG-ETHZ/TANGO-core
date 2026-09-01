@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import multiprocessing
 import tempfile
 import time
@@ -172,6 +173,39 @@ def evaluate_training_row(
     return row
 
 
+def _cached_row_is_valid(result_file: Path, params: list[ParamSpec], x_row: list[float]) -> bool:
+    """True only if ``result_file`` exists AND its stored params match ``x_row``.
+
+    A cached JSON file existing at ``{row_idx}.json`` is NOT by itself proof
+    that it's safe to reuse: ``run_lhs_sweep`` is also called (via
+    ``validate_surrogate_pareto``) against a FIXED ``results_dir`` that gets
+    reused across entirely separate pipeline runs, each with its own
+    surrogate-produced pareto front — a different set of designs, but the
+    SAME row indices (0, 1, 2, ...). Trusting file existence alone silently
+    reuses a totally different, unrelated design's real-sim result under a
+    row index that now belongs to a different design point (confirmed the
+    hard way: comparing two `validate_surrogate.py` runs' cached files showed
+    row 0's cached params didn't match row 0's current surrogate-predicted
+    design at all). Comparing every stored param value against ``x_row``
+    (not just checking the file exists) is what makes this genuinely safe to
+    reuse across BOTH call sites: the LHS design matrix case, where ``x_row``
+    never changes between runs (so every cached row always matches and gets
+    skipped, same behavior as before), and the pareto-front-validation case,
+    where a stale row now gets correctly detected and recomputed instead of
+    silently reused.
+    """
+    if not result_file.exists():
+        return False
+    try:
+        cached = json.loads(result_file.read_text())
+    except json.JSONDecodeError:
+        return False
+    return all(
+        math.isclose(cached[p.name], v, rel_tol=1e-9, abs_tol=1e-12)
+        for p, v in zip(params, x_row, strict=True)
+    )
+
+
 def _evaluate_and_write(
     args: tuple[int, list[float], dict[str, Any], list[ParamSpec], list[ObjectiveSpec], Path],
 ) -> None:
@@ -183,7 +217,7 @@ def _evaluate_and_write(
     """
     row_idx, x, base_cfg, params, objectives, results_dir = args
     result_file = results_dir / f"{row_idx:06d}.json"
-    if result_file.exists():
+    if _cached_row_is_valid(result_file, params, x):
         return
     row = evaluate_training_row(x, base_cfg, params, objectives)
     row["row_idx"] = row_idx
@@ -208,16 +242,20 @@ def run_lhs_sweep(
     Mirrors ``run_hydro_df_electric_sweep/sweep.py``'s ``run_sweep()``: a
     spawn-context ``multiprocessing.Pool``, ``imap_unordered``, one atomic
     JSON file per design point under ``results_dir`` (resumable — an
-    already-written row is skipped, so a killed run just needs to be
-    restarted with the same ``results_dir``). This is a real, possibly-long,
-    Euler-scale job (unlike the surrogate-driven GA below, which is cheap
-    enough to just rerun from scratch if killed).
+    already-written row whose cached design matches ``x`` is skipped, so a
+    killed run just needs to be restarted with the same ``results_dir`` --
+    see ``_cached_row_is_valid`` for why "already-written" alone isn't a
+    sufficient resume condition). This is a real, possibly-long, Euler-scale
+    job (unlike the surrogate-driven GA below, which is cheap enough to just
+    rerun from scratch if killed).
     """
     base_cfg = base_workflow.to_dict()
     n_samples = x.shape[0]
     results_dir.mkdir(exist_ok=True, parents=True)
 
-    completed = {int(f.stem) for f in results_dir.glob("*.json")}
+    completed = {
+        i for i in range(n_samples) if _cached_row_is_valid(results_dir / f"{i:06d}.json", params, list(x[i]))
+    }
     pending = [i for i in range(n_samples) if i not in completed]
     if not quiet:
         print(f"LHS sweep status: {len(completed)}/{n_samples} completed, {len(pending)} pending")

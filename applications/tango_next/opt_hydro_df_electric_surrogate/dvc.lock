@@ -33,7 +33,7 @@ stages:
       size: 9585
     - path: ../../../src/tango_next.hash
       hash: md5
-      md5: ad4959eb02f44cfc453e49113db8178f
+      md5: 97a3f77f818d7939ab1649ab87f19d81
       size: 41
     - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
       hash: md5
