@@ -11,6 +11,57 @@ Entries are added only once a bug is fully confirmed against current
 `src/tango` code and verified not to recur in `tango_next`. Each entry
 links to the fuller writeup where one exists.
 
+## Overview
+
+`tango_next` has been built around a small set of deliberate design
+concepts. Several of the bugs below were only findable — or only fixable
+by construction, not by patching a symptom — because of one of them:
+
+- **object == config** -- code objects/attributes and config (YAML) stay
+  in near-1:1 congruence; when one logical config entity has to be split
+  across multiple code objects for other reasons, code that aggregates
+  back up to that entity has to know about the split explicitly, rather
+  than the split silently drifting out of sync with what the config
+  actually describes.
+- **standalone simulation** -- any component can be built and run in
+  isolation, without spinning up the full circuit, which is what makes it
+  possible to isolate a single suspect component's behavior directly
+  instead of only observing it through a full end-to-end run.
+- **(de)serialization** -- every config and every persisted/serialized
+  field round-trips through a validated pydantic schema, not a bare,
+  stringly-typed dict.
+- **finite values as `StrEnum`** -- any parameter with a small, finite set
+  of legal values is an explicit, exhaustively-named `StrEnum`, not a
+  loosely-scoped flag or a string compared ad hoc.
+- **method encapsulation** -- a class only mutates its own state through
+  its own methods; external code never assigns a field directly.
+- **locked state** -- state variables update once and only once per
+  timestep, with an explicit fresh/stale distinction enforced
+  structurally (`LockedState`/`snapshot_convergence_state`), not left to
+  convention.
+- **explicit failure signaling** -- convergence and physical failures
+  raise a typed error instead of logging a warning, silently falling
+  back, or letting the caller proceed on stale/unconverged state.
+- **descriptive variable names** -- a variable or field representing a
+  physical quantity gets a full, descriptive name, never a bare
+  single/double-letter symbol lifted straight out of a textbook formula.
+
+Bugs below and the design concept (if any) that let them be caught or
+fixed by construction rather than by a one-off patch:
+
+| Bug | Design concept that enabled discovery/fix |
+| --- | --- |
+| [AGS configs never advance simulated time](#ags-configs-never-advance-simulated-time) | locked state |
+| [`== "yes"` string-comparison trap](#yes-string-comparison-trap) | (de)serialization |
+| [`check_fracing` doesn't gate what its name implies](#check_fracing-doesnt-gate-what-its-name-implies) | finite values as `StrEnum` |
+| [`fracing_flow` mixes a wellbore diameter into a term that should be a radius](#fracing_flow-mixes-a-wellbore-diameter-into-a-term-that-should-be-a-radius) | descriptive variable names |
+| [Non-convergence silently swallowed instead of raised](#non-convergence-silently-swallowed-instead-of-raised) | explicit failure signaling |
+| [Convergence loop can commit a result computed from mixed fresh/stale state](#convergence-loop-can-commit-a-result-computed-from-mixed-freshstale-state) | locked state |
+| [Old tango's downhole production pump is modeled as perfectly isothermal](#old-tangos-downhole-production-pump-is-modeled-as-perfectly-isothermal) | standalone simulation |
+| [`NativeEconomicComponent` double-counted well mobilization cost across split physics sub-components](#nativeeconomiccomponent-double-counted-well-mobilization-cost-across-split-physics-sub-components) | object == config |
+| [Auto mass flow rate convergence never re-solves temperature](#auto-mass-flow-rate-convergence-never-re-solves-temperature) | locked state |
+| [AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone](#ags-closed-loop-has-no-pump-anywhere-circulation-runs-on-thermosiphon-effect-alone) | - |
+
 ## AGS configs never advance simulated time
 
 `src/tango/utils.py::system_name()` collapses any AGS-shaped config
@@ -161,6 +212,13 @@ terms in the same units.
 carried forward to later correct) as part of `InjectionPolicy.
 MANUAL_FRACKING_CHECK`, 2026-08-11 (uncommitted as of 2026-08-12 — update
 this hash once committed).
+
+**New TANGO Commandment added** (`CONTRIBUTING.md`): [rule: No opaque short
+names for physical quantities](../CONTRIBUTING.md#rule-descriptive-variable-names) — a bare
+`rw`/`re` is exactly what let a diameter and a radius get silently mixed
+into the same formula unnoticed; a full name like `wellbore_diameter_m`
+vs. `wellbore_radius_m` would have made the mismatch visible at the call
+site.
 
 ## Non-convergence silently swallowed instead of raised
 

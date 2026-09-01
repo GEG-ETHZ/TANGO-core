@@ -57,6 +57,19 @@ with.
   `Network(p_unit='bar', ...)`, so a bare `p_out: 0.05` silently meant bar)
   with one that's self-evident from the name alone, no matter where it's
   read out of context.
+1. <a id="rule-descriptive-variable-names"></a>**No opaque short names for physical quantities**: Any variable, parameter, or field representing a
+  physical quantity must use a full, descriptive name — never a bare
+  single- or double-letter symbol (`rw`, `re`, `T`, `P`) copied straight
+  out of a textbook formula. Confirmed the hard way: a radial-flow formula
+  used `rw` for what its own docstring called a wellbore *radius*, but the
+  value assigned to it there was actually a *diameter* — a mistake a name
+  like `wellbore_diameter_m` (vs. `wellbore_radius_m`) would have made
+  visually obvious at the call site, and that a bare `rw` hid completely.
+  This isn't a request for verbosity for its own sake — it's specifically
+  about eliminating the class of bug where a short symbol lets two
+  different physical quantities (or a radius substituted for a diameter)
+  get silently swapped for each other because the name itself carries no
+  distinguishing information.
 1. **Document private attributes/fields**: All private attributes/fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
 1. <a id="rule-encapsulated-mutation"></a>**Encapsulated mutation**: A class instance's fields must only be modified by the instance
   itself — via methods it defines, whether those methods are called
