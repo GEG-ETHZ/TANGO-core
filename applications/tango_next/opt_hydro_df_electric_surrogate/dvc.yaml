@@ -46,6 +46,15 @@ stages:
       - train_surrogate.py
       - common.py
       - outputs/lhs_training_data.csv
+      # Content hash of src/tango_next/, kept current by the hash-tango-next
+      # pre-commit hook (tools/hash_tango_next.py) -- without this, a change
+      # to surrogate_api.py itself (e.g. the regressor/y-scaling logic) isn't
+      # tracked at all, and dvc repro silently skips this stage as
+      # unchanged. Confirmed the hard way (2026-09-01): the y_scaler fix and
+      # stale-cache fix both landed in surrogate_api.py, but two consecutive
+      # Euler runs kept reusing the pre-fix surrogate_model.joblib because
+      # this dependency was missing.
+      - ../../../src/tango_next.hash
     params:
       - params.yaml:
           - regressor
