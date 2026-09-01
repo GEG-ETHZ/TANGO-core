@@ -264,7 +264,19 @@ class SurrogateModel:
     ``x_scaler`` (fit on the same rows as the regressors) before every
     predict call — harmless for a scale-invariant regressor like a random
     forest, but required for one like a GP that fits a per-dimension length
-    scale, so it's applied unconditionally rather than per-factory.
+    scale, so it's applied unconditionally rather than per-factory. Targets
+    are likewise standardized per objective through ``y_scalers`` (one
+    ``StandardScaler`` per objective, inverse-transformed back to real units
+    on the way out) — confirmed necessary the hard way: ``negative_mean_power_W``
+    (scale ~1e6) trained an ``MLPRegressor`` to a cross-validated R² of
+    -0.33 (worse than predicting the mean) when fit on raw, unscaled
+    targets, because its default weight init/learning rate/L2 regularization
+    all implicitly assume roughly unit-scale targets. ``GaussianProcessRegressor``'s
+    own ``normalize_y=True`` had been masking that this codebase never
+    standardized *outputs* at all, only inputs — applying ``y_scalers``
+    unconditionally (like ``x_scaler``) rather than requiring every future
+    ``regressor_factory`` to remember its own normalization is what actually
+    fixes this, not a GP-specific workaround.
 
     The regressors alone have no notion of "this design doesn't physically
     work" — trained only on FEASIBLE rows, they extrapolate smooth-looking
@@ -285,6 +297,7 @@ class SurrogateModel:
     objective_names: list[str]
     models: dict[str, Any]
     x_scaler: StandardScaler
+    y_scalers: dict[str, StandardScaler]
     cv_r2: dict[str, float]
     cv_mae: dict[str, float]
     classifier: RandomForestClassifier
@@ -301,7 +314,11 @@ class SurrogateModel:
         classifier first.
         """
         x_scaled = self.x_scaler.transform(x)
-        return np.column_stack([self.models[name].predict(x_scaled) for name in self.objective_names])
+        cols = []
+        for name in self.objective_names:
+            y_scaled = self.models[name].predict(x_scaled)
+            cols.append(self.y_scalers[name].inverse_transform(y_scaled.reshape(-1, 1)).ravel())
+        return np.column_stack(cols)
 
     def predict_feasible(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
         """``(n, n_var) -> (n,)`` bool — classifier's feasibility call at ``self.classifier_threshold``."""
@@ -322,7 +339,15 @@ class SurrogateModel:
             msg = f"feasibility classifier predicts infeasible for x={x}"
             raise SurrogateInfeasibleError(msg)
         x_scaled = self.x_scaler.transform(x_arr)
-        return [self.models[name].predict(x_scaled)[0] for name in self.objective_names]
+        return [
+            float(
+                self.y_scalers[name].inverse_transform(self.models[name].predict(x_scaled).reshape(-1, 1))[
+                    0,
+                    0,
+                ],
+            )
+            for name in self.objective_names
+        ]
 
 
 # n_dims -> a fresh, UNFITTED sklearn-style regressor (bare `.fit`/`.predict`).
@@ -519,17 +544,22 @@ def train_surrogate(
     x_scaler = StandardScaler().fit(x)
     x_scaled = x_scaler.transform(x)
     models: dict[str, Any] = {}
+    y_scalers: dict[str, StandardScaler] = {}
     cv_r2: dict[str, float] = {}
     cv_mae: dict[str, float] = {}
     kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     for name in objective_names:
         y = feasible[name].to_numpy(dtype=float)
+        y_scaler = StandardScaler().fit(y.reshape(-1, 1))
+        y_scaled = y_scaler.transform(y.reshape(-1, 1)).ravel()
+        y_scalers[name] = y_scaler
 
         start = time.perf_counter()
         if not quiet:
             print(f"train_surrogate: cross-validating regressor for {name!r} ({len(feasible)} rows)...")
         cv_model = regressor_factory(x.shape[1])
-        y_pred = cross_val_predict(cv_model, x_scaled, y, cv=kfold)
+        y_pred_scaled = cross_val_predict(cv_model, x_scaled, y_scaled, cv=kfold)
+        y_pred = y_scaler.inverse_transform(y_pred_scaled.reshape(-1, 1)).ravel()
         cv_r2[name] = r2_score(y, y_pred)
         cv_mae[name] = mean_absolute_error(y, y_pred)
         if not quiet:
@@ -539,7 +569,7 @@ def train_surrogate(
 
         start = time.perf_counter()
         model = regressor_factory(x.shape[1])
-        model.fit(x_scaled, y)
+        model.fit(x_scaled, y_scaled)
         models[name] = model
         if not quiet:
             print(f"train_surrogate: {name!r} final fit done in {time.perf_counter() - start:.1f}s")
@@ -569,6 +599,7 @@ def train_surrogate(
         objective_names=objective_names,
         x_scaler=x_scaler,
         models=models,
+        y_scalers=y_scalers,
         cv_r2=cv_r2,
         cv_mae=cv_mae,
         classifier=classifier,
