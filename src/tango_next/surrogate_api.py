@@ -355,6 +355,7 @@ def gaussian_process_regressor_factory(
             landing in a bad local optimum. Higher is slower (each restart is
             a full O(n^3) refit) but more reliable.
         seed: Random seed for the optimizer's restart points.
+
     """
 
     def factory(n_dims: int) -> GaussianProcessRegressor:
@@ -386,6 +387,7 @@ def random_forest_regressor_factory(
     Args:
         n_estimators: Number of trees in the forest.
         seed: Random seed for tree bootstrapping/feature selection.
+
     """
 
     def factory(n_dims: int) -> RandomForestRegressor:  # noqa: ARG001 -- n_dims unused, RF doesn't need it
@@ -395,26 +397,42 @@ def random_forest_regressor_factory(
 
 
 def mlp_regressor_factory(
-    hidden_layer_sizes: tuple[int, ...] = (64, 64),
+    hidden_layer_sizes: tuple[int, ...] = (16, 16),
     alpha: float = 1e-3,
     max_iter: int = 2000,
     seed: int | None = 1,
 ) -> RegressorFactory:
     """Alternative ``regressor_factory``: smooth like a GP, but fits by gradient descent.
 
-    No O(n^3) matrix decomposition (see ``gaussian_process_regressor_factory``'s
-    docstring for why that gets expensive) -- an ``MLPRegressor`` fit scales
-    far better as ``n_lhs_samples`` grows, at the cost of needing more manual
-    care to land on a genuinely smooth (not overfit/jagged) fit: ``alpha``
-    (L2 regularization) and ``hidden_layer_sizes`` are the two knobs worth
-    tuning first if predictions look wrong. Also has no native per-prediction
-    uncertainty, unlike the GP -- irrelevant here since ``SurrogateModel``'s
-    separate ``RandomForestClassifier`` already handles feasibility gating
-    regardless of which regressor_factory trains the objectives.
+    An MLP (multi-layer perceptron) is a small feedforward neural network --
+    one or more "hidden" layers of neurons, each a weighted sum of the
+    previous layer's outputs passed through a nonlinearity, sandwiched
+    between the input (the design parameters) and output (one objective).
+    Like a GP it predicts a smooth, differentiable surface, but it fits by
+    gradient descent rather than an O(n^3) matrix decomposition (see
+    ``gaussian_process_regressor_factory``'s docstring for why that gets
+    expensive), so it scales far better as ``n_lhs_samples`` grows.
+
+    The tradeoff is needing more manual care to land on a genuinely smooth
+    (not overfit/jagged) fit: ``alpha`` (L2 regularization) and
+    ``hidden_layer_sizes`` are the two knobs worth tuning first if
+    predictions look wrong. ``hidden_layer_sizes`` in particular trades off
+    against how much training data ``train_surrogate`` actually has to fit
+    it with -- the default here is deliberately small (two 16-neuron
+    layers, a few hundred learnable weights total) rather than something
+    like ``(64, 64)`` (tens of thousands of weights), because a few thousand
+    feasible LHS rows over a handful of design parameters is nowhere near
+    enough data to fit a network that large without overfitting; raise it
+    only if ``n_lhs_samples`` grows substantially or the response surface
+    turns out to need more capacity than this captures. Also has no native
+    per-prediction uncertainty, unlike the GP -- irrelevant here since
+    ``SurrogateModel``'s separate ``RandomForestClassifier`` already handles
+    feasibility gating regardless of which regressor_factory trains the
+    objectives.
 
     Args:
         hidden_layer_sizes: Number of neurons in each hidden layer, e.g.
-            ``(64, 64)`` for two 64-neuron layers.
+            ``(16, 16)`` for two 16-neuron layers.
         alpha: L2 regularization strength -- raise it if the fit looks
             jagged/overfit, lower it if predictions look too flat to track
             genuine features of the response surface.

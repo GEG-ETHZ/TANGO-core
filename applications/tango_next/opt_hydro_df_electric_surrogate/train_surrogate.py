@@ -24,7 +24,11 @@ from tango_next.surrogate_api import (
 
 
 def _parse_hidden_layer_sizes(value: str) -> tuple[int, ...]:
-    """``"64,64"`` -> ``(64, 64)`` -- argparse type for ``--mlp-hidden-layer-sizes``."""
+    """``"16,16"`` -> ``(16, 16)`` -- argparse type for ``--mlp-hidden-layer-sizes``.
+
+    Args:
+        value: Comma-separated layer widths, e.g. ``"16,16"``.
+    """
     return tuple(int(n) for n in value.split(","))
 
 
@@ -59,8 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mlp-hidden-layer-sizes",
         type=_parse_hidden_layer_sizes,
-        default=_parse_hidden_layer_sizes(params.get("mlp_hidden_layer_sizes", "64,64")),
-        help="Comma-separated layer widths, e.g. '64,64'. Only used when --regressor=mlp.",
+        default=_parse_hidden_layer_sizes(params.get("mlp_hidden_layer_sizes", "16,16")),
+        help="Comma-separated layer widths, e.g. '16,16'. Only used when --regressor=mlp.",
     )
     parser.add_argument(
         "--mlp-alpha",
