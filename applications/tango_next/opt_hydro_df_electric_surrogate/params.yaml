@@ -36,7 +36,7 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 regressor: mlp
 gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
 regressor_rf_n_estimators: 300 # only used when regressor: random_forest
-mlp_hidden_layer_sizes: "16,16" # only used when regressor: mlp -- kept small, see mlp_regressor_factory's docstring for why
+mlp_hidden_layer_sizes: "64,64" # only used when regressor: mlp -- bumped from "16,16" (2026-09-02, Chad's call): 5000 LHS samples (2253 feasible) is enough data to try more capacity; see mlp_regressor_factory's docstring for the tradeoff this trades against
 mlp_alpha: 0.001 # only used when regressor: mlp
 mlp_max_iter: 2000 # only used when regressor: mlp
 classifier_n_estimators: 300
