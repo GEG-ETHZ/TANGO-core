@@ -33,7 +33,7 @@ stages:
       size: 9585
     - path: ../../../src/tango_next.hash
       hash: md5
-      md5: f742c65703279ad3369109b535e4022e
+      md5: c402624273599bd5e02f1e05902b0efd
       size: 41
     - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
       hash: md5
@@ -62,6 +62,10 @@ stages:
   train_surrogate:
     cmd: python train_surrogate.py
     deps:
+    - path: ../../../src/tango_next.hash
+      hash: md5
+      md5: c402624273599bd5e02f1e05902b0efd
+      size: 41
     - path: common.py
       hash: md5
       md5: 379c6faeeb3e7469e6ab97ffcdb6c852
@@ -72,8 +76,8 @@ stages:
       size: 1157693
     - path: train_surrogate.py
       hash: md5
-      md5: 7f6faa1e2fac1fe4c4e96e20d423e5cc
-      size: 5619
+      md5: dbea28829e3a4dd2d8850cd9163a3d2f
+      size: 5683
     params:
       params.yaml:
         classifier_n_estimators: 300
@@ -120,12 +124,12 @@ stages:
       size: 6969684
     - path: params.yaml
       hash: md5
-      md5: fb1dc12589078c8e5f113f0443632638
-      size: 3072
+      md5: 99276f3ef72dd440447ad131951d004e
+      size: 3474
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: e114894d573b11782a8fca53bdb8648f
+      md5: 1e74adf1c4eb7a14b2831127f23f4b9a
       size: 4573461
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
