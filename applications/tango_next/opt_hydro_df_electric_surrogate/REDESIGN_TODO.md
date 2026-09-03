@@ -37,13 +37,13 @@ undermining the whole point of having a surrogate — if you need that many
 real sims to train it, you're not saving much over just running the real
 optimizer.
 
-I (Claude) built step 4 as `refine_lhs.py` (already committed to disk,
-untracked in git) — draws a second LHS batch inside a padded bounding box
-around `outputs/corrected_pareto_results.csv`, real-sims it, appends to
-`outputs/lhs_training_data.csv`. **This is now superseded by the redesign
-below (Chad's answer to open question 4: "replace").** Leave the file on
-disk for now (not deleted) until the new approach is actually built and
-working — don't delete it preemptively.
+I (Claude) built step 4 as `refine_lhs.py` — drew a second LHS batch inside
+a padded bounding box around `outputs/corrected_pareto_results.csv`,
+real-simmed it, appended to `outputs/lhs_training_data.csv`. **Superseded
+by the redesign below** (Chad's answer to open question 4: "replace") and
+deleted (2026-09-03) — never run, so nothing depends on it. If a padded-box
+LHS refinement is ever wanted again, this transcript/prior git history has
+the approach.
 
 ## The new idea (Chad's proposal, 2026-09-03)
 
