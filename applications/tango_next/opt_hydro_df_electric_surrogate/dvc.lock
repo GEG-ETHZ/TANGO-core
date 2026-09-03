@@ -85,7 +85,7 @@ stages:
         cv_folds: 5
         gpr_n_restarts_optimizer: 5
         mlp_alpha: 0.001
-        mlp_hidden_layer_sizes: 16,16
+        mlp_hidden_layer_sizes: 64,64
         mlp_max_iter: 2000
         regressor: mlp
         regressor_rf_n_estimators: 300
@@ -97,12 +97,12 @@ stages:
       size: 84
     - path: outputs/surrogate_diagnostics.csv
       hash: md5
-      md5: 23a1a70a0725e9630d46837b03930268
+      md5: 4f7e72b0b4ba0e741c6b67932d74016a
       size: 126
     - path: outputs/surrogate_model.joblib
       hash: md5
-      md5: 82c5d673b9037a6fff7b4449dc29e13c
-      size: 6969684
+      md5: 0a767378b3da7a8387f0bfe9823b20d8
+      size: 7232660
   optimize_surrogate:
     cmd: python optimize_surrogate.py
     deps:
@@ -120,38 +120,38 @@ stages:
       size: 4501
     - path: outputs/surrogate_model.joblib
       hash: md5
-      md5: 82c5d673b9037a6fff7b4449dc29e13c
-      size: 6969684
+      md5: 0a767378b3da7a8387f0bfe9823b20d8
+      size: 7232660
     - path: params.yaml
       hash: md5
-      md5: 99276f3ef72dd440447ad131951d004e
-      size: 3474
+      md5: 4047d5a5863ac80dbe837267dde0c962
+      size: 3608
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 1e74adf1c4eb7a14b2831127f23f4b9a
-      size: 4573461
+      md5: b1dc73e2574f528095c4391587dc3256
+      size: 4573455
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
-      md5: f3e36eab019aab3efcceceda3d766088
-      size: 590697
+      md5: 8d2965927ee4c27208084056a117e3b8
+      size: 616537
     - path: outputs/pareto_scatter.png
       hash: md5
-      md5: 6a67aee56ea97f146141497e0862c653
-      size: 71273
+      md5: e06eeca9b7166fd0c2e250304cb97e46
+      size: 70925
     - path: outputs/pareto_scatter_by_param.png
       hash: md5
-      md5: a897b64cba6f979bba21d77145110d0b
-      size: 125042
+      md5: 412b0bf4661b48672e5e979328882654
+      size: 134328
     - path: outputs/pareto_scatter_param_pairs.png
       hash: md5
-      md5: 14edd8305dad84dc9236673aee3aa9c8
-      size: 197085
+      md5: 45c06f49e723eb74bfbf2ed38ed20130
+      size: 214529
     - path: outputs/pareto_scatter_zscore.png
       hash: md5
-      md5: 211fb2af222d80d749eb28f20d163e55
-      size: 69475
+      md5: c6ce5be10a497c0d862de593f7822404
+      size: 69656
     - path: outputs/surrogate_pareto_results.csv
       hash: md5
-      md5: 73e187c8e2d1a5709e740b7730327a52
-      size: 5140
+      md5: b9cdd49001a111170ccc0c90e43e3735
+      size: 5132

@@ -36,7 +36,7 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 regressor: mlp
 gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
 regressor_rf_n_estimators: 300 # only used when regressor: random_forest
-mlp_hidden_layer_sizes: "64,64" # only used when regressor: mlp -- bumped from "16,16" (2026-09-02, Chad's call): 5000 LHS samples (2253 feasible) is enough data to try more capacity; see mlp_regressor_factory's docstring for the tradeoff this trades against
+mlp_hidden_layer_sizes: "16,16" # only used when regressor: mlp -- tried "64,64" (2026-09-02) on a real Euler run: CV r2/MAE improved (LCOE r2 0.979->0.989) but that was overfitting, not genuine improvement -- real-sim-corrected accuracy at the pareto edge got WORSE (median LCOE rel error 1.4%->3.7%) and fewer designs survived real-sim validation (19/45->16/45 feasible, 12->10 genuinely non-dominated). Reverted; see mlp_regressor_factory's docstring for why capacity is the wrong first lever with ~2253 feasible training rows -- try the hyperparameter grid search / MLP ensemble / refine_lhs.py refinement round first (2026-09-01 5-step accuracy plan)
 mlp_alpha: 0.001 # only used when regressor: mlp
 mlp_max_iter: 2000 # only used when regressor: mlp
 classifier_n_estimators: 300
@@ -56,6 +56,16 @@ classifier_threshold: 0.5
 # ftol: 0.005
 # xtol: 0.0005
 # optimize_seed: 1
+
+# Stage 2.5 (manual, not wired into dvc.yaml -- see refine_lhs.py's
+# docstring for why): a second, smaller LHS batch concentrated around the
+# current outputs/corrected_pareto_results.csv, real-sim'd and appended to
+# outputs/lhs_training_data.csv. Run by hand after a completed pipeline run,
+# not part of `dvc repro`.
+n_refine_samples: 1000
+refine_seed: 2
+refine_bbox_pad_frac: 0.15 # pad the pareto-front bounding box by this fraction of its own per-param range
+refine_bbox_min_pad_frac: 0.05 # ...floored at this fraction of the GLOBAL per-param range (see refine_lhs.py's _bounding_box)
 
 # Stage 5: real-sim validation of the surrogate's pareto front.
 validation_tolerance: 0.001
