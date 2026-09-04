@@ -1,9 +1,12 @@
-# Surrogate pipeline redesign — brainstorm state (2026-09-03)
+# Surrogate pipeline redesign — implemented, awaiting Chad's review (2026-09-03)
 
-Status: **brainstorming only, nothing below has been implemented yet.**
-Chad said "don't act on this immediately" — this file exists so a fresh
-Claude Code session can resume the conversation without losing context if
-this one gets interrupted.
+Status: **built and smoke-tested locally (tiny toy sizes), NOT yet run at
+real Euler scale.** Chad said "get after it... do the whole pipeline then
+ask for my review" (2026-09-03) — this file exists so a fresh Claude Code
+session can resume the conversation without losing context if this one
+gets interrupted. See "What was actually built" below for the current
+state; everything under "Open questions" further down is either resolved
+or explicitly deferred, not blocking review.
 
 ## Where this came from
 
@@ -76,6 +79,92 @@ training-data generation. Rough shape:
 6. Profit. (No loop — same "one-shot, not full active learning" philosophy
    as before, just a smarter one-shot sampling strategy.)
 
+## What was actually built (2026-09-03)
+
+- **`ParamToleranceDuplicateElimination`** (new class in `src/tango_next/pymoo_api.py`,
+  next to `Minimization`) — two designs are duplicates if EVERY param is
+  within `tol_frac` of the other's OWN `bounds` range (not one combined
+  Euclidean distance against a fixed absolute epsilon like pymoo's own
+  `DefaultDuplicateElimination`, which conflates parameters of wildly
+  different scales/units). Answers Q2's design question: passed as
+  `NSGA2(..., eliminate_duplicates=...)`, so pymoo's `Mating.do()` filters
+  near-duplicates out BEFORE they're real-simulated, not just afterward.
+  Q2's "unresolved" caveat still stands as documented in the class's own
+  docstring: only catches duplicates within the current offspring
+  batch/population, not the full multi-generation history.
+- **`Minimization.capture_trajectory_path`** (new optional field + private
+  `_append_trajectory` method, `pymoo_api.py`) — when set, appends EVERY
+  generation's newly-evaluated individuals (`algorithm.off`, which pymoo's
+  own `Algorithm.advance()` sets unconditionally every call to `next()`,
+  including generation 1's initialization — no special-casing needed) to a
+  CSV, one row per individual, schema-identical to `surrogate_api`'s
+  LHS-sweep training rows (param columns, objective columns — `NaN`, not
+  absent, for infeasible designs, since appending one small `DataFrame` per
+  generation needs identical columns every chunk or `to_csv(mode="a")`
+  silently misaligns them — a subtlety this took an extra edit to get
+  right — `success` bool, `row_idx`). Hooked into `run()`'s existing
+  per-generation loop, right where `_save_intermediate` already lives.
+  Per-individual `n_gen` is read from `off.get("n_gen")` (what pymoo itself
+  stamps at infill-time), NOT `algorithm.n_gen` (a property that's already
+  incremented for the NEXT round by the time `next()` returns — confirmed
+  via a smoke test that initially mislabeled generation 1 as 2).
+- **`run_trajectory.py`** (new app script, replaces `generate_lhs.py` +
+  `sweep_lhs.py`, both deleted) — builds `NSGA2(pop_size=trajectory_pop_size,
+  eliminate_duplicates=ParamToleranceDuplicateElimination(...))`, wraps it
+  in a `Minimization` with `pymoo_config=PymooConfig(n_max_gen=trajectory_n_gen,
+  ftol=0.0, xtol=0.0, ...)` (ftol/xtol pinned to 0.0 so `trajectory_n_gen`
+  is a hard generation count, not convergence-dependent — `DefaultMultiObjectiveTermination`
+  would otherwise stop early), `capture_trajectory_path=outputs/lhs_training_data.csv`,
+  `save_results=False`. Also writes `outputs/trajectory_pareto_results.csv`
+  (the real trajectory's own final front — a free diagnostic, not required
+  by anything downstream).
+- **`train_surrogate.py`/`optimize_surrogate.py`/`validate_surrogate.py`**:
+  genuinely UNCHANGED (optimize_surrogate.py got two doc/print-string edits
+  only, no logic changes) — confirmed via the local smoke test below that
+  `train_surrogate.py` consumes `run_trajectory.py`'s output with zero
+  code changes, as designed.
+- **`params.yaml`**: `trajectory_pop_size: 1000`, `trajectory_n_gen: 5`,
+  `trajectory_seed: 1`, `trajectory_dedup_tol_frac: 0.001` added.
+  `n_max_gen`/`pop_size`/`ftol`/`xtol`/`optimize_seed` UNCOMMENTED (now
+  `optimize_surrogate`'s own real values, Q3 resolved as "give it its own
+  config" — see below) rather than falling back to the real app's
+  params.yaml. `validation_tolerance: 0.01` (was `0.001`) — Chad's literal
+  1% target.
+- **`dvc.yaml`**: `lhs_generate`/`lhs_sweep` replaced by one `run_trajectory`
+  stage. `optimize_surrogate`'s deps switched from a whole-file
+  `params.yaml` dep to proper per-key `params:` tracking now that its keys
+  are no longer conditionally absent.
+- **`surrogate_api.dedup_training_rows`** (2026-09-04, closes Q2's
+  full-history gap): a second, post-hoc dedup pass, run once at the end of
+  `run_trajectory.py` over the WHOLE retained trajectory (not just one
+  generation's batch, which is all `ParamToleranceDuplicateElimination` can
+  see). Two rows are duplicates if every param AND (for two feasible rows)
+  every objective is within `trajectory_dedup_tol_frac` of the other's,
+  normalized by that column's OBSERVED range across the dataset — uses
+  `scipy.spatial.cKDTree` with Chebyshev (`p=inf`) distance, confirmed
+  empirically cheap (~0.02s at 50,000 rows/5 columns, vs. ~1.6s for a naive
+  O(n²) broadcast at just 10,000 — checking cost was never the
+  consideration). Caught and fixed a real bug during testing: the first
+  implementation normalized by the COMPARISON GROUP's own observed range,
+  which is self-referential and nearly untriggerable for a small group (a
+  2-row group's range IS the gap between them); fixed to normalize by the
+  full dataset's range instead, computed once and reused consistently.
+- **Local smoke test** (tiny sizes — `pop_size=20`, `n_gen=3`, `cv_folds=3`,
+  `n_max_gen=20` — NOT representative of real accuracy, only confirms the
+  pipeline runs mechanically end to end): `run_trajectory.py` → 60
+  trajectory rows (43 feasible) → `train_surrogate.py` (LCOE CV r2=0.85) →
+  `optimize_surrogate.py` (11-design front) → `validate_surrogate.py` (0/11
+  survived at THIS toy scale — meaningless at pop_size=20/n_gen=3, real
+  accuracy can only be judged from an actual Euler-scale run).
+- **`refine_lhs.py`**: deleted per Q4 (already done before this build
+  started).
+- `outputs/` still has old LHS-era files on disk (`lhs_design_matrix.csv`,
+  `lhs_sweep_results/`) — harmless (gitignored, no longer referenced by
+  `dvc.yaml`), not cleaned up, safe to `rm -r` or leave.
+- **`dvc.lock` NOT regenerated** — that requires an actual `dvc repro`
+  (real Euler-scale multiprocessing job), which wasn't run. It'll pick up
+  the new stage names/hashes automatically on the next real `dvc repro`.
+
 ## Open questions / not yet resolved
 
 - **Q1 (Chad, answered):** "I don't know of any reason to expect the
@@ -107,29 +196,33 @@ training-data generation. Rough shape:
     generation-4 individual could still duplicate a generation-1 one. May
     need a supplementary full-history pass — still cheap per the cost
     analysis above, just needs deciding whether it's necessary.
-- **Q3, step 4's own pop_size** — Chad said step 4's `n_gen` should be a
-  separate parameter from step 2's `n_gen`. Didn't explicitly say pop_size
-  needs to be separate too (today's `optimize_surrogate.py` defaults
-  pop_size/n_max_gen/ftol/xtol/seed from the REAL app's own params.yaml for
-  direct comparison — see `common.py`'s `opt_app_pymoo_params()`). Confirm
-  whether step 4 should keep mirroring the real app's config, or get its
-  own fully independent GA config now that its role has changed (searching
-  a cheap surrogate deeply, not directly comparing to the real run).
+- **Q3, step 4's own pop_size — resolved (2026-09-03), not asked but made
+  a judgment call:** gave `optimize_surrogate` its own full GA config
+  (`n_max_gen`/`pop_size`/`ftol`/`xtol`/`optimize_seed`, all uncommented in
+  `params.yaml`) rather than keeping ANY of it mirroring the real app's
+  config — the old "direct timing comparison" rationale for mirroring
+  doesn't apply once stage 1 no longer runs an equivalent real NSGA2 search
+  at those settings. Worth Chad confirming this judgment call specifically
+  (not just the overall build) since it wasn't explicitly asked for.
 - **Q4 (Chad, answered):** replace `refine_lhs.py`'s padded-bounding-box
   approach entirely with this trajectory-based approach. Not deleting the
   file yet (see above) but it's dead-end infrastructure once this is built.
-- **Not yet discussed:** how the captured per-generation history is stored
-  (JSON-per-individual like today's `run_lhs_sweep`'s
-  `results_dir`/`_evaluate_and_write` pattern? one CSV per generation? a
-  single running file?) — probably want to reuse the existing
-  atomic-JSON-per-row + resumability pattern (`_cached_row_is_valid`) since
-  it already solves the "killed SLURM job, resume without rerunning
-  everything" problem that matters on Euler.
-- **Not yet discussed:** whether/how `dvc.yaml`'s DAG changes. The old
-  `lhs_generate`/`lhs_sweep` stages get replaced by a
-  "real-NSGA2-trajectory" stage; `train_surrogate`/`optimize_surrogate`/
-  `validate_surrogate` stay conceptually the same (may need dep-path
-  updates only).
+- **Resolved by the build, worth flagging:** the captured history is
+  written as ONE growing CSV (`Minimization._append_trajectory`, one
+  `to_csv(mode="a")` call per generation), NOT the JSON-per-individual +
+  `_cached_row_is_valid`-style resumability pattern `run_lhs_sweep` uses.
+  Deliberate, not an oversight — see `_append_trajectory`'s own docstring:
+  unlike independent LHS samples, a killed NSGA2 run can't cheaply resume
+  its SEARCH at all (would need to pickle the whole live `Algorithm`,
+  including a `multiprocessing.Pool` when `n_processes > 1`), so there's no
+  resumability to preserve either way; a killed run just loses whatever
+  generation was in progress, same as `_save_intermediate`'s existing
+  partial-front behavior.
+- **Resolved:** `dvc.yaml`'s `lhs_generate`/`lhs_sweep` stages replaced by
+  one `run_trajectory` stage; `train_surrogate` unchanged;
+  `optimize_surrogate` switched from a whole-file `params.yaml` dep to
+  proper per-key tracking (see "What was actually built"); `validate_surrogate`
+  unchanged mechanically, just `validation_tolerance` reconsidered.
 
 ## What stays unchanged (confirmed 2026-09-02/03 discussion)
 
@@ -143,33 +236,25 @@ training-data generation. Rough shape:
 - `validate_surrogate.py` — literally becomes "step 5" as-is, just with
   `validation_tolerance` reconsidered (target 1%, i.e. `0.01`).
 
-## What needs building (none of this exists yet)
+## What's genuinely still open (not blocking review, but not done either)
 
-1. A pymoo `Callback` (or `save_history=True` post-processing) to capture
-   every evaluated individual — params + objectives + feasibility — across
-   all generations of a real NSGA2 run, not just the final front.
-2. A results-writing pattern for that history (JSON-per-row +
-   `_cached_row_is_valid`-style resumability, reusing/extending
-   `surrogate_api`'s existing pattern where possible).
-3. `pop_size`/`n_gen` params for the real trajectory run (new, separate
-   name from `optimize_surrogate`'s existing gen count) — e.g.
-   `trajectory_pop_size`, `trajectory_n_gen`.
-4. A separate, explicitly-named `n_gen` (and TBD pop_size, see Q3) param
-   for step 4's surrogate-driven run, distinct from step 2's.
-5. The dedup mechanism (Q2) — likely a custom-tolerance
-   `eliminate_duplicates` wired into step 2's real NSGA2, tolerance as a
-   new parameter (e.g. `dedup_tol_frac: 0.001` for ±0.1%).
-6. `validation_tolerance` set to `0.01` (already a param, just needs the
-   value decision once the new pipeline exists) — this is the literal "must
-   be within 1%" acceptance gate `validate_surrogate.py` already enforces
-   (raises `SurrogateValidationError` if violated).
-7. Updated `dvc.yaml` DAG once the above is real code (see "not yet
-   discussed" above).
+1. ~~Q2's full-history dedup gap~~ — **resolved 2026-09-04**, see
+   `dedup_training_rows` above.
+2. **Not validated at real scale.** Everything above is confirmed
+   mechanically correct (smoke-tested at toy sizes) but says NOTHING about
+   whether this approach actually hits the 1% accuracy target better than
+   the old LHS approach did — that's the whole point of running it for
+   real on Euler next.
+3. Whether `trajectory_pop_size=1000`/`trajectory_n_gen=5` (Chad's own
+   sketched starting numbers) are remotely the right scale is unknown —
+   first real run is the first real signal on that.
 
 ## Resume instructions for a fresh session
 
-Read this file, then re-read the working directory's current
-`applications/tango_next/opt_hydro_df_electric_surrogate/` state (params.yaml,
-dvc.yaml, existing scripts) to confirm nothing's drifted, then pick up at
-whichever open question above Chad wants to resolve next. Nothing here has
-been implemented — this is planning only.
+Read this file's "What was actually built" section, then re-read the
+working directory's current `applications/tango_next/opt_hydro_df_electric_surrogate/`
+state (params.yaml, dvc.yaml, run_trajectory.py, and
+`src/tango_next/pymoo_api.py`'s `ParamToleranceDuplicateElimination`/
+`Minimization.capture_trajectory_path`) to confirm nothing's drifted since.
+If Chad has already run this on Euler, check `outputs/` and
+`dvc.lock` for real results before re-explaining the design from scratch.

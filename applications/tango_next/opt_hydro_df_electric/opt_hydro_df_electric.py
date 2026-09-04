@@ -178,6 +178,31 @@ def negative_mean_power_objective(surface_name: str = "surface") -> ObjectiveSpe
 # a future rename of the objective itself can't silently desync from this.
 DISPLAY_RENAME = {negative_mean_power_objective().name: "mean_power_W"}
 
+# Full plot-axis display label for each column (parallel-coordinates plots)
+# -- keyed on each column's DISPLAY name (post-DISPLAY_RENAME), not its
+# raw/negated pymoo name. A full REPLACEMENT label, not a "name + [unit]"
+# append -- several columns already carry their unit as a name suffix
+# (mass_rate_kg_per_s, injection_pressure_Pa, ...), and appending "[unit]"
+# on top of that reads as redundant ("mass_rate_kg_per_s [kg/s]");
+# stripping the suffix into a clean bracketed unit instead
+# ("mass_rate [kg/s]") avoids that. LCOE/euclidean have no such suffix at
+# all, so their bracket is pure addition, not a strip+replace. Columns
+# absent here (design_number) show unchanged -- it's an index, not a
+# physical quantity.
+COLUMN_LABELS = {
+    "mass_rate_kg_per_s": "mass_rate [kg/s]",
+    "injection_pressure_Pa": "injection_pressure [Pa]",
+    "target_extraction_pressure_Pa": "target_extraction_pressure [Pa]",
+    "LCOE": "LCOE [$/kWh]",
+    "mean_power_W": "mean_power [W]",
+    "euclidean": "euclidean [z-score]",
+}
+
+
+def _pretty_label(label: str) -> str:
+    """``"mass_rate [kg/s]"`` if ``label`` has a known display form (see ``COLUMN_LABELS``), else unchanged."""
+    return COLUMN_LABELS.get(label, label)
+
 
 def build_parser() -> argparse.ArgumentParser:
     """CLI for tuning the pymoo search — thin wrapper around
@@ -363,12 +388,22 @@ def plot_pareto_parallel_coordinates(df: pd.DataFrame, out_path: Path, color_col
             fontsize=8,
             transform=ax.get_xaxis_transform(),
         )
-        ax.text(i, -0.15, label, ha="center", va="top", fontsize=9, transform=ax.get_xaxis_transform())
+        ax.text(
+            i,
+            -0.15,
+            _pretty_label(label),
+            ha="right",
+            va="top",
+            fontsize=8,
+            rotation=30,
+            rotation_mode="anchor",
+            transform=ax.get_xaxis_transform(),
+        )
 
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlim(-0.2, len(cols) - 0.8)
-    ax.set_ylim(-0.28, 1.14)
+    ax.set_ylim(-0.45, 1.14)
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=c_min, vmax=c_max))
     cbar = fig.colorbar(sm, ax=ax, pad=0.02, extend="both")
@@ -507,7 +542,7 @@ def plot_pareto_parallel_coordinates_interactive(
     # get plain fixed-point instead, with no prefix to misread.
     dimensions: list[dict[str, Any]] = [
         {
-            "label": c,
+            "label": _pretty_label(c),
             "values": df[c].to_numpy(),
             "tickformat": "~s" if np.max(np.abs(df[c].to_numpy())) >= 1 else "~g",
         }
@@ -545,14 +580,9 @@ def make_plots(df: pd.DataFrame, save_dir: Path, param_cols: list[str], objectiv
     """
     plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 
-    # n_gen is run provenance (constant across every row of a single optimization
-    # run), not a per-design axis — drop it from the parallel-coordinates plots,
-    # which otherwise plot every df column, since a constant column carries no
-    # visual information there. Still present in pareto_results.csv (via df).
-    parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
-    plot_pareto_parallel_coordinates(parcoord_df, save_dir / "pareto_parallel_coordinates.png")
+    plot_pareto_parallel_coordinates(plot_df, save_dir / "pareto_parallel_coordinates.png")
     plot_pareto_parallel_coordinates_interactive(
-        parcoord_df,
+        plot_df,
         save_dir / "pareto_parallel_coordinates.html",
     )
     plot_pareto_scatter(plot_df, save_dir / "pareto_scatter.png")

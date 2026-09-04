@@ -68,6 +68,7 @@ import yaml
 from matplotlib.ticker import MaxNLocator
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.duplicate import DuplicateElimination
 from pymoo.core.initialization import Initialization
 from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation, StarmapParallelization
 from pymoo.core.result import Result
@@ -146,6 +147,55 @@ _DEFAULT_FTOL = 0.005
 _CV_OBJECTIVE_FALLBACK = 0.0
 _FEASIBLE_G = -1.0
 _INFEASIBLE_G = 1.0
+
+
+class ParamToleranceDuplicateElimination(DuplicateElimination):
+    """Two designs are duplicates if EVERY param is within ``tol_frac`` of the other's, per-param.
+
+    Unlike pymoo's own ``DefaultDuplicateElimination`` (one combined
+    Euclidean distance against a single absolute ``epsilon``, which
+    silently conflates parameters of wildly different scales/units — e.g.
+    ``mass_rate_kg_per_s`` O(10-200) vs ``injection_pressure_Pa``
+    O(1e6-1e7), where an epsilon large enough to catch near-duplicate
+    pressures would swamp mass_rate entirely, and vice versa), this checks
+    each parameter independently against its OWN ``bounds`` range —
+    matches ``surrogate_api._cached_row_is_valid``'s per-param
+    ``math.isclose`` convention elsewhere in this codebase, rather than one
+    unitless combined distance.
+
+    Used as ``NSGA2(..., eliminate_duplicates=ParamToleranceDuplicateElimination(params, tol_frac))``
+    — pymoo's ``Mating.do()`` calls this BEFORE evaluating offspring, so a
+    near-duplicate design is never actually real-simulated at all, not
+    just filtered out afterward. Only catches duplicates within the
+    current offspring batch and against the current population
+    (``algorithm.pop``) — NOT against the full multi-generation trajectory
+    history, since pymoo's mating only ever compares against what's live
+    right now. A design from 3 generations ago that's since been selected
+    out of the population can still be near-duplicated by a later
+    generation; a supplementary whole-history dedup pass would be needed
+    to close that gap (not built — see REDESIGN_TODO.md's Q2).
+    """
+
+    def __init__(self, params: list[ParamSpec], tol_frac: float) -> None:
+        """``tol_frac`` of each param's own ``bounds`` range is that param's tolerance."""
+        super().__init__()
+        self.scale = np.array([p.bounds[1] - p.bounds[0] for p in params])
+        self.tol_frac = tol_frac
+
+    def _do(self, pop: Any, other: Any, is_duplicate: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
+        x = pop.get("X")
+        y = x if other is None else other.get("X")
+        close = (np.abs(x[:, None, :] - y[None, :, :]) <= self.tol_frac * self.scale[None, None, :]).all(
+            axis=2,
+        )
+        if other is None:
+            # Only flag against EARLIER individuals (mirrors
+            # DefaultDuplicateElimination's own triu masking) -- otherwise
+            # every member of a duplicate pair/group gets flagged instead
+            # of just the later occurrence(s).
+            close[np.triu_indices(len(x))] = False
+        is_duplicate[np.any(close, axis=1)] = True
+        return is_duplicate
 
 
 @dataclass
@@ -604,6 +654,47 @@ class ObjectiveSpec:
     evaluate: Callable[[Workflow], float]
 
 
+@dataclass
+class ConstraintSpec:
+    """One inequality constraint pymoo enforces, IN ADDITION TO physical feasibility.
+
+    Same rule as ``ParamSpec``/``ObjectiveSpec`` above: no built-in
+    ``ConstraintSpec`` instances live in this module — every concrete
+    constraint (a minimum production temperature, a maximum pressure, etc.)
+    belongs in the calling app script.
+
+    Every ``Minimization`` already rejects a design that raises one of
+    ``_cv_exceptions`` (a genuine physical-simulation failure) via a
+    built-in constraint — ``ConstraintSpec`` is for a DIFFERENT kind of
+    infeasibility: the simulation solved successfully, but the resulting
+    design isn't acceptable on some other engineering ground (e.g. a
+    district-heating design that solves fine but delivers water too cold to
+    be useful). Both kinds feed the SAME pymoo constraint-domination
+    ranking (feasible always beats infeasible, regardless of objective
+    values) — see ``_Problem``'s ``n_ieq_constr`` and ``Minimization.
+    _evaluate_one``.
+
+    Args:
+        name: Label only — constraint G values aren't retained in
+            ``Minimization``'s results dataframe (only ``params``/
+            ``objectives`` are), same as the built-in physical-feasibility
+            constraint.
+        evaluate: ``(solved_workflow) -> float``, pymoo's own inequality
+            convention: ``<= 0`` is satisfied, ``> 0`` is a violation. Return
+            a genuine violation MAGNITUDE where possible (e.g. ``105.0 -
+            T_prod_C``, degrees below the threshold), not just a flat
+            ``+1``/``-1`` sign — pymoo's constraint-domination ranking only
+            needs the sign to decide feasible-vs-not, but a continuous
+            magnitude gives the search itself more gradient to climb back
+            toward feasibility, the same way a real objective would. Same
+            module-level-callable/picklability requirement as
+            ``ParamSpec.apply``/``ObjectiveSpec.evaluate`` above.
+    """
+
+    name: str
+    evaluate: Callable[[Workflow], float]
+
+
 # ---------------------------------------------------------------------------
 # Live progress output (verbose=True)
 # ---------------------------------------------------------------------------
@@ -729,6 +820,13 @@ class Minimization:
             beyond what ``seed_from`` provides. Default ``LHS()`` — better
             design-space coverage than plain random sampling for the
             "fill in the rest" role. Only used if ``seed_from`` is given.
+        constraints: Extra inequality constraints beyond the built-in
+            physical-feasibility one — see ``ConstraintSpec``. Default
+            ``()`` (no extra constraints).
+        report_specs: Extra per-design read-outs, computed once for the
+            final pareto front only and merged into the results dataframe
+            — NOT a real objective, doesn't affect the search. See its own
+            field docstring. Default ``()`` (no extra columns).
         log_failures: Append one JSON line per constraint-violating
             evaluation (see ``_CV_EXCEPTIONS``) to ``save_dir /
             "failures.jsonl"`` — the mutated parameter values plus the
@@ -753,6 +851,10 @@ class Minimization:
             base tuple — e.g. a surrogate-model evaluator's own "classifier
             predicts infeasible" signal (see ``tango_next.surrogate_api``).
             Default ``()`` (no change from the base set).
+        capture_trajectory_path: If given, append every generation's
+            newly-evaluated individuals (not just the final front) to this
+            CSV path as surrogate training data — see
+            ``_append_trajectory``. Default ``None`` (no capture).
 
     Raises:
         ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
@@ -771,8 +873,29 @@ class Minimization:
     save_dir: Path | str = DEFAULT_SAVE_DIR
     seed_from: Path | str | None = None
     pad_sampling: Sampling | None = None
+    constraints: list[ConstraintSpec] = field(default_factory=list)
+    """Extra inequality constraints beyond the built-in physical-feasibility
+    one — see ``ConstraintSpec``. Default ``()`` (no extra constraints,
+    identical behavior to before this field existed)."""
+    report_specs: list[ObjectiveSpec] = field(default_factory=list)
+    """Extra per-design read-outs (SAME ``(wf) -> float`` shape as
+    ``ObjectiveSpec``) computed ONCE for the FINAL pareto front only and
+    merged into the results dataframe/CSV/plots — NOT fed to NSGA2 as a
+    real objective, so it never affects which designs survive or the
+    front's shape/dimensionality. Use this for a value worth reporting
+    (e.g. OPEX) that you deliberately don't want the search itself
+    optimizing for or against. See ``_add_report_columns``. Default ``()``
+    (no extra columns)."""
     log_failures: bool = False
     extra_cv_exceptions: tuple[type[Exception], ...] = ()
+    capture_trajectory_path: Path | str | None = None
+    """If given, append EVERY generation's newly-evaluated individuals
+    (params + objectives if feasible + a ``success`` bool) to this CSV
+    path, one row per individual — not just the final pareto front.
+    Row schema matches ``tango_next.surrogate_api``'s training-data
+    convention exactly, so ``train_surrogate()`` can consume the result
+    unmodified regardless of whether it came from an LHS sweep or a real
+    optimizer's own search trajectory. See ``_append_trajectory``."""
 
     # Derived/internal state, not constructor args -- set in __post_init__.
     base_cfg: dict[str, Any] = field(init=False, repr=False)
@@ -781,6 +904,8 @@ class Minimization:
     """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
     _cv_exceptions: tuple[type[Exception], ...] = field(init=False, repr=False)
     """``_CV_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
+    _trajectory_row_idx: int = field(init=False, default=0, repr=False)
+    """Running counter for ``_append_trajectory``'s ``row_idx`` column, across generations."""
 
     def __post_init__(self) -> None:
         """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
@@ -819,6 +944,8 @@ class Minimization:
         self.policy = policy
         self.params = list(self.params)
         self.objectives = list(self.objectives)
+        self.constraints = list(self.constraints)
+        self.report_specs = list(self.report_specs)
         self.pymoo_config = self.pymoo_config or PymooConfig()
         if self.algorithm is None:
             # Only pass crossover/mutation to NSGA2 if actually overridden --
@@ -832,6 +959,9 @@ class Minimization:
                 default_algo_kwargs["mutation"] = PM(prob=self.pymoo_config.mutation_prob)
             self.algorithm = NSGA2(pop_size=self.pymoo_config.pop_size, **default_algo_kwargs)
         self.save_dir = Path(self.save_dir)
+        self.capture_trajectory_path = (
+            Path(self.capture_trajectory_path) if self.capture_trajectory_path is not None else None
+        )
         self.seed_from = Path(self.seed_from) if self.seed_from is not None else None
         self.pad_sampling = self.pad_sampling if self.pad_sampling is not None else LHS()
         self._cv_exceptions = _CV_EXCEPTIONS + tuple(self.extra_cv_exceptions)
@@ -874,7 +1004,17 @@ class Minimization:
             f.write(json.dumps(record) + "\n")
 
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
-        """Build, run, and score one design — CV on self._cv_exceptions, raise on anything else."""
+        """Build, run, and score one design — CV on self._cv_exceptions, raise on anything else.
+
+        Returns ``len(self.constraints) + 1`` G values: index 0 is the
+        built-in physical-feasibility constraint, the rest are
+        ``self.constraints`` in order (see ``ConstraintSpec``). When the
+        simulation itself raises a CV exception, every extra constraint
+        also reports infeasible (``_INFEASIBLE_G``) — there's no solved
+        ``Workflow`` to evaluate them against, and a design that failed to
+        even simulate shouldn't get credit for satisfying an unrelated
+        engineering constraint.
+        """
         cfg = self._build_config(x)
         try:
             wf = Workflow(cfg)
@@ -885,8 +1025,11 @@ class Minimization:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
             if self.log_failures:
                 self._log_failure(x, exc)
-            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [_INFEASIBLE_G]
-        return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G]
+            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [_INFEASIBLE_G] * (
+                1 + len(self.constraints)
+            )
+        g_extra = [c.evaluate(wf) for c in self.constraints]
+        return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G, *g_extra]
 
     def _elementwise_runner(self) -> LoopedElementwiseEvaluation | StarmapParallelization:
         assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
@@ -906,7 +1049,10 @@ class Minimization:
         front after every one (``_save_intermediate``, if ``save_results``)
         — if the run gets killed (SLURM time limit, ^C, crash) partway
         through, whatever the front looked like as of the LAST completed
-        generation is already on disk, not lost.
+        generation is already on disk, not lost. The same hook also drives
+        ``_append_trajectory`` (if ``capture_trajectory_path``), appending
+        every generation's newly-evaluated individuals — not just the
+        front — as surrogate training data.
 
         Returns:
             ``(res, df)`` — ``res`` is pymoo's own ``Result`` (``res.X``/
@@ -993,9 +1139,13 @@ class Minimization:
             algorithm.next()
             if self.save_results:
                 self._save_intermediate(algorithm)
+            if self.capture_trajectory_path is not None:
+                self._append_trajectory(algorithm)
         res = algorithm.result()
 
-        df = self._build_results_df(res.X, res.F, n_gen=algorithm.n_gen)
+        df = self._build_results_df(res.X, res.F)
+        if self.report_specs:
+            df = self._add_report_columns(df, res.X)
         if self.n_failures:
             logger.info(
                 "Minimization: %d evaluations were constraint violations (failed to solve).",
@@ -1023,7 +1173,7 @@ class Minimization:
         opt = algorithm.opt
         x = None if opt is None or len(opt) == 0 else opt.get("X")
         f = None if opt is None or len(opt) == 0 else opt.get("F")
-        df = self._build_results_df(x, f, n_gen=algorithm.n_gen)
+        df = self._build_results_df(x, f)
         self._write_pareto(
             x,
             df,
@@ -1031,18 +1181,85 @@ class Minimization:
             self.save_dir / "pareto_configs_partial" if self.save_pareto_configs else None,
         )
 
+    def _append_trajectory(self, algorithm: GeneticAlgorithm) -> None:
+        """Append this generation's newly-evaluated individuals to ``capture_trajectory_path``.
+
+        ``algorithm.off`` holds exactly the individuals evaluated by THIS
+        call to ``next()`` — pymoo's own ``Algorithm.advance()`` sets
+        ``self.off = infills`` unconditionally, including the very first
+        (initialization) generation, so reading it once per generation,
+        uniformly, captures every real evaluation exactly once — no
+        special-casing generation 1, no double-counting the survivors
+        carried forward in ``algorithm.pop``.
+
+        Row schema matches ``surrogate_api``'s LHS-sweep training rows:
+        one column per param, one column per objective (``NaN``, not
+        absent, for an infeasible design — unlike ``evaluate_training_row``'s
+        one-shot-``pd.DataFrame(rows)``-over-the-whole-list convention
+        where a missing key is fine, appending one small ``DataFrame`` PER
+        GENERATION means every chunk's column set/order must be identical,
+        or ``to_csv(mode="a")`` silently misaligns columns instead of
+        erroring — a generation where every individual happens to be
+        infeasible would otherwise write a chunk with no objective columns
+        at all), plus ``success`` (bool) and ``row_idx``. Appending
+        (not accumulating in memory then writing once) mirrors
+        ``_save_intermediate``'s own "don't lose progress if this run gets
+        killed" philosophy — unlike an LHS sweep's rows, a killed NSGA2 run
+        can't cheaply resume its SEARCH (would need to pickle the whole
+        ``Algorithm``, including a live ``multiprocessing.Pool`` when
+        ``n_processes > 1`` — see ``seed_from``'s own docstring for why
+        that's not viable), but whatever generations DID complete stay on
+        disk as usable training data either way.
+        """
+        assert isinstance(self.capture_trajectory_path, Path)  # __post_init__ always resolves this
+        off = algorithm.off
+        if off is None or len(off) == 0:
+            return
+        x = off.get("X")
+        f = off.get("F")
+        g = off.get("G")
+        # off's own per-individual "n_gen" (set via infills.set("n_gen",
+        # self.n_iter) in Algorithm.infill(), BEFORE n_iter/n_gen gets
+        # incremented for the next round) -- algorithm.n_gen itself is a
+        # property returning n_iter, which by the time next() RETURNS has
+        # already been bumped for the round about to start, one ahead of
+        # the individuals just evaluated.
+        n_gen = off.get("n_gen")
+        feasible = (g <= 0).all(axis=1)
+        rows: list[dict[str, Any]] = []
+        for i in range(len(off)):
+            row: dict[str, Any] = {"row_idx": self._trajectory_row_idx}
+            self._trajectory_row_idx += 1
+            row.update({p.name: float(x[i, j]) for j, p in enumerate(self.params)})
+            row.update(
+                {
+                    o.name: float(f[i, k]) if feasible[i] else float("nan")
+                    for k, o in enumerate(self.objectives)
+                },
+            )
+            row["success"] = bool(feasible[i])
+            row["n_gen"] = int(n_gen[i])
+            rows.append(row)
+        df = pd.DataFrame(rows)
+        self.capture_trajectory_path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not self.capture_trajectory_path.exists()
+        df.to_csv(self.capture_trajectory_path, mode="a", header=write_header, index=False)
+
     def _build_results_df(
         self,
         x: npt.NDArray[np.float64] | None,
         f: npt.NDArray[np.float64] | None,
-        n_gen: int | None = None,
     ) -> pd.DataFrame:
         """Pareto-front results (params ``x`` + objectives ``f``) as a dataframe.
 
-        Adds a ``euclidean`` aggregate column and (if ``n_gen`` given) an
-        ``n_gen`` provenance column — useful on the intermediate saves
-        (``_save_intermediate``) to see at a glance which generation a
-        partial front is from; harmless on the final save too.
+        Adds a ``euclidean`` aggregate column. Deliberately no ``n_gen``
+        column (removed 2026-09-04, Chad's call) — every row of one
+        results dataframe comes from the SAME (final, or one intermediate)
+        generation, so the column was constant across the whole file and
+        carried no actual information; ``ParetoProgressOutput``'s live
+        per-generation console table (a genuinely different thing — it
+        varies row-to-row over TIME, not over one saved file's rows) is
+        unaffected.
 
         ``euclidean`` is a Z-SCORE-NORMALIZED Euclidean distance
         (``sqrt(Σ z_i²)``, ``z_i = (objective_i - mean) / std`` across the
@@ -1068,8 +1285,29 @@ class Minimization:
         std = f_df.std().replace(0.0, 1.0)  # constant column -> no scaling, avoid /0
         z = (f_df - f_df.mean()) / std
         df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
-        if n_gen is not None:
-            df["n_gen"] = n_gen
+        return df
+
+    def _add_report_columns(self, df: pd.DataFrame, x: npt.NDArray[np.float64] | None) -> pd.DataFrame:
+        """Re-solve each pareto-front design ONCE more to evaluate ``report_specs``, merge into ``df``.
+
+        Cheap relative to the search itself: only ``len(df)`` extra real
+        simulations (the FINAL front, not every generation), and never fed
+        back into NSGA2. A design here already solved successfully once
+        (that's how it made the front) — the SAME config re-solved
+        deterministically succeeds again, so no CV handling is needed here
+        the way ``_evaluate_one`` needs it.
+        """
+        if x is None or len(df) == 0:
+            return df
+        x = x if x.ndim == 2 else x.reshape(1, -1)
+        report_cols: dict[str, list[float]] = {spec.name: [] for spec in self.report_specs}
+        for row in x:
+            wf = Workflow(self._build_config(list(row)))
+            wf.run()
+            for spec in self.report_specs:
+                report_cols[spec.name].append(spec.evaluate(wf))
+        for name, values in report_cols.items():
+            df[name] = values
         return df
 
     def _write_pareto(
@@ -1107,7 +1345,7 @@ class _Problem(ElementwiseProblem):
         super().__init__(
             n_var=len(mgr.params),
             n_obj=len(mgr.objectives),
-            n_ieq_constr=1,
+            n_ieq_constr=1 + len(mgr.constraints),
             xl=[p.bounds[0] for p in mgr.params],
             xu=[p.bounds[1] for p in mgr.params],
             elementwise_runner=mgr._elementwise_runner(),  # noqa: SLF001

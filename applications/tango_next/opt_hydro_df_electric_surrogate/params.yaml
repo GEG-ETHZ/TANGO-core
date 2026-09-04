@@ -1,18 +1,34 @@
 # Parameters for the hydro_df_electric surrogate-assisted optimization pipeline
-# (LHS sample -> real-sim sweep -> train MLP-regressor surrogate -> NSGA2
-# against the surrogate -> real-sim validation of its pareto front).
+# (real-NSGA2 trajectory -> train MLP-regressor surrogate -> NSGA2 against
+# the surrogate -> real-sim validation of its pareto front).
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
 
-# Stage 1/2: LHS sample size + the real-sim sweep that evaluates it.
-# Bumped 2000 -> 5000 (2026-08-31, Chad's call): cheap on Euler (~15-40 min
-# given 45 workers), improves regressor/classifier resolution everywhere,
-# especially the sparser higher-LCOE/power corner.
-n_lhs_samples: 5000
-lhs_seed: 1
+# Stage 1 (redesigned 2026-09-03, see REDESIGN_TODO.md): replaces the old
+# LHS-sample + real-sim-sweep pair. Runs a REAL NSGA2 search for a small,
+# fixed number of generations, retaining EVERY evaluated individual (not
+# just the final front) as surrogate training data -- generation 1
+# (NSGA2's random init) gives LHS-like broad coverage for free, later
+# generations naturally concentrate near the real Pareto front, the region
+# that actually matters, without a separate manual refinement round.
+# trajectory_pop_size/trajectory_n_gen are DELIBERATELY separate params
+# from the surrogate-driven run's own n_max_gen/pop_size below (Chad's
+# call) -- this stage's real-sim budget is trajectory_pop_size *
+# trajectory_n_gen evaluations; keep that in the same ballpark as the old
+# n_lhs_samples (5000) if a like-for-like real-sim-budget comparison
+# matters.
+trajectory_pop_size: 1000
+trajectory_n_gen: 5
+trajectory_seed: 1
+# Two designs are treated as duplicates (never real-sim'd, not just
+# filtered afterward -- see ParamToleranceDuplicateElimination) if EVERY
+# param is within this fraction of the other's own bounds range. Only
+# catches duplicates within the CURRENT generation's offspring/population,
+# not the full multi-generation history -- see REDESIGN_TODO.md's Q2.
+trajectory_dedup_tol_frac: 0.001
 n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
 
-# Stage 3: surrogate (one regressor per objective, swappable -- see
+# Stage 2: surrogate (one regressor per objective, swappable -- see
 # surrogate_api.REGRESSOR_FACTORIES -- plus a RandomForestClassifier for
 # feasibility). `regressor: mlp` (default, changed from gaussian_process
 # 2026-09-01) -- confirmed empirically on a real Euler run (n_lhs_samples
@@ -36,7 +52,7 @@ n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job
 regressor: mlp
 gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
 regressor_rf_n_estimators: 300 # only used when regressor: random_forest
-mlp_hidden_layer_sizes: "16,16" # only used when regressor: mlp -- tried "64,64" (2026-09-02) on a real Euler run: CV r2/MAE improved (LCOE r2 0.979->0.989) but that was overfitting, not genuine improvement -- real-sim-corrected accuracy at the pareto edge got WORSE (median LCOE rel error 1.4%->3.7%) and fewer designs survived real-sim validation (19/45->16/45 feasible, 12->10 genuinely non-dominated). Reverted; see mlp_regressor_factory's docstring for why capacity is the wrong first lever with ~2253 feasible training rows -- try the hyperparameter grid search / MLP ensemble / refine_lhs.py refinement round first (2026-09-01 5-step accuracy plan)
+mlp_hidden_layer_sizes: "16,16" # only used when regressor: mlp -- tried "64,64" (2026-09-02) on a real Euler run: CV r2/MAE improved (LCOE r2 0.979->0.989) but that was overfitting, not genuine improvement -- real-sim-corrected accuracy at the pareto edge got WORSE (median LCOE rel error 1.4%->3.7%) and fewer designs survived real-sim validation (19/45->16/45 feasible, 12->10 genuinely non-dominated). Reverted; see mlp_regressor_factory's docstring for why capacity is the wrong first lever with ~2253 feasible training rows -- try the hyperparameter grid search / MLP ensemble idea (2026-09-01 5-step accuracy plan) first if this pipeline still isn't accurate enough
 mlp_alpha: 0.001 # only used when regressor: mlp
 mlp_max_iter: 2000 # only used when regressor: mlp
 classifier_n_estimators: 300
@@ -44,29 +60,23 @@ cv_folds: 5
 surrogate_seed: 1
 classifier_threshold: 0.5
 
-# Stage 4: surrogate-driven NSGA2. Left UNSET (commented) by default —
-# optimize_surrogate.py then falls back to reading n_max_gen/pop_size/ftol/
-# xtol/seed straight from ../opt_hydro_df_electric/params.yaml (see
-# common.py's opt_app_pymoo_params()), so this stage runs the IDENTICAL GA
-# configuration as the real-sim optimization, for a direct timing/quality
-# comparison. Uncomment any of these to deliberately diverge (e.g. explore
-# whether the surrogate lets pop_size/n_max_gen go much higher for free).
-# n_max_gen: 200
-# pop_size: 45
-# ftol: 0.005
-# xtol: 0.0005
-# optimize_seed: 1
+# Stage 3: surrogate-driven NSGA2. DELIBERATELY its own config (2026-09-03,
+# Chad's call), separate from trajectory_n_gen/trajectory_pop_size above --
+# this run is cheap (no real sim), so it can search far deeper than the
+# real trajectory stage affords. (Previously left unset here so this stage
+# mirrored the real opt_hydro_df_electric app's own params.yaml exactly,
+# for a direct real-vs-surrogate timing comparison -- that comparison isn't
+# the point anymore now that stage 1 no longer runs an equivalent real
+# NSGA2 search at these settings.)
+n_max_gen: 200
+pop_size: 45
+ftol: 0.005
+xtol: 0.0005
+optimize_seed: 1
 
-# Stage 2.5 (manual, not wired into dvc.yaml -- see refine_lhs.py's
-# docstring for why): a second, smaller LHS batch concentrated around the
-# current outputs/corrected_pareto_results.csv, real-sim'd and appended to
-# outputs/lhs_training_data.csv. Run by hand after a completed pipeline run,
-# not part of `dvc repro`.
-n_refine_samples: 1000
-refine_seed: 2
-refine_bbox_pad_frac: 0.15 # pad the pareto-front bounding box by this fraction of its own per-param range
-refine_bbox_min_pad_frac: 0.05 # ...floored at this fraction of the GLOBAL per-param range (see refine_lhs.py's _bounding_box)
-
-# Stage 5: real-sim validation of the surrogate's pareto front.
-validation_tolerance: 0.001
+# Stage 4: real-sim validation of the surrogate's pareto front. Raises
+# (fails the pipeline) if any objective is off by more than this for any
+# design -- 0.01 (1%) is Chad's stated bar for trusting the surrogate's
+# pymoo result at all, not an arbitrary default (see REDESIGN_TODO.md).
+validation_tolerance: 0.01
 n_validate_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script

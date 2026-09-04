@@ -65,6 +65,7 @@ import pandas as pd
 from pymoo.core.result import Result
 
 from tango_next.pymoo_api import (
+    ConstraintSpec,
     Minimization,
     ObjectiveSpec,
     ParamSpec,
@@ -259,6 +260,54 @@ def lcoe_objective() -> ObjectiveSpec:
 
 
 @dataclass
+class _SpecificInvestmentCostEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``specific_investment_cost_report`` — see ``_MassRateApply``."""
+
+    def __call__(self, wf: Workflow) -> float:
+        return float(wf.to_dict()["economic"]["state"]["specific_investment_cost"])
+
+
+def specific_investment_cost_report() -> ObjectiveSpec:
+    """Total investment cost per unit of (main-product) power ($/kW), from ``DoubletEconomicComponent``.
+
+    REPORTING only (Chad's call, 2026-09-04 — moved off ``objectives=``
+    onto ``report_specs=``, same reasoning as ``opex_report``'s docstring:
+    one fewer active NSGA2 objective, still shows up in
+    ``pareto_results.csv``/the parallel-coordinates plot). See
+    ``DoubletEconomicComponent._compute_specific_investment_cost``'s
+    docstring for the exact formula and its caveats (run-averaged, not
+    nameplate, power) — for this app's ``main_product: heat`` config, the
+    denominator is ``net_thermal_W``, the same power LCOH itself uses.
+    """
+    return ObjectiveSpec(name="specific_investment_cost", evaluate=_SpecificInvestmentCostEvaluate())
+
+
+@dataclass
+class _OpexEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``opex_report`` — see ``_MassRateApply``."""
+
+    def __call__(self, wf: Workflow) -> float:
+        return float(wf.to_dict()["economic"]["state"]["OPEX"])
+
+
+def opex_report() -> ObjectiveSpec:
+    """Net annual OPEX ($/yr), from ``DoubletEconomicComponent`` — see ``_compute_opex``.
+
+    REPORTING only — pass via ``Minimization(report_specs=[opex_report()])``,
+    NOT ``objectives=``. Chad's call (2026-09-04): OPEX should show up in
+    ``pareto_results.csv``/the parallel-coordinates plot, but doesn't need
+    to actively drive the search — NSGA2 already has 3 real objectives
+    (LCOE, thermal power, production temperature); adding this (or
+    ``specific_investment_cost_report``, moved to report-only for the same
+    reason) would meaningfully dilute convergence for a value that already
+    correlates tightly with CAPEX (and so with specific investment cost)
+    — not clearly worth the added search-dimensionality
+    cost for a metric this redundant with what's already there.
+    """
+    return ObjectiveSpec(name="OPEX", evaluate=_OpexEvaluate())
+
+
+@dataclass
 class _NegativeMeanThermalPowerEvaluate:
     """Picklable ``ObjectiveSpec.evaluate`` for ``negative_mean_thermal_power_objective``."""
 
@@ -286,11 +335,124 @@ def negative_mean_thermal_power_objective(surface_name: str = "surface") -> Obje
     )
 
 
+def _production_well_outlet_temperature_c(wf: Workflow, well_name: str = "production_well") -> float:
+    """Final-timestep production-well outlet temperature (degC).
+
+    Matches ``run_AGS_direct_heat_sweep/sweep.py``'s own established
+    convention exactly: the FINAL timestep's ``history.T_outlet`` (K) is
+    the steady-state outlet ("matching old tango's semantics ... read
+    after the run reached steady state" — that module's own comment), not
+    a run-averaged mean like the power objectives above — a production-
+    temperature THRESHOLD is a steady-state engineering criterion, not
+    something meaningful to average over transient ramp-up.
+    """
+    well = wf._orchestrator.components[well_name]  # noqa: SLF001
+    history = getattr(well, "history", None)
+    t_outlet_k_history: list[float] = getattr(history, "T_outlet", [])
+    if not t_outlet_k_history:
+        return float("nan")
+    return t_outlet_k_history[-1] - 273.15
+
+
+_MIN_PRODUCTION_TEMPERATURE_C = 105.0
+"""District-heating threshold — same value already used, informationally
+only (post-hoc "qualified" flagging, never enforced), by
+``run_AGS_direct_heat_sweep/plot.py``'s ``T_PROD_THRESHOLD_C`` and
+``summarize.py``. This app's ``production_temperature_constraint`` is the
+first place this threshold is actually ENFORCED during a search, not just
+reported on afterward."""
+
+
+@dataclass
+class _ProductionTemperatureConstraintEvaluate:
+    """Picklable ``ConstraintSpec.evaluate`` for ``production_temperature_constraint``."""
+
+    well_name: str = "production_well"
+    min_temperature_c: float = _MIN_PRODUCTION_TEMPERATURE_C
+
+    def __call__(self, wf: Workflow) -> float:
+        return self.min_temperature_c - _production_well_outlet_temperature_c(wf, self.well_name)
+
+
+def production_temperature_constraint(
+    well_name: str = "production_well",
+    min_temperature_c: float = _MIN_PRODUCTION_TEMPERATURE_C,
+) -> ConstraintSpec:
+    """Reject designs whose final production-well outlet temperature is below ``min_temperature_c`` degC.
+
+    Returns a genuine violation MAGNITUDE (degrees below the threshold),
+    not just a flat sign — see ``ConstraintSpec``'s docstring for why that
+    gives NSGA2 more signal than a binary feasible/infeasible flag would.
+    """
+    return ConstraintSpec(
+        name="production_temperature_constraint",
+        evaluate=_ProductionTemperatureConstraintEvaluate(well_name, min_temperature_c),
+    )
+
+
+@dataclass
+class _NegativeProductionTemperatureEvaluate:
+    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_production_temperature_objective``."""
+
+    well_name: str = "production_well"
+
+    def __call__(self, wf: Workflow) -> float:
+        return -_production_well_outlet_temperature_c(wf, self.well_name)
+
+
+def negative_production_temperature_objective(well_name: str = "production_well") -> ObjectiveSpec:
+    """``-`` final production-well outlet temperature (degC) — minimizing this maximizes T_prod.
+
+    A genuine, continuous incentive to push temperature UP, complementing
+    (not replacing) ``production_temperature_constraint``'s hard floor —
+    among designs that already clear 105 degC, NSGA2 still has a reason to
+    prefer a hotter one over a merely-adequate one.
+    """
+    return ObjectiveSpec(
+        name="negative_production_temperature_C",
+        evaluate=_NegativeProductionTemperatureEvaluate(well_name),
+    )
+
+
 # Single source of truth for the "negate for a human-friendly plot/print label"
-# rename applied in main() — keyed off negative_mean_thermal_power_objective()'s
-# own ``.name`` rather than a second, independently-typed copy of that string,
-# so a future rename of the objective itself can't silently desync from this.
-DISPLAY_RENAME = {negative_mean_thermal_power_objective().name: "mean_thermal_power_W"}
+# rename applied in main() — keyed off each objective's own ``.name`` rather
+# than a second, independently-typed copy of that string, so a future rename
+# of an objective itself can't silently desync from this.
+DISPLAY_RENAME = {
+    negative_mean_thermal_power_objective().name: "mean_thermal_power_W",
+    negative_production_temperature_objective().name: "production_temperature_C",
+}
+
+# Full plot-axis display label for each column (parallel-coordinates plots)
+# -- keyed on each column's DISPLAY name (post-DISPLAY_RENAME), not its
+# raw/negated pymoo name. A full REPLACEMENT label, not a "name + [unit]"
+# append -- several columns already carry their unit as a name suffix
+# (mass_rate_kg_per_s, injection_pressure_Pa, depth_m, ...), and appending
+# "[unit]" on top of that reads as redundant ("mass_rate_kg_per_s [kg/s]");
+# stripping the suffix into a clean bracketed unit instead
+# ("mass_rate [kg/s]") avoids that. LCOE/specific_investment_cost/OPEX/
+# euclidean have no such suffix at all, so their bracket is pure addition,
+# not a strip+replace. Columns absent here (design_number) show unchanged
+# -- it's an index, not a physical quantity.
+COLUMN_LABELS = {
+    "depth_m": "depth [m]",
+    "loop_length_m": "loop_length [m]",
+    "loop_diameter_m": "loop_diameter [m]",
+    "vertical_well_diameter_m": "vertical_well_diameter [m]",
+    "injection_pressure_Pa": "injection_pressure [Pa]",
+    "mass_rate_kg_per_s": "mass_rate [kg/s]",
+    "LCOE": "LCOE [$/kWh]",
+    "mean_thermal_power_W": "mean_thermal_power [W]",
+    "production_temperature_C": "production_temperature [°C]",
+    "specific_investment_cost": "specific_investment_cost [$/kW]",
+    "OPEX": "OPEX [$/yr]",
+    "euclidean": "euclidean [z-score]",
+}
+
+
+def _pretty_label(label: str) -> str:
+    """``"mass_rate [kg/s]"`` if ``label`` has a known display form (see ``COLUMN_LABELS``), else unchanged."""
+    return COLUMN_LABELS.get(label, label)
 
 
 # ---------------------------------------------------------------------------
@@ -345,24 +507,50 @@ def _param_specs() -> list[ParamSpec]:
     ``--plot-only`` path.
     """
     return [
-        depth_param(bounds=(2000.0, 8000.0)),
-        loop_length_param(bounds=(500.0, 8000.0)),
-        loop_diameter_param(bounds=(0.2, 0.75)),
+        depth_param(bounds=(2_000.0, 3_500.0)),
+        # depth_param(bounds=(2_000.0, 5_500.0)), # TODO: toggle this one and comment the above
+        loop_length_param(bounds=(500.0, 8_000.0)),
+        loop_diameter_param(bounds=(0.15, 0.75)),
         # Same range as loop_diameter_param — no other precedent to
         # match (the brute-force sweep never varies vertical-well
         # diameter independently), flagged for Chad to adjust if a
         # different casing-diameter range is more realistic.
         vertical_well_diameter_param(bounds=(0.2, 0.75)),
         injection_pressure_param(bounds=(0.5e6, 3.0e6)),
-        mass_rate_param(bounds=(3.5, 40.0)),
+        mass_rate_param(bounds=(3.5, 50.0)),
     ]
 
 
 def _objective_specs() -> list[ObjectiveSpec]:
-    """Objectives: minimize LCOE, maximize mean net thermal power — see
+    """Objectives: minimize LCOE, maximize mean net thermal power, maximize
+    production-well outlet temperature — see ``_param_specs``' docstring
+    for why this is its own function. Specific investment cost and OPEX are
+    REPORTING only (see ``_report_specs``), not active objectives here.
+    """
+    return [
+        lcoe_objective(),
+        negative_mean_thermal_power_objective(),
+        negative_production_temperature_objective(),
+    ]
+
+
+def _report_specs() -> list[ObjectiveSpec]:
+    """Reporting-only read-outs: specific investment cost, OPEX — computed
+    once for the final pareto front, shown in ``pareto_results.csv``/the
+    parallel-coordinates plot, but not fed to NSGA2 as objectives (see
+    ``specific_investment_cost_report``/``opex_report``'s own docstrings
+    for why). See ``_param_specs``' docstring for why this is its own
+    function.
+    """
+    return [specific_investment_cost_report(), opex_report()]
+
+
+def _constraint_specs() -> list[ConstraintSpec]:
+    """Constraints beyond built-in physical feasibility: production-well
+    outlet temperature must clear ``_MIN_PRODUCTION_TEMPERATURE_C`` — see
     ``_param_specs``' docstring for why this is its own function.
     """
-    return [lcoe_objective(), negative_mean_thermal_power_objective()]
+    return [production_temperature_constraint()]
 
 
 def run_optimization(
@@ -388,6 +576,8 @@ def run_optimization(
         base_workflow=base_wf,
         params=_param_specs(),
         objectives=_objective_specs(),
+        constraints=_constraint_specs(),
+        report_specs=_report_specs(),
         pymoo_config=PymooConfig(
             n_max_gen=args.n_max_gen,
             pop_size=args.pop_size,
@@ -455,12 +645,22 @@ def plot_pareto_parallel_coordinates(df: pd.DataFrame, out_path: Path, color_col
             fontsize=8,
             transform=ax.get_xaxis_transform(),
         )
-        ax.text(i, -0.15, label, ha="center", va="top", fontsize=9, transform=ax.get_xaxis_transform())
+        ax.text(
+            i,
+            -0.15,
+            _pretty_label(label),
+            ha="right",
+            va="top",
+            fontsize=8,
+            rotation=30,
+            rotation_mode="anchor",
+            transform=ax.get_xaxis_transform(),
+        )
 
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlim(-0.2, len(cols) - 0.8)
-    ax.set_ylim(-0.28, 1.14)
+    ax.set_ylim(-0.45, 1.14)
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=c_min, vmax=c_max))
     cbar = fig.colorbar(sm, ax=ax, pad=0.02, extend="both")
@@ -559,7 +759,7 @@ def plot_pareto_parallel_coordinates_interactive(
     # prefix to misread.
     dimensions: list[dict[str, Any]] = [
         {
-            "label": c,
+            "label": _pretty_label(c),
             "values": df[c].to_numpy(),
             "tickformat": "~s" if np.max(np.abs(df[c].to_numpy())) >= 1 else "~g",
         }
@@ -597,14 +797,9 @@ def make_plots(df: pd.DataFrame, save_dir: Path, param_cols: list[str], objectiv
     """
     plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 
-    # n_gen is run provenance (constant across every row of a single optimization
-    # run), not a per-design axis — drop it from the parallel-coordinates plots,
-    # which otherwise plot every df column, since a constant column carries no
-    # visual information there. Still present in pareto_results.csv (via df).
-    parcoord_df = plot_df.drop(columns=["n_gen"], errors="ignore")
-    plot_pareto_parallel_coordinates(parcoord_df, save_dir / "pareto_parallel_coordinates.png")
+    plot_pareto_parallel_coordinates(plot_df, save_dir / "pareto_parallel_coordinates.png")
     plot_pareto_parallel_coordinates_interactive(
-        parcoord_df,
+        plot_df,
         save_dir / "pareto_parallel_coordinates.html",
     )
     plot_pareto_scatter(plot_df, save_dir / "pareto_scatter.png")

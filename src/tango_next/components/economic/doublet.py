@@ -187,6 +187,10 @@ class EconomicState(StateMethods):
     net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     LCOE: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
+    specific_investment_cost: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
+    """CAPEX_total per unit of main-product power ($/kW) -- see ``_compute_specific_investment_cost``."""
+    OPEX: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))  # noqa: N815
+    """Net annual O&M cost ($/yr) -- see ``_compute_opex``."""
 
 
 class DoubletEconomicComponent(EconomicComponent):
@@ -258,6 +262,10 @@ class DoubletEconomicComponent(EconomicComponent):
         s.net_power_W.update(net_power_w)
         s.net_thermal_W.update(net_thermal_w)
         s.LCOE.update(self._compute_lcoe(capex_total, net_power_w, net_thermal_w))
+        s.specific_investment_cost.update(
+            self._compute_specific_investment_cost(capex_total, net_power_w, net_thermal_w),
+        )
+        s.OPEX.update(self._compute_opex(capex_total, net_power_w, net_thermal_w))
 
     # ------------------------------------------------------------------
     # Wells (gengeo model only — see module docstring's scope-limit list)
@@ -666,11 +674,7 @@ class DoubletEconomicComponent(EconomicComponent):
         if capex_total <= 0:
             return float("nan")
 
-        if self.main_product == MainProduct.ELECTRICITY:
-            main_power_w, bi_power_w, bi_price = net_power_w, net_thermal_w, self.heat_price
-        else:
-            main_power_w, bi_power_w, bi_price = net_thermal_w, net_power_w, self.electricity_price
-
+        main_power_w, bi_power_w, bi_price = self._main_and_byproduct_power(net_power_w, net_thermal_w)
         if main_power_w <= 0:
             return float("nan")
 
@@ -679,6 +683,70 @@ class DoubletEconomicComponent(EconomicComponent):
         crf = d * (1.0 + d) ** t / ((1.0 + d) ** t - 1.0)
         f_om = self.opex_cost_fraction - (bi_power_w * W_TO_KW * YEAR_TO_HOUR * bi_price) / capex_total
         return capex_total * (crf + f_om) / (main_power_w * W_TO_KW * self.capacity_factor * YEAR_TO_HOUR)
+
+    def _main_and_byproduct_power(
+        self,
+        net_power_w: float,
+        net_thermal_w: float,
+    ) -> tuple[float, float, float]:
+        """``(main_power_w, byproduct_power_w, byproduct_price)`` for ``self.main_product``.
+
+        Shared by ``_compute_lcoe`` and ``_compute_specific_investment_cost``
+        so both metrics are computed against the SAME product's power — not
+        two independently-guessed choices that could silently drift apart.
+        """
+        if self.main_product == MainProduct.ELECTRICITY:
+            return net_power_w, net_thermal_w, self.heat_price
+        return net_thermal_w, net_power_w, self.electricity_price
+
+    def _compute_specific_investment_cost(
+        self,
+        capex_total: float,
+        net_power_w: float,
+        net_thermal_w: float,
+    ) -> float:
+        """``CAPEX_total / (main_product_power * W_TO_KW)`` -- total investment cost per unit power ($/kW).
+
+        Unlike ``_compute_lcoe``, this has no discount rate/OPEX/capacity-factor
+        term at all -- it's a simple CAPEX-per-capacity ratio, the metric a
+        financing decision typically starts from before levelized-cost
+        modeling. Uses the SAME main-product power selection as
+        ``_compute_lcoe`` (via ``_main_and_byproduct_power``) so the two
+        metrics are directly comparable, not on different bases.
+
+        Same caveat as ``_compute_lcoe``'s own denominator: ``net_power_w``/
+        ``net_thermal_w`` are RUN-AVERAGED power (``_read_net_power``), not
+        nameplate/rated capacity -- specific investment cost is
+        conventionally CAPEX per unit of RATED capacity, so this is a
+        deliberate, pragmatic deviation to stay on the same power basis
+        LCOE already uses, not an oversight (see
+        project_economic_model_wackiness memory / this module's own
+        docstring for the broader run-averaged-vs-nameplate discussion).
+        """
+        if capex_total <= 0:
+            return float("nan")
+        main_power_w, _bi_power_w, _bi_price = self._main_and_byproduct_power(net_power_w, net_thermal_w)
+        if main_power_w <= 0:
+            return float("nan")
+        return capex_total / (main_power_w * W_TO_KW)
+
+    def _compute_opex(self, capex_total: float, net_power_w: float, net_thermal_w: float) -> float:
+        """Net annual O&M cost ($/yr) -- ``f_om * CAPEX_total``, exposed as its own dollar value.
+
+        ``f_om`` (``opex_cost_fraction`` minus the by-product revenue
+        credit) is exactly ``_compute_lcoe``'s own intermediate term --
+        this is literally the SAME annual operating cost figure LCOE's
+        formula already charges internally, just reported directly rather
+        than folded into one levelized ratio. Can come out NEGATIVE for a
+        strong by-product revenue stream (the credit exceeds the base O&M
+        fraction) -- that's the same behavior ``f_om`` already has inside
+        ``_compute_lcoe``, not a new edge case introduced here.
+        """
+        if capex_total <= 0:
+            return float("nan")
+        _main_power_w, bi_power_w, bi_price = self._main_and_byproduct_power(net_power_w, net_thermal_w)
+        f_om = self.opex_cost_fraction - (bi_power_w * W_TO_KW * YEAR_TO_HOUR * bi_price) / capex_total
+        return f_om * capex_total
 
     @property
     def _total_project_years(self) -> float:

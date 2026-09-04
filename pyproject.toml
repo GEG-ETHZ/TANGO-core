@@ -261,6 +261,7 @@ module = [
     "CoolProp",
     "tespy.*",
     "joblib",
+    "scipy.spatial",
     "scipy.stats",
     "sklearn.*",
 ]

@@ -72,7 +72,7 @@ from tango_next.core.constants import (
     K_TO_C_OFFSET,
     PA_TO_BAR,
 )
-from tango_next.core.errors import ConfigError, InvalidPowerStateError
+from tango_next.core.errors import ConfigError, InvalidPowerStateError, TESPyCoolPropError
 from tango_next.core.fluid_utils import (
     fluid_density,
     fluid_viscosity,
@@ -538,7 +538,20 @@ class GraphSurface(SurfaceComponent):
         self._outlet_conn.set_attr(p=self.injection_pressure * PA_TO_BAR)
 
         # ---- Solve ----
-        self._network.solve("design")
+        # TESPy calls CoolProp internally during its network solve; a CoolProp
+        # flash failure surfaces here as a bare ValueError (confirmed the hard
+        # way: "HSU_P_flash_singlephase_Brent could not find a solution..."
+        # from a design near the fluid's stability limits) -- TESPyError's own
+        # docstring already anticipated this exact gap ("no call site wraps a
+        # TESPy solve failure ... yet"). Wrapping it here, rather than adding
+        # a bare ValueError to pymoo_api._CV_EXCEPTIONS, keeps the CV net
+        # scoped to this ONE call site instead of the entire simulation --
+        # _CV_EXCEPTIONS already catches CoolPropError, and TESPyCoolPropError
+        # subclasses it, so no change is needed there once this is wrapped.
+        try:
+            self._network.solve("design")
+        except ValueError as exc:
+            raise TESPyCoolPropError(f"TESPy network solve failed: {exc}") from exc
 
         # ---- Extract outlet conditions ----
         T_out = self._outlet_conn.T.val + C_TO_K_OFFSET

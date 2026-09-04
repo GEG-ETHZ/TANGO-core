@@ -1,14 +1,14 @@
-"""Stage 4: run NSGA2 against the trained surrogate instead of the real simulation.
+"""Stage 3: run NSGA2 against the trained surrogate instead of the real simulation.
 
-**Timing comparison, by design:** every NSGA2 hyperparameter here
-(``n_max_gen``/``pop_size``/``ftol``/``xtol``/``seed``) defaults to the
-SAME value the real ``opt_hydro_df_electric`` app uses (read straight from
-its own ``params.yaml`` via ``common.opt_app_pymoo_params()``, not a second,
-independently-typed copy) — so this stage runs the identical GA search as
-``opt_hydro_df_electric.py``'s real-sim optimization, with evaluation cost
-as the ONLY thing that differs. Compare this stage's printed elapsed time
-directly against a real run's own ``Minimization.run()`` timing (e.g. from
-``opt_hydro_df_electric_<jobid>.out``) to see the actual surrogate speedup.
+``n_max_gen``/``pop_size``/``ftol``/``xtol``/``seed`` default to THIS app's
+own ``params.yaml`` (set explicitly there as of 2026-09-03 — see that
+file's comment), falling back to the real ``opt_hydro_df_electric`` app's
+own values (via ``common.opt_app_pymoo_params()``) only if this app's own
+key is absent. Deliberately its OWN config, not necessarily matching the
+real app's — since evaluation here is cheap (no real simulation), it can
+afford to search far deeper than a real-sim run's budget allows; see
+``run_trajectory.py`` (stage 1) for the stage that DOES real-sim, at its
+own small, separately-configured generation count.
 
 Usage: uv run python optimize_surrogate.py
 """
@@ -96,10 +96,7 @@ def main(args: argparse.Namespace) -> None:
         xtol=args.xtol,
         seed=args.seed,
     )
-    print(
-        f"Surrogate NSGA2: n_max_gen={pymoo_config.n_max_gen}, pop_size={pymoo_config.pop_size} "
-        "(same GA config as the real opt_hydro_df_electric.py run, for a direct timing comparison)",
-    )
+    print(f"Surrogate NSGA2: n_max_gen={pymoo_config.n_max_gen}, pop_size={pymoo_config.pop_size}")
     print("run_surrogate_optimization() starting at")
     print_dt()
     start = time.monotonic()
