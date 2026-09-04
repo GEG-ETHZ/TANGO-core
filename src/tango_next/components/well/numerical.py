@@ -270,9 +270,9 @@ class NumericalWell(WellComponent):
         t_scaling_factor = (
             4.0 * self.common.rock_k / (self.common.rock_density * self.common.rock_cp * self.diameter**2)
         )
-        zspace = np.linspace(self.wellhead_depth, self.well_length, self.num_cells + 1)
+        zspace = np.linspace(0.0, self.well_length, self.num_cells + 1)
         zspace = (zspace[1:] + zspace[:-1]) * 0.5
-        vertical_depth = zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
+        vertical_depth = self.wellhead_depth + zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
         return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
 

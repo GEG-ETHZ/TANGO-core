@@ -150,9 +150,9 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 6289215.993273648,
-            "CAPEX_total": 46117498.86756686,
-            "LCOE": 0.836601402650501,
+            "CAPEX_surface_plant": 6355189.387264541,
+            "CAPEX_total": 46183472.26155776,
+            "LCOE": 0.821306433342551,
         },
     ),
     EconomicParityCase(
@@ -183,14 +183,16 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
             # docstring's LCOE rationale) -- CAPEX itself didn't move.
             "LCOE": 0.075,
         },
+        # CAPEX_surface_plant/CAPEX_total/LCOE re-measured (2026-09-04) --
+        # same NumericalWell._compute_derived T_r fix as the SF case above.
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 7748660.360259245,
-            "CAPEX_total": 47576943.23455246,
-            "LCOE": 0.6428609958311917,
+            "CAPEX_surface_plant": 7826011.526291999,
+            "CAPEX_total": 47654294.40058521,
+            "LCOE": 0.6310307813809861,
         },
     ),
 ]
