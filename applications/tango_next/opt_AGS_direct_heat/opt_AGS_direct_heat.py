@@ -508,8 +508,8 @@ def _param_specs() -> list[ParamSpec]:
     ``--plot-only`` path.
     """
     return [
-        # toggle the following two lines to switch between 3,500 and 5,500 m max depth
-        depth_param(bounds=(2_000.0, 3_500.0)),
+        # depth_param(bounds=(2_000.0, 3_500.0)),
+        depth_param(bounds=(2_000.0, 4_500.0)),
         # depth_param(bounds=(2_000.0, 5_500.0)),
         loop_length_param(bounds=(500.0, 8_000.0)),
         loop_diameter_param(bounds=(0.15, 0.75)),
