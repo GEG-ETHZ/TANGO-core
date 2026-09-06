@@ -435,6 +435,25 @@ def build_pymoo_parser(
     return parser
 
 
+_COLUMN_PREFIXES = ("par:", "obj:", "rep:")
+
+
+def strip_column_prefixes(df: pd.DataFrame) -> pd.DataFrame:
+    """Undo ``Minimization._write_pareto``'s ``par:``/``obj:``/``rep:`` CSV column prefixes.
+
+    For a script's ``--plot-only`` path, which re-reads a previously-saved
+    ``pareto_results.csv`` from disk: that file has the prefixed names
+    (see ``Minimization._column_rename``), but every plotting function
+    (``DISPLAY_RENAME``/``COLUMN_LABELS`` dicts, ``prepare_plot_df``, etc.)
+    still works in terms of bare names, matching what a freshly-``run()``
+    ``Minimization`` returns in memory. Round-tripping through this
+    function keeps that one consumer consistent with the other, rather
+    than requiring plotting code to know about the on-disk-only prefix.
+    """
+    rename = {c: c.split(":", 1)[1] for c in df.columns if c.startswith(_COLUMN_PREFIXES)}
+    return df.rename(columns=rename)
+
+
 def prepare_plot_df(df: pd.DataFrame, display_rename: dict[str, str]) -> pd.DataFrame:
     """Undo pymoo's negated-objective minimization convention, for plotting only.
 
@@ -972,10 +991,13 @@ class Minimization:
         Column order matches ``self.params`` — the CSV must have been
         written by THIS same ``Minimization`` setup (same params, same
         names), which is the only case that makes sense to seed from
-        anyway.
+        anyway. Reads the ``par:``-prefixed column names ``_write_pareto``
+        writes (see ``_column_rename``) — a CSV from before that prefix
+        existed won't be found here; regenerate it rather than seeding
+        from a stale-format file.
         """
         seed_df = pd.read_csv(path)
-        cols = [p.name for p in self.params]
+        cols = [f"par:{p.name}" for p in self.params]
         missing = [c for c in cols if c not in seed_df.columns]
         if missing:
             raise ValueError(
@@ -983,6 +1005,23 @@ class Minimization:
                 "Minimization run with the same params (same names, same order)?",
             )
         return seed_df[cols].to_numpy(dtype=float)
+
+    def _column_rename(self) -> dict[str, str]:
+        """``par:``/``obj:``/``rep:`` prefix for each column ``_write_pareto`` writes to CSV.
+
+        Cosmetic and applied ONLY at CSV-write time — ``self.params``/
+        ``self.objectives``/``self.report_specs``' own ``.name`` values,
+        the in-memory ``df`` this class returns from ``run()``, and every
+        plotting function downstream all keep using bare (unprefixed)
+        names throughout; only what lands in the CSV on disk changes.
+        Columns not covered here (currently just ``euclidean``) are left
+        bare — they're neither a decision variable, an active objective,
+        nor a ``report_specs`` read-out, so no category prefix applies.
+        """
+        rename = {p.name: f"par:{p.name}" for p in self.params}
+        rename.update({o.name: f"obj:{o.name}" for o in self.objectives})
+        rename.update({r.name: f"rep:{r.name}" for r in self.report_specs})
+        return rename
 
     def _build_config(self, x: list[float]) -> dict[str, Any]:
         """Apply every ``ParamSpec`` to a fresh copy of ``base_cfg``."""
@@ -1010,10 +1049,25 @@ class Minimization:
         built-in physical-feasibility constraint, the rest are
         ``self.constraints`` in order (see ``ConstraintSpec``). When the
         simulation itself raises a CV exception, every extra constraint
-        also reports infeasible (``_INFEASIBLE_G``) — there's no solved
-        ``Workflow`` to evaluate them against, and a design that failed to
-        even simulate shouldn't get credit for satisfying an unrelated
-        engineering constraint.
+        reports ``float("inf")`` — NOT the flat ``_INFEASIBLE_G`` the
+        built-in physical constraint uses. Confirmed the hard way
+        (2026-09-05): pymoo's own constraint-violation ranking sums every
+        POSITIVE ``G`` across ALL constraints (``Dominator.calc_domination_matrix_loop``:
+        ``CV = sum(G * (G > 0))``) — a real ``ConstraintSpec`` returns a
+        genuine violation MAGNITUDE (see its own docstring), which can be
+        much larger than the small flat ``_INFEASIBLE_G`` (``1.0``) used
+        here. Reusing that same small flat value for a design that failed
+        to even simulate made a CRASHED design look like a SMALLER total
+        violation than a design that ran successfully but is merely far
+        from satisfying an extra constraint — actively rewarding physical
+        failure over real, if still-infeasible, progress (observed on a
+        real Euler run: NSGA2 converged onto a physically-failed design
+        instead of ever approaching the region that actually clears a
+        production-temperature constraint). ``float("inf")`` guarantees a
+        physical failure is always worse than any finite real violation,
+        regardless of that constraint's own scale — no per-constraint
+        tuning needed, and safe for pymoo's ``<``-based CV comparison (no
+        NaN, well-defined ordering).
         """
         cfg = self._build_config(x)
         try:
@@ -1025,9 +1079,10 @@ class Minimization:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
             if self.log_failures:
                 self._log_failure(x, exc)
-            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [_INFEASIBLE_G] * (
-                1 + len(self.constraints)
-            )
+            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [
+                _INFEASIBLE_G,
+                *([float("inf")] * len(self.constraints)),
+            ]
         g_extra = [c.evaluate(wf) for c in self.constraints]
         return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G, *g_extra]
 
@@ -1317,10 +1372,15 @@ class Minimization:
         csv_path: Path,
         configs_dir: Path | None,
     ) -> None:
-        """Write ``df`` to ``csv_path`` and, if ``configs_dir`` given, one YAML per row of ``x``."""
+        """Write ``df`` to ``csv_path`` and, if ``configs_dir`` given, one YAML per row of ``x``.
+
+        ``df`` itself is untouched — only the copy written to disk gets
+        ``par:``/``obj:``/``rep:`` column-name prefixes (see
+        ``_column_rename``), so callers keep working with bare names.
+        """
         assert isinstance(self.save_dir, Path)  # __post_init__ always resolves this
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        df.to_csv(csv_path, index=False)
+        df.rename(columns=self._column_rename()).to_csv(csv_path, index=False)
         logger.info("Wrote %s", csv_path)
 
         if configs_dir is None or x is None:

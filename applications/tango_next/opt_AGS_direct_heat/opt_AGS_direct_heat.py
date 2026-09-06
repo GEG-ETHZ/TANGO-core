@@ -75,6 +75,7 @@ from tango_next.pymoo_api import (
     plot_objective_vs_param_scatter,
     plot_param_pair_vs_objective_scatter,
     prepare_plot_df,
+    strip_column_prefixes,
 )
 from tango_next.utils import print_dt
 from tango_next.workflows.workflow import Workflow
@@ -837,7 +838,7 @@ def main(args: argparse.Namespace) -> None:
     objective_cols = [DISPLAY_RENAME.get(o.name, o.name) for o in _objective_specs()]
 
     if args.plot_only:
-        df = pd.read_csv(args.save_dir / "pareto_results.csv")
+        df = strip_column_prefixes(pd.read_csv(args.save_dir / "pareto_results.csv"))
     else:
         if args.clean and args.save_dir.exists():
             shutil.rmtree(args.save_dir)
