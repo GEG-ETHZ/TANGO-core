@@ -193,13 +193,16 @@ DISPLAY_RENAME = {negative_mean_power_objective().name: "mean_power_W"}
 # ("mass_rate [kg/s]") avoids that. LCOE/euclidean have no such suffix at
 # all, so their bracket is pure addition, not a strip+replace. Columns
 # absent here (design_number) show unchanged -- it's an index, not a
-# physical quantity.
+# physical quantity. Also carries the SAME par:/obj: category prefix
+# ``Minimization._column_rename`` writes to the CSV (Chad's call,
+# 2026-09-07) -- euclidean stays bare here too, matching the CSV
+# convention (neither a param nor an objective).
 COLUMN_LABELS = {
-    "mass_rate_kg_per_s": "mass_rate [kg/s]",
-    "injection_pressure_Pa": "injection_pressure [Pa]",
-    "target_extraction_pressure_Pa": "target_extraction_pressure [Pa]",
-    "LCOE": "LCOE [$/kWh]",
-    "mean_power_W": "mean_power [W]",
+    "mass_rate_kg_per_s": "par:mass_rate [kg/s]",
+    "injection_pressure_Pa": "par:injection_pressure [Pa]",
+    "target_extraction_pressure_Pa": "par:target_extraction_pressure [Pa]",
+    "LCOE": "obj:LCOE [$/kWh]",
+    "mean_power_W": "obj:mean_power [W]",
     "euclidean": "euclidean [z-score]",
 }
 
@@ -573,6 +576,17 @@ def plot_pareto_parallel_coordinates_interactive(
         title="hydro_sf_electric — pareto front (interactive: drag along an axis to filter)",
         paper_bgcolor="#e8e8e8",
         plot_bgcolor="#e8e8e8",
+        # Plotly's Parcoords has no axis-label-rotation option (unlike the
+        # static matplotlib version's rotated labels) -- its default width
+        # is a fixed ~700px regardless of dimension count, so unit-suffixed
+        # labels like "target_extraction_pressure [Pa]" run into each
+        # other once there are more than a few dimensions. Scaling width
+        # by dimension count (same 1.8x-per-column idea as the static
+        # plot's own figsize=(1.8 * len(cols), ...)), just in pixels,
+        # gives each one enough room -- an HTML file has no fixed viewport
+        # to fit, so a wide, scrollable/zoomable figure is fine.
+        width=max(1200, 220 * len(cols)),
+        height=700,
     )
     fig.write_html(out_path)
     return True

@@ -434,19 +434,25 @@ DISPLAY_RENAME = {
 # ("mass_rate [kg/s]") avoids that. LCOE/specific_investment_cost/OPEX/
 # euclidean have no such suffix at all, so their bracket is pure addition,
 # not a strip+replace. Columns absent here (design_number) show unchanged
-# -- it's an index, not a physical quantity.
+# -- it's an index, not a physical quantity. Also carries the SAME
+# par:/obj:/rep: category prefix ``Minimization._column_rename`` writes
+# to the CSV (Chad's call, 2026-09-07: without it, a plot mixing decision
+# variables, active objectives, and inert report_specs read-outs gives no
+# way to tell which is which at a glance) -- euclidean stays bare here
+# too, matching the CSV convention (it's neither a param, an objective,
+# nor a report_specs value).
 COLUMN_LABELS = {
-    "depth_m": "depth [m]",
-    "loop_length_m": "loop_length [m]",
-    "loop_diameter_m": "loop_diameter [m]",
-    "vertical_well_diameter_m": "vertical_well_diameter [m]",
-    "injection_pressure_Pa": "injection_pressure [Pa]",
-    "mass_rate_kg_per_s": "mass_rate [kg/s]",
-    "LCOE": "LCOE [$/kWh]",
-    "mean_thermal_power_W": "mean_thermal_power [W]",
-    "production_temperature_C": "production_temperature [°C]",
-    "specific_investment_cost": "specific_investment_cost [$/kW]",
-    "OPEX": "OPEX [$/yr]",
+    "depth_m": "par:depth [m]",
+    "loop_length_m": "par:loop_length [m]",
+    "loop_diameter_m": "par:loop_diameter [m]",
+    "vertical_well_diameter_m": "par:vertical_well_diameter [m]",
+    "injection_pressure_Pa": "par:injection_pressure [Pa]",
+    "mass_rate_kg_per_s": "par:mass_rate [kg/s]",
+    "LCOE": "obj:LCOE [$/kWh]",
+    "mean_thermal_power_W": "obj:mean_thermal_power [W]",
+    "production_temperature_C": "obj:production_temperature [°C]",
+    "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
+    "OPEX": "rep:OPEX [$/yr]",
     "euclidean": "euclidean [z-score]",
 }
 
@@ -683,46 +689,74 @@ def _diagonal_label_offset(x: pd.Series, y: pd.Series) -> tuple[tuple[float, flo
     return (5, 5), "left"
 
 
-def plot_pareto_scatter(df: pd.DataFrame, out_path: Path) -> None:
-    """2D scatter of the two objectives (LCOE vs. mean net thermal power), each point
-    labeled by its design number.
+def plot_pareto_scatter(
+    df: pd.DataFrame,
+    out_path: Path,
+    color_col: str = "production_temperature_C",
+) -> None:
+    """2D scatter of LCOE vs. mean net thermal power, colored by production temperature.
+
+    This app has THREE active objectives (LCOE, thermal power,
+    production temperature — see ``_objective_specs``), but this plot can
+    only show two as (x, y). Without the third shown some other way, two
+    designs that trade off against the (invisible) third objective can
+    look like one flat-out beats the other on both LCOE and power — a
+    domination violation that isn't real, just an artifact of the
+    projection (confirmed the hard way, 2026-09-07: cheap+powerful
+    designs in this front achieve that specifically by running closer to
+    the production-temperature floor, while expensive+weak ones push
+    temperature margin higher — a genuine 3-way trade-off, not a sign
+    bug). Coloring by the third objective makes that trade-off visible
+    instead of hiding it.
     """
     thermal_mw = df["mean_thermal_power_W"] / 1.0e6
     lcoe = df["LCOE"]
+    color_values = df[color_col].to_numpy(dtype=float)
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(lcoe, thermal_mw, s=40, color="tab:blue", zorder=3)
+    sc = ax.scatter(lcoe, thermal_mw, s=40, c=color_values, cmap="viridis", zorder=3)
     xytext, ha = _diagonal_label_offset(lcoe, thermal_mw)
     for i, (x, y) in enumerate(zip(lcoe, thermal_mw, strict=True)):
         ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
 
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.set_label(_pretty_label(color_col))
+
     ax.set_xlabel("LCOE ($/kWh)")
     ax.set_ylabel("Mean net thermal power (MW)")
-    ax.set_title("AGS_direct_heat — pareto front (objective space, labeled by design number)")
+    ax.set_title("AGS_direct_heat — pareto front (objective space, color = production temperature)")
     ax.grid(visible=True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
 
-def plot_pareto_scatter_zscore(df: pd.DataFrame, out_path: Path) -> None:
-    """Z-score-normalized variant of ``plot_pareto_scatter``."""
+def plot_pareto_scatter_zscore(
+    df: pd.DataFrame,
+    out_path: Path,
+    color_col: str = "production_temperature_C",
+) -> None:
+    """Z-score-normalized variant of ``plot_pareto_scatter`` — see its docstring for the color choice."""
     lcoe = df["LCOE"]
     thermal = df["mean_thermal_power_W"]
     lcoe_z = (lcoe - lcoe.mean()) / (lcoe.std() or 1.0)
     thermal_z = (thermal - thermal.mean()) / (thermal.std() or 1.0)
+    color_values = df[color_col].to_numpy(dtype=float)
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.axhline(0, color="grey", linewidth=0.8, zorder=1)
     ax.axvline(0, color="grey", linewidth=0.8, zorder=1)
-    ax.scatter(lcoe_z, thermal_z, s=40, color="tab:orange", zorder=3)
+    sc = ax.scatter(lcoe_z, thermal_z, s=40, c=color_values, cmap="viridis", zorder=3)
     xytext, ha = _diagonal_label_offset(lcoe_z, thermal_z)
     for i, (x, y) in enumerate(zip(lcoe_z, thermal_z, strict=True)):
         ax.annotate(str(i), (x, y), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
 
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.set_label(_pretty_label(color_col))
+
     ax.set_xlabel("LCOE (z-score)")
     ax.set_ylabel("Mean net thermal power (z-score)")
-    ax.set_title("AGS_direct_heat — pareto front (z-score-normalized objective space)")
+    ax.set_title("AGS_direct_heat — pareto front (z-score, color = production temperature)")
     ax.grid(visible=True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
@@ -784,6 +818,18 @@ def plot_pareto_parallel_coordinates_interactive(
         title="AGS_direct_heat — pareto front (interactive: drag along an axis to filter)",
         paper_bgcolor="#e8e8e8",
         plot_bgcolor="#e8e8e8",
+        # Plotly's Parcoords has no axis-label-rotation option (unlike the
+        # static matplotlib version's rotated labels) -- its default width
+        # is a fixed ~700px regardless of dimension count, so with 12+
+        # dimensions (params + objectives + report_specs + euclidean) and
+        # unit-suffixed labels like "specific_investment_cost [$/kW]", the
+        # labels run into each other. Scaling width by dimension count
+        # (same 1.8x-per-column idea as the static plot's own
+        # figsize=(1.8 * len(cols), ...)), just in pixels, gives each one
+        # enough room -- an HTML file has no fixed viewport to fit, so a
+        # wide, scrollable/zoomable figure is fine.
+        width=max(1200, 220 * len(cols)),
+        height=700,
     )
     fig.write_html(out_path)
     return True
