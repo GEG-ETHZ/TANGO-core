@@ -471,13 +471,29 @@ def build_parser() -> argparse.ArgumentParser:
     """CLI for tuning the pymoo search — thin wrapper around
     ``pymoo_api.build_pymoo_parser``, the shared, non-domain-specific half
     (see its own docstring for why this lives in ``pymoo_api.py`` while
-    ``ParamSpec``/``ObjectiveSpec`` do not).
+    ``ParamSpec``/``ObjectiveSpec`` do not), plus this app's one
+    domain-specific flag.
     """
-    return build_pymoo_parser(
+    parser = build_pymoo_parser(
         description="Multi-objective optimization demo for the AGS direct-heat example.",
         default_output_dir=DEFAULT_OUTPUT_DIR,
         params=load_params(PARAMS_FILE),
     )
+    parser.add_argument(
+        "--min-production-temperature-c",
+        type=float,
+        default=_MIN_PRODUCTION_TEMPERATURE_C,
+        help=(
+            "production_temperature_constraint's threshold (degC). Defaults to the real "
+            f"district-heating requirement ({_MIN_PRODUCTION_TEMPERATURE_C}). A tiny "
+            "population/generation budget (e.g. a smoke run) can legitimately find zero "
+            "designs clearing the real threshold at random -- lower this instead of "
+            "accepting an empty Pareto front, so a smoke run still exercises the full "
+            "search + plotting pipeline against real, non-empty results (see justfile's "
+            "demos recipe for the value it uses)."
+        ),
+    )
+    return parser
 
 
 def build_baseline() -> tuple[Workflow, Workflow]:
@@ -553,12 +569,14 @@ def _report_specs() -> list[ObjectiveSpec]:
     return [specific_investment_cost_report(), opex_report()]
 
 
-def _constraint_specs() -> list[ConstraintSpec]:
+def _constraint_specs(
+    min_production_temperature_c: float = _MIN_PRODUCTION_TEMPERATURE_C,
+) -> list[ConstraintSpec]:
     """Constraints beyond built-in physical feasibility: production-well
-    outlet temperature must clear ``_MIN_PRODUCTION_TEMPERATURE_C`` — see
+    outlet temperature must clear ``min_production_temperature_c`` — see
     ``_param_specs``' docstring for why this is its own function.
     """
-    return [production_temperature_constraint()]
+    return [production_temperature_constraint(min_temperature_c=min_production_temperature_c)]
 
 
 def run_optimization(
@@ -584,7 +602,7 @@ def run_optimization(
         base_workflow=base_wf,
         params=_param_specs(),
         objectives=_objective_specs(),
-        constraints=_constraint_specs(),
+        constraints=_constraint_specs(args.min_production_temperature_c),
         report_specs=_report_specs(),
         pymoo_config=PymooConfig(
             n_max_gen=args.n_max_gen,
@@ -842,6 +860,15 @@ def make_plots(df: pd.DataFrame, save_dir: Path, param_cols: list[str], objectiv
     ``param_cols``/``objective_cols`` are passed in (derived from
     ``_param_specs``/``_objective_specs``) rather than read off a live
     ``Minimization`` instance, since ``--plot-only`` never builds one.
+
+    Deliberately has no empty-``df`` guard: a genuinely empty Pareto front
+    means the search found zero designs clearing every constraint, which
+    is a real problem (bad bounds, an unsatisfiable constraint, or a bug)
+    that should surface loudly here, not be silently skipped. A tiny
+    population/generation budget that would otherwise hit this by chance
+    (e.g. a smoke run) should relax its constraints instead — see
+    ``build_parser``'s ``--min-production-temperature-c`` and the
+    ``justfile``'s ``demos`` recipe.
     """
     plot_df = prepare_plot_df(df, DISPLAY_RENAME)
 

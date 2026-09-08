@@ -128,7 +128,15 @@ demos *args:
     # Each app runs --no-plot then --plot-only against the same --save-dir,
     # exercising the two-stage optimize/plot DVC split (see each app's
     # dvc.yaml) instead of only the default combined path.
-    tmp=$(mktemp -d); uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir "$tmp" --log-level ERROR --plot-only
+    # opt_AGS_direct_heat.py's production_temperature_constraint's real
+    # threshold (105 degC) is tuned for the actual search, not this tiny
+    # smoke population -- at --pop-size 6/--n-max-gen 2, it's easy for
+    # every evaluated design to miss it by chance, leaving an empty
+    # Pareto front that only proves the search ran, not that plotting on
+    # a real result works. --min-production-temperature-c relaxes it so
+    # this smoke run reliably gets several real designs through the WHOLE
+    # pipeline (search + plot), not just an empty-input no-op.
+    tmp=$(mktemp -d); uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --min-production-temperature-c 50 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir "$tmp" --log-level ERROR --plot-only
     tmp=$(mktemp -d); uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
     tmp=$(mktemp -d); uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
 
@@ -141,6 +149,8 @@ demos:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_flexible_DF_manual_sweep/run_flexible_DF_manual_sweep.py --smoke --n-workers 2 --quiet
     Get-ChildItem examples/tango_next/*.yml | ForEach-Object { uv run tango_next_cli --log-level WARNING run $_.FullName }
-    $tmp1 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp1 | Out-Null; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --save-dir $tmp1 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir $tmp1 --log-level ERROR --plot-only
+    # See the [unix] demos recipe's comment above the equivalent line for why
+    # --min-production-temperature-c is relaxed here.
+    $tmp1 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp1 | Out-Null; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --min-production-temperature-c 50 --save-dir $tmp1 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir $tmp1 --log-level ERROR --plot-only
     $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir $tmp2 --log-level ERROR --plot-only
     $tmp3 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp3 | Out-Null; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp3 --log-level ERROR --no-plot; uv run python applications/tango_next/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir $tmp3 --log-level ERROR --plot-only

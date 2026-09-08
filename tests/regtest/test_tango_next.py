@@ -28,7 +28,13 @@ import pytest
 import yaml
 
 from tango_next.core import fluid_utils
-from tango_next.core.errors import ConfigError, CoolPropError, FrackingViolationError, TangoNextError
+from tango_next.core.errors import (
+    ConfigError,
+    CoolPropError,
+    FrackingViolationError,
+    InvalidPowerStateError,
+    TangoNextError,
+)
 from tango_next.workflows.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -158,27 +164,31 @@ def test_workflow_to_file_from_file_roundtrip(tmp_path: Path) -> None:
 def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
     """``power_plant.nodes``/``edges`` survive a to_dict() -> Workflow() round-trip.
 
-    Specifically exercises ``AGS_direct_heat.yml``'s ``circ_pump``
-    (``Compressor``, no ``p_out`` of its own) and ``dh_hx``'s
-    ``pressure_ratio`` — the structure added 2026-08-17/18 (see
+    Specifically exercises ``AGS_direct_heat.yml``'s ``circulation_control``
+    (``PumpOrValve``, no ``p_out`` of its own, giving the AGS closed loop
+    its real circulation device -- see
     ``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
-    anywhere" entry) to give the AGS closed loop a real circulation pump.
-    Not just a smoke check that the values are present: rebuilds a second
-    ``Workflow`` from the dumped dict and confirms its own re-dump is
-    byte-for-byte identical, proving the structure is genuinely
-    reconstructible, not merely echoed back once.
+    anywhere" entry) and ``dh_hx``'s ``pressure_ratio``. Not just a smoke
+    check that the values are present: rebuilds a second ``Workflow``
+    from the dumped dict and confirms its own re-dump is byte-for-byte
+    identical, proving the structure is genuinely reconstructible, not
+    merely echoed back once.
     """
     wf = Workflow.from_file(NEW_AGS_DIRECT_HEAT)
     wf.run()
     dumped = wf.to_dict()
 
     nodes = dumped["components"]["surface"]["power_plant"]["nodes"]
-    assert nodes["circ_pump"] == {"type": "Compressor", "role": "net_electric", "efficiency": 1.0}
+    assert nodes["circulation_control"] == {
+        "type": "PumpOrValve",
+        "role": "net_electric",
+        "efficiency": 1.0,
+    }
     assert nodes["dh_hx"]["pressure_ratio"] == 0.99
-    assert "p_out_megapascals" not in nodes["circ_pump"], (
-        "circ_pump must have no pressure target of its own -- injection_pressure already "
-        "pins the network's outlet connection; a second target would over-determine it "
-        "(see AGS_direct_heat.yml's circ_pump comment)."
+    assert "p_out_megapascals" not in nodes["circulation_control"], (
+        "circulation_control must have no pressure target of its own -- injection_pressure "
+        "already pins the network's outlet connection; a second target would over-determine "
+        "it (see AGS_direct_heat.yml's circulation_control comment)."
     )
 
     wf2 = Workflow(dumped)
@@ -279,6 +289,107 @@ def test_ags_direct_heat_smoke() -> None:
     assert all(q > 0 for q in net_thermal_steady_state), (
         "Direct-heat plant should deliver positive net thermal power once past "
         f"the t=0 cold-start transient: {net_thermal_steady_state}"
+    )
+
+
+def test_bare_valve_circulation_control_rejected_at_construction(
+    ags_direct_heat_config: dict[str, Any],
+) -> None:
+    """A bare ``type: Valve`` circulation node (no ``PumpOrValve`` fallback) is rejected up front.
+
+    ``workflows/workflow.py::_check_loop_has_pressure_source`` exists
+    specifically to reject a closed loop with no mechanical
+    pressure-adding device AND no active per-solve() check backing it up
+    -- exactly this pattern: a passive Valve with nothing to fall back on
+    if the loop's thermosiphon margin runs out (see
+    ``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
+    anywhere" entry for the physical risk this prevents). ``type:
+    PumpOrValve`` (this file's actual default -- see the auto-resolving
+    tests below) is the sanctioned way to use a Valve here at all,
+    precisely because it comes with that active check built in.
+    """
+    nodes = ags_direct_heat_config["components"]["surface"]["power_plant"]["nodes"]
+    nodes["circulation_control"] = {"type": "Valve", "role": "net_electric"}
+
+    with pytest.raises(ConfigError, match="no pressure-adding device"):
+        Workflow(ags_direct_heat_config)
+
+
+def test_compressor_circulation_control_rejects_design_that_only_needs_a_valve(
+    ags_direct_heat_config: dict[str, Any],
+) -> None:
+    """A ``type: Compressor`` circulation node raises when it solves to negative power.
+
+    Mirror image of the test above: at valve-sufficient parameters, a
+    ``Compressor`` explicitly pinned at this node (opting OUT of the
+    default ``PumpOrValve`` auto-fallback) has more driving pressure
+    available than it needs to hit ``injection_pressure``, so TESPy's
+    fixed-``p_out`` compressor equation solves to a negative ``P.val`` —
+    "generating" power, which a real passive pump never does (see
+    ``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
+    anywhere" entry for why this matters).
+    """
+    nodes = ags_direct_heat_config["components"]["surface"]["power_plant"]["nodes"]
+    nodes["circulation_control"] = {"type": "Compressor", "role": "net_electric", "efficiency": 1.0}
+    ags_direct_heat_config["sim_config"]["mass_rate"] = 10.0  # valve-sufficient -- see YAML comment
+    ags_direct_heat_config["sim_config"]["num_tsteps"] = N_TSTEPS_FAST
+
+    with pytest.raises(InvalidPowerStateError, match="negative.*Valve"):
+        Workflow(ags_direct_heat_config).run()
+
+
+def test_pump_or_valve_auto_resolves_to_valve_when_sufficient(
+    ags_direct_heat_config: dict[str, Any],
+) -> None:
+    """A ``type: PumpOrValve`` node resolves to a passive Valve when one suffices.
+
+    Default AGS_direct_heat.yml behavior (no explicit component choice
+    needed) for the common (majority of the declared decision space)
+    regime: GraphSurface builds both a Valve- and a Compressor-resolved
+    network for this node and picks the Valve one since it's physically
+    valid here -- no InvalidPowerStateError, and the resolved TESPy
+    component is actually a Valve (has no ``P`` attribute), confirming
+    the fallback never even engaged.
+    """
+    ags_direct_heat_config["sim_config"]["mass_rate"] = 10.0  # valve-sufficient -- see YAML comment
+    ags_direct_heat_config["sim_config"]["num_tsteps"] = N_TSTEPS_FAST
+
+    wf = Workflow(ags_direct_heat_config)
+    wf.run()
+
+    surface = _components(wf)["surface"]
+    assert type(surface._nodes["circulation_control"]).__name__ == "Valve"  # noqa: SLF001
+
+
+def test_pump_or_valve_auto_resolves_to_compressor_when_needed(
+    ags_direct_heat_config: dict[str, Any],
+) -> None:
+    """A ``type: PumpOrValve`` node falls back to a real Compressor when the valve can't do it.
+
+    Mirror image of the test above, for the ~22% regime that genuinely
+    needs a real pump: GraphSurface tries the Valve-resolved network
+    first, that leg raises ``InvalidPowerStateError`` internally (an
+    unphysical required pressure rise), and ``solve()`` catches that and
+    retries with the Compressor-resolved network -- transparently, with
+    no exception escaping to the caller and no config change needed by
+    the user. This is exactly the case
+    ``docs/bugs-fixed-in-tango-next.md``'s AGS_direct_heat.yml default
+    (``mass_rate: 30``) is deliberately left exercising.
+    """
+    ags_direct_heat_config["sim_config"]["mass_rate"] = 30.0  # needs a real pump -- see YAML comment
+    ags_direct_heat_config["sim_config"]["num_tsteps"] = N_TSTEPS_FAST
+
+    wf = Workflow(ags_direct_heat_config)
+    wf.run()
+
+    surface = _components(wf)["surface"]
+    assert type(surface._nodes["circulation_control"]).__name__ == "Compressor"  # noqa: SLF001
+    # net_power_W = sum(-P.val) over net_electric nodes (see module docstring's sign
+    # convention), so a real pump genuinely consuming power gives a NEGATIVE net_power_W --
+    # that's the correct, expected state here (a pure-consumer plant, no generator).
+    assert all(p < 0 for p in surface.history.net_power_W), (
+        "A real pump should be a genuine, consistent net consumer here, not the impossible "
+        f"apparent-generation state this whole check exists to reject: {surface.history.net_power_W}"
     )
 
 

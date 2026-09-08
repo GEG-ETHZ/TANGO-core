@@ -34,6 +34,17 @@ contribution) uniformly; summing ``-Q.val`` over ``net_thermal`` nodes gives
 positive delivered heat for a heat exchanger rejecting heat to a
 district-heating loop.
 
+``type: PumpOrValve`` (in addition to the real TESPy component types) is
+a per-node opt-in for a circulation point whose physically correct
+resolution (a passive ``Valve``, or a real ``Compressor``) depends on
+design-point conditions rather than being knowable up front -- see
+``init()``/``_NetworkBundle``/``_check_pump_or_valve_validity``. It
+builds and holds TWO full networks, tries the Valve-resolved one first
+each ``solve()``, and falls back to the Compressor-resolved one if that's
+physically invalid for the current timestep -- see
+``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
+anywhere" entry for the physical motivation.
+
 Example YAML (AGS direct-heat — the topology that motivated this class):
 
     surface:
@@ -42,12 +53,12 @@ Example YAML (AGS direct-heat — the topology that motivated this class):
         nodes:
           inlet: {type: Source}
           dh_hx: {type: SimpleHeatExchanger, role: net_thermal, T_out: 323.15, pressure_ratio: 0.99}
-          circ_pump: {type: Compressor, role: net_electric, efficiency: 1.0}
+          circulation_control: {type: PumpOrValve, role: net_electric, efficiency: 1.0}
           outlet: {type: Sink}
         edges:
           1: {source: inlet, target: dh_hx}
-          2: {source: dh_hx, target: circ_pump}
-          3: {source: circ_pump, target: outlet}
+          2: {source: dh_hx, target: circulation_control}
+          3: {source: circulation_control, target: outlet}
 
 Unit conventions (TESPy network created with ``p_unit="bar"``, ``T_unit="C"``):
 
@@ -92,6 +103,9 @@ if TYPE_CHECKING:
 # node config "type" string -> TESPy class. Extend as new topologies need
 # component types not yet listed here — keep in sync with
 # src/tango/units/native/surface/flexible_pp.py's _create_component() mapping.
+# "PumpOrValve" is deliberately NOT a key here -- it isn't a real TESPy
+# class, it's resolved to "Valve" or "Compressor" first (see
+# _build_bundle), and only the resolved name is looked up in this dict.
 _COMPONENT_TYPES: dict[str, str] = {
     "Sink": "Sink",
     "Source": "Source",
@@ -105,6 +119,21 @@ _COMPONENT_TYPES: dict[str, str] = {
     "CycleCloser": "CycleCloser",
 }
 
+# Floating-point solver-noise tolerance for the "a pump can't generate
+# power" check below (solve()) -- a genuinely unphysical negative-power
+# state is many watts to kilowatts in practice, so this only exists to
+# avoid a false positive from sub-milliwatt solver residual sitting
+# exactly at zero, not to mask a real violation.
+_PUMP_POWER_TOLERANCE_W = 1e-3
+
+# Mirror-image tolerance for the "a valve can't raise pressure" check below
+# (solve()): a real throttle valve is passive and dissipative, so it can
+# only ever DROP pressure. A resolved network where a Valve node's outlet
+# ends up more than this many bar above its inlet means the design's
+# natural driving pressure fell short of what was needed there and a real
+# pump belongs at that node instead -- not solver noise.
+_VALVE_PRESSURE_INCREASE_TOLERANCE_BAR = 1e-6
+
 
 def _ls() -> LockedState[float]:
     ls: LockedState[float] = LockedState(float("nan"))
@@ -116,6 +145,49 @@ def _ls_dict() -> LockedState[dict[str, dict[str, float]]]:
     ls: LockedState[dict[str, dict[str, float]]] = LockedState({})
     ls.mark_stale()
     return ls
+
+
+# ---------------------------------------------------------------------------
+# Dual-network bundle (PumpOrValve)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _NetworkBundle:
+    """One fully-built TESPy network + its component/connection lookups.
+
+    Two of these exist only when ``power_plant.nodes`` includes a
+    ``type: PumpOrValve`` node (see ``init()``) -- one with that node
+    resolved to a passive ``Valve``, one to a real ``Compressor`` --
+    because TESPy networks are built once, not swapped component-by-
+    component mid-simulation. ``solve()`` tries the valve bundle first
+    and falls back to the compressor bundle if it's physically invalid
+    (see ``_check_pump_or_valve_validity``), reassigning
+    ``GraphSurface``'s working attrs to whichever bundle succeeded via
+    ``_activate_bundle`` so the rest of ``solve()`` doesn't need to know
+    which one is active.
+
+    There is no way to get ONE TESPy network to select the physically
+    valid resolution itself: choosing between a passive ``Valve`` and a
+    real ``Compressor`` here is a discrete either/or decision (does the
+    natural driving pressure suffice, yes/no), and TESPy solves square
+    systems of equations, not an optimization or a complementarity
+    condition -- there's no single equation that would express "pick
+    whichever component is feasible." Building and holding two complete
+    networks, one per resolution, is the cost of getting that decision
+    right automatically per design point rather than requiring a manual,
+    per-config component choice -- see
+    ``docs/bugs-fixed-in-tango-next.md``'s "AGS closed loop has no pump
+    anywhere" entry for the physical motivation.
+    """
+
+    network: Any
+    conns: list[Connection]
+    nodes: dict[str, Any]
+    net_electric_nodes: list[Any]
+    net_thermal_nodes: list[Any]
+    inlet_conn: Connection
+    outlet_conn: Connection
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +330,48 @@ class GraphSurface(SurfaceComponent):
     # ------------------------------------------------------------------
 
     def init(self) -> None:
-        """Build the TESPy network from ``power_plant.nodes``/``edges``."""
+        """Build the TESPy network(s) from ``power_plant.nodes``/``edges``.
+
+        Normally builds exactly one network. If any node's ``type`` is
+        ``PumpOrValve``, builds TWO instead -- one resolving every such
+        node to ``Valve``, one to ``Compressor`` -- and activates the
+        Valve one first; ``solve()`` falls back to the Compressor one if
+        the Valve one turns out physically invalid for a given timestep's
+        conditions. See ``_NetworkBundle``'s docstring for why this is
+        two full networks rather than one smarter one.
+        """
+        pp = self.power_plant
+        node_cfgs: dict[str, dict[str, Any]] = pp.get("nodes", {})
+        edge_cfgs: dict[str, dict[str, Any]] = pp.get("edges", {})
+
+        self._validate_pressure_monotonicity(node_cfgs, edge_cfgs)
+
+        self._dual_mode = any(cfg.get("type") == "PumpOrValve" for cfg in node_cfgs.values())
+        if self._dual_mode:
+            self._valve_bundle = self._build_bundle(node_cfgs, edge_cfgs, "Valve")
+            self._compressor_bundle = self._build_bundle(node_cfgs, edge_cfgs, "Compressor")
+            self._activate_bundle(self._valve_bundle)
+        else:
+            # "Compressor" here is an inert default: no node in this config
+            # is type: PumpOrValve, so no node actually gets resolved by it.
+            self._activate_bundle(self._build_bundle(node_cfgs, edge_cfgs, "Compressor"))
+
+    @staticmethod
+    def _build_bundle(
+        node_cfgs: dict[str, dict[str, Any]],
+        edge_cfgs: dict[str, dict[str, Any]],
+        pump_or_valve_resolution: str,
+    ) -> _NetworkBundle:
+        """Build one complete TESPy network, resolving any ``PumpOrValve`` node.
+
+        Every ``type: PumpOrValve`` node becomes a real ``pump_or_valve_resolution``
+        (``"Valve"`` or ``"Compressor"``) TESPy component in the network this
+        builds; every other node is built exactly as its own ``type`` says,
+        unaffected by ``pump_or_valve_resolution``. Called once (with an
+        inert ``pump_or_valve_resolution``) for a config with no
+        ``PumpOrValve`` node, or twice (once per resolution) for one that
+        has one -- see ``init()``.
+        """
         import tespy.components as tespy_components  # noqa: PLC0415
         from tespy.components import Sink, Source  # noqa: PLC0415
         from tespy.connections import Connection  # noqa: PLC0415
@@ -276,24 +389,23 @@ class GraphSurface(SurfaceComponent):
         # matches old tango's precedent (src/tango/utils.py's set_logger)
         # of silencing this by default. Set here, not just in the CLI, so
         # every caller of GraphSurface gets quiet-by-default TESPy output
-        # rather than only the CLI path.
+        # rather than only the CLI path. MUST come after the imports
+        # above: tespy.tools.logger's own module-level code sets this
+        # same logger back to DEBUG on first import, which would silently
+        # undo an earlier setLevel() call the first time anything
+        # actually imports tespy.
         logging.getLogger("TESPyLogger").setLevel(logging.ERROR)
-
-        pp = self.power_plant
-        node_cfgs: dict[str, dict[str, Any]] = pp.get("nodes", {})
-        edge_cfgs: dict[str, dict[str, Any]] = pp.get("edges", {})
-
-        self._validate_pressure_monotonicity(node_cfgs, edge_cfgs)
 
         nodes: dict[str, Any] = {}
         for name, cfg in node_cfgs.items():
             type_name = cfg.get("type")
-            if type_name not in _COMPONENT_TYPES:
+            resolved_type = pump_or_valve_resolution if type_name == "PumpOrValve" else type_name
+            if resolved_type not in _COMPONENT_TYPES:
                 raise ValueError(
                     f"power_plant.nodes.{name}: unknown TESPy component type {type_name!r} "
-                    f"(known: {sorted(_COMPONENT_TYPES)})",
+                    f"(known: {sorted(_COMPONENT_TYPES)}, plus 'PumpOrValve')",
                 )
-            tespy_cls = getattr(tespy_components, _COMPONENT_TYPES[type_name])
+            tespy_cls = getattr(tespy_components, _COMPONENT_TYPES[resolved_type])
             nodes[name] = tespy_cls(name)
 
         if not isinstance(nodes.get("inlet"), Source):
@@ -323,7 +435,7 @@ class GraphSurface(SurfaceComponent):
 
         # ---- Per-node fixed attributes (efficiency, T_out, p_out, ...) ----
         for name, cfg in node_cfgs.items():
-            self._apply_node_config(nodes[name], conns, cfg)
+            GraphSurface._apply_node_config(nodes[name], conns, cfg)
 
         # ---- Role-tagged nodes, for net power/thermal aggregation ----
         net_electric = []
@@ -331,7 +443,16 @@ class GraphSurface(SurfaceComponent):
         for name, cfg in node_cfgs.items():
             role = cfg.get("role")
             if role == ComponentRole.NET_ELECTRIC:
-                net_electric.append(nodes[name])
+                # A Valve has no TESPy `P` attribute at all -- it's passive
+                # and does no work by construction (isenthalpic), unlike a
+                # Compressor/Turbine, so it's excluded from the net-power
+                # sum rather than included at a guaranteed-zero
+                # contribution. It's still solved as part of the network
+                # and still checked for physical validity every solve()
+                # (see _check_pump_or_valve_validity) -- just not summed
+                # here, since there's nothing on it to sum.
+                if type(nodes[name]).__name__ != "Valve":
+                    net_electric.append(nodes[name])
             elif role == ComponentRole.NET_THERMAL:
                 net_thermal.append(nodes[name])
             elif role is not None:
@@ -340,13 +461,25 @@ class GraphSurface(SurfaceComponent):
                     f"(expected one of {[r.value for r in ComponentRole]})",
                 )
 
-        self._network = net
-        self._conns = conns
-        self._nodes = nodes
-        self._net_electric_nodes = net_electric
-        self._net_thermal_nodes = net_thermal
-        self._inlet_conn = next(c for c in conns if c.source.label == "inlet")
-        self._outlet_conn = next(c for c in conns if c.target.label == "outlet")
+        return _NetworkBundle(
+            network=net,
+            conns=conns,
+            nodes=nodes,
+            net_electric_nodes=net_electric,
+            net_thermal_nodes=net_thermal,
+            inlet_conn=next(c for c in conns if c.source.label == "inlet"),
+            outlet_conn=next(c for c in conns if c.target.label == "outlet"),
+        )
+
+    def _activate_bundle(self, bundle: _NetworkBundle) -> None:
+        """Point every working attr ``solve()``/``_collect_node_detail()`` reads at ``bundle``."""
+        self._network = bundle.network
+        self._conns = bundle.conns
+        self._nodes = bundle.nodes
+        self._net_electric_nodes = bundle.net_electric_nodes
+        self._net_thermal_nodes = bundle.net_thermal_nodes
+        self._inlet_conn = bundle.inlet_conn
+        self._outlet_conn = bundle.outlet_conn
 
     @staticmethod
     def _validate_pressure_monotonicity(
@@ -376,7 +509,7 @@ class GraphSurface(SurfaceComponent):
             if "p_out_megapascals" in cfg
         }
 
-        pressure_increasing_types = {"Compressor"}
+        pressure_increasing_types = {"Compressor", "PumpOrValve"}
 
         upstream_map: dict[str, list[str]] = {}
         for edge in edge_cfgs.values():
@@ -425,19 +558,25 @@ class GraphSurface(SurfaceComponent):
         actually arrives at this node rather than fixing one; added for
         ``AGS_direct_heat.yml``'s ``dh_hx``, which needs its own
         pressure-drop spec once it's no longer the last node before the
-        network's outlet Sink — see that YAML's ``circ_pump`` comment for
-        why). Connection-level, set on the node's outgoing connection for
-        Source/Valve, incoming connection for Sink: ``T``/``p``/``m``/
-        ``fluid``/``vapor_mass_fraction_out`` -> ``x``,
-        ``p_out_megapascals`` -> ``p`` (converted MPa -> bar), ``T_out``
-        (K) -> ``T`` (converted K -> C). Extend here as new topologies need
-        attributes not yet covered — deliberately not porting src/tango/'s
-        full dynamic attribute list (ttd_u/ttd_l/string-function
-        evaluation) until an AGS config actually needs it.
+        network's outlet Sink — see that YAML's ``circulation_control`` comment for
+        why). ``efficiency`` is skipped for a node resolved to ``Valve``
+        (TESPy's ``Valve`` has no ``eta_s`` attribute at all) -- this is
+        how a ``type: PumpOrValve`` node's ``efficiency`` (needed by its
+        Compressor-resolved bundle) is silently a no-op in its
+        Valve-resolved bundle, rather than an error, without either
+        bundle needing its own separate config. Connection-level, set on
+        the node's outgoing connection for Source/Valve, incoming
+        connection for Sink: ``T``/``p``/``m``/``fluid``/
+        ``vapor_mass_fraction_out`` -> ``x``, ``p_out_megapascals`` ->
+        ``p`` (converted MPa -> bar), ``T_out`` (K) -> ``T`` (converted K
+        -> C). Extend here as new topologies need attributes not yet
+        covered — deliberately not porting src/tango/'s full dynamic
+        attribute list (ttd_u/ttd_l/string-function evaluation) until an
+        AGS config actually needs it.
         """
         type_name = type(node).__name__
         component_attrs: dict[str, Any] = {}
-        if "efficiency" in cfg:
+        if "efficiency" in cfg and type_name != "Valve":
             component_attrs["eta_s"] = float(cfg["efficiency"])
         if "pressure_ratio" in cfg:
             component_attrs["pr"] = float(cfg["pressure_ratio"])
@@ -487,6 +626,75 @@ class GraphSurface(SurfaceComponent):
             detail[name] = values
         return detail
 
+    def _check_pump_or_valve_validity(self) -> None:
+        """Enforce both physical directions of the pump/valve boundary in one pass.
+
+        Two mirror-image checks, each scoped to ``role: net_electric``
+        nodes of the relevant TESPy type:
+
+        - A ``Compressor`` can never be a net SOURCE of power (``P.val`` <
+          0). Even when a closed loop's natural driving force (e.g. the
+          thermosiphon effect between a cold descending injection leg and
+          a hot ascending production leg) already exceeds what a
+          fixed-``p_out`` Compressor needs to hit its target pressure,
+          TESPy's compressor equation still has a mathematically valid
+          solution: a NEGATIVE ``P.val``, i.e. "this component would need
+          to EXTRACT work from the flow" -- which isn't what the real
+          device would do; a real pump facing surplus pressure simply
+          wouldn't need to run that hard.
+        - The mirror image: a ``Valve`` can never RAISE pressure (it's
+          passive/dissipative, isenthalpic). If the natural driving
+          pressure at that point in the network falls short of the target
+          (e.g. high mass rate + small diameter + shallow depth, where
+          friction losses exceed the thermosiphon margin), TESPy's valve
+          equation still has a mathematically valid solution implying
+          negative flow resistance -- unphysical for a real throttle.
+
+        Both raise ``InvalidPowerStateError`` (an existing ``pymoo_api``
+        ``_CV_EXCEPTIONS`` member, so a plain ``Valve``/``Compressor``
+        node hitting this just marks the design point infeasible during a
+        search rather than crashing it). For a ``type: PumpOrValve`` node
+        specifically, ``solve()`` catches the Valve-leg version of this
+        exception itself and retries with the Compressor leg (see
+        ``_NetworkBundle``) -- so for that node type, this check is the
+        fallback TRIGGER, not necessarily a final, user-visible failure.
+        """
+        for node in self._net_electric_nodes:
+            if type(node).__name__ == "Compressor" and node.P.val < -_PUMP_POWER_TOLERANCE_W:
+                raise InvalidPowerStateError(
+                    f"{node.label} reports P={node.P.val:.1f} W (negative) -- a passive pump/"
+                    "compressor can never be a net source of power; the real device at this "
+                    "operating point would be a dissipative throttle (or simply not need to run "
+                    "this hard), not something that extracts work from the flow. Consider "
+                    f"changing {node.label}'s type to 'Valve' in the YAML.",
+                )
+
+        # Valve nodes are excluded from self._net_electric_nodes (they have
+        # no `P` to sum -- see init()'s role-tagging loop), so this second
+        # check walks every node directly rather than reusing that list.
+        # Scoped to role: net_electric Valves specifically, not every
+        # Valve in the plant -- an incidental throttle elsewhere (e.g. a
+        # Single-Flash plant's pre-separator valve, explicitly p_out-fixed
+        # by design) is expected to drop pressure and isn't a circulation
+        # boundary condition someone might need to flip to a Compressor.
+        node_cfgs = self.power_plant.get("nodes", {})
+        for name, node in self._nodes.items():
+            if type(node).__name__ != "Valve":
+                continue
+            if node_cfgs.get(name, {}).get("role") != ComponentRole.NET_ELECTRIC:
+                continue
+            inlet_conn = next(c for c in self._conns if c.target is node)
+            outlet_conn = next(c for c in self._conns if c.source is node)
+            dp_bar = outlet_conn.p.val - inlet_conn.p.val
+            if dp_bar > _VALVE_PRESSURE_INCREASE_TOLERANCE_BAR:
+                raise InvalidPowerStateError(
+                    f"{node.label} would need to RAISE pressure by {dp_bar * BAR_TO_PA:.1f} "
+                    "Pa to hit this design's target -- a passive valve can only ever drop "
+                    "pressure; the natural driving force here (e.g. thermosiphon) falls "
+                    f"short and a real pump is needed. Consider changing {node.label}'s "
+                    "type to 'Compressor' in the YAML.",
+                )
+
     # ------------------------------------------------------------------
     # BC variable accessor — SystemBCIteration calls this each iteration
     # ------------------------------------------------------------------
@@ -502,6 +710,72 @@ class GraphSurface(SurfaceComponent):
     # ------------------------------------------------------------------
     # record / solve
     # ------------------------------------------------------------------
+
+    def _solve_active_bundle(
+        self,
+        mdot: float,
+        T_in: float,
+        P_tespy_in: float,
+    ) -> tuple[float, float, float, float]:
+        """Solve whichever bundle ``_activate_bundle`` last pointed at, or raise.
+
+        Returns ``(T_out, P_out, net_power_W, net_thermal_W)`` on success.
+        Raises ``TESPyCoolPropError`` (solver/CoolProp failure) or
+        ``InvalidPowerStateError`` (a physically invalid result, e.g. a
+        Valve that would need to raise pressure) on failure -- ``solve()``
+        catches both to trigger its valve -> compressor fallback when
+        ``self._dual_mode`` is True; this method itself has no fallback
+        logic, it either succeeds outright or raises.
+        """
+        self._inlet_conn.set_attr(
+            fluid={self.common.fluid_name: 1},
+            m=mdot,
+            T=T_in + K_TO_C_OFFSET,
+            p=P_tespy_in * PA_TO_BAR,
+        )
+        self._outlet_conn.set_attr(p=self.injection_pressure * PA_TO_BAR)
+
+        # TESPy calls CoolProp internally during its network solve; a CoolProp
+        # flash failure (e.g. a design near the fluid's stability limits, where
+        # CoolProp's internal solver can't find a solution) surfaces here as a
+        # bare ValueError. Wrapping it here, rather than adding a bare
+        # ValueError to pymoo_api._CV_EXCEPTIONS, keeps the CV net scoped to
+        # this ONE call site instead of the entire simulation --
+        # _CV_EXCEPTIONS already catches CoolPropError, and TESPyCoolPropError
+        # subclasses it, so no change is needed there once this is wrapped.
+        try:
+            self._network.solve("design")
+        except ValueError as exc:
+            raise TESPyCoolPropError(f"TESPy network solve failed: {exc}") from exc
+
+        T_out = self._outlet_conn.T.val + C_TO_K_OFFSET
+        P_out = self._outlet_conn.p.val * BAR_TO_PA
+
+        # ---- Net power / thermal (see module docstring for sign convention) ----
+        net_power_W = sum(-node.P.val for node in self._net_electric_nodes)
+        net_thermal_W = sum(-node.Q.val for node in self._net_thermal_nodes)
+        # Only a genuine generator (Turbine) creates an expectation that
+        # net_power_W should be positive -- a plant with no generator at
+        # all (e.g. AGS_direct_heat.yml's circulation_control-only setup: a pure
+        # electric consumer, no by-product electricity) has NO way to ever
+        # be net-positive, and that's the correct, permanent state, not a
+        # feasibility-boundary artifact. See InvalidPowerStateError's own
+        # docstring for the risk this guards against (a negative value
+        # silently corrupting DoubletEconomicComponent's averaged LCOE
+        # calc) -- that risk is specific to a topology that EXPECTS net
+        # generation; main_product=HEAT's LCOE formula already treats
+        # net_power_W as a by-product term (_compute_lcoe), handling a
+        # negative value there correctly.
+        has_generator = any(type(node).__name__ == "Turbine" for node in self._net_electric_nodes)
+        if has_generator and net_power_W < 0:
+            raise InvalidPowerStateError(
+                f"surface plant net_power_W={net_power_W:.1f} W is negative -- the surface plant "
+                "is a net consumer, not producer, of electricity this timestep (turbine output no "
+                "longer covers its own surface pump parasitic load).",
+            )
+        self._check_pump_or_valve_validity()
+
+        return T_out, P_out, net_power_W, net_thermal_W
 
     def solve(self, inlet: Stream) -> None:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
@@ -526,61 +800,28 @@ class GraphSurface(SurfaceComponent):
         s.dP_pipe.update(dp_pipe)
         s.P_tespy_inlet.update(P_tespy_in)
 
-        # ---- Inlet connection ----
-        self._inlet_conn.set_attr(
-            fluid={self.common.fluid_name: 1},
-            m=mdot,
-            T=T_in + K_TO_C_OFFSET,
-            p=P_tespy_in * PA_TO_BAR,
-        )
+        # ---- Solve, with valve -> compressor fallback for a PumpOrValve config ----
+        if self._dual_mode:
+            self._activate_bundle(self._valve_bundle)
+            try:
+                T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
+            except (TESPyCoolPropError, InvalidPowerStateError):
+                # Whatever went wrong with the valve leg (an unphysical
+                # required pressure rise, or even a CoolProp flash failure
+                # near that unphysical state) -- retry with the real pump.
+                # The two bundles' upstream nodes see identical fixed
+                # inlet/outlet conditions regardless of which one
+                # circulation_control resolves to, so this can't also fail
+                # for the opposite reason (needing a valve): a pressure
+                # deficit at the valve leg is a pressure surplus nowhere
+                # near what the compressor leg would need to reject.
+                self._activate_bundle(self._compressor_bundle)
+                T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
+        else:
+            T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
 
-        # ---- Outlet / injection pressure BC ----
-        self._outlet_conn.set_attr(p=self.injection_pressure * PA_TO_BAR)
-
-        # ---- Solve ----
-        # TESPy calls CoolProp internally during its network solve; a CoolProp
-        # flash failure surfaces here as a bare ValueError (confirmed the hard
-        # way: "HSU_P_flash_singlephase_Brent could not find a solution..."
-        # from a design near the fluid's stability limits) -- TESPyError's own
-        # docstring already anticipated this exact gap ("no call site wraps a
-        # TESPy solve failure ... yet"). Wrapping it here, rather than adding
-        # a bare ValueError to pymoo_api._CV_EXCEPTIONS, keeps the CV net
-        # scoped to this ONE call site instead of the entire simulation --
-        # _CV_EXCEPTIONS already catches CoolPropError, and TESPyCoolPropError
-        # subclasses it, so no change is needed there once this is wrapped.
-        try:
-            self._network.solve("design")
-        except ValueError as exc:
-            raise TESPyCoolPropError(f"TESPy network solve failed: {exc}") from exc
-
-        # ---- Extract outlet conditions ----
-        T_out = self._outlet_conn.T.val + C_TO_K_OFFSET
-        P_out = self._outlet_conn.p.val * BAR_TO_PA
         s.T_outlet.update(T_out)
         s.P_outlet.update(P_out)
-
-        # ---- Net power / thermal (see module docstring for sign convention) ----
-        net_power_W = sum(-node.P.val for node in self._net_electric_nodes)
-        net_thermal_W = sum(-node.Q.val for node in self._net_thermal_nodes)
-        # Only a genuine generator (Turbine) creates an expectation that
-        # net_power_W should be positive -- a plant with no generator at
-        # all (e.g. AGS_direct_heat.yml's circ_pump-only setup: a pure
-        # electric consumer, no by-product electricity) has NO way to ever
-        # be net-positive, and that's the correct, permanent state, not a
-        # feasibility-boundary artifact. See InvalidPowerStateError's own
-        # docstring for the actual bug this guards against (a negative
-        # value silently corrupting DoubletEconomicComponent's averaged
-        # LCOE calc) -- that risk is specific to a topology that EXPECTS
-        # net generation, confirmed unaffected here: main_product=HEAT's
-        # LCOE formula already treats net_power_W as a by-product term
-        # (_compute_lcoe) and was hardened for a negative value there.
-        has_generator = any(type(node).__name__ == "Turbine" for node in self._net_electric_nodes)
-        if has_generator and net_power_W < 0:
-            raise InvalidPowerStateError(
-                f"surface plant net_power_W={net_power_W:.1f} W is negative -- the surface plant "
-                "is a net consumer, not producer, of electricity this timestep (turbine output no "
-                "longer covers its own surface pump parasitic load).",
-            )
         s.net_power_W.update(net_power_W)
         s.net_thermal_W.update(net_thermal_W)
 

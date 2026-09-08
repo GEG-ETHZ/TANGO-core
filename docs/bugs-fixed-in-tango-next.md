@@ -670,32 +670,61 @@ pumping power, not eliminate the pump entirely — running a real wellhead
 at 0.07% above its flash point is not something an actual operator would
 ever accept as a safety margin.
 
-**Fixed in `tango_next` (2026-08-18):** added a real circulation pump —
-`AGS_direct_heat.yml`'s `power_plant.nodes` now has `circ_pump`
-(`type: Compressor`, `role: net_electric`) between `dh_hx` and `outlet`,
-on the cold/injection leg (matching where real closed-loop AGS systems
-actually put the surface circulation pump — pumping cold, subcooled
-liquid avoids the cavitation/NPSH risk of pumping fluid already near its
-flash point, exactly the state the production wellhead is in). No
-`p_out_megapascals` on `circ_pump` itself, deliberately: `injection_pressure`
-already hard-sets the pressure on the network's final connection (see
-`GraphSurface.set_injection_pressure`); also constraining `circ_pump`'s
-own outlet would be a second, independent equation pinning the same
-connection — an over-determined system, not a more-constrained one
-(mirrors `hydro_df_electric.yml`'s `pump1`/`pump2`, which have no `p_out`
-of their own for the identical reason). `dh_hx` needed a new
-`pressure_ratio` spec (a *ratio*, not an absolute value, since its actual
-inlet pressure varies enormously by design point) once it was no longer
-the last node before the network's outlet Sink — added generic
-`pressure_ratio` -> TESPy `pr` support to `GraphSurface`'s YAML attribute
-translation for this (`components/surface/graph.py`).
+**Fixed in `tango_next`:** every closed fluid loop must have an explicit
+circulation-pressure device somewhere in it — a new TANGO Commandment
+(`CONTRIBUTING.md`), partially enforced in code:
+`workflows/workflow.py::_check_loop_has_pressure_source` raises
+`ConfigError` if a config sets `sim_config.injection_mode` (a genuine
+closed loop) but has no well component ending in `_with_pump` and no
+`power_plant.nodes` entry of type `Compressor`/`Pump`/`PumpOrValve`
+anywhere. `AGS_direct_heat.yml`'s `power_plant.nodes` now has
+`circulation_control` (`type: PumpOrValve`, `role: net_electric`) between
+`dh_hx` and `outlet`, on the cold/injection leg (matching where real
+closed-loop AGS systems actually put the surface circulation device —
+handling cold, subcooled liquid avoids the cavitation/NPSH risk of
+handling fluid already near its flash point, exactly the state the
+production wellhead is in).
+
+`type: PumpOrValve` (not a plain `Compressor`) is what actually makes
+this fix correct rather than just present: real closed-loop AGS/
+Eavor-Loop-style systems get part of their required circulation pressure
+for free from thermosiphon effect (the density difference between the
+cold descending injection leg and the hot ascending production leg), and
+depending on the specific design (depth, loop geometry, mass flow, target
+injection pressure) that natural pressure can either exceed or fall short
+of what's needed — a device fixed as one type or the other is physically
+wrong for whichever regime it doesn't match (a passive throttle can't
+raise pressure; a pump forced to accept a pressure it doesn't need would
+have to reject work, which no real device does). `GraphSurface` builds
+TWO complete TESPy networks for a `PumpOrValve` node — one resolving it
+to a passive `Valve`, one to a real `Compressor` (see `_NetworkBundle`/
+`_build_bundle`) — and each `solve()` tries the `Valve` network first,
+falling back to the `Compressor` network via
+`_check_pump_or_valve_validity` whenever the valve network would need to
+raise pressure (impossible for a passive device). This models both real
+operating regimes correctly and automatically, per design point, with no
+manual per-config choice.
+
+No `p_out_megapascals` on `circulation_control` itself, deliberately:
+`injection_pressure` already hard-sets the pressure on the network's
+final connection (see `GraphSurface.set_injection_pressure`); also
+constraining `circulation_control`'s own outlet would be a second,
+independent equation pinning the same connection — an over-determined
+system, not a more-constrained one (mirrors `hydro_df_electric.yml`'s
+`pump1`/`pump2`, which have no `p_out` of their own for the identical
+reason). `dh_hx` needed a new `pressure_ratio` spec (a *ratio*, not an
+absolute value, since its actual inlet pressure varies enormously by
+design point) once it was no longer the last node before the network's
+outlet Sink — added generic `pressure_ratio` -> TESPy `pr` support to
+`GraphSurface`'s YAML attribute translation for this
+(`components/surface/graph.py`).
 
 Also relaxed `GraphSurface.solve()`'s `InvalidPowerStateError` guard,
 which unconditionally raised on any negative `net_power_W` — correct for
 a topology that expects net electric *generation* (a turbine that should
 always beat its own parasitic pumps), wrong for a pure direct-heat
 topology with no generator at all, where negative `net_power_W` (a
-circulation pump with nothing generating alongside it) is the only
+circulation device with nothing generating alongside it) is the only
 possible, entirely correct state. Now only raises when an actual
 `Turbine` is present among the `net_electric`-tagged nodes.
 `DoubletEconomicComponent._compute_lcoe` needed no changes at all — its
@@ -705,16 +734,11 @@ entry's neighbor further up this file, and that method's own docstring
 referencing "~53/500 designs in the Triemli AGS sweep" with negative net
 power).
 
-**New TANGO Commandment added** (`CONTRIBUTING.md`): every closed fluid
-loop must have an explicit pump/compressor somewhere in it. Partially
-enforced in code: `workflows/workflow.py::_check_loop_has_pressure_source`
-raises `ConfigError` if a config sets `sim_config.injection_mode` (a
-genuine closed loop) but has no well component ending in `_with_pump` and
-no `power_plant.nodes` entry of type `Compressor`/`Pump` anywhere.
-Deliberately scoped to the WHOLE workflow, not per-loop, since
-`tango_next` has no multi-loop/grouped-subsystem support yet (see
-`docs/TANGO_vision_and_roadmap.md`'s "Grouped subsystems" open design
-question) — there is only ever one fluid circuit per `Workflow` today, so
-a whole-workflow check is equivalent to a per-loop one for now. Revisit
-once a config can genuinely contain more than one independent fluid loop
-(e.g. a future ORC secondary working-fluid loop).
+`_check_loop_has_pressure_source` is deliberately scoped to the WHOLE
+workflow, not per-loop, since `tango_next` has no multi-loop/
+grouped-subsystem support yet (see `docs/TANGO_vision_and_roadmap.md`'s
+"Grouped subsystems" open design question) — there is only ever one
+fluid circuit per `Workflow` today, so a whole-workflow check is
+equivalent to a per-loop one for now. Revisit once a config can genuinely
+contain more than one independent fluid loop (e.g. a future ORC
+secondary working-fluid loop).

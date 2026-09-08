@@ -332,17 +332,26 @@ def _check_common_identity(components: dict[str, Component], common: Common) -> 
             )
 
 
-# TESPy component types that add pressure/work to the fluid — checked
-# against every power_plant node's raw "type" string, not the live TESPy
-# object, so this runs on the parsed config directly (see
-# _check_loop_has_pressure_source). "Pump" isn't a real GraphSurface
-# component type today (see graph.py's _COMPONENT_TYPES) -- TESPy's
-# Compressor class is used to model a liquid pump via its generic
-# pressure-rise abstraction (see hydro_df_electric.yml's pump1/pump2,
-# AGS_direct_heat.yml's circ_pump) -- included here anyway in case a
-# dedicated "Pump" type is ever registered, so this check doesn't need
-# updating the day that happens.
-_PRESSURE_SOURCE_NODE_TYPES = frozenset({"Compressor", "Pump"})
+# TESPy component types that add pressure/work to the fluid, PLUS
+# "PumpOrValve" (not a real TESPy class -- GraphSurface resolves it to
+# either "Valve" or "Compressor" per solve(), building BOTH networks and
+# picking whichever is physically valid -- see graph.py's _NetworkBundle)
+# -- checked against every power_plant node's raw "type" string, not the
+# live TESPy object, so this runs on the parsed config directly (see
+# _check_loop_has_pressure_source). A "PumpOrValve" node always counts as
+# a pressure source even though its common-case resolution is a passive
+# Valve: it always has a real Compressor-resolved leg available and
+# checks itself every solve() (GraphSurface._check_pump_or_valve_validity)
+# for exactly the "natural pressure ran out" gap this whole check exists
+# to reject, so it can never silently regress to unchecked
+# thermosiphon-only circulation the way an config with no circulation
+# node at all could. "Pump" isn't a real GraphSurface component type
+# today (see graph.py's _COMPONENT_TYPES) -- TESPy's Compressor class is
+# used to model a liquid pump via its generic pressure-rise abstraction
+# (see hydro_df_electric.yml's pump1/pump2) -- included here anyway in
+# case a dedicated "Pump" type is ever registered, so this check doesn't
+# need updating the day that happens.
+_PRESSURE_SOURCE_NODE_TYPES = frozenset({"Compressor", "Pump", "PumpOrValve"})
 
 
 def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -> None:
@@ -354,21 +363,23 @@ def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -
     loop; relying on thermosiphon effect (the density difference between a
     cold descending leg and a hot ascending leg) alone, with NO mechanical
     fallback anywhere, is not a simplification a real system can get away
-    with — confirmed the hard way (2026-08-17): a pump-less AGS closed loop
-    let NSGA2 converge on a design whose wellhead pressure sat just 0.07%
-    above the fluid's own saturation pressure, with nothing to fall back on
-    if that margin ran out. See TANGO Commandments (CONTRIBUTING.md) for
-    the rule this enforces.
+    with -- a pump-less closed loop can converge on a design whose
+    wellhead pressure sits arbitrarily close to the fluid's own
+    saturation pressure, with nothing to fall back on if that margin runs
+    out. See TANGO Commandments (CONTRIBUTING.md) for the rule this
+    enforces.
 
     Checks TWO places a pressure source can legitimately live: a well
     component's own ``type`` ending in ``_with_pump`` (the production-side
     downhole pump, e.g. ``hydro_df_electric.yml``), or any
     ``power_plant.nodes`` entry whose ``type`` is in
-    ``_PRESSURE_SOURCE_NODE_TYPES`` (a surface circulation pump, e.g.
-    ``AGS_direct_heat.yml``'s ``circ_pump``). Checks the RAW CONFIG dict,
-    not constructed components — cheaper, and avoids reaching into
-    ``GraphSurface``'s internal TESPy node objects for something the YAML
-    already states directly (see TANGO Commandments' config-is-object rule).
+    ``_PRESSURE_SOURCE_NODE_TYPES`` (a surface circulation pump, or a
+    ``PumpOrValve`` node -- see that constant's own docstring for why a
+    ``PumpOrValve`` node counts even though it usually resolves to a
+    passive ``Valve``). Checks the RAW CONFIG dict, not constructed
+    components — cheaper, and avoids reaching into ``GraphSurface``'s
+    internal TESPy node objects for something the YAML already states
+    directly (see TANGO Commandments' config-is-object rule).
 
     Scoped to the WHOLE workflow, not per-loop: today there is only ever
     one fluid circuit per ``Workflow`` (no multi-loop/grouped-subsystem
@@ -396,8 +407,8 @@ def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -
     raise ConfigError(
         "This config forms a closed loop (sim_config.injection_mode is set) but has no "
         "pressure-adding device anywhere -- no well component's type ends in '_with_pump', "
-        "and no power_plant.nodes entry is a Compressor/Pump. Something must drive "
-        "circulation around a closed loop; thermosiphon effect alone (with nothing "
+        "and no power_plant.nodes entry is a Compressor/Pump/PumpOrValve. Something must "
+        "drive circulation around a closed loop; thermosiphon effect alone (with nothing "
         "mechanical to fall back on) is not a valid substitute -- see TANGO Commandments "
         "(CONTRIBUTING.md) and this function's own docstring for why.",
     )
