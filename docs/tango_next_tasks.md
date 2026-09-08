@@ -8,6 +8,20 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **Added 2026-09-09** We should replace
+  ```
+  component_idx: 0
+  prev: 4
+  next: 1
+  ```
+  with the tespy-style edges:
+  ```
+  edges:
+    '1': {source: inlet, target: valve1}
+    '2': {source: valve1, target: droplet_separator1}
+    '3': {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
+  ```
+  for the sake of consistency and because I think this is more robust anywway.
 - **DONE 2026-08-04 — `LumpedReservoir` initial-pressure bootstrap fixed.**
   Its "not yet solved" bootstrap for `P_out_prev` was using the
   fracing-ceiling formula instead of old tango's actual reservoir-bootstrap
