@@ -15,7 +15,12 @@ single constant global mass flow rate the way this DOUBLET topology does —
 so ``mass_rate_param`` belongs here, scoped to what THIS system actually
 needs, not baked into the shared API as if it applied universally.
 
-Usage: uv run python applications/tango_next/opt_hydro_df_electric/opt_hydro_df_electric.py
+Usage: ``dvc repro`` from this directory (or ``sbatch
+opt_hydro_df_electric_job.sh`` on Euler) — runs both the ``optimize`` and
+``plot`` stages in ``dvc.yaml`` under DVC's dependency/output tracking.
+Running this script directly with ``uv run python
+opt_hydro_df_electric.py`` also works but bypasses that tracking, so its
+outputs won't be reflected in ``dvc.lock``.
 """
 
 from __future__ import annotations
@@ -320,6 +325,7 @@ def run_optimization(
             pop_size=args.pop_size,
             ftol=args.ftol,
             xtol=args.xtol,
+            termination_period=args.termination_period,
             n_processes=args.n_processes,
             seed=None if args.no_seed else args.seed,
             crossover_prob=args.crossover_prob,

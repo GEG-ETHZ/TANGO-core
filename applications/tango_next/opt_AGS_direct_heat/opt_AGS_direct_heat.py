@@ -1,12 +1,10 @@
 """Multi-objective optimization demo for the AGS direct-heat example.
 
-STATUS (2026-08-17): unblocked, actively developed. The original blocker
-(sweeping ``loop_diameter`` on ``horizontal_well`` alone collided with
-``DoubletEconomicComponent._combined_production_length_and_diameter``,
-which required all production-side wells to share one uniform diameter)
-was fixed by excluding the horizontal well from that combination entirely
-and costing it as its own well section — see ``docs/tango_next_tasks.md``'s
-DONE entry for the full writeup. Not yet wired into `just demos`.
+The horizontal well is costed as its own
+well section, independent of ``DoubletEconomicComponent``'s
+uniform-diameter requirement for the combined vertical-production well —
+see ``vertical_well_diameter_param``'s docstring for how that requirement
+stays satisfied here.
 
 Runs the manual baseline once, then searches well depth, horizontal loop
 length, horizontal loop diameter, vertical well diameter, injection
@@ -21,8 +19,8 @@ diameter/mass flow mirror the existing brute-force sweep
 ``MASS_FLOW_RATES_KG_S``), rather than inventing a different design space —
 the sweep's own field paths (``sweep.py``'s ``_apply_depth``/
 ``_apply_loop_length``/``_apply_loop_diameter``) are copied verbatim into
-the local ``ParamSpec`` factories below. ``vertical_well_diameter_param``/
-``injection_pressure_param`` are new (2026-08-17, Chad's call) — see their
+the local ``ParamSpec`` factories below. ``vertical_well_diameter_param``
+and ``injection_pressure_param`` have no sweep-script analog; see their
 own factory docstrings for why each is a real, consequential parameter
 worth exposing here.
 
@@ -47,7 +45,12 @@ is a direct-heat topology (``role: net_thermal`` in the YAML), so its
 surface component's history has ``net_thermal_W``, not the electric
 ``net_power_W`` the other two scripts' ``negative_mean_power_objective`` reads.
 
-Usage: uv run python applications/tango_next/opt_AGS_direct_heat/opt_AGS_direct_heat.py
+Usage: ``dvc repro`` from this directory (or ``sbatch
+opt_AGS_direct_heat_job.sh`` on Euler) — runs both the ``optimize`` and
+``plot`` stages in ``dvc.yaml`` under DVC's dependency/output tracking.
+Running this script directly with ``uv run python
+opt_AGS_direct_heat.py`` also works but bypasses that tracking, so its
+outputs won't be reflected in ``dvc.lock``.
 """
 
 from __future__ import annotations
@@ -171,9 +174,9 @@ class _VerticalWellDiameterApply:
     """Picklable ``ParamSpec.apply`` for ``vertical_well_diameter_param``.
 
     Sets ``injection_well.diameter`` and ``production_well.diameter`` to
-    the SAME value — one decision variable, not two independent ones, per
-    Chad's call to avoid the complexity of the two vertical wells having
-    different casing diameters. Deliberately independent of
+    the SAME value — one decision variable, not two independent ones,
+    avoiding the complexity of the two vertical wells having different
+    casing diameters. Deliberately independent of
     ``loop_diameter_param`` (the horizontal segment's own diameter): this
     also means ``DoubletEconomicComponent``'s uniform-diameter requirement
     for the combined vertical-production well is trivially satisfied by
@@ -271,9 +274,9 @@ class _SpecificInvestmentCostEvaluate:
 def specific_investment_cost_report() -> ObjectiveSpec:
     """Total investment cost per unit of (main-product) power ($/kW), from ``DoubletEconomicComponent``.
 
-    REPORTING only (Chad's call, 2026-09-04 — moved off ``objectives=``
-    onto ``report_specs=``, same reasoning as ``opex_report``'s docstring:
-    one fewer active NSGA2 objective, still shows up in
+    REPORTING only — pass via ``Minimization(report_specs=[...])``, NOT
+    ``objectives=`` (same reasoning as ``opex_report``'s docstring: one
+    fewer active NSGA2 objective, while still showing up in
     ``pareto_results.csv``/the parallel-coordinates plot). See
     ``DoubletEconomicComponent._compute_specific_investment_cost``'s
     docstring for the exact formula and its caveats (run-averaged, not
@@ -295,9 +298,9 @@ def opex_report() -> ObjectiveSpec:
     """Net annual OPEX ($/yr), from ``DoubletEconomicComponent`` — see ``_compute_opex``.
 
     REPORTING only — pass via ``Minimization(report_specs=[opex_report()])``,
-    NOT ``objectives=``. Chad's call (2026-09-04): OPEX should show up in
-    ``pareto_results.csv``/the parallel-coordinates plot, but doesn't need
-    to actively drive the search — NSGA2 already has 3 real objectives
+    NOT ``objectives=``. OPEX should show up in ``pareto_results.csv``/the
+    parallel-coordinates plot, but doesn't need to actively drive the
+    search — NSGA2 already has 3 real objectives
     (LCOE, thermal power, production temperature); adding this (or
     ``specific_investment_cost_report``, moved to report-only for the same
     reason) would meaningfully dilute convergence for a value that already
@@ -609,6 +612,7 @@ def run_optimization(
             pop_size=args.pop_size,
             ftol=args.ftol,
             xtol=args.xtol,
+            termination_period=args.termination_period,
             n_processes=args.n_processes,
             seed=None if args.no_seed else args.seed,
             crossover_prob=args.crossover_prob,
@@ -720,12 +724,11 @@ def plot_pareto_scatter(
     designs that trade off against the (invisible) third objective can
     look like one flat-out beats the other on both LCOE and power — a
     domination violation that isn't real, just an artifact of the
-    projection (confirmed the hard way, 2026-09-07: cheap+powerful
-    designs in this front achieve that specifically by running closer to
-    the production-temperature floor, while expensive+weak ones push
-    temperature margin higher — a genuine 3-way trade-off, not a sign
-    bug). Coloring by the third objective makes that trade-off visible
-    instead of hiding it.
+    projection: cheap+powerful designs in this front achieve that
+    specifically by running closer to the production-temperature floor,
+    while expensive+weak ones push temperature margin higher — a genuine
+    3-way trade-off, not a sign bug. Coloring by the third objective makes
+    that trade-off visible instead of hiding it.
     """
     thermal_mw = df["mean_thermal_power_W"] / 1.0e6
     lcoe = df["LCOE"]

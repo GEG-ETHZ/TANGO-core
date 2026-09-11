@@ -133,6 +133,11 @@ DEFAULT_SAVE_DIR = Path("outputs/pymoo")
 # "matches what pymoo itself considers a sensible default."
 _DEFAULT_XTOL = 0.0005
 _DEFAULT_FTOL = 0.005
+_DEFAULT_PERIOD = 50
+"""DMOT's own ``period`` default -- the number of consecutive generations
+ftol/xtol/cvtol must each stay satisfied for before that alone ends the
+run (pymoo's ``RobustTermination`` window, shared across all three by
+DMOT's own constructor)."""
 
 # A failed evaluation's objective fallback — the magnitude genuinely does
 # not matter, unlike a scale-dependent huge-penalty-constant approach.
@@ -214,6 +219,14 @@ class PymooConfig:
     """Objective-space convergence tolerance."""
     xtol: float = _DEFAULT_XTOL
     """Design-space (parameter) convergence tolerance."""
+    termination_period: int = _DEFAULT_PERIOD
+    """Generations ftol/xtol/cvtol must each stay satisfied for,
+    consecutively, before that alone ends the run (pymoo's
+    ``RobustTermination`` window, passed straight through to
+    ``DefaultMultiObjectiveTermination``'s own ``period`` arg — a single
+    converged-looking generation isn't enough; convergence must be
+    sustained). Larger = more confidence a plateau is real, at the cost of
+    running that many more generations past wherever it actually started."""
     pop_size: int = 40
     """Population size per generation."""
     n_processes: int = 1
@@ -291,6 +304,7 @@ def build_pymoo_parser(
     pop_size_default = params.get("pop_size", default_pymoo_config.pop_size)
     ftol_default = params.get("ftol", default_pymoo_config.ftol)
     xtol_default = params.get("xtol", default_pymoo_config.xtol)
+    termination_period_default = params.get("termination_period", default_pymoo_config.termination_period)
     seed_default = params.get("seed", default_pymoo_config.seed)
     parser.add_argument(
         "--n-max-gen",
@@ -315,6 +329,18 @@ def build_pymoo_parser(
         type=float,
         default=xtol_default,
         help=f"Design-space convergence tolerance. Defaults to {xtol_default} (params.yaml/PymooConfig).",
+    )
+    parser.add_argument(
+        "--termination-period",
+        type=int,
+        default=termination_period_default,
+        help=(
+            "Generations ftol/xtol/cvtol must each stay satisfied for, consecutively, before that "
+            f"alone ends the run. Defaults to {termination_period_default} (params.yaml/PymooConfig) "
+            "-- pymoo's own DefaultMultiObjectiveTermination default. Lowering this makes "
+            "convergence-based early stopping trigger sooner off a shorter observed plateau, at the "
+            "cost of less confidence that plateau is real rather than a temporary lull."
+        ),
     )
     crossover_prob_default = params.get("crossover_prob", default_pymoo_config.crossover_prob)
     mutation_prob_default = params.get("mutation_prob", default_pymoo_config.mutation_prob)
@@ -1050,21 +1076,19 @@ class Minimization:
         ``self.constraints`` in order (see ``ConstraintSpec``). When the
         simulation itself raises a CV exception, every extra constraint
         reports ``float("inf")`` — NOT the flat ``_INFEASIBLE_G`` the
-        built-in physical constraint uses. Confirmed the hard way
-        (2026-09-05): pymoo's own constraint-violation ranking sums every
-        POSITIVE ``G`` across ALL constraints (``Dominator.calc_domination_matrix_loop``:
+        built-in physical constraint uses. pymoo's own constraint-violation
+        ranking sums every POSITIVE ``G`` across ALL constraints
+        (``Dominator.calc_domination_matrix_loop``:
         ``CV = sum(G * (G > 0))``) — a real ``ConstraintSpec`` returns a
         genuine violation MAGNITUDE (see its own docstring), which can be
         much larger than the small flat ``_INFEASIBLE_G`` (``1.0``) used
         here. Reusing that same small flat value for a design that failed
-        to even simulate made a CRASHED design look like a SMALLER total
-        violation than a design that ran successfully but is merely far
-        from satisfying an extra constraint — actively rewarding physical
-        failure over real, if still-infeasible, progress (observed on a
-        real Euler run: NSGA2 converged onto a physically-failed design
-        instead of ever approaching the region that actually clears a
-        production-temperature constraint). ``float("inf")`` guarantees a
-        physical failure is always worse than any finite real violation,
+        to even simulate would make a CRASHED design look like a SMALLER
+        total violation than a design that ran successfully but is merely
+        far from satisfying an extra constraint — actively rewarding
+        physical failure over real, if still-infeasible, progress.
+        ``float("inf")`` guarantees a physical failure is always worse
+        than any finite real violation,
         regardless of that constraint's own scale — no per-constraint
         tuning needed, and safe for pymoo's ``<``-based CV comparison (no
         NaN, well-defined ordering).
@@ -1129,6 +1153,7 @@ class Minimization:
         termination = DMOT(
             xtol=self.pymoo_config.xtol,
             ftol=self.pymoo_config.ftol,
+            period=self.pymoo_config.termination_period,
             n_max_gen=self.pymoo_config.n_max_gen,
         )
         logger.info(
@@ -1308,10 +1333,10 @@ class Minimization:
         """Pareto-front results (params ``x`` + objectives ``f``) as a dataframe.
 
         Adds a ``euclidean`` aggregate column. Deliberately no ``n_gen``
-        column (removed 2026-09-04, Chad's call) — every row of one
-        results dataframe comes from the SAME (final, or one intermediate)
-        generation, so the column was constant across the whole file and
-        carried no actual information; ``ParetoProgressOutput``'s live
+        column — every row of one results dataframe comes from the SAME
+        (final, or one intermediate) generation, so the column would be
+        constant across the whole file and carry no actual information;
+        ``ParetoProgressOutput``'s live
         per-generation console table (a genuinely different thing — it
         varies row-to-row over TIME, not over one saved file's rows) is
         unaffected.
