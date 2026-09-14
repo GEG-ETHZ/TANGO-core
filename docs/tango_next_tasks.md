@@ -8,6 +8,13 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **Added 2026-09-11**
+  make sure that there are examples/tutorials/demos (ask Claude about a good way to expose this) that show off how TANGO can be used to assess:
+  - how binary (e.g. ORC) and single fluid systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
+  - how single- and double-flash systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
+  - how CO2 and water systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
+  - a matrix of these
+
 - **Added 2026-09-09** We should replace
   ```
   component_idx: 0
