@@ -37,84 +37,9 @@ in-flight multi-step work across sessions.
     '3': {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
   ```
   for the sake of consistency and because I think this is more robust anywway.
-- **DONE 2026-08-04 — `LumpedReservoir` initial-pressure bootstrap fixed.**
-  Its "not yet solved" bootstrap for `P_out_prev` was using the
-  fracing-ceiling formula instead of old tango's actual reservoir-bootstrap
-  formula (`brine_density × g × reservoir_depth`) — two different physical
-  quantities. Added a `brine_density` field to `ReservoirComponent`
-  (default 1000 kg/m³, matching old tango); `LumpedReservoir` now computes
-  a proper `P_initial` matching old tango's formula exactly. Verified via
-  isolated fixed-input comparison: reservoir outputs now agree to
-  sub-microkelvin precision given identical inputs. Also matched
-  `core/constants.py`'s `GRAVITY` to old tango's rounded `9.81` (was
-  `9.80665`, the more precise NIST/ISO 80000-3 value) for comparison
-  purposes, and made gravity a per-component field (`WellComponent`/
-  `ReservoirComponent`) with that constant only as the default, since
-  gravity genuinely varies regionally — see the TODO on `GRAVITY` for
-  reverting the default once old-tango parity is no longer the active
-  concern. Full test suite, golden snapshot, and `ParityCase` tolerances
-  updated. Full technical detail: `docs/TANGO_vision_and_roadmap.md`.
-
-- **DONE 2026-08-10 — production-well pump-power formula fixed; LCOE parity
-  went from +16.1%/+11.5% off to -1.1%/-1.0%.** Chad's "urgent" pump-power
-  investigation (queued behind the `target_extraction_pressure` fix above):
-  suspected old tango's iterative pump solve might be reading a STALE
-  power value — ruled that out empirically (instrumented a live run of
-  the ACTUAL code path these examples use, `BC_calculator.py`'s
-  `FlowRateCalculator.iterator` — note: `orchestrators/native.py`'s
-  Newton-Raphson pump loop, read earlier in the investigation, is a
-  RED HERRING for these examples; they route through `bc_iteration`
-  scheduling instead, a completely different orchestrator). Old tango's
-  `prod_pump_w_list.append(...)` fires immediately after the outer
-  BC-convergence loop exits, using that same converged pass's fluid
-  states — confirmed self-consistent (achieved pressure lands exactly on
-  `target_extraction_pressure`, residual 0.00 Pa, every timestep). Not
-  stale.
-  The real cause: compared old tango's actual pump ΔP against
-  tango_next's at the plateau timestep — 5.395 MPa vs. 5.302 MPa, only
-  1.7% apart, so the WELL PHYSICS agreed closely. The ~2.035x power gap
-  was entirely in how each system converts that (nearly-identical) ΔP
-  into power. tango_next used `mass_rate * ΔP / ρ / pump_efficiency` (a
-  naive hydraulic-work estimate); old tango's `BC_calculator.py` computes
-  an isothermal CoolProp enthalpy rise (`-(inlet.H - outlet.H) * mass_rate`
-  after an isothermal `updatePT` pressure boost) with NO efficiency term
-  at all. Verified with real numbers pulled from a live run: the
-  hydraulic estimate overstates the true enthalpy rise by ~53% at these
-  conditions (~400 K, ~11-16 MPa) — water is nearly incompressible
-  (`(∂V/∂P)_T` is tiny, as expected) but NOT thermally inert, and it's
-  the thermal-expansivity term in the exact identity
-  `dH/dP|_T = V - T*(∂V/∂T)_P` that matters here, not compressibility.
-  Confirmed to 4 significant figures using CoolProp's own isobaric
-  expansion coefficient (β≈8.62e-4 K⁻¹ at 400 K): predicted `dH/dP` from
-  the identity matched the measured value from the live run almost
-  exactly. 1.53x (formula mismatch) × 1.33x (extra `/0.75` efficiency
-  term old tango doesn't apply) ≈ 2.04x — fully accounts for the
-  observed gap.
-  **Fixed**: `NumericalProductionWellWithPump.solve()`
-  (`components/well/numerical.py`) now computes pump power as
-  `mass_rate * (H(target_Pa, T) - H(P_wellbore, T)) / pump_efficiency`
-  via the existing `fluid_enthalpy()` CoolProp helper — matching old
-  tango's formula shape exactly. `pump_efficiency` default changed
-  `0.75 → 1.0` (Chad's call: match old tango's no-derating behavior for
-  parity now; a TODO notes dropping it to ~0.9 later once a real figure
-  is chosen, deliberately deferred). Also fixed
-  `LumpedProductionWellWithPump` (`components/well/lumped.py`) the same
-  way — found it had a WORSE, separate bug along the way: it declared a
-  `pump_efficiency` field but never actually applied it in `solve()` at
-  all (dead field). Not exercised by any current example
-  (`unit: numerical` is used everywhere), but fixed for consistency
-  rather than left as a landmine for whoever switches variants next.
-  Result verified against a fresh `_run_old_tango`/`_run_tango_next`
-  comparison: LCOE SF -1.1%, DF -1.0% (down from +16.1%/+11.5%);
-  `CAPEX_surface_plant`/`CAPEX_total` unaffected, as expected (pump power
-  only feeds the LCOE denominator, not CAPEX). Updated
-  `tests/regtest/test_old_new_economic_parity.py`'s stale golden values
-  and module docstring (previously described a now-superseded
-  final-timestep-only/"1-step lag" narrative from an earlier round of
-  this investigation) and `docs/tango_next_tasks.md`'s "Next session
-  priorities" entry below. Full `tests/unit`+`tests/regtest` suite: 123
-  passed, 0 failed (up from 5 pre-existing failures before this fix) —
-  `ruff`/`mypy` clean.
+- See **Completed Tasks → From the top-level list** for the `LumpedReservoir`
+  initial-pressure bootstrap fix (DONE 2026-08-04) and the production-well
+  pump-power formula fix (DONE 2026-08-10).
 - [ ] **SCOPED 2026-08-14, ready to implement: re-architect the production-well
   pump boost as a Secant-converged iteration over the segment's INLET
   pressure, not a value tacked onto an already-completed march.**
@@ -161,34 +86,10 @@ in-flight multi-step work across sessions.
   Early-exit without a second iteration if the first guess already
   converges. Commit the final converged state to the real component once
   done, exactly once per field.
-- [x] **DONE 2026-08-11 — `pymoo_api.Minimization` now saves the current
-  non-dominated front after every generation**, not just at the end.
-  `Minimization.run()` was refactored from pymoo's `minimize()`
-  convenience wrapper to the equivalent `algorithm.setup()` +
-  `while algorithm.has_next(): algorithm.next()` loop (confirmed
-  behaviorally identical — that's literally what `minimize()` does
-  internally) specifically to get a hook between generations. After each
-  one, writes `pareto_results_partial.csv`/`pareto_configs_partial/`
-  (deliberately different filenames from the final
-  `pareto_results.csv`/`pareto_configs/`, so a completed run's real
-  output is never ambiguous with a leftover partial one from an
-  interrupted run) plus an `n_gen` provenance column. If a run gets
-  killed (SLURM time limit, Ctrl-C, crash), whatever the front looked
-  like as of the last completed generation is already on disk.
-- [x] **DONE (superseded) — stop/resume for `Minimization.run()`.** Chad's
-  ask, prompted by the save-every-generation feature above — being able to
-  pause a long HPC run and later continue it from where it left off, rather
-  than restarting from scratch. True checkpoint/resume (pickling the live
-  `algorithm` mid-run, including its `multiprocessing.Pool`) was researched
-  but never implemented — see git history for the removed writeup. Instead,
-  `Minimization` gained `seed_from`/`pad_sampling`: `seed_from` points at a
-  previous run's `pareto_results.csv` (or `_partial` variant), its
-  non-dominated designs become the initial population, and `pad_sampling`
-  (default `LHS()`) fills the rest of `pop_size`. Not a true resume (fresh
-  RNG state, restarts at generation 1), but it gets the practical benefit —
-  a new run picks up from where the old front left off instead of from
-  scratch — without the pool-pickling complication. Good enough that true
-  checkpoint/resume is no longer planned.
+- See **Completed Tasks → From the top-level list** for
+  `pymoo_api.Minimization` saving the front every generation
+  (DONE 2026-08-11) and the superseded stop/resume work for
+  `Minimization.run()`.
 
 ## Next session priorities (set 2026-08-03)
 
@@ -212,22 +113,10 @@ Top of the queue for the next session, in order:
    Implementation lives in `SystemBCIteration._converge_injection_T` /
    `run_timestep`'s `MANUAL` branch (`orchestrators/system_bc_iteration.py`).
 
-   Additional items folded into this same area of work, agreed 2026-08-04:
-   - **DONE 2026-08-04 — non-convergence must raise, not warn.**
-     `_converge_injection_T`'s `for...else` now `raise`s `ConvergenceError`
-     (already existed in `core/errors.py`, no new exception class needed)
-     instead of `logger.warning(...)` when `max_inner_iterations` is
-     exhausted without converging — previously the loop silently returned
-     and the caller used the unconverged state as if it were final.
-     Audited the rest of `tango_next` for the same silent-swallow pattern
-     (`logger.warning`, bare `except`, other max-iteration loops) — this
-     was the only instance; nothing else needed the same fix. Full test
-     suite re-run clean (121 passed, 40 xfailed, matches baseline).
-   - **DONE 2026-08-04 — `max_inner_iterations` is now a constructor
-     parameter** on `SystemBCIteration` (default `DEFAULT_MAX_INNER_ITER =
-     20`, same value as before), replacing the hardcoded module-level
-     `_MAX_INNER_ITER` constant, so it can be tuned per-case instead of
-     requiring a code edit.
+   Additional items folded into this same area of work, agreed 2026-08-04
+   (two of them DONE — see **Completed Tasks → From "Next session
+   priorities"**: non-convergence now raises instead of warning, and
+   `max_inner_iterations` is a constructor parameter):
    - **Retain the per-timestep injection-temperature convergence history**
      (each iteration's guess, not just the latest) so its behavior can be
      inspected — e.g. to diagnose slow/oscillating convergence, and to
@@ -261,69 +150,13 @@ Top of the queue for the next session, in order:
      must be implemented before any CPG case can be trusted**, not just
      as a nice-to-have physics upgrade. Treat this as a hard prerequisite
      for CPG parity/validation work, not an independent backlog item.
-2. **DONE — `InjectionPolicy` variants in good shape.** `MANUAL`,
-   `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH`
-   are all real, implemented policies in `orchestrators/system_bc_iteration.py`.
-   See `docs/tango_next_t_convergence.md` for how `MANUAL`'s convergence
-   loop works as the reference case.
-
-   **Follow-up once pressure convergence lands, agreed 2026-08-04**: after
-   implementing real BC-iteration pressure physics (the "Planned: real
-   BC-iteration physics" section of `system_bc_iteration.py`'s module
-   docstring), re-run the `flexible_SF_manual.yml` parity comparison
-   against old tango's actual equivalent. Confirmed the current comparison
-   is *not* confounded by fracing/mass-rate iteration — verified two ways
-   (instrumented a real run): `flexible_SF_manual.yml` uses
-   `mass_rate.type: manual`, which skips old tango's `automatic`-only
-   mass-rate iteration loops entirely, and `check_fracing`'s cap
-   (`fracing_flow()` ≈ 183–403 kg/s across timesteps) never actually
-   engages against the manual `mass_rate=50` kg/s — it's a no-op for this
-   case. The real asymmetry is that old tango's outer loop *always*
-   iterates injection pressure (`test_p`), in every mass-rate mode,
-   including `manual` — there is no old-tango mode that skips pressure
-   iteration the way tango_next's `MANUAL` currently does. So "the
-   relevant old tango equivalent" to compare a future pressure-converging
-   tango_next policy against is simply old tango's `iterator()` as-is, not
-   a different/special old-tango mode.
-
-   **Correction, 2026-08-04**: the paragraph above was written assuming
-   old tango's `test_p` update actively runs for this comparison. Directly
-   instrumented and checked across the full 20-timestep run: it does not
-   — `manual` mass-rate mode's `test_p` update only fires when `target_p
-   <= inj_well.outlet_fluid.P` (a one-sided fracing-safety cap, not an
-   active solve), and for this config `target_p` (55 MPa) never drops
-   below the bottom-hole pressure (~49.75–49.88 MPa) it's compared
-   against — so `test_p` stays pinned at its YAML initial-guess value for
-   every single timestep. **This asymmetry is real as a general
-   mechanism, but is not active for `flexible_SF_manual.yml` and is not
-   the cause of its parity delta** — see the DONE entry above (reservoir
-   initial-pressure bootstrap fix) for what was. The general point about
-   needing a future pressure-converging tango_next policy to compare
-   against old tango's `iterator()` as-is (not a special mode) still
-   stands for whenever a
-   config *does* exercise this path.
-
-   Also checked (instrumented a real run, reverted after) whether the
-   `production_well_pump`'s hardcoded `num_dp_iter = 5` loop
-   (`BC_calculator.py:456-497`) introduces meaningful error for this case:
-   measured residual shrinks geometrically (~0.006× per iteration) from
-   ~2.7 MPa (iteration 0) to 0.004 Pa (iteration 4, the last one
-   performed) against a 7 MPa target — ≈6e-10 relative error. **Confirmed
-   negligible for `flexible_SF_manual.yml`** — not a contributor to the
-   observed parity deltas. Caveat: this converges fast because the
-   pump-pressure/outlet-pressure relationship is nearly linear in this
-   case's regime; the loop still has no real convergence check at all (its
-   only early-exit condition requires `pump_dp == 0.0`, i.e. no boost
-   needed — for any case actually needing a nonzero boost it just runs all
-   5 iterations unconditionally), so this finding doesn't generalize to
-   cases closer to a phase boundary — re-check if a future case exercises
-   that regime. Not fixing this in old tango; noted here only so the
-   "is this negligible?" question doesn't have to be re-derived.
-3. **DONE — `pymoo_api` in good shape.** Built (`src/tango_next/pymoo_api.py`),
-   deliberately restricted to `MANUAL`/`MANUAL_FRACKING_CHECK` only — the
-   `AUTO_*` policies are intentionally NOT wired in (Picard/BC-iteration
-   convergence loops don't mix safely with an external optimizer driving
-   the same state); do not treat this as a gap to fill.
+2. See **Completed Tasks → From "Next session priorities"** — `InjectionPolicy`
+   variants (`MANUAL`, `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`,
+   `AUTO_FLOW`, `AUTO_BOTH`) are DONE and in good shape, including the
+   2026-08-04 follow-up investigation into how a future pressure-converging
+   policy should be compared against old tango.
+3. See **Completed Tasks → From "Next session priorities"** — `pymoo_api`
+   (`src/tango_next/pymoo_api.py`) is DONE and in good shape.
 
 **Explicit non-goal:** do **not** fix the old-tango AGS
 `system_name()`/no-time-marching bug (see "Open items — tracked, not
@@ -411,12 +244,9 @@ from scratch.
   `obj.field = value` writes that predate the rule (e.g. anything on
   `SurfaceComponent.injection_pressure`, orchestrator-level bookkeeping,
   or elsewhere) — deliberately deferred, not urgent.
-- **Old-tango AGS no-time-marching bug** (`system_name()` routing in
-  `src/tango/utils.py` sends AGS-shaped configs to a no-op `SystemNative`,
-  so old tango never advances time for AGS configs). Confirmed real,
-  three independent ways. **Decision: not fixing old tango for this.**
-  tango_next itself is unaffected; this only blocks using old tango as an
-  AGS transient reference.
+- See **Completed Tasks → From "Open items — tracked, not scheduled"** for
+  the old-tango AGS no-time-marching bug (decision: not fixing old tango
+  for this).
 - **MOOSE/MOSKito integration** — ~55 configs unrunnable, hardcoded to a
   former contributor's (Morteza's) machine, no docs left. Blocked on his
   response to outreach. Backlog.
@@ -463,42 +293,9 @@ from scratch.
 - Untracked repo-root files (`CLAUDE.md`, `deployment_analysis_questions.md`,
   `tango_diagramming_workflow.md`) — left as-is; could be `.gitignore`d
   instead of tracked, still an open call.
-- **RESOLVED (explained, not fixed) 2026-08-13 — production-side circuit
-  numerically unstable near/above ~166 kg/s for `hydro_sf_electric.yml`.**
-  Chad's assessment: the elevated mass rate drives enough production-side
-  pressure drop that the fluid crosses its phase-change pressure on the
-  way back up, which is exactly consistent with the near-constant-enthalpy
-  CoolProp failure signature below. Not worth digging into further.
-  Original note, found 2026-08-12 while testing
-  `InjectionPolicy.MANUAL_FRACKING_CHECK`'s flow-induced pathway. Raising
-  `sim_config.mass_rate` even slightly above the config's own
-  `fluid_utils.fracking_flow()` threshold (confirmed: crashes starting at
-  166.5 kg/s, i.e. essentially at the threshold, not comfortably past it)
-  makes some downstream node's CoolProp state solve go negative-pressure
-  (`updateHP(...)` failing at a near-constant enthalpy ~768-770 kJ/kg
-  across every mass rate/injection-pressure combination tried — 18 total
-  permutations, all failed the same way). The near-constant enthalpy
-  regardless of `components.surface.injection_pressure` indicates this is
-  on the **production side** of the circuit (friction-driven pressure drop
-  from the elevated mass rate through the production wells/surface plant),
-  not the injection side that `injection_pressure` controls — so raising
-  injection pressure can't rescue it. Net effect: for this example file,
-  there is no numerically-stable mass rate high enough to actually trigger
-  `MANUAL_FRACKING_CHECK`'s flow-induced check through a genuine full-circuit
-  `Workflow.run()` — the circuit breaks (for an unrelated reason) at or
-  below the fracking threshold itself. Worked around, not fixed:
-  `tests/regtest/test_tango_next.py::test_manual_fracking_check_raises_on_flow_induced_violation`
-  solves once at the nominal (safe) mass rate, then calls
-  `SystemBCIteration._check_fracking()` directly with a boosted
-  `orch.mass_rate` — exercising the same comparison `run_timestep` makes,
-  without a second, numerically-unstable full solve. The pressure-induced
-  pathway doesn't have this problem (a modest `injection_pressure` bump at
-  the *nominal* mass rate triggers it cleanly via a real `run()`, see the
-  test above it) — this gap is specific to pushing mass rate itself past
-  the threshold. Root cause not investigated further (which specific
-  component/node destabilizes first) — worth revisiting if a real
-  `AUTO_FLOW`/`max_mass_rate`-cap use case needs to actually operate near
-  this boundary rather than just detect it after the fact.
+- See **Completed Tasks → From "Open items — tracked, not scheduled"** for
+  the production-side circuit numerically-unstable-near-166kg/s finding
+  (RESOLVED, explained, not fixed, 2026-08-13).
 - **Single-objective search support in `tango_next.pymoo_api`** — old
   tango's `optimizerr.py` offers several single-objective algorithms (GA,
   DE, PSO, CMA-ES, etc.) alongside NSGA2/NSGA3; `Minimization` only
@@ -578,15 +375,635 @@ from scratch.
     choice of `max_mass_rate=100` (deliberately clear of this regime) and
     0.1% tolerance both still stand — no change needed there.
 
-## CLOSED 2026-08-13: AGS sweep parity (heat + power)
+See **Completed Tasks → From "CLOSED 2026-08-13: AGS sweep parity (heat +
+power)"** for the full history of the abandoned AGS sweep-vs-old-tango
+parity effort (decision: not pursuing further, old tango's AGS handling is
+confirmed broken).
+
+See **Completed Tasks → From "Active: common:/component-block override
+ambiguity"** for the full history (all sub-items landed).
+
+## Active: GraphSurface p_out / pressure-provenance follow-ups
+
+Started 2026-07-22 out of a deep-dive into where `GraphSurface`'s TESPy
+network states are solved vs. imposed — see
+`docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
+breakdown for `flexible_SF_manual.yml`) and the vision doc's new
+"`GraphSurface`'s fixed `p_out` values" section (justification for why fixed
+flash/condensing pressure is a legitimate modeling choice, not a shortcut).
+All three items below are intentionally **not started** — captured so the
+reasoning doesn't have to be re-derived next session.
+
+- [ ] **Think through the `dh_hx` pressure-DOF case carefully before touching
+      it.** Unlike the SF plant's condenser, `AGS_direct_heat.yml`'s `dh_hx`
+      has no `p_out` field at all — checked TESPy's `SimpleHeatExchanger`
+      mandatory constraints directly (`mass_flow_func`, `fluid_func`,
+      `energy_balance_func` only, no pressure relation), so `dh_hx`'s inlet
+      and outlet pressures are each independently pinned elsewhere (inlet by
+      the well-minus-pipe-friction calc, outlet by `injection_pressure`) with
+      zero relationship enforced between them by the component itself. This
+      is a sharper version of the fixed-`p_out` risk, not the same pattern —
+      there's no `p_out` value to even inspect when reviewing the YAML. Left
+      alone for now; needs real thought (not a quick fix) before deciding
+      whether the right answer is a validation check, a required `p_out`,
+      or something else.
+- See **Completed Tasks → From "Active: GraphSurface p_out /
+  pressure-provenance follow-ups"** for the pressure-monotonicity
+  validation port and the p_out/efficiency unit-comment sweep (both DONE
+  2026-07-23).
+- [ ] **Same gap exists much more widely in `src/tango/`'s old-format
+      examples — separate, bigger task, explicitly deferred.** Spot-checked
+      `examples/flexible_SF_manual.yml`/`flexible_ORC_manual.yml`: `p_out:`
+      values (e.g. `p_out: 0.5`, `p_out: 0.05`) have zero unit comments
+      anywhere. `grep -rln "power_plant_graph:" examples/` (excluding
+      `tango_next/`) turns up **60+ files** — a real gap, but not "easy," so
+      explicitly not swept today (Chad's call, 2026-07-23, when offered a
+      3-way scope choice). If picked up later: same treatment as above
+      (`p_out` is bar per `flexible_pp.py`'s `Network(p_unit="bar", ...)`),
+      but budget it as its own task, not a quick add-on.
+
+## Backlog (queued, not yet started)
+
+- **Errors should include more context, where possible.** Flagged
+  2026-08-14 (Chad, mid-session), not started. When an error can be tied
+  to a specific component or interface between components, the specific
+  convergence iteration/loop it occurred in, and/or the timestep, the
+  error message should say so — makes failures in a long unattended run
+  (SLURM job, optimization search) actually diagnosable from the log
+  alone rather than needing a debugger session to figure out WHERE in the
+  circuit/timeline something went wrong. Needs a survey pass across
+  `core/errors.py`'s raise sites (`ConvergenceError`, `InvalidPowerStateError`,
+  `CoolPropError`, etc.) to see which already carry this and which don't —
+  not a one-shot fix, likely touches many call sites incrementally.
+
+- **Assess how many numerical cells wells actually need.** Flagged
+  2026-08-14, not started. `NumericalWell.num_cells` defaults to 100
+  (`components/well/numerical.py`) and every current example config uses
+  that default uniformly, for every well, regardless of well length or
+  physical regime — never deliberately chosen per case. Chad's suspicion:
+  a lot fewer cells would likely hold accuracy within an acceptable
+  tolerance. Needs an actual convergence study (compare key outputs —
+  outlet T/P, pump power, etc. — across a range of `num_cells` values
+  against the current 100-cell baseline) before picking a new default;
+  don't just guess a smaller number.
+
+- See **Completed Tasks → From "Backlog"** for: the `AUTO_BOTH`
+  `InvalidPowerStateError` gap (considered and explicitly rejected as not
+  worth building, 2026-08-13); the `opt_AGS_direct_heat/` block-on-
+  `DoubletEconomicComponent` → fix → unblock chain (2026-08-13 → 2026-08-17,
+  wiring into `just demos` confirmed done 2026-09-14); and the
+  `NativeEconomicComponent` → `DoubletEconomicComponent` rename/native-sweep
+  (DONE 2026-08-17). `opt_EGS_direct_heat/` itself is still not built — see
+  the open item elsewhere in this Backlog if one exists, otherwise treat as
+  a fresh ask.
+
+- **Rename/move `examples/tango_next/` → `example_configs/` at the repo
+  root.** Flagged 2026-08-13, not started. Deliberately held until old
+  `src/tango` is fully stripped out (targeted late August 2026) — drops
+  both the `tango_next` qualifier (no more legacy `tango` to disambiguate
+  from) and the `examples/` name (by then, YAML-only, so "configs" is the
+  accurate name). Precondition already done as of 2026-08-13:
+  `examples/tango_next/` now holds only `.yml` configs — its two demo/sweep
+  scripts (`demo_flexible_sf.py`, `sweep_demo_AGS_direct_heat.py`) moved to
+  their own directories under `applications/tango_next/`
+  (`demo_hydro_sf_electric/`, `sweep_demo_AGS_direct_heat/`), matching the
+  `run_*_sweep/`/`opt_*` layout, with `demo_flexible_sf.py` itself renamed
+  to `demo_hydro_sf_electric.py` to match its config's actual name instead
+  of old tango's `flexible_sf` terminology. So this backlog item is now a
+  pure directory rename whenever it happens, not a restructure.
+
+- **GitLab pipeline (likely release-triggered) that generates and publishes
+  documentation.** Flagged 2026-08-13, not started. Deliberately held until
+  `tango_next` fully replaces old tango and the legacy code is stripped out
+  — building doc-generation tooling around a module structure that's about
+  to be deleted isn't worth the effort now.
+
+- **`Workflow.to_dataframe()` — flatten per-timestep history into a single
+  dataframe.** Flagged 2026-08-11, not started. Goal: one row per recorded
+  timestep, one column per time-varying leaf value, column names dot-joined
+  through the full hierarchy (e.g.
+  `components.production_well_upper.history.T_outlet`,
+  `components.surface.history.node_history.turbine.P`).
+
+  **Design notes:**
+  1. `tango_next` already has a live, canonical, never-stale nested dict:
+     `Workflow.to_dict()` (`workflows/workflow.py`) — `common`/`layout`/
+     `sim_config`/`title`/`components`/`economic`, each component's own
+     `model_dump()` nested under `components.<name>`. Start from that, not
+     a new pydict layer.
+  2. No length-matching heuristic is needed to tell history apart from
+     static config: every component's `history` field is a dedicated
+     dataclass (`WellboreHistory`/`LumpedReservoirHistory`/
+     `GraphSurfaceHistory`/`NumericalWellHistory`, per-component-type in
+     `components/*/`) whose fields are *always* per-timestep lists, and
+     `state` fields are always scalars (`LockedState.get_fresh()`, one
+     value for the current timestep). So the flatten pass only needs to
+     recurse into dicts (component name → `history` →, for `GraphSurface`,
+     two more levels: `node_history[node_name][quantity]`) and treat any
+     list found under a `.history.` path segment as a column — no
+     length-based guessing needed, `history.` prefix is sufficient.
+     (Non-history list-shaped YAML config, if any ever exists, would need
+     excluding explicitly, but none is known to exist today — check before
+     generalizing this rule.)
+  3. **Real complication to design for up front.** `Component` has a
+     per-component `save_interval` (`core/component.py`, default `1`,
+     frozen config field) — every component decides independently whether
+     to append to its own `history` on a given timestep, so two components
+     in the same `Workflow` with different `save_interval` values
+     genuinely produce different-length history lists.
+
+     `tango_next` has no get/set mechanism for this today — `save_interval`
+     is a plain frozen-at-construction Pydantic field, set once per
+     component via YAML, not a runtime-settable cascading property. So
+     this needs a getter designed from scratch that actually detects
+     divergence across the tree instead of silently reporting only
+     `self`.
+
+     **Proposed API** (discussed with Chad 2026-08-11 — his sketch was a
+     Rust sum type, `enum SaveInterval { Uniform(usize), NonUniform }`;
+     translated to the actual Python idiom for that shape, PEP 634
+     dataclass-variants + `match`/`case`, rather than the plain
+     "return a set, caller checks `len() == 1`" shortcut he also floated
+     as a fallback):
+
+     ```python
+     @dataclass(frozen=True)
+     class UniformSaveInterval:
+         interval: int | None
+
+     @dataclass(frozen=True)
+     class NonUniformSaveInterval:
+         intervals: frozenset[int | None]  # every distinct value present
+
+     SaveIntervalReport = UniformSaveInterval | NonUniformSaveInterval
+
+     def get_save_interval(self) -> SaveIntervalReport:
+         """Walk every component; report whether save_interval is uniform."""
+     ```
+
+     Call sites use `match`, with a final `case _: assert_never(report)` so
+     mypy flags it if a third variant is ever added — the closest Python
+     gets to Rust's compiler-enforced exhaustiveness (`typing.assert_never`
+     is available; `requires-python = ">=3.11"` per `pyproject.toml`, so no
+     version blocker). `to_dataframe()`'s own uniform-`save_interval`
+     precondition check (point 3 above) becomes the first real caller:
+
+     ```python
+     match self.get_save_interval():
+         case UniformSaveInterval(interval):
+             ...  # proceed
+         case NonUniformSaveInterval(intervals):
+             raise ConfigError(f"non-uniform save_interval: {sorted(intervals, key=str)}")
+     ```
+
+     Chad's plain-`frozenset`-return alternative (skip the two dataclasses,
+     just return `frozenset[int | None]` and let callers check
+     `len(x) == 1`) is the lower-ceremony option if this ends up being a
+     one-call-site need — flagged as the fallback, not the recommendation,
+     since the tagged-union version is the one that actually matches the
+     Rust design intent (self-documenting return type, a case caller can't
+     silently forget to handle) rather than relying on every caller
+     remembering the `len() == 1` convention. Pick whichever before
+     implementing `to_dataframe()`, not after — this getter is a
+     prerequisite for it, not a follow-on.
+  4. `economic` has no per-timestep `history` at all — it's computed once in
+     `finalize()` (see [[project_pymoo_economic_resume_state]]), so its
+     fields are all scalars. Exclude `economic.*` from the flattened
+     time-series columns entirely (there's nothing to align it to
+     row-per-timestep with); if a combined view is wanted later, that's a
+     second, separate one-row dataframe/dict, not mixed into this one.
+  5. No time/index column exists implicitly. `to_dataframe()` should
+     prepend an explicit index column (row `i` → calendar timestep
+     `i * save_interval`, then `* dt_years` if a years-since-start column
+     is wanted) rather than leaving rows positionally implicit.
+  6. `pandas`/`polars` are both already base dependencies (`pyproject.toml`)
+     — no new dependency decision is needed; supporting both via a
+     `backend` parameter is a preference call, not a dependency question.
+
+  **Proposed signature**: `Workflow.to_dataframe(backend: Literal["pandas",
+  "polars"] = "pandas") -> pd.DataFrame | pl.DataFrame`, implemented as a
+  method on `Workflow` (not on individual components — the hierarchy being
+  flattened is the whole workflow's `to_dict()` tree, not any one
+  component's).
+
+- See **Completed Tasks → From "Backlog"** for: `mark_all_stale()`
+  cascaded from the orchestrator (DONE 2026-08); the reservoir no longer
+  frozen during injection-temperature convergence (DONE 2026-08); the
+  T-convergence explainer doc (DONE 2026-08-03); the `sweep.py` TODOs
+  (DONE 2026-07-27); the DVC/`--clean`/SLURM rollout across all 7 sweep
+  apps (DONE 2026-07-29); and the fluid-identity review (DONE 2026-07-30).
+
+  **Two design questions from the 2026-07-29 DVC/SLURM rollout are still
+  open and deliberately deferred, not silently dropped:**
+  1. **`src/tango_next` isn't tracked as a dependency, and that matters more
+     here than it did for old tango.** The DF app's `dvc.yaml` has a comment
+     explicitly waving this off as "burdensome to hash" — a reasonable
+     tradeoff for old tango, which is stable. `tango_next` is not: engine
+     changes have repeatedly silently changed sweep output for anything
+     using them (see the "CLOSED 2026-08-13: AGS sweep parity" history in
+     Completed Tasks). Without `src/tango_next` as a dependency, DVC can't
+     catch an engine-level regression the way a pipeline like this is
+     supposed to. Consider a lighter-weight proxy (a params entry pinning
+     the current git commit hash of `src/tango_next`, or depending on just
+     the specific subpackages actually touched — `components/`,
+     `orchestrators/`, `workflows/`) rather than either ignoring it
+     (matches old tango's tradeoff, but riskier here) or hashing the whole
+     tree every run.
+  2. **No standardized metrics output across the three completed ports yet.**
+     The double-flash port's `summarize.py` writes a real `summary.yaml`
+     (mean/std/percentiles) DVC could track as a `metrics:` output; the
+     AGS/EGS direct-heat ports only print pivot tables and write CSVs — no
+     single YAML/JSON summary to diff across commits. Decide whether all
+     three (four, eventually) should get a consistent small metrics file
+     (success/fail counts, thermal-power percentiles, count meeting the
+     105 degC threshold, etc.) before wiring in `dvc metrics diff`.
+- **IN PROGRESS (~halfway, as of 2026-07-31) — Line-by-line debugger
+  walkthrough of one `tango_next` single-simulation case.** Originally scoped
+  against `examples/tango_next/flexible_SF_manual.yml` (the original
+  reference example used throughout tango_next's design/porting work —
+  simplest well-understood topology); in practice picked up against
+  `hydro_df_electric` instead, using
+  `docs/diagrams/src/tango_next/hydro_df_electric_exec_flow.drawio`
+  as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
+  node and added the previously-missing `Workflow.__init__` entry node).
+  Goal: step through the full execution flow (`Workflow` →
+  `Orchestrator`/`SystemBCIteration` → component `solve()` calls) with a
+  real debugger for one config, to build or verify a concrete mental model
+  of the current call graph. Chad did roughly half of the walkthrough
+  himself — needs to be picked back up and finished, not restarted.
+  **CAUTION (2026-08): the diagram's T-convergence/BC-iteration section is
+  now stale** — `SystemBCIteration._converge_injection_T` was rewritten
+  (reservoir no longer frozen/skipped during the inner loop; the old
+  `t_d_old_saved`/`energy_before`/"Pass 2" mechanism replaced by a generic
+  `Component.snapshot_convergence_state()`/`restore_convergence_state()`
+  used uniformly by every component). A prominent warning box was added to
+  the `.drawio` file marking exactly which nodes are affected, and a fresh
+  annotated diagram of the *new* mechanism was published separately
+  (see this session's artifact link in the `.drawio` warning box).
+  **TODO, blocking further walkthrough progress: re-trace the
+  T-convergence/BC-iteration section of
+  `hydro_df_electric_exec_flow.drawio` against the current
+  `_converge_injection_T` (snapshot/restore, reservoir included, no more
+  Pass 2) before continuing the debugger walkthrough past that point** —
+  don't debug against the old nodes as if they still match
+  `system_bc_iteration.py`.
+- **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
+  started. Chad wants a pass across the whole repo (not scoped to
+  `tango_next`) to flag anything "wacky or inconsistent," explicitly
+  including `examples/`/`applications/`/`tests/` that are overly
+  duplicative and could be consolidated. Candidates worth checking when
+  this starts (not yet verified, just things noticed in passing this
+  session): the four near-identical `applications/run_*_sweep/` directories
+  (`run_AGS_direct_heat_sweep`, `run_AGS_sweep`, `run_EGS_direct_heat_sweep`,
+  `run_flexible_DF_manual_sweep`) each carry their own
+  generate/sweep/summarize/plot scripts — worth checking how much is
+  copy-pasted vs. genuinely different per site/product; `src/tango/`
+  (old) vs. `src/tango_next/` (new) dual-maintenance surface generally.
+  This is a big, open-ended audit — scope it explicitly before starting
+  rather than diving in ad hoc.
+- LCOE/LCOH economic-component design work for `tango_next` — paused
+  2026-07-21 before reading any `src/tango/units/native/economic/*.py`
+  source. Relevant to AGS sweep work since old tango's sweep scripts both
+  read CAPEX/LCOE off `economic._results`.
+- Seasonal/variable heat-demand mechanism design (see vision doc's
+  "Seasonal heat-demand variation" section) — the real fix for task 1's
+  gap, not yet designed.
+- `tango_next` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
+  heat/power) — vision doc, Phase 3. AGS row is closest to complete once
+  this effort lands.
+- Broader old-tango example porting (58 confirmed-PASS + ~10
+  confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`) — vision doc,
+  Phase 3.
+- Profiling `tango_next` once it stabilizes — vision doc, Phase 3.
+- Speculative long-horizon architecture thinking (Modelica-family tooling,
+  e.g. Rumoca, as a possible eventual replacement foundation for TESPy's
+  causal-solve approach) — `docs/long_term_architecture_exploration.md`,
+  started 2026-07-24. Explicitly parked, not planned; not blocking
+  anything above.
+- See **Completed Tasks → From "Backlog"** for the `src/tango/optimizerr.py`
+  review that informed `pymoo_api`'s design, and the `opt_*`-side DONE half
+  of the per-swept-variable scatter-plots item. pymoo_api itself is DONE
+  (see "Next session priorities" → item 3 in Completed Tasks) — this
+  backlog entry's "Not started" framing is stale.
+
+- **Per-swept-variable scatter plots — `run_*_sweep` apps.** Flagged
+  2026-08-13. Same idea as the already-DONE `opt_*` version (see Completed
+  Tasks), not started.
+  **LOW PRIORITY, ADD ALONGSIDE — statistical (not raw-scatter)
+  cross-correlation for sweep post-processing (flagged 2026-08-17).**
+  Chad's ask, prompted by ESTECO modeFRONTIER's analysis views: a
+  parameter-pair-vs-objective view that shows the STATISTICAL
+  relationship rather than a cloud of raw points (too much to take in
+  visually at a glance). Candidate techniques, roughly in order of
+  effort: (1) a correlation matrix/heatmap (Pearson or Spearman) across
+  every parameter/objective pair — cheap, but linear-only, won't catch a
+  genuine two-parameter interaction; (2) an ANOVA/regression effect
+  decomposition (`objective ~ p1 + p2 + ... + p1×p2 + ...`), interaction
+  terms plotted as a tornado/Pareto bar chart; (3) Sobol variance-based
+  sensitivity indices (first-order + second-order/interaction), the
+  statistically rigorous version of (2), needs either many samples or a
+  fitted surrogate; (4) a response-surface/partial-dependence contour
+  plot (fit a smooth surrogate over a parameter pair, draw filled
+  contours, no raw points shown) — visual but smoothed, closest match to
+  "not the actual data points."
+  **Important scoping note, already confirmed with Chad:** this
+  shouldn't run against an `opt_*` app's own Pareto-front output — a
+  Pareto front is a thin, non-representative slice of the design space
+  (in `opt_hydro_df_electric`'s current front, `mass_rate`/
+  `injection_pressure` barely vary at all), so any of the above run
+  against it would likely just report "no interaction" from lack of
+  variance to explain, not genuine physics. This wants the broader
+  `run_*_sweep` sweep data instead — which is also why this is filed as
+  an addition to the `run_*_sweep` half of this same item, not the
+  (already-done) `opt_*` half.
+
+- **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
+  (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
+  (`docs/diagrams/*.drawio`, e.g.
+  `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
+  walkthrough" item above) and the vision doc's own diagram set
+  (`docs/TANGO_vision_and_roadmap.md`, already migrated to `.drawio` for
+  Confluence — see `project_vision_doc_diagrams` memory) should be
+  reconciled against tango_next's CURRENT actual architecture/solve order
+  (e.g. `component_idx: 0` is now the injection well with the surface
+  solved last, not whatever an older diagram version assumed) before
+  relying on any of them for a walkthrough or onboarding. Revisit scope
+  when this is actually picked up.
+
+# Completed Tasks
+
+Finished work, pulled out of the sections above so they stay focused on
+what's still open. Kept verbatim (not summarized) — this is still the
+detailed working record, just filed separately.
+
+**Convention — follow this when moving something here:**
+1. Each subsection heading below is `## From "<exact heading text of the
+   section above it came from>"` — copy the source section's `##` heading
+   text verbatim into the quotes, no paraphrasing, no CLOSED/RESOLVED/etc.
+   prefix substituted in. The one exception is `## From the top-level list`,
+   for the unheaded intro bullets directly under this doc's `#` title (they
+   have no `##` heading of their own to quote).
+2. Subsections here are ordered to match the top-to-bottom order of the
+   sections above, not chronologically and not by when something landed.
+   If a whole section becomes fully completed and gets removed from above
+   entirely (e.g. an `## Active: ...` section with nothing open left in
+   it), its `## From "..."` subsection here still occupies the same
+   relative position it held when the section still existed above.
+3. If a parent item up top is still open but has a completed sub-bullet
+   nested inside it, pull just that sub-bullet down here (into the
+   matching `## From "..."` subsection, creating it if it doesn't exist
+   yet) and leave a one-line "See Completed Tasks → ..." pointer behind in
+   the parent item — don't leave the done sub-bullet sitting in place.
+4. An item that was investigated/explained/decided-not-to-fix (RESOLVED,
+   TRACED, "decision: not pursuing further," etc.) counts as completed
+   even if the underlying behavior itself was deliberately left unfixed —
+   the task was "figure this out," and that part is done.
+
+## From the top-level list
+
+- **DONE 2026-08-04 — `LumpedReservoir` initial-pressure bootstrap fixed.**
+  Its "not yet solved" bootstrap for `P_out_prev` was using the
+  fracing-ceiling formula instead of old tango's actual reservoir-bootstrap
+  formula (`brine_density × g × reservoir_depth`) — two different physical
+  quantities. Added a `brine_density` field to `ReservoirComponent`
+  (default 1000 kg/m³, matching old tango); `LumpedReservoir` now computes
+  a proper `P_initial` matching old tango's formula exactly. Verified via
+  isolated fixed-input comparison: reservoir outputs now agree to
+  sub-microkelvin precision given identical inputs. Also matched
+  `core/constants.py`'s `GRAVITY` to old tango's rounded `9.81` (was
+  `9.80665`, the more precise NIST/ISO 80000-3 value) for comparison
+  purposes, and made gravity a per-component field (`WellComponent`/
+  `ReservoirComponent`) with that constant only as the default, since
+  gravity genuinely varies regionally — see the TODO on `GRAVITY` for
+  reverting the default once old-tango parity is no longer the active
+  concern. Full test suite, golden snapshot, and `ParityCase` tolerances
+  updated. Full technical detail: `docs/TANGO_vision_and_roadmap.md`.
+
+- **DONE 2026-08-10 — production-well pump-power formula fixed; LCOE parity
+  went from +16.1%/+11.5% off to -1.1%/-1.0%.** Chad's "urgent" pump-power
+  investigation (queued behind the `target_extraction_pressure` fix above):
+  suspected old tango's iterative pump solve might be reading a STALE
+  power value — ruled that out empirically (instrumented a live run of
+  the ACTUAL code path these examples use, `BC_calculator.py`'s
+  `FlowRateCalculator.iterator` — note: `orchestrators/native.py`'s
+  Newton-Raphson pump loop, read earlier in the investigation, is a
+  RED HERRING for these examples; they route through `bc_iteration`
+  scheduling instead, a completely different orchestrator). Old tango's
+  `prod_pump_w_list.append(...)` fires immediately after the outer
+  BC-convergence loop exits, using that same converged pass's fluid
+  states — confirmed self-consistent (achieved pressure lands exactly on
+  `target_extraction_pressure`, residual 0.00 Pa, every timestep). Not
+  stale.
+  The real cause: compared old tango's actual pump ΔP against
+  tango_next's at the plateau timestep — 5.395 MPa vs. 5.302 MPa, only
+  1.7% apart, so the WELL PHYSICS agreed closely. The ~2.035x power gap
+  was entirely in how each system converts that (nearly-identical) ΔP
+  into power. tango_next used `mass_rate * ΔP / ρ / pump_efficiency` (a
+  naive hydraulic-work estimate); old tango's `BC_calculator.py` computes
+  an isothermal CoolProp enthalpy rise (`-(inlet.H - outlet.H) * mass_rate`
+  after an isothermal `updatePT` pressure boost) with NO efficiency term
+  at all. Verified with real numbers pulled from a live run: the
+  hydraulic estimate overstates the true enthalpy rise by ~53% at these
+  conditions (~400 K, ~11-16 MPa) — water is nearly incompressible
+  (`(∂V/∂P)_T` is tiny, as expected) but NOT thermally inert, and it's
+  the thermal-expansivity term in the exact identity
+  `dH/dP|_T = V - T*(∂V/∂T)_P` that matters here, not compressibility.
+  Confirmed to 4 significant figures using CoolProp's own isobaric
+  expansion coefficient (β≈8.62e-4 K⁻¹ at 400 K): predicted `dH/dP` from
+  the identity matched the measured value from the live run almost
+  exactly. 1.53x (formula mismatch) × 1.33x (extra `/0.75` efficiency
+  term old tango doesn't apply) ≈ 2.04x — fully accounts for the
+  observed gap.
+  **Fixed**: `NumericalProductionWellWithPump.solve()`
+  (`components/well/numerical.py`) now computes pump power as
+  `mass_rate * (H(target_Pa, T) - H(P_wellbore, T)) / pump_efficiency`
+  via the existing `fluid_enthalpy()` CoolProp helper — matching old
+  tango's formula shape exactly. `pump_efficiency` default changed
+  `0.75 → 1.0` (Chad's call: match old tango's no-derating behavior for
+  parity now; a TODO notes dropping it to ~0.9 later once a real figure
+  is chosen, deliberately deferred). Also fixed
+  `LumpedProductionWellWithPump` (`components/well/lumped.py`) the same
+  way — found it had a WORSE, separate bug along the way: it declared a
+  `pump_efficiency` field but never actually applied it in `solve()` at
+  all (dead field). Not exercised by any current example
+  (`unit: numerical` is used everywhere), but fixed for consistency
+  rather than left as a landmine for whoever switches variants next.
+  Result verified against a fresh `_run_old_tango`/`_run_tango_next`
+  comparison: LCOE SF -1.1%, DF -1.0% (down from +16.1%/+11.5%);
+  `CAPEX_surface_plant`/`CAPEX_total` unaffected, as expected (pump power
+  only feeds the LCOE denominator, not CAPEX). Updated
+  `tests/regtest/test_old_new_economic_parity.py`'s stale golden values
+  and module docstring (previously described a now-superseded
+  final-timestep-only/"1-step lag" narrative from an earlier round of
+  this investigation) and `docs/tango_next_tasks.md`'s "Next session
+  priorities" entry below. Full `tests/unit`+`tests/regtest` suite: 123
+  passed, 0 failed (up from 5 pre-existing failures before this fix) —
+  `ruff`/`mypy` clean.
+
+- **DONE 2026-08-11 — `pymoo_api.Minimization` now saves the current
+  non-dominated front after every generation**, not just at the end.
+  `Minimization.run()` was refactored from pymoo's `minimize()`
+  convenience wrapper to the equivalent `algorithm.setup()` +
+  `while algorithm.has_next(): algorithm.next()` loop (confirmed
+  behaviorally identical — that's literally what `minimize()` does
+  internally) specifically to get a hook between generations. After each
+  one, writes `pareto_results_partial.csv`/`pareto_configs_partial/`
+  (deliberately different filenames from the final
+  `pareto_results.csv`/`pareto_configs/`, so a completed run's real
+  output is never ambiguous with a leftover partial one from an
+  interrupted run) plus an `n_gen` provenance column. If a run gets
+  killed (SLURM time limit, Ctrl-C, crash), whatever the front looked
+  like as of the last completed generation is already on disk.
+
+- **DONE (superseded) — stop/resume for `Minimization.run()`.** Chad's
+  ask, prompted by the save-every-generation feature above — being able to
+  pause a long HPC run and later continue it from where it left off, rather
+  than restarting from scratch. True checkpoint/resume (pickling the live
+  `algorithm` mid-run, including its `multiprocessing.Pool`) was researched
+  but never implemented — see git history for the removed writeup. Instead,
+  `Minimization` gained `seed_from`/`pad_sampling`: `seed_from` points at a
+  previous run's `pareto_results.csv` (or `_partial` variant), its
+  non-dominated designs become the initial population, and `pad_sampling`
+  (default `LHS()`) fills the rest of `pop_size`. Not a true resume (fresh
+  RNG state, restarts at generation 1), but it gets the practical benefit —
+  a new run picks up from where the old front left off instead of from
+  scratch — without the pool-pickling complication. Good enough that true
+  checkpoint/resume is no longer planned.
+
+## From "Next session priorities"
+
+- **DONE 2026-08-04 — non-convergence must raise, not warn.**
+  `_converge_injection_T`'s `for...else` now `raise`s `ConvergenceError`
+  (already existed in `core/errors.py`, no new exception class needed)
+  instead of `logger.warning(...)` when `max_inner_iterations` is
+  exhausted without converging — previously the loop silently returned
+  and the caller used the unconverged state as if it were final.
+  Audited the rest of `tango_next` for the same silent-swallow pattern
+  (`logger.warning`, bare `except`, other max-iteration loops) — this
+  was the only instance; nothing else needed the same fix. Full test
+  suite re-run clean (121 passed, 40 xfailed, matches baseline).
+- **DONE 2026-08-04 — `max_inner_iterations` is now a constructor
+  parameter** on `SystemBCIteration` (default `DEFAULT_MAX_INNER_ITER =
+  20`, same value as before), replacing the hardcoded module-level
+  `_MAX_INNER_ITER` constant, so it can be tuned per-case instead of
+  requiring a code edit.
+- **DONE — `InjectionPolicy` variants in good shape.** `MANUAL`,
+  `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH`
+  are all real, implemented policies in `orchestrators/system_bc_iteration.py`.
+  See `docs/tango_next_t_convergence.md` for how `MANUAL`'s convergence
+  loop works as the reference case.
+
+  **Follow-up once pressure convergence lands, agreed 2026-08-04**: after
+  implementing real BC-iteration pressure physics (the "Planned: real
+  BC-iteration physics" section of `system_bc_iteration.py`'s module
+  docstring), re-run the `flexible_SF_manual.yml` parity comparison
+  against old tango's actual equivalent. Confirmed the current comparison
+  is *not* confounded by fracing/mass-rate iteration — verified two ways
+  (instrumented a real run): `flexible_SF_manual.yml` uses
+  `mass_rate.type: manual`, which skips old tango's `automatic`-only
+  mass-rate iteration loops entirely, and `check_fracing`'s cap
+  (`fracing_flow()` ≈ 183–403 kg/s across timesteps) never actually
+  engages against the manual `mass_rate=50` kg/s — it's a no-op for this
+  case. The real asymmetry is that old tango's outer loop *always*
+  iterates injection pressure (`test_p`), in every mass-rate mode,
+  including `manual` — there is no old-tango mode that skips pressure
+  iteration the way tango_next's `MANUAL` currently does. So "the
+  relevant old tango equivalent" to compare a future pressure-converging
+  tango_next policy against is simply old tango's `iterator()` as-is, not
+  a different/special old-tango mode.
+
+  **Correction, 2026-08-04**: the paragraph above was written assuming
+  old tango's `test_p` update actively runs for this comparison. Directly
+  instrumented and checked across the full 20-timestep run: it does not
+  — `manual` mass-rate mode's `test_p` update only fires when `target_p
+  <= inj_well.outlet_fluid.P` (a one-sided fracing-safety cap, not an
+  active solve), and for this config `target_p` (55 MPa) never drops
+  below the bottom-hole pressure (~49.75–49.88 MPa) it's compared
+  against — so `test_p` stays pinned at its YAML initial-guess value for
+  every single timestep. **This asymmetry is real as a general
+  mechanism, but is not active for `flexible_SF_manual.yml` and is not
+  the cause of its parity delta** — see the top-level-list entry above
+  (reservoir initial-pressure bootstrap fix) for what was. The general
+  point about needing a future pressure-converging tango_next policy to
+  compare against old tango's `iterator()` as-is (not a special mode)
+  still stands for whenever a config *does* exercise this path.
+
+  Also checked (instrumented a real run, reverted after) whether the
+  `production_well_pump`'s hardcoded `num_dp_iter = 5` loop
+  (`BC_calculator.py:456-497`) introduces meaningful error for this case:
+  measured residual shrinks geometrically (~0.006× per iteration) from
+  ~2.7 MPa (iteration 0) to 0.004 Pa (iteration 4, the last one
+  performed) against a 7 MPa target — ≈6e-10 relative error. **Confirmed
+  negligible for `flexible_SF_manual.yml`** — not a contributor to the
+  observed parity deltas. Caveat: this converges fast because the
+  pump-pressure/outlet-pressure relationship is nearly linear in this
+  case's regime; the loop still has no real convergence check at all (its
+  only early-exit condition requires `pump_dp == 0.0`, i.e. no boost
+  needed — for any case actually needing a nonzero boost it just runs all
+  5 iterations unconditionally), so this finding doesn't generalize to
+  cases closer to a phase boundary — re-check if a future case exercises
+  that regime. Not fixing this in old tango; noted here only so the
+  "is this negligible?" question doesn't have to be re-derived.
+- **DONE — `pymoo_api` in good shape.** Built (`src/tango_next/pymoo_api.py`),
+  deliberately restricted to `MANUAL`/`MANUAL_FRACKING_CHECK` only — the
+  `AUTO_*` policies are intentionally NOT wired in (Picard/BC-iteration
+  convergence loops don't mix safely with an external optimizer driving
+  the same state); do not treat this as a gap to fill.
+
+## From "Open items — tracked, not scheduled"
+
+- **Old-tango AGS no-time-marching bug** (`system_name()` routing in
+  `src/tango/utils.py` sends AGS-shaped configs to a no-op `SystemNative`,
+  so old tango never advances time for AGS configs). Confirmed real,
+  three independent ways. **Decision: not fixing old tango for this.**
+  tango_next itself is unaffected; this only blocks using old tango as an
+  AGS transient reference.
+- **RESOLVED (explained, not fixed) 2026-08-13 — production-side circuit
+  numerically unstable near/above ~166 kg/s for `hydro_sf_electric.yml`.**
+  Chad's assessment: the elevated mass rate drives enough production-side
+  pressure drop that the fluid crosses its phase-change pressure on the
+  way back up, which is exactly consistent with the near-constant-enthalpy
+  CoolProp failure signature below. Not worth digging into further.
+  Original note, found 2026-08-12 while testing
+  `InjectionPolicy.MANUAL_FRACKING_CHECK`'s flow-induced pathway. Raising
+  `sim_config.mass_rate` even slightly above the config's own
+  `fluid_utils.fracking_flow()` threshold (confirmed: crashes starting at
+  166.5 kg/s, i.e. essentially at the threshold, not comfortably past it)
+  makes some downstream node's CoolProp state solve go negative-pressure
+  (`updateHP(...)` failing at a near-constant enthalpy ~768-770 kJ/kg
+  across every mass rate/injection-pressure combination tried — 18 total
+  permutations, all failed the same way). The near-constant enthalpy
+  regardless of `components.surface.injection_pressure` indicates this is
+  on the **production side** of the circuit (friction-driven pressure drop
+  from the elevated mass rate through the production wells/surface plant),
+  not the injection side that `injection_pressure` controls — so raising
+  injection pressure can't rescue it. Net effect: for this example file,
+  there is no numerically-stable mass rate high enough to actually trigger
+  `MANUAL_FRACKING_CHECK`'s flow-induced check through a genuine full-circuit
+  `Workflow.run()` — the circuit breaks (for an unrelated reason) at or
+  below the fracking threshold itself. Worked around, not fixed:
+  `tests/regtest/test_tango_next.py::test_manual_fracking_check_raises_on_flow_induced_violation`
+  solves once at the nominal (safe) mass rate, then calls
+  `SystemBCIteration._check_fracking()` directly with a boosted
+  `orch.mass_rate` — exercising the same comparison `run_timestep` makes,
+  without a second, numerically-unstable full solve. The pressure-induced
+  pathway doesn't have this problem (a modest `injection_pressure` bump at
+  the *nominal* mass rate triggers it cleanly via a real `run()`, see the
+  test above it) — this gap is specific to pushing mass rate itself past
+  the threshold. Root cause not investigated further (which specific
+  component/node destabilizes first) — worth revisiting if a real
+  `AUTO_FLOW`/`max_mass_rate`-cap use case needs to actually operate near
+  this boundary rather than just detect it after the fact.
+## From "CLOSED 2026-08-13: AGS sweep parity (heat + power)"
 
 **Decision: not pursuing further.** Old tango's AGS handling is confirmed
-broken (see the `system_name()` no-time-marching bug below) — comparing
-tango_next's AGS output against a reference that never actually advances
-time isn't worth chasing. Rely on tango_next's own smoke tests and
-golden-snapshot self-consistency for AGS instead of an old-vs-new
-comparison. History kept below for context; treat everything in this
-section as abandoned, not queued.
+broken (see the `system_name()` no-time-marching bug, filed under "From
+'Open items — tracked, not scheduled'" above) — comparing tango_next's AGS
+output against a reference that never actually advances time isn't worth
+chasing. Rely on tango_next's own smoke tests and golden-snapshot
+self-consistency for AGS instead of an old-vs-new comparison. History kept
+below for context; treat everything in this section as abandoned, not
+queued.
 
 ---
 
@@ -801,7 +1218,7 @@ old tango's apps — that's task 3 below, still blocked/deferred.
       resolved/explained — a golden snapshot locks in whatever's there,
       good or bad).
 
-## Active: common:/component-block override ambiguity
+## From "Active: common:/component-block override ambiguity"
 
 Started 2026-07-22, triggered by `tests/TemperaturePressureDiscrepancy.md`
 (landed via the `dev/make-tango-robust` merge) — a real bug where a
@@ -1264,118 +1681,64 @@ verified, then this fix popped back in and re-checked).
            `layout:`, same as `hydro_sf_electric.yml` already had it.
          - Full `tests/unit`+`tests/regtest` suite re-run after the YAML
            fixes: back to the same 5 pre-existing economic golden-value
-           failures (one more test passing than before, from
-           `test_ags_direct_heat_smoke` — it happened to load
+           failures as before this fix (one more test passing than before,
+           from `test_ags_direct_heat_smoke` — it happened to load
            `AGS_direct_heat.yml`, which had the `well_spacing` duplication)
            — no new failures. `ruff`/`mypy` clean.
 
-## Active: GraphSurface p_out / pressure-provenance follow-ups
+## From "Active: GraphSurface p_out / pressure-provenance follow-ups"
 
-Started 2026-07-22 out of a deep-dive into where `GraphSurface`'s TESPy
-network states are solved vs. imposed — see
-`docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
-breakdown for `flexible_SF_manual.yml`) and the vision doc's new
-"`GraphSurface`'s fixed `p_out` values" section (justification for why fixed
-flash/condensing pressure is a legitimate modeling choice, not a shortcut).
-All three items below are intentionally **not started** — captured so the
-reasoning doesn't have to be re-derived next session.
+- **Port `src/tango/`'s pressure-monotonicity validation — done 2026-07-23.**
+  Added `GraphSurface._validate_pressure_monotonicity()`
+  (`components/surface/graph.py`), called from `init()` right after
+  `node_cfgs`/`edge_cfgs` are parsed (pure YAML-config check, no TESPy
+  objects needed). Same algorithm as `flexible_pp.py`'s
+  `validate_pressure_monotonicity()`: walk upstream from every node with
+  a fixed `p_out_megapascals`, stopping at pressure-increasing nodes
+  (`Compressor` — `tango_next` has no separate `Pump` type, pumps are
+  `type: Compressor`), raise `ConfigError` if a downstream `p_out`
+  exceeds an upstream one. Verified: (a) raises correctly on a
+  deliberately-sabotaged copy of `flexible_SF_manual.yml` (turbine
+  `p_out` bumped above valve's); (b) no false positive on
+  `pump`/`pump2` — confirmed they're simply absent from the check's
+  `p_out_values` dict since they don't declare `p_out_megapascals`
+  explicitly (their pressure is solved via `Merge`'s equality
+  constraint, as expected); (c) full `tests/regtest` suite still 70
+  passed / 40 xfailed, no regressions. Locked in with two permanent
+  tests in `tests/regtest/test_tango_next.py`
+  (`test_pressure_monotonicity_passes_on_valid_config`,
+  `test_pressure_monotonicity_rejects_rising_pressure`) built on a new
+  reusable `sf_manual_config` fixture (fresh parsed dict of
+  `flexible_SF_manual.yml`, safe to mutate per-test) — the failing case
+  mutates a live config dict to push the turbine's `p_out` above the
+  valve's, then constructs a real `Workflow` from it and asserts
+  `ConfigError`. Both run in under half a second since `Workflow(cfg)`
+  construction alone triggers `GraphSurface.init()` (via
+  `Component.from_dict()`) — no `.run()`/TESPy solve needed to
+  exercise the check.
+  **Known gap, not addressed by this port** (documented in the method's
+  own docstring so it's visible from the code, not just this file): it
+  only traces nodes that explicitly declare `p_out_megapascals`, so it
+  does NOT catch `AGS_direct_heat.yml`'s `dh_hx` case (no `p_out` field
+  at all — see the still-open item in "Active: GraphSurface p_out /
+  pressure-provenance follow-ups") or anything else where pressure is
+  implicit rather than declared.
+- **Add unit comments to every `p_out`/pressure-bearing key in every
+  `tango_next` TESPy-graph YAML file — done 2026-07-23.** Checked all 3
+  `examples/tango_next/*.yml` files with `power_plant` blocks
+  (`flexible_SF_manual.yml`, `AGS_direct_heat.yml`,
+  `SF_manual_differing_st.yml`). `p_out_megapascals`/`T_out` already had
+  unit comments (added when these files were first written/ported — not
+  actually missing). The real gap was `efficiency:` (7 occurrences) and
+  `vapor_mass_fraction_out:` (2 occurrences) having no unit/scale note at
+  all — added `# dimensionless [0-1] — TESPy eta_s (isentropic
+  efficiency)` and `# dimensionless [0-1] — TESPy vapor quality x (0 =
+  saturated liquid, 1 = saturated vapor)` respectively. Full
+  `test_old_new_parity`/`test_tango_next.py`/
+  `test_surface_temp_pressure.py` suite still green after — comment-only
+  diff, confirmed via `git diff`.
 
-- [ ] **Think through the `dh_hx` pressure-DOF case carefully before touching
-      it.** Unlike the SF plant's condenser, `AGS_direct_heat.yml`'s `dh_hx`
-      has no `p_out` field at all — checked TESPy's `SimpleHeatExchanger`
-      mandatory constraints directly (`mass_flow_func`, `fluid_func`,
-      `energy_balance_func` only, no pressure relation), so `dh_hx`'s inlet
-      and outlet pressures are each independently pinned elsewhere (inlet by
-      the well-minus-pipe-friction calc, outlet by `injection_pressure`) with
-      zero relationship enforced between them by the component itself. This
-      is a sharper version of the fixed-`p_out` risk, not the same pattern —
-      there's no `p_out` value to even inspect when reviewing the YAML. Left
-      alone for now; needs real thought (not a quick fix) before deciding
-      whether the right answer is a validation check, a required `p_out`,
-      or something else.
-- [x] **Port `src/tango/`'s pressure-monotonicity validation — done 2026-07-23.**
-      Added `GraphSurface._validate_pressure_monotonicity()`
-      (`components/surface/graph.py`), called from `init()` right after
-      `node_cfgs`/`edge_cfgs` are parsed (pure YAML-config check, no TESPy
-      objects needed). Same algorithm as `flexible_pp.py`'s
-      `validate_pressure_monotonicity()`: walk upstream from every node with
-      a fixed `p_out_megapascals`, stopping at pressure-increasing nodes
-      (`Compressor` — `tango_next` has no separate `Pump` type, pumps are
-      `type: Compressor`), raise `ConfigError` if a downstream `p_out`
-      exceeds an upstream one. Verified: (a) raises correctly on a
-      deliberately-sabotaged copy of `flexible_SF_manual.yml` (turbine
-      `p_out` bumped above valve's); (b) no false positive on
-      `pump`/`pump2` — confirmed they're simply absent from the check's
-      `p_out_values` dict since they don't declare `p_out_megapascals`
-      explicitly (their pressure is solved via `Merge`'s equality
-      constraint, as expected); (c) full `tests/regtest` suite still 70
-      passed / 40 xfailed, no regressions. Locked in with two permanent
-      tests in `tests/regtest/test_tango_next.py`
-      (`test_pressure_monotonicity_passes_on_valid_config`,
-      `test_pressure_monotonicity_rejects_rising_pressure`) built on a new
-      reusable `sf_manual_config` fixture (fresh parsed dict of
-      `flexible_SF_manual.yml`, safe to mutate per-test) — the failing case
-      mutates a live config dict to push the turbine's `p_out` above the
-      valve's, then constructs a real `Workflow` from it and asserts
-      `ConfigError`. Both run in under half a second since `Workflow(cfg)`
-      construction alone triggers `GraphSurface.init()` (via
-      `Component.from_dict()`) — no `.run()`/TESPy solve needed to
-      exercise the check.
-      **Known gap, not addressed by this port** (documented in the method's
-      own docstring so it's visible from the code, not just this file): it
-      only traces nodes that explicitly declare `p_out_megapascals`, so it
-      does NOT catch `AGS_direct_heat.yml`'s `dh_hx` case (no `p_out` field
-      at all — see the still-open item above) or anything else where
-      pressure is implicit rather than declared.
-- [x] **Add unit comments to every `p_out`/pressure-bearing key in every
-      `tango_next` TESPy-graph YAML file — done 2026-07-23.** Checked all 3
-      `examples/tango_next/*.yml` files with `power_plant` blocks
-      (`flexible_SF_manual.yml`, `AGS_direct_heat.yml`,
-      `SF_manual_differing_st.yml`). `p_out_megapascals`/`T_out` already had
-      unit comments (added when these files were first written/ported — not
-      actually missing). The real gap was `efficiency:` (7 occurrences) and
-      `vapor_mass_fraction_out:` (2 occurrences) having no unit/scale note at
-      all — added `# dimensionless [0-1] — TESPy eta_s (isentropic
-      efficiency)` and `# dimensionless [0-1] — TESPy vapor quality x (0 =
-      saturated liquid, 1 = saturated vapor)` respectively. Full
-      `test_old_new_parity`/`test_tango_next.py`/
-      `test_surface_temp_pressure.py` suite still green after — comment-only
-      diff, confirmed via `git diff`.
-- [ ] **Same gap exists much more widely in `src/tango/`'s old-format
-      examples — separate, bigger task, explicitly deferred.** Spot-checked
-      `examples/flexible_SF_manual.yml`/`flexible_ORC_manual.yml`: `p_out:`
-      values (e.g. `p_out: 0.5`, `p_out: 0.05`) have zero unit comments
-      anywhere. `grep -rln "power_plant_graph:" examples/` (excluding
-      `tango_next/`) turns up **60+ files** — a real gap, but not "easy," so
-      explicitly not swept today (Chad's call, 2026-07-23, when offered a
-      3-way scope choice). If picked up later: same treatment as above
-      (`p_out` is bar per `flexible_pp.py`'s `Network(p_unit="bar", ...)`),
-      but budget it as its own task, not a quick add-on.
-
-## Backlog (queued, not yet started)
-
-- **Errors should include more context, where possible.** Flagged
-  2026-08-14 (Chad, mid-session), not started. When an error can be tied
-  to a specific component or interface between components, the specific
-  convergence iteration/loop it occurred in, and/or the timestep, the
-  error message should say so — makes failures in a long unattended run
-  (SLURM job, optimization search) actually diagnosable from the log
-  alone rather than needing a debugger session to figure out WHERE in the
-  circuit/timeline something went wrong. Needs a survey pass across
-  `core/errors.py`'s raise sites (`ConvergenceError`, `InvalidPowerStateError`,
-  `CoolPropError`, etc.) to see which already carry this and which don't —
-  not a one-shot fix, likely touches many call sites incrementally.
-
-- **Assess how many numerical cells wells actually need.** Flagged
-  2026-08-14, not started. `NumericalWell.num_cells` defaults to 100
-  (`components/well/numerical.py`) and every current example config uses
-  that default uniformly, for every well, regardless of well length or
-  physical regime — never deliberately chosen per case. Chad's suspicion:
-  a lot fewer cells would likely hold accuracy within an acceptable
-  tolerance. Needs an actual convergence study (compare key outputs —
-  outlet T/P, pump power, etc. — across a range of `num_cells` values
-  against the current 100-cell baseline) before picking a new default;
-  don't just guess a smaller number.
+## From "Backlog"
 
 - **OPTIONAL, NO URGENCY — `InjectionPolicy.AUTO_BOTH`'s outer Picard loop
   can hit `InvalidPowerStateError` on an intermediate (not final) iterate
@@ -1545,19 +1908,19 @@ reasoning doesn't have to be re-derived next session.
   as a special case of the more general per-segment model, rather than
   leaving both mechanisms living side by side.
 
-- **`opt_AGS_direct_heat/` unblocked (2026-08-17) — still needs wiring into
-  `just demos` before it's considered done; build `opt_EGS_direct_heat/`.**
-  Flagged 2026-08-13. The economic-component blocker above is fixed and
-  the script smoke-tests clean end to end, but it hasn't been added to
-  `justfile`'s `demos` recipe yet (that recipe's own comment says do not
-  add until this was resolved — it now is; just needs the one-line addition
-  and a Chad confirm, matching the existing `opt_hydro_df_electric.py`/
-  `opt_hydro_sf_electric.py` smoke-run pattern there). `opt_EGS_direct_heat/`
+- **`opt_AGS_direct_heat/` unblocked (2026-08-17)** — the economic-component
+  blocker above is fixed and the script smoke-tests clean end to end.
+  It was later confirmed (2026-09-14 session) that `opt_AGS_direct_heat.py`
+  IS wired into `justfile`'s `demos` recipe (both the `[unix]` and
+  `[windows]` variants run it through its smoke path), so the "still needs
+  wiring" note this bullet originally carried was stale — the wiring itself
+  had already happened, just never crossed off here. `opt_EGS_direct_heat/`
   was never blocked by any of this (see the corrected note above — no
   horizontal loop, no independently-varying diameter) and can still be
   built any time, following `opt_hydro_sf_electric/`'s simple pattern
   (depth + mass_rate params, a local `negative_mean_thermal_power_objective()`
-  mirroring the one already written for AGS) rather than AGS's 4-axis one.
+  mirroring the one already written for AGS) rather than AGS's 4-axis one
+  — this part is still open, see the Backlog section above.
 
 - **DONE 2026-08-17 — renamed `NativeEconomicComponent` to
   `DoubletEconomicComponent`, and swept "native"/"Native" out of
@@ -1579,135 +1942,6 @@ reasoning doesn't have to be re-derived next session.
   naming, and changing them would misrepresent old tango's actual code.
   Also left alone: incidental correct English usage of "native" (e.g. "a
   native Python type") that isn't this naming convention at all.
-
-- **Rename/move `examples/tango_next/` → `example_configs/` at the repo
-  root.** Flagged 2026-08-13, not started. Deliberately held until old
-  `src/tango` is fully stripped out (targeted late August 2026) — drops
-  both the `tango_next` qualifier (no more legacy `tango` to disambiguate
-  from) and the `examples/` name (by then, YAML-only, so "configs" is the
-  accurate name). Precondition already done as of 2026-08-13:
-  `examples/tango_next/` now holds only `.yml` configs — its two demo/sweep
-  scripts (`demo_flexible_sf.py`, `sweep_demo_AGS_direct_heat.py`) moved to
-  their own directories under `applications/tango_next/`
-  (`demo_hydro_sf_electric/`, `sweep_demo_AGS_direct_heat/`), matching the
-  `run_*_sweep/`/`opt_*` layout, with `demo_flexible_sf.py` itself renamed
-  to `demo_hydro_sf_electric.py` to match its config's actual name instead
-  of old tango's `flexible_sf` terminology. So this backlog item is now a
-  pure directory rename whenever it happens, not a restructure.
-
-- **GitLab pipeline (likely release-triggered) that generates and publishes
-  documentation.** Flagged 2026-08-13, not started. Deliberately held until
-  `tango_next` fully replaces old tango and the legacy code is stripped out
-  — building doc-generation tooling around a module structure that's about
-  to be deleted isn't worth the effort now.
-
-- **`Workflow.to_dataframe()` — flatten per-timestep history into a single
-  dataframe.** Flagged 2026-08-11, not started. Goal: one row per recorded
-  timestep, one column per time-varying leaf value, column names dot-joined
-  through the full hierarchy (e.g.
-  `components.production_well_upper.history.T_outlet`,
-  `components.surface.history.node_history.turbine.P`).
-
-  **Design notes:**
-  1. `tango_next` already has a live, canonical, never-stale nested dict:
-     `Workflow.to_dict()` (`workflows/workflow.py`) — `common`/`layout`/
-     `sim_config`/`title`/`components`/`economic`, each component's own
-     `model_dump()` nested under `components.<name>`. Start from that, not
-     a new pydict layer.
-  2. No length-matching heuristic is needed to tell history apart from
-     static config: every component's `history` field is a dedicated
-     dataclass (`WellboreHistory`/`LumpedReservoirHistory`/
-     `GraphSurfaceHistory`/`NumericalWellHistory`, per-component-type in
-     `components/*/`) whose fields are *always* per-timestep lists, and
-     `state` fields are always scalars (`LockedState.get_fresh()`, one
-     value for the current timestep). So the flatten pass only needs to
-     recurse into dicts (component name → `history` →, for `GraphSurface`,
-     two more levels: `node_history[node_name][quantity]`) and treat any
-     list found under a `.history.` path segment as a column — no
-     length-based guessing needed, `history.` prefix is sufficient.
-     (Non-history list-shaped YAML config, if any ever exists, would need
-     excluding explicitly, but none is known to exist today — check before
-     generalizing this rule.)
-  3. **Real complication to design for up front.** `Component` has a
-     per-component `save_interval` (`core/component.py`, default `1`,
-     frozen config field) — every component decides independently whether
-     to append to its own `history` on a given timestep, so two components
-     in the same `Workflow` with different `save_interval` values
-     genuinely produce different-length history lists.
-
-     `tango_next` has no get/set mechanism for this today — `save_interval`
-     is a plain frozen-at-construction Pydantic field, set once per
-     component via YAML, not a runtime-settable cascading property. So
-     this needs a getter designed from scratch that actually detects
-     divergence across the tree instead of silently reporting only
-     `self`.
-
-     **Proposed API** (discussed with Chad 2026-08-11 — his sketch was a
-     Rust sum type, `enum SaveInterval { Uniform(usize), NonUniform }`;
-     translated to the actual Python idiom for that shape, PEP 634
-     dataclass-variants + `match`/`case`, rather than the plain
-     "return a set, caller checks `len() == 1`" shortcut he also floated
-     as a fallback):
-
-     ```python
-     @dataclass(frozen=True)
-     class UniformSaveInterval:
-         interval: int | None
-
-     @dataclass(frozen=True)
-     class NonUniformSaveInterval:
-         intervals: frozenset[int | None]  # every distinct value present
-
-     SaveIntervalReport = UniformSaveInterval | NonUniformSaveInterval
-
-     def get_save_interval(self) -> SaveIntervalReport:
-         """Walk every component; report whether save_interval is uniform."""
-     ```
-
-     Call sites use `match`, with a final `case _: assert_never(report)` so
-     mypy flags it if a third variant is ever added — the closest Python
-     gets to Rust's compiler-enforced exhaustiveness (`typing.assert_never`
-     is available; `requires-python = ">=3.11"` per `pyproject.toml`, so no
-     version blocker). `to_dataframe()`'s own uniform-`save_interval`
-     precondition check (point 3 above) becomes the first real caller:
-
-     ```python
-     match self.get_save_interval():
-         case UniformSaveInterval(interval):
-             ...  # proceed
-         case NonUniformSaveInterval(intervals):
-             raise ConfigError(f"non-uniform save_interval: {sorted(intervals, key=str)}")
-     ```
-
-     Chad's plain-`frozenset`-return alternative (skip the two dataclasses,
-     just return `frozenset[int | None]` and let callers check
-     `len(x) == 1`) is the lower-ceremony option if this ends up being a
-     one-call-site need — flagged as the fallback, not the recommendation,
-     since the tagged-union version is the one that actually matches the
-     Rust design intent (self-documenting return type, a case caller can't
-     silently forget to handle) rather than relying on every caller
-     remembering the `len() == 1` convention. Pick whichever before
-     implementing `to_dataframe()`, not after — this getter is a
-     prerequisite for it, not a follow-on.
-  4. `economic` has no per-timestep `history` at all — it's computed once in
-     `finalize()` (see [[project_pymoo_economic_resume_state]]), so its
-     fields are all scalars. Exclude `economic.*` from the flattened
-     time-series columns entirely (there's nothing to align it to
-     row-per-timestep with); if a combined view is wanted later, that's a
-     second, separate one-row dataframe/dict, not mixed into this one.
-  5. No time/index column exists implicitly. `to_dataframe()` should
-     prepend an explicit index column (row `i` → calendar timestep
-     `i * save_interval`, then `* dt_years` if a years-since-start column
-     is wanted) rather than leaving rows positionally implicit.
-  6. `pandas`/`polars` are both already base dependencies (`pyproject.toml`)
-     — no new dependency decision is needed; supporting both via a
-     `backend` parameter is a preference call, not a dependency question.
-
-  **Proposed signature**: `Workflow.to_dataframe(backend: Literal["pandas",
-  "polars"] = "pandas") -> pd.DataFrame | pl.DataFrame`, implemented as a
-  method on `Workflow` (not on individual components — the hierarchy being
-  flattened is the whole workflow's `to_dict()` tree, not any one
-  component's).
 
 - **DONE 2026-08 — `mark_all_stale()` cascaded from the orchestrator, not
   called by each component locally.** Previously every component's
@@ -1809,39 +2043,15 @@ reasoning doesn't have to be re-derived next session.
   the pre-existing `print_datetime()` in `src/tango/utils.py`) to the start
   of every orchestrator's `__main__` block, so SLURM job logs show actual
   run-start wall-clock time (queue wait time isn't otherwise visible in the
-  log).
-  Of the three open design questions from the original discussion, only the
-  first was actually resolved by this pass; the other two are still open
-  and deliberately deferred, not silently dropped:
-  1. **RESOLVED — `outputs/results` is tracked as a whole DVC `out`
-     directory in every app**, matching the DF precedent, for consistency
-     across all 7 apps. Simpler than a two-tier (aggregate-only +
-     per-design-scratch) scheme, at the cost of slower `dvc repro`/`dvc
-     status` on the larger grid sweeps (AGS direct-heat's 12,870-design
-     grid) — acceptable for now, revisit if that becomes a real bottleneck.
-  2. **STILL OPEN — `src/tango_next` isn't tracked as a dependency, and that matters more
-     here than it did for old tango.** The DF app's `dvc.yaml` has a comment
-     explicitly waving this off as "burdensome to hash" — a reasonable
-     tradeoff for old tango, which is stable. `tango_next` is not: this
-     week alone, `LumpedReservoir.solve()` and `GraphSurface.init()` both
-     changed in ways that silently change sweep output for anything using
-     them (see "Resolved Design Decisions"/this file's AGS sweep parity
-     section above). Without `src/tango_next` as a dependency, DVC can't
-     catch an engine-level regression the way a pipeline like this is
-     supposed to. Consider a lighter-weight proxy (a params entry pinning
-     the current git commit hash of `src/tango_next`, or depending on just
-     the specific subpackages actually touched — `components/`,
-     `orchestrators/`, `workflows/`) rather than either ignoring it
-     (matches old tango's tradeoff, but riskier here) or hashing the whole
-     tree every run.
-  3. **STILL OPEN — no standardized metrics output across the three completed ports yet.**
-     The double-flash port's `summarize.py` writes a real `summary.yaml`
-     (mean/std/percentiles) DVC could track as a `metrics:` output; the
-     AGS/EGS direct-heat ports only print pivot tables and write CSVs — no
-     single YAML/JSON summary to diff across commits. Decide whether all
-     three (four, eventually) should get a consistent small metrics file
-     (success/fail counts, thermal-power percentiles, count meeting the
-     105 degC threshold, etc.) before wiring in `dvc metrics diff`.
+  log). One of the three open design questions from the original discussion
+  was resolved by this pass — **RESOLVED — `outputs/results` is tracked as a
+  whole DVC `out` directory in every app**, matching the DF precedent, for
+  consistency across all 7 apps. Simpler than a two-tier (aggregate-only +
+  per-design-scratch) scheme, at the cost of slower `dvc repro`/`dvc
+  status` on the larger grid sweeps (AGS direct-heat's 12,870-design
+  grid) — acceptable for now, revisit if that becomes a real bottleneck.
+  The other two design questions are still open and deliberately
+  deferred, not silently dropped — see the Backlog section above.
 - **DONE 2026-07-30 — thorough review of how subsurface and surface
   components are told what fluid is being passed around, both risks
   confirmed real and fixed.** Flagged earlier the same day as a quick pass;
@@ -1919,78 +2129,14 @@ reasoning doesn't have to be re-derived next session.
   composition support, or a typed `Fluid` object beyond the existing bare
   `Common.fluid_name` string — neither risk above needed it, and adding it
   now would be speculative.
-- **IN PROGRESS (~halfway, as of 2026-07-31) — Line-by-line debugger
-  walkthrough of one `tango_next` single-simulation case.** Originally scoped
-  against `examples/tango_next/flexible_SF_manual.yml` (the original
-  reference example used throughout tango_next's design/porting work —
-  simplest well-understood topology); in practice picked up against
-  `hydro_df_electric` instead, using
-  `docs/diagrams/src/tango_next/hydro_df_electric_exec_flow.drawio`
-  as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
-  node and added the previously-missing `Workflow.__init__` entry node).
-  Goal: step through the full execution flow (`Workflow` →
-  `Orchestrator`/`SystemBCIteration` → component `solve()` calls) with a
-  real debugger for one config, to build or verify a concrete mental model
-  of the current call graph. Chad did roughly half of the walkthrough
-  himself — needs to be picked back up and finished, not restarted.
-  **CAUTION (2026-08): the diagram's T-convergence/BC-iteration section is
-  now stale** — `SystemBCIteration._converge_injection_T` was rewritten
-  (reservoir no longer frozen/skipped during the inner loop; the old
-  `t_d_old_saved`/`energy_before`/"Pass 2" mechanism replaced by a generic
-  `Component.snapshot_convergence_state()`/`restore_convergence_state()`
-  used uniformly by every component). A prominent warning box was added to
-  the `.drawio` file marking exactly which nodes are affected, and a fresh
-  annotated diagram of the *new* mechanism was published separately
-  (see this session's artifact link in the `.drawio` warning box).
-  **TODO, blocking further walkthrough progress: re-trace the
-  T-convergence/BC-iteration section of
-  `hydro_df_electric_exec_flow.drawio` against the current
-  `_converge_injection_T` (snapshot/restore, reservoir included, no more
-  Pass 2) before continuing the debugger walkthrough past that point** —
-  don't debug against the old nodes as if they still match
-  `system_bc_iteration.py`.
-- **Holistic repo-wide consistency/cruft review** — flagged 2026-07-24, not
-  started. Chad wants a pass across the whole repo (not scoped to
-  `tango_next`) to flag anything "wacky or inconsistent," explicitly
-  including `examples/`/`applications/`/`tests/` that are overly
-  duplicative and could be consolidated. Candidates worth checking when
-  this starts (not yet verified, just things noticed in passing this
-  session): the four near-identical `applications/run_*_sweep/` directories
-  (`run_AGS_direct_heat_sweep`, `run_AGS_sweep`, `run_EGS_direct_heat_sweep`,
-  `run_flexible_DF_manual_sweep`) each carry their own
-  generate/sweep/summarize/plot scripts — worth checking how much is
-  copy-pasted vs. genuinely different per site/product; `src/tango/`
-  (old) vs. `src/tango_next/` (new) dual-maintenance surface generally.
-  This is a big, open-ended audit — scope it explicitly before starting
-  rather than diving in ad hoc.
-- LCOE/LCOH economic-component design work for `tango_next` — paused
-  2026-07-21 before reading any `src/tango/units/native/economic/*.py`
-  source. Relevant to AGS sweep work since old tango's sweep scripts both
-  read CAPEX/LCOE off `economic._results`.
-- Seasonal/variable heat-demand mechanism design (see vision doc's
-  "Seasonal heat-demand variation" section) — the real fix for task 1's
-  gap, not yet designed.
-- `tango_next` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
-  heat/power) — vision doc, Phase 3. AGS row is closest to complete once
-  this effort lands.
-- Broader old-tango example porting (58 confirmed-PASS + ~10
-  confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`) — vision doc,
-  Phase 3.
-- Profiling `tango_next` once it stabilizes — vision doc, Phase 3.
-- Speculative long-horizon architecture thinking (Modelica-family tooling,
-  e.g. Rumoca, as a possible eventual replacement foundation for TESPy's
-  causal-solve approach) — `docs/long_term_architecture_exploration.md`,
-  started 2026-07-24. Explicitly parked, not planned; not blocking
-  anything above.
-- **pymoo optimization API for `tango_next`** — see the vision doc's Phase 3
-  task list (2026-07-24). Not started.
 
-  **`src/tango/optimizerr.py` review (2026-07-24)** — read in full (1229
-  lines) before answering whether it's worth reusing. Verdict: the overall
-  shape (`Optimizer` → `BaseOptimizer` → `{SOOOptimizer, MOOOptimizer}`,
-  each defining a pymoo `Problem` and wiring `minimize()`) is a reasonable
-  scaffold — but the plumbing inside has real problems, not just style
-  complaints:
+- **`src/tango/optimizerr.py` review (2026-07-24), informing the now-built
+  `pymoo_api` (see Completed Tasks → From "Next session priorities" →
+  `pymoo_api` in good shape).** Read in full (1229 lines) before answering
+  whether it's worth reusing. Verdict: the overall shape (`Optimizer` →
+  `BaseOptimizer` → `{SOOOptimizer, MOOOptimizer}`, each defining a pymoo
+  `Problem` and wiring `minimize()`) is a reasonable scaffold — but the
+  plumbing inside has real problems, not just style complaints:
   - **`set_parameter()` (line 232) uses `exec(f"{param_path} = {value}")`,
     and `objective_func()` (line 134) uses `eval(target)`** to read/write
     arbitrary attribute paths built from string templates
@@ -2037,7 +2183,9 @@ reasoning doesn't have to be re-derived next session.
   no eval/exec, proper tests) rather than inventing a different selection
   method from scratch. Handling both SOO and MOO with a sensible dispatch
   on objective count, and supporting both integer and float variables,
-  is also reasonable scope to carry forward.
+  is also reasonable scope to carry forward. (Not yet confirmed whether
+  ASF/pseudo-weights selection was actually carried into `pymoo_api.py` —
+  check before assuming it's there.)
 
   **Bottom line**: not "garbage" outright — the architecture shape and
   the Pareto-selection math are worth keeping conceptually — but the
@@ -2045,54 +2193,14 @@ reasoning doesn't have to be re-derived next session.
   problem to leave behind entirely, not a style nitpick. Plain `Callable`
   functions operating on a dict is the actual pattern to follow instead.
 
-- **Per-swept-variable scatter plots for every pareto set and brute-force
-  sweep.** Flagged 2026-08-13.
-  **DONE for `opt_*` (2026-08-17):** every `opt_*` app now calls
+- **Per-swept-variable scatter plots — DONE for `opt_*` (2026-08-17).**
+  Flagged 2026-08-13. Every `opt_*` app now calls
   ``pymoo_api.plot_objective_vs_param_scatter`` (objective × parameter
   grid) and ``pymoo_api.plot_param_pair_vs_objective_scatter`` (parameter
   × parameter grid, colored by objective — a visual cross-correlation
   view) from its own ``main()``, writing `pareto_scatter_by_param.png`/
   `pareto_scatter_param_pairs.png`. Both are generic, shared helpers in
   `pymoo_api.py` (plain column-name lists in, no domain assumptions),
-  not duplicated per app.
-  **STILL OPEN — `run_*_sweep` apps.** Same idea, not started.
-  **LOW PRIORITY, ADD ALONGSIDE — statistical (not raw-scatter)
-  cross-correlation for sweep post-processing (flagged 2026-08-17).**
-  Chad's ask, prompted by ESTECO modeFRONTIER's analysis views: a
-  parameter-pair-vs-objective view that shows the STATISTICAL
-  relationship rather than a cloud of raw points (too much to take in
-  visually at a glance). Candidate techniques, roughly in order of
-  effort: (1) a correlation matrix/heatmap (Pearson or Spearman) across
-  every parameter/objective pair — cheap, but linear-only, won't catch a
-  genuine two-parameter interaction; (2) an ANOVA/regression effect
-  decomposition (`objective ~ p1 + p2 + ... + p1×p2 + ...`), interaction
-  terms plotted as a tornado/Pareto bar chart; (3) Sobol variance-based
-  sensitivity indices (first-order + second-order/interaction), the
-  statistically rigorous version of (2), needs either many samples or a
-  fitted surrogate; (4) a response-surface/partial-dependence contour
-  plot (fit a smooth surrogate over a parameter pair, draw filled
-  contours, no raw points shown) — visual but smoothed, closest match to
-  "not the actual data points."
-  **Important scoping note, already confirmed with Chad:** this
-  shouldn't run against an `opt_*` app's own Pareto-front output — a
-  Pareto front is a thin, non-representative slice of the design space
-  (in `opt_hydro_df_electric`'s current front, `mass_rate`/
-  `injection_pressure` barely vary at all), so any of the above run
-  against it would likely just report "no interaction" from lack of
-  variance to explain, not genuine physics. This wants the broader
-  `run_*_sweep` sweep data instead — which is also why this is filed as
-  an addition to the `run_*_sweep` half of this same item, not the
-  (already-done) `opt_*` half.
-
-- **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
-  (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
-  (`docs/diagrams/*.drawio`, e.g.
-  `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
-  walkthrough" item above) and the vision doc's own diagram set
-  (`docs/TANGO_vision_and_roadmap.md`, already migrated to `.drawio` for
-  Confluence — see `project_vision_doc_diagrams` memory) should be
-  reconciled against tango_next's CURRENT actual architecture/solve order
-  (e.g. `component_idx: 0` is now the injection well with the surface
-  solved last, not whatever an older diagram version assumed) before
-  relying on any of them for a walkthrough or onboarding. Revisit scope
-  when this is actually picked up.
+  not duplicated per app. The `run_*_sweep` half of this same ask, plus a
+  low-priority statistical-cross-correlation addendum, are still open —
+  see the Backlog section above.
