@@ -2,8 +2,15 @@
 
 ``NumericalWell`` replicates ``src/tango/units/native/well/base.py``'s
 ``WellUnitNative.process_stream()`` marching scheme: the wellbore is split
-into ``num_cells`` axial segments, and pressure + enthalpy are integrated
-cell-by-cell with real CoolProp fluid-property lookups at each step.
+into ``num_cells`` axial CELLS, bounded by ``num_cells + 1`` axial NODES
+(node 0 = inlet, node ``num_cells`` = outlet), and pressure + enthalpy are
+integrated node-by-node with real CoolProp fluid-property lookups at each
+step. Cells and nodes are NOT the same count, and mixing them up is an easy
+mistake to make in this file: geometry/material fields that describe one
+CELL (``cell_length``, ``T_r`` — see ``_compute_derived``'s docstring) have
+``num_cells`` entries; marched per-position quantities (``P``, ``h``,
+``T_f``, ``rho``, ``mu``, ``u`` in ``_march``, and the ``*_cells`` state/
+history fields below despite their name) have ``num_cells + 1`` entries.
 
 Governing equations (per cell):
 
@@ -109,6 +116,10 @@ class NumericalWellState(StateMethods):
     ``mark_all_stale()`` (inherited from ``StateMethods``) is called by the
     orchestrator (via ``Component.mark_all_stale()``) immediately before
     each ``solve()``.
+
+    The ``*_cells`` fields hold ``num_cells + 1`` values — one per axial
+    NODE, not one per cell (the name is inherited from ``src/tango``; see
+    module docstring's cells-vs-nodes note).
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
@@ -145,10 +156,11 @@ class NumericalWellHistory:
     """Per-timestep history of spatially-distributed well state.
 
     Shape: ``history.T_cells[timestep]`` is the full axial temperature
-    list for that timestep — one entry per timestep, each entry holds
-    the complete spatial list. One list field per ``NumericalWellState``
-    attribute (TANGO Commandment: every ``*State`` attribute must have an
-    analog in its ``*History`` class).
+    list for that timestep — one entry per timestep, each entry holding
+    ``num_cells + 1`` node values (see ``NumericalWellState``'s docstring).
+    One list field per ``NumericalWellState`` attribute (TANGO Commandment:
+    every ``*State`` attribute must have an analog in its ``*History``
+    class).
     """
 
     T_inlet: list[float] = field(default_factory=list)
@@ -253,7 +265,9 @@ class NumericalWell(WellComponent):
             cell (m) — used for friction and heat-loss geometry, deliberately
             *not* scaled by angle, since those depend on distance traveled.
             ``T_r`` is the rock temperature (K) at each cell's true vertical
-            depth, one value per cell — computed by projecting flow-path
+            depth — ``num_cells`` entries, ONE PER CELL (not per node —
+            ``_march`` uses ``T_r[i - 1]`` for marching step ``i``, i.e. the
+            cell that step falls within) — computed by projecting flow-path
             position onto true vertical depth (via ``cos(angle_from_vert_deg)``)
             before applying ``thermal_gradient`` (a per-vertical-meter
             quantity), so ``T_r`` tracks actual rock temperature rather than
@@ -294,17 +308,21 @@ class NumericalWell(WellComponent):
         commits a march's result to ``state``/``outlet``.
 
         Returns:
-            ``(P, h, T_f, rho, mu, u)`` — one value per cell, index 0 is the
-            starting state itself.
+            ``(P, h, T_f, rho, mu, u)`` — ``num_cells + 1`` entries each, one
+            value per axial NODE (not per cell — see module docstring).
+            Index 0 is the starting (inlet) state; index ``num_cells`` is
+            the outlet.
 
         """
         n = self.num_cells
-        P = np.zeros(n)
-        h = np.zeros(n)
-        T_f = np.zeros(n)
-        rho = np.zeros(n)
-        mu = np.zeros(n)
-        u = np.zeros(n)
+        # initialize nodes (two nodes for each cell, with each inner node being
+        # shared by two adjacent cells)
+        P = np.zeros(n + 1)
+        h = np.zeros(n + 1)
+        T_f = np.zeros(n + 1)
+        rho = np.zeros(n + 1)
+        mu = np.zeros(n + 1)
+        u = np.zeros(n + 1)
 
         inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
         P[0] = inlet_state.P
@@ -323,7 +341,7 @@ class NumericalWell(WellComponent):
         f_dir = -math.cos(math.radians(self.angle_from_vert_deg))
         T_r = np.asarray(self.T_r)
 
-        for i in range(1, n):
+        for i in range(1, n + 1):
             Re = reynolds_number(mdot, self.diameter, mu[i - 1])
             ff = compute_friction_factor(self.friction_model, Re, self.diameter, self.pipe_roughness)
             dP_loss = 0.5 * ff * dz * rho[i - 1] * u[i - 1] ** 2 / self.diameter

@@ -211,9 +211,11 @@ def test_numerical_well_cell_arrays_roundtrip() -> None:
 
     dump = well.model_dump()
 
-    # Serialized form: plain list, no wrapper
+    # Serialized form: plain list, no wrapper. num_cells + 1: one value per
+    # axial NODE (num_cells cells have num_cells + 1 node values), not one
+    # per cell.
     assert isinstance(dump["state"]["T_cells"], list)
-    assert len(dump["state"]["T_cells"]) == 10
+    assert len(dump["state"]["T_cells"]) == 11
 
     well2 = NumericalInjectionWell.from_dict(dump, skip_init=True)
 

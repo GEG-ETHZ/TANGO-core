@@ -449,19 +449,22 @@ def test_injection_well_pressure_increases_downward() -> None:
 
 def test_injection_well_spatial_history_shape() -> None:
     """After N_TSTEPS solves, history lists each have exactly N_TSTEPS entries
-    and each entry is a 1-D array of length num_cells (100).
+    and each entry is a 1-D array of length num_cells + 1 (101) — one value
+    per axial NODE (node 0 = inlet, node num_cells = outlet), not one per
+    cell (there are num_cells cells, but num_cells + 1 node values along
+    the well's axis).
     """
     wf = _run_tango_next(NEW_SF_MANUAL)
     well = _components(wf)["injection_well"]
     history = well.history
     assert history is not None, "history should be enabled by default (record_history=True)"
 
-    num_cells = well.num_cells
+    num_nodes = well.num_cells + 1
     for attr in ("T_cells", "P_cells", "h_cells", "rho_cells", "mu_cells", "u_cells"):
         entries = getattr(history, attr)
         assert len(entries) == N_TSTEPS, f"history.{attr} has {len(entries)} entries, expected {N_TSTEPS}"
         for t, arr in enumerate(entries):
-            assert len(arr) == num_cells, f"history.{attr}[{t}] len {len(arr)}, expected {num_cells}"
+            assert len(arr) == num_nodes, f"history.{attr}[{t}] len {len(arr)}, expected {num_nodes}"
 
 
 def test_injection_well_spatial_history_deepest_cell_hotter() -> None:

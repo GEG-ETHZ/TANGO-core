@@ -3,7 +3,7 @@
 Runs ``examples/tango_next/hydro_sf_electric.yml`` and generates four figures:
 
   1. Temperature vs axial position parameterized by timestep
-       - Injection well: full 100-cell spatial profile (NumericalInjectionWell)
+       - Injection well: full spatial profile (NumericalInjectionWell)
        - Production well: inlet/outlet only — lumped model, flat profile (Phase 2 TODO)
   2. Reservoir inlet and outlet temperature vs elapsed time
   3. Gross power, production-pump power, and net power vs time
@@ -87,15 +87,17 @@ def extract_data(wf: Workflow) -> dict:
     years = np.arange(n_tsteps) * dt_years
 
     # ------------------------------------------------------------------ wells
-    # Injection well: 100-cell spatial profiles, shape (n_tsteps, num_cells)
-    inj_depth_m = np.linspace(0.0, inj.well_length, inj.num_cells)
+    # Injection well: spatial profiles, shape (n_tsteps, num_cells + 1) --
+    # one value per axial NODE (node 0 = inlet, node num_cells = outlet),
+    # not one per cell.
+    inj_depth_m = np.linspace(0.0, inj.well_length, inj.num_cells + 1)
     T_inj = np.array(inj.history.T_cells)  # K
     P_inj = np.array(inj.history.P_cells)  # Pa
 
     # Production well lower: NumericalProductionWell — full spatial profile.
     # Depth axis runs from bottom (reservoir end) to surface end of lower segment.
-    prod_depth_m = np.linspace(prod_lower.well_length, 0.0, prod_lower.num_cells)
-    T_prod_lower = np.array(prod_lower.history.T_cells)  # K, shape (n_tsteps, num_cells)
+    prod_depth_m = np.linspace(prod_lower.well_length, 0.0, prod_lower.num_cells + 1)
+    T_prod_lower = np.array(prod_lower.history.T_cells)  # K, shape (n_tsteps, num_cells + 1)
 
     # ------------------------------------------------------------ reservoir
     res_T_in = np.array(res.history.T_inlet)  # K — from injection well BH
@@ -178,7 +180,7 @@ def fig1_well_temperature_profiles(d: dict, save_path: Path | None = None) -> No
     fig.colorbar(sm, ax=ax, label="Timestep index")
     ax.set_xlabel("Depth below surface (km)")
     ax.set_ylabel("Fluid temperature (°C)")
-    ax.set_title("Injection well\n(NumericalInjectionWell — 100 cells, CoolProp)")
+    ax.set_title("Injection well\n(NumericalInjectionWell — CoolProp)")
     ax.grid(True, alpha=0.3)
 
     # --- Production well lower (full spatial profile) ---
@@ -194,7 +196,7 @@ def fig1_well_temperature_profiles(d: dict, save_path: Path | None = None) -> No
     ax.invert_xaxis()  # flow direction: left = reservoir inlet (deep), right = wellhead (surface)
     ax.set_xlabel("Depth below surface (km)  [left = inlet, right = outlet]")
     ax.set_ylabel("Fluid temperature (°C)")
-    ax.set_title("Production well (lower segment)\n(NumericalProductionWell — 100 cells, CoolProp)")
+    ax.set_title("Production well (lower segment)\n(NumericalProductionWell — CoolProp)")
     ax.grid(True, alpha=0.3)
 
     fig.tight_layout()

@@ -148,14 +148,17 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
         # CAPEX_surface_plant/CAPEX_total/LCOE re-measured (2026-09-15) -- FluidState
         # switched to the BICUBIC-tabulated HEOS backend for speed; interpolation
         # error is ~1e-5 relative, below any physical significance.
+        # Re-measured again (2026-09-15): NumericalWell now marches num_cells
+        # cells bounded by num_cells + 1 nodes, spanning the well's full
+        # declared length -- see that class's module docstring.
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 6355232.044129321,
-            "CAPEX_total": 46183514.918422535,
-            "LCOE": 0.8214927768923395,
+            "CAPEX_surface_plant": 6356374.5480408855,
+            "CAPEX_total": 46184657.422334105,
+            "LCOE": 0.8202924495751981,
         },
     ),
     EconomicParityCase(
@@ -191,14 +194,17 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
         # Re-measured again (2026-09-15): FluidState switched to the
         # BICUBIC-tabulated HEOS backend for speed; interpolation error is
         # ~1e-5 relative, below any physical significance.
+        # Re-measured again (2026-09-15): NumericalWell now marches num_cells
+        # cells bounded by num_cells + 1 nodes, spanning the well's full
+        # declared length -- see that class's module docstring.
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 7826060.927006644,
-            "CAPEX_total": 47654343.80129986,
-            "LCOE": 0.6311339631497959,
+            "CAPEX_surface_plant": 7827397.221719528,
+            "CAPEX_total": 47655680.09601274,
+            "LCOE": 0.6303952942501404,
         },
     ),
 ]
