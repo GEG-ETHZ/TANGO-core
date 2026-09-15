@@ -8,6 +8,14 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **Added 2026-09-15**: make sure that all systems, even hydrothermal systems,
+  can operate without a production well pump (Larderello is a dry steam system
+  and requires no pump at all!  However, since the late 1970's they've been
+  reinjecting)
+- **Added 2026-09-15**: make sure that we can handle non-condensable gases,
+  which can make up several percent of the subsurface fluids in hydrothermal
+  systems (Larderello as precedent)
+
 - **Added 2026-09-11**
   make sure that there are examples/tutorials/demos (ask Claude about a good way to expose this) that show off how TANGO can be used to assess:
   - how binary (e.g. ORC) and single fluid systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
