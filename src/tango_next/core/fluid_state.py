@@ -19,12 +19,12 @@ from tango_next.core.errors import CoolPropError
 
 
 class FluidState:
-    """Wraps a CoolProp ``AbstractState`` (HEOS backend) for one fluid."""
+    """Wraps a CoolProp ``AbstractState`` (BICUBIC-tabulated HEOS backend) for one fluid."""
 
     def __init__(self, fluid_name: str) -> None:
         """Construct an uninitialized state for ``fluid_name``; call an update_*/with_* method next."""
         self.fluid_name = fluid_name
-        self._state = CoolProp.AbstractState("HEOS", fluid_name)
+        self._state = CoolProp.AbstractState("BICUBIC&HEOS", fluid_name)
 
     @staticmethod
     def with_PT(fluid_name: str, P: float, T: float) -> FluidState:
