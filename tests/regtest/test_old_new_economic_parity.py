@@ -151,14 +151,19 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
         # Re-measured again (2026-09-15): NumericalWell now marches num_cells
         # cells bounded by num_cells + 1 nodes, spanning the well's full
         # declared length -- see that class's module docstring.
+        # Re-measured again (2026-09-15): num_cells is no longer a flat 100
+        # in this config -- it's now derived per well from TARGET_CELL_LENGTH_M
+        # (see that constant's docstring in numerical.py), giving 20 for the
+        # 5000m/4000m wells here. Discretization error moves CAPEX_surface_plant
+        # by ~6e-6 relative, below any physical significance.
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 6356374.5480408855,
-            "CAPEX_total": 46184657.422334105,
-            "LCOE": 0.8202924495751981,
+            "CAPEX_surface_plant": 6356413.6217764,
+            "CAPEX_total": 46184696.49606962,
+            "LCOE": 0.8214307160280896,
         },
     ),
     EconomicParityCase(
@@ -197,14 +202,20 @@ ECONOMIC_PARITY_CASES: list[EconomicParityCase] = [
         # Re-measured again (2026-09-15): NumericalWell now marches num_cells
         # cells bounded by num_cells + 1 nodes, spanning the well's full
         # declared length -- see that class's module docstring.
+        # Re-measured again (2026-09-15): num_cells is no longer a flat 100
+        # in this config -- it's now derived per well from TARGET_CELL_LENGTH_M
+        # (see that constant's docstring in numerical.py), giving 20 for the
+        # 5000m/4000m wells and 10 for the 1000m well here. Discretization
+        # error moves CAPEX_surface_plant by ~6e-6 relative, below any
+        # physical significance.
         golden={
             "CAPEX_well": 36506133.65678038,
             "CAPEX_permitting": 1478867.3190221873,
             "CAPEX_exploration": 881721.0698689962,
             "CAPEX_surface_pipes": 961560.8286216573,
-            "CAPEX_surface_plant": 7827397.221719528,
-            "CAPEX_total": 47655680.09601274,
-            "LCOE": 0.6303952942501404,
+            "CAPEX_surface_plant": 7827442.834975991,
+            "CAPEX_total": 47655725.70926921,
+            "LCOE": 0.6310448219071809,
         },
     ),
 ]

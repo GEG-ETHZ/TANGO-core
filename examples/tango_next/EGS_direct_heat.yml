@@ -76,7 +76,6 @@ components:
     well_length: 3000.0        # m — reservoir depth; updated per depth in sweep
     diameter: 0.311             # m  (~12-inch casing, typical for EGS)
     pipe_roughness: 5.5e-5      # m
-    num_cells: 100
 
   reservoir:
     type: reservoir
@@ -101,7 +100,6 @@ components:
     well_length: 2400.0         # m = 0.8 x reservoir_depth — updated per depth in sweep
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    num_cells: 100
     wellhead_depth: 600.0        # m — matches production_well_upper's well_length below
 
   production_well_upper:
@@ -113,7 +111,6 @@ components:
     well_length: 600.0          # m = 0.2 x reservoir_depth — updated per depth in sweep
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    num_cells: 100
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure below (see that field's
     # docstring in core/specs.py for the duplicated-value bug this fixed).

@@ -92,7 +92,6 @@ components:
     well_length: 3000.0        # m — vertical well depth
     diameter: 0.311             # m  (~12-inch casing)
     pipe_roughness: 5.5e-5      # m
-    num_cells: 100
 
   horizontal_well:
     type: horizontal_well
@@ -103,7 +102,6 @@ components:
     well_length: 707.0          # m — horizontal loop flow-path length
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    num_cells: 100
     wellhead_depth: 3000.0       # m — starting (vertical) depth, matches injection_well's well_length
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
 
@@ -116,7 +114,6 @@ components:
     well_length: 3000.0         # m — vertical well depth
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    num_cells: 100
 
   surface:
     type: surface

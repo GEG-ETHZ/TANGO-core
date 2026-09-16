@@ -134,7 +134,6 @@ components:
     well_length: 5000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
 
   reservoir:
     type: reservoir
@@ -161,7 +160,6 @@ components:
     well_length: 4000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
     wellhead_depth: 1000.0    # m — matches src/tango/ which sets wellhead_depth = pump_well_length (production_well_pump.well_length)
 
   production_well_upper:
@@ -173,7 +171,6 @@ components:
     well_length: 1000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution — matches src/tango/'s WellSpecsNative default
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above (see that field's
     # docstring in core/specs.py for the duplicated-value bug this fixed).

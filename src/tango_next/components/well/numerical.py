@@ -63,9 +63,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from tango_next.components.well.base import WellComponent
 from tango_next.core.constants import YEAR_TO_SECOND
@@ -203,6 +204,27 @@ NumericalProductionWellHistory = NumericalWellHistory
 # NumericalWell
 # ---------------------------------------------------------------------------
 
+TARGET_CELL_LENGTH_M = 250.0
+"""Axial resolution (m) that ``NumericalWell.num_cells`` is derived from when
+not given explicitly, via ``ceil(well_length / TARGET_CELL_LENGTH_M / 10) * 10``.
+
+Holding ``cell_length`` (not ``num_cells``) constant across wells of
+different lengths is the right invariant: discretization error is a function
+of cell_length, so a short well and a long well resolved to the SAME
+cell_length carry the same accuracy, whereas giving every well the same flat
+``num_cells`` under-resolves long wells and over-resolves short ones.
+
+250 m comes from a mesh-convergence sweep (see
+``applications/tango_next/demo_well_mesh_convergence/``) that found
+``num_cells=15`` the smallest value keeping delivered production
+temperature within 0.1% relative error of a ``num_cells=100`` baseline, on a
+5000 m well -- rounded up to the nearest 10 (``num_cells=20``) gives
+``5000 / 20 = 250`` m/cell. Rounding to the nearest 10 (rather than using
+the raw cell count) keeps ``num_cells`` values tidy across configs without
+meaningfully changing accuracy, since the error margin at 15 cells already
+has headroom under the 0.1% target.
+"""
+
 
 class NumericalWell(WellComponent):
     """Discretized wellbore: one marching scheme for injection, production,
@@ -225,11 +247,33 @@ class NumericalWell(WellComponent):
     come from and no way for this well to silently diverge from the
     reservoir or any other well. See core/specs.py."""
     dt_years: float = Field(frozen=True)
-    num_cells: int = Field(default=100, frozen=True)
+    num_cells: int = Field(frozen=True)
+    """Axial discretization cell count. Left unset in YAML, it is derived
+    from ``well_length`` by the ``_default_num_cells`` validator below to
+    match ``TARGET_CELL_LENGTH_M`` per cell, rounded up to the nearest 10 --
+    see that constant's docstring for the rationale. Set explicitly only to
+    override that default, e.g. for a mesh-convergence sweep
+    (``applications/tango_next/demo_well_mesh_convergence/``)."""
     wellhead_depth: float = Field(default=0.0, frozen=True)
     gravity_scale_factor: float = Field(default=1.0, frozen=True)
     friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
     heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ADAMS_2015, frozen=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_num_cells(cls, data: Any) -> Any:
+        """Fill in ``num_cells`` from ``well_length`` when not given explicitly.
+
+        Runs before field validation, so ``num_cells`` still comes out a
+        required, frozen ``int`` field -- this only supplies the value when
+        the YAML config (or caller) omits it. See ``TARGET_CELL_LENGTH_M``'s
+        docstring for why matching cell_length (not num_cells) across wells
+        is the right invariant to hold.
+        """
+        if isinstance(data, dict) and data.get("num_cells") is None:
+            cells_needed = math.ceil(data["well_length"] / TARGET_CELL_LENGTH_M)
+            data["num_cells"] = math.ceil(cells_needed / 10) * 10
+        return data
 
     # ---- Derived quantities (computed by init(), serialized for save/restore) ----
     # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
