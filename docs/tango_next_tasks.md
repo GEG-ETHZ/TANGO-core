@@ -717,6 +717,26 @@ reasoning doesn't have to be re-derived next session.
   an addition to the `run_*_sweep` half of this same item, not the
   (already-done) `opt_*` half.
 
+- **LOW PRIORITY, NO URGENCY — make economic calculations modular at the
+  component level.** Flagged 2026-09-16, not started. Today, all economic
+  logic (CAPEX/OPEX/LCOE, `DoubletEconomicComponent`,
+  `components/economic/doublet.py`, 760 lines) lives in one monolithic
+  economic component that reaches into the other components' state to
+  compute costs, rather than each component (well, surface, reservoir)
+  owning/contributing its own cost calculation the way it already owns its
+  own physics. Goal: push cost computation down to the component level
+  (e.g. a well computes its own drilling/casing CAPEX, a surface plant
+  computes its own equipment CAPEX) so the economic layer aggregates
+  already-computed contributions instead of being the one place that knows
+  about every component's cost model. Non-urgent — no immediate driver,
+  filed to avoid the monolithic economic component calcifying further as
+  more component types are added (see [[project_economic_model_wackiness]]
+  for known fragility in the current single-component design). Scope not
+  worked out yet — worth checking how `well_length_seq`/multi-segment
+  CAPEX (see "Open items — tracked, not scheduled" above) interacts with
+  this before starting, since both touch how well-level costing is
+  structured.
+
 - **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
   (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
   (`docs/diagrams/*.drawio`, e.g.
