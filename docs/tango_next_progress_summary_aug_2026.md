@@ -490,6 +490,56 @@ circulation pump is accounted for) — now scoped to only fire when a real
 generator is actually present. Full technical writeup, including the
 exact numbers and code paths: `docs/bugs-fixed-in-tango-next.md`.
 
+## Built a surrogate-model-accelerated optimizer — 10x faster, but not yet trustworthy on its own (2026-08-19)
+
+Running our real multi-objective optimizer end-to-end is slow, because
+every candidate design it evaluates is a full physics simulation. We built
+an alternative pipeline that instead runs a modest number of real
+simulations up front, trains a fast statistical stand-in (a "surrogate")
+to predict each design's outputs from its inputs, and runs the
+computationally expensive search against that fast stand-in instead —
+only falling back to the real simulation to validate whatever the search
+comes up with at the end.
+
+**The speed win is real and confirmed on a real cluster run, not just in
+theory:** the full surrogate-based pipeline completed in about 29 minutes
+versus roughly 5.3 hours for the equivalent real-simulation-only search —
+close to 10x faster end to end, on a genuine 2000-design Euler run, not a
+toy example. The part of the surrogate pipeline that had to do the most
+work was actually still the "collect real training data" step, not the
+search itself, which came almost for free once the surrogate was trained.
+
+**One specific improvement worked exactly as intended: a separate check
+that filters out designs the surrogate would have wrongly called valid.**
+Before adding it, only about a quarter of the tradeoff designs the
+surrogate-based search returned actually held up as real, physically valid
+designs once checked against the real simulation. After adding it, 100% of
+returned designs check out as genuinely valid — confirmed against real
+simulation, not just self-reported by the surrogate.
+
+**But the headline result isn't usable as-is yet, and we said so plainly
+rather than reporting the encouraging numbers alone.** Once we re-checked
+the returned tradeoff set using each design's real (not
+surrogate-predicted) outputs, a set that looked like 41 distinct,
+attractive tradeoff options collapsed down to just 3 genuinely different
+designs — the rest were near-duplicates that only looked distinct because
+of small, systematic errors in the surrogate's predictions. The 3 designs
+that survived also only covered a narrow slice of the real tradeoff range
+found by the slower, real-simulation-only search — an entire higher-cost,
+higher-output region of the tradeoff curve was missing. Our working
+explanation, not yet confirmed: the specific statistical model we used
+first tends to produce predictions that are flat across small ranges of
+input rather than smoothly varying, which can fool the search into
+thinking it's found many distinct good designs within one of those flat
+patches when it's really just found tiny, meaningless variations on one
+design.
+
+**Decision, made deliberately rather than pushing ahead:** paused here to
+try a smoother statistical model first (see below for how that played
+out), rather than accepting a result we already knew wasn't trustworthy.
+Continued into September — see
+`docs/tango_next_progress_summary_sep_2026.md`.
+
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see

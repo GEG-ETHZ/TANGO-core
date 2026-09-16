@@ -162,68 +162,19 @@ Top of the queue for the next session, in order:
 `system_name()`/no-time-marching bug (see "Open items — tracked, not
 scheduled" below) — old tango is not being patched.
 
-## Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open 2026-08-19
+## Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap
 
-Built `tango_next.surrogate_api` + `applications/tango_next/opt_hydro_df_electric_surrogate/`
-(LHS sample → real-sim sweep → train a `RandomForestRegressor` per
-objective + a `RandomForestClassifier` feasibility gate → NSGA2 against
-the surrogate → real-sim validation of the result). Confirmed on a real
-2000-sample Euler run:
-
-- **Speed: ~10x faster end to end** (whole pipeline ≈1763s vs. the real
-  `opt_hydro_df_electric` run's 19,116s) — the surrogate-driven NSGA2
-  step itself is negligible; most of the pipeline's own time is the LHS
-  real-sim sweep (~330s) and the constrained NSGA2 search (~1365s at
-  `n_ieq_constr=1`, elementwise evaluation — see gap below).
-- **Feasibility classifier worked as intended**: 100% of the returned
-  pareto designs are real-feasible now (up from 26%, i.e. 11/43, before
-  the classifier gate was added) — CV accuracy 97.6%, recall on
-  infeasible designs 98%.
-- **But the result is not yet usable as-is.** Re-deriving genuine
-  non-domination from the REAL (not predicted) objective values
-  (`surrogate_api.corrected_pareto_front`) collapses the returned
-  41-design front down to only **3** genuinely non-dominated designs —
-  the other 38 are near-duplicates that only *looked* distinct under the
-  surrogate's ~1-3% prediction noise. That surviving 3-design front also
-  only spans a narrow low-LCOE corner (LCOE 0.3496–0.3498, power
-  4591–4599 kW) vs. the real optimization's much broader 45-design front
-  (LCOE 0.3463–0.4622, power 4691–4865 kW) — the higher-LCOE/higher-power
-  half of the real tradeoff curve is missing entirely.
-- **Working theory** (not confirmed): `RandomForestRegressor` predictions
-  are piecewise-constant (flat per-leaf plateaus). NSGA2 can converge a
-  whole population onto tiny variations within one lucky plateau, which
-  looks like many distinct non-dominated tradeoffs to the surrogate but
-  collapses once real values disambiguate them — and starves exploration
-  of parts of the space with thinner training-data signal (only 926/2000
-  LHS samples were feasible).
-
-**Next steps, Chad's stated order (2026-08-19, prioritized this way
-deliberately — do not reorder without checking with him):**
-
-1. **Switch to a smooth predictor** instead of `RandomForestRegressor`
-   (top candidate discussed: Gaussian Process Regression — standard
-   choice for few decision variables + expensive real evaluations, and
-   gives a native per-prediction uncertainty that could replace/augment
-   the separate classifier). Chad also floated plain scikit-learn
-   `DecisionTreeClassifier`/`DecisionTreeRegressor` (DTC/DTR) as an
-   option — flag before trying: a single decision tree's plateaus are
-   LARGER/coarser than a random forest's (a forest is an average over
-   many trees, which already smooths the staircase somewhat), so DTC/DTR
-   would likely make the plateau-collapse problem WORSE, not better, on
-   the smoothness dimension specifically — worth confirming/refuting
-   empirically rather than assuming, but that's the a priori expectation.
-2. **Bump `n_lhs_samples` from 2000 to 5000** — cheap on Euler (~15-40 min
-   given 45 workers), improves regressor/classifier resolution
-   everywhere, especially the sparser higher-LCOE/power corner.
-3. **Only if 1+2 don't work well: an active-learning loop** (retrain the
-   surrogate on `validate_surrogate`'s real-evaluated designs each round,
-   re-optimize, repeat a few times). Chad's explicit call: this is
-   deprioritized — "overly complicated and risks giving away performance
-   benefit" (each round adds a full real-sim validation pass, eating into
-   the ~10x speedup) — don't reach for it first.
-
-Status: paused here (Chad's call, 2026-08-19) — picking back up next
-session, not mid-fix.
+See **Completed Tasks → From "Surrogate-assisted optimization
+(`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open
+2026-08-19"** for the full investigation and its resolution
+(2026-08-31–09-01): switching the regressor from `RandomForestRegressor`
+to Gaussian Process Regression, then to a small MLP, fixed the
+pareto-edge accuracy problem well enough to trust — MLP is now the
+default (12/45 predicted-pareto designs survive real-sim correction, up
+from 3/43 under the original `RandomForestRegressor`). The one item from
+that investigation NOT yet acted on — an active-learning loop, Chad's
+explicit call to deprioritize — remains deliberately deferred; see
+**Backlog** if it's picked up later.
 
 ## Open items — tracked, not scheduled
 
@@ -969,6 +920,98 @@ detailed working record, just filed separately.
   `AUTO_*` policies are intentionally NOT wired in (Picard/BC-iteration
   convergence loops don't mix safely with an external optimizer driving
   the same state); do not treat this as a gap to fill.
+
+## From "Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open 2026-08-19"
+
+Built `tango_next.surrogate_api` + `applications/tango_next/opt_hydro_df_electric_surrogate/`
+(LHS sample → real-sim sweep → train a `RandomForestRegressor` per
+objective + a `RandomForestClassifier` feasibility gate → NSGA2 against
+the surrogate → real-sim validation of the result). Confirmed on a real
+2000-sample Euler run:
+
+- **Speed: ~10x faster end to end** (whole pipeline ≈1763s vs. the real
+  `opt_hydro_df_electric` run's 19,116s) — the surrogate-driven NSGA2
+  step itself is negligible; most of the pipeline's own time is the LHS
+  real-sim sweep (~330s) and the constrained NSGA2 search (~1365s at
+  `n_ieq_constr=1`, elementwise evaluation — see gap below).
+- **Feasibility classifier worked as intended**: 100% of the returned
+  pareto designs are real-feasible now (up from 26%, i.e. 11/43, before
+  the classifier gate was added) — CV accuracy 97.6%, recall on
+  infeasible designs 98%.
+- **But the result is not yet usable as-is.** Re-deriving genuine
+  non-domination from the REAL (not predicted) objective values
+  (`surrogate_api.corrected_pareto_front`) collapses the returned
+  41-design front down to only **3** genuinely non-dominated designs —
+  the other 38 are near-duplicates that only *looked* distinct under the
+  surrogate's ~1-3% prediction noise. That surviving 3-design front also
+  only spans a narrow low-LCOE corner (LCOE 0.3496–0.3498, power
+  4591–4599 kW) vs. the real optimization's much broader 45-design front
+  (LCOE 0.3463–0.4622, power 4691–4865 kW) — the higher-LCOE/higher-power
+  half of the real tradeoff curve is missing entirely.
+- **Working theory** (not confirmed): `RandomForestRegressor` predictions
+  are piecewise-constant (flat per-leaf plateaus). NSGA2 can converge a
+  whole population onto tiny variations within one lucky plateau, which
+  looks like many distinct non-dominated tradeoffs to the surrogate but
+  collapses once real values disambiguate them — and starves exploration
+  of parts of the space with thinner training-data signal (only 926/2000
+  LHS samples were feasible).
+
+**Next steps, Chad's stated order (2026-08-19, prioritized this way
+deliberately — do not reorder without checking with him):**
+
+1. **Switch to a smooth predictor** instead of `RandomForestRegressor`
+   (top candidate discussed: Gaussian Process Regression — standard
+   choice for few decision variables + expensive real evaluations, and
+   gives a native per-prediction uncertainty that could replace/augment
+   the separate classifier). Chad also floated plain scikit-learn
+   `DecisionTreeClassifier`/`DecisionTreeRegressor` (DTC/DTR) as an
+   option — flag before trying: a single decision tree's plateaus are
+   LARGER/coarser than a random forest's (a forest is an average over
+   many trees, which already smooths the staircase somewhat), so DTC/DTR
+   would likely make the plateau-collapse problem WORSE, not better, on
+   the smoothness dimension specifically — worth confirming/refuting
+   empirically rather than assuming, but that's the a priori expectation.
+2. **Bump `n_lhs_samples` from 2000 to 5000** — cheap on Euler (~15-40 min
+   given 45 workers), improves regressor/classifier resolution
+   everywhere, especially the sparser higher-LCOE/power corner.
+3. **Only if 1+2 don't work well: an active-learning loop** (retrain the
+   surrogate on `validate_surrogate`'s real-evaluated designs each round,
+   re-optimize, repeat a few times). Chad's explicit call: this is
+   deprioritized — "overly complicated and risks giving away performance
+   benefit" (each round adds a full real-sim validation pass, eating into
+   the ~10x speedup) — don't reach for it first.
+
+Status: paused here (Chad's call, 2026-08-19) — picking back up next
+session, not mid-fix.
+
+**RESOLVED 2026-08-31–09-01 — switched regressor, in the order above,
+until pareto-edge accuracy was good enough to trust.**
+
+- **Gaussian Process Regression (2026-08-31), item 1's top candidate:**
+  ran ~5.3x faster than the real-sim baseline with strong CV R² (0.9985
+  LCOE, 0.9954 power) — but NSGA2 exploited a region where its LCOE
+  predictions were off by up to 35%, and only 3 of 43 predicted-pareto
+  designs survived real-sim correction. Effectively the same failure mode
+  as the original `RandomForestRegressor`, just with better-looking CV
+  metrics — confirms the plateau/smoothness theory above wasn't the
+  whole story, or at least that GP's own smoothness wasn't sufficient on
+  its own.
+- **MLP (small neural network) (2026-09-01), tried after GP's miss:**
+  right-sized to `hidden_layer_sizes=(16, 16)` after an initial
+  `(64, 64)` attempt turned out to be tens of thousands of weights
+  against only a few thousand feasible LHS rows — a real overfitting
+  risk the original tuning guidance didn't reflect. Confirmed on a real
+  5000-sample Euler run (item 2, `n_lhs_samples` bumped to 5000, folded
+  into this same run rather than tried separately): MLP trained in ~15s
+  vs. GP's ~36 min, AND held up far better at the pareto edge (LCOE
+  relative error: median 1.4%/max 4.3%, vs. GP's median ~9.8%/max 35%),
+  leaving 12/45 predicted-pareto designs genuinely non-dominated after
+  real-sim correction vs. GP's 3/43.
+- **MLP is now the default regressor**; GP remains available as the
+  smooth-surface reference case, documented as such rather than as the
+  default. Item 3 (active-learning loop) was never reached — not needed
+  once MLP's numbers were good enough — and remains deliberately
+  deprioritized per Chad's original call, not restarted.
 
 ## From "Open items — tracked, not scheduled"
 
