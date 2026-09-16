@@ -8,9 +8,11 @@ stays satisfied here.
 
 Runs the manual baseline once, then searches well depth, horizontal loop
 length, horizontal loop diameter, vertical well diameter, injection
-pressure, and mass flow rate with NSGA2 to minimize LCOE and maximize mean
-net thermal power (``tango_next.pymoo_api.Minimization``), saving the
-pareto results/configs and parallel-coordinates plots.
+pressure, and mass flow rate with NSGA2 to minimize LCOE and minimize
+specific investment cost (``tango_next.pymoo_api.Minimization``), saving
+the pareto results/configs and parallel-coordinates plots. Mean net
+thermal power and production temperature are reporting-only read-outs,
+not active objectives — see ``_objective_specs``/``_report_specs``.
 
 Decision-variable bounds and physical meaning for depth/loop length/loop
 diameter/mass flow mirror the existing brute-force sweep
@@ -40,7 +42,7 @@ own local copies) — none are imported from ``pymoo_api.py``, which is
 deliberately generic and must not assume every system shares a param or
 objective just because these three currently do (see ``pymoo_api.py``'s
 own ``ParamSpec``/``ObjectiveSpec`` docstrings).
-``negative_mean_thermal_power_objective`` specifically exists because AGS
+``negative_mean_thermal_power_report`` specifically exists because AGS
 is a direct-heat topology (``role: net_thermal`` in the YAML), so its
 surface component's history has ``net_thermal_W``, not the electric
 ``net_power_W`` the other two scripts' ``negative_mean_power_objective`` reads.
@@ -265,19 +267,17 @@ def lcoe_objective() -> ObjectiveSpec:
 
 @dataclass
 class _SpecificInvestmentCostEvaluate:
-    """Picklable ``ObjectiveSpec.evaluate`` for ``specific_investment_cost_report`` — see ``_MassRateApply``."""
+    """Picklable ``ObjectiveSpec.evaluate`` for ``specific_investment_cost_objective`` — see ``_MassRateApply``."""
 
     def __call__(self, wf: Workflow) -> float:
         return float(wf.to_dict()["economic"]["state"]["specific_investment_cost"])
 
 
-def specific_investment_cost_report() -> ObjectiveSpec:
+def specific_investment_cost_objective() -> ObjectiveSpec:
     """Total investment cost per unit of (main-product) power ($/kW), from ``DoubletEconomicComponent``.
 
-    REPORTING only — pass via ``Minimization(report_specs=[...])``, NOT
-    ``objectives=`` (same reasoning as ``opex_report``'s docstring: one
-    fewer active NSGA2 objective, while still showing up in
-    ``pareto_results.csv``/the parallel-coordinates plot). See
+    An active NSGA2 objective — pass via ``Minimization(objectives=[...])``,
+    NOT ``report_specs=``. See
     ``DoubletEconomicComponent._compute_specific_investment_cost``'s
     docstring for the exact formula and its caveats (run-averaged, not
     nameplate, power) — for this app's ``main_product: heat`` config, the
@@ -300,20 +300,19 @@ def opex_report() -> ObjectiveSpec:
     REPORTING only — pass via ``Minimization(report_specs=[opex_report()])``,
     NOT ``objectives=``. OPEX should show up in ``pareto_results.csv``/the
     parallel-coordinates plot, but doesn't need to actively drive the
-    search — NSGA2 already has 3 real objectives
-    (LCOE, thermal power, production temperature); adding this (or
-    ``specific_investment_cost_report``, moved to report-only for the same
-    reason) would meaningfully dilute convergence for a value that already
-    correlates tightly with CAPEX (and so with specific investment cost)
-    — not clearly worth the added search-dimensionality
-    cost for a metric this redundant with what's already there.
+    search — NSGA2 already has 2 real objectives (LCOE, specific investment
+    cost); adding this would meaningfully dilute convergence for a value
+    that already correlates tightly with CAPEX (and so with specific
+    investment cost, itself an active objective) — not clearly worth the
+    added search-dimensionality cost for a metric this redundant with
+    what's already there.
     """
     return ObjectiveSpec(name="OPEX", evaluate=_OpexEvaluate())
 
 
 @dataclass
 class _NegativeMeanThermalPowerEvaluate:
-    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_mean_thermal_power_objective``."""
+    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_mean_thermal_power_report``."""
 
     surface_name: str = "surface"
 
@@ -325,11 +324,14 @@ class _NegativeMeanThermalPowerEvaluate:
         return -mean_w
 
 
-def negative_mean_thermal_power_objective(surface_name: str = "surface") -> ObjectiveSpec:
-    """``-`` mean net thermal power over the run (W) — minimizing this maximizes heat delivered.
+def negative_mean_thermal_power_report(surface_name: str = "surface") -> ObjectiveSpec:
+    """``-`` mean net thermal power over the run (W).
 
-    Mirrors ``pymoo_api.negative_mean_power_objective`` exactly, reading
-    ``history.net_thermal_W`` (direct-heat systems) instead of
+    REPORTING only — pass via ``Minimization(report_specs=[...])``, NOT
+    ``objectives=``. Still shown (negated back to a human-friendly sign by
+    ``DISPLAY_RENAME``) in ``pareto_results.csv``/the parallel-coordinates
+    plot. Mirrors ``pymoo_api.negative_mean_power_objective`` exactly,
+    reading ``history.net_thermal_W`` (direct-heat systems) instead of
     ``history.net_power_W`` (electric systems). See this module's own
     docstring for why this lives here rather than in ``pymoo_api.py``.
     """
@@ -396,7 +398,7 @@ def production_temperature_constraint(
 
 @dataclass
 class _NegativeProductionTemperatureEvaluate:
-    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_production_temperature_objective``."""
+    """Picklable ``ObjectiveSpec.evaluate`` for ``negative_production_temperature_report``."""
 
     well_name: str = "production_well"
 
@@ -404,13 +406,15 @@ class _NegativeProductionTemperatureEvaluate:
         return -_production_well_outlet_temperature_c(wf, self.well_name)
 
 
-def negative_production_temperature_objective(well_name: str = "production_well") -> ObjectiveSpec:
-    """``-`` final production-well outlet temperature (degC) — minimizing this maximizes T_prod.
+def negative_production_temperature_report(well_name: str = "production_well") -> ObjectiveSpec:
+    """``-`` final production-well outlet temperature (degC).
 
-    A genuine, continuous incentive to push temperature UP, complementing
-    (not replacing) ``production_temperature_constraint``'s hard floor —
-    among designs that already clear 105 degC, NSGA2 still has a reason to
-    prefer a hotter one over a merely-adequate one.
+    REPORTING only — pass via ``Minimization(report_specs=[...])``, NOT
+    ``objectives=``. Still shown (negated back to a human-friendly sign by
+    ``DISPLAY_RENAME``) in ``pareto_results.csv``/the parallel-coordinates
+    plot, alongside ``production_temperature_constraint``'s hard floor at
+    105 degC, which remains the only thing actively enforced during the
+    search.
     """
     return ObjectiveSpec(
         name="negative_production_temperature_C",
@@ -423,8 +427,8 @@ def negative_production_temperature_objective(well_name: str = "production_well"
 # than a second, independently-typed copy of that string, so a future rename
 # of an objective itself can't silently desync from this.
 DISPLAY_RENAME = {
-    negative_mean_thermal_power_objective().name: "mean_thermal_power_W",
-    negative_production_temperature_objective().name: "production_temperature_C",
+    negative_mean_thermal_power_report().name: "mean_thermal_power_W",
+    negative_production_temperature_report().name: "production_temperature_C",
 }
 
 # Full plot-axis display label for each column (parallel-coordinates plots)
@@ -452,9 +456,9 @@ COLUMN_LABELS = {
     "injection_pressure_Pa": "par:injection_pressure [Pa]",
     "mass_rate_kg_per_s": "par:mass_rate [kg/s]",
     "LCOE": "obj:LCOE [$/kWh]",
-    "mean_thermal_power_W": "obj:mean_thermal_power [W]",
-    "production_temperature_C": "obj:production_temperature [°C]",
-    "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
+    "mean_thermal_power_W": "rep:mean_thermal_power [W]",
+    "production_temperature_C": "rep:production_temperature [°C]",
+    "specific_investment_cost": "obj:specific_investment_cost [$/kW]",
     "OPEX": "rep:OPEX [$/yr]",
     "euclidean": "euclidean [z-score]",
 }
@@ -549,27 +553,27 @@ def _param_specs() -> list[ParamSpec]:
 
 
 def _objective_specs() -> list[ObjectiveSpec]:
-    """Objectives: minimize LCOE, maximize mean net thermal power, maximize
-    production-well outlet temperature — see ``_param_specs``' docstring
-    for why this is its own function. Specific investment cost and OPEX are
-    REPORTING only (see ``_report_specs``), not active objectives here.
+    """Objectives: minimize LCOE, minimize specific investment cost — see
+    ``_param_specs``' docstring for why this is its own function. Mean
+    thermal power, production temperature, and OPEX are REPORTING only
+    (see ``_report_specs``), not active objectives here.
     """
     return [
         lcoe_objective(),
-        negative_mean_thermal_power_objective(),
-        negative_production_temperature_objective(),
+        specific_investment_cost_objective(),
     ]
 
 
 def _report_specs() -> list[ObjectiveSpec]:
-    """Reporting-only read-outs: specific investment cost, OPEX — computed
-    once for the final pareto front, shown in ``pareto_results.csv``/the
-    parallel-coordinates plot, but not fed to NSGA2 as objectives (see
-    ``specific_investment_cost_report``/``opex_report``'s own docstrings
-    for why). See ``_param_specs``' docstring for why this is its own
-    function.
+    """Reporting-only read-outs: mean net thermal power, production-well
+    outlet temperature, OPEX — computed once for the final pareto front,
+    shown in ``pareto_results.csv``/the parallel-coordinates plot, but not
+    fed to NSGA2 as objectives (see ``negative_mean_thermal_power_report``/
+    ``negative_production_temperature_report``/``opex_report``'s own
+    docstrings for why). See ``_param_specs``' docstring for why this is
+    its own function.
     """
-    return [specific_investment_cost_report(), opex_report()]
+    return [negative_mean_thermal_power_report(), negative_production_temperature_report(), opex_report()]
 
 
 def _constraint_specs(
@@ -587,8 +591,8 @@ def run_optimization(
     args: argparse.Namespace,
 ) -> tuple[Result, pd.DataFrame, Minimization]:
     """Search depth + loop length + loop diameter + vertical well diameter +
-    injection pressure + mass flow rate to minimize LCOE / maximize mean
-    thermal power.
+    injection pressure + mass flow rate to minimize LCOE / minimize
+    specific investment cost.
 
     Args:
         base_wf: UNRUN template workflow — see ``build_baseline``'s docstring.
@@ -718,16 +722,18 @@ def plot_pareto_scatter(
 ) -> None:
     """2D scatter of LCOE vs. mean net thermal power, colored by production temperature.
 
-    This app has THREE active objectives (LCOE, thermal power,
-    production temperature — see ``_objective_specs``), but this plot can
-    only show two as (x, y). Without the third shown some other way, two
-    designs that trade off against the (invisible) third objective can
-    look like one flat-out beats the other on both LCOE and power — a
-    domination violation that isn't real, just an artifact of the
+    LCOE and specific investment cost are this app's only active
+    objectives (see ``_objective_specs``), but mean thermal power and
+    production temperature (both reporting-only, see ``_report_specs``)
+    are still the more physically meaningful axes for eyeballing the
+    front, so this plot uses those instead of the raw objective pair. Two
+    designs that trade off against the (invisible) third quantity shown
+    only via color can look like one flat-out beats the other on both
+    axes — a domination violation that isn't real, just an artifact of the
     projection: cheap+powerful designs in this front achieve that
     specifically by running closer to the production-temperature floor,
     while expensive+weak ones push temperature margin higher — a genuine
-    3-way trade-off, not a sign bug. Coloring by the third objective makes
+    trade-off, not a sign bug. Coloring by production temperature makes
     that trade-off visible instead of hiding it.
     """
     thermal_mw = df["mean_thermal_power_W"] / 1.0e6
