@@ -17,6 +17,13 @@ import CoolProp
 
 from tango_next.core.errors import CoolPropError
 
+COOLPROP_BACKEND = "BICUBIC&HEOS"
+"""CoolProp backend used for all tango_next fluid-property lookups: BICUBIC-
+tabulated HEOS, for speed over the raw HEOS backend. Anywhere else a fluid
+backend needs naming explicitly (e.g. TESPy's ``Connection.set_attr(fluid=...)``
+in ``components/surface/graph.py``) should reuse this constant rather than
+hardcoding the string, so the two never drift apart."""
+
 
 class FluidState:
     """Wraps a CoolProp ``AbstractState`` (BICUBIC-tabulated HEOS backend) for one fluid."""
@@ -24,7 +31,7 @@ class FluidState:
     def __init__(self, fluid_name: str) -> None:
         """Construct an uninitialized state for ``fluid_name``; call an update_*/with_* method next."""
         self.fluid_name = fluid_name
-        self._state = CoolProp.AbstractState("BICUBIC&HEOS", fluid_name)
+        self._state = CoolProp.AbstractState(COOLPROP_BACKEND, fluid_name)
 
     @staticmethod
     def with_PT(fluid_name: str, P: float, T: float) -> FluidState:

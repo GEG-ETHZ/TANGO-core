@@ -84,6 +84,7 @@ from tango_next.core.constants import (
     PA_TO_BAR,
 )
 from tango_next.core.errors import ConfigError, InvalidPowerStateError, TESPyCoolPropError
+from tango_next.core.fluid_state import COOLPROP_BACKEND
 from tango_next.core.fluid_utils import (
     fluid_density,
     fluid_viscosity,
@@ -728,7 +729,10 @@ class GraphSurface(SurfaceComponent):
         logic, it either succeeds outright or raises.
         """
         self._inlet_conn.set_attr(
-            fluid={self.common.fluid_name: 1},
+            # "BACKEND::fluid" is TESPy's own syntax for selecting a CoolProp
+            # backend (Connection._fluid_specification) -- COOLPROP_BACKEND
+            # keeps this in sync with FluidState's own CoolProp backend choice.
+            fluid={f"{COOLPROP_BACKEND}::{self.common.fluid_name}": 1},
             m=mdot,
             T=T_in + K_TO_C_OFFSET,
             p=P_tespy_in * PA_TO_BAR,

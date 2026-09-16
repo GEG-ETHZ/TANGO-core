@@ -225,10 +225,18 @@ GOLDEN_DIR = Path(__file__).parent / "golden_tango_next"
 """Committed known-good tango_next snapshots, keyed by ``<stem>.json`` —
 see ``tools/update_tango_next_golden.py`` and the module docstring's
 "new vs. golden" comparison for why this exists alongside old-vs-new."""
-GOLDEN_RTOL = 1e-9
-"""Tight — this comparison exists to catch ANY unintended numeric drift in
-tango_next itself, not to allow known-deliberate deviation like the
-old-vs-new tolerances above do."""
+GOLDEN_RTOL = 50e-6
+"""This comparison exists to catch unintended numeric drift in tango_next
+itself, not to allow known-deliberate deviation like the old-vs-new
+tolerances above do. Was 1e-9 (bit-exact) until GraphSurface's TESPy
+connections switched to the BICUBIC-tabulated HEOS CoolProp backend (see
+COOLPROP_BACKEND in fluid_state.py) for a ~2x wall-clock speedup on any run
+touching the power plant -- that backend builds its interpolation tables
+adaptively around whatever P/T range a solve happens to hit, so identical
+code run in two separate processes can land on visibly different (though
+physically insignificant) answers. 50e-6 covers the observed jitter (up to
+~3.2e-5 relative, in the economic parity golden check) with margin, without
+hiding a real regression."""
 
 
 # ---------------------------------------------------------------------------
