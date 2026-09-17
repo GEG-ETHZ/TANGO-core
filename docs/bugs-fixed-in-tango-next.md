@@ -61,6 +61,7 @@ fixed by construction rather than by a one-off patch:
 | [`NativeEconomicComponent` double-counted well mobilization cost across split physics sub-components](#nativeeconomiccomponent-double-counted-well-mobilization-cost-across-split-physics-sub-components) | object == config |
 | [Auto mass flow rate convergence never re-solves temperature](#auto-mass-flow-rate-convergence-never-re-solves-temperature) | locked state |
 | [AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone](#ags-closed-loop-has-no-pump-anywhere-circulation-runs-on-thermosiphon-effect-alone) | - |
+| [Numerically-marched wells fall one cell short of their declared well_length](#numerically-marched-wells-fall-one-cell-short-of-their-declared-well_length) | - |
 
 ## AGS configs never advance simulated time
 
@@ -742,3 +743,37 @@ fluid circuit per `Workflow` today, so a whole-workflow check is
 equivalent to a per-loop one for now. Revisit once a config can genuinely
 contain more than one independent fluid loop (e.g. a future ORC
 secondary working-fluid loop).
+
+## Numerically-marched wells fall one cell short of their declared well_length
+
+`src/tango/units/native/well/base.py`'s marching loop
+(`for i in range(1, self._num_cells)`, `base.py:161`) sizes its
+per-position arrays (`self._P`, `self._h`, `self._T_f`, etc.,
+`base.py:395-401`) to `num_cells` entries, with `self._dL = well_length /
+num_cells` (`base.py:390`) as the per-step cell length — but index 0 is
+the already-known inlet state, so the loop only actually marches
+`num_cells - 1` steps. The well's true marched length is
+`well_length * (num_cells - 1) / num_cells`, one cell short of the
+declared `well_length`. At the default 100 cells that's a ~1% shortfall.
+
+`tango_next`'s `NumericalWell` (`components/well/numerical.py`) carried
+the identical shape forward at first — `cell_length = well_length /
+num_cells`, but the march also took only `num_cells - 1` steps.
+Confirmed (2026-09-15) as the dominant source of the scheme's slow
+pressure-convergence behavior at lower cell counts, bigger than the
+marching method's own truncation error — instrumented directly by
+checking marched length against declared `well_length` across a range of
+`num_cells` values.
+
+**Fixed in `tango_next` only, left as-is in legacy `src/tango`** (a
+deliberate physics divergence, same treatment as the isentropic-vs-
+isothermal pump-work difference elsewhere in this file — old-vs-new
+parity tolerances already account for it): `NumericalWell` now marches
+`num_cells` cells bounded by `num_cells + 1` nodes (node 0 = inlet, node
+`num_cells` = outlet), each cell marched exactly once, so
+`cell_length = well_length / num_cells` correctly spans the well end to
+end. The resulting array-length change (`num_cells + 1`, not
+`num_cells`) was flowed through every downstream consumer (state/history
+docstrings, `test_injection_well_spatial_history_shape`, the serde
+round-trip test, and `demo_hydro_sf_electric.py`'s depth-axis plotting).
+Golden snapshots and economic-parity goldens regenerated to match.
