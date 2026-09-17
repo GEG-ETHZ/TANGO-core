@@ -8,6 +8,33 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **KNOWN, LOW PRIORITY, NOT PURSUED FURTHER (2026-09-17) — `test_native.py`'s
+  `flexible_SF_doublet.yml` LCOE golden is stale.** Found while investigating
+  a merge (`dev/aitkens-process` <-> `dev/make-tango-robust`): expected
+  `0.4925022354672546`, currently computes `0.6691340...` (~36% off) for
+  old tango's own (`src/tango/`) run of this DOUBLET+SingleFlash example —
+  a real, reproducible mismatch, confirmed on `dev/make-tango-robust`'s own
+  tip in isolation (no `dev/aitkens-process` code involved at all). Not
+  caused by the merge, not caused by the intern's WellPattern/depletion-
+  curve work (traced both of those — `wellpattern_impedance.py` and the
+  `C=1.13` revert — and confirmed neither ever touches `src/tango/`).
+  Root cause NOT pinned down: a `git worktree`-based bisection across the
+  ~73 candidate commits (touching `src/tango/units/native/reservoir.py`/
+  `economic/`/`well/`/`surface/`, `orchestrators/`, `utils.py`) stalled
+  (likely an old commit's run hanging on an ArangoDB write attempt with no
+  reachable server, rather than failing fast) and was abandoned as not
+  worth the effort for a stale reference on legacy `src/tango/` code that
+  isn't under active development.
+  **Why this was invisible:** `test_native.py` is marked `old_tango`;
+  both the pre-push hook (`.pre-commit-config.yaml`'s `pytest` hook:
+  `-m "not perf and not old_tango and not slow"`) and CI (`.gitlab-ci.yml`'s
+  `test` job: `uv run pytest tests/unit -v`, which doesn't even reach
+  `tests/regtest/`) deliberately skip it — by design, not
+  misconfiguration, on the assumption someone runs `-m old_tango` by hand
+  when old tango itself changes. Nobody has, for however long this has
+  actually been stale. Revisit only if old tango needs to be trusted as a
+  reference again for something specific; otherwise leave as-is.
+
 - **Added 2026-09-17**: build phase-diagram (P-h/T-s style) visuals for
   `tango_next` fluid states to match what the tango web app shows. Not
   scoped yet — needs a decision on which diagram(s), which components'
