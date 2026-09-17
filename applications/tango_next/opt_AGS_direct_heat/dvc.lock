@@ -5,16 +5,16 @@ stages:
     deps:
     - path: ../../../examples/tango_next/AGS_direct_heat.yml
       hash: md5
-      md5: 16e7f39b52f82f5b5a7d449d95a06539
-      size: 11412
+      md5: dae47a50094abaf73edaa914d066468b
+      size: 11355
     - path: ../../../src/tango_next.hash
       hash: md5
-      md5: d6d829ea0f8b356dd368907329837aa9
+      md5: c3a8a465267a46de280b732e15ac011e
       size: 41
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: d3c4417ba05de6ed0db458ef3ebd0d24
-      size: 40227
+      md5: 0d2301927ac2d8f03d615d596b864e27
+      size: 40588
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -27,46 +27,46 @@ stages:
     outs:
     - path: outputs/pareto_configs
       hash: md5
-      md5: d1712e39059121d1d32bcf0ff0a1ac8d.dir
-      size: 2552145
-      nfiles: 225
+      md5: 665cee08ba90292980add5958723fad2.dir
+      size: 7053
+      nfiles: 1
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 5bd05c00cf2cc841c4535ccf22685b54
-      size: 50862
+      md5: 8efd11c25f92731bd765f0c0d6cb72d7
+      size: 468
   plot:
     cmd: python opt_AGS_direct_heat.py --plot-only
     deps:
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: d3c4417ba05de6ed0db458ef3ebd0d24
-      size: 40227
+      md5: 0d2301927ac2d8f03d615d596b864e27
+      size: 40588
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 5bd05c00cf2cc841c4535ccf22685b54
-      size: 50862
+      md5: 8efd11c25f92731bd765f0c0d6cb72d7
+      size: 468
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 1ca5b9ce95be69a5c029b8ea3b856e31
-      size: 4622689
+      md5: cb893671b8fab10fd1fb44719baaed74
+      size: 4568170
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
-      md5: 98222c26d7ba2e958652d7bacf800a15
-      size: 1481445
+      md5: bc6030c6527429011b72c6082b0aeff6
+      size: 178094
     - path: outputs/pareto_scatter.png
       hash: md5
-      md5: 8d1d0ebe323bc58c2dda2ec4cc65c7a7
-      size: 180470
+      md5: 818e87ec2dc18876208c112f41662fe6
+      size: 66520
     - path: outputs/pareto_scatter_by_param.png
       hash: md5
-      md5: 441ffea40133e2e966cf05d2e66fb152
-      size: 489461
+      md5: 7252b19fb542209151be27bf56643a96
+      size: 129294
     - path: outputs/pareto_scatter_param_pairs.png
       hash: md5
-      md5: e8b1c4b4a4555a14d972a90703837c7a
-      size: 1585220
+      md5: 87c73e1eb68ad9b081cf8a07c2e9ff15
+      size: 869353
     - path: outputs/pareto_scatter_zscore.png
       hash: md5
-      md5: 1168d3e655adf1925cfa53dcb9a97a0d
-      size: 181462
+      md5: a52a62d074e1aa0a5d23705c1b6a0081
+      size: 64372
