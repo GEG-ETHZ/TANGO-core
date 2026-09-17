@@ -8,20 +8,26 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
-- **DONE 2026-09-17**: renamed the `components:` YAML registry-key field
-  `unit:` to `variant:` everywhere (`COMPONENT_REGISTRY`'s `(type, unit)` key
-  is now `(type, variant)`) — `unit` was old tango's own registry-key naming
-  and reads as "unit of measure" next to fields like `well_length: 5000.0 #
-  m`; `variant` (Rust-enum-variant-flavored) doesn't have that collision.
-  Changed: `src/tango_next/components/registry.py`,
-  `src/tango_next/workflows/workflow.py` (`_build_components`,
-  `_build_economic_component`, `Workflow.to_dict()`), every
-  `examples/tango_next/*.yml`, `docs/TANGO_vision_and_roadmap/README.md`'s two
-  `unit: numerical`/`unit: lumped` mentions. Full test suite re-run green
-  after the rename. Not a TESPy concept and never was — `GraphSurface`'s own
-  `power_plant.nodes` never had a `unit`/`variant` key at all (TESPy
-  component types are looked up by `type` alone, unambiguously); this
-  rename is scoped entirely to the outer `components:` block.
+- **Added 2026-09-17**: build phase-diagram (P-h/T-s style) visuals for
+  `tango_next` fluid states to match what the tango web app shows. Not
+  scoped yet — needs a decision on which diagram(s), which components'
+  states to plot (surface plant nodes via `GraphSurface.state.node_detail`
+  is the obvious source), and where these should live (a `tango_next`
+  plotting helper vs. something the web app itself renders from
+  `Workflow.to_dict()`/history output).
+
+- **Added 2026-09-17**: "copy demos/examples/applications functionality"
+  — too vague to act on as written; needs Chad to specify which old-tango
+  demo/example/application(s) and what "copy" means here (port to
+  `tango_next`? reproduce in a new `applications/tango_next/` app? mirror
+  for the web app?) before scoping.
+
+- **Added 2026-09-17**: check the correctness of the Adams et al. (2015)
+  transient conductive heat-loss reference used by `NumericalWell`
+  (`core/physics_models.py::heat_loss_adams_2015`, ported for parity with
+  `src/tango/`'s `WellUnitNative._compute_Q_loss`) — verify the formula
+  against the actual paper, not just against old tango's implementation of
+  it (parity with a bug isn't correctness).
 
 - **Added 2026-09-16**: check how turine and other surface component costs are being calculated relative to sizing -- based on last year? first year? max? average?  This needs careful thought.
 
@@ -40,21 +46,9 @@ in-flight multi-step work across sessions.
   - how CO2 and water systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
   - a matrix of these
 
-- **Added 2026-09-09** We should replace
-  ```
-  component_idx: 0
-  prev: 4
-  next: 1
-  ```
-  with the tespy-style edges:
-  ```
-  edges:
-    '1': {source: inlet, target: valve1}
-    '2': {source: valve1, target: droplet_separator1}
-    '3': {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
-  ```
-  for the sake of consistency and because I think this is more robust anywway.
-- See **Completed Tasks → From the top-level list** for the `LumpedReservoir`
+- See **Completed Tasks → From the top-level list** for the outer-circuit
+  `component_idx`/`prev`/`next` vs. tespy-style `edges` question (flagged
+  2026-09-09, decided 2026-09-17: keep as-is) and the `LumpedReservoir`
   initial-pressure bootstrap fix (DONE 2026-08-04) and the production-well
   pump-power formula fix (DONE 2026-08-10).
 - [ ] **SCOPED 2026-08-14, ready to implement: re-architect the production-well
@@ -437,16 +431,10 @@ reasoning doesn't have to be re-derived next session.
   `CoolPropError`, etc.) to see which already carry this and which don't —
   not a one-shot fix, likely touches many call sites incrementally.
 
-- **Assess how many numerical cells wells actually need.** Flagged
-  2026-08-14, not started. `NumericalWell.num_cells` defaults to 100
-  (`components/well/numerical.py`) and every current example config uses
-  that default uniformly, for every well, regardless of well length or
-  physical regime — never deliberately chosen per case. Chad's suspicion:
-  a lot fewer cells would likely hold accuracy within an acceptable
-  tolerance. Needs an actual convergence study (compare key outputs —
-  outlet T/P, pump power, etc. — across a range of `num_cells` values
-  against the current 100-cell baseline) before picking a new default;
-  don't just guess a smaller number.
+- See **Completed Tasks → From "Backlog"** for: assessing how many
+  numerical cells wells actually need (flagged 2026-08-14, resolved
+  2026-09-16 by deriving `num_cells` from a target cell length rather than
+  picking one shared fixed default).
 
 - See **Completed Tasks → From "Backlog"** for: the `AUTO_BOTH`
   `InvalidPowerStateError` gap (considered and explicitly rejected as not
@@ -751,6 +739,14 @@ reasoning doesn't have to be re-derived next session.
   relying on any of them for a walkthrough or onboarding. Revisit scope
   when this is actually picked up.
 
+- **Answers Chad's "can we make our own tespy components?"** question
+  (asked 2026-09-17): yes — every TESPy component subclasses
+  `tespy.components.component.Component` and implements `component()`,
+  `inlets()`/`outlets()`, `get_parameters()`, `get_mandatory_constraints()`;
+  see `docs/TANGO_vision_and_roadmap/README.md`'s Appendix A for the full
+  assessment. The two items directly below are what that unlocks in
+  practice.
+
 - **LOW PRIORITY, NO URGENCY — bump the `tespy` pin.** Flagged 2026-09-17.
   `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current release is
   0.11.2 (Sept 2026) — 4 minor versions behind. Newer TESPy has a friendlier
@@ -916,6 +912,78 @@ detailed working record, just filed separately.
   a new run picks up from where the old front left off instead of from
   scratch — without the pool-pickling complication. Good enough that true
   checkpoint/resume is no longer planned.
+
+- **DONE 2026-09-16 — switched TESPy's CoolProp backend from plain HEOS to
+  BICUBIC-tabulated HEOS** (`COOLPROP_BACKEND` in `core/fluid_state.py`,
+  threaded into `GraphSurface`'s TESPy connections) for a real wall-clock
+  speedup on any run touching the power plant. Trade-off: the tabulated
+  backend builds its interpolation tables adaptively around whatever P/T
+  range a solve hits, so identical code run in separate processes can land
+  on visibly different (though physically insignificant) answers — hence
+  `GOLDEN_RTOL` in `test_old_new_parity.py` loosening from bit-exact to
+  `50e-6`. Golden snapshots regenerated to match.
+
+- **DECIDED 2026-09-17 — keep the outer-circuit `component_idx`/`prev`/
+  `next` scheme; do not replace it with tespy-style `edges`.** Flagged
+  2026-09-09 (see the top-level list's original entry) for consistency
+  with `GraphSurface`'s own `power_plant.nodes`/`edges` block, which really
+  is a 1:1 mirror of TESPy's own `Connection(source, port, target, port)`
+  model. Scoped out before implementing anything: the outer circuit
+  (injection well → reservoir → production well(s) → surface → back) is a
+  DIFFERENT, deliberate design choice, not a port regression — it exists
+  specifically to give `sim_config.bc_checkpoint_idx` a clean, explicit way
+  to name where BC (boundary-condition) iteration happens, and for human
+  readability of circuit position. Confirmed while scoping the ORC port
+  (immediately below) that this doesn't even block binary/ORC topologies:
+  a secondary fluid loop lives entirely inside one `GraphSurface` node's
+  own `power_plant` subgraph (closed via `CycleCloser`), never touching the
+  outer circuit's shape. Chad's call: keep `component_idx`/`prev`/`next` as
+  it is.
+
+- **DONE 2026-09-17 — ported `examples/flexible_ORC_manual.yml` as
+  `examples/tango_next/hydro_orc_electric.yml`; no dedicated ORC component
+  needed.** The binary (ORC) plant is a plain `GraphSurface` subgraph — the
+  secondary R245fa loop lives entirely inside `power_plant.nodes`/`edges`,
+  closed via `CycleCloser`. Needed one real `GraphSurface` extension:
+  per-port connection attributes (`GraphSurface._apply_connection_config`
+  in `components/surface/graph.py` — `fluid_out{N}`/`h0_out{N}`/
+  `p0_out{N}`/`vapor_mass_fraction_out{N}`, keyed by a connection's
+  `source_id`) plus `pressure_ratio1`/`pressure_ratio2` (`HeatExchanger`'s
+  `pr1`/`pr2`) and `ttd_l` at the component level, for a dual-fluid
+  `HeatExchanger` carrying the geofluid loop on `out1` and the secondary
+  loop on `out2`. `pump2` needed `type: PumpOrValve`, not a fixed
+  `Compressor` — the same natural-pressure-surplus ambiguity
+  `AGS_direct_heat.yml`'s `circulation_control` already resolves this way.
+  Added as a real (non-stub) `ParityCase` in `test_old_new_parity.py` with
+  a committed golden snapshot — measured old-vs-new deviation (reservoir T
+  ≲3.83 K, production T ≲2.57 K, gross power ≲4.8%) is the same class/size
+  as the already-accepted SF case, actually tighter. Runs
+  `injection_mode: manual`, not `manual-fracking-check`: at these exact
+  inputs old tango's injection well outlet sits at 54.48 MPa (just under
+  the 55 MPa fracking ceiling) while tango_next's numerical well model
+  puts it at ~55.4–56.0 MPa (just over) — same-size deviation as everything
+  else here, landing on the wrong side of this site's tight margin;
+  `manual-fracking-check` has no self-correction to absorb it. Also added:
+  a draw.io topology diagram
+  (`docs/diagrams/src/tango_next/hydro_orc_electric_topology.drawio` +
+  rendered PNG). `docs/TANGO_vision_and_roadmap/README.md`'s AGS
+  power-generation-sweep port can reuse this pattern directly — no new
+  Python needed there either, only YAML composition.
+
+- **DONE 2026-09-17**: renamed the `components:` YAML registry-key field
+  `unit:` to `variant:` everywhere (`COMPONENT_REGISTRY`'s `(type, unit)` key
+  is now `(type, variant)`) — `unit` was old tango's own registry-key naming
+  and reads as "unit of measure" next to fields like `well_length: 5000.0 #
+  m`; `variant` (Rust-enum-variant-flavored) doesn't have that collision.
+  Changed: `src/tango_next/components/registry.py`,
+  `src/tango_next/workflows/workflow.py` (`_build_components`,
+  `_build_economic_component`, `Workflow.to_dict()`), every
+  `examples/tango_next/*.yml`, `docs/TANGO_vision_and_roadmap/README.md`'s two
+  `unit: numerical`/`unit: lumped` mentions. Full test suite re-run green
+  after the rename. Not a TESPy concept and never was — `GraphSurface`'s own
+  `power_plant.nodes` never had a `unit`/`variant` key at all (TESPy
+  component types are looked up by `type` alone, unambiguously); this
+  rename is scoped entirely to the outer `components:` block.
 
 ## From "Next session priorities"
 
@@ -2348,3 +2416,26 @@ verified, then this fix popped back in and re-checked).
   not duplicated per app. The `run_*_sweep` half of this same ask, plus a
   low-priority statistical-cross-correlation addendum, are still open —
   see the Backlog section above.
+
+- **DONE 2026-09-16 — assessed how many numerical cells wells actually
+  need; resolved by deriving, not picking, a default.** Flagged
+  2026-08-14 as "not started, needs an actual convergence study before
+  picking a new default." Resolved differently than originally scoped:
+  rather than a single shared fixed `num_cells` default chosen from a
+  convergence sweep, `NumericalWell` now derives `num_cells` from a fixed
+  target cell length (`TARGET_CELL_LENGTH_M = 250 m`, itself set from an
+  existing mesh-convergence study), rounded up to the nearest 10, whenever
+  `num_cells` isn't set explicitly — so discretization accuracy stays
+  consistent across wells of different lengths instead of sharing one
+  default that over- or under-resolves some of them. Explicit `num_cells`
+  overrides still work. Dropped the redundant `num_cells: 100` line from
+  all four `tango_next` example configs; golden snapshots and economic-
+  parity values regenerated (shifted ~1e-5 relative from the changed
+  discretization). Note: an earlier, differently-scoped mesh-convergence
+  sweep app (`applications/tango_next/demo_well_mesh_convergence/`,
+  dropped `num_cells` 100 to 20 directly) was left stashed mid-session
+  when a more fundamental off-by-one marching bug was found and fixed
+  first — see `git stash list` on `dev/make-tango-robust`. That stashed
+  work predates the off-by-one fix and this cell-length-based resolution;
+  treat it as superseded, not something to pop and merge, unless
+  revisiting the sweep app itself specifically.
