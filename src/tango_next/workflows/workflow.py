@@ -22,8 +22,8 @@ from tango_next.orchestrators.system_direct import SystemDirect
 logger = logging.getLogger(__name__)
 
 # Reverse of COMPONENT_REGISTRY — every value is a distinct class (checked:
-# no two (type, unit) keys map to the same class), so this is a safe,
-# unambiguous way to recover the type/unit routing keys for a live
+# no two (type, variant) keys map to the same class), so this is a safe,
+# unambiguous way to recover the type/variant routing keys for a live
 # component instance, needed by Workflow.to_dict() since Component itself
 # never stores them (they're routing-only, stripped before construction).
 _REVERSE_REGISTRY: dict[type[Component], tuple[str, str]] = {
@@ -233,7 +233,7 @@ class Workflow:
         """
         components: dict[str, Any] = {}
         for name, component in self._orchestrator.components.items():
-            comp_type, comp_unit = _REVERSE_REGISTRY[type(component)]
+            comp_type, comp_variant = _REVERSE_REGISTRY[type(component)]
             # _PROTECTED_COMPONENT_KEYS excluded here for the same reason
             # "common" always was: these are sourced from
             # common:/layout:/sim_config: (single source of truth), not
@@ -241,7 +241,7 @@ class Workflow:
             # would round-trip straight into _build_components's guard that
             # forbids a component's own block from setting them.
             dumped = component.model_dump(exclude=set(_PROTECTED_COMPONENT_KEYS))
-            components[name] = {"type": comp_type, "unit": comp_unit, **dumped}
+            components[name] = {"type": comp_type, "variant": comp_variant, **dumped}
 
         result: dict[str, Any] = {
             "common": self._common.model_dump(),
@@ -258,7 +258,7 @@ class Workflow:
             # values). The economic YAML block's own type field is the
             # SECOND element (e.g. "doublet") — see
             # _build_economic_component()'s docstring for why that field
-            # plays the role a physical component's unit field plays.
+            # plays the role a physical component's variant field plays.
             _comp_category, comp_impl = _REVERSE_REGISTRY[type(self._economic)]
             result["economic"] = {"type": comp_impl, **self._economic.model_dump()}
         return _yaml_safe(result)
@@ -425,9 +425,9 @@ def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicCo
     solve ordering or stream wiring for this component.
 
     Uses the same ``(category, implementation)`` registry-key shape as
-    physical components' ``(type, unit)``, with the YAML's ``type:`` field
-    (e.g. ``"doublet"``) playing the role ``unit:`` plays for physical
-    components — old tango's ``economic.type`` already selects the concrete
+    physical components' ``(type, variant)``, with the YAML's ``type:``
+    field (e.g. ``"doublet"``) playing the role ``variant:`` plays for
+    physical components — old tango's ``economic.type`` already selects the concrete
     implementation the same way (``EconomicUnitNative`` for old tango's own
     ``type: native``).
 
@@ -532,17 +532,17 @@ def _build_components(
     built: dict[str, Component] = {}
     for name, comp_cfg in components_block.items():
         comp_type: str = comp_cfg.get("type", "")
-        comp_unit: str = comp_cfg.get("unit", "lumped")
-        key = (comp_type, comp_unit)
+        comp_variant: str = comp_cfg.get("variant", "lumped")
+        key = (comp_type, comp_variant)
 
         cls = COMPONENT_REGISTRY.get(key)
         if cls is None:
             raise ConfigError(
-                f"Component {name!r} has type={comp_type!r} unit={comp_unit!r}, "
+                f"Component {name!r} has type={comp_type!r} variant={comp_variant!r}, "
                 "which is not registered in COMPONENT_REGISTRY.",
             )
 
-        own = {k: v for k, v in comp_cfg.items() if k not in ("type", "unit")}
+        own = {k: v for k, v in comp_cfg.items() if k not in ("type", "variant")}
         collisions = _PROTECTED_COMPONENT_KEYS & own.keys()
         if collisions:
             raise ConfigError(
@@ -557,7 +557,7 @@ def _build_components(
         # Build merged dict for this component:
         # - From layout_extras/common: only fields the component actually declares
         #   (avoids flooding every component with irrelevant shared parameters)
-        # - From comp_cfg: all keys except routing-only "type" and "unit"
+        # - From comp_cfg: all keys except routing-only "type" and "variant"
         #   (Pydantic extra="forbid" will catch any unknown keys here)
         declared = set(cls.model_fields.keys())
         shared: dict[str, Any] = {k: v for k, v in layout_extras.items() if k in declared}
@@ -570,7 +570,7 @@ def _build_components(
             component = cls.from_dict(merged)  # type: ignore[attr-defined]
         except Exception as exc:
             raise ConfigError(
-                f"Failed to build component {name!r} ({comp_type}/{comp_unit}): {exc}",
+                f"Failed to build component {name!r} ({comp_type}/{comp_variant}): {exc}",
             ) from exc
 
         built[name] = component

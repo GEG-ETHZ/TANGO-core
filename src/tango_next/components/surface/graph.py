@@ -127,6 +127,25 @@ _COMPONENT_TYPES: dict[str, str] = {
 # exactly at zero, not to mask a real violation.
 _PUMP_POWER_TOLERANCE_W = 1e-3
 
+# Port-suffixed connection attrs: a bare YAML key applies to a node's ONE
+# relevant connection (its single outgoing connection, or incoming for a
+# Sink); the "_out{N}" suffixed form (e.g. "h0_out1", "fluid_out2") instead
+# targets specifically the connection whose `source_id == f"out{N}"` --
+# needed for a node with more than one outgoing port, e.g. a dual-fluid
+# HeatExchanger (primary loop on out1, a secondary/ORC working-fluid loop on
+# out2). Matches src/tango/'s flexible_pp.py convention (source_id-keyed
+# port suffix) for the same node types. Module-level, not a GraphSurface
+# class attribute: a leading-underscore attribute on a Pydantic BaseModel
+# becomes a ModelPrivateAttr descriptor at class-level access, not a plain
+# dict -- see _apply_connection_config's staticmethod, which needs to read
+# this without an instance.
+_PORT_SUFFIXED_ATTRS: dict[str, str] = {
+    "h0_out": "h0",  # TESPy guess value, not a fixed constraint
+    "p0_out": "p0",  # TESPy guess value, not a fixed constraint
+    "fluid_out": "fluid",
+    "vapor_mass_fraction_out": "x",
+}
+
 # Mirror-image tolerance for the "a valve can't raise pressure" check below
 # (solve()): a real throttle valve is passive and dissipative, so it can
 # only ever DROP pressure. A resolved network where a Valve node's outlet
@@ -560,20 +579,18 @@ class GraphSurface(SurfaceComponent):
         ``AGS_direct_heat.yml``'s ``dh_hx``, which needs its own
         pressure-drop spec once it's no longer the last node before the
         network's outlet Sink — see that YAML's ``circulation_control`` comment for
-        why). ``efficiency`` is skipped for a node resolved to ``Valve``
-        (TESPy's ``Valve`` has no ``eta_s`` attribute at all) -- this is
-        how a ``type: PumpOrValve`` node's ``efficiency`` (needed by its
-        Compressor-resolved bundle) is silently a no-op in its
-        Valve-resolved bundle, rather than an error, without either
-        bundle needing its own separate config. Connection-level, set on
-        the node's outgoing connection for Source/Valve, incoming
-        connection for Sink: ``T``/``p``/``m``/``fluid``/
-        ``vapor_mass_fraction_out`` -> ``x``, ``p_out_megapascals`` ->
-        ``p`` (converted MPa -> bar), ``T_out`` (K) -> ``T`` (converted K
-        -> C). Extend here as new topologies need attributes not yet
-        covered — deliberately not porting src/tango/'s full dynamic
-        attribute list (ttd_u/ttd_l/string-function evaluation) until an
-        AGS config actually needs it.
+        why); ``pressure_ratio1``/``pressure_ratio2`` -> ``pr1``/``pr2``
+        (a two-sided ``HeatExchanger`` has independent pressure ratios per
+        side, unlike ``SimpleHeatExchanger``'s single ``pr`` -- added for a
+        dual-fluid ``HeatExchanger``, see ``_apply_connection_config``'s
+        docstring for why a dual-fluid node needs per-port connection
+        attributes too); ``ttd_l`` -> ``ttd_l`` (HeatExchanger terminal
+        temperature difference). ``efficiency`` is skipped for a node
+        resolved to ``Valve`` (TESPy's ``Valve`` has no ``eta_s`` attribute
+        at all) -- this is how a ``type: PumpOrValve`` node's ``efficiency``
+        (needed by its Compressor-resolved bundle) is silently a no-op in
+        its Valve-resolved bundle, rather than an error, without either
+        bundle needing its own separate config.
         """
         type_name = type(node).__name__
         component_attrs: dict[str, Any] = {}
@@ -581,9 +598,44 @@ class GraphSurface(SurfaceComponent):
             component_attrs["eta_s"] = float(cfg["efficiency"])
         if "pressure_ratio" in cfg:
             component_attrs["pr"] = float(cfg["pressure_ratio"])
+        if "pressure_ratio1" in cfg:
+            component_attrs["pr1"] = float(cfg["pressure_ratio1"])
+        if "pressure_ratio2" in cfg:
+            component_attrs["pr2"] = float(cfg["pressure_ratio2"])
+        if "ttd_l" in cfg:
+            component_attrs["ttd_l"] = float(cfg["ttd_l"])
         if component_attrs:
             node.set_attr(**component_attrs)
 
+        GraphSurface._apply_connection_config(node, conns, cfg, type_name)
+
+    @staticmethod
+    def _apply_connection_config(
+        node: Any,
+        conns: list[Connection],
+        cfg: dict[str, Any],
+        type_name: str,
+    ) -> None:
+        """Apply fixed/guess connection attributes from one node's YAML config.
+
+        Two independent groups of keys, since a node can have more than one
+        outgoing connection (see ``_PORT_SUFFIXED_ATTRS``'s docstring):
+
+        - Bare keys, targeting the node's single relevant connection (its
+          outgoing connection for every type, incoming for a ``Sink``):
+          ``p_out_megapascals`` -> ``p`` (MPa -> bar), ``T_out`` (K) -> ``T``
+          (K -> degC), ``vapor_mass_fraction_out`` -> ``x``.
+        - ``_out{N}``-suffixed keys (``_PORT_SUFFIXED_ATTRS``), targeting
+          specifically the connection whose ``source_id == f"out{N}"``:
+          ``h0_out{N}``/``p0_out{N}`` (TESPy guess values), ``fluid_out{N}``
+          (a plain fluid-name string, e.g. ``R245fa`` -- wrapped in the same
+          ``BACKEND::name`` CoolProp-backend syntax as the main loop's fluid,
+          see ``COOLPROP_BACKEND``), ``vapor_mass_fraction_out{N}`` -> ``x``.
+
+        Extend here as new topologies need attributes not yet covered --
+        deliberately not porting src/tango/'s full dynamic attribute list
+        (ttd_u/string-function evaluation) until a config actually needs it.
+        """
         conn_attrs: dict[str, Any] = {}
         if "p_out_megapascals" in cfg:
             conn_attrs["p"] = float(cfg["p_out_megapascals"]) * 10.0  # MPa -> bar
@@ -591,14 +643,24 @@ class GraphSurface(SurfaceComponent):
             conn_attrs["T"] = float(cfg["T_out"]) + K_TO_C_OFFSET  # K -> degC
         if "vapor_mass_fraction_out" in cfg:
             conn_attrs["x"] = float(cfg["vapor_mass_fraction_out"])
-        if not conn_attrs:
-            return
+        if conn_attrs:
+            if type_name == "Sink":
+                conn = next(c for c in conns if c.target is node)
+            else:
+                conn = next(c for c in conns if c.source is node)
+            conn.set_attr(**conn_attrs)
 
-        if type_name == "Sink":
-            conn = next(c for c in conns if c.target is node)
-        else:
-            conn = next(c for c in conns if c.source is node)
-        conn.set_attr(**conn_attrs)
+        for key, value in cfg.items():
+            prefix = key.rstrip("0123456789")
+            if prefix == key or prefix not in _PORT_SUFFIXED_ATTRS:
+                continue
+            port = f"out{key[len(prefix) :]}"
+            conn = next(c for c in conns if c.source is node and c.source_id == port)
+            tespy_attr = _PORT_SUFFIXED_ATTRS[prefix]
+            if tespy_attr == "fluid":
+                conn.set_attr(fluid={f"{COOLPROP_BACKEND}::{value}": 1})
+            else:
+                conn.set_attr(**{tespy_attr: float(value)})
 
     def _collect_node_detail(self) -> dict[str, dict[str, float]]:
         """Snapshot every node's P/Q (if present) and outgoing-connection T/p/m.

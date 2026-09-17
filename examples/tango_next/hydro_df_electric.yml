@@ -58,7 +58,7 @@ components:
 
   surface:
     type: surface
-    unit: graph
+    variant: graph
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
@@ -175,7 +175,7 @@ components:
 
   injection_well:
     type: injection_well
-    unit: numerical
+    variant: numerical
     component_idx: 0
     prev: 4
     next: 1
@@ -185,7 +185,7 @@ components:
 
   reservoir:
     type: reservoir
-    unit: lumped
+    variant: lumped
     component_idx: 1
     prev: 0
     next: 2
@@ -199,7 +199,7 @@ components:
 
   production_well_lower:
     type: production_well
-    unit: numerical
+    variant: numerical
     component_idx: 2
     prev: 1
     next: 3
@@ -210,7 +210,7 @@ components:
 
   production_well_upper:
     type: production_well_with_pump
-    unit: numerical
+    variant: numerical
     component_idx: 3
     prev: 2
     next: 4

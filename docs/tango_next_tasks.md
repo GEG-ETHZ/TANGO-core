@@ -8,6 +8,23 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **DONE 2026-09-17**: renamed the `components:` YAML registry-key field
+  `unit:` to `variant:` everywhere (`COMPONENT_REGISTRY`'s `(type, unit)` key
+  is now `(type, variant)`) — `unit` was old tango's own registry-key naming
+  and reads as "unit of measure" next to fields like `well_length: 5000.0 #
+  m`; `variant` (Rust-enum-variant-flavored) doesn't have that collision.
+  Changed: `src/tango_next/components/registry.py`,
+  `src/tango_next/workflows/workflow.py` (`_build_components`,
+  `_build_economic_component`, `Workflow.to_dict()`), every
+  `examples/tango_next/*.yml`, `docs/TANGO_vision_and_roadmap.md`'s two
+  `unit: numerical`/`unit: lumped` mentions. Full test suite re-run green
+  after the rename. Not a TESPy concept and never was — `GraphSurface`'s own
+  `power_plant.nodes` never had a `unit`/`variant` key at all (TESPy
+  component types are looked up by `type` alone, unambiguously); this
+  rename is scoped entirely to the outer `components:` block.
+
+- **Added 2026-09-16**: check how turine and other surface component costs are being calculated relative to sizing -- based on last year? first year? max? average?  This needs careful thought.
+
 - **Added 2026-09-15**: make sure that all systems, even hydrothermal systems,
   can operate without a production well pump (Larderello is a dry steam system
   and requires no pump at all!  However, since the late 1970's they've been
@@ -90,6 +107,29 @@ in-flight multi-step work across sessions.
   `pymoo_api.Minimization` saving the front every generation
   (DONE 2026-08-11) and the superseded stop/resume work for
   `Minimization.run()`.
+
+## Next session priorities (set 2026-09-16)
+
+Goal: get through all of this in the next session (2026-09-17).
+
+- [ ] **Release plan for `tango` as an internal release, GEG team members
+      only** (not the open-source packaging question tracked elsewhere —
+      this is the internal-distribution plan for the group itself).
+  - [ ] remove all old tango artifacts, remove parity tests, and move `src/tango_next/` to `/src/tango/`
+  - [ ] A notice that ships with the installed package making clear the
+        code is not to be redistributed outside authorized users (GEG
+        group members).
+  - [ ] A closed-source license file, distributed alongside the code.
+  - [ ] A way to install specific versions — e.g. GitLab tags matching
+        `version = "0.0.1"` in `pyproject.toml`.
+  - [ ] Instructions for creating the environment via cookiecutter (see
+        https://gitlab.ethz.ch/geg/templates/python-template,
+        `/Users/cb/git/templates/python-template` locally), then adding
+        `tango` from GitLab via `uv add ...`.
+  - [ ] `CONTRIBUTING.md` documents the process for cutting a new internal
+        (GEG-only) release, so this isn't tribal knowledge — covers
+        versioning/tagging (see the GitLab-tags item above) and whatever
+        steps actually publish the release once this plan is implemented.
 
 ## Next session priorities (set 2026-08-03)
 
@@ -374,6 +414,16 @@ reasoning doesn't have to be re-derived next session.
       but budget it as its own task, not a quick add-on.
 
 ## Backlog (queued, not yet started)
+
+- **LOW PRIORITY, NO URGENCY — process for cutting an open-source release**
+  of whatever we decide to open-source (`well`/`surface`/`reservoir`
+  and/or a shared foundation package — see this session's open-source
+  packaging investigation, 2026-09-16). Separate from, and downstream of,
+  the internal GEG-only release process above — will need its own
+  process eventually (versioning, license, what actually gets published
+  where — GitHub/PyPI), but nothing to do here until the open-source
+  scoping decision itself is made. Flagged so it isn't forgotten, not
+  because it's needed soon.
 
 - **Errors should include more context, where possible.** Flagged
   2026-08-14 (Chad, mid-session), not started. When an error can be tied
@@ -1120,24 +1170,29 @@ Deliberately NOT the full generate/sweep/summarize/plot pipeline matching
 old tango's apps — that's task 3 below, still blocked/deferred.
 
 ### 3. Port both to `tango_next` under `applications/tango_next/run_AGS_sweep/`
-- [ ] **Blocking gap**: `tango_next` has no ORC / power-plant component yet
-      (`grep -rli orc src/tango_next/` → nothing). The direct-heat port
-      only needed `GraphSurface` + a `SimpleHeatExchanger` node, which
-      already existed. The power port needs either a new dedicated ORC
-      component, or a `GraphSurface` subgraph (turbine/condenser/pump) that
-      reproduces what `native_ORC` builds internally. Scope this as its
-      own design discussion before writing YAML.
-      **Revisit `Stream.port` when this is scoped** (removed 2026-08-28 —
-      see `core/stream.py`'s class docstring and git history): it was
-      carried over from old tango's TESPy port-addressing scheme
-      (`flexible_pp.py`'s `source_port`/`target_port`, e.g. a separator's
-      distinct vapor/liquid outlets) but never wired to anything, since
-      every `Component` boundary is single-port regardless of how many
-      ports its internal TESPy network has. An ORC's condenser (or any
-      future multi-outlet component) may be the first real case where a
-      `Component`'s own `inlet`/`outlet` boundary is genuinely multi-port
-      — if so, design the field fresh against that concrete need rather
-      than resurrecting the removed one blind.
+- [x] **Blocking gap RESOLVED 2026-09-17**: a binary/ORC plant is now a
+      plain `GraphSurface` subgraph, no dedicated ORC component needed —
+      confirmed by porting `examples/flexible_ORC_manual.yml` to
+      `examples/tango_next/hydro_orc_electric.yml` (parity case added to
+      `tests/regtest/test_old_new_parity.py`). The secondary (ORC
+      working-fluid) loop lives entirely inside `power_plant.nodes`/
+      `edges` — `CycleCloser` closes it, and a two-sided `HeatExchanger`
+      node carries the geofluid loop on its `out1` side and the secondary
+      loop on `out2`. This needed one real `GraphSurface` extension:
+      per-PORT connection attributes (`GraphSurface._apply_connection_config`,
+      `components/surface/graph.py`) — a node with more than one outgoing
+      connection can now take `{attr}_out{N}`-suffixed YAML keys
+      (`fluid_out2`, `h0_out1`, `p0_out2`, `vapor_mass_fraction_out2`)
+      targeting specifically the connection whose `source_id ==
+      f"out{N}"`, plus `pressure_ratio1`/`pressure_ratio2` (`HeatExchanger`'s
+      `pr1`/`pr2`) and `ttd_l` at the component level. `Stream.port` was
+      NOT resurrected and does not need to be: this multi-port need was
+      entirely internal to `GraphSurface`'s own TESPy connection list —
+      every `Component`'s own `inlet`/`outlet` boundary (the thing
+      `Stream.port` would have addressed) stayed genuinely single-port
+      throughout. The AGS power-generation port below can reuse this
+      directly — no new Python code, only YAML composition, same as the
+      direct-heat port.
 - [ ] Decide app structure: one shared `tango_next` sweep pipeline
       parameterized by product (heat/electricity), or two directories
       mirroring old tango's split. Leaning toward shared, since the

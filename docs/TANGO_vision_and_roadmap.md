@@ -967,13 +967,13 @@ software-sustainability review).
 
     **Status (2026-06-22) — end-to-end parity achieved within deliberate bounds:**
     `NumericalInjectionWell` (`src/tango_next/components/well/numerical.py`,
-    registered as `unit: numerical`) now replicates
+    registered as `variant: numerical`) now replicates
     `src/tango/units/native/well/base.py::WellUnitNative.process_stream()`
     exactly: 100-cell axial discretization, Haaland friction factor
     (`core/fluid_utils.py::friction_factor_haaland`), Adams et al. (2015)
     transient conductive heat loss, and real CoolProp property lookups via a
     new thin wrapper (`core/fluid_state.py::FluidState`, parity with
-    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`unit: lumped`) is
+    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`variant: lumped`) is
     kept as the permanent fast/simple variant per its module docstring — not
     replaced.
 
