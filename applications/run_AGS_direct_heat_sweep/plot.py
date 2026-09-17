@@ -265,7 +265,7 @@ def plot_parallel_coordinates(df: pl.DataFrame, out_path: Path, color_col: str =
     apparently consumes as much or more than the loop delivers, in its own
     accounting) and CAPEX / negative-power is an undefined ratio, not merely
     a large one — see sweep.py's LCOE-nulling comment and the "known
-    inconsistencies" pump-accounting note in docs/TANGO_vision_and_roadmap.md.
+    inconsistencies" pump-accounting note in docs/TANGO_vision_and_roadmap/README.md.
     Those lines are drawn in flat grey with reduced opacity instead of being
     colormapped, since they have no valid value for `color_col`; percentile
     clipping on the remaining valid values keeps the plot informative for

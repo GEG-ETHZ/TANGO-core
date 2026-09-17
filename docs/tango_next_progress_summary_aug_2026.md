@@ -2,7 +2,7 @@
 
 *Prepared 2026-08-01, updated 2026-08-14. Managerial-level summary — for
 engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
-and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
+and `docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
 from `docs/tango_next_progress_summary_july_2026.md`.*
 
 ## Old system is not actually solving AGS — and proof tango_next doesn't have this bug
@@ -158,7 +158,7 @@ What's left after this fix is a much smaller, well-understood residual,
 concentrated at the steepest part of one physics curve both systems
 implement identically — the kind of floating-point-level difference
 that's inherent to comparing two independently-written codebases, not a
-discoverable bug. See `docs/TANGO_vision_and_roadmap.md` for the full
+discoverable bug. See `docs/TANGO_vision_and_roadmap/README.md` for the full
 technical detail.
 
 **A related point worth recording on its own merits.** Separately, we

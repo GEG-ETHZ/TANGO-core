@@ -296,7 +296,7 @@ PARITY_CASES: list[ParityCase] = [
             "remaining delta is concentrated at the steepest part of the "
             "depletion transition (t~4-5 for this case, 2/20 timesteps) — "
             "it settles back to <0.01 K agreement once past the transition "
-            "(see docs/TANGO_vision_and_roadmap.md for detail)."
+            "(see docs/TANGO_vision_and_roadmap/README.md for detail)."
         ),
     ),
     ParityCase(
@@ -344,7 +344,7 @@ PARITY_CASES: list[ParityCase] = [
     # testcase6.yml, testcase7.yml removed (2026-08-05): AGS configs that old
     # tango never actually time-marches (see tests/regtest/test_native.py's
     # comment at the same date). Equivalent tango_next coverage tracked as
-    # the CO2-AGS/AGS-power cells in docs/TANGO_vision_and_roadmap.md's
+    # the CO2-AGS/AGS-power cells in docs/TANGO_vision_and_roadmap/README.md's
     # example coverage matrix instead.
     # Timestep scheduling variants — same physics as testcase1-3, different dt
     ParityCase(old_yml="timestep_irregular.yml", new_yml=None),

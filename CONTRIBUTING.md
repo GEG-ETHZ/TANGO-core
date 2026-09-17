@@ -340,11 +340,11 @@ in all TANGO YAML files, including examples, tests, and config fixtures.
 
 ```yaml
 # Wrong
-check_fracing: yes
+check_fracking: yes
 enabled: no
 
 # Correct
-check_fracing: True
+check_fracking: True
 enabled: False
 ```
 

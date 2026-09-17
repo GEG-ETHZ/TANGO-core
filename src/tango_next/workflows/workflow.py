@@ -383,7 +383,7 @@ def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -
 
     Scoped to the WHOLE workflow, not per-loop: today there is only ever
     one fluid circuit per ``Workflow`` (no multi-loop/grouped-subsystem
-    support yet — see ``docs/TANGO_vision_and_roadmap.md``'s "Grouped
+    support yet — see ``docs/TANGO_vision_and_roadmap/README.md``'s "Grouped
     subsystems" open design question), so a whole-workflow check is
     equivalent to a per-loop one. Revisit this scoping once a config can
     genuinely contain more than one independent fluid loop (e.g. a future

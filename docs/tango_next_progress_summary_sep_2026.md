@@ -3,7 +3,7 @@
 *Prepared 2026-09-16. Covers September 1–16 only — a partial month, not a
 full period like the July/August summaries. Managerial-level summary — for
 engineering detail, see `docs/tango_next_tasks.md` (working task tracker)
-and `docs/TANGO_vision_and_roadmap.md` (full technical roadmap). Continues
+and `docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
 from `docs/tango_next_progress_summary_aug_2026.md`.*
 
 ## Resolved the surrogate optimizer's accuracy problem: a smoother statistical model, not more data, was the fix (2026-08-31–09-01)

@@ -84,7 +84,7 @@ class SurfaceUnitFlexiblePP(SurfaceUnitNative, Validator):
         # fix, not a real one: this file has no general concept of "the subsurface
         # component upstream of the surface plant," only hardcoded node names.
         # tango_next should replace this with a per-component estimate instead of
-        # a name lookup (see docs/TANGO_vision_and_roadmap.md).
+        # a name lookup (see docs/TANGO_vision_and_roadmap/README.md).
         if "reservoir" in specs:
             heat_pickup_depth = specs["reservoir"]["reservoir_depth"]
         elif "horizontal_well" in specs:

@@ -1,7 +1,7 @@
 # tango_next granular task tracker
 
 Working-level task list for `tango_next` porting/parity work. This is the
-detailed, frequently-updated companion to `docs/TANGO_vision_and_roadmap.md`
+detailed, frequently-updated companion to `docs/TANGO_vision_and_roadmap/README.md`
 — reconcile the two periodically (when a section here is fully done, fold a
 one-line summary into the vision doc's Phase 3 task list and prune the
 detail from here). The vision doc is the durable, Confluence-bound
@@ -16,7 +16,7 @@ in-flight multi-step work across sessions.
   Changed: `src/tango_next/components/registry.py`,
   `src/tango_next/workflows/workflow.py` (`_build_components`,
   `_build_economic_component`, `Workflow.to_dict()`), every
-  `examples/tango_next/*.yml`, `docs/TANGO_vision_and_roadmap.md`'s two
+  `examples/tango_next/*.yml`, `docs/TANGO_vision_and_roadmap/README.md`'s two
   `unit: numerical`/`unit: lumped` mentions. Full test suite re-run green
   after the rename. Not a TESPy concept and never was — `GraphSurface`'s own
   `power_plant.nodes` never had a `unit`/`variant` key at all (TESPy
@@ -309,7 +309,7 @@ from scratch.
 
   **Actual mechanism, found by instrumenting both codebases and logging
   every outer-iteration's `(injection_pressure, mass_rate, outlet_T)`
-  side by side** (`fracing_flow`/`fracking_flow` patched to record state
+  side by side** (`fracking_flow`/`fracking_flow` patched to record state
   in both `BC_calculator.py` and `fluid_utils.py`, plus DEBUG-level
   `AUTO_BOTH`/`T-convergence` logging):
   - `mass_rate` is **not** the source of divergence — it locks to the cap
@@ -743,13 +743,39 @@ reasoning doesn't have to be re-derived next session.
   (`docs/diagrams/*.drawio`, e.g.
   `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
   walkthrough" item above) and the vision doc's own diagram set
-  (`docs/TANGO_vision_and_roadmap.md`, already migrated to `.drawio` for
+  (`docs/TANGO_vision_and_roadmap/README.md`, already migrated to `.drawio` for
   Confluence — see `project_vision_doc_diagrams` memory) should be
   reconciled against tango_next's CURRENT actual architecture/solve order
   (e.g. `component_idx: 0` is now the injection well with the surface
   solved last, not whatever an older diagram version assumed) before
   relying on any of them for a walkthrough or onboarding. Revisit scope
   when this is actually picked up.
+
+- **LOW PRIORITY, NO URGENCY — bump the `tespy` pin.** Flagged 2026-09-17.
+  `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current release is
+  0.11.2 (Sept 2026) — 4 minor versions behind. Newer TESPy has a friendlier
+  custom-component extension API (`dependents()`, `dc_cmc`/`num_eq_sets`)
+  that doesn't exist in our pinned version — worth having before any
+  custom-TESPy-component work starts (see
+  `docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
+  whatever breaks, and re-check golden-snapshot economic/LCOE tests for
+  drift (same category of issue as the recent CoolProp-BICUBIC tolerance
+  loosening). Deliberately held until Chad finishes his current unrelated
+  work in another session.
+
+- **AGS-wellbore-as-TESPy-component prototype.** Flagged 2026-09-17, not
+  started. Explore modeling a standalone surface plant with a custom
+  AGS-subsurface wellbore component that extends a TESPy base class and
+  incorporates the existing wellbore physics model, as a step toward
+  solving subsurface+surface as one implicit TESPy network instead of
+  today's outer BC-iteration loop wrapping a separate `GraphSurface` solve.
+  See
+  `docs/TANGO_vision_and_roadmap/subsurface_as_tespy_components.md` for the
+  open questions this needs to resolve first (subclass vs. adapter, the
+  outer circuit's linear-representation conflict, the fracking
+  complementarity reformulation) and `docs/implicit_solver_exploration.md`
+  for the prior exploration this builds on. **Deliberately held — do not
+  start until Chad says so.**
 
 # Completed Tasks
 
@@ -784,7 +810,7 @@ detailed working record, just filed separately.
 
 - **DONE 2026-08-04 — `LumpedReservoir` initial-pressure bootstrap fixed.**
   Its "not yet solved" bootstrap for `P_out_prev` was using the
-  fracing-ceiling formula instead of old tango's actual reservoir-bootstrap
+  fracking-ceiling formula instead of old tango's actual reservoir-bootstrap
   formula (`brine_density × g × reservoir_depth`) — two different physical
   quantities. Added a `brine_density` field to `ReservoirComponent`
   (default 1000 kg/m³, matching old tango); `LumpedReservoir` now computes
@@ -798,7 +824,7 @@ detailed working record, just filed separately.
   gravity genuinely varies regionally — see the TODO on `GRAVITY` for
   reverting the default once old-tango parity is no longer the active
   concern. Full test suite, golden snapshot, and `ParityCase` tolerances
-  updated. Full technical detail: `docs/TANGO_vision_and_roadmap.md`.
+  updated. Full technical detail: `docs/TANGO_vision_and_roadmap/README.md`.
 
 - **DONE 2026-08-10 — production-well pump-power formula fixed; LCOE parity
   went from +16.1%/+11.5% off to -1.1%/-1.0%.** Chad's "urgent" pump-power
@@ -919,11 +945,11 @@ detailed working record, just filed separately.
   BC-iteration physics" section of `system_bc_iteration.py`'s module
   docstring), re-run the `flexible_SF_manual.yml` parity comparison
   against old tango's actual equivalent. Confirmed the current comparison
-  is *not* confounded by fracing/mass-rate iteration — verified two ways
+  is *not* confounded by fracking/mass-rate iteration — verified two ways
   (instrumented a real run): `flexible_SF_manual.yml` uses
   `mass_rate.type: manual`, which skips old tango's `automatic`-only
-  mass-rate iteration loops entirely, and `check_fracing`'s cap
-  (`fracing_flow()` ≈ 183–403 kg/s across timesteps) never actually
+  mass-rate iteration loops entirely, and `check_fracking`'s cap
+  (`fracking_flow()` ≈ 183–403 kg/s across timesteps) never actually
   engages against the manual `mass_rate=50` kg/s — it's a no-op for this
   case. The real asymmetry is that old tango's outer loop *always*
   iterates injection pressure (`test_p`), in every mass-rate mode,
@@ -937,7 +963,7 @@ detailed working record, just filed separately.
   old tango's `test_p` update actively runs for this comparison. Directly
   instrumented and checked across the full 20-timestep run: it does not
   — `manual` mass-rate mode's `test_p` update only fires when `target_p
-  <= inj_well.outlet_fluid.P` (a one-sided fracing-safety cap, not an
+  <= inj_well.outlet_fluid.P` (a one-sided fracking-safety cap, not an
   active solve), and for this config `target_p` (55 MPa) never drops
   below the bottom-hole pressure (~49.75–49.88 MPa) it's compared
   against — so `test_p` stays pinned at its YAML initial-guess value for
@@ -1130,7 +1156,7 @@ against old tango, and locked in with golden-snapshot regression coverage.
       demand, not a real seasonal/dispatch curve — done 2026-07-21:
       `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`
       docstring item 5, cross-referenced from
-      `docs/TANGO_vision_and_roadmap.md`'s "Seasonal heat-demand variation"
+      `docs/TANGO_vision_and_roadmap/README.md`'s "Seasonal heat-demand variation"
       section (also cross-references `run_AGS_sweep/`).
 - [ ] Revisit once the seasonal-demand-mechanism design (vision doc,
       same section) is actually built — re-check whether the AGS sweep

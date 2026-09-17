@@ -193,7 +193,7 @@ re-run.
    Hotmaps-independent demand-curve mechanism before this sweep's results
    can be read as "what you'd actually build," not just "what the physics
    supports at one operating point." Tracked in
-   docs/TANGO_vision_and_roadmap.md's seasonal-heat-demand-variation
+   docs/TANGO_vision_and_roadmap/README.md's seasonal-heat-demand-variation
    section. Applies equally to applications/run_AGS_sweep/ (the
    power-generation counterpart of this sweep) wherever main_product is
    heat/cogeneration — pure electricity sweeps are less exposed since
@@ -248,7 +248,7 @@ Net_thermal_power_Generated_kWe going negative is itself correct (parasitic
 pumping genuinely exceeding delivered heat is physically plausible for a
 barely-functional loop) or a sign/accounting bug is unresolved — it sits
 alongside the existing "Pump electricity accounting — known inconsistencies
-(needs HIL verification)" section in docs/TANGO_vision_and_roadmap.md and
+(needs HIL verification)" section in docs/TANGO_vision_and_roadmap/README.md and
 should be investigated together with that, not treated as solved by this
 workaround.
 
@@ -281,7 +281,7 @@ horizontal segment begins (see horizontal_well.py's identical
 That naming is confusing on its own terms (a "wellhead" is conventionally
 surface equipment) independent of the reservoir/no-reservoir question, and
 is a good example of the kind of ambiguity `tango_next` should design away
-(see docs/TANGO_vision_and_roadmap.md).
+(see docs/TANGO_vision_and_roadmap/README.md).
 
 Fixed in `flexible_pp.py`: `validate_custom()` now branches on whichever of
 `reservoir` / `horizontal_well` is present in specs to get this depth,
@@ -337,7 +337,7 @@ maintained reference set.
 Why we patched native instead of waiting for tango_next
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tango_next was explicitly designed to avoid this kind of topology-shaped
-ambiguity (see docs/TANGO_vision_and_roadmap.md), and building this case
+ambiguity (see docs/TANGO_vision_and_roadmap/README.md), and building this case
 there instead of patching native's validator was considered. Decided
 against it for now: tango_next doesn't yet have direct-heat/district-heating
 surface plant support built at all, so doing this there means building that

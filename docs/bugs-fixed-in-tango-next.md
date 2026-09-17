@@ -53,8 +53,8 @@ fixed by construction rather than by a one-off patch:
 | --- | --- |
 | [AGS configs never advance simulated time](#ags-configs-never-advance-simulated-time) | locked state |
 | [`== "yes"` string-comparison trap](#yes-string-comparison-trap) | (de)serialization |
-| [`check_fracing` doesn't gate what its name implies](#check_fracing-doesnt-gate-what-its-name-implies) | finite values as `StrEnum` |
-| [`fracing_flow` mixes a wellbore diameter into a term that should be a radius](#fracing_flow-mixes-a-wellbore-diameter-into-a-term-that-should-be-a-radius) | descriptive variable names |
+| [`check_fracking` doesn't gate what its name implies](#check_fracking-doesnt-gate-what-its-name-implies) | finite values as `StrEnum` |
+| [`fracking_flow` mixes a wellbore diameter into a term that should be a radius](#fracking_flow-mixes-a-wellbore-diameter-into-a-term-that-should-be-a-radius) | descriptive variable names |
 | [Non-convergence silently swallowed instead of raised](#non-convergence-silently-swallowed-instead-of-raised) | explicit failure signaling |
 | [Convergence loop can commit a result computed from mixed fresh/stale state](#convergence-loop-can-commit-a-result-computed-from-mixed-freshstale-state) | locked state |
 | [Old tango's downhole production pump is modeled as perfectly isothermal](#old-tangos-downhole-production-pump-is-modeled-as-perfectly-isothermal) | standalone simulation |
@@ -129,7 +129,7 @@ live runtime config. `tests/regtest/test_native.py`'s `testcase6.yml`/
 this exact failure mode) were removed 2026-08-05 rather than `xfail`ed,
 since old tango isn't being fixed for this (see decision below) — the
 equivalent tango_next coverage is tracked as open cells in
-`docs/TANGO_vision_and_roadmap.md`'s example-coverage matrix instead.
+`docs/TANGO_vision_and_roadmap/README.md`'s example-coverage matrix instead.
 
 `tango_next` doesn't have this class of bug, for a more specific reason
 than "orchestrator selection isn't a string-collapsing dispatch": its
@@ -172,13 +172,13 @@ Style section (YAML configs use Python-style `True`/`False`).
 module scaffold") — no specific fix commit exists, since tango_next never
 had this stringly-typed pattern to begin with.
 
-## `check_fracing` doesn't gate what its name implies
+## `check_fracking` doesn't gate what its name implies
 
-`bc_iteration.check_fracing` in `src/tango` only gates the flow-rate cap
-(`if mass_rate > fracing_flow(): mass_rate = fracing_flow()`). The
+`bc_iteration.check_fracking` in `src/tango` only gates the flow-rate cap
+(`if mass_rate > fracking_flow(): mass_rate = fracking_flow()`). The
 injection-pressure adjustment (`test_p` update) runs regardless of this
-flag — two separate fracing mechanisms exist, but only one is labeled a
-"fracing check," which reads as controlling both.
+flag — two separate fracking mechanisms exist, but only one is labeled a
+"fracking check," which reads as controlling both.
 
 `tango_next` replaces both mechanisms with the explicit `InjectionPolicy`
 enum, so there's no separately-named flag whose scope doesn't match its
@@ -187,9 +187,9 @@ name.
 **Fixed:** `6f66171` (2026-06-12) — "docs + tango_next: InjectionPolicy
 enum, BC iteration design, AI error agent vision."
 
-## `fracing_flow` mixes a wellbore diameter into a term that should be a radius
+## `fracking_flow` mixes a wellbore diameter into a term that should be a radius
 
-`src/tango/orchestrators/BC_calculator.py::fracing_flow()` computes the
+`src/tango/orchestrators/BC_calculator.py::fracking_flow()` computes the
 flow-induced fracking threshold via the standard Thiem/Darcy steady-state
 radial-flow equation, `q = 2πhkΔP / (μ·ln(re/rw))`, where both `re` and `rw`
 are radii. Old tango halves `well_spacing` to get `re` (`re =
@@ -234,7 +234,7 @@ site.
   caller proceeds using whatever state the last iteration left behind.
 - `orchestrators/BC_calculator.py:288` and `:369` (the `controlled_power_generation`
   mass-rate search — a Hotmaps-only mechanism that targets a thermal power
-  output via `mass_rate_test`/`averaged_df`, unrelated to fracing and not
+  output via `mass_rate_test`/`averaged_df`, unrelated to fracking and not
   represented by `InjectionPolicy` at all, per that enum's own docstring)
   are worse still: `if iter_count == max_iterations - 1: mass_rate =
   mass_rate_guess` — not even a warning, just silently using the last,
@@ -547,7 +547,7 @@ unspecified.
 `src/tango`'s `FlowRateCalculator.iterator()` (`BC_calculator.py`), under
 `mass_rate.type: automatic`, jointly updates injection wellhead pressure
 (`test_p += target_p - inj_well.outlet_fluid.P`, a Newton-style step) and
-mass rate (`mass_rate = self.fracing_flow()`, a Picard step) every outer
+mass rate (`mass_rate = self.fracking_flow()`, a Picard step) every outer
 iteration — but injection temperature is never independently re-solved
 for the new `(test_p, mass_rate)` pair. Instead, `T` is read straight from
 `self.surface.outlet_fluid.T`, i.e. whatever the *previous* outer
@@ -562,7 +562,7 @@ This is wrong, not a reasonable time-saving shortcut: a genuine
 fixed-point solution requires every state variable that depends on the
 others to be simultaneously self-consistent. Pressure and mass rate both
 change every iteration, and temperature depends on both (via density and
-viscosity in `fracing_flow()`, and via the whole circuit's stream
+viscosity in `fracking_flow()`, and via the whole circuit's stream
 solve) — carrying `T` forward uncorrected is silently solving a *different,
 easier* problem (a lagged, under-relaxed joint update) rather than the
 real one, with no signal that it's happening.
@@ -570,10 +570,10 @@ real one, with no signal that it's happening.
 **Confirmed by direct instrumentation (2026-08-13):** traced every outer
 iteration's `(test_p, mass_rate, outlet_T)` in both codebases side by side
 against `flexible_SF_manual.yml`/`hydro_sf_electric.yml`'s `automatic`/
-`AUTO_BOTH` mode. At `max_mass_rate=100` (fracing-driven flow, ~163-180
+`AUTO_BOTH` mode. At `max_mass_rate=100` (fracking-driven flow, ~163-180
 kg/s, stays comfortably clear of the cap the whole time) both codebases
 land on the same fixed point (`test_p` to within 0.026%) — the lagged-T
-shortcut happens not to matter there. At `max_mass_rate=150` (fracing-driven
+shortcut happens not to matter there. At `max_mass_rate=150` (fracking-driven
 flow hovers close enough to the cap, ~162-178 kg/s, that the constraint is
 only marginally active) old tango's loop "converges" in 5 outer iterations
 to `test_p ≈ 7.103 MPa`; solving the real, temperature-self-consistent
@@ -737,7 +737,7 @@ power).
 
 `_check_loop_has_pressure_source` is deliberately scoped to the WHOLE
 workflow, not per-loop, since `tango_next` has no multi-loop/
-grouped-subsystem support yet (see `docs/TANGO_vision_and_roadmap.md`'s
+grouped-subsystem support yet (see `docs/TANGO_vision_and_roadmap/README.md`'s
 "Grouped subsystems" open design question) — there is only ever one
 fluid circuit per `Workflow` today, so a whole-workflow check is
 equivalent to a per-loop one for now. Revisit once a config can genuinely

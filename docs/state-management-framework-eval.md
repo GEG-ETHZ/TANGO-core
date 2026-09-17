@@ -4,7 +4,7 @@
 was never populated — instead of adopting a third-party framework, tango_next
 built a custom `LockedState` (`src/tango_next/core/locked_state.py`),
 enforcing "each state variable updated exactly once per timestep" directly in
-the codebase. See `docs/TANGO_vision_and_roadmap.md`'s Phase 2 checklist for
+the codebase. See `docs/TANGO_vision_and_roadmap/README.md`'s Phase 2 checklist for
 current status. Kept here for historical record of the criteria that were
 considered, not as an open evaluation.
 

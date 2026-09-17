@@ -41,7 +41,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-*Diagram: [Four-Tier Access Model](diagrams/src/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Four-Tier Access Model](../diagrams/src/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ### Tier 1 — Community / Academic (free or very low cost)
 
@@ -219,46 +219,46 @@ so inlet and outlet flow rates can differ during transients. This may require a 
 solver strategy when a transient reservoir component is used, and is another reason to
 resolve the external-tool socket question (see below) before that integration work begins.
 
-#### BC iteration mode — `InjectionPolicy` (replaces `check_fracing` / `manual` / `automatic`)
+#### BC iteration mode — `InjectionPolicy` (replaces `check_fracking` / `manual` / `automatic`)
 
 The current `src/tango/` code controls BC iteration behavior through three separate,
 poorly documented fields:
 
 - `mass_rate.type: "manual"` — mass flow rate is user-prescribed
-- `mass_rate.type: "automatic"` — mass flow rate is computed from the Darcy fracing limit
-- `bc_iteration.check_fracing` — a boolean flag with undocumented scope
+- `mass_rate.type: "automatic"` — mass flow rate is computed from the Darcy fracking limit
+- `bc_iteration.check_fracking` — a boolean flag with undocumented scope
 - `bc_iteration.max_mass_rate` — a global cap applied after all other rate logic
 
 These fields interact in ways that are not documented anywhere and that are easy to
-misread. Worse, they conflate two physically distinct fracing mechanisms.
+misread. Worse, they conflate two physically distinct fracking mechanisms.
 
-**Two distinct fracing mechanisms**
+**Two distinct fracking mechanisms**
 
-1. **Flow-induced fracing** — mass flow rate is high enough that, by Darcy's law, the
-   reservoir inlet pressure exceeds the fracing threshold. The `fracing_flow()` function
+1. **Flow-induced fracking** — mass flow rate is high enough that, by Darcy's law, the
+   reservoir inlet pressure exceeds the fracking threshold. The `fracking_flow()` function
    computes the maximum sustainable mass rate at which the threshold is exactly reached:
 
    ```
-   fracing_flow = 2πhk × (overpressure% / 100 × hydrostatic_P) / (μ × ln(re / rw))
+   fracking_flow = 2πhk × (overpressure% / 100 × hydrostatic_P) / (μ × ln(re / rw))
    ```
 
-   Because µ and ρ depend on injection-side fluid conditions, `fracing_flow()` changes
+   Because µ and ρ depend on injection-side fluid conditions, `fracking_flow()` changes
    as `test_p` changes — making mass rate and injection pressure coupled variables when
    this mechanism is active.
 
-2. **Pressure-induced fracing** — injection wellhead pressure (`test_p`) is set high
+2. **Pressure-induced fracking** — injection wellhead pressure (`test_p`) is set high
    enough that, after hydrostatic head and friction losses in the injection well, the
    reservoir inlet pressure `inj_well.outlet.P` exceeds
    `hydrostatic_P × (1 + overpressure% / 100)`.
 
 These two mechanisms are checked via separate code paths in `src/tango/` but neither is
-clearly labeled. `check_fracing` guards only the flow-rate cap; the injection pressure
+clearly labeled. `check_fracking` guards only the flow-rate cap; the injection pressure
 adjustment (`test_p` update) runs regardless of the flag.
 
 **Why two separate checks at all, rather than one combined constraint?** Both mechanisms
 ultimately bound the same physical quantity — reservoir inlet pressure — so it's fair to
 ask why `InjectionPolicy` (and `src/tango/` before it) doesn't just treat "reservoir inlet
-pressure exceeds the fracing threshold" as a single check. The answer is architectural, not
+pressure exceeds the fracking threshold" as a single check. The answer is architectural, not
 physical: TANGO uses an **explicit** solver that marches through the well/reservoir/surface
 loop component by component, one pressure/temperature calculation at a time, each step
 consuming the previous step's output as its input (`test_p` → injection well friction/head
@@ -275,10 +275,13 @@ direct consequence of TANGO's explicit, stepwise architecture, not a fact about 
 underlying physics — worth keeping in mind if TANGO ever moves toward an implicit
 formulation (see Phase 2's Newton-step BC iteration, which is a step in that direction for
 the outer loop, though the inner per-component march remains explicit). See
-[`docs/implicit_solver_exploration.md`](implicit_solver_exploration.md) for an exploration
+[`docs/implicit_solver_exploration.md`](../implicit_solver_exploration.md) for an exploration
 of what adopting a residual/Jacobian-based implicit solve (in the style of tespy's Newton
-network solver) would take, and why the fracing switch itself is the hard part rather than
-the solver mechanics.
+network solver) would take, and why the fracking switch itself is the hard part rather than
+the solver mechanics. See also
+["Future Direction — Subsurface as TESPy Components"](#future-direction--subsurface-as-tespy-components-fully-implicit-solve)
+below for the longer-horizon version of this idea (subsurface joining the same TESPy
+network as the surface plant).
 
 **`InjectionPolicy` — the clean replacement**
 
@@ -286,7 +289,7 @@ In `tango_next`, both concerns are unified into a single enum that makes every o
 mode self-documenting. The YAML field is `sim_config.injection_mode`. Note that
 `sim_config.mass_rate` is only meaningful for policies where flow rate is user-prescribed
 (`MANUAL`, `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is
-computed from `fracing_flow()` each pass, so the field may be omitted entirely under those modes.
+computed from `fracking_flow()` each pass, so the field may be omitted entirely under those modes.
 
 ```python
 class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
@@ -294,26 +297,26 @@ class InjectionPolicy(enum.StrEnum):  # tango_next.core.policies
 
     MANUAL = "manual"
     """Both mass flow rate and injection wellhead pressure are user-specified.
-    No fracing check is performed. Single solver pass per timestep."""
+    No fracking check is performed. Single solver pass per timestep."""
 
-    MANUAL_FRACKING_CHECK = "manual-fracing-check"
-    """Both user-specified. Both fracing directions are checked; any violation
+    MANUAL_FRACKING_CHECK = "manual-fracking-check"
+    """Both user-specified. Both fracking directions are checked; any violation
     raises an error. Injection pressure is reduced if the initial value would
-    cause pressure-induced fracing; rate is capped if it would cause
-    flow-induced fracing. Single solver pass per timestep."""
+    cause pressure-induced fracking; rate is capped if it would cause
+    flow-induced fracking. Single solver pass per timestep."""
 
     AUTO_PRESSURE = "auto-pressure"
     """Mass flow rate is user-specified. Injection wellhead pressure is iterated
-    until the reservoir inlet pressure converges to the fracing threshold
+    until the reservoir inlet pressure converges to the fracking threshold
     (Newton step: test_p += target_reservoir_P - inj_well.outlet.P).
-    If the converged state would also cause flow-induced fracing, an error
+    If the converged state would also cause flow-induced fracking, an error
     is raised."""
 
     AUTO_FLOW = "auto-flow"
     """Injection wellhead pressure is user-specified. Mass flow rate is iterated
-    to the Darcy-law fracing limit (fracing_flow()) each pass. Because fracing_flow()
+    to the Darcy-law fracking limit (fracking_flow()) each pass. Because fracking_flow()
     depends on injection-side fluid properties, the rate co-evolves with pressure
-    until both stabilize. If the converged state would cause pressure-induced fracing,
+    until both stabilize. If the converged state would cause pressure-induced fracking,
     an error is raised."""
 
     AUTO_BOTH = "auto-both"
@@ -338,14 +341,14 @@ joint Newton update rule described above is actually implemented.
 
 **Future direction — whole-horizon optimization (`MIN_LCOE` and friends):** `AUTO_PRESSURE` /
 `AUTO_FLOW` / `AUTO_BOTH` solve a *per-timestep* physical constraint (find the BC variable(s)
-that keep the system at the fracing threshold *this timestep*). A `MIN_LCOE` variant is a
+that keep the system at the fracking threshold *this timestep*). A `MIN_LCOE` variant is a
 different kind of problem: LCOE is a whole-horizon objective — it depends on cumulative energy
 output and cost across every timestep in the simulation, not on any single timestep in
 isolation. Minimizing it means searching over decision variables (e.g. constant `mass_rate`
 and/or `test_p` setpoints, or eventually time-varying schedules) and re-running the *entire*
 multi-timestep simulation as the inner evaluation of an outer constrained optimizer — much
 closer in shape to the existing `optimizerr.py` / `pymoo` machinery in `src/tango/` than to the
-per-timestep Newton loop in `SystemBCIteration`. Constraints would be the same fracing limits
+per-timestep Newton loop in `SystemBCIteration`. Constraints would be the same fracking limits
 checked at every timestep along the way. This means `MIN_LCOE` (and any other whole-horizon
 objective — e.g. `MAX_NET_POWER` over the full horizon rather than per-timestep) likely cannot
 just be another `InjectionPolicy` value handled inside `SystemBCIteration.run_timestep`; it is
@@ -358,13 +361,13 @@ fits the same per-timestep mechanism as `AUTO_PRESSURE`/`AUTO_FLOW`/`AUTO_BOTH`.
 
 | `src/tango/` configuration | `InjectionPolicy` equivalent |
 |---|---|
-| `type: manual, check_fracing: False` | `MANUAL` |
-| `type: manual, check_fracing: True` | `MANUAL_FRACKING_CHECK` |
+| `type: manual, check_fracking: False` | `MANUAL` |
+| `type: manual, check_fracking: True` | `MANUAL_FRACKING_CHECK` |
 | `type: automatic` (standard, non-Hotmaps) | `AUTO_BOTH` (test_p and mass_rate co-evolve each iteration) |
 
 In HotmapsDispatch mode, `type: automatic` has more complex behavior: early timesteps
-use a specified rate with an optional fracing cap (similar to `MANUAL_FRACKING_CHECK`),
-while later timesteps either use `fracing_flow()` or iterate mass flow rate to hit a
+use a specified rate with an optional fracking cap (similar to `MANUAL_FRACKING_CHECK`),
+while later timesteps either use `fracking_flow()` or iterate mass flow rate to hit a
 target thermal power output (`controlled_power_generation: yes` — note that `src/tango/`
 checks this with a `== "yes"` string comparison, so `True` silently does nothing there).
 This is a distinct operating mode not yet represented in `InjectionPolicy` and should be
@@ -372,11 +375,11 @@ designed as its own variant when the Hotmaps feature is migrated to `tango_next`
 
 **Planned future variants**
 
-`InjectionPolicy` is intentionally scoped to injection control rather than just fracing
+`InjectionPolicy` is intentionally scoped to injection control rather than just fracking
 prevention, leaving room for variants that optimise operating objectives:
 
 - `MAX_NET_POWER` — iterate mass flow rate and injection pressure to maximise
-  `gross_power − pump_parasitic_load`, subject to the fracing limit as a hard constraint.
+  `gross_power − pump_parasitic_load`, subject to the fracking limit as a hard constraint.
 - `MIN_LCOE` — similar, but objective is levelised cost of energy over the project lifetime.
   Note: the decision-variable vector for `MIN_LCOE` isn't necessarily limited to
   `InjectionPolicy`'s own variables (`mass_rate`, `test_p`) — see "Extraction pressure as
@@ -386,7 +389,7 @@ prevention, leaving room for variants that optimise operating objectives:
 These require the Phase 2 Newton-step solver infrastructure and the pump electricity
 accounting fix to be in place before they can be meaningfully implemented.
 
-*Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — shows
+*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — shows
 current modes and which trigger the outer convergence loop.*
 
 ### Open Design Questions
@@ -397,7 +400,7 @@ have to be re-derived each time they come up.
 #### Extraction pressure as an independent policy axis
 
 `sim_config.injection_mode` and `sim_config.mass_rate` govern the injection-side BC:
-finding the flow rate and/or injection wellhead pressure needed to prevent fracing.
+finding the flow rate and/or injection wellhead pressure needed to prevent fracking.
 But `SystemBCIteration`'s own module docstring documents a second, independent
 sub-problem: the production-pump inner loop that finds `dP_pump` needed to hit
 `target_extraction_pressure` at the surface inlet. As of 2026-08-10,
@@ -922,7 +925,7 @@ software-sustainability review).
 
 ### Refactor Phases
 
-*Diagram: [Refactor Phases](diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Refactor Phases](../diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ---
 
@@ -938,10 +941,10 @@ software-sustainability review).
 - **Diagrams** -- need to build out diagrams to communicate to management how
   things are currently structured
 
-*Diagram: [Input File Structure](diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [Runtime Code Objects](diagrams/src/phase0_code_objects.drawio)*
-*Diagram: [Module Structure](diagrams/src/phase0_module_structure.drawio)*
-*Diagram: [Execution Flow](diagrams/src/phase0_execution_flow.drawio)*
+*Diagram: [Input File Structure](../diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [Runtime Code Objects](../diagrams/src/phase0_code_objects.drawio)*
+*Diagram: [Module Structure](../diagrams/src/phase0_module_structure.drawio)*
+*Diagram: [Execution Flow](../diagrams/src/phase0_execution_flow.drawio)*
 
 **Tasks:**
 - [x] Diagrams
@@ -1055,7 +1058,7 @@ software-sustainability review).
     matching old tango's `ReservoirUnitNative._compute_initial_pressure()`
     exactly — used for the reservoir's own initial/undepleted state
     (`P_out_prev` before it has ever been solved), separate from the
-    fracing-safety-ceiling calculation (`hydro_static_pressure × (1 +
+    fracking-safety-ceiling calculation (`hydro_static_pressure × (1 +
     over_pressure_percentage/100)`), which is a different physical
     quantity old tango never conflates the two with. Verified with an
     isolated, fixed-input reservoir comparison (both reservoirs given
@@ -1147,10 +1150,10 @@ all congruent with each other.
   how things should be structured and why the new structure addresses the
   shortcomings of the old structure
 
-*Diagram: [New Input File Structure](diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [New Module Structure](diagrams/src/phase1_new_module_structure.drawio)*
-*Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio)*
-*Diagram: [BC Iteration Solver](diagrams/src/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
+*Diagram: [New Input File Structure](../diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [New Module Structure](../diagrams/src/phase1_new_module_structure.drawio)*
+*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio)*
+*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
 
 **Tasks:**
 - [x] create temporary space for new structure
@@ -1406,7 +1409,7 @@ unhandled error, packages the context and sends it to an LLM agent for interpret
 **What the agent returns:**
 - A plain-English explanation of what went wrong and why
 - A concrete suggestion for how to fix it (e.g. "your injection pressure of 45 MPa
-  exceeds the fracing threshold of 38 MPa for this reservoir depth — try reducing
+  exceeds the fracking threshold of 38 MPa for this reservoir depth — try reducing
   `injection_pressure` in the surface spec, or switch to `mode: auto-pressure` to
   let the solver find a safe value automatically")
 - If appropriate, a corrected or adjusted input snippet the user can paste in
@@ -1419,12 +1422,12 @@ by an LLM that has been given the component context — but tedious and error-pr
 hard-code as static error messages.
 
 **Implementation approach, prerequisites, and error-taxonomy design:** see
-[Appendix: AI-Assisted Error Interpretation — Implementation Sketch](appendices/ai_error_interpretation_sketch.md)
+[Appendix: AI-Assisted Error Interpretation — Implementation Sketch](../appendices/ai_error_interpretation_sketch.md)
 for the code-level sketch (a top-level exception handler wrapping `tango_next_cli run`,
 routed through a stable `TangoError` exception taxonomy modeled on Rust's
 `thiserror`/`anyhow` pattern).
 
-*Diagram: [Execution Flow](diagrams/src/phase1_execution_flow.drawio) — shows the
+*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows the
 AI error agent as a future hook on the right side of the simulation loop.*
 
 ---
@@ -1468,6 +1471,34 @@ ecosystem) is the highest-effort but highest-ceiling option. This should be a
 last resort, scoped narrowly to whatever profiling actually identifies as the
 bottleneck — not a wholesale rewrite — and only after (1) and (2) have been
 tried, since both are cheaper and may make (3) unnecessary.
+
+---
+
+### Future Direction — Subsurface as TESPy Components (Fully Implicit Solve)
+
+Today's architecture solves subsurface and surface as two separate, nested systems:
+`SystemBCIteration`'s outer Picard/Newton-step boundary-condition loop marches the
+well/reservoir chain explicitly (a single linear chain, one convergence variable),
+calling a fresh `GraphSurface` TESPy `Network` solve each iteration. That doesn't
+generalize to a genuine field-level network — multiple wells with non-uniform,
+independently-specified boundary conditions, branching topologies, shared reservoir
+compartments — since each new topology shape would need its own bespoke BC-iteration
+logic. An open idea, not yet started: extend the wellbore model to be a TESPy-base-class
+component too, so subsurface and surface solve as **one** simultaneous, arbitrarily
+graph-shaped TESPy network instead of a linear outer march wrapping a nested inner
+solve — handling non-uniform BCs and branching as a natural consequence of the graph
+structure rather than per-topology iteration code. (A secondary side benefit for
+today's single-chain case: it would also collapse the current two-level iteration into
+one Newton solve.)
+
+**This idea has already been explored once, with a different conclusion** — see
+[`subsurface_as_tespy_components.md`](subsurface_as_tespy_components.md) for the full
+writeup, including why literally subclassing TESPy's `Component` runs into a real
+architectural mismatch with `tango_next`'s Pydantic-based component model, and why
+folding subsurface into one TESPy network would also collide with the outer circuit's
+deliberately linear (`component_idx`/`prev`/`next`) representation. **Do not start a
+prototype of this without explicit sign-off** — it's flagged as a backlog item in
+`docs/tango_next_tasks.md`, deliberately held.
 
 ---
 
@@ -1556,3 +1587,71 @@ physics is simple enough that a direct implementation is tractable; for more com
 a direct CoolProp implementation in Phase 2, scoped to the single-flash plant first.
 The decision should be made when the Phase 2 optimization/LCOE work begins — that is where
 the no-warm-start penalty will be most visible.
+
+**2026-09-17 update — broader suitability review, prompted by the ORC port.** With the
+ORC cycle ported from `src/tango` (`examples/flexible_ORC_manual.yml` → `GraphSurface`),
+`tango_next` is now past "single-flash only," which is exactly the case this appendix
+already flagged as making the direct-CoolProp trade-off "less clear." The
+direct-CoolProp-migration recommendation above should be read as weaker for anything
+beyond single-flash going forward.
+
+A wider review confirmed there's no better foundation to switch to right now:
+
+- **TESPy project health:** actively maintained, backed by DLR (German Aerospace Center)
+  via the `oemof` energy-modeling framework — not a solo/hobby project. A 1.0 roadmap
+  issue opened 2026-09-17; a 0.11.0 solver-refactor cycle is underway. Adoption is
+  academic rather than industrial, but includes direct precedent for our exact problem:
+  Witte et al., *"Parametric optimization and comparative study of an organic Rankine
+  cycle power plant for two-phase geothermal sources"* (Energy, 2022), modeling a
+  two-phase-geothermal ORC in TESPy. Known, acknowledged limitation: Newton-Raphson
+  convergence is sensitive to poor initial guesses and small-magnitude flows
+  (`oemof/tespy` issue #314) — a recurring robustness concern worth budgeting for, not a
+  one-off bug.
+- **Our pin is stale.** `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current is
+  0.11.2 (Sept 2026) — 4 minor releases behind. This matters beyond routine upkeep:
+  newer TESPy documents a friendlier custom-component API (`dependents()`,
+  `dc_cmc`/`num_eq_sets`) that lets the solver derive Jacobian structure automatically,
+  which does not exist in 0.7.1.post1. Bumping the pin is a prerequisite for any
+  custom-component work, not just hygiene (tracked in `docs/tango_next_tasks.md`).
+- **Custom components on top of TESPy are feasible today, and there's already a
+  concrete candidate.** Every component subclasses
+  `tespy.components.component.Component`, implementing `component()`,
+  `inlets()`/`outlets()`, `get_parameters()` (a dict of `dc_cp`/`dc_cc`/`dc_cm` data
+  containers wiring each parameter to a residual `func` and a Jacobian-filling
+  `deriv`), and `get_mandatory_constraints()`. On our pinned version, Jacobians are
+  hand-written analytic derivatives (a `numeric_deriv` finite-difference fallback
+  exists but is opt-in per equation, not automatic differentiation).
+  `tespy.tools.helpers.UserDefinedEquation` offers a lighter path for one-off equations
+  without a full subclass. No custom components exist in `tango_next` today —
+  `GraphSurface` maps YAML `type:` strings straight onto stock TESPy classes — but the
+  `PumpOrValve` pseudo-type (resolved today by building and solving two full parallel
+  networks and picking whichever is valid) is exactly the kind of case a single custom
+  hybrid component would eliminate, and is the natural first target once the version
+  bump lands.
+- **Alternatives surveyed — none beat staying on TESPy right now:**
+  - *Modelica/OpenModelica:* still not viable on macOS — native Mac binaries were
+    discontinued after v1.16, and 1.26/1.27 (2025-2026) haven't restored them; current
+    guidance is Docker+XQuartz or building from source. The earlier "glitchy" assessment
+    holds, arguably more strongly now that there's no native binary at all.
+  - *Rumoca* (Rust-based Modelica compiler): still explicitly self-described as
+    early/rough/pre-1.0. "Too beta" remains accurate.
+  - *Commercial Modelica (Dymola, SimulationX):* still priced out of reach.
+  - *Julia / ModelingToolkit.jl:* the most technically interesting option — genuinely
+    declarative, acausal component modeling (symbolic DAE, index reduction) that
+    handles both steady-state and transient natively, unlike TESPy's imperative,
+    steady-state-only equation building. But `ModelingToolkitStandardLibrary.jl`'s
+    thermal/hydraulic domains are thin — no ready-made turbine/condenser/two-phase-HX
+    components. Adopting it would mean building the entire geothermal/ORC component
+    library from scratch on a better foundation, not avoiding that work, plus a full
+    stack switch away from the Python/CoolProp/`pymoo` ecosystem already built.
+  - *DWSIM:* open source, actively maintained, native macOS, Python API, validated
+    against Aspen HYSYS — but chemical-process/flowsheeting oriented, uncertain fit for
+    turbomachinery/ORC power-cycle work. Not investigated in depth; worth a spike only
+    if TESPy becomes a real blocker.
+
+**Updated recommendation:** keep TESPy as the surface-plant backend. Bump the version
+pin (backlog item, `docs/tango_next_tasks.md`) to unlock the modern custom-component
+API, then build tango-specific components *on top of* TESPy rather than replacing it —
+see
+[`subsurface_as_tespy_components.md`](subsurface_as_tespy_components.md) for the
+larger, longer-horizon version of that idea (subsurface joining the same TESPy network).

@@ -96,7 +96,7 @@ mechanism and how this was confirmed.
 pass, from the same solved state, rather than holding one variable fixed
 like the other two — matching old tango's real ``mass_rate.type ==
 "automatic"`` behavior (confirmed by reading ``BC_calculator.py`` directly:
-it unconditionally recomputes both ``mass_rate = fracing_flow()`` and the
+it unconditionally recomputes both ``mass_rate = fracking_flow()`` and the
 ``test_p`` Newton step every pass, then caps ``mass_rate`` at
 ``max_mass_rate`` afterward). This is simpler than ``AUTO_BOTH``'s own enum
 docstring's aspirational "reduce flow rate until a feasible pressure

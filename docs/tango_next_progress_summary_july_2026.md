@@ -2,7 +2,7 @@
 
 *Prepared 2026-07-24. Managerial-level summary — for engineering detail, see
 `docs/tango_next_tasks.md` (working task tracker) and
-`docs/TANGO_vision_and_roadmap.md` (full technical roadmap).*
+`docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap).*
 
 ## What this covers
 
@@ -65,14 +65,14 @@ architecture makes this class of error structurally impossible — proof the
 new design isn't just "cleaner," it's measurably more correct.
 
 **Safety-critical operating logic is now self-documenting.** The old system
-controlled a real safety concern — preventing "fracing" (unintentionally
+controlled a real safety concern — preventing "fracking" (unintentionally
 fracturing the reservoir rock during fluid injection) — through three
 separate, poorly-documented settings, and those three settings didn't map
-cleanly onto the two physically distinct ways fracing can actually happen:
-*wellhead-pressure-induced fracing* (the injection pump pushes wellhead
+cleanly onto the two physically distinct ways fracking can actually happen:
+*wellhead-pressure-induced fracking* (the injection pump pushes wellhead
 pressure high enough that, after accounting for the fluid column and
 friction losses down the well, the pressure at the reservoir itself crosses
-the fracing threshold) and *reservoir-back-pressure-induced fracing*
+the fracking threshold) and *reservoir-back-pressure-induced fracking*
 (pumping fluid in fast enough that the reservoir's own resistance to flow
 pushes the pressure at the injection point past that same threshold, even
 at a lower wellhead pressure). These are two different things that can each

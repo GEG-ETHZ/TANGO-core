@@ -3,8 +3,10 @@
 Context: this note grew out of a question about whether TANGO's subsurface components
 (wells, reservoir) should extend tespy's `Component` base class, in order to eventually
 solve the well/reservoir/surface loop as one coupled implicit system instead of marching
-through it explicitly (see `TANGO_vision_and_roadmap.md`'s discussion of the two fracing
-mechanisms around line 257 for the motivating problem).
+through it explicitly (see [`TANGO_vision_and_roadmap/README.md`](TANGO_vision_and_roadmap/README.md)'s
+discussion of the two fracking mechanisms around line 257 for the motivating problem, and
+[`TANGO_vision_and_roadmap/subsurface_as_tespy_components.md`](TANGO_vision_and_roadmap/subsurface_as_tespy_components.md)
+for how this note's conclusions bear on that specific proposal).
 
 ## What tespy's implicit solve actually looks like
 
@@ -25,7 +27,7 @@ So the actual contract a component fulfills is "contribute residual + Jacobian r
 that part is solver-agnostic and has nothing to do with tespy's domain coverage (which is
 surface/process-plant components only; it has no wellbore or reservoir physics at all).
 
-## Why this would help the fracing/BC-causality problem
+## Why this would help the fracking/BC-causality problem
 
 `SystemBCIteration` (`src/tango_next/orchestrators/system_bc_iteration.py`) currently
 hand-rolls a fixed-point (Picard) update:
@@ -35,8 +37,8 @@ test_p += target_reservoir_P − inj_well.outlet.P
 ```
 
 plus a separate inner temperature-convergence loop, plus a `MANUAL_FRACKING_CHECK` mode
-that is a *different* code path entirely for when the fracing threshold rather than the
-pressure target is the binding constraint. Flow-induced and pressure-induced fracing are
+that is a *different* code path entirely for when the fracking threshold rather than the
+pressure target is the binding constraint. Flow-induced and pressure-induced fracking are
 checked as two independent mechanisms (see the vision doc) precisely because the explicit,
 component-by-component march has no way to express "reservoir inlet pressure is bounded by
 one constraint, regardless of which upstream input pushed it there."
@@ -48,11 +50,11 @@ checks.
 
 ## The actual hard part isn't the solver mechanics
 
-The fracing switch itself is a discontinuity (`if p > p_frac: mode changes`), and Newton's
+The fracking switch itself is a discontinuity (`if p > p_frac: mode changes`), and Newton's
 method needs a differentiable residual near the solution. That's true regardless of
 whether the Jacobian assembly is tespy's or hand-rolled — the fix is to reformulate the
 switch as a smooth complementarity condition (e.g. a Fischer–Burmeister-style combination
-of "`Q = fracing_flow(p)`" and "`p ≤ p_frac`" into one equation) rather than a branch. That
+of "`Q = fracking_flow(p)`" and "`p ≤ p_frac`" into one equation) rather than a branch. That
 reformulation is the real design work here, and it's orthogonal to which framework hosts
 the Jacobian.
 
@@ -80,7 +82,7 @@ orchestrator, rather than inheriting from tespy at all:
 2. Replace `SystemBCIteration`'s fixed-point update with a real 1-D Newton step first —
    e.g. `Δtest_p` from a numerically-estimated `d(inj_well.outlet.P)/d(test_p)` — before
    generalizing to the full coupled system.
-3. Formulate the fracing complementarity condition (step above) so the two-mechanism
+3. Formulate the fracking complementarity condition (step above) so the two-mechanism
    split in `InjectionPolicy` collapses into one constraint.
 4. Keep surface's real tespy `Network` solve at the boundary rather than folding it into
    the same matrix — couple wells+reservoir to surface via an interface residual, not by

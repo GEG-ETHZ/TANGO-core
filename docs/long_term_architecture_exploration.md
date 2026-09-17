@@ -2,7 +2,7 @@
 
 **Status: speculative, not a roadmap.** This is the parking lot for
 "if we ever had a real greenfield opportunity" architecture thinking —
-deliberately kept separate from `docs/TANGO_vision_and_roadmap.md` (which
+deliberately kept separate from `docs/TANGO_vision_and_roadmap/README.md` (which
 is already fairly bloated and is meant to track the concrete, near-term
 `tango_next` roadmap) so long-horizon ideas don't get lost but also don't
 clutter the doc people read to find out what's actually being built next.

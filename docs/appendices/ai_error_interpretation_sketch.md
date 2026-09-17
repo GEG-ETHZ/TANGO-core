@@ -1,7 +1,7 @@
 # AI-Assisted Error Interpretation — Implementation Sketch
 
 *Supporting detail for the "Future Direction — AI-Assisted Error Interpretation" section
-of `docs/TANGO_vision_and_roadmap.md`. Split out here because it's implementation-level
+of `docs/TANGO_vision_and_roadmap/README.md`. Split out here because it's implementation-level
 detail (code, prerequisites) rather than vision-doc-level narrative.*
 
 **Implementation sketch:**
@@ -42,7 +42,7 @@ broad base types like `ValueError`.
 
 **Prerequisites:** Stable component serialization via `model_dump()` (already in place)
 and a stable set of error types (`ConvergenceError`,
-`FracingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
+`FrackingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
 context attached to be useful.
 
 *Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows

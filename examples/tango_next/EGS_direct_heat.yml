@@ -12,7 +12,7 @@
 # `check_fracking: yes` (MANUAL_FRACKING_CHECK-equivalent) plus a
 # `max_mass_rate` cap. tango_next has no `max_mass_rate`-equivalent cap yet
 # (AUTO_FLOW/AUTO_BOTH aren't implemented — see
-# docs/TANGO_vision_and_roadmap.md's "BC iteration mode" section), but
+# docs/TANGO_vision_and_roadmap/README.md's "BC iteration mode" section), but
 # MANUAL_FRACKING_CHECK itself is implemented, so this file uses
 # `injection_mode: manual-fracking-check` — same single pass as `manual`,
 # but raises FrackingViolationError if either fracking threshold is

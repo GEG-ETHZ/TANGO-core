@@ -64,7 +64,7 @@
         <mxCell id="end" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="END" vertex="1">
           <mxGeometry height="36" width="150" x="275" y="914" as="geometry" />
         </mxCell>
-        <mxCell id="future_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;strokeWidth=1.5;fontSize=9;fontStyle=3;fontColor=#6a3d8f;align=left;verticalAlign=top;" value="&lt;b style=&quot;font-size:9px;&quot;&gt;FUTURE DIRECTION — LLM SWEEP&lt;/b&gt;&lt;br&gt;&lt;a href=&quot;../../TANGO_vision_and_roadmap.md#future-direction--geospatial-viability-analysis-with-llm-augmentation&quot; style=&quot;color:#6a3d8f;&quot;&gt;see vision doc&lt;/a&gt;&lt;br&gt;LLM selects next candidate&lt;br&gt;geothermal installation site and&lt;br&gt;updates params accordingly" vertex="1">
+        <mxCell id="future_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;strokeWidth=1.5;fontSize=9;fontStyle=3;fontColor=#6a3d8f;align=left;verticalAlign=top;" value="&lt;b style=&quot;font-size:9px;&quot;&gt;FUTURE DIRECTION — LLM SWEEP&lt;/b&gt;&lt;br&gt;&lt;a href=&quot;../../TANGO_vision_and_roadmap/README.md#future-direction--geospatial-viability-analysis-with-llm-augmentation&quot; style=&quot;color:#6a3d8f;&quot;&gt;see vision doc&lt;/a&gt;&lt;br&gt;LLM selects next candidate&lt;br&gt;geothermal installation site and&lt;br&gt;updates params accordingly" vertex="1">
           <mxGeometry height="76" width="155" x="-165" y="490" as="geometry" />
         </mxCell>
         <mxCell id="e_start" edge="1" parent="1" source="start" style="edgeStyle=orthogonalEdgeStyle;" target="s1" value="">

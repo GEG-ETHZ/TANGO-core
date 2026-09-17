@@ -661,7 +661,7 @@ class DoubletEconomicComponent(EconomicComponent):
         Deliberate deviation from old tango: old tango's ``_get_LCOE`` only
         guards ``CAPEX <= 0``, not the power denominator — a negative net
         power (a real, observed case, ~53/500 designs in the Triemli AGS
-        sweep per ``docs/TANGO_vision_and_roadmap.md``'s "Pump electricity
+        sweep per ``docs/TANGO_vision_and_roadmap/README.md``'s "Pump electricity
         accounting" section) silently produces a deeply negative "cost"
         rather than an explicit not-a-number. This component also guards
         ``main_power_w <= 0`` → NaN, since a negative LCOE doesn't mean
