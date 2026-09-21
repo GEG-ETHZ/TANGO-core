@@ -1,0 +1,21 @@
+# Parameters for the tango hydro_df_electric pymoo optimization
+# (mass flow rate + injection pressure + target extraction pressure ->
+# minimize LCOE, maximize mean net power).
+# Changing any value here marks the dependent DVC stage as stale.
+# Run `uv run dvc repro` from this directory to re-execute stale stages.
+#
+# Defaults match tango.pymoo_api.PymooConfig's own defaults — see
+# opt_hydro_df_electric.py's load_params()/build_parser() for how these
+# flow into the actual CLI (params.yaml overrides PymooConfig's default,
+# an explicit CLI flag overrides params.yaml).
+
+n_max_gen: 200
+pop_size: 45
+ftol: 0.005
+xtol: 0.0005
+seed: 1
+n_processes: 45
+crossover_prob: 0.9  # pymoo SBX's own default -- a genuine constant, safe to pin here
+mutation_prob: null  # pymoo PM's own default is 1/n_var (varies with param count) --
+                      # null defers to that instead of hardcoding a value that would
+                      # silently go stale if a param gets added/removed above

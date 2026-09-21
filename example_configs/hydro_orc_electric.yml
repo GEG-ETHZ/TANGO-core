@@ -1,0 +1,220 @@
+# tango format — Hydrothermal system with a binary (ORC) power plant.
+#
+# Ported from old tango's flexible_ORC_manual.yml (removed along with old
+# tango; preserved at git tag pre-tango-core-rename-2026-09-18). The
+# subsurface (doublet
+# reservoir + pumped production) is identical to hydro_sf_electric.yml's/
+# hydro_df_electric.yml's — same site numbers, reused verbatim — only the
+# surface plant differs: a two-stage binary (Organic Rankine Cycle) plant
+# where the geofluid loop (out1 side of each HeatExchanger) transfers heat
+# to a separate, closed secondary working-fluid loop (out2 side) that
+# drives its own turbine. CycleCloser ("cc") closes the secondary loop so
+# TESPy can solve it with no open Source/Sink of its own.
+#
+# The secondary loop needed one new GraphSurface capability: per-port
+# connection attributes (fluid/guess-values/vapor quality) for a node with
+# more than one outgoing connection — see graph.py's
+# GraphSurface._apply_connection_config docstring. Dropped relative to the
+# single/double-flash examples' condenser blocks: Subtype/design/
+# cooling_tower_mode/set_number — cost-metadata-only fields (see
+# hydro_sf_electric.yml's condenser block for the same note), never passed
+# to a TESPy set_attr() call, so omitting them here doesn't affect
+# GraphSurface's physics.
+#
+# target_extraction_pressure/injection_pressure/mass_rate differ from the
+# SF/DF examples — matching flexible_ORC_manual.yml's own values, not
+# copied from the other two examples.
+
+title: Hydrothermal system with binary (ORC) power plant, manual flow rate
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0              # years
+  target_extraction_pressure: 3_000_000  # Pa — matches flexible_ORC_manual.yml's surface.target_extraction_pressure
+  # manual (not manual-fracking-check): this config's injection well outlet
+  # sits right at the fracking-safety margin -- ~54.48 MPa by old tango's
+  # numerical wellbore model (measured before old tango was removed; see
+  # git tag pre-tango-core-rename-2026-09-18), just under the 55 MPa
+  # fracking-safety threshold, vs. ~55.44 MPa by tango's own numerical
+  # wellbore model, just OVER it. A <2% well-model discrepancy (consistent
+  # with other known small numerical differences between the two
+  # implementations) that happens to straddle this site's unusually tight
+  # margin. manual-fracking-check has no self-correction by design (see
+  # SystemBCIteration's module docstring) so it would hard-fail here; skip
+  # the check for this benchmarking port rather than tune the input values
+  # to dodge it.
+  injection_mode: manual  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  mass_rate: 50              # kg/s — matches flexible_ORC_manual.yml's schedule.mass_flow_rate
+  bc_checkpoint_idx: 4       # component_idx of the surface (below)
+
+economic:
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last (surface consumes production well output)
+    prev: 3
+    next: 0
+    injection_pressure: 6_000_000   # Pa — initial guess for bc_iteration solver, matches
+                                     # flexible_ORC_manual.yml's schedule.injection_pressure
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Binary (ORC) TESPy topology: the geofluid loop (Source("inlet") ->
+      # heatexchanger -> heatexchanger2 -> pump2 -> Sink("outlet")) transfers
+      # heat, at each of two heat exchangers, to a separate closed secondary
+      # working-fluid loop (heatexchanger2.out2 -> heatexchanger.out2 ->
+      # turbine -> cooler -> condenser -> pump -> cc -> back to
+      # heatexchanger2.in2) that never mixes with the geofluid.
+      #
+      # Source("inlet") -(out1)-> heatexchanger -(out1)-> heatexchanger2 -(out1)-> pump2 -> Sink("outlet")
+      #                                  ^in2                    ^in2
+      #                                  |                       |
+      #                            (out2)|                 (out2)|
+      #                        turbine <-heatexchanger<--heatexchanger2<-- cc <- pump <- condenser <- cooler <- turbine
+      nodes:
+        inlet:
+          type: Source
+
+        outlet:
+          type: Sink
+
+        heatexchanger:
+          type: HeatExchanger
+          ttd_l: 7                     # K — terminal temperature difference (boiler)
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          h0_out1: 250                 # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
+          p0_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
+
+        heatexchanger2:
+          type: HeatExchanger
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
+          p0_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
+
+        pump2:
+          # PumpOrValve (not a fixed Compressor): whether this geofluid
+          # recirculation point is a real pump or a passive throttle depends
+          # on design-point conditions -- at target_extraction_pressure
+          # (3 MPa) well below injection_pressure (6 MPa), the loop's own
+          # natural driving pressure can already exceed what a fixed-p_out
+          # Compressor would need, same ambiguity AGS_direct_heat.yml's
+          # circulation_control resolves this way -- see graph.py's module
+          # docstring.
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); geofluid recirculation pump
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+
+        cooler:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+
+        pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); secondary-loop pump
+          p_out_megapascals: 0.5        # MPa (= 5 bar)
+
+        cc:
+          type: CycleCloser
+          # No config -- purely topological, closes the secondary loop so
+          # TESPy can solve it with no open Source/Sink of its own.
+
+      edges:
+        # Geofluid (primary) loop
+        '1': {source: inlet, target: heatexchanger, target_port: in1}
+        '2': {source: heatexchanger, source_port: out1, target: heatexchanger2, target_port: in1}
+        '3': {source: heatexchanger2, source_port: out1, target: pump2}
+        '4': {source: pump2, target: outlet}
+        # Secondary (ORC working-fluid) loop
+        '5': {source: cc, target: heatexchanger2, target_port: in2}
+        '6': {source: heatexchanger2, source_port: out2, target: heatexchanger, target_port: in2}
+        '7': {source: heatexchanger, source_port: out2, target: turbine}
+        '8': {source: turbine, target: cooler}
+        '9': {source: cooler, target: condenser}
+        '10': {source: condenser, target: pump}
+        '11': {source: pump, target: cc}
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0
+    prev: 4
+    next: 1
+    well_length: 5000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    hydro_static_pressure: 50_000_000  # Pa
+    over_pressure_percentage: 10
+    well_eff_diameter: 0.410      # m — average of injection/production well diameters (both 0.410)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 4000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    wellhead_depth: 1000.0    # m — matches production_well_upper's well_length below
+
+  production_well_upper:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.

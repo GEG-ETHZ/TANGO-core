@@ -1,0 +1,159 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Module Structure" id="phase0-module-structure">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="820" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Phase 0 — Module Structure: Path Touched by flexible_SF_manual.yml" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="15" width="760" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="leg_active" value="Active (this config)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="52" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_core" value="Core — always used" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="175" y="52" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_inactive" value="Other configs only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="320" y="52" width="135" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Entry point -->
+        <mxCell id="cli" value="tango_cli.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="95" width="145" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="runner" value="runner.py&lt;br&gt;Runner, BatchSimulation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="95" width="175" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e_c_r" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="cli" target="runner" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Workflows layer -->
+        <mxCell id="wf_hdr" value="workflows/" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="152" width="120" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="nwf" value="native_workflow.py&lt;br&gt;NativeWorkflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="173" width="175" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="cmgwf" value="cmg_workflow.py&lt;br&gt;CMGWorkflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="173" width="175" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="e_r_wf" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="runner" target="nwf" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Orchestrators layer -->
+        <mxCell id="orch_hdr" value="orchestrators/" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="235" width="150" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ext" value="external.py&lt;br&gt;SystemExternal&lt;br&gt;&lt;i&gt;bc_iteration present → external path&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="256" width="185" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="nat_orch" value="native.py&lt;br&gt;SystemNative / SystemCPGNative&lt;br&gt;SystemORCNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="230" y="256" width="185" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e_wf_ext" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="nwf" target="ext" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BC_calculator -->
+        <mxCell id="bcc" value="BC_calculator.py&lt;br&gt;BCCalculator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="430" y="256" width="165" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ext_bcc" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="ext" target="bcc" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Registry -->
+        <mxCell id="reg_hdr" value="units/" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="328" width="60" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="reg" value="registry.py&lt;br&gt;UNIT_OPTIONS, SYSTEM_OPTIONS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="430" y="173" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="e_nwf_reg" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="nwf" target="reg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Well units group -->
+        <mxCell id="well_grp" value="units/native/well/" style="swimlane;fontStyle=1;align=left;startSize=22;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="350" width="590" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="wbase" value="base.py&lt;br&gt;WellUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
+          <mxGeometry x="10" y="28" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wiw" value="injection_well.py&lt;br&gt;InjectionWellUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
+          <mxGeometry x="150" y="28" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wpw" value="production_well.py&lt;br&gt;ProductionWellUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
+          <mxGeometry x="310" y="28" width="155" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wpwp" value="production_well_pump.py&lt;br&gt;ProductionWellPumpUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="well_grp">
+          <mxGeometry x="10" y="80" width="175" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="whw" value="horizontal_well.py&lt;br&gt;HorizontalWellUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=10;" vertex="1" parent="well_grp">
+          <mxGeometry x="200" y="80" width="155" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Reservoir -->
+        <mxCell id="u_res" value="units/native/reservoir.py&lt;br&gt;ReservoirUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="515" width="195" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- Surface group -->
+        <mxCell id="surf_grp" value="units/native/surface/" style="swimlane;fontStyle=1;align=left;startSize=22;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="240" y="515" width="470" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="sfpp" value="flexible_pp.py&lt;br&gt;SurfaceUnitFlexiblePP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="surf_grp">
+          <mxGeometry x="10" y="26" width="155" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="sforc" value="ORC.py&lt;br&gt;SurfaceUnitORCNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=10;" vertex="1" parent="surf_grp">
+          <mxGeometry x="175" y="26" width="135" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="sfcpg" value="CPG.py&lt;br&gt;SurfaceUnitCPGNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=10;" vertex="1" parent="surf_grp">
+          <mxGeometry x="320" y="26" width="135" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Economic -->
+        <mxCell id="econ_mod" value="units/native/economic/economic.py&lt;br&gt;EconomicUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="607" width="220" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- unit_reader (inactive here) -->
+        <mxCell id="ureader" value="units/native/unit_reader.py&lt;br&gt;ReservoirFileReaderUnit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontColor=#aaaaaa;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="607" width="200" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- Core layer -->
+        <mxCell id="core_hdr" value="core/  (always used)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="672" width="200" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="core_grp" value="" style="swimlane;fontStyle=0;startSize=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="30" y="692" width="760" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cfs" value="core/fluidstate.py&lt;br&gt;FluidState (wraps CoolProp)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="core_grp">
+          <mxGeometry x="10" y="10" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cstr" value="core/stream.py&lt;br&gt;Stream, StreamState" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="core_grp">
+          <mxGeometry x="195" y="10" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cabu" value="core/abstracts/unit.py&lt;br&gt;Unit (ABC), SimplePressureDrop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="core_grp">
+          <mxGeometry x="380" y="10" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cabo" value="core/abstracts/orchestrator.py&lt;br&gt;UnitManager (ABC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="core_grp">
+          <mxGeometry x="565" y="10" width="185" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- dataclasses note -->
+        <mxCell id="dc_note" value="units/dataclasses.py  —  WellSpecsNative, CommonSpecs, ThermaGraphSpecs, AnalyzerSpecs  (typed spec containers, already partially in place)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="785" width="760" height="32" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

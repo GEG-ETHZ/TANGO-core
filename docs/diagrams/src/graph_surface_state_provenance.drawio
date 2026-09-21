@@ -1,0 +1,92 @@
+<mxfile host="Electron">
+  <diagram name="GraphSurface State Provenance" id="graph-surface-state-provenance">
+    <mxGraphModel dx="1509" dy="895" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1500" pageHeight="1040" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=14;fontStyle=1;" value="GraphSurface state provenance — hydro_sf_electric.yml (Single-Flash)" vertex="1">
+          <mxGeometry height="22" width="1460" x="20" y="4" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" value="For each connection&#39;s T / P / m / x: is it a genuine boundary condition, solved/emergent from TESPy&#39;s equations, or an imposed design constant?" vertex="1">
+          <mxGeometry height="18" width="1460" x="20" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;verticalAlign=top;spacing=8;" value="&lt;b&gt;State-provenance legend&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b style=&quot;color: rgb(169, 196, 235);&quot;&gt;BOUNDARY&lt;/b&gt; (blue) — genuine external input: well T/P/m from the subsurface solve, or injection_pressure (the global SystemBCIteration BC variable). Legitimately fixed.&lt;br&gt;&lt;br&gt;&lt;b style=&quot;color: rgb(185, 224, 165);&quot;&gt;SOLVED&lt;/b&gt; (green) — emergent from TESPy&#39;s equations (mass/energy balance, phase equilibrium, pressure equality) given upstream state.&lt;br&gt;&lt;br&gt;&lt;b style=&quot;color: rgb(255, 181, 112);&quot;&gt;IMPOSED&lt;/b&gt; (orange) — fixed design-point constant taken straight from YAML (p_out, eta_s, x_out). Not derived from any resistance/flow relationship — TESPy has no way to check these represent a real, buildable device." vertex="1">
+          <mxGeometry height="230" width="280" x="20" y="54" as="geometry" />
+        </mxCell>
+        <mxCell id="pipe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;align=left;verticalAlign=top;spacing=8;" value="&lt;b&gt;Wellhead → plant surface pipe&lt;/b&gt;&#xa;(Python, GraphSurface.solve() — runs before the TESPy network is invoked)&#xa;&#xa;Δp = pressure_drop_friction(&#xa;  friction_factor_haaland(Re, D, ε), L, D, ρ, u)&#xa;&#xa;P_tespy_inlet = P_well − Δp&#xa;&#xa;SOLVED — physically derived from mdot, pipe_diameter, pipe_roughness, well_spacing (the actual friction correlation, unlike anything inside the TESPy network below)." vertex="1">
+          <mxGeometry height="170" width="280" x="20" y="298" as="geometry" />
+        </mxCell>
+        <mxCell id="risk" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=left;verticalAlign=top;spacing=8;" value="&lt;b&gt;Where an unknowing user can break this&lt;/b&gt;&#xa;&#xa;• Really only 2 independent design choices here, not 3: flash pressure (valve) and condensing pressure (turbine + condenser share one value — zero ΔP assumed across the condenser). Neither has a resistance law tying it to mdot — nothing checks they stay consistent if flow or well conditions change.&#xa;&#xa;• approach_temperature is declared on every surface YAML block but never read by GraphSurface's condenser here. This actually matches old tango parity for this unit type — src/tango/'s flexible_pp.py doesn't use it for p_out either, only for a BAC parasitic-power (cooling-tower auxiliary load) regression that tango hasn't ported yet (no economic component exists). ORC.py/CPG.py DO use it to derive condensing pressure — different surface unit, not yet in tango.&#xa;&#xa;• Old tango has prior art for exactly this risk: flexible_pp.py's validate_pressure_monotonicity() walks the power_plant_graph upstream from each p_out, stopping at Pump/Compressor boundaries, and raises if pressure doesn't decrease monotonically. tango has no equivalent yet — needs porting.&#xa;&#xa;• TESPy solves whatever equations it's given — it will not flag a non-physical combination (e.g. rising pressure across a passive device, or a sign-flipped turbine) on its own." vertex="1">
+          <mxGeometry height="380" width="280" x="20" y="482" as="geometry" />
+        </mxCell>
+        <mxCell id="pp" parent="1" style="swimlane;startSize=32;fillColor=#ffffff;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;verticalAlign=top;" value="GraphSurface — power_plant TESPy network  (components/surface/graph.py)" vertex="1">
+          <mxGeometry height="760" width="1140" x="320" y="54" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_in" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacing=6;" value="inlet — Source&#xa;&#xa;BOUNDARY: T, P (after pipe Δp), m, fluid&#xa;— delivered from the well solve" vertex="1">
+          <mxGeometry height="60" width="200" x="470" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_valve" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left;spacing=6;" value="valve&#xa;&#xa;IMPOSED: p_out = 0.05 MPa (fixed constant)&#xa;SOLVED: T_out — isenthalpic (h_out = h_in)" vertex="1">
+          <mxGeometry height="66" width="200" x="470" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_sep" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacing=6;" value="droplet_separator — DropletSeparator&#xa;&#xa;SOLVED: liquid/vapor split fraction, x=0 / x=1 — from phase equilibrium at the actual inlet P,h (pressure itself inherited unchanged from valve)" vertex="1">
+          <mxGeometry height="70" width="240" x="450" y="236" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_turb" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left;spacing=6;" value="turbine   role: net_electric&#xa;&#xa;IMPOSED: p_out = 0.005 MPa (fixed)&#xa;IMPOSED: eta_s = 1.0 (device constant)&#xa;SOLVED: T_out, power — given p_out and eta_s" vertex="1">
+          <mxGeometry height="80" width="220" x="150" y="336" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_pump2" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacing=6;" value="pump2 — Compressor   role: net_electric&#xa;(separator liquid branch)&#xa;&#xa;IMPOSED: eta_s = 1.0 (device constant)&#xa;SOLVED: p_out — forced equal to pump&#39;s p_out and mixer&#39;s p by Merge&#39;s pressure-equality constraint" vertex="1">
+          <mxGeometry height="96" width="230" x="750" y="336" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_cond" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left;spacing=6;" value="condenser — SimpleHeatExchanger&#xa;&#xa;IMPOSED: p_out = 0.005 MPa (fixed; equals turbine p_out — zero ΔP assumed)&#xa;IMPOSED: vapor_mass_fraction_out = 0 (forces full condensation)&#xa;NOT WIRED: approach_temperature is declared here but never read by GraphSurface" vertex="1">
+          <mxGeometry height="96" width="220" x="150" y="452" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_pump" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacing=6;" value="pump — Compressor   role: net_electric&#xa;(condensate)&#xa;&#xa;IMPOSED: eta_s = 1.0 (device constant)&#xa;SOLVED: p_out — forced equal to pump2&#39;s p_out and mixer&#39;s p by Merge&#39;s pressure-equality constraint" vertex="1">
+          <mxGeometry height="96" width="220" x="150" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_mix" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacing=6;" value="mixer — Merge&#xa;&#xa;SOLVED: T, m — mass/energy balance&#xa;SOLVED: p — pressure equality across all 3 connections" vertex="1">
+          <mxGeometry height="70" width="220" x="460" y="586" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_out" parent="pp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacing=6;" value="outlet — Sink&#xa;&#xa;BOUNDARY: p = injection_pressure&#xa;— the actual SystemBCIteration BC variable; the one place this network closes to a genuine physical target (re-injection pressure), not a chosen constant" vertex="1">
+          <mxGeometry height="88" width="240" x="450" y="686" as="geometry" />
+        </mxCell>
+        <mxCell id="e_in_valve" edge="1" parent="pp" source="pp_in" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_valve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_valve_sep" edge="1" parent="pp" source="pp_valve" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_sep">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sep_turb" edge="1" parent="pp" source="pp_sep" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" target="pp_turb" value="vapor branch — x=1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sep_pump2" edge="1" parent="pp" source="pp_sep" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" target="pp_pump2" value="liquid branch — x=0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_turb_cond" edge="1" parent="pp" source="pp_turb" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_cond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_cond_pump" edge="1" parent="pp" source="pp_cond" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_pump">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pump_mix" edge="1" parent="pp" source="pp_pump" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_mix">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pump2_mix" edge="1" parent="pp" source="pp_pump2" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_mix">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mix_out" edge="1" parent="pp" source="pp_mix" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="pp_out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pipe_in" edge="1" parent="1" source="pipe" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#82b366;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="pp_in">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="dhhx" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;align=left;verticalAlign=top;spacing=8;" value="&lt;b&gt;AGS_direct_heat.yml's dh_hx — a sharper version of the same problem, not the same pattern&lt;/b&gt;&#xa;&#xa;dh_hx (SimpleHeatExchanger, role: net_thermal) only sets T_out — no p_out, no vapor_mass_fraction_out at all (it never changes phase; it's single-phase liquid water end to end). Checked directly against TESPy's SimpleHeatExchanger: its only mandatory constraints are mass_flow_func + fluid_func + energy_balance_func (Q solved from m·(h_out−h_in)) — none of them relate pressure. So dh_hx's inlet and outlet pressures are each independently pinned by something else entirely: inlet = P_tespy_inlet (well pressure minus the resistance-derived pipe Δp, same as the SF case), outlet = injection_pressure (the BC-iteration variable, fixed on the Sink). dh_hx itself asserts zero relationship between the two — there is no p_out anywhere in this YAML block to even inspect, so a reviewer skimming the file for '3 fixed pressures to check' would miss this entirely. If injection_pressure is ever guessed/set higher than the well-delivered inlet pressure, nothing here would flag that a passive heat exchanger can't produce a pressure rise." vertex="1">
+          <mxGeometry height="150" width="1420" x="20" y="850" as="geometry" />
+        </mxCell>
+
+        <mxCell id="footer" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontStyle=2;fontColor=#666666;" value="Ref: src/tango/components/surface/graph.py (GraphSurface.init / _apply_node_config / solve); src/tango/units/native/surface/flexible_pp.py (validate_pressure_monotonicity, approach_temperature/BAC regression); example_configs/hydro_sf_electric.yml, AGS_direct_heat.yml. dh_hx = district-heating heat exchanger, not delta-h." vertex="1">
+          <mxGeometry height="18" width="1440" x="20" y="1008" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
