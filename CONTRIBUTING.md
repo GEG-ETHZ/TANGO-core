@@ -1,5 +1,94 @@
 # Contributing
 
+## TANGO Commandments
+These are strict rules that all TANGO developers must follow.  These rules are
+intended to prevent problems that TANGO users and developers have struggled
+with.
+1. <a id="rule-object-is-config"></a>**object == config**: All new code objects and attributes must comply with the object-is-config, config-is-object
+  paradigm in which code objects and config (e.g. yaml files) have near 1:1
+  congruence (exceptions could be e.g. parameter values that are derived upon
+  instantiation).  Similarly, all new module structure must have reasonable
+  compliance with this paradigm.
+1. <a id="rule-locked-state"></a>**Mutation is guarded**: All state variables (i.e. any variables
+  that mutate through temporal/time iterations) must be wrapped in
+  `src/tango/core/locked_state.py::LockedState`, the single-value wrapper
+  that enforces exactly one `update()` per time step, AND must live inside the
+  component's `state` dataclass field — never as a bare `Component` attribute.
+1. <a id="rule-state-history-parity"></a>**History is recordable**: All attributes in `*State` classes must have analogs in `*History`
+  classes (a `list[T]` field, appended to in `record()`) — a value worth
+  protecting as per-timestep state is worth keeping a time series of.
+  Exception: `EconomicComponent`'s `EconomicState` has no `*History` class
+  at all, since it isn't per-timestep state — the component runs exactly
+  once (via `finalize()`), never through `record()`. Revisit if that
+  changes.
+1. <a id="rule-shared-by-reference"></a>**Single source of truth**: Any shared data that must be available within multiple objects in the
+  hierarchy must be shared via reference rather than multiple, separate copies
+  that can get out of sync.
+1. <a id="rule-ci-checks"></a>**Deterministic quality checks**: All new code additions must pass:
+    - `mypy --strict` type checking, as handled in the pyproject.toml file
+    - `ruff` format checking
+    - `pytest` tests
+
+    All tests are automated through git hooks and GitLab pipelines and can optionally be run with `just check`.
+1. <a id="rule-docstrings"></a>**Doc string formatting**: All doc strings must be formatted in Google style and explain what the
+  documented object does, arguments, class attributes, outputs, ...
+1. <a id="rule-pydantic-schemas"></a>**Schemas defined in code**: All class attributes representing simulation config or persisted/
+  serialized state must be defined in pydantic schemas. Orchestration/wiring
+  internals, runtime state governed by `LockedState` ([rule: LockedState](#rule-locked-state)), and framework
+  primitives (e.g. `LockedState` itself) are exempt — they're never loaded
+  from or dumped to config, so pydantic's validation/serialization contract
+  doesn't apply to them.
+1. <a id="rule-no-eval"></a>**See no `eval`**: There shall not be any `eval` functions!
+1. <a id="rule-unit-conversion-factors"></a>**Unit conversions**: All unit conversion factors shall be defined in and imported from src/tango/core/constants.py
+1. <a id="rule-finite-values-strenum"></a>**Enums for finite variants**: Any parameter that can take on a small, finite set of values should be
+  handled as `StrEnum` so that we explicitly document and enforce these values.
+1. <a id="rule-no-silent-pass"></a>**Guard against misused base classes**: Unimplemented base-class methods must `raise NotImplementedError` (or a
+  more specific error), never a silent `pass`. A no-op placeholder is
+  indistinguishable from "correctly does nothing" until someone goes
+  looking, and can let real bugs run silently for a long time before
+  anyone notices.
+1. <a id="rule-unit-suffix-naming"></a>**Unit naming convention**: Any variable or YAML field whose value is in a non-SI unit must name that
+  unit explicitly as a suffix (e.g. `p_out_megapascals`, not `p_out`) —
+  converted to/from SI at the point the field is read, using the factors
+  from [rule: unit conversion factors](#rule-unit-conversion-factors). Fields already in SI units (`T_out` in Kelvin, pressures in
+  Pa, mass rates in kg/s, power in W, ...) need no suffix, since SI is the
+  assumed default everywhere a name doesn't say otherwise. This avoids an
+  implicit, file-global unit (e.g. TESPy's `Network(p_unit='bar', ...)`,
+  so a bare `p_out: 0.05` would silently mean bar) in favor of one that's
+  self-evident from the name alone, no matter where it's read out of
+  context.
+1. <a id="rule-descriptive-variable-names"></a>**No opaque short names for physical quantities**: Any variable, parameter, or field representing a
+  physical quantity must use a full, descriptive name — never a bare
+  single- or double-letter symbol (`rw`, `re`, `T`, `P`) copied straight
+  out of a textbook formula. A short symbol lets two different physical
+  quantities — or a radius substituted for a diameter — get silently
+  swapped for each other, because the name itself carries no
+  distinguishing information; a name like `wellbore_diameter_m` (vs.
+  `wellbore_radius_m`) makes that kind of mismatch visually obvious at
+  the call site in a way a bare `rw` cannot. This isn't a request for
+  verbosity for its own sake — it's specifically about eliminating that
+  class of bug.
+1. **Document private attributes/fields**: All private attributes/fields and variables (e.g. preceded with `_` or `__`) must have an explanatory comment.
+1. <a id="rule-encapsulated-mutation"></a>**Encapsulated mutation**: A class instance's fields must only be modified by the instance
+  itself — via methods it defines, whether those methods are called
+  internally or by external code — never by direct external assignment
+  (`obj.field = value`). `state` (and `state`-shaped containers like
+  `Stream`, whose own `LockedState` fields are directly `.update()`-able
+  by external callers — see [rule: LockedState](#rule-locked-state)) is
+  the one exception. **Not yet verified applied uniformly** — see
+  `docs/tango_tasks.md`'s open-items list for the audit task.
+1. <a id="rule-yaml-booleans"></a>**YAML booleans: `True`/`False`, never `yes`/`no`**: All boolean values in
+  TANGO YAML files (`example_configs/`, `tests/`, any input config) must be
+  written as `True`/`False` (Python-style capitalisation), never `yes`/`no`/
+  `on`/`off`. Two reasons: a boolean field checked with `== "yes"` instead
+  of a truthy test silently breaks when `True`/`False` is written instead —
+  PyYAML parses `True` as a Python boolean, and `True == "yes"` is `False`;
+  all boolean fields in `tango` must use proper boolean types, checked with
+  `if value:`, never `if value == "yes":`. Separately, YAML 1.1 (PyYAML)
+  treats `yes`/`no`/`on`/`off` as booleans while YAML 1.2 (ruamel.yaml and
+  newer parsers) does not — those become plain strings, a silent mismatch
+  if the parser is ever switched.
+
 ## Branching Strategy
 
 ### Persistent Branches
@@ -89,9 +178,11 @@ Depending on the target branch, use the following merge strategies:
 
 - **Merging a topic branch (`dev/*`, `fix/*`) into `develop` or `main`**:
   - *Note: This must **always** be merged via a GitLab Merge Request.*
-  1. Important: **Create a lightweight git tag** of the branch *before* merging (see [Tagging deleted branches](#tagging-deleted-branches)).
-  2. Perform a **Squash merge**.
-  3. Delete the source branch.
+  1. Perform a **Squash merge**.
+  2. Delete the source branch locally. CI automatically tags the branch tip to
+     preserve history and automatically deletes the source branch on the server — see
+     [Tagging deleted branches](#tagging-deleted-branches) for why this
+     matters and the resulting `CHANGELOG.md` footer format.
 - **Merging `develop` into `main`**:
   - *Note: This must **always** be merged via a GitLab Merge Request.*
   1. Perform a **Standard merge** (often called "Merge commit" or "Create a merge commit") to preserve the squashed history of the individual features.
@@ -205,24 +296,11 @@ links](#tagging-deleted-branches) at the bottom of `CHANGELOG.md`.
 
 ### Tagging deleted branches
 
-GitLab prunes branch refs when branches are deleted, which would break
-`CHANGELOG.md` comparison links. To preserve a permanent pointer to where a
-branch landed, **create a lightweight git tag immediately before deleting the
-branch**:
-
-```bash
-git tag fix/some-bug                              # lightweight tag, same name as branch
-git push origin refs/tags/fix/some-bug            # push the tag explicitly
-git push origin --delete refs/heads/fix/some-bug  # delete branch explicitly
-# (using refs/tags/ and refs/heads/ avoids ambiguity since tag and branch share the name)
-```
-
-This is a well-established practice — unlike branches, tags are static pointers
-to a specific commit. This ensures the commit remains reachable even after the
-branch ref disappears.
-
-> **Convention**: prefix *release* tags with `v` (e.g. `v1.2.0`) to
-> distinguish them from branch-preservation tags (e.g. `fix/some-bug`).
+This matters because GitLab prunes branch refs when branches are deleted,
+which would otherwise break `CHANGELOG.md` comparison links — see
+[Merging strategies](#merging-strategies) for how the `bak/<branch-name>`
+tag that prevents this gets created. The only tags you create by hand are
+release tags (`v1.2.0`-style, see [Steps](#steps) below).
 
 The `CHANGELOG.md` footer will then look like:
 
@@ -231,3 +309,46 @@ The `CHANGELOG.md` footer will then look like:
 [1.2.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.1.0...v1.2.0
 [1.1.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/releases/tag/v1.1.0
 ```
+
+---
+
+## Cutting an Internal (GEG-only) Release
+
+TANGO is distributed internally to GEG group members as a private GitLab
+dependency, pinned to a version tag — there is no PyPI package or GitLab
+Package Registry publish step. "Cutting a release" means: bump the
+version, tag it, push the tag. That tag is the release; consumers install
+directly from it (see
+[README.md#installation](./README.md#installation)).
+
+### Versioning
+
+TANGO follows [Semantic Versioning](https://semver.org/) (SemVer):
+`version` in `pyproject.toml` is `MAJOR.MINOR.PATCH`, where `MAJOR` bumps
+for a breaking change, `MINOR` for a backwards-compatible addition, and
+`PATCH` for a fix-only release. See semver.org for the full spec.
+
+Release tags are `v`-prefixed (`v1.0.0`, not bare `1.0.0`) to match the
+convention already used to tell them apart from `bak/*` branch-preservation
+tags (see [Tagging deleted branches](#tagging-deleted-branches)) — also the
+more common convention for git tags generally (GitLab Releases and most
+changelog/release tooling default to expecting a `v` prefix).
+
+### Steps
+
+1. Make sure `CHANGELOG.md`'s `## [In Development]` section reflects
+   everything going into this release (see [Changelog](#changelog) above).
+2. On `main`, bump `version` in `pyproject.toml` (e.g. `"1.0.0"` →
+   `"1.0.1"`) and commit it (normal MR + review, same as any other change).
+3. Once that commit is on `main`, tag it and push the tag:
+   ```bash
+   git checkout main && git pull
+   git tag v1.0.1
+   git push origin refs/tags/v1.0.1
+   ```
+   Do not reuse a version number for a different commit; cut a new
+   patch/minor instead.
+4. Nothing else publishes automatically — there is no CI release job. The
+   pushed tag *is* the release; skip straight to telling consumers which
+   tag to pin (or update whatever internal channel/doc tracks current
+   recommended versions).

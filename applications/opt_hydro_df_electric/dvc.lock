@@ -1,0 +1,72 @@
+schema: '2.0'
+stages:
+  optimize:
+    cmd: python opt_hydro_df_electric.py --clean --no-plot
+    deps:
+    - path: ../../../example_configs/hydro_df_electric.yml
+      hash: md5
+      md5: 78827d5e4a76e55ace203ac7a549aee9
+      size: 9585
+    - path: ../../../src/tango.hash
+      hash: md5
+      md5: cd3484155a109e85dcea2aa54dcf72c6
+      size: 41
+    - path: opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    params:
+      params.yaml:
+        crossover_prob: 0.9
+        ftol: 0.005
+        mutation_prob:
+        n_max_gen: 200
+        pop_size: 45
+        seed: 1
+        xtol: 0.0005
+    outs:
+    - path: outputs/pareto_configs
+      hash: md5
+      md5: 3e70805196cf45932a0d7e27fa704103.dir
+      size: 642495
+      nfiles: 45
+    - path: outputs/pareto_results.csv
+      hash: md5
+      md5: c94a44d89ed3859c767427cd6aeaf42f
+      size: 5327
+  plot:
+    cmd: python opt_hydro_df_electric.py --plot-only
+    deps:
+    - path: opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    - path: outputs/pareto_results.csv
+      hash: md5
+      md5: c94a44d89ed3859c767427cd6aeaf42f
+      size: 5327
+    outs:
+    - path: outputs/pareto_parallel_coordinates.html
+      hash: md5
+      md5: 632be2377bc2f4775abf16a65191b67e
+      size: 4573425
+    - path: outputs/pareto_parallel_coordinates.png
+      hash: md5
+      md5: defcd64bb63ff7b496b74c328f361f7d
+      size: 639402
+    - path: outputs/pareto_scatter.png
+      hash: md5
+      md5: a5f5b190bf75898c01e74795d07a4f7d
+      size: 81036
+    - path: outputs/pareto_scatter_by_param.png
+      hash: md5
+      md5: ea3095ad276a289b4907bd47589ada1a
+      size: 144054
+    - path: outputs/pareto_scatter_param_pairs.png
+      hash: md5
+      md5: 1c830108076b8decbbd099faaa212d2e
+      size: 240293
+    - path: outputs/pareto_scatter_zscore.png
+      hash: md5
+      md5: c5a52d534821cc42bc98eadca2dfa87c
+      size: 73093

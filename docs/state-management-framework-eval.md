@@ -1,5 +1,13 @@
 # State Management Framework Evaluation
 
+**Superseded, never filled in (as of 2026-08).** The comparison matrix below
+was never populated — instead of adopting a third-party framework, tango
+built a custom `LockedState` (`src/tango/core/locked_state.py`),
+enforcing "each state variable updated exactly once per timestep" directly in
+the codebase. See `docs/TANGO_vision_and_roadmap/README.md`'s Phase 2 checklist for
+current status. Kept here for historical record of the criteria that were
+considered, not as an open evaluation.
+
 | Criteria                          | Framework 1 | Framework 2 | Framework 3 | Framework 4 |
 |-----------------------------------|-------------|-------------|-------------|-------------|
 | **Name**                          |             |             |             |             |
