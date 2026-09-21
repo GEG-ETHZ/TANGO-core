@@ -1,0 +1,159 @@
+# claude_tests fixture: well_pattern_not_implemented
+# layout.well_pattern names a pattern conceptually recognized by the domain
+# but with no impedance formula wired up in WellPattern.impedance().
+# Derived from example_configs/hydro_sf_electric.yml (well_pattern: DOUBLET -> NINE_SPOT).
+#
+# NOTE (current behavior): every WellPattern enum member today (Doublet,
+# FiveSpot, InvertedFiveSpot) already has an impedance formula, so the
+# `else: raise NotImplementedError` branch in impedance() is currently dead
+# code -- there is no real member that reaches it. NINE_SPOT is not a
+# recognized alias at all today, so this file is a placeholder for once a
+# new WellPattern member is added without its formula; until then it
+# actually behaves the same as undefined_well_pattern.yml (unresolved alias,
+# only surfacing during Workflow.run()).
+
+title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
+
+common:
+  fluid_name: H2O
+  surface_temperature: 288
+  surface_pressure: 100_000
+  rock_density: 2650.0
+  rock_cp: 1000.0
+  rock_k: 2.1
+  thermal_gradient: 0.035
+
+layout:
+  well_spacing: 707.0
+  well_pattern: AGS
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0
+  target_extraction_pressure: 7_000_000  # Pa
+  injection_mode: auto-flow
+  mass_rate: 50
+  bc_checkpoint_idx: 4
+
+economic:
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4
+    prev: 3
+    next: 0
+    injection_pressure: 2_000_000
+    pipe_diameter: 0.41
+    approach_temperature: 7.0
+    pipe_roughness: 55.e-6
+
+    power_plant:
+      # Single-Flash TESPy topology, read generically by GraphSurface — see
+      # components/surface/graph.py module docstring for the inlet/outlet/
+      # role naming contract this depends on.
+      #
+      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(pump2) -\
+      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(pump) -> Merge -> Sink("outlet")
+      nodes:
+        inlet:
+          type: Source
+
+        valve:
+          type: Valve
+          p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
+
+        droplet_separator:
+          type: DropletSeparator
+
+        pump2:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+
+        pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+
+        mixer:
+          type: Merge
+
+        outlet:
+          type: Sink
+
+      edges:
+        1: {source: inlet, target: valve}
+        2: {source: valve, target: droplet_separator}
+        3: {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
+        4: {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
+        5: {source: turbine, target: condenser}
+        6: {source: condenser, target: pump}
+        7: {source: pump, target: mixer, target_port: in1}     # condensate
+        8: {source: pump2, target: mixer, target_port: in2}    # separator liquid
+        9: {source: mixer, target: outlet}
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0
+    prev: 4
+    next: 1
+    well_length: 5000.0
+    diameter: 0.410
+    pipe_roughness: 55.e-6
+    num_cells: 100
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0
+    thickness: 300.0
+    permeability: 5.0e-14
+    porosity: 0.1
+    hydro_static_pressure: 50_000_000
+    over_pressure_percentage: 10
+    well_eff_diameter: 0.410
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 4000.0
+    diameter: 0.410
+    pipe_roughness: 55.e-6
+    num_cells: 100
+    wellhead_depth: 1000.0
+
+  production_well_upper:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0
+    diameter: 0.410
+    pipe_roughness: 55.e-6
+    num_cells: 100

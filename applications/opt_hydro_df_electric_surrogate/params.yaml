@@ -1,0 +1,82 @@
+# Parameters for the hydro_df_electric surrogate-assisted optimization pipeline
+# (real-NSGA2 trajectory -> train MLP-regressor surrogate -> NSGA2 against
+# the surrogate -> real-sim validation of its pareto front).
+# Changing any value here marks the dependent DVC stage as stale.
+# Run `uv run dvc repro` from this directory to re-execute stale stages.
+
+# Stage 1 (redesigned 2026-09-03, see REDESIGN_TODO.md): replaces the old
+# LHS-sample + real-sim-sweep pair. Runs a REAL NSGA2 search for a small,
+# fixed number of generations, retaining EVERY evaluated individual (not
+# just the final front) as surrogate training data -- generation 1
+# (NSGA2's random init) gives LHS-like broad coverage for free, later
+# generations naturally concentrate near the real Pareto front, the region
+# that actually matters, without a separate manual refinement round.
+# trajectory_pop_size/trajectory_n_gen are DELIBERATELY separate params
+# from the surrogate-driven run's own n_max_gen/pop_size below (Chad's
+# call) -- this stage's real-sim budget is trajectory_pop_size *
+# trajectory_n_gen evaluations; keep that in the same ballpark as the old
+# n_lhs_samples (5000) if a like-for-like real-sim-budget comparison
+# matters.
+trajectory_pop_size: 1000
+trajectory_n_gen: 5
+trajectory_seed: 1
+# Two designs are treated as duplicates (never real-sim'd, not just
+# filtered afterward -- see ParamToleranceDuplicateElimination) if EVERY
+# param is within this fraction of the other's own bounds range. Only
+# catches duplicates within the CURRENT generation's offspring/population,
+# not the full multi-generation history -- see REDESIGN_TODO.md's Q2.
+trajectory_dedup_tol_frac: 0.001
+n_train_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script
+
+# Stage 2: surrogate (one regressor per objective, swappable -- see
+# surrogate_api.REGRESSOR_FACTORIES -- plus a RandomForestClassifier for
+# feasibility). `regressor: mlp` (default, changed from gaussian_process
+# 2026-09-01) -- confirmed empirically on a real Euler run (n_lhs_samples
+# 5000) to be objectively better on THIS problem, not just faster: GP's
+# cross-validated R^2 looked excellent (LCOE 0.9985) but NSGA2 still
+# exploited a region where its actual predictions were off by up to 35%,
+# leaving only 3/43 predicted-pareto designs genuinely non-dominated after
+# real-sim correction; MLP trained in ~15s (vs GP's ~36 min -- GP's O(n^3)
+# fit cost, repeated across CV folds and hyperparameter-optimizer restarts,
+# gets slow past a few thousand feasible rows) AND held up far better at
+# the pareto edge (LCOE relative error: median 1.4%, max 4.3%), leaving
+# 12/45 genuinely non-dominated designs. `gaussian_process` remains
+# available as the smooth-surface reference case. `random_forest` is this
+# app's original choice (piecewise-constant predictions can stall the
+# search on plateaus -- see surrogate_api.SurrogateModel's docstring), kept
+# for an apples-to-apples comparison, not recommended. Raise
+# classifier_threshold (e.g. 0.7) if
+# outputs/surrogate_classifier_diagnostics.csv's cv_recall_infeasible looks
+# too low -- missing a true-infeasible design (predicting it feasible) is
+# the costly error here, not over-rejecting a feasible one.
+regressor: mlp
+gpr_n_restarts_optimizer: 5 # only used when regressor: gaussian_process
+regressor_rf_n_estimators: 300 # only used when regressor: random_forest
+mlp_hidden_layer_sizes: "16,16" # only used when regressor: mlp -- tried "64,64" (2026-09-02) on a real Euler run: CV r2/MAE improved (LCOE r2 0.979->0.989) but that was overfitting, not genuine improvement -- real-sim-corrected accuracy at the pareto edge got WORSE (median LCOE rel error 1.4%->3.7%) and fewer designs survived real-sim validation (19/45->16/45 feasible, 12->10 genuinely non-dominated). Reverted; see mlp_regressor_factory's docstring for why capacity is the wrong first lever with ~2253 feasible training rows -- try the hyperparameter grid search / MLP ensemble idea (2026-09-01 5-step accuracy plan) first if this pipeline still isn't accurate enough
+mlp_alpha: 0.001 # only used when regressor: mlp
+mlp_max_iter: 2000 # only used when regressor: mlp
+classifier_n_estimators: 300
+cv_folds: 5
+surrogate_seed: 1
+classifier_threshold: 0.5
+
+# Stage 3: surrogate-driven NSGA2. DELIBERATELY its own config (2026-09-03,
+# Chad's call), separate from trajectory_n_gen/trajectory_pop_size above --
+# this run is cheap (no real sim), so it can search far deeper than the
+# real trajectory stage affords. (Previously left unset here so this stage
+# mirrored the real opt_hydro_df_electric app's own params.yaml exactly,
+# for a direct real-vs-surrogate timing comparison -- that comparison isn't
+# the point anymore now that stage 1 no longer runs an equivalent real
+# NSGA2 search at these settings.)
+n_max_gen: 200
+pop_size: 45
+ftol: 0.005
+xtol: 0.0005
+optimize_seed: 1
+
+# Stage 4: real-sim validation of the surrogate's pareto front. Raises
+# (fails the pipeline) if any objective is off by more than this for any
+# design -- 0.01 (1%) is Chad's stated bar for trusting the surrogate's
+# pymoo result at all, not an arbitrary default (see REDESIGN_TODO.md).
+validation_tolerance: 0.01
+n_validate_workers: 45 # keep in sync with --cpus-per-task if run via the SLURM job script

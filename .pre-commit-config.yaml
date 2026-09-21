@@ -1,8 +1,23 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 default_stages: [pre-commit, pre-push]
+# Without this, hooks all run regardless of earlier failures (pre-commit's
+# default) -- pointless for check-remote-up-to-date, whose entire point is
+# to skip the slow mypy/pytest hooks below it once it fails.
+fail_fast: true
 
 repos:
+  # Remote freshness check (run ONLY on push, before anything else below --
+  # catches a stale branch in ~1s instead of after the full mypy/pytest run)
+  - repo: local
+    hooks:
+      - id: check-remote-up-to-date
+        name: check remote is up to date before running the rest
+        entry: uv run python tools/check_remote_up_to_date.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
   # Fast checks (run on both commit and push just to be safe)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.5
@@ -11,16 +26,26 @@ repos:
         args: [ --fix ]
       - id: ruff-format
 
+  # Local, fast checks
+  - repo: local
+    hooks:
+      - id: hash-tango
+        name: hash src/tango (for DVC dep tracking)
+        entry: uv run python tools/hash_tango.py
+        language: system
+        files: ^src/tango/
+        pass_filenames: false
+
   # Strict/Slow checks (run ONLY on push)
-  # - repo: local
-  #   hooks:
-  #     - id: mypy
-  #       name: mypy
-  #       entry: uv run mypy src/
-  #       language: system
-  #       types: [python]
-  #       pass_filenames: false
-  #       stages: [pre-push]
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
 
   # Built-in hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -39,8 +64,12 @@ repos:
   - repo: local
     hooks:
       - id: pytest
-        name: Run test suite
-        entry: uv run pytest -v
+        name: Run test suite (fast)
+        # not slow: full-N_TSTEPS numeric parity/reference checks — a fast
+        # companion at a reduced timestep count covers the same code path
+        # and stays in this hook. Run `just test --all` (or `-m slow`)
+        # before merging changes that could affect long-run numerics.
+        entry: uv run pytest -m "not perf and not slow"
         language: system
         files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false

@@ -3,6 +3,8 @@
 This document defines the strict rules and conventions that an AI Agent
 must follow when working on this repository.
 
+In addition to this document, always read `../README.md` and `../CONTRIBUTING.md`.
+
 ## Table of Contents
 
 - [Pre-approved Auto-Run Commands](/.agent/rules/auto-run.md)

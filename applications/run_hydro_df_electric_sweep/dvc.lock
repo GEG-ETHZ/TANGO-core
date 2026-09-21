@@ -1,0 +1,113 @@
+schema: '2.0'
+stages:
+  generate:
+    cmd: python generate.py
+    deps:
+    - path: ../../../example_configs/hydro_df_electric.yml
+      hash: md5
+      md5: 78827d5e4a76e55ace203ac7a549aee9
+      size: 9585
+    - path: common.py
+      hash: md5
+      md5: 6f691c01ebdd11422066debd82003d5d
+      size: 9668
+    - path: generate.py
+      hash: md5
+      md5: ea7f0868d38a9bb94a6e608f2ae7eeb4
+      size: 4947
+    outs:
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: ca9c1a5aa40346a46a0842c98cc097c2
+      size: 18399
+  sweep:
+    cmd: python sweep.py
+    deps:
+    - path: ../../../example_configs/hydro_df_electric.yml
+      hash: md5
+      md5: 78827d5e4a76e55ace203ac7a549aee9
+      size: 9585
+    - path: ../../../src/tango.hash
+      hash: md5
+      md5: b20457cccd2704dc648b7341ee83e107
+      size: 41
+    - path: common.py
+      hash: md5
+      md5: 6f691c01ebdd11422066debd82003d5d
+      size: 9668
+    - path: outputs/design_matrix.parquet
+      hash: md5
+      md5: ca9c1a5aa40346a46a0842c98cc097c2
+      size: 18399
+    - path: sweep.py
+      hash: md5
+      md5: 49283472e7ee129f63f5ecf5cbab8b82
+      size: 12541
+    params:
+      params.yaml:
+        log_level: NONE
+        n_workers: 45
+    outs:
+    - path: outputs/results
+      hash: md5
+      md5: 68897cec0475b20d562cdd2fe383df05.dir
+      size: 59568
+      nfiles: 65
+  summarize:
+    cmd: python summarize.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 6f691c01ebdd11422066debd82003d5d
+      size: 9668
+    - path: outputs/results
+      hash: md5
+      md5: 68897cec0475b20d562cdd2fe383df05.dir
+      size: 59568
+      nfiles: 65
+    - path: summarize.py
+      hash: md5
+      md5: 1447df29cc4b23f50e751f6400a128b7
+      size: 5611
+    outs:
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 59f99797f6ab6182ab3fbd39d673c5f2
+      size: 10146
+    - path: outputs/sensitivity_table.csv
+      hash: md5
+      md5: 856965fff13fd8dbe1f7e829391bb82e
+      size: 35544
+    - path: outputs/summary.yaml
+      hash: md5
+      md5: 4dcf5f4d01bc5f07c45ce01ab4d569a4
+      size: 502
+  clean:
+    cmd: python -c "import pathlib; [f.unlink() for f in 
+      pathlib.Path('outputs/results').glob('*.tmp')]"
+    deps:
+    - path: outputs/results
+      hash: md5
+      md5: 68897cec0475b20d562cdd2fe383df05.dir
+      size: 59568
+      nfiles: 65
+  plot:
+    cmd: python plot.py
+    deps:
+    - path: common.py
+      hash: md5
+      md5: 6f691c01ebdd11422066debd82003d5d
+      size: 9668
+    - path: outputs/results.parquet
+      hash: md5
+      md5: 59f99797f6ab6182ab3fbd39d673c5f2
+      size: 10146
+    - path: plot.py
+      hash: md5
+      md5: af4161bd6bf806e0eed73f2b11f5597f
+      size: 5969
+    outs:
+    - path: outputs/tornado.png
+      hash: md5
+      md5: 643a3b9f5a14e1e5c6b8a3cce99a594d
+      size: 381166

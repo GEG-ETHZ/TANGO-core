@@ -1,49 +1,116 @@
-# PRESSURE CONVERSION CONSTANTS
-# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
-KPA_TO_PA = 1.0e3
-MPA_TO_PA = 1.0e6
-GPA_TO_PA = 1.0e9
+"""Physical constants and SI prefix scalars for tango.
 
-PA_TO_KPA = 1.0e-3
-PA_TO_MPA = 1.0e-6
-PA_TO_GPA = 1.0e-9
+Unit conversions should be expressed as named constants imported from here,
+not as magic numbers inline.  For example::
 
-BAR_TO_PA = 100_000.0
-PA_TO_BAR = 1.0 / 100_000.0
+    p_megapascals = p_pascals * PA_TO_MPA
+    p_kilopascals = p_megapascals * MEGA_TO_KILO
 
-BAR_TO_MPA = 0.1
+SI prefix multipliers
+---------------------
+KILO  = 1e3    (k)
+MEGA  = 1e6    (M)
+GIGA  = 1e9    (G)
+MILLI = 1e-3   (m)
+MICRO = 1e-6   (μ)
 
-# TEMPERATURE CONVERSION CONSTANTS
-# Add these constants to convert source (C in `C_TO_K`) to target (K in `C_TO_K`) units
-C_TO_K = +273.15
-K_TO_C = -273.15
+Derived ratio scalars (convenient shorthand)
+--------------------------------------------
+MEGA_TO_KILO = 1e3   (e.g. MPa → kPa)
+PA_TO_MPA    = 1e-6
+MPA_TO_PA    = 1e6
+PA_TO_KPA    = 1e-3
+PA_TO_BAR    = 1e-5
+BAR_TO_PA    = 1e5
+W_TO_KW      = 1e-3
+W_TO_MW      = 1e-6
 
-# ENERGY CONVERSION CONSTANTS
-# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
-KJ_TO_J = 1.0e3
-MJ_TO_J = 1.0e6
-GJ_TO_J = 1.0e9
+Temperature offsets (additive, not multiplicative)
+----------------------------------------------------
+C_TO_K_OFFSET = 273.15   (degC + C_TO_K_OFFSET -> K)
+K_TO_C_OFFSET = -273.15  (K + K_TO_C_OFFSET -> degC)
 
-J_TO_KJ = 1.0e-3
-J_TO_MJ = 1.0e-6
-J_TO_GJ = 1.0e-9
+Time
+----
+YEAR_TO_HOUR = 8760.0  (hours per 365-day year)
+"""
 
-# POWER CONVERSION CONSTANTS
-# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
-KW_TO_W = 1.0e3
-W_TO_KW = 1.0e-3
-W_TO_MW = 1.0e-6
+from __future__ import annotations
 
-# TIME CONVERSION CONSTANTS
-# Multiply by these constants to convert source (W in `W_TO_MW`) to target (MW in `W_TO_MW`) units
-YEAR_TO_SECOND = 31_536_000
-YEAR_TO_HOUR = 8760
-YEAR_TO_MONTH = 12
-YEAR_TO_DAY = 365
-SECOND_TO_YEAR = 1.0 / YEAR_TO_SECOND
+# ---------------------------------------------------------------------------
+# Physical constants
+# ---------------------------------------------------------------------------
 
-# Non-conversion constants
-GRAVITY_ACCELERATION = 9.81  # m/s
-ATMOSPHERIC_PRESSURE = 101_325.0  # Pa
-MIN_INJ_TEMPERATURE = 274.15  # K (=1.0 deg. C)
-MAX_PRD_PUMP_DP = 1.0e7  # Pa
+GRAVITY: float = 9.81
+"""Gravitational acceleration (m/s²) — default value only; per-component
+`gravity` fields (well/reservoir components) can override this, since
+gravity genuinely varies regionally by up to ~0.5%.
+
+TODO: pinned to this rounded value rather than the more precise NIST/ISO
+80000-3 standard value (9.80665) to keep existing golden/reference values
+(e.g. test_lcoe_regression.py's REFERENCE_LCOE) stable — switching to
+9.80665 is a one-line change (component-level overrides already exist)
+whenever Chad decides to make it, flagged in docs/tango_tasks.md rather
+than changed here since it would shift those reference values by a tiny
+amount."""
+
+YEAR_TO_SECOND: float = 31_536_000.0
+"""Seconds per (365-day) year. Used in dimensionless-time calculations
+(e.g. wellbore heat-loss models)."""
+
+# ---------------------------------------------------------------------------
+# SI prefix multipliers
+# ---------------------------------------------------------------------------
+
+KILO: float = 1e3
+MEGA: float = 1e6
+GIGA: float = 1e9
+MILLI: float = 1e-3
+MICRO: float = 1e-6
+
+# ---------------------------------------------------------------------------
+# Derived unit-conversion scalars
+# ---------------------------------------------------------------------------
+
+MEGA_TO_KILO: float = 1e3
+"""Multiply a value in mega-units to get kilo-units (e.g. MPa → kPa)."""
+
+PA_TO_MPA: float = 1e-6
+"""Multiply Pa to get MPa."""
+
+MPA_TO_PA: float = 1e6
+"""Multiply MPa to get Pa."""
+
+PA_TO_KPA: float = 1e-3
+"""Multiply Pa to get kPa."""
+
+PA_TO_BAR: float = 1e-5
+"""Multiply Pa to get bar."""
+
+BAR_TO_PA: float = 1e5
+"""Multiply bar to get Pa."""
+
+W_TO_KW: float = 1e-3
+"""Multiply W to get kW."""
+
+W_TO_MW: float = 1e-6
+"""Multiply W to get MW."""
+
+C_TO_K_OFFSET: float = 273.15
+"""Add to a temperature in degC to get K."""
+
+K_TO_C_OFFSET: float = -273.15
+"""Add to a temperature in K to get degC."""
+
+YEAR_TO_HOUR: float = 8760.0
+"""Hours per (365-day) year. Used by DoubletEconomicComponent's LCOE
+formula (annual operational hours)."""
+
+EULER_CONSTANT: float = 0.5772156649015329
+"""The Euler-Mascheroni constant γ, to float64 precision. Used by
+``fluid_utils.heat_loss_adams_2015``'s wellbore heat-loss β correlation
+for ``t_d > 2.8`` (Zhang et al. 2011, Geothermics 40, 261-266, Eq. 2 —
+see that function's docstring), whose coefficient is exactly ``2γ``
+(``EULER_CONSTANT_X2``, below)."""
+EULER_CONSTANT_X2: float = EULER_CONSTANT * 2.0
+"""``2γ`` — see ``EULER_CONSTANT``."""

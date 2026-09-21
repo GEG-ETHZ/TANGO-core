@@ -7,6 +7,29 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+        },
+        {
+            "name": "Python: hydro_df_electric.yml",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "program": "${workspaceFolder}/.venv/bin/tango_cli",
+            "args": [
+                "run",
+                "example_configs/hydro_df_electric.yml"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: AGS_H2O_webapp_native.yml (old tango)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tango.tango_cli",
+            "args": [
+                "-f",
+                "examples/AGS_new/AGS_H2O_webapp_native.yml"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }

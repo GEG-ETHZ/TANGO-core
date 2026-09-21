@@ -1,0 +1,160 @@
+# tango format — Inverted 5-spot hydrothermal system, automatic mass flow rate
+#
+# Structural changes from the old format:
+#   - No top-level graph: section; topology is encoded per component as
+#     component_idx / prev / next
+#   - props: renamed to common:
+#   - All component parameters live inside components.<name>.*
+#   - surface contains a nested power_plant: block
+#   - component_idx 0 is the first component solved each pass (inj_1)
+#
+# Component circuit (main loop):
+#   inj_1(0) →[1]→ reservoir(1) →[2]→ prd_1(2) →[3]→ prd_2(3) →[4]→ surface(4) →[0]→ inj_1(0)
+
+title: Inverted 5-spot hydrothermal system with flexible Single-Flash power plant
+# Orchestrator is selected automatically based on sim_config.injection_mode
+
+common:  # shared physical parameters (previously props:)
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg·K)
+  rock_k: 2.1                # W/(m·K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K
+  surface_pressure: 100_000  # Pa
+layout:  # well-field geometry
+  well_spacing: 707.0        # m
+  well_pattern: INVERTED_5SPOT
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0              # years
+  injection_mode: manual  # InjectionPolicy: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
+  mass_rate: 55           #!!! NOTE: this is the line that was changed from 26 to 55 kg/s and leading to a coolProp error!
+  bc_checkpoint_idx: 4      # component_idx of the BC checkpoint (surface); must match surface.component_idx below
+  target_extraction_pressure: 7_000_000  # Pa
+
+economic:
+  type: doublet
+  project_maturity: green_field  # green_field or brown_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last; sees current-step production well output
+    prev: 3
+    next: 0
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
+
+
+    power_plant:
+      # Single-Flash TESPy topology, read generically by GraphSurface — see
+      # components/surface/graph.py module docstring for the inlet/outlet/
+      # role naming contract this depends on.
+      #
+      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(pump2) -\
+      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(pump) -> Merge -> Sink("outlet")
+      nodes:
+        inlet:
+          type: Source
+
+        valve:
+          type: Valve
+          p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
+
+        droplet_separator:
+          type: DropletSeparator
+
+        pump2:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+
+        pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+
+        mixer:
+          type: Merge
+
+        outlet:
+          type: Sink
+
+      edges:
+        1: {source: inlet, target: valve}
+        2: {source: valve, target: droplet_separator}
+        3: {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
+        4: {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
+        5: {source: turbine, target: condenser}
+        6: {source: condenser, target: pump}
+        7: {source: pump, target: mixer, target_port: in1}     # condensate
+        8: {source: pump2, target: mixer, target_port: in2}    # separator liquid
+        9: {source: mixer, target: outlet}
+
+
+  injection_well:
+    type: injection_well
+    variant: numerical           # discretized marching solver
+    component_idx: 0          # circuit cut here to start loop resolution order
+    prev: 4
+    next: 1
+    well_length: 5000.0       # m
+    diameter: 0.410           # m
+    num_cells: 100            # axial discretization resolution default
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    hydro_static_pressure: 50_000_000  # Pa
+    over_pressure_percentage: 10
+    well_eff_diameter: 0.410      # m — average of injection and production well diameters
+
+  production_well_upper:
+    type: production_well
+    variant: numerical           # discretized marching solver
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 4000.0       # m
+    diameter: 0.410           # m
+    num_cells: 100            # axial discretization resolution default
+    wellhead_depth: 1000.0    # m — sets wellhead_depth = pump_well_length (prd_2.well_length)
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  production_well_lower:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0       # m
+    diameter: 0.410           # m
+    num_cells: 100            # axial discretization resolution default
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
