@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "tango"
-version = "0.0.1"
+name = "tango-core"
+version = "1.0.0"
 authors = [{name = "ETHZ/EAPS/GEG Group"}]
 description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
 readme = "README.md"
-# license = { file = "LICENSE.md" }
-requires-python = ">=3.10,<3.12"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.11,<3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: Other/Proprietary License",
@@ -22,7 +22,7 @@ dependencies = [
     "polars>=1.0,<2.0",
     "matplotlib>=3.10,<4.0",
     "scipy>=1.15,<2.0",
-    # "scikit-learn>=1.6,<2.0", # not being used anywhere
+    "scikit-learn>=1.6,<2.0", # random-forest surrogate models for opt_* apps (surrogate_api.py)
     "seaborn>=0.13,<1.0",
     "openpyxl>=3.1,<4.0",
     "pyyaml>=6.0,<7.0", # needed for (de)serialization
@@ -39,6 +39,8 @@ dependencies = [
     "types-tqdm>=4.67.0.20250809,<5",
     "coolprop==6.8.0",
     "tespy==0.7.1.post1",
+    "pydantic>=2.0,<3.0",
+    "msgpack>=1.0,<2.0",
     "fluprodia>=3.5.1,<4",
     "pymoo==0.6.1.3",
     "types-pyyaml>=6.0.12.20250915",
@@ -66,28 +68,100 @@ dev = [
     "ipykernel ~= 7.0",
     "dvc>=3.0,<4.0", # pipeline + experiment tracking
     "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
-]
-tango-app = [
-    "flask==3.0.0",
-    "flask-cors==4.0.0",
-    "gunicorn",
+    "plotly>=5.24,<6.0", # interactive parallel-coordinates plot for parameter sweeps
+    "snakeviz>=2.2,<3.0", # cProfile visualisation (tools/run_tango_profile.py --profile)
 ]
 
 [dependency-groups]
 dev = [
     "prek>=0.3.13", # git hook management
-    "tango[dev]",
+    "pytest-xdist>=3.8.0",
+    "tango-core[dev]",
 ]
-tango-app = ["tango[tango-app]"]
 
-[tool.setuptools]
-zip-safe = false
+[tool.hatch.build.targets.wheel]
+packages = ["src/tango"]
 
-[tool.setuptools.packages.find]
-include = [
-    "src/tango/",
-] # package names should match these glob patterns (["*"] by default)
-namespaces = false # to disable scanning PEP 420 namespaces (true by default)
+[tool.hatch.build.targets.wheel.force-include]
+# example_configs/ lives at the repo root (used directly by tests/dvc/justfile
+# via that path) rather than under src/tango/ -- force-include ships it in
+# the wheel at tango/example_configs/ (see tango_cli init) without moving or
+# duplicating it, so nothing referencing the top-level path needs to change.
+"example_configs" = "tango/example_configs"
+
+# applications/<app>/ files, explicitly enumerated rather than
+# force-including the whole applications/ directory -- app dirs
+# accumulate untracked local run cruft (outputs/*.csv, __pycache__,
+# SLURM *.err/*.out logs) that force-include would otherwise copy
+# verbatim from whatever happens to be on disk at build time (it is NOT
+# git-tracked-file-aware). This list should track `git ls-files
+# applications/`, minus dvc.lock (stale/misleading outside this repo's
+# own runs), outputs/.gitignore (placeholder, not needed in a fresh
+# copy), REDESIGN_TODO.md (internal planning note, not user-facing), and
+# applications/README.md (describes the whole directory, not one app --
+# not copied per-app by `tango_cli init --app`). Regenerate by re-running
+# that command and re-applying this same filter if apps are added,
+# renamed, or gain/lose files.
+"applications/demo_hydro_sf_electric/.gitignore" = "tango/applications/demo_hydro_sf_electric/.gitignore"
+"applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py" = "tango/applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py"
+"applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py" = "tango/applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py"
+"applications/opt_AGS_direct_heat/.gitignore" = "tango/applications/opt_AGS_direct_heat/.gitignore"
+"applications/opt_AGS_direct_heat/dvc.yaml" = "tango/applications/opt_AGS_direct_heat/dvc.yaml"
+"applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py" = "tango/applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py"
+"applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh" = "tango/applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh"
+"applications/opt_AGS_direct_heat/params.yaml" = "tango/applications/opt_AGS_direct_heat/params.yaml"
+"applications/opt_hydro_df_electric/.gitignore" = "tango/applications/opt_hydro_df_electric/.gitignore"
+"applications/opt_hydro_df_electric/dvc.yaml" = "tango/applications/opt_hydro_df_electric/dvc.yaml"
+"applications/opt_hydro_df_electric/opt_hydro_df_electric.py" = "tango/applications/opt_hydro_df_electric/opt_hydro_df_electric.py"
+"applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh" = "tango/applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh"
+"applications/opt_hydro_df_electric/params.yaml" = "tango/applications/opt_hydro_df_electric/params.yaml"
+"applications/opt_hydro_df_electric_surrogate/.gitignore" = "tango/applications/opt_hydro_df_electric_surrogate/.gitignore"
+"applications/opt_hydro_df_electric_surrogate/common.py" = "tango/applications/opt_hydro_df_electric_surrogate/common.py"
+"applications/opt_hydro_df_electric_surrogate/dvc.yaml" = "tango/applications/opt_hydro_df_electric_surrogate/dvc.yaml"
+"applications/opt_hydro_df_electric_surrogate/opt_hydro_df_electric_surrogate_job.sh" = "tango/applications/opt_hydro_df_electric_surrogate/opt_hydro_df_electric_surrogate_job.sh"
+"applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py" = "tango/applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py"
+"applications/opt_hydro_df_electric_surrogate/params.yaml" = "tango/applications/opt_hydro_df_electric_surrogate/params.yaml"
+"applications/opt_hydro_df_electric_surrogate/train_surrogate.py" = "tango/applications/opt_hydro_df_electric_surrogate/train_surrogate.py"
+"applications/opt_hydro_df_electric_surrogate/validate_surrogate.py" = "tango/applications/opt_hydro_df_electric_surrogate/validate_surrogate.py"
+"applications/opt_hydro_sf_electric/.gitignore" = "tango/applications/opt_hydro_sf_electric/.gitignore"
+"applications/opt_hydro_sf_electric/dvc.yaml" = "tango/applications/opt_hydro_sf_electric/dvc.yaml"
+"applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py" = "tango/applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py"
+"applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh" = "tango/applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh"
+"applications/opt_hydro_sf_electric/params.yaml" = "tango/applications/opt_hydro_sf_electric/params.yaml"
+"applications/run_AGS_direct_heat_sweep/.gitignore" = "tango/applications/run_AGS_direct_heat_sweep/.gitignore"
+"applications/run_AGS_direct_heat_sweep/common.py" = "tango/applications/run_AGS_direct_heat_sweep/common.py"
+"applications/run_AGS_direct_heat_sweep/dvc.yaml" = "tango/applications/run_AGS_direct_heat_sweep/dvc.yaml"
+"applications/run_AGS_direct_heat_sweep/find_design.py" = "tango/applications/run_AGS_direct_heat_sweep/find_design.py"
+"applications/run_AGS_direct_heat_sweep/generate.py" = "tango/applications/run_AGS_direct_heat_sweep/generate.py"
+"applications/run_AGS_direct_heat_sweep/params.yaml" = "tango/applications/run_AGS_direct_heat_sweep/params.yaml"
+"applications/run_AGS_direct_heat_sweep/plot.py" = "tango/applications/run_AGS_direct_heat_sweep/plot.py"
+"applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py" = "tango/applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py"
+"applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep_job.sh" = "tango/applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep_job.sh"
+"applications/run_AGS_direct_heat_sweep/summarize.py" = "tango/applications/run_AGS_direct_heat_sweep/summarize.py"
+"applications/run_AGS_direct_heat_sweep/sweep.py" = "tango/applications/run_AGS_direct_heat_sweep/sweep.py"
+"applications/run_EGS_direct_heat_sweep/.gitignore" = "tango/applications/run_EGS_direct_heat_sweep/.gitignore"
+"applications/run_EGS_direct_heat_sweep/common.py" = "tango/applications/run_EGS_direct_heat_sweep/common.py"
+"applications/run_EGS_direct_heat_sweep/dvc.yaml" = "tango/applications/run_EGS_direct_heat_sweep/dvc.yaml"
+"applications/run_EGS_direct_heat_sweep/find_design.py" = "tango/applications/run_EGS_direct_heat_sweep/find_design.py"
+"applications/run_EGS_direct_heat_sweep/generate.py" = "tango/applications/run_EGS_direct_heat_sweep/generate.py"
+"applications/run_EGS_direct_heat_sweep/params.yaml" = "tango/applications/run_EGS_direct_heat_sweep/params.yaml"
+"applications/run_EGS_direct_heat_sweep/plot.py" = "tango/applications/run_EGS_direct_heat_sweep/plot.py"
+"applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py" = "tango/applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py"
+"applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep_job.sh" = "tango/applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep_job.sh"
+"applications/run_EGS_direct_heat_sweep/summarize.py" = "tango/applications/run_EGS_direct_heat_sweep/summarize.py"
+"applications/run_EGS_direct_heat_sweep/sweep.py" = "tango/applications/run_EGS_direct_heat_sweep/sweep.py"
+"applications/run_hydro_df_electric_sweep/.gitignore" = "tango/applications/run_hydro_df_electric_sweep/.gitignore"
+"applications/run_hydro_df_electric_sweep/common.py" = "tango/applications/run_hydro_df_electric_sweep/common.py"
+"applications/run_hydro_df_electric_sweep/dvc.yaml" = "tango/applications/run_hydro_df_electric_sweep/dvc.yaml"
+"applications/run_hydro_df_electric_sweep/generate.py" = "tango/applications/run_hydro_df_electric_sweep/generate.py"
+"applications/run_hydro_df_electric_sweep/params.yaml" = "tango/applications/run_hydro_df_electric_sweep/params.yaml"
+"applications/run_hydro_df_electric_sweep/plot.py" = "tango/applications/run_hydro_df_electric_sweep/plot.py"
+"applications/run_hydro_df_electric_sweep/run_hydro_df_electric_analysis.py" = "tango/applications/run_hydro_df_electric_sweep/run_hydro_df_electric_analysis.py"
+"applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py" = "tango/applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py"
+"applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep_job.sh" = "tango/applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep_job.sh"
+"applications/run_hydro_df_electric_sweep/summarize.py" = "tango/applications/run_hydro_df_electric_sweep/summarize.py"
+"applications/run_hydro_df_electric_sweep/sweep.py" = "tango/applications/run_hydro_df_electric_sweep/sweep.py"
+"applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py" = "tango/applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
@@ -96,10 +170,9 @@ platforms = ["osx-64", "osx-arm64", "win-64", "linux-64", "linux-aarch64"]
 [tool.pixi.environments]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
-tango-app = { features = ["tango-app"], solve-group = "default" }
 
 [tool.pixi.pypi-dependencies]
-tango = { path = ".", editable = true }
+tango-core = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 test = { cmd = "pixi run -e dev pytest" }
@@ -110,16 +183,11 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.pixi.dependencies]
 
-[tool.pixi.feature.tango-app.dependencies]
-pyqt = "*"
-
 [tool.uv]
 # Common uv commands:
 #   uv sync                          -- install base dependencies (editable)
 #   uv sync --group dev              -- install + dev tools
-#   uv sync --group tango-app        -- install + PyQt5 for GUI addons
 #   uv run pytest        -- run tests
-#   uv run --group tango-app python tango_flask_server.py
 #   uv run ruff format .             -- format code
 #   uv run ruff check .              -- lint code
 # note that uv runs with `--group dev` implicitly
@@ -136,7 +204,7 @@ exclude = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["tango"]
-section-order = ["standard-library", "third-party", "first-party", "local-folder"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -177,15 +245,8 @@ ignore = [
     "N802",   # function name should be lowercase (57 instances)
     "F405",   # may be undefined from star import (38 instances)
     "ARG002", # unused method argument (24 instances)
-    "D417",   # missing argument descriptions in docstring (24 instances)
-    "D107",   # missing docstring in __init__ (19 instances)
-    "D103",   # missing docstring in public function (19 instances)
     "N816",   # mixed-case variable in global scope (18 instances)
     "F403",   # star import used (18 instances)
-    "D101",   # missing docstring in public class (18 instances)
-    "D104",   # missing docstring in public package (14 instances)
-    "D102",   # missing docstring in public method (13 instances)
-    "D105",   # missing docstring in magic method (10 instances)
     "ARG005", # unused lambda argument (10 instances)
     "A002",   # argument shadows builtin (10 instances)
     "N999",   # invalid module name (9 instances)
@@ -219,8 +280,8 @@ ignore = [
     "N807",
 ]
 
-# [tool.ruff.lint.pydocstyle]
-# convention = "numpy"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -232,10 +293,6 @@ python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 allow_redefinition = true
-exclude = [
-    # '^file1\.py$',  # TOML literal string (single-quotes, no escaping necessary)
-    # "^file2\\.py$",  # TOML basic string (double-quotes, backslash and other characters need escaping)
-]
 
 # mypy per-module options:
 
@@ -250,7 +307,19 @@ exclude = [
 [[tool.mypy.overrides]]
 module = [
     "pymoo.*",
-    "tango.*", # TODO: fix tango and remove this line
     "CoolProp",
+    "tespy.*",
+    "joblib",
+    "scipy.spatial",
+    "scipy.stats",
+    "sklearn.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tango.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+warn_return_any = false  # untyped third-party deps (CoolProp, numpy/pandas in some contexts) return Any; suppress that cascade rather than the module's own typing

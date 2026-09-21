@@ -1,22 +1,359 @@
+"""tango_cli — command-line entry point for tango simulations.
+
+Usage examples
+--------------
+Run a simulation::
+
+    tango_cli run example_configs/hydro_sf_electric.yml
+
+Run with debug logging::
+
+    tango_cli run example_configs/hydro_sf_electric.yml --log-level DEBUG
+
+Validate an input file without running::
+
+    tango_cli validate example_configs/hydro_sf_electric.yml
+
+Print version::
+
+    tango_cli --version
+
+Copy the bundled example configs into a local directory to start from::
+
+    tango_cli init my_project
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.metadata
+import importlib.resources
+import logging
+import shutil
 import sys
+import time
+from pathlib import Path
 
-from tango.runner import Runner
-from tango.utils import parse_tango_args
+from tango import __version__
+from tango.core.errors import ConfigError, TangoError
+from tango.workflows.workflow import Workflow
+
+_AVAILABLE_APPS = frozenset(
+    {
+        "demo_hydro_sf_electric",
+        "demo_well_mesh_convergence",
+        "opt_AGS_direct_heat",
+        "opt_hydro_df_electric",
+        "opt_hydro_df_electric_surrogate",
+        "opt_hydro_sf_electric",
+        "run_AGS_direct_heat_sweep",
+        "run_EGS_direct_heat_sweep",
+        "run_hydro_df_electric_sweep",
+        "sweep_demo_AGS_direct_heat",
+    },
+)  # must track applications/'s subdirectories and pyproject.toml's
+# [tool.hatch.build.targets.wheel.force-include] entries for them
+
+_NOTICE_FALLBACK = (
+    "TANGO is confidential, proprietary GEG-group-internal software. "
+    "Not for redistribution outside the group without written permission. "
+    "See NOTICE/LICENSE.txt in the tango-core repository for the full terms."
+)
 
 
-def main():
-    """Run TANGO CLI."""
-    args = parse_tango_args(sys.argv[1:])
+def _notice_text() -> str:
+    """Return the confidentiality NOTICE, read from installed package metadata.
 
-    runner = Runner(
-        input_file=args.input_file,
-        save_dir=args.save_dir,
-        no_save=args.no_save,
-        parameter_overrides=args.parameter_overrides,
-        user_id=args.user_id,
-        log_level=args.log_level,
+    Reads ``NOTICE`` from ``tango-core``'s distribution ``licenses/`` folder
+    (where setuptools' default license-files discovery puts it) via
+    ``importlib.metadata``, rather than duplicating its text as a Python
+    string constant here — one source of truth (the repo-root ``NOTICE``
+    file), no drift risk between the two. Falls back to a short built-in
+    summary if the distribution metadata can't be found (e.g. running
+    directly from an unbuilt checkout).
+    """
+    try:
+        dist = importlib.metadata.distribution("tango-core")
+        for f in dist.files or []:
+            if Path(str(f)).name == "NOTICE":
+                return Path(str(dist.locate_file(f))).read_text(encoding="utf-8").strip()
+    except (importlib.metadata.PackageNotFoundError, OSError):
+        pass
+    return _NOTICE_FALLBACK
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the top-level argument parser with sub-commands.
+
+    ``--log-level`` is accepted BOTH before and after the subcommand
+    (``tango_cli --log-level DEBUG run f.yml`` and
+    ``tango_cli run f.yml --log-level DEBUG`` both work). The
+    top-level parser owns an INDEPENDENT copy with a real default
+    (``"INFO"``) — NOT inherited via ``parents``, and NOT combined with
+    ``set_defaults()`` — while each subparser gets a separate copy (via a
+    shared parent parser) with ``default=argparse.SUPPRESS``, so it only
+    overrides the top-level value when the user actually gives
+    ``--log-level`` after the subcommand.
+
+    Both pieces of that split matter, confirmed empirically: giving the
+    subparser copy a real default (no ``SUPPRESS``) makes argparse
+    re-apply IT unconditionally when dispatching to the subparser,
+    silently discarding a top-level ``--log-level DEBUG`` back to
+    ``"INFO"`` even though the user never touched ``--log-level`` after
+    the subcommand. And making the TOP-level parser inherit the same
+    ``SUPPRESS``-defaulted parent (instead of an independent, real-default
+    copy) reproduces the exact same silent-discard bug the other
+    direction — confirmed with an isolated repro, `argparse`'s subparser
+    dispatch does not treat ``parents``-inherited actions the way a
+    naive reading of ``SUPPRESS``'s docs would suggest.
+    """
+    log_level_parent = argparse.ArgumentParser(add_help=False)
+    log_level_parent.add_argument(
+        "--log-level",
+        default=argparse.SUPPRESS,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help=("Logging verbosity.  Use DEBUG to see per-iteration convergence output. Default: INFO."),
     )
-    runner.start()
+
+    parser = argparse.ArgumentParser(
+        prog="tango_cli",
+        description=(
+            "tango — next-generation TANGO simulation framework.\n"
+            "Directed-graph geothermal simulation with Pydantic-validated inputs."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  tango_cli run example_configs/hydro_sf_electric.yml\n"
+            "  tango_cli run my_config.yml --log-level DEBUG\n"
+            "  tango_cli --log-level DEBUG run my_config.yml\n"
+            "  tango_cli validate my_config.yml\n"
+        ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"tango {__version__}\n\n{_notice_text()}",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help=("Logging verbosity.  Use DEBUG to see per-iteration convergence output. Default: %(default)s."),
+    )
+
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+    sub.required = True
+
+    # ---- run ----
+    run_p = sub.add_parser(
+        "run",
+        help="Run a tango simulation.",
+        description=(
+            "Load a tango YAML input file, build the component graph, "
+            "and execute the simulation.  Logs a one-line summary per timestep."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[log_level_parent],
+    )
+    run_p.add_argument(
+        "input_file",
+        type=Path,
+        metavar="INPUT_FILE",
+        help=("Path to the tango YAML input file (e.g. example_configs/hydro_sf_electric.yml)."),
+    )
+    # ---- validate ----
+    val_p = sub.add_parser(
+        "validate",
+        help="Validate a tango input file without running the simulation.",
+        description=(
+            "Parse and validate the YAML input file: check that all required "
+            "fields are present, all component types are registered, and all "
+            "Pydantic specs are satisfied.  Does not execute any physics."
+        ),
+        parents=[log_level_parent],
+    )
+    val_p.add_argument(
+        "input_file",
+        type=Path,
+        metavar="INPUT_FILE",
+        help="Path to the tango YAML input file to validate.",
+    )
+
+    # ---- init ----
+    init_p = sub.add_parser(
+        "init",
+        help="Copy the bundled example configs (and optionally applications) into a local directory.",
+        description=(
+            "Copy tango's bundled example_configs/ into DEST (created if "
+            "needed) as a starting point for your own analysis. Fails if "
+            "DEST/example_configs already exists, to avoid silently "
+            "overwriting local edits. Pass --app one or more times to also "
+            "copy one of applications/'s sweep/optimization/demo pipelines."
+        ),
+        parents=[log_level_parent],
+    )
+    init_p.add_argument(
+        "dest",
+        type=Path,
+        nargs="?",
+        default=Path(),
+        metavar="DEST",
+        help="Directory to copy example_configs/ into. Default: current directory.",
+    )
+    init_p.add_argument(
+        "--app",
+        action="append",
+        choices=sorted(_AVAILABLE_APPS),
+        dest="apps",
+        metavar="APP",
+        help="Also copy DEST/applications/APP. Repeatable. See --list-apps for the "
+        "available names, or applications/README.md in the repository for what "
+        "each one does.",
+    )
+    init_p.add_argument(
+        "--list-apps",
+        action="store_true",
+        help="Print the available --app names and exit, without copying anything.",
+    )
+
+    return parser
+
+
+def _configure_logging(level: str) -> None:
+    """Configure root logger and third-party loggers with a timestamped format."""
+    numeric_level = getattr(logging, level.upper())
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stdout,
+    )
+    # TESPy manages its own logger ("TESPyLogger") with a hardcoded level; sync it.
+    logging.getLogger("TESPyLogger").setLevel(numeric_level)
+
+
+def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
+    """Execute the ``run`` sub-command.
+
+    Returns:
+        Exit code: 0 on success, non-zero on error.
+
+    """
+    _configure_logging(log_level)
+
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "tango %s -- confidential GEG-internal software, `tango_cli --version` for full notice",
+        __version__,
+    )
+    logger.info("Input: %s", args.input_file)
+
+    try:
+        wf = Workflow.from_file(args.input_file)
+    except ConfigError as exc:
+        logger.error("Configuration error: %s", exc)
+        return 1
+
+    t_start = time.time()
+    try:
+        wf.run()
+    except TangoError as exc:
+        logger.error("Simulation error: %s", exc)
+        return 2
+
+    elapsed = time.time() - t_start
+    print(f"Simulation finished normally. Elapsed time: {elapsed:.3g} seconds.")
+    return 0
+
+
+def _cmd_validate(args: argparse.Namespace, log_level: str) -> int:
+    """Execute the ``validate`` sub-command.
+
+    Returns:
+        Exit code: 0 if valid, 1 if invalid.
+
+    """
+    _configure_logging(log_level)
+    logger = logging.getLogger(__name__)
+    logger.info("Validating: %s", args.input_file)
+
+    try:
+        Workflow.from_file(args.input_file)
+        logger.info("OK — input file is valid.")
+        return 0
+    except (ConfigError, Exception) as exc:
+        logger.error("Validation failed: %s", exc)
+        return 1
+
+
+def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
+    """Execute the ``init`` sub-command.
+
+    Returns:
+        Exit code: 0 on success, 1 if the destination already exists.
+
+    """
+    _configure_logging(log_level)
+    logger = logging.getLogger(__name__)
+
+    if args.list_apps:
+        for app in sorted(_AVAILABLE_APPS):
+            print(app)
+        return 0
+
+    apps: list[str] = args.apps or []
+
+    # Check every destination up front, before copying anything -- avoids
+    # copying example_configs/ (or an earlier --app) and then failing
+    # partway through on a later collision, which would leave DEST in a
+    # half-populated state.
+    targets = [args.dest / "example_configs", *(args.dest / "applications" / app for app in apps)]
+    for target in targets:
+        if target.exists():
+            logger.error("%s already exists -- remove it or choose a different DEST.", target)
+            return 1
+
+    # NOT importlib.resources.files("tango.example_configs") -- example_configs/
+    # has no __init__.py, so Python treats it as an implicit namespace package,
+    # and importlib.resources.as_file() cannot materialize a namespace
+    # package's MultiplexedPath as a directory (tries to read it as a single
+    # file's bytes, raising FileNotFoundError). Resolving it as a subdirectory
+    # of the real tango package (which has __init__.py) avoids that path --
+    # same reasoning applies to each applications/<app> copy below.
+    example_dest = targets[0]
+    src = importlib.resources.files("tango") / "example_configs"
+    with importlib.resources.as_file(src) as src_path:
+        shutil.copytree(src_path, example_dest)
+    logger.info("Copied example configs to %s", example_dest)
+
+    for app, app_dest in zip(apps, targets[1:], strict=True):
+        src = importlib.resources.files("tango") / "applications" / app
+        with importlib.resources.as_file(src) as src_path:
+            shutil.copytree(src_path, app_dest)
+        logger.info("Copied applications/%s to %s", app, app_dest)
+
+    print(f"tango_cli run {example_dest / 'hydro_sf_electric.yml'}")
+    return 0
+
+
+def main() -> None:
+    """Entry point registered as ``tango_cli`` in pyproject.toml."""
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    # Global log level (may be overridden per sub-command)
+    global_level: str = args.log_level
+
+    if args.command == "run":
+        sys.exit(_cmd_run(args, global_level))
+    elif args.command == "validate":
+        sys.exit(_cmd_validate(args, global_level))
+    elif args.command == "init":
+        sys.exit(_cmd_init(args, global_level))
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

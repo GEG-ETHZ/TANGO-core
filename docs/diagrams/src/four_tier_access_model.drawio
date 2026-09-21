@@ -1,0 +1,37 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Four-Tier Access Model" id="four-tier-access">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="650" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t1" value="&lt;b&gt;Tier 1 — Community / Academic (free)&lt;/b&gt;&lt;br&gt;Open-source Python package&lt;br&gt;Students, researchers, national labs, small companies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="125" y="40" width="400" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2" value="&lt;b&gt;Tier 2 — Consulting &amp; Project Work (primary near-term revenue)&lt;/b&gt;&lt;br&gt;GEG delivers case-specific analysis projects&lt;br&gt;Clients pay per engagement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="125" y="180" width="400" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3" value="&lt;b&gt;Tier 3 — Licensed On-Prem Binary&lt;/b&gt;&lt;br&gt;Downloadable binary + Python API&lt;br&gt;Paid license; GPU-parallel capable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="125" y="320" width="400" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t4" value="&lt;b&gt;Tier 4 — SaaS&lt;/b&gt;&lt;br&gt;Web API + GUI; no-code scenario builder&lt;br&gt;Massive parallel / GPU compute, metered pricing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="125" y="460" width="400" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="t1" target="t2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="t2" target="t3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="t3" target="t4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

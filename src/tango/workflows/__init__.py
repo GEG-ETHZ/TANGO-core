@@ -1,2 +1,5 @@
-from .cmg_workflow import CMGWorkflow
-from .native_workflow import NativeWorkflow
+"""Workflows for tango."""
+
+from tango.workflows.workflow import Workflow
+
+__all__ = ["Workflow"]

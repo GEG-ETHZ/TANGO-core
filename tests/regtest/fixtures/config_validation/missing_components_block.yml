@@ -1,0 +1,40 @@
+# claude_tests fixture: missing_components_block
+# The entire top-level 'components:' block is absent.
+# Derived from example_configs/hydro_sf_electric.yml (components: block removed).
+#
+# NOTE (current behavior): Workflow.__init__ accesses config["components"]
+# with a plain dict index, outside the try/except that wraps component-build
+# failures into ConfigError -- so today this raises a bare KeyError, not
+# ConfigError. Spec'd here as ConfigError since a missing critical block is
+# a config-content problem, same category as the others in this file.
+
+title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0
+  rock_cp: 1000.0
+  rock_k: 2.1
+  thermal_gradient: 0.035
+  surface_temperature: 288
+  surface_pressure: 100_000
+
+layout:
+  well_spacing: 707.0
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0
+  target_extraction_pressure: 7_000_000  # Pa
+  injection_mode: manual
+  mass_rate: 50
+  bc_checkpoint_idx: 4
+
+economic:
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+
+components:

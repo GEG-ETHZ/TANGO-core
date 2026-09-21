@@ -6,4 +6,5 @@
     "python.analysis.typeCheckingMode": "off",
     "python.terminal.activateEnvInCurrentTerminal": false,
     "python.terminal.activateEnvironment": false,
+    "mypy.runUsingActiveInterpreter": true
 }

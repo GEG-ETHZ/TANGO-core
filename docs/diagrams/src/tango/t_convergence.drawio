@@ -1,0 +1,105 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Circuit" id="t-convergence-circuit">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="330" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="c_inj" value="injection well&#10;component_idx 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="20" y="120" width="108" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="c_res" value="reservoir&#10;doublet impedance + thermal depletion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="168" y="120" width="150" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="c_prod" value="production well&#10;lower &#8594; upper, idx 2 &#8594; 3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="358" y="120" width="140" height="66" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c_plant" value="surface plant &#8212; idx 4" style="rounded=1;dashed=1;fillColor=none;strokeColor=#D7DBD6;verticalAlign=top;fontStyle=1;fontSize=11;align=center" vertex="1" parent="1">
+          <mxGeometry x="544" y="20" width="340" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_sep" value="separator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="560" y="133" width="64" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c_pin" value="FIXED P, x &#8594; FIXED T" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#F0E2D8;strokeColor=#C1501F;fontColor=#C1501F;fontStyle=1;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="652" y="52" width="176" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c_turb" value="turbine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="652" y="80" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c_cond" value="condenser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="750" y="80" width="70" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c_free" value="STATE NOT PINNED" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#DCECE9;strokeColor=#21787A;fontColor=#21787A;fontStyle=1;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="652" y="160" width="176" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c_pump2" value="pump2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="687" y="188" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c_merge" value="merge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="687" y="238" width="70" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_inj" target="c_res"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_res" target="c_prod"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_prod" target="c_sep"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.35;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_sep" target="c_turb"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.65;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_sep" target="c_pump2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_turb" target="c_cond"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_pump2" target="c_merge"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=1;entryY=0.3;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="c_cond" target="c_merge"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="e9" value="surface.outlet &#8594; injection_well.inlet (next iteration / next timestep)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#21787A;dashed=1;strokeWidth=2;exitX=0;exitY=1;entryX=0.5;entryY=1;html=1;endArrow=block;endFill=1;fontColor=#21787A;fontStyle=1;fontSize=10;align=center;verticalAlign=bottom" edge="1" parent="1" source="c_merge" target="c_inj"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="b0" value="0" style="ellipse;whiteSpace=wrap;html=1;fillColor=#14181D;strokeColor=none;fontColor=#ffffff;fontStyle=1;fontSize=10" vertex="1" parent="1"><mxGeometry x="64" y="100" width="20" height="20" as="geometry" /></mxCell>
+        <mxCell id="b1" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#14181D;strokeColor=none;fontColor=#ffffff;fontStyle=1;fontSize=10" vertex="1" parent="1"><mxGeometry x="233" y="100" width="20" height="20" as="geometry" /></mxCell>
+        <mxCell id="b23" value="2/3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#14181D;strokeColor=none;fontColor=#ffffff;fontStyle=1;fontSize=9" vertex="1" parent="1"><mxGeometry x="408" y="100" width="30" height="20" as="geometry" /></mxCell>
+        <mxCell id="b4" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#14181D;strokeColor=none;fontColor=#ffffff;fontStyle=1;fontSize=10" vertex="1" parent="1"><mxGeometry x="712" y="270" width="20" height="20" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Convergence loop" id="t-convergence-loop">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageWidth="740" pageHeight="480" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="l_snap" value="ONCE, BEFORE ITERATING&#10;snapshot_convergence_state()&#10;every component deep-copies its own cross-timestep fields (t_d_old, energy_extracted, ever_solved, ...)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10;align=left;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="640" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l_loopbox" value="REPEAT &#8212; UP TO 20 TIMES, FOR EACH COMPONENT IN CIRCUIT ORDER&#10;every component &#8212; reservoir included, no exceptions" style="rounded=1;dashed=1;fillColor=#DCECE9;fillOpacity=35;strokeColor=#21787A;verticalAlign=top;align=left;spacingLeft=10;fontColor=#21787A;fontStyle=1;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="112" width="640" height="128" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="restore_convergence_state()" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#D7DBD6;fontSize=10" vertex="1" parent="1"><mxGeometry x="60" y="160" width="172" height="28" as="geometry" /></mxCell>
+        <mxCell id="p2" value="mark_all_stale()" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#D7DBD6;fontSize=10" vertex="1" parent="1"><mxGeometry x="256" y="160" width="140" height="28" as="geometry" /></mxCell>
+        <mxCell id="p3" value="solve()" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#C1501F;fontColor=#C1501F;fontStyle=1;fontSize=10" vertex="1" parent="1"><mxGeometry x="420" y="160" width="78" height="28" as="geometry" /></mxCell>
+        <mxCell id="p4" value="wire outlet &#8594; next inlet" style="rounded=1;arcSize=100;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#D7DBD6;fontSize=10" vertex="1" parent="1"><mxGeometry x="522" y="160" width="146" height="28" as="geometry" /></mxCell>
+
+        <mxCell id="pe1" style="edgeStyle=none;rounded=0;strokeColor=#5B6472;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="p1" target="p2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="pe2" style="edgeStyle=none;rounded=0;strokeColor=#5B6472;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="p2" target="p3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="pe3" style="edgeStyle=none;rounded=0;strokeColor=#5B6472;html=1;endArrow=block;endFill=1" edge="1" parent="1" source="p3" target="p4"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="l_note" value="Restoring first means this attempt starts clean from last timestep's real state &#8212; not from whatever the previous attempt left behind." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6472;fontSize=10;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="60" y="200" width="600" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l_decision" value="|&#916;T&lt;sub&gt;inj&lt;/sub&gt;| &lt; 0.5 K?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="310" y="266" width="100" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="e_loop_dec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#3C4550;html=1;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0" edge="1" parent="1" source="l_loopbox" target="l_decision"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="l_no" value="no &#8212; loop back to the top with the new guess (max 20&#215;)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#A83F3F;html=1;endArrow=block;endFill=1;fontColor=#A83F3F;fontStyle=1;fontSize=9;exitX=0;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="l_decision" target="l_loopbox"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="20" y="306"/><mxPoint x="20" y="126"/></Array></mxGeometry></mxCell>
+
+        <mxCell id="l_final" value="CONVERGED&#10;this iteration's state is the final answer&#10;Already used the converged temperature and the correct snapshot restore." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2F7D4F;fillOpacity=10;strokeColor=#2F7D4F;fontColor=#2F7D4F;fontSize=10;align=left;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="160" y="374" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l_yes" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#2F7D4F;html=1;endArrow=block;endFill=1;fontColor=#2F7D4F;fontStyle=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0" edge="1" parent="1" source="l_decision" target="l_final"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

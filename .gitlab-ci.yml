@@ -15,11 +15,28 @@ stages:
   - test
   - tag
 
+lint:
+  stage: test
+  interruptible: true
+  script:
+    - uv run ruff check .
+    - uv run mypy src/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 test:
   stage: test
   interruptible: true
   script:
-    - uv run pytest
+    # Only tests/unit/ runs here — tests/regtest/ currently takes 1h+ and
+    # exceeds the runner timeout (see tests/README.md and the "CI test
+    # subset" note in docs/TANGO_vision_and_roadmap/README.md). The full suite
+    # (tests/unit/ + tests/regtest/) still runs locally via the prek
+    # pre-push hook, so regressions are caught before merge even though
+    # this job doesn't cover them.
+    - uv run pytest tests/unit -v
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
