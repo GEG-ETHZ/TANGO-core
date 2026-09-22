@@ -1,111 +1,118 @@
 # Changelog
 
 All notable changes to TANGO are documented here.
-TANGO does not yet follow [Semantic Versioning](https://semver.org/) — everything is
-pre-release. Once the first public release (`1.0.0`) is cut, the project will
-adopt SemVer strictly.
+Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.org/).
 
-## [In Development] — MR !48: Refactor, HPC Sweep Support & Quality Improvements
+## [1.0.0]
 
-This MR consolidates a large set of improvements spanning code quality, HPC-friendly parameter sweeps, addon path
-  robustness, dependency management, and developer tooling.
-
-[Link to MR !48](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/48)
-
----
+The first public release. This entry covers everything between `old-tango-main-2026-06-08`
+(the last commit before the multi-month `tango_next` rewrite landed on `main`) and this tag —
+a full rewrite of TANGO's core, squashed into a single commit
+(`c5a9d8c`, "refactor to make tango robust"). Old TANGO's `src/tango/` package still exists,
+preserved at git tag `pre-tango-core-rename-2026-09-18`, but is no longer part of the working
+tree; everything below refers to the new implementation unless noted otherwise.
 
 ### Added
 
-- **Latin Hypercube Sampling (LHS) parameter sweep** — new `applications/run_flexible_DF_manual_sweep/` application with
-  a SLURM job script (`run_flexible_DF_manual_sweep_job.sh`) that runs parallelized LHS sweeps on Euler HPC; SLURM
-  parameters (`CPUS_PER_TASK`, `n-samples`, etc.) are configurable via environment variables or CLI arguments.
-- **`--sweep-dir` CLI flag** — added to the sweep script for HPC-compatible output path control.
-- **`Runner.clone()` and `Runner.update_parameters()`** — new public API methods enabling deep-copy cloning of runners
-  and in-place parameter modification without re-construction; `Runner._tango` renamed to `Runner.tango` (public).
-- **Deterministic `run_id`** — `run_id` is now a deterministic hash derived from the specs rather than a random UUID,
-  enabling reproducible run identification and caching.
-- **`Runner.get_hash_from_specs()`** — new helper exposing the spec hash for downstream reuse.
-- **`src/tango/units/registry.py`** — new unit registry replacing `eval`-based dynamic class loading with explicit
-  `getattr` imports, eliminating circular dependencies and wildcard imports.
-- **`src/tango/addons/utils.py`** — new shared utility module for add-ons introducing `resolve_addon_output_path()`
-  using `pathlib.Path`.
-- **`tango-logo.svg`** — project logo added to the repository and referenced in `README.md`.
-- **Parameter sensitivity scripts** — `examples/run_flexible_DF_manual_sensitivity.py` and
-  `examples/run_flexible_SF_manual_sensitivity.py` added for LCOE sensitivity analysis.
-- **`TODO.md`** — added to track ideas and future implementation items.
-- **Data leakage regression test** — `tests/regtest/test_data_leakage.py` added to guard against cross-run data leakage.
-- **Add-on unit tests** — `tests/unit/test_addons.py` added with 13 tests covering path resolution and module loading.
+- **`GraphSurface`**: replaces bespoke per-layout Python surface-plant code with a YAML
+  `nodes`/`edges` graph. New surface configurations are authored as data, not new component
+  classes.
+- **`LockedState`**: enforces that every value meant to be recomputed each simulated year
+  actually is — raises immediately instead of silently reusing a stale number from the
+  previous timestep.
+- **`InjectionPolicy`**: replaces three separate, ambiguous fracking-safety settings from old
+  TANGO with a single explicit setting (5 modes: manual, manual+check, auto-pressure,
+  auto-flow, auto-both).
+- **Real economic model and multi-objective optimizer (`pymoo_api`)**: replaces a placeholder
+  economic model. Supports HPC/Euler-parallelized sweeps with automatic worker sizing, mid-run
+  checkpointing, and warm-starting, and saves every evaluated design as a ready-to-run file
+  (rather than only a single "recommended" design as before). Wires parameters and objectives
+  through a small set of composable functions instead of old TANGO's `eval`-based
+  configuration.
+- **Pydantic-based config validation** (`src/tango/core/specs.py`): raises typed
+  `ConfigError`s and warnings for out-of-range, missing, or contradictory configuration
+  values, replacing untyped dict-based config handling.
+- **AGS (closed-loop) direct-heat system**: implemented end to end, including a
+  parameter-sweep example — the first fully modern closed-loop system type in TANGO.
+- **New example ports**: added a supercritical-CO2 power-generation topology
+  (`CPG_electric.yml`) and the ORC power cycle (ported onto `GraphSurface`).
+- **Adaptive well discretization**: scales segment count automatically with well length
+  (manual override still available).
+- **CI-enforced regression tests**: compare new-TANGO output against golden snapshots and
+  against old TANGO's own results.
+- **"TANGO Commandments"**: added a short list of hard design rules to `CONTRIBUTING.md`
+  (e.g. every closed fluid loop must contain a pump/compressor), each tied to the real bug
+  that motivated it.
 
 ### Changed
 
-- **Template sync from [`python-template@e0679dc`](https://gitlab.ethz.ch/geg/templates/python-template/-/commit/e0679dc)** —
-  added `fmt`, `lint`, `typecheck`, `test`, and `check` justfile recipes; `.agent/rules/code-quality.md`
-  extended with Python naming conventions (`_` prefix, `**kwargs`, `__` name mangling).
-- **Removed `eval` from unit loading** — replaced with dynamic imports and `getattr`; wildcard (`*`) imports removed
-  throughout `config.py`, `utils.py`, `orchestrator.py`, and unit modules.
-- **Dependency injection for circular imports** — circular imports previously hidden by `eval` are now resolved via
-  explicit dependency injection.
-- **`CMGWorkflow` / `NativeWorkflow` common code extracted** — shared logic refactored into the base `Workflow` class in
-  `src/tango/core/abstracts/workflow.py`.
-- **`--debug` flag replaced by `--log-level`** — `set_logger` moved into `Runner`; TANGO can now run with zero output
-  or configurable verbosity — [implementation (`set_logger` / `--log-level`)](src/tango/utils.py),
-  [example script usage (`log_level="NONE"`)](examples/run_flexible_SF_manual.py).
-- **`parse_args` renamed to `parse_tango_args`** — avoids shadowing `argparse.ArgumentParser.parse_args`.
-- **`params_json` parameter removed from CLI** — it was unused and created ambiguity with `param_overrides`; `specs`
-  and `param_overrides` now handle all override scenarios.
-- **`id` → `unit_id`** — renamed to avoid shadowing the Python builtin `id`.
-- **`wellbore` → `well`** — all instances renamed for consistency.
-- **Explicit module loading for add-ons** — `Analyzer_interface.py` and `ThermaGraph_interface.py` replaced dynamic
-  `importlib` imports with explicit module paths.
-- **Add-on output paths** — `output_dir` field added to `ThermaGraphSpecs` and `AnalyzerSpecs`; `run_dir` is now wired
-  from `NativeWorkflow` to add-on specs so that `--save-dir` is respected; all 116 YAML example files updated to use
-  clean relative paths (e.g. `thermagraph_states.json`), removing all hardcoded `/Users/morteza/...` paths —
-  [path resolution utility](src/tango/addons/utils.py),
-  [ThermaGraph wiring](src/tango/addons/ThermaGraph/ThermaGraph_interface.py),
-  [Analyzer wiring](src/tango/addons/Analyzer/Analyzer_interface.py).
-- **Saving is now opt-in** — output files are no longer written automatically; the user controls whether and where files
-  are saved — [CLI flags (`--save-dir`, `--no-save`)](src/tango/utils.py),
-  [runner integration](src/tango/runner.py).
-- **`MULTIPLE_UNIT_NODE_OPTIONS` import cleanup** — removed unused import from `utils.py`; now imported directly from
-  `config.py` where needed.
-- **Auto-formatting** — `ruff` applied across the codebase; additional `ruff` ignore rules added.
-
----
+- **Downhole production-well pump model**: replaced constant-temperature (isothermal) pump
+  with an entropy-conserving (isentropic) model including an efficiency penalty — a more
+  accurate ~53% pump-power increase for one benchmark design.
+- **Production-well pump pressure targeting**: replaces a one-shot correction with a real
+  iterative (secant-method) solve that accounts for density feedback on friction loss.
+- **Fluid-property evaluation**: switches the hot path to a pre-tabulated/interpolation mode
+  of the same underlying property library — roughly halves that hotspot's cost, for up to an
+  18% total runtime improvement (about 2x on surface-solver-heavy runs).
+- **AGS closed loop**: adds a real circulation pump (previously thermosiphon-only); requires
+  every closed fluid loop to contain a pump or compressor, enforced at construction time.
+- Labels optimizer output columns explicitly as decision-variable, objective, or
+  reported-only, and shows real units on plot axes.
+- Catches CoolProp failures inside the surface-plant solver as a single failed design,
+  instead of crashing an entire optimization run.
 
 ### Fixed
 
-- **Flask server runtime artifacts** — redirected out of the source tree — [flask server](tango_flask_server.py).
-- **Phase diagrams and ArangoDB sync** — resolved missing phase diagram generation and ArangoDB synchronisation issues
-  in `native_workflow.py` and `arangodb_manager.py`.
-- **Public/private variable conflation** — fixed conflation between public and private runner state, and corrected a
-  spurious logging warning.
-- **Duplicate validation output** — validation messages no longer print duplicates.
-- **Extraction pressure validation** — cleaned up and generalised target extraction pressure validation logic.
-- **Data leakage** — restricted data leakage pathways between simulation runs.
-- **Regression tests no longer create `./gen_files`** — test artefacts are now written to `pytest`'s `tmp_path`.
+Real physics/correctness bugs found while porting old TANGO's behavior to the new
+implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
 
-- **Migrated to `uv`** — `uv.lock` generated; `start_flask_server.sh` and `.gitlab-ci.yml` updated to use `uv`; both
-  `pixi run -e dev pytest -v` and `uv run pytest -v` confirmed working.
-- **GitLab CI optimised** — pipeline restructured for faster feedback.
-- **Pre-push hook** — added with rationale in `CONTRIBUTING.md`.
-- **`laptop` tag** — added to GitLab runner configuration.
-- **`.gitignore` updates** — GitLab runner directories and `./gen_files` excluded; deprecated environment files
-  (`environment.yml`, `environment_fixed.yml`) removed.
-- **Branching strategy documented** — added to `CONTRIBUTING.md`.
-- **Agent rules** — `.antigravity/rules.md` added with repo- and Python-specific conventions.
+- Fixed AGS never advancing simulated time past year one in old TANGO (a fake-convergence
+  bug) — every downstream multi-year AGS number from the old system was invalid. The new
+  implementation's `LockedState` guardrail structurally cannot have this bug.
+- Fixed the new implementation's own reservoir initial-pressure formula, which borrowed a
+  safety-ceiling formula instead of the true initial condition (~12% error); now agrees with
+  old TANGO to sub-microkelvin precision.
+- Fixed an AGS well-depth bug: a well starting partway down another well segment had its
+  surrounding rock temperature computed as if it started at the surface, modeling a heat
+  *sink* as a heat *source*. Corrected the best-case AGS design temperature from 92.7°C to
+  136.6°C.
+- Fixed old TANGO's well-cost safety-limit formula, which used diameter where the equation
+  called for radius (off by a factor of `-ln(2)`).
+- Fixed old TANGO's `check_fracking`, which didn't gate what its name implied (only capped
+  flow, not pressure) — superseded by the unified `InjectionPolicy`.
+- Fixed old TANGO's boolean config fields, which used `== "yes"` string comparisons so `True`
+  in YAML silently did nothing — the new implementation uses real booleans throughout.
+- Fixed old TANGO silently swallowing solver non-convergence (warning and proceeding, or
+  reusing the last unconverged guess) — the new implementation raises `ConvergenceError`.
+- Fixed the economic model double-counting well mobilization cost when a well was split into
+  multiple physics sub-components.
+- Fixed numerically-marched wells falling about 1% short of their declared length (an
+  off-by-one in the march step count).
+- Fixed the optimizer scoring a crashed design better than a design that ran but failed — a
+  crash now always scores strictly worse.
 
+### Known limitations
 
-- **`README.md`** — TANGO logo added; Euler HPC setup and `rsync`-based deployment instructions expanded; `pytest`
-  command clarified.
-- **`docs/state-management-framework-eval.md`** — state management framework evaluation document added (Polars
-  DataFrame-based analysis).
-- **`examples/run_flexible_SF_manual.py`** — updated to demonstrate the new `Runner.clone()` / `update_parameters()`
-  API.
-- **MVP template YAML files** — added under `examples/MVP_templates/`.
-- **`examples/failing/readme.md`** — updated; deprecated standalone Python runner scripts in `examples/failing/` removed
-  (now driven by YAML configs).
+- **MOOSE-coupled examples** (~55 configs) cannot currently be run — hardcoded to a former
+  team member's machine with no remaining documentation. Not part of this release.
+- **Pump electricity accounting** needs human-in-the-loop verification before net-power or
+  LCOE outputs should be trusted; the current implementation is based on static code analysis
+  only.
+- **`GraphSurface`'s fixed outlet pressures** (flash pressure, condensing pressure) are a
+  deliberate modeling choice — real plant control targets, not derived quantities — but are
+  only self-consistent if calibrated to the site's assumed conditions, and nothing currently
+  checks that. Old TANGO's pressure-monotonicity sanity guard has no equivalent yet. See
+  `docs/TANGO_vision_and_roadmap/README.md` for the full discussion.
+- **Seasonal heat-demand variation** is not modeled — direct-heat and cogeneration examples
+  run at constant mass flow.
+- **Combined heat-and-power (cogeneration)** has topology precedent and support in
+  `GraphSurface`, but the economic side (how to compute/report a combined levelized cost)
+  needs a design decision before an example is built.
+- Deleted old TANGO's `examples/` directory and its example-coverage audit as part of this
+  release's cleanup; preserved at git tag `pre-tango-core-rename-2026-09-18` for anyone who
+  needs to consult them.
 
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
-[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/commits/main
+[1.0.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/old-tango-main-2026-06-08...v1.0.0
