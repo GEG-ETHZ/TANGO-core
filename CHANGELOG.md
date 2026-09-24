@@ -3,6 +3,94 @@
 All notable changes to TANGO are documented here.
 Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.org/).
 
+## [In Development]
+
+*(Nothing yet.)*
+
+---
+
+## [1.0.1] — 2026-09-24
+
+Patch release: completes two more cells of the example coverage matrix,
+fixes two real bugs found while doing so, adds full regression coverage
+for every `example_configs/` YAML plus a release-tag test gate, and adds
+`tango_cli run --save-dir` (previously, running a config via `tango_cli`
+directly produced no output at all — only `applications/` scripts could
+save anything).
+
+### Added
+
+- **`EGS_electric.yml`** — completes the EGS coverage-matrix row (heat +
+  power).
+- **`CPG_electric.yml`** — new CPG power coverage-matrix cell, ported from
+  old tango's `examples/CPG_num_pp.yml` (preserved at git tag
+  `pre-tango-core-rename-2026-09-18`).
+- **`tests/regtest/test_example_configs.py`** — full-length (real
+  `sim_config.num_tsteps`, never a reduced smoke count) regression
+  coverage for every `example_configs/*.yml`: injection-well physics
+  invariants, surface net-power/thermal sanity, and a golden LCOE value
+  per config. Includes a guard test that fails if a new
+  `example_configs/` file ever ships without coverage. `just test
+  --example-configs` runs this plus `hydro_sf_electric.yml`'s own
+  dedicated, more detailed coverage in one command.
+- **Release-tag test gate** (`tools/check_full_tests_before_tag_push.py`)
+  — a pre-push hook that runs `just test --all` and blocks the push if a
+  `vX.Y.Z` release tag is being pushed and the suite fails. Local, not
+  GitLab CI, since this repo's runner is too slow for `tests/regtest/`
+  (already excluded from CI for that reason).
+- **`tango_cli run --save-dir DIR`** — writes `<name>.yml` (full results,
+  reloadable with `Workflow.from_file()`), `<name>.smry.csv` (one row per
+  timestep, one column per component's own scalar history field), and
+  `<name>.econ.csv` (one row, the economic component's final state).
+  Saving is opt-in; nothing is written without this flag.
+- **Per-config CoolProp backend selection** (`common.coolprop_backend`) —
+  BICUBIC's tabulated backend has coarse resolution right at a fluid's
+  critical point; a config can now opt into the exact (slower) HEOS
+  backend near one instead.
+- New TANGO Commandment: every `example_configs/` YAML must be
+  regression-tested (see `CONTRIBUTING.md`).
+
+### Fixed
+
+- **`CPG_electric.yml`'s surface plant physics**: held CO2 supercritical
+  through the whole cycle, including the turbine/condenser outlet
+  pressures — but an absolute pressure only has real physical meaning
+  where temperature and pressure are locked together by a fluid's
+  saturation curve, which doesn't exist above the critical point. Fixed
+  by condensing CO2 after the turbine instead, the same mechanism
+  `hydro_sf_electric.yml`'s water cycle and old tango's own CPG model
+  both use.
+- **`CPG_electric.yml`'s `LCOE` was `NaN`**: its condenser's
+  `cooling_tower_mode: DRY` gave a parasitic cooling-tower power draw
+  that exceeded its own net turbine output (CPG condenses its entire
+  flow, unlike `hydro_sf_electric.yml`'s small flash-split fraction, so
+  this term matters far more here) — and `DRY` was never grounded in
+  what old tango's own config actually used (`WET`, its unoverridden
+  default). Fixed by switching to `WET`.
+- Two mis-attributed physics citations: Adams → Zhang for the well
+  heat-loss model, Adams → Birdsell for the well-pattern impedance
+  formula (both verified against Crossref/DataCite).
+- `--p`/similar ambiguous CLI abbreviations across `applications/`
+  scripts used to fail with a confusing "ambiguous option" error instead
+  of a clear one (`allow_abbrev=False` added everywhere); a script whose
+  `--help` silently ran its sweep instead of showing help;
+  `run_hydro_df_electric_sweep.py`'s docstring/`--help` now states its
+  design-matrix size and that it's fixed, not tunable at runtime.
+- An orphaned old-tango-vs-new-tango parity test (`test_lcoe_parity`)
+  survived — with its original, much-looser tolerance — long after the
+  actual comparison it once ran against was deleted. Replaced with a
+  tight self-consistency golden-value check, consolidated into
+  `test_example_configs.py` alongside every other config's.
+
+### Changed
+
+- **`just demos` renamed to `just apps`** — its job is smoke-testing
+  `applications/` scripts; `example_configs/` regression coverage moved
+  to `just test --example-configs`/`--all` instead of living in this
+  recipe.
+
+---
+
 ## [1.0.0]
 
 The first public release. This entry covers everything between `old-tango-main-2026-06-08`
@@ -115,4 +203,6 @@ implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
+[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.0.1...HEAD
+[1.0.1]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.0.0...v1.0.1
 [1.0.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/old-tango-main-2026-06-08...v1.0.0

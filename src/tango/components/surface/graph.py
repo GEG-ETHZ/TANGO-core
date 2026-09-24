@@ -81,7 +81,6 @@ from tango.core.constants import (
     PA_TO_BAR,
 )
 from tango.core.errors import ConfigError, InvalidPowerStateError, TESPyCoolPropError
-from tango.core.fluid_state import COOLPROP_BACKEND
 from tango.core.fluid_utils import (
     fluid_density,
     fluid_viscosity,
@@ -365,19 +364,32 @@ class GraphSurface(SurfaceComponent):
 
         self._dual_mode = any(cfg.get("type") == "PumpOrValve" for cfg in node_cfgs.values())
         if self._dual_mode:
-            self._valve_bundle = self._build_bundle(node_cfgs, edge_cfgs, "Valve")
-            self._compressor_bundle = self._build_bundle(node_cfgs, edge_cfgs, "Compressor")
+            self._valve_bundle = self._build_bundle(
+                node_cfgs,
+                edge_cfgs,
+                "Valve",
+                self.common.coolprop_backend,
+            )
+            self._compressor_bundle = self._build_bundle(
+                node_cfgs,
+                edge_cfgs,
+                "Compressor",
+                self.common.coolprop_backend,
+            )
             self._activate_bundle(self._valve_bundle)
         else:
             # "Compressor" here is an inert default: no node in this config
             # is type: PumpOrValve, so no node actually gets resolved by it.
-            self._activate_bundle(self._build_bundle(node_cfgs, edge_cfgs, "Compressor"))
+            self._activate_bundle(
+                self._build_bundle(node_cfgs, edge_cfgs, "Compressor", self.common.coolprop_backend),
+            )
 
     @staticmethod
     def _build_bundle(
         node_cfgs: dict[str, dict[str, Any]],
         edge_cfgs: dict[str, dict[str, Any]],
         pump_or_valve_resolution: str,
+        backend: str,
     ) -> _NetworkBundle:
         """Build one complete TESPy network, resolving any ``PumpOrValve`` node.
 
@@ -451,7 +463,7 @@ class GraphSurface(SurfaceComponent):
 
         # ---- Per-node fixed attributes (efficiency, T_out, p_out, ...) ----
         for name, cfg in node_cfgs.items():
-            GraphSurface._apply_node_config(nodes[name], conns, cfg)
+            GraphSurface._apply_node_config(nodes[name], conns, cfg, backend)
 
         # ---- Role-tagged nodes, for net power/thermal aggregation ----
         net_electric = []
@@ -562,7 +574,7 @@ class GraphSurface(SurfaceComponent):
             )
 
     @staticmethod
-    def _apply_node_config(node: Any, conns: list[Connection], cfg: dict[str, Any]) -> None:
+    def _apply_node_config(node: Any, conns: list[Connection], cfg: dict[str, Any], backend: str) -> None:
         """Apply fixed component/connection attributes from one node's YAML config.
 
         Component-level: ``efficiency`` -> ``eta_s`` (Turbine/Compressor);
@@ -601,7 +613,7 @@ class GraphSurface(SurfaceComponent):
         if component_attrs:
             node.set_attr(**component_attrs)
 
-        GraphSurface._apply_connection_config(node, conns, cfg, type_name)
+        GraphSurface._apply_connection_config(node, conns, cfg, type_name, backend)
 
     @staticmethod
     def _apply_connection_config(
@@ -609,6 +621,7 @@ class GraphSurface(SurfaceComponent):
         conns: list[Connection],
         cfg: dict[str, Any],
         type_name: str,
+        backend: str,
     ) -> None:
         """Apply fixed/guess connection attributes from one node's YAML config.
 
@@ -624,7 +637,7 @@ class GraphSurface(SurfaceComponent):
           ``h0_out{N}``/``p0_out{N}`` (TESPy guess values), ``fluid_out{N}``
           (a plain fluid-name string, e.g. ``R245fa`` -- wrapped in the same
           ``BACKEND::name`` CoolProp-backend syntax as the main loop's fluid,
-          see ``COOLPROP_BACKEND``), ``vapor_mass_fraction_out{N}`` -> ``x``.
+          using this same node's ``backend`` param), ``vapor_mass_fraction_out{N}`` -> ``x``.
 
         Extend here as new topologies need attributes not yet covered --
         deliberately not adding dynamic attribute support (ttd_u/
@@ -652,7 +665,7 @@ class GraphSurface(SurfaceComponent):
             conn = next(c for c in conns if c.source is node and c.source_id == port)
             tespy_attr = _PORT_SUFFIXED_ATTRS[prefix]
             if tespy_attr == "fluid":
-                conn.set_attr(fluid={f"{COOLPROP_BACKEND}::{value}": 1})
+                conn.set_attr(fluid={f"{backend}::{value}": 1})
             else:
                 conn.set_attr(**{tespy_attr: float(value)})
 
@@ -790,9 +803,9 @@ class GraphSurface(SurfaceComponent):
         """
         self._inlet_conn.set_attr(
             # "BACKEND::fluid" is TESPy's own syntax for selecting a CoolProp
-            # backend (Connection._fluid_specification) -- COOLPROP_BACKEND
+            # backend (Connection._fluid_specification) -- common.coolprop_backend
             # keeps this in sync with FluidState's own CoolProp backend choice.
-            fluid={f"{COOLPROP_BACKEND}::{self.common.fluid_name}": 1},
+            fluid={f"{self.common.coolprop_backend}::{self.common.fluid_name}": 1},
             m=mdot,
             T=T_in + K_TO_C_OFFSET,
             p=P_tespy_in * PA_TO_BAR,
@@ -861,8 +874,8 @@ class GraphSurface(SurfaceComponent):
         mdot = s.mass_rate.get_fresh()
 
         # ---- Surface pipe friction drop (wellhead -> plant) ----
-        rho_in = fluid_density(self.common.fluid_name, T_in, P_in)
-        mu_in = fluid_viscosity(self.common.fluid_name, T_in, P_in)
+        rho_in = fluid_density(self.common.fluid_name, T_in, P_in, self.common.coolprop_backend)
+        mu_in = fluid_viscosity(self.common.fluid_name, T_in, P_in, self.common.coolprop_backend)
         u_in = mean_velocity(mdot, rho_in, self.pipe_diameter)
         Re_in = reynolds_number(mdot, self.pipe_diameter, mu_in)
         ff_in = friction_factor_haaland(Re_in, self.pipe_diameter, self.pipe_roughness)
@@ -904,8 +917,8 @@ class GraphSurface(SurfaceComponent):
         s.node_detail.update(self._collect_node_detail() if self.record_node_detail else {})
 
         # ---- Fluid properties for injection stream ----
-        rho_out = fluid_density(self.common.fluid_name, T_out, P_out)
-        mu_out = fluid_viscosity(self.common.fluid_name, T_out, P_out)
+        rho_out = fluid_density(self.common.fluid_name, T_out, P_out, self.common.coolprop_backend)
+        mu_out = fluid_viscosity(self.common.fluid_name, T_out, P_out, self.common.coolprop_backend)
         s.rho.update(rho_out)
         s.mu.update(mu_out)
 

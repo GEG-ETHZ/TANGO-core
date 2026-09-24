@@ -370,6 +370,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Generate scatter and parallel-coordinates plots for the tango Triemli sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

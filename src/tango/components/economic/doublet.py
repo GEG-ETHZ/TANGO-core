@@ -148,12 +148,38 @@ def _bac_regression(
     t_ambient: float,
     dt_range: float,
 ) -> float:
-    """Baltimore Aircoil regression model shape (surface.py's ``_BAC_regression_model``).
+    """Baltimore Aircoil regression model shape.
 
     Shared by the cooler/condenser COST formula (``_BAC_COEFFS_WET``/``_DRY``)
     and the cooler/condenser PARASITIC POWER formula
     (``_BAC_POWER_COEFFS_WET``/``_DRY``) — same shape, different fitted
     coefficients depending on which quantity is being estimated.
+
+    All temperature arguments are in Kelvin, matching every other
+    temperature in tango — there is no unit conversion at this function's
+    call sites, and none should be added without re-verifying the fitted
+    coefficients against real reference output, since no original source
+    for those coefficients is available to check the intended unit
+    against directly.
+
+    Args:
+        coeffs: ``(a, b, c, d)`` fitted regression coefficients — one of
+            ``_BAC_COEFFS_WET``/``_DRY`` (cost) or
+            ``_BAC_POWER_COEFFS_WET``/``_DRY`` (parasitic power fraction).
+        dt_approach: Approach temperature difference (K) — ``surface``'s
+            own ``approach_temperature``.
+        t_ambient: Ambient temperature (K) — ``common.surface_temperature``.
+        dt_range: Condensation temperature range (K) — always
+            ``_DEFAULT_TEMPERATURE_RANGE_K`` (0.0) at every call site in
+            this module today; kept as its own parameter (rather than a
+            hardcoded 0 inside this function) since it's a genuine,
+            independent term in the BAC regression's own formula, not an
+            artifact of how tango happens to call it.
+
+    Returns:
+        The regression's dimensionless output — either a cost multiplier
+        or a parasitic-power fraction, depending on which ``coeffs`` set
+        was passed in.
     """
     a, b, c, d = coeffs
     return a / dt_approach + b * t_ambient + c * t_ambient / dt_approach + d / (dt_approach + dt_range)

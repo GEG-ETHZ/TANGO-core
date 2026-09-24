@@ -168,6 +168,7 @@ def analyze_sweep(sweep_dir: Path) -> str:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Analyze tango double-flash LHS sweep results",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

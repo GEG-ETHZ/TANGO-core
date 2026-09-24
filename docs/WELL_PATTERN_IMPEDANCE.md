@@ -1,5 +1,5 @@
 # Well Pattern Analytic Impedance ``tango/components/reservoir/wellpattern_impedance.py``
-Created a class ``WellPattern(StrEnum)`` which has a function ``.impedance()`` to calcuate analytical impedance of a reservoir with a doublet, five spot or inverted five spot based on Adams et al. (2020), Geothermics https://doi.org/10.1016/j.geothermics.2023.102843. This can be found in ``src/tango/components/reservoir/wellpattern_impedance.py``
+Created a class ``WellPattern(StrEnum)`` which has a function ``.impedance()`` to calcuate analytical impedance of a reservoir with a doublet, five spot or inverted five spot based on [Birdsell, D.T., Adams, B.M., Deb, P., Ogland-Hand, J.D., Bielicki, J.M., Fleming, M.R., & Saar, M.O. (2024). Analytical solutions to evaluate the geothermal energy generation potential from sedimentary-basin reservoirs. Geothermics, 116, 102843.](https://doi.org/10.1016/j.geothermics.2023.102843) (previously misattributed as "Adams et al. (2020)" — corrected 2026-09-21, see `wellpattern_impedance.py`'s own docstring for the same correction). This can be found in ``src/tango/components/reservoir/wellpattern_impedance.py``
 Originally the equation for the Doublet was hardcoded into ``LumpedReservoir``
 python
 ```

@@ -55,7 +55,7 @@
         <mxCell id="prod_pump" parent="well_grp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="LumpedProductionWellPump&#xa;NumericalProductionWellPump" vertex="1">
           <mxGeometry height="22" width="179" x="8" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="well_note" parent="well_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="all three in well/lumped.py. well/numerical.py also has NumericalWell&#xa;(+ thin NumericalInjectionWell/NumericalProductionWell subclasses,&#xa;NumericalProductionWellPump) — a marching Adams-2015 solver, not shown&#xa;as separate boxes here — see vision doc coverage-matrix note." vertex="1">
+        <mxCell id="well_note" parent="well_grp" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#888888;align=center;verticalAlign=middle;" value="all three in well/lumped.py. well/numerical.py also has NumericalWell&#xa;(+ thin NumericalInjectionWell/NumericalProductionWell subclasses,&#xa;NumericalProductionWellPump) — a marching Zhang-2011 solver, not shown&#xa;as separate boxes here — see vision doc coverage-matrix note." vertex="1">
           <mxGeometry height="14" width="179" x="8" y="108" as="geometry" />
         </mxCell>
         <mxCell id="res_grp" parent="comp_layer" style="swimlane;startSize=20;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" value="reservoir/" vertex="1">

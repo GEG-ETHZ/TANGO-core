@@ -58,6 +58,7 @@ economic:
   type: doublet
   project_maturity: green_field  # green_field or brown_field
   discount_rate: 0.095
+  main_product: electricity      # matches MainProduct's own default -- explicit rather than implicit
 
 components:
 

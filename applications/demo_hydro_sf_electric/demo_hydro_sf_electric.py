@@ -1,6 +1,8 @@
 """Interactive demo: tango flexible Single-Flash system.
 
-Runs ``example_configs/hydro_sf_electric.yml`` and generates four figures:
+Runs ``example_configs/hydro_sf_electric.yml`` and generates four figures that
+``tango`` itself does not produce (see the section "What running the YAML alone
+gets you" below):
 
   1. Temperature vs axial position parameterized by timestep
        - Injection well: full spatial profile (NumericalInjectionWell)
@@ -17,6 +19,19 @@ Run from the repo root::
 Default: writes SVGs to this script's own ``outputs/`` directory without
 opening windows. Pass ``--show`` for interactive windows instead (nothing
 is saved in that mode).
+
+What running the YAML alone gets you
+-------------------------------------
+``tango_cli run example_configs/hydro_sf_electric.yml`` (or
+``Workflow.from_file(...).run()`` directly, with no further code) runs the
+same simulation but produces none of the above: no files are written and
+no plots are shown -- ``tango_cli`` has no ``--save-dir``/plotting flags
+today, so all you get is "Simulation finished normally" (plus whatever
+``--log-level`` prints per timestep) and the process exits with nothing
+retained. Every figure above comes from this script reading the completed
+``Workflow``'s own ``history`` state after ``run()`` returns and plotting
+it with matplotlib -- that's this demo's whole job, not something the YAML
+run does on its own.
 """
 
 from __future__ import annotations
@@ -42,8 +57,9 @@ if str(_REPO_ROOT / "src") not in sys.path:
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 # hydro_sf_electric.yml lives in example_configs/ (configs only, shared
-# with tests/regtest/test_tango.py and `just demos`'s YAML smoke sweep) —
-# not colocated with this script, unlike the old example_configs/ layout.
+# with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run
+# via `just test --example-configs`/`--all`) — not colocated with this
+# script, unlike the old example_configs/ layout.
 YAML_PATH = _REPO_ROOT / "example_configs" / "hydro_sf_electric.yml"
 SAVE_DIR = HERE / "outputs"
 SAVE_DIR.mkdir(exist_ok=True)
@@ -329,6 +345,7 @@ def _save_or_skip(fig: plt.Figure, save_path: Path | None) -> None:
 def main() -> None:
     """Parse arguments, run the simulation, and generate all four figures."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

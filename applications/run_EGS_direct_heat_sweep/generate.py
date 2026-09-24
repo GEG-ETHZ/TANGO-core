@@ -71,6 +71,7 @@ def main(
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Generate depth x mass-flow design matrix for tango Triemli EGS sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

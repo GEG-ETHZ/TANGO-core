@@ -249,6 +249,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the sweep runner."""
     params = load_params()
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Run the tango double-flash LHS sweep simulations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

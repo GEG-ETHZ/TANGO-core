@@ -102,7 +102,7 @@ independent gaps, either one sufficient on its own:
    loop's own cold-start fixed-point convergence — a numerical artifact of
    the solve order, not simulated physical time.
 2. Independently, the wellbore heat-loss physics
-   (`units/native/well/base.py`'s `_compute_Q_loss`, an Adams-2015/Ramey-
+   (`units/native/well/base.py`'s `_compute_Q_loss`, a Zhang-2011/Ramey-
    style transient-conduction model keyed on dimensionless time `_t_d`)
    never advances for any well under `SystemNative`: `_t_d_old` and
    `time_step` are only ever mutated by `update_dimensionless_time_old()`,

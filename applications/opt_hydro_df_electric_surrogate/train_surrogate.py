@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     """CLI for the regressor choice and its hyperparameters, plus the feasibility classifier's."""
     params = load_params(PARAMS_FILE)
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Fit a surrogate (regressors + feasibility classifier) on the LHS training data.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

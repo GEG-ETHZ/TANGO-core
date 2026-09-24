@@ -23,7 +23,7 @@ Run from the repo root::
 
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
 
-Exits non-zero (and is wired into ``just demos``) if a future physics
+Exits non-zero (and is wired into ``just apps``) if a future physics
 change ever pushes num_cells=20's error back over the 0.1% target — that's
 a signal this study needs re-running and TARGET_CELL_LENGTH_M's docstring
 updated to match, not that this script itself needs editing.
