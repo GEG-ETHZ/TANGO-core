@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 
 from tango.core.constants import EULER_CONSTANT_X2, GRAVITY
-from tango.core.fluid_state import FluidState
+from tango.core.fluid_state import COOLPROP_BACKEND, FluidState
 
 # ---------------------------------------------------------------------------
 # Geometry
@@ -79,14 +79,12 @@ def friction_factor_darcy(Re: float, diameter: float, roughness: float) -> float
 
     References:
     ----------
-    Colebrook, C.F. (1939). Turbulent flow in pipes, with particular reference
+    [Colebrook, C.F. (1939). Turbulent flow in pipes, with particular reference
     to the transition region between smooth and rough pipe laws.
-    J. Institution of Civil Engineers, 11(4), 133–156.
-    https://doi.org/10.1680/ijoti.1939.13150
+    J. Institution of Civil Engineers, 11(4), 133–156.](https://doi.org/10.1680/ijoti.1939.13150)
 
-    Swamee, P.K. & Jain, A.K. (1976). Explicit equations for pipe-flow problems.
-    J. Hydraulics Division ASCE, 102(5), 657–664.
-    https://doi.org/10.1061/JYCEAJ.0004542
+    [Swamee, P.K. & Jain, A.K. (1976). Explicit equations for pipe-flow problems.
+    J. Hydraulics Division ASCE, 102(5), 657–664.](https://doi.org/10.1061/JYCEAJ.0004542)
     (Error < 3 % vs. iterative Colebrook–White for Re 5×10³–10⁸, ε/D 10⁻⁶–10⁻².)
 
     **Human review needed**: before using results that depend on this
@@ -121,9 +119,8 @@ def friction_factor_haaland(Re: float, diameter: float, roughness: float) -> flo
 
     Reference:
     ---------
-    Haaland, S.E. (1983). Simple and explicit formulas for the friction factor in
-    turbulent pipe flow. J. Fluids Engineering, 105(1), 89-90.
-    https://doi.org/10.1115/1.3240948
+    [Haaland, S.E. (1983). Simple and explicit formulas for the friction factor in
+    turbulent pipe flow. J. Fluids Engineering, 105(1), 89-90.](https://doi.org/10.1115/1.3240948)
 
     Args:
         Re: Reynolds number (dimensionless).
@@ -176,7 +173,7 @@ def hydrostatic_pressure(rho: float, delta_depth: float, gravity: float = GRAVIT
     return rho * gravity * delta_depth
 
 
-def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -> float:
+def heat_loss_zhang_2011(dL: float, rock_k: float, t_d: float, delta_T: float) -> float:
     r"""Transient conductive heat loss for one wellbore cell (W).
 
     Q_loss = 2π · dL · k_rock · β(t_d) · ΔT
@@ -203,10 +200,9 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
     References:
     ----------
     β and its two-regime piecewise form (Equations 1 and 2) originate with:
-        Zhang, Y., Pan, L., Pruess, K., & Finsterle, S. (2011). A
+        [Zhang, Y., Pan, L., Pruess, K., & Finsterle, S. (2011). A
         time-convolution approach for modeling heat exchange between a
-        wellbore and surrounding formation. Geothermics, 40, 261-266.
-        https://doi.org/10.1016/j.geothermics.2011.08.003
+        wellbore and surrounding formation. Geothermics, 40, 261-266.](https://doi.org/10.1016/j.geothermics.2011.08.003)
     This implementation's exact form matches Equation S65/S66 of:
         Adams, B.M., Ogland-Hand, J.D., Bielicki, J.M., Schädle, P., & Saar,
         M.O. Estimating the geothermal electricity generation potential of
@@ -244,52 +240,60 @@ def heat_loss_adams_2015(dL: float, rock_k: float, t_d: float, delta_T: float) -
 # stays consistent by construction.
 
 
-def fluid_density(fluid_name: str, T: float, P: float) -> float:
+def fluid_density(fluid_name: str, T: float, P: float, backend: str = COOLPROP_BACKEND) -> float:
     """Fluid density (kg/m³) via CoolProp.
 
     Args:
         fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
+        backend: CoolProp backend (see ``core/fluid_state.py``'s
+            ``CoolPropBackend`` — pass ``common.coolprop_backend``).
 
     """
-    return FluidState.with_PT(fluid_name, P, T).rho
+    return FluidState.with_PT(fluid_name, P, T, backend).rho
 
 
-def fluid_viscosity(fluid_name: str, T: float, P: float) -> float:
+def fluid_viscosity(fluid_name: str, T: float, P: float, backend: str = COOLPROP_BACKEND) -> float:
     """Fluid dynamic viscosity (Pa·s) via CoolProp.
 
     Args:
         fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
+        backend: CoolProp backend (see ``core/fluid_state.py``'s
+            ``CoolPropBackend`` — pass ``common.coolprop_backend``).
 
     """
-    return FluidState.with_PT(fluid_name, P, T).mu
+    return FluidState.with_PT(fluid_name, P, T, backend).mu
 
 
-def fluid_enthalpy(fluid_name: str, T: float, P: float) -> float:
+def fluid_enthalpy(fluid_name: str, T: float, P: float, backend: str = COOLPROP_BACKEND) -> float:
     """Fluid specific enthalpy (J/kg) via CoolProp.
 
     Args:
         fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
+        backend: CoolProp backend (see ``core/fluid_state.py``'s
+            ``CoolPropBackend`` — pass ``common.coolprop_backend``).
 
     """
-    return FluidState.with_PT(fluid_name, P, T).H
+    return FluidState.with_PT(fluid_name, P, T, backend).H
 
 
-def fluid_cp(fluid_name: str, T: float, P: float) -> float:
+def fluid_cp(fluid_name: str, T: float, P: float, backend: str = COOLPROP_BACKEND) -> float:
     """Fluid isobaric specific heat capacity (J/(kg·K)) via CoolProp.
 
     Args:
         fluid_name: CoolProp fluid name (e.g. ``"Water"``, ``"CO2"``).
         T: Temperature (K).
         P: Pressure (Pa).
+        backend: CoolProp backend (see ``core/fluid_state.py``'s
+            ``CoolPropBackend`` — pass ``common.coolprop_backend``).
 
     """
-    return FluidState.with_PT(fluid_name, P, T).cp
+    return FluidState.with_PT(fluid_name, P, T, backend).cp
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,11 @@ is already fairly bloated and is meant to track the concrete, near-term
 `tango` roadmap) so long-horizon ideas don't get lost but also don't
 clutter the doc people read to find out what's actually being built next.
 Nothing here should be read as planned, scheduled, or blocking any current
-work. Started 2026-07-24.
+work. Started 2026-07-24. A follow-up, time-boxed implementation spike
+(Rumoca + MSL, a real multi-component model, LSP tooling) is written up
+separately in `docs/modelica-investigation.md` (2026-07-29) — that doc
+has the concrete, hands-on findings; this one has the framing and the
+still-open questions.
 
 ---
 
@@ -53,6 +57,23 @@ design point. That's a much closer philosophical match to "compose TANGO's
 native physics with external reservoir/surface simulators" than TESPy's
 approach.
 
+**Conservation guarantee, confirmed.** Part of the appeal is that Modelica's
+acausal connector semantics *structurally* enforce conservation: at every
+connection, the sum of a connector's "flow" variables is forced to zero
+(a generalized Kirchhoff law), which is how mass, momentum, and energy
+balance at junctions falls out of the language/tool itself rather than
+depending on each component author getting it right. **TESPy does not make
+that guarantee.** TESPy does enforce mass and (where applicable) energy
+balance per component — these are `mandatory_constraints` baked into the
+base `Component` class and inherited by every stock component — but that
+enforcement is per-component code the framework ships, not a structural
+property of arbitrary connections the way Modelica's connector semantics
+are. Nothing in TESPy stops a component (custom, or the network topology
+itself) from imposing a physically-ungrounded constant rather than deriving
+it from a real balance relation — which is exactly the "fixed `p_out`
+values" issue already flagged above and in the vision doc. That gap is the
+concrete version of "physical correctness" concern #2 in the section above.
+
 Chad has used Dymola extensively (best-in-class Modelica fidelity, but
 slow compilation and historically poor error messages) and evaluated
 OpenModelica (solid open-source concept, but hit a real diagnostic-quality
@@ -90,6 +111,93 @@ a Rust-native Modelica compiler — surfaced as a candidate worth tracking:
   the independence: same company driving the roadmap, Dyad as the
   commercial product on MTK's open core. Same JIT objection as Modia
   applies regardless of the licensing question.
+
+  **2026-09-21 update, prompted by a direct exchange with Michael
+  Tiller** — the same person named below in "Known complaints about
+  Modelica itself" (ex-Modelica Association board Secretary, now
+  JuliaHub VP of Product Management; the conflict-of-interest note there
+  applies equally to what follows here, coming directly from him):
+  - **Dyad licensing is now explicitly a sales-contact wall, not a
+    published number.** `juliahub.com/pricing/dyad` lists concrete
+    non-commercial/individual AI-agent tiers ($0/$20/$60/$200 per month),
+    but commercial use is "connect with our team" with no figures
+    disclosed. Dyad has also moved fast in 2026 — 2.0 (Dec 2025), 3.0 and
+    a $65M Series B (Apr 2026) — repositioning around "agentic AI for
+    industrial digital twins" rather than just the acausal DSL/compiler.
+    That's a venture-funded SaaS trajectory, which if anything reinforces
+    the original "too commercially aggressive" read rather than
+    softening it. The original "too commercially aggressive" judgment
+    stands, though the earlier discussion apparently had more explicit
+    published pricing to point to than is available now.
+  - **The JIT/iteration-speed objection is real but was stated too
+    broadly.** Asked Tiller directly whether keeping a Julia process
+    warm (e.g. in a long-lived container) avoids the JIT-compile hit; his
+    answer: "With Dyad, we use a `juliaup` distribution to avoid a ton of
+    pre-compilation... No Docker required." `juliaup` itself is just a
+    version manager (the Julia equivalent of `rustup`); what's actually
+    doing the work is a **custom juliaup distribution channel shipping a
+    prebuilt sysimage** — i.e. the same technique as `PackageCompiler.jl`
+    (precompile once, ship the compiled artifact), just delivered as a
+    juliaup channel instead of a standalone sysimage file. This mitigates
+    the tax **for code baked into that shipped distribution**; it does
+    *not* eliminate JIT compilation for new, user-written code (e.g.
+    custom components) written after the distribution is built — that
+    still pays the standard Julia JIT cost unless the sysimage is
+    rebuilt and reshipped. Whether Dyad's own workflow supports
+    rebuilding that distribution locally as you iterate is unconfirmed —
+    open question if this gets pursued further. Either way, this
+    mitigation is orthogonal to the "weaker compile-time correctness
+    guarantees than Rust" half of the objection, which is a static-typing
+    trade-off intrinsic to Julia and unaffected by precompilation.
+  - **The "full stack switch away from Python/CoolProp/pymoo" objection
+    (see the vision doc's TESPy suitability review) was overstated as a
+    blocker.** The vision doc's own "multi-simulator federation" section
+    already commits to **FMI** as the standard boundary for exactly this
+    kind of heterogeneous external-tool composition (CMG, MOOSE, DWSIM).
+    If an MTK/Dyad model can be consumed as an FMU, it's just one more
+    external tool behind that same boundary, not a stack rewrite. Caveat:
+    checked 2026-09-21 — MTK's own FMU *import* is explicitly flagged
+    experimental/unstable by SciML, and FMU *export* would go through a
+    separate library (`FMIExport.jl`), not something built into MTK/Dyad
+    directly. So the stack-fit objection is weaker than originally
+    written, but "MTK models via FMI" carries its own unverified
+    integration-maturity risk on top of the JIT and thin-stdlib points
+    below.
+  - **Building the missing components ourselves is licensing-clean but a
+    real lift, bigger than the Rumoca spike's.** Both
+    `ModelingToolkit.jl` and `ModelingToolkitStandardLibrary.jl` are MIT
+    (confirmed 2026-09-21, independent of Dyad's commercial layer — you
+    can use plain MTK without touching JuliaHub's commercial terms at
+    all), and an official `CoolProp.jl` wrapper exists (CoolProp itself is
+    MIT), so there's no licensing blocker to hand-writing a turbine,
+    condenser, and two-phase heat exchanger. But `ModelingToolkitStandardLibrary.jl`'s
+    Hydraulic domain (confirmed 2026-09-21) is **isothermal, single-phase,
+    Tait-equation-of-state only, with no real-fluid-properties backend** —
+    materially thinner than what the Rumoca/MSL spike had to work with,
+    where `Modelica.Media.Interfaces.PartialTwoPhaseMedium` already
+    existed and only two custom components had to be written against it.
+    In MTK-land there's no equivalent published two-phase medium/connector
+    abstraction to build against — that layer (effort/flow variable
+    choice for two-phase state, convective/stream semantics at junctions)
+    would need to be designed from scratch before any turbine/condenser/HX
+    components could sit on top of it. That's a bigger, more open-ended
+    lift than "write two components" — it's original design work with no
+    existing implementation to validate against, not just implementation
+    effort against an established abstraction.
+
+    **Chad's call, 2026-09-21: this rules MTK out, not just "worth a
+    spike."** The point of MTK was getting Modelica's structural
+    conservation guarantee without Modelica's downsides (annotation
+    format, GUI baggage). Having to hand-build the two-phase medium/
+    connector layer from scratch forfeits that cheap-guarantee premise —
+    you'd be doing the *harder* version of the work Rumoca already gets
+    for free via MSL's mature `Media` library, while *also* giving up the
+    Rust/Python stack fit and taking on Julia's JIT/type-safety
+    trade-offs. Rumoca dominates MTK on every axis here except license
+    terms, and the licensing angle (MIT core, independent of Dyad) turned
+    out not to be the actual blocker once this gap surfaced. No spike
+    planned; MTK is parked alongside Dyad/Modia for the same underlying
+    reason (see above), not pursued further.
 
 ## Known complaints about Modelica itself (not tool-specific)
 
@@ -132,13 +240,16 @@ language/ecosystem* itself," which no compiler choice fixes:
   This matters a lot: if MSL and similar libraries compile cleanly, the
   "no mature domain library ecosystem" concern raised when this was first
   discussed is largely unwarranted, since MSL is tool-independent Modelica
-  source, not something tied to Dymola/OpenModelica specifically. But
-  Rumoca is explicitly self-described as "in active development... expect
-  bugs and rough edges," so full-coverage compilation of real-world
-  libraries using advanced Modelica features (`redeclare`, inheritance,
-  conditional components, external C functions, table lookups) is a
-  real open question, not a verified fact — worth testing directly
-  against MSL before drawing conclusions either way.
+  source, not something tied to Dymola/OpenModelica specifically.
+  **Partially answered 2026-07-29** (`docs/modelica-investigation.md`):
+  core MSL 4.1.0 resolves and typechecks cleanly against a real checkout,
+  and a hand-built multi-component geothermal loop mixing MSL base classes
+  with custom two-phase components flattened successfully. Third-party
+  libraries (ThermoPower, TIL, ClaRa) and advanced features (`redeclare`,
+  inheritance, conditional components, external C functions, table
+  lookups) beyond that spike's scope are still untested — Rumoca remains
+  self-described as "in active development... expect bugs and rough
+  edges."
 - **Could CoolProp be preserved rather than replaced**, by bridging it in
   as a Modelica external function call from within Rumoca-compiled models?
   That would give real, rigorous thermodynamic properties without either

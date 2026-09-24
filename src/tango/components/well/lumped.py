@@ -137,7 +137,7 @@ class ProductionWellWithPumpHistory(WellboreHistory):
     pump_delta_p: list[float] = field(default_factory=list)
     pump_power_watts: list[float] = field(default_factory=list)
 
-    def record(self, state: WellboreState) -> None:  # type: ignore[override]
+    def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot, including pump data."""
         super().record(state)
         pump_state = state if isinstance(state, ProductionWellWithPumpState) else None
@@ -177,8 +177,18 @@ class LumpedInjectionWell(WellComponent):
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        rho = fluid_density(
+            self.common.fluid_name,
+            s.T_inlet.get_fresh(),
+            s.P_inlet.get_fresh(),
+            self.common.coolprop_backend,
+        )
+        mu = fluid_viscosity(
+            self.common.fluid_name,
+            s.T_inlet.get_fresh(),
+            s.P_inlet.get_fresh(),
+            self.common.coolprop_backend,
+        )
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -213,7 +223,7 @@ class LumpedProductionWell(WellComponent):
     - P_top = P_bottom − ρ·g·depth − ΔP_friction   (up → −hydrostatic)
     - T_top = T_inlet   (perfectly insulated — a more detailed thermal model is future work)
 
-    TODO: implement Adams et al. (2015) transient conduction model.
+    TODO: implement Zhang et al. (2011) transient conduction model.
     TODO: replace constant ρ, μ with CoolProp lookups.
     """
 
@@ -233,8 +243,18 @@ class LumpedProductionWell(WellComponent):
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        rho = fluid_density(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
-        mu = fluid_viscosity(self.common.fluid_name, s.T_inlet.get_fresh(), s.P_inlet.get_fresh())
+        rho = fluid_density(
+            self.common.fluid_name,
+            s.T_inlet.get_fresh(),
+            s.P_inlet.get_fresh(),
+            self.common.coolprop_backend,
+        )
+        mu = fluid_viscosity(
+            self.common.fluid_name,
+            s.T_inlet.get_fresh(),
+            s.P_inlet.get_fresh(),
+            self.common.coolprop_backend,
+        )
         s.rho.update(rho)
         s.mu.update(mu)
 
@@ -250,7 +270,7 @@ class LumpedProductionWell(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         s.P_outlet.update(s.P_inlet.get_fresh() - dp_h - dp_f)
-        s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Adams 2015
+        s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Zhang 2011
 
         self.outlet.T.update(s.T_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
@@ -299,8 +319,8 @@ class LumpedProductionWellWithPump(WellComponent):
             ``(P_outlet, rho, mu, vel, re, ff, dp_f, dp_h)``.
 
         """
-        rho = fluid_density(self.common.fluid_name, T_start, P_start)
-        mu = fluid_viscosity(self.common.fluid_name, T_start, P_start)
+        rho = fluid_density(self.common.fluid_name, T_start, P_start, self.common.coolprop_backend)
+        mu = fluid_viscosity(self.common.fluid_name, T_start, P_start, self.common.coolprop_backend)
         vel = mean_velocity(mdot, rho, self.diameter)
         re = reynolds_number(mdot, self.diameter, mu)
         ff = friction_factor_darcy(re, self.diameter, self.pipe_roughness)
@@ -369,13 +389,23 @@ class LumpedProductionWellWithPump(WellComponent):
             self.outlet.mass_rate.update(mdot)
             return
 
-        before = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
+        before = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
 
         def _discharge_state(P_pump_out: float) -> tuple[float, float]:
             """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
-            h_isentropic = FluidState.with_PS(self.common.fluid_name, P_pump_out, before.S).H
+            h_isentropic = FluidState.with_PS(
+                self.common.fluid_name,
+                P_pump_out,
+                before.S,
+                self.common.coolprop_backend,
+            ).H
             h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
-            t_pump_out = FluidState.with_HP(self.common.fluid_name, h_actual, P_pump_out).T
+            t_pump_out = FluidState.with_HP(
+                self.common.fluid_name,
+                h_actual,
+                P_pump_out,
+                self.common.coolprop_backend,
+            ).T
             return h_actual, t_pump_out
 
         def _residual(P_pump_out: float) -> float:

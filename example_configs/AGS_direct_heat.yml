@@ -4,7 +4,7 @@
 # Triemli, Zurich site). AGS is a sealed closed-loop wellbore — there is no
 # reservoir component: injection_well -> horizontal_well -> production_well
 # -> surface -> back to injection_well. All heat exchange is conductive,
-# through the wellbore walls (Adams et al. 2015 model, same as the vertical
+# through the wellbore walls (Zhang et al. 2011 model, same as the vertical
 # wells), not via reservoir permeability.
 #
 # horizontal_well uses the base NumericalWell class directly (registered as

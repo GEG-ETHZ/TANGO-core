@@ -115,6 +115,7 @@ def main(
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the sweep summarizer."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Aggregate sweep results for the tango double-flash sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

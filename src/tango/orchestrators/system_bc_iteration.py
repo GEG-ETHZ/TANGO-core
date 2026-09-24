@@ -334,7 +334,8 @@ class SystemBCIteration(SystemDirect):
 
         well_spacing = getattr(reservoir, "well_spacing", None)
         fluid_name = getattr(getattr(inj_well, "common", None), "fluid_name", None)
-        if well_spacing is None or fluid_name is None:
+        backend = getattr(getattr(inj_well, "common", None), "coolprop_backend", None)
+        if well_spacing is None or fluid_name is None or backend is None:
             # No known way to compute the flow-induced threshold for this
             # reservoir/well combination — skip rather than guess. Every
             # concrete reservoir type today (LumpedReservoir) declares
@@ -348,8 +349,8 @@ class SystemBCIteration(SystemDirect):
             over_pressure_percentage=reservoir.over_pressure_percentage,
             well_spacing=well_spacing,
             wellbore_diameter=inj_well.diameter,
-            mu=fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P),
-            rho=fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P),
+            mu=fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P, backend),
+            rho=fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P, backend),
         )
         if self.mass_rate > max_flow:
             raise FrackingViolationError(
@@ -577,7 +578,8 @@ Time: {t * self.dt_years} years
         """
         well_spacing = getattr(reservoir, "well_spacing", None)
         fluid_name = getattr(getattr(inj_well, "common", None), "fluid_name", None)
-        if well_spacing is None or fluid_name is None:
+        backend = getattr(getattr(inj_well, "common", None), "coolprop_backend", None)
+        if well_spacing is None or fluid_name is None or backend is None:
             raise ConfigError(
                 "InjectionPolicy.AUTO_BOTH requires the reservoir to declare well_spacing "
                 "and the injection well to declare common.fluid_name — fracking_flow() "
@@ -599,8 +601,8 @@ Time: {t * self.dt_years} years
 
             inj_outlet_T = inj_well.outlet.T.get_fresh()
             inj_outlet_P = inj_well.outlet.P.get_fresh()
-            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P)
-            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P)
+            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P, backend)
+            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P, backend)
             new_mass_rate = fluid_utils.fracking_flow(
                 thickness=reservoir.thickness,
                 permeability=reservoir.permeability,
@@ -818,7 +820,8 @@ Time: {t * self.dt_years} years
         """
         well_spacing = getattr(reservoir, "well_spacing", None)
         fluid_name = getattr(getattr(inj_well, "common", None), "fluid_name", None)
-        if well_spacing is None or fluid_name is None:
+        backend = getattr(getattr(inj_well, "common", None), "coolprop_backend", None)
+        if well_spacing is None or fluid_name is None or backend is None:
             raise ConfigError(
                 "InjectionPolicy.AUTO_FLOW requires the reservoir to declare well_spacing "
                 "and the injection well to declare common.fluid_name — fracking_flow() "
@@ -834,8 +837,8 @@ Time: {t * self.dt_years} years
 
             inj_outlet_T = inj_well.outlet.T.get_fresh()
             inj_outlet_P = inj_well.outlet.P.get_fresh()
-            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P)
-            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P)
+            mu = fluid_utils.fluid_viscosity(fluid_name, inj_outlet_T, inj_outlet_P, backend)
+            rho = fluid_utils.fluid_density(fluid_name, inj_outlet_T, inj_outlet_P, backend)
             new_mass_rate = fluid_utils.fracking_flow(
                 thickness=reservoir.thickness,
                 permeability=reservoir.permeability,

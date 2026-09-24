@@ -335,6 +335,7 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     params = load_params()
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Run tango Triemli direct-heat sweep simulations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

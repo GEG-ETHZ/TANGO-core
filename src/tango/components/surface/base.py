@@ -41,7 +41,11 @@ class SurfaceComponent(Component):
     pipe_roughness: PositiveFloat = Field(frozen=True)
     """Absolute pipe wall roughness (m)."""
     approach_temperature: PositiveFloat = Field(frozen=True)
-    """Heat exchanger approach temperature (K)."""
+    """Heat exchanger approach temperature (K).
+
+    Residual gap between the cooled fluid's final temperature and the ambient
+    temperature into which heat is being rejected.
+    """
     target_extraction_pressure: PositiveFloat = Field(frozen=True)
     """Minimum required extraction pressure at the surface inlet (Pa).
     Sourced from ``sim_config.target_extraction_pressure`` — the SINGLE

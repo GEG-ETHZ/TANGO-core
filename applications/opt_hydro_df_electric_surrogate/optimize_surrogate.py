@@ -39,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     real_params = opt_app_pymoo_params()
     surrogate_params = load_params(PARAMS_FILE)
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Run NSGA2 against the trained surrogate instead of the real simulation.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

@@ -298,7 +298,16 @@ def build_pymoo_parser(
     """
     params = params or {}
     default_pymoo_config = PymooConfig()
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(
+        allow_abbrev=False,
+        description=(
+            f"{description} Every flag below defaults to whatever "
+            "params.yaml/PymooConfig sets (see each flag's own help text for "
+            "its current default); passing that flag explicitly on the "
+            "command line overrides params.yaml for this run only -- "
+            "params.yaml itself is never modified."
+        ),
+    )
 
     n_max_gen_default = params.get("n_max_gen", default_pymoo_config.n_max_gen)
     pop_size_default = params.get("pop_size", default_pymoo_config.pop_size)

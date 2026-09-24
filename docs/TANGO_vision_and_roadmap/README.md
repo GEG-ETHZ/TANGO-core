@@ -470,6 +470,7 @@ but the final set hasn't been decided.
 Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
 right foundation for this kind of external-simulator composition lives in
 `docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
+A follow-up implementation spike (Rumoca + MSL) is in `docs/modelica-investigation.md`.
 
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
@@ -509,18 +510,37 @@ specific node name that may not exist.
 
 #### `tango` example coverage matrix — one system type needs both a heat and a power example
 
-As of 2026-07-21, `example_configs/` covers exactly two cells of a larger matrix:
-Single-Flash hydrothermal (power, `hydro_sf_electric.yml`) and AGS direct-heat
-(heat, `AGS_direct_heat.yml`, ported from `applications/run_AGS_direct_heat_sweep/`).
-The full matrix TANGO needs to demonstrate, one worked example per cell:
+As of 2026-09-23, `example_configs/` covers five cells of a larger matrix:
+Single-Flash hydrothermal (power, `hydro_sf_electric.yml`), AGS direct-heat
+(heat, `AGS_direct_heat.yml`, ported from `applications/run_AGS_direct_heat_sweep/`),
+EGS direct-heat and power (heat, `EGS_direct_heat.yml`; power,
+`EGS_electric.yml`; both ported from `applications/run_EGS_direct_heat_sweep/`),
+and CPG power (`CPG_electric.yml`, ported from old tango's
+`examples/CPG_num_pp.yml` — preserved at git tag
+`pre-tango-core-rename-2026-09-18` — simplified from its 6-pattern
+INVERTED_5SPOT field to a single doublet, same as the AGS/EGS ports). CPG's
+surface plant is a genuinely new topology, not just a fluid-name swap:
+`FluidState`/`fluid_utils.py`/`GraphSurface` were already fluid-agnostic
+(`common.fluid_name` threaded everywhere already, no hardcoded water found).
+CPG's real work was matching old tango's actual physics: CO2 stays
+supercritical/dense-phase through the subsurface and turbine, then
+condenses afterward at an ambient-driven condensing pressure (same
+phase-change-anchored mechanism the water cycle's own condenser uses) —
+an earlier version of this file held CO2 supercritical the *entire* way
+through, which had no physical anchor for the turbine/condenser outlet
+pressure and masked a real thermosiphon-related bug. Depth, injection
+pressure, pump efficiency, and economic `project_maturity` were all
+matched directly against old tango's converged/actual values (confirmed
+by running `CPG_num_pp.yml` itself), not re-derived from scratch. The
+full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
 |------------------|-------------------------|----------------------------|
 | AGS              | ✓ `AGS_direct_heat.yml` | ☐                          |
 | CO2-AGS          | ☐                       | ☐                          |
-| EGS              | ☐                       | ☐                          |
+| EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ☐                       | ☐                          |
-| CPG              | ☐                       | ☐                          |
+| CPG              | ☐                       | ✓ `CPG_electric.yml`       |
 | Hydrothermal     | ☐                       | ✓ `hydro_sf_electric.yml`  |
 
 Each cell should be a real, runnable `tango` YAML — not just a config that
@@ -530,10 +550,17 @@ behavior. `GraphSurface`'s YAML-graph-driven design (see
 `components/surface/graph.py`) should make most of these a matter of composing a
 new `power_plant.nodes`/`edges` topology and tagging the right nodes
 `role: net_electric` / `role: net_thermal`, rather than new Python — EGS and
-hydrothermal share `LumpedReservoir`; CPG needs a CO2 `FluidState` path that
-doesn't exist in `tango` yet (currently H2O-only — see `FluidState` in
-`core/fluid_state.py`), which is likely the largest gap in this matrix, not the
-surface-plant topology.
+hydrothermal share `LumpedReservoir`. **Correction, 2026-09-21**: this
+section previously claimed CPG needed a CO2 `FluidState` path that didn't
+exist yet (H2O-only) as "likely the largest gap in this matrix" — checked
+while building `CPG_electric.yml` and found that's stale: `FluidState`,
+`fluid_utils.py`, and every component that touches fluid properties
+already thread `common.fluid_name` generically (no hardcoded water
+anywhere), and CoolProp's CO2 support works out of the box. Whatever made
+this claim true earlier was apparently resolved as a side effect of other
+generic refactoring, without this doc being updated. The remaining CO2
+cells (CO2-AGS, CO2-EGS) are likely comparably tractable YAML-authoring
+work, same shape as AGS/EGS/CPG above, not a physics gap.
 
 **`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
 shortcut.** Raised 2026-07-22 while tracing where `hydro_sf_electric.yml`'s TESPy plant
@@ -550,7 +577,19 @@ brine enthalpy (that choice *is* the single-flash design problem); condensing pr
 primarily by the cooling system (ambient temperature via the cooling tower, `approach_temperature`
 — see the diagram for why that field is currently a no-op in `GraphSurface`'s condenser, only
 feeding a not-yet-ported parasitic-power calc), which changes on daily/seasonal timescales far
-slower than turbine/pump power modulation. So treating these two pressures as externally-imposed
+slower than turbine/pump power modulation.
+
+Concretely, today, a condenser's fixed `p_out_megapascals`/`T_out` YAML values are NOT derived
+automatically from `approach_temperature` at solve time — nothing in `GraphSurface` reads that
+field to compute them. Instead, whoever authors the config computes the target condensing
+temperature by hand (`<ambient/surface temperature> + <approach temperature difference>`),
+converts that to a saturation pressure for the working fluid, and hardcodes the result directly
+into the node's `p_out_megapascals`/`T_out` fields. `approach_temperature` itself is only read
+later, by the economic component's cost/parasitic-power regressions — nothing enforces that a
+config's hardcoded condenser values actually stay consistent with its own
+`common.surface_temperature`/`approach_temperature` fields if either one is edited afterward.
+
+So treating these two pressures as externally-imposed
 setpoints is defensible as a first-order approximation — but only self-consistently if the
 chosen values are actually calibrated to the site's assumed ambient/well conditions, and nothing
 currently checks that (see the diagram's risk callout). A rigorous *quantified* error estimate
@@ -560,11 +599,16 @@ either a resistance-closed alternative formulation to diff against, or real plan
 validated bound.
 
 Two known, tracked-but-not-yet-addressed gaps in this area (see `docs/tango_tasks.md`):
-`src/tango/`'s `flexible_pp.py::validate_pressure_monotonicity()` (walks the power-plant graph
-upstream from each `p_out`, stopping at `Pump`/`Compressor` boundaries, raises on non-monotonic
-pressure) has no `tango` equivalent yet; and `AGS_direct_heat.yml`'s `dh_hx` node is a
-sharper version of the same risk with no `p_out` field to even inspect (its pressure is
-implicitly whatever gap exists between two unrelated boundary conditions — see the diagram).
+old tango's `src/tango/units/native/surface/flexible_pp.py::validate_pressure_monotonicity()`
+(walks the power-plant graph upstream from each `p_out`, stopping at `Pump`/`Compressor`
+boundaries, raises on non-monotonic pressure) has no `tango` equivalent yet — **correction,
+2026-09-22:** this file no longer exists in the working tree; old tango's `src/tango/` was
+deleted in the 2026-09-18 internal-release cleanup and is only recoverable via
+`git show pre-tango-core-rename-2026-09-18:src/tango/units/native/surface/flexible_pp.py`,
+same as the other old-tango references already flagged stale elsewhere in this doc; and
+`AGS_direct_heat.yml`'s `dh_hx` node is a sharper version of the same risk with no `p_out`
+field to even inspect (its pressure is implicitly whatever gap exists between two unrelated
+boundary conditions — see the diagram).
 
 **Beyond the matrix — port the broader set of old-tango examples that actually run.**
 
@@ -816,7 +860,7 @@ for generality is prompting a reconsideration of whether the *outer* subsurface 
 also move to an explicit `edges:` block instead of per-node `prev`/`next` — parked, not started,
 but flagged here as in play for future robustness against topologies not yet anticipated.
 
-#### Object-oriented per-component economics (alternative to a centralized economic component) — parked, needs careful thought
+#### Object-oriented per-component economics — capex/opex/periodic cost tiers (alternative to a centralized economic component) — parked, needs careful thought
 
 Raised 2026-08-17 while fixing `DoubletEconomicComponent`'s (`components/economic/
 doublet.py`) well-costing logic (it was crashing on `opt_AGS_direct_heat`'s
@@ -828,6 +872,34 @@ own `capex()`/`opex()` method (own economic assumptions living next to its own
 physics), and have a top-level recursive function walk the component tree
 collecting from every component that implements this interface/trait — the same
 shape as `save_state`'s mixin pattern.
+
+**Refinement, 2026-09-21: the per-component interface should be three cost
+tiers, not two.** `capex()`/`opex()` alone can't express a real cost that
+recurs on a multi-year cadence rather than every year — e.g. a workover, a
+major equipment refurbishment/replacement, a well re-stimulation. Today's
+centralized `DoubletEconomicComponent` can't express this either: `OPEX`
+(`_compute_opex`) is a single flat `f_om * CAPEX_total` scalar, uniform for
+every year of the project — there is no periodic-cost concept anywhere in
+tango's economic model today, independent of whether the object-oriented
+refactor happens. So the per-component interface this section proposes
+should be three methods, not two:
+
+- `capex()` — one-time startup cost (unchanged from above).
+- `opex()` — cost incurred every year (unchanged from above).
+- a periodic-cost method — cost incurred every *N* years (the period being
+  a per-component/per-cost-item parameter, e.g. "$X every 7 years" for a
+  workover) — new, doesn't exist in any form today.
+
+The aggregator (whichever shape it ends up taking — the tree-walk sketched
+below, or the centralized component) needs a notion of *which year* it's
+computing for to evaluate the periodic term (`year % N == 0`), which neither
+`capex()` nor `opex()` need — `_total_project_years` already exists
+(`DoubletEconomicComponent._total_project_years`) but is only ever used as a
+single scalar (the CRF/discounting term over the whole horizon), never
+walked year-by-year. Whether periodic costs get discounted-and-summed
+analytically (closed form, like CRF) or need an actual per-year loop is
+itself an open question the eventual design needs to answer, not something
+this note resolves.
 
 **Chad's call for now: keep the current centralized-component structure** — it's
 a reasonable way to represent the economic data as it exists today, and the
@@ -858,7 +930,12 @@ well with the "Grouped subsystems (composite components)" design directly above*
 as one nested black box could plausibly expose ONE `capex()` for the whole group,
 which would resolve the double-counting problem for free rather than needing a
 separate asset-grouping mechanism. Worth designing together, not independently,
-whenever this is picked up.
+whenever this is picked up. The same double-charging risk applies to the
+periodic-cost tier above — a workover charged per physical wellbore would
+double-count across `production_well_lower`/`production_well_upper` exactly
+the way mobilization cost does, for the same reason; whatever asset-grouping
+mechanism resolves it for `capex()` should cover the periodic tier too, not
+be designed against `capex()` alone.
 
 Also unresolved: the surface-plant cost path is computed from averaged TESPy
 **node** history (turbine/pump/cooler power/heat duty), not from tango
@@ -987,7 +1064,7 @@ software-sustainability review).
     registered as `variant: numerical`) now replicates
     `src/tango/units/native/well/base.py::WellUnitNative.process_stream()`
     exactly: 100-cell axial discretization, Haaland friction factor
-    (`core/fluid_utils.py::friction_factor_haaland`), Adams et al. (2015)
+    (`core/fluid_utils.py::friction_factor_haaland`), Zhang et al. (2011)
     transient conductive heat loss, and real CoolProp property lookups via a
     new thin wrapper (`core/fluid_state.py::FluidState`, parity with
     `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`variant: lumped`) is
@@ -1106,7 +1183,7 @@ software-sustainability review).
       simplified closed-form model~~ — **done.** `NumericalProductionWell`
       (`components/well/numerical.py`) now exists alongside
       `NumericalInjectionWell`, both thin subclasses of a single
-      `NumericalWell` base class sharing the same marching/Adams-2015
+      `NumericalWell` base class sharing the same marching/Zhang-2011
       heat-loss scheme, distinguished only by `angle_from_vert_deg` (2026-07-21:
       replaced an earlier `ClassVar F_DIR = ±1.0` split with this — the same
       unified class now also covers horizontal/deviated wells, e.g.
@@ -1114,7 +1191,7 @@ software-sustainability review).
       the two vertical cases `src/tango/`'s `WellUnitNative._f_dir` split covered).
     - ~~`LumpedReservoir` is still linear 1-D Darcy~~ — **done**, though not
       literally Dupuit-Thiem: `components/reservoir/lumped.py` now implements
-      the doublet radial-flow impedance formula (Adams et al. 2020) plus
+      the doublet radial-flow impedance formula (Birdsell et al. 2024) plus
       Adams 2015 thermal-depletion tracking, matching
       `src/tango/units/native/reservoir.py`'s doublet well pattern.
     - ~~`SingleFlashSurface` is still a Phase 1 placeholder~~ — **done, then
@@ -1664,7 +1741,15 @@ A wider review confirmed there's no better foundation to switch to right now:
     guidance is Docker+XQuartz or building from source. The earlier "glitchy" assessment
     holds, arguably more strongly now that there's no native binary at all.
   - *Rumoca* (Rust-based Modelica compiler): still explicitly self-described as
-    early/rough/pre-1.0. "Too beta" remains accurate.
+    early/rough/pre-1.0. "Too beta" remains accurate — confirmed hands-on
+    2026-07-29 (`docs/modelica-investigation.md`): a real MSL-based model
+    flattened successfully but an unresolved 184-equation DAE imbalance and a
+    broken editor/LSP integration were both hit in a single time-boxed spike.
+    (Separately, Modelica's acausal connector semantics do give a real,
+    structural mass/momentum/energy conservation guarantee that TESPy's
+    causal component model doesn't — see
+    `docs/long_term_architecture_exploration.md` — but that's an argument for
+    the Modelica *language*, not for Rumoca's current maturity.)
   - *Commercial Modelica (Dymola, SimulationX):* still priced out of reach.
   - *Julia / ModelingToolkit.jl:* the most technically interesting option — genuinely
     declarative, acausal component modeling (symbolic DAE, index reduction) that
