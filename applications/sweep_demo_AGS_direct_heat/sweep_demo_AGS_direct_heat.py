@@ -16,6 +16,20 @@ net thermal power for each. This is a minimal demo, not the full
 generate/sweep/summarize/plot pipeline — see docs/tango_tasks.md
 "IMMEDIATE NEXT" for the scope decision.
 
+Sweep structure, size, and how to change it
+--------------------------------------------
+Neither LHS nor a grid: ``ROCK_K_SWEEP_W_PER_MK`` below is a hardcoded,
+manually-chosen list of 4 ``rock_k`` values (1.5/2.1/3.0/4.0 W/(m*K)),
+run one at a time with every other parameter held at the YAML's
+defaults -- exactly 4 simulation runs, always. There is no CLI flag to
+change the sweep values, count, or which parameter is swept: edit
+``ROCK_K_SWEEP_W_PER_MK`` (or add another ``cfg["common"][...] = ...``
+line for a different field) directly in this file. If you need CLI
+control, a configurable sweep count, or a design-matrix-based (OFAT/LHS)
+approach instead of a fixed list, see the full ``run_*_sweep`` pipelines
+(e.g. ``applications/run_hydro_df_electric_sweep/``) instead of this
+demo.
+
 Run from the repo root::
 
     uv run python applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
@@ -23,6 +37,7 @@ Run from the repo root::
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -40,7 +55,14 @@ ROCK_K_SWEEP_W_PER_MK = [1.5, 2.1, 3.0, 4.0]
 
 
 def main() -> None:
-    """Sweep common.rock_k and report final net thermal power for each value."""
+    """Parse arguments, sweep common.rock_k, and report final net thermal power for each value."""
+    parser = argparse.ArgumentParser(
+        allow_abbrev=False,
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.parse_args()
+
     base_wf = Workflow.from_file(YAML_PATH)
 
     print(f"{'rock_k (W/m/K)':>16}  {'final net_thermal_W':>22}")

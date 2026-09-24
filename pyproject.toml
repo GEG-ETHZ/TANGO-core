@@ -3,8 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
+# Distribution name deliberately differs from the importable module
+# (src/tango/, `import tango`) -- PyPI already has an unrelated package
+# literally named `tango`. This repo isn't published there today, but
+# `tango-core` avoids a headache if that ever changes, while keeping the
+# short `import tango` for everyday use. Common pattern (see e.g.
+# beautifulsoup4 -> bs4, scikit-learn -> sklearn, pyyaml -> yaml).
 name = "tango-core"
-version = "1.0.0"
+version = "1.0.1"
 authors = [{name = "ETHZ/EAPS/GEG Group"}]
 description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
 readme = "README.md"
@@ -290,8 +296,7 @@ convention = "google"
 # https://mypy.readthedocs.io/en/stable/config_file.html#example-pyproject-toml
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
+strict = true
 allow_redefinition = true
 
 # mypy per-module options:
@@ -316,10 +321,14 @@ module = [
 ]
 ignore_missing_imports = true
 
+# The one deliberate relaxation of `strict = true` for tango's own code.
 [[tool.mypy.overrides]]
 module = "tango.*"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-strict_optional = true
 warn_return_any = false  # untyped third-party deps (CoolProp, numpy/pandas in some contexts) return Any; suppress that cascade rather than the module's own typing
+
+# pymoo ships no type information, so its base classes (ElementwiseProblem,
+# Output, DuplicateElimination) are `Any`; subclassing them is unavoidable in
+# the pymoo adapters.
+[[tool.mypy.overrides]]
+module = ["tango.pymoo_api", "tango.surrogate_api"]
+disallow_subclassing_any = false

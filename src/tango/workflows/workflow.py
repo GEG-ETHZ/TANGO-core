@@ -7,6 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 from pydantic import ValidationError
 
@@ -294,14 +295,20 @@ class Workflow:
 def _yaml_safe(obj: Any) -> Any:
     """Recursively normalize a plain ``model_dump()`` result for ``yaml.safe_dump``.
 
-    Plain (non-``mode="json"``) ``model_dump()`` leaves exactly one kind of
-    non-YAML-safe value behind: enum members (``InjectionPolicy``,
-    ``FrictionModel``, ``HeatTransferModel``, ...) — everything else
-    (floats including NaN, str, int, bool, None, nested dict/list) is
-    already safe. Converts each enum to its plain ``.value`` string.
+    Plain (non-``mode="json"``) ``model_dump()`` leaves two kinds of
+    non-YAML-safe values behind: enum members (``InjectionPolicy``,
+    ``FrictionModel``, ``HeatTransferModel``, ...) and numpy scalars
+    (``np.float64``/``np.int64``/... -- e.g. a history field populated
+    from a numpy array's elements, which are numpy scalars, not plain
+    Python ones, even though they print identically) -- everything else
+    (plain floats including NaN, str, int, bool, None, nested dict/list)
+    is already safe. Converts each enum to its plain ``.value`` string,
+    each numpy scalar to its plain Python equivalent via ``.item()``.
     """
     if isinstance(obj, Enum):
         return obj.value
+    if isinstance(obj, np.generic):
+        return obj.item()
     if isinstance(obj, dict):
         return {k: _yaml_safe(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -463,7 +470,7 @@ def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicCo
     own = {k: v for k, v in economic_cfg.items() if k != "type"}
     own.setdefault("component_idx", -1)
     try:
-        return cls.from_dict(own)  # type: ignore[attr-defined,return-value]
+        return cls.from_dict(own)  # type: ignore[return-value]
     except Exception as exc:
         raise ConfigError(f"Failed to build economic component: {exc}") from exc
 
@@ -573,11 +580,20 @@ def _build_components(
         if "common" in declared:
             shared["common"] = common
 
-        merged: dict[str, Any] = {**shared, **own}
+        # `shared` and `own` are disjoint by construction (the collision check
+        # above rejects any protected key in `own`), so this is a plain union,
+        # not an override. Re-checked here so the merge can never silently
+        # turn into "own wins over shared" if that guard is ever changed.
+        overlap = shared.keys() & own.keys()
+        assert not overlap, f"shared/own key overlap {sorted(overlap)} for component {name!r}"  # noqa: S101
+        merged: dict[str, Any] = shared | own
 
+        # Only validation failures are config errors. Anything raised by the
+        # component's init() (property lookups, derived-geometry math, code
+        # bugs) propagates unchanged rather than being relabeled as bad input.
         try:
-            component = cls.from_dict(merged)  # type: ignore[attr-defined]
-        except Exception as exc:
+            component = cls.from_dict(merged)
+        except ValidationError as exc:
             raise ConfigError(
                 f"Failed to build component {name!r} ({comp_type}/{comp_variant}): {exc}",
             ) from exc

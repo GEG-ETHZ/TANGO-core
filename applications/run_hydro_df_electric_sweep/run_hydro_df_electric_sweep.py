@@ -15,6 +15,20 @@ Every design point's config includes an ``economic:`` block
 computed for real (see ``sweep.py``'s module docstring) alongside
 ``net_power_W``/``T_prod_K``.
 
+Design matrix size (fixed, not tunable)
+----------------------------------------
+Total design points = ``1 + 2 * (number of non-degenerate parameters)`` --
+one pure-baseline row, plus a low/high pair per parameter that actually
+varies (a parameter whose bounds are ``low == high`` in ``common.py``'s
+``PARAMETER_BOUNDS`` is skipped -- testing "fixed vs. fixed" proves
+nothing). As of this writing that's 65 rows (32 of 34 ``PARAMETER_BOUNDS``
+entries are non-degenerate). There is deliberately no ``--n-samples``/
+``--seed`` flag here -- nothing is randomly sampled, so the design's size
+isn't something you control at runtime; the only way to change it is
+editing ``PARAMETER_BOUNDS`` in ``common.py`` itself (add/remove a
+parameter, or widen/collapse a bound to opt it in/out) -- see
+``generate.py``'s own module docstring for the full OFAT-vs-LHS rationale.
+
 Runs generate -> sweep -> summarize -> plot in sequence. Call individual
 stage scripts directly (generate.py, sweep.py, summarize.py, plot.py) if
 you only need one stage.
@@ -53,12 +67,24 @@ from sweep import main as sweep_main
 from tango.utils import print_dt
 
 
+class _RawDescriptionArgumentDefaultsHelpFormatter(
+    argparse.RawDescriptionHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
+):
+    """Preserve the module docstring's own formatting in --help (like the demo
+    scripts) while still showing each flag's default inline (like the other
+    sweep-pipeline stage scripts) -- argparse has no single built-in formatter
+    that does both.
+    """
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the end-to-end sweep entry point."""
     params = load_params()
     parser = argparse.ArgumentParser(
-        description="End-to-end one-at-a-time sensitivity sweep for the tango double-flash topology",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        description=__doc__,
+        formatter_class=_RawDescriptionArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--n-workers",

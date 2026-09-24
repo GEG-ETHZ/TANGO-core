@@ -25,7 +25,9 @@ with.
   hierarchy must be shared via reference rather than multiple, separate copies
   that can get out of sync.
 1. <a id="rule-ci-checks"></a>**Deterministic quality checks**: All new code additions must pass:
-    - `mypy --strict` type checking, as handled in the pyproject.toml file
+    - `mypy` strict type checking (`strict = true` in `pyproject.toml`, with a
+      small number of commented per-module relaxations there, e.g. for untyped
+      third-party libraries)
     - `ruff` format checking
     - `pytest` tests
 
@@ -88,6 +90,14 @@ with.
   treats `yes`/`no`/`on`/`off` as booleans while YAML 1.2 (ruamel.yaml and
   newer parsers) does not — those become plain strings, a silent mismatch
   if the parser is ever switched.
+1. <a id="rule-example-configs-regression-covered"></a>**Every `example_configs/` YAML is regression-tested**: Every file in
+  `example_configs/` must be covered by `just test --all` (`pytest`), not
+  just `just apps`'s crash/no-crash smoke pass — a new example YAML is not
+  done until it has real test coverage, whether that's a full-length run
+  checked against a golden value or a smoke-level run checked for
+  structural sanity. Exact depth (full run vs. reduced timestep count,
+  golden-number vs. structural-only assertions) is a case-by-case call,
+  not mandated here.
 
 ## Branching Strategy
 

@@ -20,6 +20,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
 
 from tango.components.reservoir.wellpattern_impedance import WellPattern
+from tango.core.fluid_state import COOLPROP_BACKEND, CoolPropBackend
 from tango.core.policies import InjectionPolicy
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,12 @@ class Common(BaseModel):
     thermal_gradient: float
     surface_temperature: float
     surface_pressure: float
+    coolprop_backend: CoolPropBackend = COOLPROP_BACKEND
+    """CoolProp equation-of-state backend for all fluid-property lookups
+    (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to the
+    tabulated, faster backend; switch to ``HEOS`` for a system that
+    deliberately operates near a phase boundary/critical point — see
+    TANGO Commandments (CONTRIBUTING.md)."""
 
     # NOTE: FIELD AND MODEL VALIDATION
 

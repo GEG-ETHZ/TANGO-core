@@ -95,6 +95,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the design matrix generator."""
     load_params()  # validates params.yaml parses even though nothing here reads it
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Generate the one-at-a-time low/high design matrix for the tango double-flash sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

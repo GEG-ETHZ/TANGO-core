@@ -32,13 +32,13 @@ guide). Given that:
 2.  **Add `tango-core` from GitLab, pinned to a release tag**, from inside the
     new project:
     ```bash
-    uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.0.0
+    uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.0.1
     ```
     (there's no standalone `--git` flag — the git source is part of the
     package spec itself, as shown; `--tag` alongside it still works to pin
     the ref.)
 
-    Swap `v1.0.0` for whichever tag you want to pin to (see
+    Swap `v1.0.1` for whichever tag you want to pin to (see
     [`CONTRIBUTING.md`'s release section](./CONTRIBUTING.md#cutting-an-internal-geg-only-release)
     for how those are cut); `uv add` records the exact tag (and resolved
     commit) in `pyproject.toml`/`uv.lock`, so builds stay reproducible until
@@ -63,7 +63,37 @@ uv run tango_cli init .
 ```
 
 This copies the `example_configs/` bundled with the installed `tango`
-version into your project directory.
+version into your project directory. Pass `--app` (repeatable) to also
+copy one of `applications/`'s sweep/optimization/demo pipelines, or
+`--list-apps` to see which are available:
+
+```console
+$ uv run tango_cli init --help
+usage: tango_cli init [-h] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+                      [--app APP] [--list-apps]
+                      [DEST]
+
+Copy tango's bundled example_configs/ into DEST (created if needed) as a
+starting point for your own analysis. Fails if DEST/example_configs already
+exists, to avoid silently overwriting local edits. Pass --app one or more
+times to also copy one of applications/'s sweep/optimization/demo pipelines.
+
+positional arguments:
+  DEST                  Directory to copy example_configs/ into. Default:
+                        current directory.
+
+options:
+  -h, --help            show this help message and exit
+  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+                        Logging verbosity. Use DEBUG to see per-iteration
+                        convergence output. Default: INFO.
+  --app APP             Also copy DEST/applications/APP. Repeatable. See
+                        --list-apps for the available names, or
+                        applications/README.md in the repository for what each
+                        one does.
+  --list-apps           Print the available --app names and exit, without
+                        copying anything.
+```
 
 ### Examples
 
