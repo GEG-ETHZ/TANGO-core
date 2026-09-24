@@ -9,7 +9,7 @@ schema/shape/plumbing correctness only — a handful of LHS samples is nowhere
 near enough for a genuinely accurate surrogate, so ``tolerance`` in the
 validation step is left deliberately loose (this is not a surrogate-quality
 test, same spirit as the existing tiny ``--n-max-gen 2 --pop-size 6`` CLI
-smoke calls in ``just demos``).
+smoke calls in ``just apps``).
 """
 
 from __future__ import annotations

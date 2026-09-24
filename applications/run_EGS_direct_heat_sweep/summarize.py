@@ -162,6 +162,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Aggregate and display tango Triemli EGS sweep results",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

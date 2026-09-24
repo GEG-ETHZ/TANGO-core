@@ -34,7 +34,7 @@ import sys
 import time
 from pathlib import Path
 
-from tango import __version__
+from tango import __version__, results_export
 from tango.core.errors import ConfigError, TangoError
 from tango.workflows.workflow import Workflow
 
@@ -117,6 +117,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="tango_cli",
+        allow_abbrev=False,
         description=(
             "tango — next-generation TANGO simulation framework.\n"
             "Directed-graph geothermal simulation with Pydantic-validated inputs."
@@ -148,6 +149,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # ---- run ----
     run_p = sub.add_parser(
         "run",
+        allow_abbrev=False,
         help="Run a tango simulation.",
         description=(
             "Load a tango YAML input file, build the component graph, "
@@ -162,9 +164,25 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="INPUT_FILE",
         help=("Path to the tango YAML input file (e.g. example_configs/hydro_sf_electric.yml)."),
     )
+    run_p.add_argument(
+        "--save-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help=(
+            "Write results to DIR (created if needed) as three files: "
+            "<name>.yml (full results -- every component's final config/state, "
+            "reloadable with Workflow.from_file()), <name>.smry.csv (one row "
+            "per timestep, one column per component's own scalar history "
+            "field), and <name>.econ.csv (one row, the economic component's "
+            "final state -- omitted if the config has no economic: block). "
+            "Saving is opt-in: nothing is written unless this is given."
+        ),
+    )
     # ---- validate ----
     val_p = sub.add_parser(
         "validate",
+        allow_abbrev=False,
         help="Validate a tango input file without running the simulation.",
         description=(
             "Parse and validate the YAML input file: check that all required "
@@ -183,6 +201,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # ---- init ----
     init_p = sub.add_parser(
         "init",
+        allow_abbrev=False,
         help="Copy the bundled example configs (and optionally applications) into a local directory.",
         description=(
             "Copy tango's bundled example_configs/ into DEST (created if "
@@ -264,6 +283,12 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
 
     elapsed = time.time() - t_start
     print(f"Simulation finished normally. Elapsed time: {elapsed:.3g} seconds.")
+
+    if args.save_dir is not None:
+        written = results_export.write_results(wf, args.save_dir, args.input_file.stem)
+        for path in written:
+            print(f"Wrote: {path}")
+
     return 0
 
 

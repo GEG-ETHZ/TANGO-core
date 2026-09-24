@@ -18,15 +18,13 @@ where T₀ = initial reservoir temperature, T_inj = current injection temperatur
 
 References:
 Doublet impedance:
-    Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
-    geothermal simulator, v0.0.1 [Software]. Zenodo.
-    https://doi.org/10.5281/zenodo.4383139
+    [Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
+    geothermal simulator, v0.0.1 [Software]. Zenodo.](https://doi.org/10.5281/zenodo.4383139)
 
 Thermal depletion (cumulative-energy / γ(ψ) fitting function):
-    Adams, B.M. et al. (2015). A comparison of electric power output of CO2
+    [Adams, B.M. et al. (2015). A comparison of electric power output of CO2
     Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
-    conditions. Applied Energy, 140, 365-377.
-    https://doi.org/10.1016/j.apenergy.2014.11.043
+    conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
 
 """
 
@@ -302,10 +300,9 @@ class LumpedReservoir(ReservoirComponent):
         within-timestep re-solve (see ``LumpedReservoirState.p1``'s
         docstring).
 
-        Reference: Adams, B.M. et al. (2015). A comparison of electric power
+        Reference: [Adams, B.M. et al. (2015). A comparison of electric power
         output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
-        varying reservoir conditions. Applied Energy, 140, 365-377.
-        https://doi.org/10.1016/j.apenergy.2014.11.043
+        varying reservoir conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
         """
         b = self.thickness
         k_rock = self.common.rock_k
@@ -326,9 +323,9 @@ class LumpedReservoir(ReservoirComponent):
     def _depletion_curve(self, psi: float) -> float:
         """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
 
-        Reference: Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.
-        https://doi.org/10.1016/j.apenergy.2014.11.043 (same curve-fit as
-        ``_recompute_depletion_coeffs`` above — see its docstring).
+        Reference: [Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+        (same curve-fit as ``_recompute_depletion_coeffs`` above — see its
+        docstring).
         """
         s = self.state
         p1, p2, p3 = s.p1.get_fresh(), s.p2.get_fresh(), s.p3.get_fresh()
@@ -370,11 +367,14 @@ class LumpedReservoir(ReservoirComponent):
 
         # Fluid properties: average of current inlet and previous-timestep outlet.
         fluid_name = self.common.fluid_name
+        backend = self.common.coolprop_backend
         rho = 0.5 * (
-            fluid_density(fluid_name, T_inj, P_in) + fluid_density(fluid_name, T_out_prev, P_out_prev)
+            fluid_density(fluid_name, T_inj, P_in, backend)
+            + fluid_density(fluid_name, T_out_prev, P_out_prev, backend)
         )
         mu = 0.5 * (
-            fluid_viscosity(fluid_name, T_inj, P_in) + fluid_viscosity(fluid_name, T_out_prev, P_out_prev)
+            fluid_viscosity(fluid_name, T_inj, P_in, backend)
+            + fluid_viscosity(fluid_name, T_out_prev, P_out_prev, backend)
         )
         s.rho.update(rho)
         s.mu.update(mu)
@@ -397,14 +397,17 @@ class LumpedReservoir(ReservoirComponent):
 
         # Thermal depletion (Adams 2015)
         dT = self.T_initial - T_inj
-        h_in = fluid_enthalpy(fluid_name, T_inj, P_in)
+        h_in = fluid_enthalpy(fluid_name, T_inj, P_in, backend)
         s.h_inlet.update(h_in)
 
-        h_prod_prev = fluid_enthalpy(fluid_name, T_out_prev, P_out_prev)
+        h_prod_prev = fluid_enthalpy(fluid_name, T_out_prev, P_out_prev, backend)
         rho_avg = 0.5 * (
-            fluid_density(fluid_name, T_inj, P_in) + fluid_density(fluid_name, T_out_prev, P_out_prev)
+            fluid_density(fluid_name, T_inj, P_in, backend)
+            + fluid_density(fluid_name, T_out_prev, P_out_prev, backend)
         )
-        cp_avg = 0.5 * (fluid_cp(fluid_name, T_inj, P_in) + fluid_cp(fluid_name, T_out_prev, P_out_prev))
+        cp_avg = 0.5 * (
+            fluid_cp(fluid_name, T_inj, P_in, backend) + fluid_cp(fluid_name, T_out_prev, P_out_prev, backend)
+        )
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         s.energy_extraction_rate.update(mdot * (h_prod_prev - h_in))
@@ -421,7 +424,7 @@ class LumpedReservoir(ReservoirComponent):
 
         T_out = T_inj + gamma * dT
         s.T_outlet.update(T_out)
-        s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out))
+        s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out, backend))
 
         self.outlet.T.update(T_out)
         self.outlet.P.update(P_out)

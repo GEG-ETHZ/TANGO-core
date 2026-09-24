@@ -8,6 +8,77 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
+- **High urgency as of 2026-09-22** -- generate documentation and host on github.com
+- **Added 2026-09-24** -- `GraphSurface.net_power_W`'s name overclaims what
+  it actually measures. It's the sum of `-P` over TESPy nodes tagged
+  `role: net_electric` only — real physics components in the YAML graph
+  (turbines, compressors/pumps). It does NOT include the cooling-tower
+  fan/pump parasitic power (`DoubletEconomicComponent
+  ._cooling_condenser_parasitic_power`, a Baltimore-Aircoil cost-model
+  regression estimate, not a modeled TESPy component at all) or the
+  production-well downhole pump parasitic — both of those are only
+  applied two layers away, inside the economics component, never
+  reflected back into the surface plant's own reported "net" power. A
+  user reading `surface.net_power_W`/`.history.net_power_W` directly
+  would reasonably assume it's the true bottom line; it isn't. Found
+  while investigating why CPG's surface plant always looked net-positive
+  even when its true (post-parasitic) economics went negative (see the
+  resolved `LCOE`-NaN entry below). Rename (e.g. `net_electric_power_W` or
+  similar, to signal "electric components only") and/or document this
+  scope limit clearly wherever `net_power_W` is read — not yet decided
+  which, or how urgent, just don't want it forgotten.
+- ~~**SUPER HIGH PRIORITY, added 2026-09-23 — `CPG_electric.yml`'s `LCOE` is
+  `NaN`.**~~ — **resolved 2026-09-23.** Found while building full-length
+  regression coverage for every `example_configs/` YAML
+  (`tests/regtest/test_example_configs.py`).
+  `DoubletEconomicComponent._compute_lcoe` intentionally returns NaN when
+  its OWN `net_power_W` (the CAPEX-formula input, distinct from the
+  surface plant's own always-positive `net_power_W` history) is `<= 0` —
+  and for CPG that came out to ~-368 kW. Root cause: `_read_net_power`
+  subtracts a cooling-tower parasitic-power term
+  (`_cooling_condenser_parasitic_power`) from the surface's net output —
+  CPG's condenser sets `cooling_tower_mode: DRY`, giving a parasitic
+  fraction (~8.8% of the condenser's heat-rejection duty) that exceeded
+  CPG's own average net turbine output (~1.63 MW parasitic vs. ~1.26 MW
+  net). Confirmed this isn't a broken formula in general — the same
+  calculation applied to `hydro_sf_electric.yml` (known-good) gives a
+  sane ~19% of net power, not dominant, because single-flash only
+  condenses its small flash-split vapor fraction, not the entire flow the
+  way CPG's direct-expansion design does. The actual bug: `DRY` was never
+  grounded in what old tango's `CPG_num_pp.yml` actually used — that file
+  never overrides `cooling_mode`, so it gets `SurfaceSpecsCPGNative`'s own
+  `"WET"` default. Switching CPG_electric.yml to `cooling_tower_mode: WET`
+  (matching old tango) drops the parasitic power to ~497 kW, net goes
+  positive (~764 kW), LCOE = 0.4298 (sane, finite) — verified directly,
+  not guessed. `test_example_configs.py`'s CPG entry now has this real
+  reference value instead of an asserted NaN.
+  - ~~**Separate, NOT resolved, worth a follow-up**: `_bac_regression`'s
+    ambient-temperature units~~ — **investigated and closed 2026-09-24,
+    no code change needed.** Old tango's own `_BAC_regression_model`
+    docstring claims its ambient-temperature term should be in °C, but
+    old tango's actual call site passes the same Kelvin-valued
+    `surface_temperature` straight through too — checked old tango's
+    real YAML/code, not just its docstring. No recoverable original
+    source for these coefficients exists to settle which convention was
+    truly intended (old tango's own git history has no citation beyond
+    "derived from Baltimore Aircoil (BAC) regression models," going back
+    to its first commit). Since old tango's real (not documented)
+    behavior is Kelvin, and a direct new-tango-vs-old-tango net-power
+    comparison for CPG (same depth/mass rate/duration) came out within
+    ~3.6-10% either way, changing tango's units now would only make it
+    diverge from old tango's verified-correct behavior over a docstring
+    neither codebase's implementation actually honors. `_bac_regression`'s
+    own docstring in `doublet.py` now documents this explicitly so it
+    doesn't get "fixed" into a regression later.
+- **Added 2026-09-23** -- include GeoProp in TANGO, ideally as a standalone
+  code offered alongside the others via our (significantly improved) GEG
+  software web page/GitHub, etc. Needs coordination with the other authors
+  first -- placeholder here so this isn't forgotten, not yet scoped as an
+  actionable task. Citation: Merbecks, T., A.M.M. Leal, P. Bombarda, P.
+  Silva, D. Alfani, and M.O. Saar, GeoProp: A thermophysical property
+  modelling framework for single and two-phase geothermal geofluids,
+  Geothermics, https://doi.org/10.1016/j.geothermics.2024.103146,
+  125:103146, 2025.
 - **KNOWN, LOW PRIORITY, NOT PURSUED FURTHER (2026-09-17) — `test_native.py`'s
   `flexible_SF_doublet.yml` LCOE golden is stale.** Found while investigating
   a merge (`dev/aitkens-process` <-> `dev/make-tango-robust`): expected
@@ -72,12 +143,25 @@ in-flight multi-step work across sessions.
 - **Added 2026-09-17**: add functionality to copy demos/examples/applications to
   working directories of where tango is a dep
 
-- **Added 2026-09-17**: check the correctness of the Adams et al. (2015)
-  transient conductive heat-loss reference used by `NumericalWell`
-  (`core/physics_models.py::heat_loss_adams_2015`, ported for parity with
-  `src/tango/`'s `WellUnitNative._compute_Q_loss`) — verify the formula
-  against the actual paper, not just against old tango's implementation of
-  it (parity with a bug isn't correctness).
+- ~~**Added 2026-09-17**: check the correctness of the Adams et al. (2015)
+  transient conductive heat-loss reference used by `NumericalWell`~~ —
+  **resolved 2026-09-21**: it was mislabeled, not incorrect. The formula
+  itself matches the actual paper — but that paper is Zhang, Pan, Pruess,
+  & Finsterle (2011), Geothermics 40:261-266
+  ([DOI](https://doi.org/10.1016/j.geothermics.2011.08.003), verified
+  directly against Crossref metadata), not Adams et al. (2015) at all.
+  `core/fluid_utils.py`'s docstring already cited Zhang correctly (fixed
+  in an earlier commit), but the function itself was still named
+  `heat_loss_adams_2015` — renamed to `heat_loss_zhang_2011`
+  (`HeatTransferModel.ADAMS_2015`/`"adams-2015"` → `ZHANG_2011`/
+  `"zhang-2011"` too) across `fluid_utils.py`, `constants.py`,
+  `physics_models.py`, `components/well/numerical.py`,
+  `components/well/lumped.py`, and `example_configs/AGS_direct_heat.yml`.
+  While auditing this, also found and fixed a separate, unrelated wrong
+  citation: `wellpattern_impedance.py`'s doublet/5-spot impedance formula
+  was attributed to "Adams et al. (2020)" but is actually Birdsell et al.
+  (2024), Geothermics 116:102843 — Adams is the second author, not first,
+  and the DOI's own "2023" is the online-first year, not 2020.
 
 - **Added 2026-09-16**: check how turine and other surface component costs are being calculated relative to sizing -- based on last year? first year? max? average?  This needs careful thought.
 
@@ -289,7 +373,7 @@ Goal: get through all of this in the next session (2026-09-17).
         old-tango parity is no longer the active concern." That condition
         is now literally true. Not changed as part of this purge — it's a
         one-line change but would shift every existing golden/reference
-        value (e.g. `test_lcoe_regression.py`'s `REFERENCE_LCOE`) by a
+        value (e.g. `test_example_configs.py`'s golden LCOE values) by a
         tiny amount, so it's Chad's call, not a docstring-cleanup call.
       - Careful: some `src/tango/` mentions in these files are NOT stale —
         e.g. `example_configs/hydro_df_electric.yml`'s
@@ -475,6 +559,29 @@ Real, still-open items that are deliberately **not** being worked next
 session. Kept here so they don't get silently dropped or re-discovered
 from scratch.
 
+- **`opt_hydro_df_electric_surrogate/run_trajectory.py` was never committed
+  and went missing, 2026-09-24 (non-urgent).** `just apps` failed on it
+  (`can't open file .../run_trajectory.py`). It's stage 1 of that app's
+  DVC pipeline (`dvc.yaml`'s `run_trajectory` stage): a short, real NSGA2
+  search that keeps every evaluated individual as surrogate training data
+  (`outputs/lhs_training_data.csv`), replacing the old
+  `generate_lhs.py`/`sweep_lhs.py` pair. It's also referenced by both
+  `just apps` recipes, `REDESIGN_TODO.md`, `optimize_surrogate.py` and
+  `surrogate_api.py`. **Recovered** from a dangling git blob (`5257e43`,
+  so it had been `git add`ed once and then unstaged), and the only change
+  needed was `tango_next.*` → `tango.*` in its imports. A single-process
+  smoke run (`--pop-size 8 --n-gen 2 --n-workers 1`) completes and writes
+  both outputs. Remaining:
+  - Commit it, so this can't happen again.
+  - Checked 2026-09-24: no other untracked files under `applications/`,
+    `src/`, `tests/` or `tools/`
+    (`git ls-files --others --exclude-standard ...`).
+  - `just apps` runs it without `--n-workers`, so it picks up
+    `n_train_workers: 45` from `params.yaml`, which is way too many for a
+    laptop smoke run with `--pop-size 8`. Consider adding a small
+    `--n-workers` there, like the other `run_*` lines.
+  - Still never validated at real (Euler) scale — see `REDESIGN_TODO.md`'s
+    "What's genuinely still open".
 - **Pump-less closed-loop check is now stricter than reality, 2026-09-21.**
   Chad removed the "No perpetual motion machines" commandment from
   `CONTRIBUTING.md`'s TANGO Commandments — there are valid real-world
@@ -682,17 +789,90 @@ reasoning doesn't have to be re-derived next session.
       (`p_out` is bar per `flexible_pp.py`'s `Network(p_unit="bar", ...)`),
       but budget it as its own task, not a quick add-on.
 
+## Active: external binary release to a collaborator (added 2026-09-23)
+
+We need to give an external collaborator a runnable copy of `tango` without
+exposing `src/tango/` (the actual physics/orchestration source). This is a
+different distribution boundary from anything decided so far — the existing
+internal release (see "Release plan for `tango` as an internal release, GEG
+team members only" above) is explicitly GEG-only, and the open-source plan
+below covers only the wellbore model plus its foundation dependencies,
+published under a permissive license. Neither covers "closed code, given to
+one named external party." This is new territory (no prior Python
+binary-distribution precedent in this project), so proceed carefully.
+
+**Scope, confirmed 2026-09-23:** `applications/` scripts are fine to hand
+over as plain, readable `.py` — they're not the sensitive part. Only
+`src/tango/` itself needs to be hidden. The collaborator does need to write/
+run their own code against `tango`, so the deliverable is **a compiled,
+importable `tango` package** (Nuitka `--module` mode: compiles `tango`'s
+own code to a real compiled extension — `.so` on macOS/Linux, `.pyd` on
+Windows — that a plain `import tango` picks up like any other installed
+package, but with no readable source behind it). This rules out a
+standalone Nuitka executable (`--standalone`/`--onefile`) — that produces a
+closed program you *run*, not a library you *import*, which doesn't fit
+"collaborator writes their own scripts against `tango`." It also rules out
+PyInstaller and a plain wheel — neither hides source at all.
+
+Open items, in order, before any build work starts:
+
+1. **Authorization first.** Confirm there's an actual NDA / data-sharing
+   agreement covering this specific collaborator before anything is built,
+   let alone sent. Reusing the internal GEG-only `NOTICE`/`LICENSE.txt` is
+   not sufficient — that license was written for internal distribution and
+   says so explicitly; sending it to an outside party under that license
+   would misstate the terms. This needs its own license text and sign-off,
+   not a reused file.
+2. **Collaborator sets up their own Python environment normally** (their
+   own `uv`/`pip`, their own venv) and installs `tango`'s third-party
+   dependencies (numpy, CoolProp, TESPy, pydantic, pymoo, etc.) the usual
+   way — those are already-public open-source packages, not something we
+   need to hide or bundle. Only the compiled `tango` package itself is
+   handed over as an artifact; `applications/` ships as plain `.py`
+   alongside it, importing `tango` normally.
+3. **Target platform(s) and Python version.** A Nuitka `--module` build is
+   specific to both the OS *and* the Python version/ABI it was compiled
+   against — confirm the collaborator's OS and Python version before
+   building, and expect to produce one build per (OS, Python version)
+   combination they need.
+4. **Test on a genuinely clean machine.** Build a small throwaway spike
+   first — compile one or two simple `tango` modules, confirm
+   `import tango` plus a minimal example config actually runs on a clean
+   VM/machine with no development environment installed — before investing
+   in compiling the whole package. "Works on the machine that built it" is
+   not sufficient evidence it will work for the collaborator.
+5. Once 1–4 are settled: compile the full `src/tango/` package, verify the
+   collaborator's own example scripts run against it exactly as they would
+   against the uncompiled source, then hand it over.
+
 ## Backlog (queued, not yet started)
 
-- **LOW PRIORITY, NO URGENCY — process for cutting an open-source release**
-  of whatever we decide to open-source (`well`/`surface`/`reservoir`
-  and/or a shared foundation package — see this session's open-source
-  packaging investigation, 2026-09-16). Separate from, and downstream of,
-  the internal GEG-only release process above — will need its own
-  process eventually (versioning, license, what actually gets published
-  where — GitHub/PyPI), but nothing to do here until the open-source
-  scoping decision itself is made. Flagged so it isn't forgotten, not
-  because it's needed soon.
+- **Open-source packaging — decision made 2026-09-23**, resolving the
+  scoping question from this session's open-source packaging investigation
+  (2026-09-16, see `docs/tango_progress_summary_sep_2026.md`). Three
+  separate, independently-versioned pieces:
+  - **`tango-utilities`** (working name — feedback welcome; risk of
+    confusion with the `tango-core`/`tango` naming already used
+    internally, and PyPI already lists an unrelated `PyTango` for the Tango
+    Controls SCADA system, so check name availability before publishing) —
+    the 9 shared-foundation modules (fluid properties, state management,
+    numerical solvers, physics correlations) that the wellbore model
+    depends on, per the 2026-09-16 investigation's dependency count.
+    GitHub + PyPI, Apache 2.0.
+  - **Wellbore model** (name TBD) — GitHub + PyPI, Apache 2.0, depends on
+    `tango-utilities`.
+  - **Private `tango-py` meta-repo** — not published to GitHub/PyPI. Holds
+    `tango-utilities` and the wellbore package as git submodules, so
+    changes to either can be developed and tested locally against the real
+    `tango` codebase before being cut as a real release upstream, without
+    needing a fresh GitHub/PyPI release for every iteration.
+  - **Still open**: whether `surface`/`reservoir` also get open-sourced —
+    the 2026-09-16 investigation flagged interest in all three, not just
+    the wellbore model; this decision covers wellbore + its foundation
+    dependencies only.
+  - **Still open**: an actual license audit of the 9 foundation modules'
+    and wellbore model's own dependencies (TESPy, CoolProp, pymoo, etc.)
+    for Apache 2.0 compatibility — not yet checked, don't assume clean.
 
 - **Errors should include more context, where possible.** Flagged
   2026-08-14 (Chad, mid-session), not started. When an error can be tied
@@ -933,8 +1113,12 @@ reasoning doesn't have to be re-derived next session.
   "Seasonal heat-demand variation" section) — the real fix for task 1's
   gap, not yet designed.
 - `tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
-  heat/power) — vision doc, Phase 3. AGS row is closest to complete once
-  this effort lands.
+  heat/power) — vision doc, Phase 3. AGS and EGS have heat, Hydrothermal
+  and CPG have power; AGS/EGS/Hydrothermal are each missing their other
+  cell. CO2-AGS/CO2-EGS not started, but likely tractable — CPG's port
+  found `tango`'s fluid handling is already CO2-agnostic (see vision doc's
+  2026-09-21 correction), so the earlier "CO2 needs new FluidState work"
+  assumption for those two rows is probably also stale.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the

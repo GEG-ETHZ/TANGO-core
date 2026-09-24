@@ -76,6 +76,7 @@ def find_design(
 def main() -> None:
     """Parse CLI args, look up nearest-matching design(s), print results and JSON paths."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description=(
             "Find the nearest-matching design(s) for approximate input parameters "
             "(read off the parallel-coordinates plot's axes after drag-filtering to isolate them)"

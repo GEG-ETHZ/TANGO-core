@@ -122,6 +122,7 @@ def main(quiet: bool = False, sweep_dir: Path | None = None) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Generate the per-parameter sensitivity (tornado) chart for the tango hydro_df_electric sweep",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     """CLI for the validation tolerance/worker count."""
     params = load_params(PARAMS_FILE)
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Re-run the real simulation on every surrogate pareto design and compare.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

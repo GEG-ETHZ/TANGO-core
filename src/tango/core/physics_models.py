@@ -22,7 +22,7 @@ import enum
 from tango.core.fluid_utils import (
     friction_factor_darcy,
     friction_factor_haaland,
-    heat_loss_adams_2015,
+    heat_loss_zhang_2011,
 )
 
 
@@ -42,9 +42,13 @@ class FrictionModel(enum.StrEnum):
 class HeatTransferModel(enum.StrEnum):
     """Selects which wellbore radial heat-loss correlation to use."""
 
-    ADAMS_2015 = "adams-2015"
-    """Adams et al. (2015) transient conductive heat-loss correlation
-    (dimensionless-time beta). Default."""
+    ZHANG_2011 = "zhang-2011"
+    """
+    Zhang et al. (2011) transient conductive heat-loss correlation
+    (dimensionless-time beta). Default.
+
+    See ./fluid_utils.py::heat_loss_zhang_2011 for full reference.
+    """
 
     NONE = "none"
     """Perfectly insulated wellbore — zero heat loss. Matches the
@@ -74,8 +78,8 @@ def compute_heat_loss(
     delta_T: float,
 ) -> float:
     """Dispatch to the wellbore heat-loss formula selected by ``model`` (W)."""
-    if model == HeatTransferModel.ADAMS_2015:
-        return heat_loss_adams_2015(dL, rock_k, t_d, delta_T)
+    if model == HeatTransferModel.ZHANG_2011:
+        return heat_loss_zhang_2011(dL, rock_k, t_d, delta_T)
     if model == HeatTransferModel.NONE:
         return 0.0
     raise ValueError(f"Unhandled HeatTransferModel: {model!r}")  # pragma: no cover — exhaustive enum

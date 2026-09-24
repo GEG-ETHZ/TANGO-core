@@ -58,6 +58,11 @@ economic:
   # (missing the surface heat exchanger's own equipment cost) until a
   # direct-heat-exchanger cost formula is ported. See
   # DoubletEconomicComponent's module docstring for the full scope.
+  #
+  # KNOWN GAP, 2026-09-21: also missing here (and in EGS_electric.yml,
+  # which has the fuller writeup) -- EGS reservoir stimulation cost has
+  # never been modeled, in tango or old tango. CAPEX_well above reuses the
+  # same formula as a hydrothermal doublet, no stimulation premium.
   type: doublet
   project_maturity: green_field
   discount_rate: 0.095

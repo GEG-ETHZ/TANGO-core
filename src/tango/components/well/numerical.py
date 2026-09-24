@@ -14,7 +14,7 @@ history fields below despite their name) have ``num_cells + 1`` entries.
 Governing equations (per cell):
 
 - Pressure:  P[i] = P[i-1] - f_dir·ρ·g·dz - ΔP_friction   (Darcy-Weisbach)
-- Enthalpy:  h[i] = h[i-1] - f_dir·g·dz - Q_loss / ṁ       (Adams 2015 heat-loss)
+- Enthalpy:  h[i] = h[i-1] - f_dir·g·dz - Q_loss / ṁ       (Zhang 2011 heat-loss)
 
 A single class covers injection, production, and (future) deviated wells,
 distinguished only by ``angle_from_vert_deg``: 0° = straight down
@@ -40,7 +40,7 @@ distance traveled, not vertical rise. See ``_compute_derived``'s docstring
 for the full breakdown.
 
 Default physics selections:
-  FrictionModel.HAALAND, HeatTransferModel.ADAMS_2015.
+  FrictionModel.HAALAND, HeatTransferModel.ZHANG_2011.
 See ``core/physics_models.py`` to add or select a different variant.
 
 **Known simplification (flag for later):** dimensionless time (``t_d``) only
@@ -68,6 +68,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from pydantic import Field, model_validator
 
 from tango.components.well.base import WellComponent
@@ -259,7 +260,7 @@ class NumericalWell(WellComponent):
     wellhead_depth: float = Field(default=0.0, frozen=True)
     gravity_scale_factor: float = Field(default=1.0, frozen=True)
     friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
-    heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ADAMS_2015, frozen=True)
+    heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ZHANG_2011, frozen=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -342,7 +343,14 @@ class NumericalWell(WellComponent):
         P_in: float,
         mdot: float,
         t_d: float,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+    ]:
         """Pure cell-by-cell march from a given starting state — no state writes.
 
         Takes the starting (temperature, pressure, mass rate) and
@@ -370,7 +378,7 @@ class NumericalWell(WellComponent):
         mu = np.zeros(n + 1)
         u = np.zeros(n + 1)
 
-        inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
+        inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
@@ -402,7 +410,7 @@ class NumericalWell(WellComponent):
             P[i] = P[i - 1] - dp_grav - dP_loss
             h[i] = h[i - 1] - f_dir * g * dz - Q_loss / mdot
 
-            cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i])
+            cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i], self.common.coolprop_backend)
             rho[i] = cell_state.rho
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T
@@ -467,7 +475,7 @@ class NumericalProductionWell(NumericalWell):
     scheme.
 
     The hot brine enters at the bottom (cell 0, reservoir pressure/temperature)
-    and exits at the top (cell n-1, lower P and slightly lower T due to Adams
+    and exits at the top (cell n-1, lower P and slightly lower T due to Zhang
     heat-loss to the cooler rock above).
     """
 
@@ -482,7 +490,7 @@ class NumericalProductionWell(NumericalWell):
 class NumericalProductionWellWithPump(NumericalProductionWell):
     """Upper production wellbore with numerical heat loss and an optional pump.
 
-    Inherits the full Adams 2015 marching heat-loss model from
+    Inherits the full Zhang 2011 marching heat-loss model from
     ``NumericalProductionWell``.  After the wellbore solve, a pump boost is
     applied to ``P_outlet`` if ``target_extraction_pressure`` exceeds the
     wellbore outlet pressure.
@@ -556,13 +564,23 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         if target_Pa <= P[-1]:
             pump_pwr = 0.0
         else:
-            before = FluidState.with_PT(self.common.fluid_name, P_in, T_in)
+            before = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
 
             def _discharge_state(P_pump_out: float) -> tuple[float, float]:
                 """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
-                h_isentropic = FluidState.with_PS(self.common.fluid_name, P_pump_out, before.S).H
+                h_isentropic = FluidState.with_PS(
+                    self.common.fluid_name,
+                    P_pump_out,
+                    before.S,
+                    self.common.coolprop_backend,
+                ).H
                 h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
-                t_pump_out = FluidState.with_HP(self.common.fluid_name, h_actual, P_pump_out).T
+                t_pump_out = FluidState.with_HP(
+                    self.common.fluid_name,
+                    h_actual,
+                    P_pump_out,
+                    self.common.coolprop_backend,
+                ).T
                 return h_actual, t_pump_out
 
             def _residual(P_pump_out: float) -> float:

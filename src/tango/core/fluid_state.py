@@ -13,58 +13,95 @@ strings or catching CoolProp's own exception type directly.
 
 from __future__ import annotations
 
+import enum
+
 import CoolProp
 
 from tango.core.errors import CoolPropError
 
-COOLPROP_BACKEND = "BICUBIC&HEOS"
-"""CoolProp backend used for all tango fluid-property lookups: BICUBIC-
-tabulated HEOS, for speed over the raw HEOS backend. Anywhere else a fluid
-backend needs naming explicitly (e.g. TESPy's ``Connection.set_attr(fluid=...)``
-in ``components/surface/graph.py``) should reuse this constant rather than
-hardcoding the string, so the two never drift apart."""
+
+class CoolPropBackend(enum.StrEnum):
+    """Selects which CoolProp equation-of-state backend tango uses for fluid property lookups.
+
+    **YAML field:** ``common.coolprop_backend`` (defaults to ``BICUBIC_HEOS``
+    if omitted — see that member's own docstring for why this is the
+    default rather than ``HEOS``). See TANGO Commandments (CONTRIBUTING.md)
+    for when to switch away from the default.
+    """
+
+    BICUBIC_HEOS = "BICUBIC&HEOS"
+    """BICUBIC-tabulated HEOS: builds an interpolation table over the
+    solve's actual P/T range, roughly halving CoolProp call time versus
+    raw HEOS (see commits ecaabcf/4b6583d) — negligible accuracy loss
+    (~3e-5 relative) away from a fluid's phase boundaries/critical point,
+    but the table's cell resolution gets coarse right at the critical
+    point (CoolProp's own docs cite ~14 K cell width there for CO2),
+    which can make a solve converge (small residual) to a state that's
+    still meaningfully off from what was actually requested — confirmed
+    empirically building ``example_configs/CPG_electric.yml`` (a fixed
+    315 K target solving to ~305.3 K at a nearby operating point).
+    Default, since most tango examples don't operate near a phase
+    boundary."""
+
+    HEOS = "HEOS"
+    """Raw (non-tabulated) HEOS — solves the actual equation of state
+    directly, no interpolation-table error, at real (but generally
+    tolerable) extra cost. Switch to this for any system that
+    deliberately operates near a fluid's critical point or another phase
+    boundary (see TANGO Commandments), where ``BICUBIC_HEOS``'s table
+    resolution isn't trustworthy."""
+
+
+COOLPROP_BACKEND = CoolPropBackend.BICUBIC_HEOS
+"""Default CoolProp backend for ``common.coolprop_backend`` (see
+``core/specs.py``'s ``Common`` model) when a YAML config doesn't set it
+explicitly. Anywhere else a fluid backend needs naming explicitly (e.g.
+TESPy's ``Connection.set_attr(fluid=...)`` in ``components/surface/graph.py``)
+should read it from ``common.coolprop_backend``, not this constant directly,
+so a config's override is actually honored."""
 
 
 class FluidState:
-    """Wraps a CoolProp ``AbstractState`` (BICUBIC-tabulated HEOS backend) for one fluid."""
+    """Wraps a CoolProp ``AbstractState`` for one fluid, at a configurable backend."""
 
-    def __init__(self, fluid_name: str) -> None:
+    def __init__(self, fluid_name: str, backend: str = COOLPROP_BACKEND) -> None:
         """Construct an uninitialized state for ``fluid_name``; call an update_*/with_* method next."""
         self.fluid_name = fluid_name
+        self.backend = backend
         try:
-            self._state = CoolProp.AbstractState(COOLPROP_BACKEND, fluid_name)
+            self._state = CoolProp.AbstractState(backend, fluid_name)
         except ValueError as exc:
             raise CoolPropError("""Fluid state instantiation error""") from exc
 
     @staticmethod
-    def with_PT(fluid_name: str, P: float, T: float) -> FluidState:
+    def with_PT(fluid_name: str, P: float, T: float, backend: str = COOLPROP_BACKEND) -> FluidState:
         """Construct a FluidState from pressure (Pa) and temperature (K)."""
-        fs = FluidState(fluid_name)
+        fs = FluidState(fluid_name, backend)
         fs.update_PT(P, T)
         return fs
 
     @staticmethod
-    def with_HP(fluid_name: str, H: float, P: float) -> FluidState:
+    def with_HP(fluid_name: str, H: float, P: float, backend: str = COOLPROP_BACKEND) -> FluidState:
         """Construct a FluidState from specific enthalpy (J/kg) and pressure (Pa)."""
-        fs = FluidState(fluid_name)
+        fs = FluidState(fluid_name, backend)
         fs.update_HP(H, P)
         return fs
 
     @staticmethod
-    def with_PS(fluid_name: str, P: float, S: float) -> FluidState:
+    def with_PS(fluid_name: str, P: float, S: float, backend: str = COOLPROP_BACKEND) -> FluidState:
         """Construct a FluidState from pressure (Pa) and specific entropy (J/(kg·K)).
 
         Used for isentropic-efficiency pump/compressor models: the isentropic
         outlet state at a target pressure, given the inlet state's entropy.
         """
-        fs = FluidState(fluid_name)
+        fs = FluidState(fluid_name, backend)
         fs.update_PS(P, S)
         return fs
 
     @staticmethod
     def copy(other: FluidState) -> FluidState:
-        """Construct a new FluidState with the same fluid and (P, T) as ``other``."""
-        return FluidState.with_PT(other.fluid_name, other.P, other.T)
+        """Construct a new FluidState with the same fluid, backend, and (P, T) as ``other``."""
+        return FluidState.with_PT(other.fluid_name, other.P, other.T, other.backend)
 
     def update_PT(self, P: float, T: float) -> None:
         """Update this state in place from pressure (Pa) and temperature (K)."""

@@ -1,12 +1,12 @@
-"""Regression tests for tango's LCOE and economic-component behavior.
+"""Regression tests for tango's economic-component behavior.
 
-``REFERENCE_LCOE`` (0.7740618821220107) is a fixed historical baseline for
-``example_configs/hydro_sf_electric.yml``, kept here as a regression
-anchor.
-
-``DoubletEconomicComponent`` (``src/tango/components/economic/doublet.py``)
-computes LCOE for real; ``test_lcoe_parity`` below asserts against
-``REFERENCE_LCOE`` with a loose tolerance (see that test for the rationale).
+``hydro_sf_electric.yml``'s own golden-LCOE regression check lives in
+``test_example_configs.py`` alongside every other ``example_configs/``
+YAML's, not here -- this file owns the rest of its coverage instead:
+detailed injection-well/reservoir/surface physics invariants
+(spatial history shape, per-cell monotonicity, ``t_d`` advancement, ...)
+that are specific to this config's own topology and go well beyond the
+generic checks ``test_example_configs.py`` applies to every config.
 """
 
 from __future__ import annotations
@@ -35,20 +35,18 @@ from tango.workflows.workflow import Workflow
 # ---------------------------------------------------------------------------
 
 EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
-NEW_SF_MANUAL = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
-NEW_AGS_DIRECT_HEAT = EXAMPLE_CONFIGS_DIR / "AGS_direct_heat.yml"
+HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
+AGS_DIRECT_HEAT = EXAMPLE_CONFIGS_DIR / "AGS_direct_heat.yml"
 
-REFERENCE_LCOE = 0.7740618821220107
 N_TSTEPS = 20  # sim_config.time.num_tsteps in the tango YAML
 
 N_TSTEPS_FAST = 8
 """Timestep cap for structural/qualitative checks below (monotonicity, sign,
 shape — NOT precise numeric goldens) — these don't care how many years the
 run covers, so there's no reason to pay for the full N_TSTEPS run. Tests
-that DO assert precise numeric values against a full-length reference
-(test_lcoe_parity) are marked @pytest.mark.slow and left at the real
-N_TSTEPS instead — see pytest.ini for why perf/slow are deselected by
-default."""
+that DO assert precise numeric values against a full-length reference are
+marked @pytest.mark.slow and left at the real N_TSTEPS instead — see
+pytest.ini for why perf/slow are deselected by default."""
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +91,10 @@ def test_workflow_to_dict_reflects_source_yaml_inputs() -> None:
     invariant here; test_workflow_from_str_to_str_roundtrip below is what
     actually proves full round-trip fidelity.
     """
-    with NEW_SF_MANUAL.open() as f:
+    with HYDRO_SF_ELECTRIC.open() as f:
         original = yaml.safe_load(f)
 
-    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
     dumped = wf.to_dict()
 
     assert dumped["common"]["rock_k"] == original["common"]["rock_k"]
@@ -112,7 +110,7 @@ def test_workflow_to_config_is_a_fresh_copy_each_call() -> None:
     """to_dict() never returns a shared reference — mutating one call's result
     must not affect the Workflow or any other to_dict() call.
     """
-    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
 
     cfg_a = wf.to_dict()
     cfg_a["common"]["rock_k"] = -1.0
@@ -133,7 +131,7 @@ def test_workflow_from_str_to_str_roundtrip() -> None:
     identically either way, so a string comparison sidesteps the issue at
     the root — no need to run() first just to dodge NaN semantics.
     """
-    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
     wf2 = Workflow.from_str(wf.to_str())
     assert wf2.to_str() == wf.to_str()
 
@@ -144,7 +142,7 @@ def test_workflow_to_file_from_file_roundtrip(tmp_path: Path) -> None:
     See test_workflow_from_str_to_str_roundtrip's docstring for why this
     compares serialized strings rather than parsed dicts (NaN != NaN).
     """
-    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
 
     out = tmp_path / "roundtrip.yml"
     wf.to_file(out)
@@ -166,7 +164,7 @@ def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
     identical, proving the structure is genuinely reconstructible, not
     merely echoed back once.
     """
-    wf = Workflow.from_file(NEW_AGS_DIRECT_HEAT)
+    wf = Workflow.from_file(AGS_DIRECT_HEAT)
     wf.run()
     dumped = wf.to_dict()
 
@@ -203,7 +201,7 @@ def test_workflow_json_roundtrip() -> None:
     ``edge_cfgs: dict[str, dict[str, Any]]`` type hint already claimed.
     This test is the regression guard for that fix actually holding.
     """
-    wf = Workflow.from_file(NEW_AGS_DIRECT_HEAT)
+    wf = Workflow.from_file(AGS_DIRECT_HEAT)
     wf.run()
     dumped = wf.to_dict()
 
@@ -218,7 +216,7 @@ def test_workflow_sweep_pattern_does_not_mutate_base() -> None:
     """The documented sweep pattern (to_dict() per iteration) never mutates
     the base Workflow, and each derived Workflow actually gets its own value.
     """
-    base_wf = Workflow.from_file(NEW_SF_MANUAL)
+    base_wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
     original_rock_k = base_wf.to_dict()["common"]["rock_k"]
 
     built_values = []
@@ -243,7 +241,7 @@ def test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache() -> None:
     SystemBCIteration pass). Mutating it directly here and confirming
     to_dict() picks it up immediately is the regression test for that.
     """
-    wf = Workflow.from_file(NEW_SF_MANUAL)
+    wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
     surface = wf._orchestrator.components["surface"]
 
     surface.injection_pressure = 9_999_999.0
@@ -258,7 +256,7 @@ def test_workflow_to_dict_reflects_live_mutation_not_a_stale_cache() -> None:
 
 def test_smoke() -> None:
     """Tango runs hydro_sf_electric.yml to completion without raising."""
-    wf = _run_tango(NEW_SF_MANUAL, num_tsteps=N_TSTEPS_FAST)
+    wf = _run_tango(HYDRO_SF_ELECTRIC, num_tsteps=N_TSTEPS_FAST)
     # If we get here without exception, the circuit completed all N_TSTEPS_FAST timesteps.
     assert wf._orchestrator.n_tsteps == N_TSTEPS_FAST
 
@@ -271,7 +269,7 @@ def test_ags_direct_heat_smoke() -> None:
     the ``horizontal_well``/``numerical`` registry entry (the base
     ``NumericalWell`` used directly with ``angle_from_vert_deg: 90``).
     """
-    wf = _run_tango(NEW_AGS_DIRECT_HEAT, num_tsteps=N_TSTEPS_FAST)
+    wf = _run_tango(AGS_DIRECT_HEAT, num_tsteps=N_TSTEPS_FAST)
     surface = _components(wf)["surface"]
 
     # t=0 is a known cold-start transient (circuit seeded at surface_temperature
@@ -386,33 +384,13 @@ def test_pump_or_valve_auto_resolves_to_compressor_when_needed(
 
 
 # ---------------------------------------------------------------------------
-# LCOE parity
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.slow
-def test_lcoe_parity() -> None:
-    """Tango LCOE matches the fixed historical reference value.
-
-    ``rel=0.10`` matches the measured ~8.1% gap for this case with headroom
-    (re-measured 2026-08-28, was ~6.6%/rel=0.08 — a convergence-loop bug fix
-    in the shared physics engine widened it; CAPEX itself is unaffected).
-    See ``REFERENCE_LCOE``'s definition near the top of this file for
-    provenance.
-    """
-    wf = _run_tango(NEW_SF_MANUAL)
-    lcoe = wf.to_dict()["economic"]["state"]["LCOE"]
-    assert lcoe == pytest.approx(REFERENCE_LCOE, rel=0.10)
-
-
-# ---------------------------------------------------------------------------
 # NumericalInjectionWell — spatial history and physics
 # ---------------------------------------------------------------------------
 
 
 def test_injection_well_heats_cold_fluid() -> None:
     """CoolProp-backed injection well heats the cold injected fluid as it descends."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
 
     # Inlet: surface temperature + approach ≈ 295 K.
@@ -427,7 +405,7 @@ def test_injection_well_heats_cold_fluid() -> None:
 
 def test_injection_well_pressure_increases_downward() -> None:
     """Hydrostatic gain dominates friction loss — outlet P > inlet P for 5 km well."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
 
     # Net hydrostatic ≈ 1000 kg/m³ × 9.81 m/s² × 5000 m ≈ 49 MPa; friction ≈ few MPa.
@@ -444,7 +422,7 @@ def test_injection_well_spatial_history_shape() -> None:
     cell (there are num_cells cells, but num_cells + 1 node values along
     the well's axis).
     """
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
     history = well.history
     assert history is not None, "history should be enabled by default (record_history=True)"
@@ -466,7 +444,7 @@ def test_injection_well_spatial_history_deepest_cell_hotter() -> None:
     T[-1] > T[0] (deep end is hottest), since the reservoir at 5 km is
     well above any plausible injection temperature.
     """
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
     history = well.history
     assert history is not None
@@ -480,7 +458,7 @@ def test_injection_well_spatial_history_deepest_cell_hotter() -> None:
 
 def test_injection_well_spatial_history_monotone_P() -> None:
     """P_cells increases monotonically with depth: hydrostatic gain dominates friction."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
     history = well.history
     assert history is not None
@@ -495,7 +473,7 @@ def test_injection_well_spatial_history_monotone_P() -> None:
 
 def test_injection_well_t_d_advances() -> None:
     """Dimensionless time advances each timestep and is stored in history."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     well = _components(wf)["injection_well"]
     history = well.history
     assert history is not None
@@ -518,7 +496,7 @@ def test_reservoir_thermal_equilibration() -> None:
     Thermal depletion causes T_outlet to fall below T_initial over time; it can
     never drop below the injection temperature or exceed the un-depleted geothermal T.
     """
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     res = _components(wf)["reservoir"]
 
     T_initial = 288.0 + 0.035 * 5000.0  # 463 K
@@ -530,7 +508,7 @@ def test_reservoir_thermal_equilibration() -> None:
 
 def test_reservoir_pressure_drop() -> None:
     """Darcy pressure drop: reservoir outlet P is below the overpressure target."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     res = _components(wf)["reservoir"]
 
     # overpressure_target = hydro_static × (1 + op_pct/100) = 50e6 × 1.10 = 55 MPa
@@ -546,7 +524,7 @@ def test_reservoir_pressure_drop() -> None:
 
 def test_surface_positive_net_power() -> None:
     """Surface plant produces positive net electrical power."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     surface = _components(wf)["surface"]
 
     assert surface.state.net_power_W.get_fresh() > 0, (
@@ -556,7 +534,7 @@ def test_surface_positive_net_power() -> None:
 
 def test_surface_outlet_cooler_than_inlet() -> None:
     """Surface plant cools the brine: injection outlet T < production inlet T."""
-    wf = _run_tango(NEW_SF_MANUAL)
+    wf = _run_tango(HYDRO_SF_ELECTRIC)
     surface = _components(wf)["surface"]
 
     assert surface.state.T_outlet.get_fresh() < surface.state.T_inlet.get_fresh(), (
@@ -578,7 +556,7 @@ def sf_manual_config() -> dict[str, Any]:
     wants a valid tango config to tweak before constructing a Workflow
     (without touching the file on disk) can depend on this fixture too.
     """
-    with NEW_SF_MANUAL.open() as f:
+    with HYDRO_SF_ELECTRIC.open() as f:
         return yaml.safe_load(f)
 
 
@@ -589,7 +567,7 @@ def ags_direct_heat_config() -> dict[str, Any]:
     A reservoir-less (closed-loop) topology — useful for tests that need to
     confirm behavior when there's no ``ReservoirComponent`` to find.
     """
-    with NEW_AGS_DIRECT_HEAT.open() as f:
+    with AGS_DIRECT_HEAT.open() as f:
         return yaml.safe_load(f)
 
 
@@ -921,7 +899,7 @@ def test_performance_20_timesteps() -> None:
     threshold proves too tight or too loose on CI hardware.
     """
     start = time.perf_counter()
-    _run_tango(NEW_SF_MANUAL)
+    _run_tango(HYDRO_SF_ELECTRIC)
     elapsed = time.perf_counter() - start
 
     assert elapsed < 60.0, (

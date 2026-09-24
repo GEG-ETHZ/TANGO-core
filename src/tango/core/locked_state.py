@@ -331,7 +331,7 @@ class LockedState(Generic[T]):
 
         inner_validator = pydantic_core.SchemaValidator(inner_schema)
 
-        def _validate(v: object) -> LockedState[Any]:  # type: ignore[type-arg]
+        def _validate(v: object) -> LockedState[Any]:
             if isinstance(v, LockedState):
                 return v
             # Plain value from YAML/JSON/msgpack → validate inner type then wrap.
@@ -342,7 +342,7 @@ class LockedState(Generic[T]):
             _validate,
             serialization=pydantic_core.core_schema.plain_serializer_function_ser_schema(
                 # Access via mangled name — intentional, documented bypass.
-                lambda ls: ls._LockedState__value,  # type: ignore[attr-defined]
+                lambda ls: ls._LockedState__value,
                 info_arg=False,
             ),
         )

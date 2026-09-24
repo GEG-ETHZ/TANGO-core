@@ -12,6 +12,8 @@ the two confirmed-broken variants.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from tango.tango_cli import _build_parser
 
 
@@ -37,3 +39,15 @@ def test_log_level_after_validate_subcommand() -> None:
     """``--log-level`` after the subcommand works for ``validate`` too, not just ``run``."""
     args = _build_parser().parse_args(["validate", "f.yml", "--log-level", "WARNING"])
     assert args.log_level == "WARNING"
+
+
+def test_save_dir_default_is_none() -> None:
+    """No ``--save-dir`` — nothing should be written (see _cmd_run's own check)."""
+    args = _build_parser().parse_args(["run", "f.yml"])
+    assert args.save_dir is None
+
+
+def test_save_dir_parses_path() -> None:
+    """``--save-dir DIR`` parses to a Path, not a bare string."""
+    args = _build_parser().parse_args(["run", "f.yml", "--save-dir", "out/here"])
+    assert args.save_dir == Path("out/here")
