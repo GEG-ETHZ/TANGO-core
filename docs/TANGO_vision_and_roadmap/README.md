@@ -562,6 +562,26 @@ USD/kWh), consistent with heat being cheap per kWh relative to
 electricity at this scale — not independently benchmarked against a real
 district-heating tariff.
 
+**CPG heat (`CPG_direct_heat.yml`, added 2026-09-25)**: same CO2 doublet
+subsurface as `CPG_electric.yml`, with a district-heating exchanger
+instead of a turbine/condenser — simpler than the power case, since CO2
+stays supercritical/dense-phase through the heat exchanger and all the
+way back to injection (no phase-change/condensing-pressure reasoning
+needed at all). `num_tsteps` is deliberately shorter (8, not
+`CPG_electric.yml`'s 20): confirmed by direct run that production
+temperature drops below the fixed 50 degC district-heating return target
+by year ~9 as the reservoir depletes (physically backwards), and that
+lowering the return-temperature target to compensate does NOT fix this —
+it instead pushes the BC-iteration's own T-convergence search close
+enough to CO2's critical point (Tc=304.13 K, Pc=7.38 MPa) to crash
+CoolProp's tabular backend on a near-critical two-phase query around year
+18-19. Chad's call: keep the physically sensible 50 degC target and stop
+the run while there's still real margin (~2.85 K at the last timestep),
+rather than chase the deeper near-critical-point solver instability — the
+same class of problem as the documented ~166 kg/s two-phase-crossing
+crash elsewhere in this repo, not something to paper over with another
+guessed number.
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
@@ -570,7 +590,7 @@ The full matrix TANGO needs to demonstrate, one worked example per cell:
 | CO2-AGS          | ☐                       | ☐                          |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ☐                       | ☐                          |
-| CPG              | ☐                       | ✓ `CPG_electric.yml`       |
+| CPG              | ✓ `CPG_direct_heat.yml` | ✓ `CPG_electric.yml`       |
 | Hydrothermal     | ✓ `hydro_direct_heat.yml` | ✓ `hydro_sf_electric.yml`  |
 
 Each cell should be a real, runnable `tango` YAML — not just a config that

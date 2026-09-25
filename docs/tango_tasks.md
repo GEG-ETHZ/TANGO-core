@@ -1024,8 +1024,13 @@ Open items, in order, before any build work starts:
   hypothetical-deepened-site rationale). **Hydrothermal heat DONE
   2026-09-25** (`hydro_direct_heat.yml` — reuses `hydro_sf_electric.yml`'s
   doublet subsurface verbatim, swaps in `AGS_direct_heat.yml`'s
-  dh_hx/circulation_control surface topology). AGS, EGS, and Hydrothermal
-  now all have heat + power; remaining gap: CPG is missing heat.
+  dh_hx/circulation_control surface topology). **CPG heat DONE 2026-09-25**
+  (`CPG_direct_heat.yml` — same CO2 doublet subsurface as
+  `CPG_electric.yml`; `num_tsteps` deliberately shortened to 8 to stay
+  clear of a real near-critical-point CO2 solver instability as the
+  reservoir depletes — see vision doc's coverage-matrix section for the
+  full investigation). AGS, EGS, Hydrothermal, and CPG now all have both
+  heat and power cells filled — the full non-CO2 matrix is complete.
   CO2-AGS/CO2-EGS not started (both cells each), but likely tractable —
   CPG's port found `tango`'s fluid handling is already CO2-agnostic (see
   vision doc's 2026-09-21 correction), so the earlier "CO2 needs new

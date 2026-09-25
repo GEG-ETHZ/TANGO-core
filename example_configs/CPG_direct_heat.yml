@@ -1,0 +1,198 @@
+# tango format — CO2 Plume Geothermal (CPG), direct-heat (district heating)
+# extraction.
+#
+# Same doublet subsurface as CPG_electric.yml (injection_well -> reservoir
+# -> production_well_lower -> production_well_upper -> surface -> back to
+# injection_well), same CO2 fluid, same depth/mass_rate/target_extraction_pressure
+# -- copied verbatim, see that file's header comment for the full subsurface
+# rationale (why CO2 stays supercritical/dense-phase through the subsurface,
+# depth/injection-pressure provenance from old tango's CPG_num_pp.yml).
+#
+# The surface plant differs, and is actually SIMPLER than CPG_electric.yml's:
+# no turbine, no phase-change/condensing-pressure reasoning needed at all.
+# A district-heating exchanger (dh_hx) at a realistic DH return temperature
+# (50 degC / 323.15 K) is comfortably ABOVE CO2's ~31 degC (304.13 K)
+# critical temperature, so the fluid stays single-phase supercritical
+# through the heat exchanger and all the way back to injection -- unlike
+# CPG_electric.yml, which deliberately drives CO2 down into the two-phase
+# dome (condensing liquid) before reinjection. injection_pressure below is
+# therefore set ABOVE CO2's 7.38 MPa critical pressure (unlike
+# CPG_electric.yml's sub-critical 7.131 MPa, appropriate only for its
+# condensed-liquid reinjection case) to keep this design's fluid
+# supercritical the entire loop, both subsurface and surface -- confirmed
+# by direct run, not assumed.
+#
+# num_tsteps is deliberately shorter than CPG_electric.yml's 20 -- confirmed
+# by direct run: production temperature declines with reservoir depletion
+# (328 K at t=0 down toward 320 K by t=10) and, past ~year 9, drops below
+# dh_hx's fixed 50 degC (323.15 K) return-temperature target, which is
+# physically backwards (can't cool fluid to a temperature above what it
+# already is). Lowering the return-temperature target instead of shortening
+# the run does NOT fix this: it pushes the BC-iteration's own T-convergence
+# search close enough to CO2's critical point (Tc=304.13 K, Pc=7.38 MPa)
+# that CoolProp's tabular backend crashes on a near-critical two-phase query
+# around year 18-19, regardless of the target chosen. Chad's call
+# (2026-09-25): keep the physically sensible 50 degC target and stop the
+# run after year 7 (num_tsteps: 8) instead, while there's still real margin
+# (326.0 K produced at the last timestep, ~2.85 K above target) -- not "fix"
+# the deeper near-critical-point solver
+# instability, which is a separate, harder problem (same class as the
+# documented ~166 kg/s two-phase-crossing crash elsewhere in this repo).
+
+title: CO2 Plume Geothermal (CPG), doublet, direct-heat extraction
+
+description:
+  summary: CPG doublet with supercritical-CO2 direct-heat extraction (companion to CPG_electric.yml)
+  date: "2026-09-25"
+  description: >
+    Single-doublet CO2 Plume Geothermal system, same subsurface as
+    CPG_electric.yml, with a district-heating heat exchanger instead of a
+    turbine/condenser power plant -- CO2 stays supercritical/dense-phase
+    through the entire loop, never crossing into the two-phase dome.
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m
+
+sim_config:
+  num_tsteps: 8
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — kept above CO2's 7.38 MPa
+                                          # critical pressure so the
+                                          # production wellhead stays
+                                          # single-phase supercritical
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  mass_rate: 200                # kg/s — matches CPG_electric.yml's subsurface loop
+  bc_checkpoint_idx: 4           # component_idx of the surface (below)
+
+economic:
+  # Same CAPEX-coverage caveat as AGS_direct_heat.yml/hydro_direct_heat.yml:
+  # the district-heating exchanger has no Subtype: cooler/condenser tag, so
+  # CAPEX_surface_plant is 0.0 here (real, not a crash) until a
+  # direct-heat-exchanger cost formula is ported.
+  type: doublet
+  project_maturity: brown_field  # matches CPG_electric.yml/old tango's CPG_num_pp.yml
+  discount_rate: 0.095
+  main_product: heat
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0          # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    well_length: 2500.0       # m — reservoir depth; matches CPG_electric.yml exactly
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 2500.0       # m — matches CPG_electric.yml exactly
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    hydro_static_pressure: 25_000_000  # Pa — nominal, used only for the fracking-safety ceiling
+    over_pressure_percentage: 20
+    brine_density: 1000            # kg/m3 — used for the reservoir's own
+                                    # initial/undepleted pressure, not the
+                                    # circulating fluid (see brine_density's
+                                    # own docstring in core/specs.py)
+    well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 2000.0       # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    wellhead_depth: 500.0     # m — matches production_well_upper's well_length below
+
+  production_well_upper:
+    type: production_well
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 500.0        # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last (surface consumes production well output)
+    prev: 3
+    next: 0
+    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure
+                                     # (unlike CPG_electric.yml's 7_131_030 Pa),
+                                     # so the fluid stays supercritical dense-phase
+                                     # all the way through reinjection -- see this
+                                     # file's header comment.
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Direct-heat surface plant: identical shape to
+      # AGS_direct_heat.yml's/hydro_direct_heat.yml's power_plant -- see
+      # those files' comments for the full node-by-node rationale. No
+      # phase-change reasoning needed here at all: 50 degC (323.15 K) is
+      # comfortably above CO2's ~31 degC critical temperature, so dh_hx's
+      # T_out keeps the fluid single-phase supercritical the whole way.
+      nodes:
+        inlet:
+          type: Source
+        dh_hx:
+          type: SimpleHeatExchanger
+          role: net_thermal
+          T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+          p_out_megapascals: 7.92  # MPa -- ABSOLUTE value (unlike AGS_direct_heat.yml's
+                                     # pressure_ratio: 0.99), because target_extraction_pressure
+                                     # is fixed and known here (8.0 MPa), giving a well-defined
+                                     # target (8.0 * 0.99 ~ 7.92 MPa) -- AGS_direct_heat.yml uses a
+                                     # ratio instead because ITS inlet pressure varies by design
+                                     # point. A fixed absolute value here also sidesteps CO2's
+                                     # TESPy-initial-guess problem entirely: TESPy's own blind
+                                     # default guess for a new connection isn't a valid CO2 state
+                                     # at all near ambient pressure (below CO2's ~5.18 bar triple-
+                                     # point pressure) -- confirmed by direct run: a plain
+                                     # pressure_ratio here (matching AGS_direct_heat.yml's pattern)
+                                     # fails outright with a CoolProp out-of-range error before the
+                                     # solver ever reaches a real answer.
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.90    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency);
+                                # matches CPG_electric.yml's pump node default.
+          p0_out1: 75          # bar (= 7.5 MPa, matches injection_pressure above) — TESPy guess
+                                # value; NOTE unlike p_out_megapascals, p0_out{N}/h0_out{N} pass
+                                # their raw value straight through in TESPy's own network unit
+                                # (bar), no MPa->bar conversion (see graph.py's
+                                # _apply_connection_config docstring). Must use the {N}-suffixed
+                                # form even for a single-port node -- a bare p0_out never matches
+                                # any connection's source_id ("out1"), so it's silently a no-op.
+        outlet:
+          type: Sink
+      edges:
+        '1': {source: inlet, target: dh_hx}
+        '2': {source: dh_hx, target: circulation_control}
+        '3': {source: circulation_control, target: outlet}
