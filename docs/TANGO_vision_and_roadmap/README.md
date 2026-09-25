@@ -703,12 +703,40 @@ LCOE ~2.22 USD/kWh, elevated for the same reason as `AGS_electric.yml`'s
 own hypothetical-deepened design (deep wells, modest output) plus a real
 ~185 kW circulation pump draw.
 
+**CO2-AGS power (`CO2_AGS_electric.yml`, added 2026-09-25) — the last cell
+in this matrix.** Same CO2-specific closed-loop design as
+`CO2_AGS_direct_heat.yml`, with a binary (ORC) power plant instead of a
+district-heating exchanger. Needed a THIRD, distinct depth-driven fix,
+different from either of the other two in this matrix:
+`AGS_electric.yml`'s own deepening was purely about reaching a
+power-viable temperature; `CO2_AGS_direct_heat.yml`'s was purely about
+escaping CO2's near-critical-point region. Here both constraints apply at
+once — 6000 m (enough to clear the near-critical region on its own) only
+delivers ~64 degC, not enough for the same generic ORC design that needed
+~95-112 degC elsewhere in this matrix. Deepened to 9000 m instead, which
+clears both constraints simultaneously (~103 degC / 9.6 MPa, confirmed by
+direct run). Runs cleanly across the full 25 years with no shortening
+needed — net power stays positive throughout (0.29 MW declining to 0.06
+MW). `circulation_control` resolves to a genuine, physically-verified
+Compressor (~84-145 kW, growing over the run) — checked against the
+closed loop's own real, independently-confirmed natural pressure (~10.3
+MPa at the final timestep, comfortably above the ~8.5 MPa intermediate
+value chosen), learning from every pump-or-valve lesson earlier in this
+session's audit. LCOE ~17.3 USD/kWh — very high, but expected and
+consistent with the established pattern for these deliberately
+hypothetical, illustrative deep-well designs (9000 m wells, modest 30
+kg/s flow): not a claim of economic viability.
+
+**This completes the full example coverage matrix** (AGS/EGS/CPG/
+Hydrothermal, including all four CO2 variants, × heat/power) — every cell
+now has a real, runnable, sanity-checked `tango` config.
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
 |------------------|-------------------------|----------------------------|
 | AGS              | ✓ `AGS_direct_heat.yml` | ✓ `AGS_electric.yml`       |
-| CO2-AGS          | ✓ `CO2_AGS_direct_heat.yml` | ☐                       |
+| CO2-AGS          | ✓ `CO2_AGS_direct_heat.yml` | ✓ `CO2_AGS_electric.yml` |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ✓ `CO2_EGS_direct_heat.yml` | ✓ `CO2_EGS_electric.yml` |
 | CPG              | ✓ `CPG_direct_heat.yml` | ✓ `CPG_electric.yml`       |

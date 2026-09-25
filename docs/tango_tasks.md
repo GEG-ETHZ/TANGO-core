@@ -1018,66 +1018,13 @@ Open items, in order, before any build work starts:
 - Seasonal/variable heat-demand mechanism design (see vision doc's
   "Seasonal heat-demand variation" section) — the real fix for task 1's
   gap, not yet designed.
-- `tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
-  heat/power) — vision doc, Phase 3. **AGS power DONE 2026-09-25**
-  (`AGS_electric.yml` — see vision doc's coverage-matrix section for the
-  hypothetical-deepened-site rationale). **Hydrothermal heat DONE
-  2026-09-25** (`hydro_direct_heat.yml` — reuses `hydro_sf_electric.yml`'s
-  doublet subsurface verbatim, swaps in `AGS_direct_heat.yml`'s
-  dh_hx/circulation_control surface topology). **CPG heat DONE 2026-09-25**
-  (`CPG_direct_heat.yml` — same CO2 doublet subsurface as
-  `CPG_electric.yml`). **Correction, same day** (prompted by Chad asking
-  for a pump-or-valve audit across every CO2/CPG config): `dh_hx`'s fixed
-  outlet pressure was wrongly set ABOVE its own real solved inlet pressure
-  (a plain `SimpleHeatExchanger` has no validity check for this, unlike
-  `PumpOrValve`), silently asking it to raise pressure with no work
-  input. The "near-critical-point CO2 solver instability" that motivated
-  shortening `num_tsteps` to 8 was itself a downstream symptom of this
-  same bug — fixed (`dh_hx` outlet lowered to a realistic ~5.0 MPa,
-  `circulation_control` now does the real pumping work, ~4.5 MW, confirmed
-  physical), production temperature no longer declines at all, and the
-  full 20-year run (matching `CPG_electric.yml`) works cleanly with no
-  shortening needed. LCOE rose from a fictitious 0.031 to a real 0.27
-  USD/kWh — see vision doc's coverage-matrix section for the full
-  writeup. AGS, EGS, Hydrothermal, and CPG now all have both heat and
-  power cells filled — the full non-CO2 matrix is complete.
-  **CO2-EGS heat DONE 2026-09-25** (`CO2_EGS_direct_heat.yml` — same
-  subsurface/site as `EGS_direct_heat.yml`, CO2 instead of H2O, plain
-  `production_well` instead of `production_well_with_pump` per
-  `CPG_electric.yml`'s precedent, `circulation_control` added since
-  removing the downhole pump left the closed loop with no pressure source
-  — see vision doc for the full writeup). Confirms `tango`'s fluid
-  handling really is CO2-agnostic (2026-09-21 correction) — no new
-  FluidState work was needed. **Correction (Chad, 2026-09-25):** the
-  first draft had `circulation_control` resolving to a running Compressor
-  — an artifact of an under-specified `dh_hx` outlet pressure, not real
-  physics (natural production wellhead pressure is ~11.3 MPa, well above
-  the ~7.5 MPa needed). Fixed to resolve as a passive Valve throughout
-  (LCOE dropped ~1.09 → ~0.62 USD/kWh); surfaced a real, separate gap
-  (startup-pump CAPEX not modeled for Valve-resolved closed loops) now
-  tracked as GitLab issue #57. **Full CO2/CPG pump-or-valve audit DONE
-  2026-09-25** (prompted by Chad): confirmed `CPG_electric.yml`'s pump is
-  genuine physics (grounded in a real CO2 saturation-pressure value, not
-  guess-avoidance); found and fixed the same class of bug a SECOND time in
-  `CPG_direct_heat.yml` (worse there — a passive component was silently
-  raising pressure with no work input, which also turned out to be the
-  real cause of that file's earlier-documented "near-critical-point
-  crash," now resolved, `num_tsteps` restored to 20); found and fixed a
-  THIRD instance while building `CO2_EGS_electric.yml` below, before it
-  was ever committed. **CO2-EGS power DONE 2026-09-25**
-  (`CO2_EGS_electric.yml` — same depth-deepening story as
-  `AGS_electric.yml`, 5000 m not 3000 m; `num_tsteps` shortened to 12 for
-  the same depletion-erodes-net-power reason as `AGS_electric.yml`'s own
-  curve, just faster here). **CO2-AGS heat DONE 2026-09-25**
-  (`CO2_AGS_direct_heat.yml` — a genuinely new failure mode: real Triemli
-  depth ran without crashing but net_thermal_W came back consistently
-  NEGATIVE, root-caused to the produced fluid sitting too close to CO2's
-  critical point for a real district-heating exchanger to behave
-  sensibly (property gradients near-critical overwhelm the
-  temperature-driven cooling); deepened to 6000 m with pressures also kept
-  well clear of critical pressure — see vision doc for the full
-  investigation, including a second closed-loop-specific pressure-margin
-  lesson). Remaining gap: CO2-AGS power.
+- ~~`tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal × heat/power)~~
+  — **DONE 2026-09-25.** Every cell filled (AGS/EGS/CPG/Hydrothermal ×
+  heat/power, including all four CO2 variants) with a real, runnable,
+  sanity-checked config — full details, including the depth-deepening
+  rationale for each hypothetical site and three real pump-or-valve bugs
+  found and fixed along the way (a CO2/CPG-wide audit prompted by Chad),
+  in `docs/TANGO_vision_and_roadmap/README.md`'s coverage-matrix section.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the

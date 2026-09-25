@@ -1,0 +1,215 @@
+# tango format — Advanced Geothermal System (AGS) with CO2 as the working
+# fluid, binary (ORC) power extraction, hypothetical deepened variant of
+# the Triemli site.
+#
+# NOT the real Triemli site: rock properties/gradient match the real site,
+# but the well depths below are a hypothetical deepening. Nothing here
+# should be read as a real drilling proposal for Triemli.
+#
+# Same closed-loop subsurface SHAPE and CO2-specific design choices as
+# CO2_AGS_direct_heat.yml (plain production_well, pressures kept clear of
+# CO2's 7.38 MPa critical pressure) -- see that file's header comment for
+# the full rationale, including the near-critical-point enthalpy failure
+# mode it documents (real, not a bug, and a genuinely different problem
+# from the near-critical solver CRASH found in CPG_direct_heat.yml).
+#
+# Depth is deepened further still than CO2_AGS_direct_heat.yml's 6000 m --
+# for a THIRD, different reason from either of the other two
+# depth-driven fixes in this coverage matrix (AGS_electric.yml needed more
+# temperature for its ORC cycle; CO2_AGS_direct_heat.yml needed to escape
+# CO2's near-critical region). Here both apply at once: 6000 m clears the
+# near-critical region (confirmed in CO2_AGS_direct_heat.yml) but only
+# delivers ~64 degC (confirmed by direct run) -- not enough for the same
+# generic ORC design that needed ~95-112 degC elsewhere in this matrix
+# (AGS_electric.yml, CO2_EGS_electric.yml). Deepened to 9000 m instead,
+# which delivers ~103 degC / 9.6 MPa (confirmed by direct run) -- comfortably
+# past both constraints at once. Not claimed as a realistic drilling target
+# for the real Triemli site -- illustrative only, same spirit as
+# AGS_electric.yml's own disclaimer.
+#
+# The surface plant: same binary (ORC) topology as AGS_electric.yml's/
+# CO2_EGS_electric.yml's power_plant -- see those files for the full
+# node-by-node rationale. heatexchanger2's own CO2-side (out1) outlet
+# pressure is an ABSOLUTE p_out_megapascals (not a pressure_ratio1), for
+# the same CO2-TESPy-initial-guess reason as every other CO2 config in this
+# matrix. This value (8.5 MPa) was checked against the closed loop's own
+# real natural pressure by direct run before being committed -- learning
+# from BOTH prior mistakes in this session's audit: CPG_direct_heat.yml's
+# silent unphysical-pressure-rise bug, and CO2_AGS_direct_heat.yml's own
+# finding that a CLOSED LOOP's natural pressure is genuinely coupled to
+# the surface plant's own downstream choices (not an independent quantity
+# to check once and treat as fixed) -- so this was verified with a real,
+# confirmed margin across the whole run, not just at t=0.
+#
+# Site parameters (Triemli, Zurich) — rock properties/gradient identical to
+# AGS_direct_heat.yml/CO2_AGS_direct_heat.yml, depth deepened further (see above):
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   fluid                : CO2
+#   application          : binary (ORC) electricity generation
+
+title: Advanced Geothermal System (AGS) with CO2, binary (ORC) power extraction, hypothetical deepened Triemli-like site
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m — horizontal loop length
+
+sim_config:
+  num_tsteps: 25              # years of operation -- see below if depletion requires shortening
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (plain
+                                          # production_well, no pump) -- kept
+                                          # for consistency, matching every
+                                          # other CO2 config.
+  injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
+                                # even without a reservoir
+  mass_rate: 30                 # kg/s — matches AGS_direct_heat.yml's subsurface loop
+  bc_checkpoint_idx: 3           # component_idx of the surface (below)
+
+economic:
+  # Same CAPEX-coverage note as AGS_electric.yml: this surface plant's
+  # turbine/pump/condenser-shaped nodes ARE tagged the same way
+  # hydro_df_electric.yml's are, so CAPEX coverage should be reasonably
+  # complete.
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # circuit entry — where the solve pass begins each timestep
+    prev: 3
+    next: 1
+    well_length: 9000.0        # m — vertical well depth (hypothetically deepened, see header comment)
+    diameter: 0.311             # m  (~12-inch casing)
+    pipe_roughness: 5.5e-5      # m
+
+  horizontal_well:
+    type: horizontal_well
+    variant: numerical
+    component_idx: 1
+    prev: 0
+    next: 2
+    well_length: 707.0          # m — horizontal loop flow-path length
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    wellhead_depth: 9000.0       # m — starting (vertical) depth, matches injection_well's well_length
+    angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
+
+  production_well:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 9000.0         # m — vertical well depth (hypothetically deepened, see header comment)
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 3            # solved last, loops back to injection_well (next: 0)
+    prev: 2
+    next: 0
+    injection_pressure: 9_600_000  # Pa — well clear of CO2's 7.38 MPa critical pressure.
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+
+    power_plant:
+      # Binary (ORC) TESPy topology, same shape as AGS_electric.yml's/
+      # CO2_EGS_electric.yml's power_plant -- see those files for the full
+      # node-by-node rationale.
+      nodes:
+        inlet:
+          type: Source
+
+        outlet:
+          type: Sink
+
+        heatexchanger:
+          type: HeatExchanger
+          ttd_l: 7                     # K — terminal temperature difference (boiler)
+          pressure_ratio1: 1.0         # geofluid (CO2) side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          h0_out1: 460                  # kJ/kg — TESPy guess value (real CoolProp-scale value
+                                          # for CO2 near this design point, not borrowed from a
+                                          # different fluid -- see CO2_EGS_electric.yml's own
+                                          # correction for why this matters).
+          p0_out1: 95                   # bar (= 9.5 MPa) — TESPy guess value; see graph.py's
+                                          # _apply_connection_config docstring: p0_out{N} passes
+                                          # its raw value straight through in TESPy's own network
+                                          # unit (bar), no MPa->bar conversion.
+          p0_out2: 1.38                 # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
+
+        heatexchanger2:
+          type: HeatExchanger
+          p_out_megapascals: 8.5       # MPa -- ABSOLUTE value on the CO2 (out1) side -- see
+                                          # header comment for how this was chosen and verified
+                                          # against the closed loop's own real, coupled natural
+                                          # pressure across the whole run, not just at t=0.
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
+          p0_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
+
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.90              # dimensionless [0-1] — TESPy eta_s (isentropic efficiency).
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+
+        cooler:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+
+        pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); secondary-loop pump
+          p_out_megapascals: 0.5        # MPa (= 5 bar)
+
+        cc:
+          type: CycleCloser
+          # No config -- purely topological, closes the secondary loop so
+          # TESPy can solve it with no open Source/Sink of its own.
+
+      edges:
+        # Geofluid (CO2, primary) loop
+        '1': {source: inlet, target: heatexchanger, target_port: in1}
+        '2': {source: heatexchanger, source_port: out1, target: heatexchanger2, target_port: in1}
+        '3': {source: heatexchanger2, source_port: out1, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}
+        # Secondary (ORC working-fluid) loop
+        '5': {source: cc, target: heatexchanger2, target_port: in2}
+        '6': {source: heatexchanger2, source_port: out2, target: heatexchanger, target_port: in2}
+        '7': {source: heatexchanger, source_port: out2, target: turbine}
+        '8': {source: turbine, target: cooler}
+        '9': {source: cooler, target: condenser}
+        '10': {source: condenser, target: pump}
+        '11': {source: pump, target: cc}
