@@ -565,22 +565,42 @@ district-heating tariff.
 **CPG heat (`CPG_direct_heat.yml`, added 2026-09-25)**: same CO2 doublet
 subsurface as `CPG_electric.yml`, with a district-heating exchanger
 instead of a turbine/condenser — simpler than the power case, since CO2
-stays supercritical/dense-phase through the heat exchanger and all the
-way back to injection (no phase-change/condensing-pressure reasoning
-needed at all). `num_tsteps` is deliberately shorter (8, not
-`CPG_electric.yml`'s 20): confirmed by direct run that production
-temperature drops below the fixed 50 degC district-heating return target
-by year ~9 as the reservoir depletes (physically backwards), and that
-lowering the return-temperature target to compensate does NOT fix this —
-it instead pushes the BC-iteration's own T-convergence search close
-enough to CO2's critical point (Tc=304.13 K, Pc=7.38 MPa) to crash
-CoolProp's tabular backend on a near-critical two-phase query around year
-18-19. Chad's call: keep the physically sensible 50 degC target and stop
-the run while there's still real margin (~2.85 K at the last timestep),
-rather than chase the deeper near-critical-point solver instability — the
-same class of problem as the documented ~166 kg/s two-phase-crossing
-crash elsewhere in this repo, not something to paper over with another
-guessed number.
+never crosses into the two-phase dome (stays above its critical
+temperature throughout, which alone rules out phase-change regardless of
+pressure).
+
+**Correction, same day, prompted by Chad asking for an audit of every
+CO2/CPG config's pump-or-valve handling: the original version of this
+file had a real, silent bug, and the "near-critical-point crash"
+investigation below was itself a downstream symptom of it, not an
+independent finding.** `dh_hx`'s fixed outlet pressure was set to 7.92 MPa
+(derived from `target_extraction_pressure`, on the wrong assumption that
+this node's own inlet would naturally be near 8 MPa) — but this config
+uses a plain `production_well` (no pump, matching `CPG_electric.yml`'s own
+precedent), so `target_extraction_pressure` has no effect on the
+production side at all, and the real solved inlet pressure at `dh_hx` is
+only ~5.6-5.9 MPa. A fixed absolute `p_out` ABOVE a passive component's own
+inlet silently asks it to raise pressure with no work input — something no
+real heat exchanger can do — and nothing caught it (`PumpOrValve` has an
+explicit validity check for exactly this; plain `SimpleHeatExchanger`
+doesn't). Fixed by setting `dh_hx`'s outlet to a realistic ~5.0 MPa
+(comfortably below the true natural inlet across the whole run) and
+letting `circulation_control` do the real work of reaching
+`injection_pressure` (7.5 MPa) — which it now does as a genuine, correctly
+physical Compressor (~4.5 MW, confirmed by direct run), not a phantom
+free pressure rise.
+
+Once fixed, production temperature no longer declines at all — it
+stabilizes at ~331.6 K almost immediately and holds there the full 20
+years (confirmed by direct run), comfortably clear of both the 50 degC
+return target and CO2's critical point. The unphysical "free" pressure
+rise had been perturbing the reinjection-side energy balance enough to
+drive artificial depletion and, when the return-temperature target was
+lowered to compensate, a genuine near-critical-point CoolProp crash — both
+of which went away entirely once the underlying bug was fixed.
+`num_tsteps` is back to `CPG_electric.yml`'s own 20, not shortened. LCOE
+rose from a fictitious 0.031 to a real 0.27 USD/kWh, reflecting the actual
+cost of that ~4.5 MW pump draw, previously hidden.
 
 **CO2-EGS heat (`CO2_EGS_direct_heat.yml`, added 2026-09-25)**: same
 doublet subsurface/site parameters as `EGS_direct_heat.yml`, just

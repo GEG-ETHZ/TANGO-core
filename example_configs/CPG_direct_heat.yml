@@ -12,32 +12,43 @@
 # no turbine, no phase-change/condensing-pressure reasoning needed at all.
 # A district-heating exchanger (dh_hx) at a realistic DH return temperature
 # (50 degC / 323.15 K) is comfortably ABOVE CO2's ~31 degC (304.13 K)
-# critical temperature, so the fluid stays single-phase supercritical
-# through the heat exchanger and all the way back to injection -- unlike
-# CPG_electric.yml, which deliberately drives CO2 down into the two-phase
-# dome (condensing liquid) before reinjection. injection_pressure below is
-# therefore set ABOVE CO2's 7.38 MPa critical pressure (unlike
-# CPG_electric.yml's sub-critical 7.131 MPa, appropriate only for its
-# condensed-liquid reinjection case) to keep this design's fluid
-# supercritical the entire loop, both subsurface and surface -- confirmed
-# by direct run, not assumed.
+# critical temperature, so the fluid NEVER crosses into the two-phase dome
+# (T > Tc rules that out at any pressure) -- unlike CPG_electric.yml, which
+# deliberately drives CO2 down into the two-phase dome (condensing liquid)
+# before reinjection.
 #
-# num_tsteps is deliberately shorter than CPG_electric.yml's 20 -- confirmed
-# by direct run: production temperature declines with reservoir depletion
-# (328 K at t=0 down toward 320 K by t=10) and, past ~year 9, drops below
-# dh_hx's fixed 50 degC (323.15 K) return-temperature target, which is
-# physically backwards (can't cool fluid to a temperature above what it
-# already is). Lowering the return-temperature target instead of shortening
-# the run does NOT fix this: it pushes the BC-iteration's own T-convergence
-# search close enough to CO2's critical point (Tc=304.13 K, Pc=7.38 MPa)
-# that CoolProp's tabular backend crashes on a near-critical two-phase query
-# around year 18-19, regardless of the target chosen. Chad's call
-# (2026-09-25): keep the physically sensible 50 degC target and stop the
-# run after year 7 (num_tsteps: 8) instead, while there's still real margin
-# (326.0 K produced at the last timestep, ~2.85 K above target) -- not "fix"
-# the deeper near-critical-point solver
-# instability, which is a separate, harder problem (same class as the
-# documented ~166 kg/s two-phase-crossing crash elsewhere in this repo).
+# CORRECTION (Chad, 2026-09-25): an earlier draft of this file claimed the
+# fluid stays "supercritical dense-phase" through the surface plant too --
+# checked by direct run and that's not accurate. This config uses a plain
+# production_well (no pump), same as CPG_electric.yml, so
+# target_extraction_pressure below has NO effect on the production side
+# (it's only threaded to the surface component and pump-bearing production
+# wells -- see its own docstring in core/specs.py) -- the production
+# wellhead's real pressure is whatever the reservoir/well physics naturally
+# deliver, confirmed by direct run to be ~5.6-5.9 MPa, BELOW CO2's 7.38 MPa
+# critical pressure. Since temperature stays comfortably above the ~31 degC
+# critical temperature throughout (T > Tc alone guarantees single-phase, no
+# two-phase dome to cross regardless of P), this is still a perfectly valid,
+# crash-free single-phase gas state -- just not "supercritical dense-phase"
+# in the strict thermodynamic sense the earlier draft claimed. dh_hx's own
+# fixed outlet pressure (below) is chosen with this real, lower natural
+# pressure in mind, not the higher value an earlier (buggy) draft assumed --
+# see that node's own comment for what went wrong and how it was caught.
+#
+# SUPERSEDED FINDING, kept here as a record (2026-09-25): an earlier draft
+# with the unphysical dh_hx pressure bug above ALSO showed production
+# temperature declining with reservoir depletion (328 K at t=0 toward
+# 320 K by t=10) and, past ~year 9, dropping below the 50 degC return
+# target -- which motivated shortening num_tsteps to 8 and a real
+# side-investigation into a near-critical-point CoolProp crash when trying
+# to lower the target instead. Once dh_hx's pressure bug was fixed,
+# production temperature no longer declines at all -- it stabilizes at
+# ~331.6 K almost immediately and stays there the full 20 years (confirmed
+# by direct run), comfortably above both the 50 degC target and CO2's
+# critical point throughout. The unphysical "free" pressure rise was
+# evidently perturbing the reinjection-side energy balance enough to drive
+# artificial depletion and instability that isn't real physics --
+# num_tsteps is back to CPG_electric.yml's own 20, not shortened.
 
 title: CO2 Plume Geothermal (CPG), doublet, direct-heat extraction
 
@@ -47,8 +58,9 @@ description:
   description: >
     Single-doublet CO2 Plume Geothermal system, same subsurface as
     CPG_electric.yml, with a district-heating heat exchanger instead of a
-    turbine/condenser power plant -- CO2 stays supercritical/dense-phase
-    through the entire loop, never crossing into the two-phase dome.
+    turbine/condenser power plant -- CO2 stays single-phase (above its
+    critical temperature) through the entire loop, never crossing into
+    the two-phase dome.
 
 common:
   fluid_name: CO2
@@ -63,12 +75,17 @@ layout:
   well_spacing: 707.0        # m
 
 sim_config:
-  num_tsteps: 8
+  num_tsteps: 20
   dt_years: 1.0                # years
-  target_extraction_pressure: 8_000_000  # Pa — kept above CO2's 7.38 MPa
-                                          # critical pressure so the
-                                          # production wellhead stays
-                                          # single-phase supercritical
+  target_extraction_pressure: 8_000_000  # Pa — INERT for this topology: only
+                                          # threaded to the surface component
+                                          # and pump-bearing production wells,
+                                          # and this config's production_well_upper
+                                          # is plain (no pump) -- see header
+                                          # comment's 2026-09-25 correction.
+                                          # Kept at CPG_electric.yml's own value
+                                          # for consistency, not because it does
+                                          # anything here.
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
   mass_rate: 200                # kg/s — matches CPG_electric.yml's subsurface loop
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
@@ -142,11 +159,17 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure
-                                     # (unlike CPG_electric.yml's 7_131_030 Pa),
-                                     # so the fluid stays supercritical dense-phase
-                                     # all the way through reinjection -- see this
-                                     # file's header comment.
+    injection_pressure: 7_500_000   # Pa — chosen ABOVE CO2's 7.38 MPa critical
+                                     # pressure (unlike CPG_electric.yml's
+                                     # 7_131_030 Pa condensed-liquid case), keeping
+                                     # this reinjection point single-phase --
+                                     # though see header comment's 2026-09-25
+                                     # correction: the fluid earlier in the surface
+                                     # loop (at dh_hx) is actually sub-critical
+                                     # pressure, just still single-phase gas since
+                                     # T stays above Tc throughout. circulation_control
+                                     # (below) does the real work of getting from
+                                     # that lower natural pressure up to this value.
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
@@ -157,7 +180,9 @@ components:
       # those files' comments for the full node-by-node rationale. No
       # phase-change reasoning needed here at all: 50 degC (323.15 K) is
       # comfortably above CO2's ~31 degC critical temperature, so dh_hx's
-      # T_out keeps the fluid single-phase supercritical the whole way.
+      # T_out keeps the fluid single-phase (T > Tc rules out the two-phase
+      # dome regardless of pressure -- see header comment's 2026-09-25
+      # correction for why this isn't the same as "supercritical").
       nodes:
         inlet:
           type: Source
@@ -165,24 +190,43 @@ components:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
-          p_out_megapascals: 7.92  # MPa -- ABSOLUTE value (unlike AGS_direct_heat.yml's
-                                     # pressure_ratio: 0.99), because target_extraction_pressure
-                                     # is fixed and known here (8.0 MPa), giving a well-defined
-                                     # target (8.0 * 0.99 ~ 7.92 MPa) -- AGS_direct_heat.yml uses a
-                                     # ratio instead because ITS inlet pressure varies by design
-                                     # point. A fixed absolute value here also sidesteps CO2's
-                                     # TESPy-initial-guess problem entirely: TESPy's own blind
-                                     # default guess for a new connection isn't a valid CO2 state
-                                     # at all near ambient pressure (below CO2's ~5.18 bar triple-
-                                     # point pressure) -- confirmed by direct run: a plain
-                                     # pressure_ratio here (matching AGS_direct_heat.yml's pattern)
-                                     # fails outright with a CoolProp out-of-range error before the
-                                     # solver ever reaches a real answer.
+          p_out_megapascals: 5.0  # MPa -- ABSOLUTE value (unlike AGS_direct_heat.yml's
+                                     # pressure_ratio: 0.99). A fixed absolute value sidesteps
+                                     # CO2's TESPy-initial-guess problem: TESPy's own blind default
+                                     # guess for a new connection isn't a valid CO2 state at all
+                                     # near ambient pressure (below CO2's ~5.18 bar triple-point
+                                     # pressure) -- confirmed by direct run: a plain pressure_ratio
+                                     # here (matching AGS_direct_heat.yml's pattern) fails outright
+                                     # with a CoolProp out-of-range error before the solver ever
+                                     # reaches a real answer.
+                                     #
+                                     # CORRECTION (Chad, 2026-09-25): an earlier draft set this to
+                                     # 7.92 MPa (derived from target_extraction_pressure * 0.99,
+                                     # mirroring the wrong assumption that this node's own inlet
+                                     # would naturally be near 8 MPa). That was WRONG and, worse,
+                                     # unphysical: dh_hx's real solved inlet pressure here is only
+                                     # ~5.6-5.9 MPa (confirmed by direct run) -- well BELOW 7.92
+                                     # MPa. A fixed absolute p_out ABOVE a passive component's own
+                                     # inlet silently asks it to raise pressure with no work input,
+                                     # something no real heat exchanger can do -- TESPy accepted
+                                     # this numerically anyway (no validity check exists for
+                                     # SimpleHeatExchanger the way _check_pump_or_valve_validity
+                                     # exists for PumpOrValve), so this was a real, silent bug, not
+                                     # a design choice. 5.0 MPa is comfortably below the minimum
+                                     # natural inlet pressure observed across the whole run.
         circulation_control:
           type: PumpOrValve
           role: net_electric
           efficiency: 0.90    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency);
-                                # matches CPG_electric.yml's pump node default.
+                                # matches CPG_electric.yml's pump node default. Resolves to a
+                                # real, running Compressor across the whole run (confirmed by
+                                # direct run) -- genuine physics, not an artifact: dh_hx's real
+                                # ~5.0 MPa outlet (see its own comment) is well below
+                                # injection_pressure's 7.5 MPa target, so an actual pump is
+                                # needed to bridge that gap. Contrast CO2_EGS_direct_heat.yml's
+                                # own circulation_control, which resolves to a passive Valve
+                                # instead -- that design's natural pressure genuinely exceeds
+                                # its own injection_pressure, this one's doesn't.
           p0_out1: 75          # bar (= 7.5 MPa, matches injection_pressure above) — TESPy guess
                                 # value; NOTE unlike p_out_megapascals, p0_out{N}/h0_out{N} pass
                                 # their raw value straight through in TESPy's own network unit

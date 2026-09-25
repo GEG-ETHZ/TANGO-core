@@ -1026,11 +1026,21 @@ Open items, in order, before any build work starts:
   doublet subsurface verbatim, swaps in `AGS_direct_heat.yml`'s
   dh_hx/circulation_control surface topology). **CPG heat DONE 2026-09-25**
   (`CPG_direct_heat.yml` — same CO2 doublet subsurface as
-  `CPG_electric.yml`; `num_tsteps` deliberately shortened to 8 to stay
-  clear of a real near-critical-point CO2 solver instability as the
-  reservoir depletes — see vision doc's coverage-matrix section for the
-  full investigation). AGS, EGS, Hydrothermal, and CPG now all have both
-  heat and power cells filled — the full non-CO2 matrix is complete.
+  `CPG_electric.yml`). **Correction, same day** (prompted by Chad asking
+  for a pump-or-valve audit across every CO2/CPG config): `dh_hx`'s fixed
+  outlet pressure was wrongly set ABOVE its own real solved inlet pressure
+  (a plain `SimpleHeatExchanger` has no validity check for this, unlike
+  `PumpOrValve`), silently asking it to raise pressure with no work
+  input. The "near-critical-point CO2 solver instability" that motivated
+  shortening `num_tsteps` to 8 was itself a downstream symptom of this
+  same bug — fixed (`dh_hx` outlet lowered to a realistic ~5.0 MPa,
+  `circulation_control` now does the real pumping work, ~4.5 MW, confirmed
+  physical), production temperature no longer declines at all, and the
+  full 20-year run (matching `CPG_electric.yml`) works cleanly with no
+  shortening needed. LCOE rose from a fictitious 0.031 to a real 0.27
+  USD/kWh — see vision doc's coverage-matrix section for the full
+  writeup. AGS, EGS, Hydrothermal, and CPG now all have both heat and
+  power cells filled — the full non-CO2 matrix is complete.
   **CO2-EGS heat DONE 2026-09-25** (`CO2_EGS_direct_heat.yml` — same
   subsurface/site as `EGS_direct_heat.yml`, CO2 instead of H2O, plain
   `production_well` instead of `production_well_with_pump` per
