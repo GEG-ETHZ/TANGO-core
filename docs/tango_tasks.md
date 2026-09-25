@@ -1021,13 +1021,15 @@ Open items, in order, before any build work starts:
 - `tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
   heat/power) — vision doc, Phase 3. **AGS power DONE 2026-09-25**
   (`AGS_electric.yml` — see vision doc's coverage-matrix section for the
-  hypothetical-deepened-site rationale). AGS and EGS now both have heat +
-  power; remaining gaps: Hydrothermal is missing heat, CPG is missing
-  heat. CO2-AGS/CO2-EGS not started (both cells each), but likely
-  tractable — CPG's port found `tango`'s fluid handling is already
-  CO2-agnostic (see vision doc's 2026-09-21 correction), so the earlier
-  "CO2 needs new FluidState work" assumption for those two rows is
-  probably also stale.
+  hypothetical-deepened-site rationale). **Hydrothermal heat DONE
+  2026-09-25** (`hydro_direct_heat.yml` — reuses `hydro_sf_electric.yml`'s
+  doublet subsurface verbatim, swaps in `AGS_direct_heat.yml`'s
+  dh_hx/circulation_control surface topology). AGS, EGS, and Hydrothermal
+  now all have heat + power; remaining gap: CPG is missing heat.
+  CO2-AGS/CO2-EGS not started (both cells each), but likely tractable —
+  CPG's port found `tango`'s fluid handling is already CO2-agnostic (see
+  vision doc's 2026-09-21 correction), so the earlier "CO2 needs new
+  FluidState work" assumption for those two rows is probably also stale.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the

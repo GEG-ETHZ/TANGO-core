@@ -45,6 +45,7 @@ _CONFIGS: list[tuple[str, float]] = [
     ("EGS_direct_heat.yml", 0.09235706568562925),
     ("EGS_electric.yml", 5.060246095136903),
     ("hydro_df_electric.yml", 0.6311390593672851),
+    ("hydro_direct_heat.yml", 0.05107917644395939),
     ("hydro_orc_electric.yml", 0.407794548741196),
     ("hydro_sf_electric.yml", 0.8215923733313641),
     ("hydro_sf_electric_5spot.yml", 0.5797267852211206),

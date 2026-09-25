@@ -549,6 +549,19 @@ bug) since 8 km wells dominate CAPEX — expected for a deliberately
 hypothetical, illustrative case, not a claim this design is economically
 viable.
 
+**Hydrothermal heat (`hydro_direct_heat.yml`, added 2026-09-25)**: the
+opposite situation from AGS power — `hydro_sf_electric.yml`'s real doublet
+reservoir (5000 m depth) is far hotter than a district-heating return
+temperature needs, so this cell reuses that subsurface verbatim and just
+swaps the Single-Flash power plant for a direct-heat exchanger (same
+`dh_hx`/`circulation_control` topology as `AGS_direct_heat.yml`'s power
+plant). Delivers 27 MW net thermal power at t=0, declining to a ~13.5 MW
+plateau by year 10 as the reservoir depletes — same qualitative depletion
+shape as the electric doublet examples. LCOE comes back very low (~0.05
+USD/kWh), consistent with heat being cheap per kWh relative to
+electricity at this scale — not independently benchmarked against a real
+district-heating tariff.
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
@@ -558,7 +571,7 @@ The full matrix TANGO needs to demonstrate, one worked example per cell:
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ☐                       | ☐                          |
 | CPG              | ☐                       | ✓ `CPG_electric.yml`       |
-| Hydrothermal     | ☐                       | ✓ `hydro_sf_electric.yml`  |
+| Hydrothermal     | ✓ `hydro_direct_heat.yml` | ✓ `hydro_sf_electric.yml`  |
 
 Each cell should be a real, runnable `tango` YAML — not just a config that
 happens to parse, but one whose output has been sanity-checked (as
