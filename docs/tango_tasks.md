@@ -515,12 +515,19 @@ from scratch.
   for this).
 - **MOOSE/MOSKito integration** — ~55 configs unrunnable, hardcoded to a
   former contributor's (Morteza's) machine, no docs left. Blocked on his
-  response to outreach. Backlog.
+  response to outreach. Backlog. Also covers GitLab issue #21's DWSIM
+  coupling ask — Chad's call (2026-09-25): DWSIM is downstream of MOOSE
+  here, tracked together rather than as a separate thread.
 - **No genuine "modest disparity" old-vs-new parity case found yet** — SF/
   EGS/double-flash sweeps all came back "good" agreement. CPG/ORC
   topologies and edge-of-sweep-range points haven't been checked.
 - **Multi-segment well CAPEX (`well_length_seq`/`well_diameter_seq`
-  equivalent) — planned, not built.** Old tango's fields of the same name
+  equivalent) — planned, not built.** Overlaps GitLab issues
+  [#17](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/17)
+  (economic-calculation flexibility) and
+  [#20](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/20)
+  (new wellbore cost models) — link those there when this gets built
+  rather than opening a fresh issue. Old tango's fields of the same name
   are meant to let well CAPEX vary by depth segment based on OUTER/casing
   diameter (different drilling/material cost per segment), independent of
   the inner flow diameter the physics uses — confirmed with Chad
