@@ -8,25 +8,14 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
-- **High urgency as of 2026-09-22** -- generate documentation and host on github.com
-- **Added 2026-09-24** -- `GraphSurface.net_power_W`'s name overclaims what
-  it actually measures. It's the sum of `-P` over TESPy nodes tagged
-  `role: net_electric` only — real physics components in the YAML graph
-  (turbines, compressors/pumps). It does NOT include the cooling-tower
-  fan/pump parasitic power (`DoubletEconomicComponent
-  ._cooling_condenser_parasitic_power`, a Baltimore-Aircoil cost-model
-  regression estimate, not a modeled TESPy component at all) or the
-  production-well downhole pump parasitic — both of those are only
-  applied two layers away, inside the economics component, never
-  reflected back into the surface plant's own reported "net" power. A
-  user reading `surface.net_power_W`/`.history.net_power_W` directly
-  would reasonably assume it's the true bottom line; it isn't. Found
-  while investigating why CPG's surface plant always looked net-positive
-  even when its true (post-parasitic) economics went negative (see the
-  resolved `LCOE`-NaN entry below). Rename (e.g. `net_electric_power_W` or
-  similar, to signal "electric components only") and/or document this
-  scope limit clearly wherever `net_power_W` is read — not yet decided
-  which, or how urgent, just don't want it forgotten.
+**Migration to GitLab issues in progress (started 2026-09-25, see issue
+#45 for the plan/decisions).** Open items are being ported to GitLab
+issues one at a time; each migrated bullet's body is replaced with a
+one-line pointer to its issue, in place, rather than deleted outright. The
+"Completed Tasks" archive below is NOT being migrated — it stays here.
+
+- See issue [#47](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/47) — generate documentation and host on github.com.
+- See issue [#48](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/48) — `GraphSurface.net_power_W`'s name overclaims its scope.
 - ~~**SUPER HIGH PRIORITY, added 2026-09-23 — `CPG_electric.yml`'s `LCOE` is
   `NaN`.**~~ — **resolved 2026-09-23.** Found while building full-length
   regression coverage for every `example_configs/` YAML
@@ -70,15 +59,7 @@ in-flight multi-step work across sessions.
     neither codebase's implementation actually honors. `_bac_regression`'s
     own docstring in `doublet.py` now documents this explicitly so it
     doesn't get "fixed" into a regression later.
-- **Added 2026-09-23** -- include GeoProp in TANGO, ideally as a standalone
-  code offered alongside the others via our (significantly improved) GEG
-  software web page/GitHub, etc. Needs coordination with the other authors
-  first -- placeholder here so this isn't forgotten, not yet scoped as an
-  actionable task. Citation: Merbecks, T., A.M.M. Leal, P. Bombarda, P.
-  Silva, D. Alfani, and M.O. Saar, GeoProp: A thermophysical property
-  modelling framework for single and two-phase geothermal geofluids,
-  Geothermics, https://doi.org/10.1016/j.geothermics.2024.103146,
-  125:103146, 2025.
+- See issue [#49](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/49) — include GeoProp in TANGO.
 - **KNOWN, LOW PRIORITY, NOT PURSUED FURTHER (2026-09-17) — `test_native.py`'s
   `flexible_SF_doublet.yml` LCOE golden is stale.** Found while investigating
   a merge (`dev/aitkens-process` <-> `dev/make-tango-robust`): expected
@@ -106,42 +87,15 @@ in-flight multi-step work across sessions.
   actually been stale. Revisit only if old tango needs to be trusted as a
   reference again for something specific; otherwise leave as-is.
 
-- **Added 2026-09-17**: build phase-diagram (P-h/T-s style) visuals for
-  `tango` fluid states to match what the tango web app shows. Not
-  scoped yet — needs a decision on which diagram(s), which components'
-  states to plot (surface plant nodes via `GraphSurface.state.node_detail`
-  is the obvious source), and where these should live (a `tango`
-  plotting helper vs. something the web app itself renders from
-  `Workflow.to_dict()`/history output).
+- See issue [#50](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/50) — build phase-diagram (P-h/T-s) visuals for tango fluid states.
 
-  This duplicates what old tango's `ThermaGraph` addon did
-  (`src/tango/addons/ThermaGraph/`, removed along with the rest of old
-  tango — recoverable from git history if useful as a reference for what
-  the diagrams looked like). Whatever replaces it should NOT copy that
-  addon system's design, which had three separate problems worth avoiding:
-  - **Optional deps swallowed into a log line, not a real error.** Each
-    addon's import lived in a `try/except` inside
-    `native_workflow.py::addons_manager()`; a missing optional dependency
-    (e.g. PyQt5, only pulled in by the `tango-app` extra) just logged
-    `"Failed to load addon '...'"` and silently ran the simulation without
-    it, instead of surfacing a clear "install the X extra" error.
-  - **The `== "yes"` string-comparison trap.** Whether an addon actually
-    ran was gated by `addon_specs.active.lower() == "yes"` — the same
-    footgun documented in this repo's `CONTRIBUTING.md` YAML Style section
-    (writing `active: True` silently does nothing, or crashes outright).
-  - **No registry — copy-pasted if-blocks.** `ThermaGraph` and `Analyzer`
-    were two hand-copied blocks in `addons_manager()`; adding a third
-    addon meant copying the pattern a third time rather than registering
-    against something extensible.
-
-  Whatever plotting mechanism gets built here should use a real
-  extras-based dependency check (fail loudly, not a caught-and-logged
-  `ImportError`), a proper boolean (not a `"yes"`/`"no"` string) for any
-  on/off config flag, and — if there's ever a second diagram type — an
-  actual registry instead of a growing pile of if-blocks.
-
-- **Added 2026-09-17**: add functionality to copy demos/examples/applications to
-  working directories of where tango is a dep
+- ~~**Added 2026-09-17**: add functionality to copy demos/examples/applications to
+  working directories of where tango is a dep~~ — **DONE 2026-09-25**:
+  `tango_cli init` now copies `example_configs/` and every
+  `applications/` pipeline into DEST by default (`--app` narrows to
+  specific apps, `--no-apps` skips applications entirely). Also fixed the
+  related bug where re-running `init --app X` after a plain `init` failed
+  outright because `example_configs/` already existed.
 
 - ~~**Added 2026-09-17**: check the correctness of the Adams et al. (2015)
   transient conductive heat-loss reference used by `NumericalWell`~~ —
@@ -163,74 +117,19 @@ in-flight multi-step work across sessions.
   (2024), Geothermics 116:102843 — Adams is the second author, not first,
   and the DOI's own "2023" is the online-first year, not 2020.
 
-- **Added 2026-09-16**: check how turine and other surface component costs are being calculated relative to sizing -- based on last year? first year? max? average?  This needs careful thought.
+- See issue [#51](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/51) — decide how surface-component cost sizing is calculated relative to time.
 
-- **Added 2026-09-15**: make sure that all systems, even hydrothermal systems,
-  can operate without a production well pump (Larderello is a dry steam system
-  and requires no pump at all!  However, since the late 1970's they've been
-  reinjecting)
-- **Added 2026-09-15**: make sure that we can handle non-condensable gases,
-  which can make up several percent of the subsurface fluids in hydrothermal
-  systems (Larderello as precedent)
+- See issue [#52](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/52) — support production well operation with no pump (e.g. Larderello).
+- See issue [#53](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/53) — handle non-condensable gases in subsurface fluids.
 
-- **Added 2026-09-11**
-  make sure that there are examples/tutorials/demos (ask Claude about a good way to expose this) that show off how TANGO can be used to assess:
-  - how binary (e.g. ORC) and single fluid systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - how single- and double-flash systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - how CO2 and water systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - a matrix of these
+- See issue [#54](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/54) — build examples/tutorials demonstrating LCOE/power tradeoffs across system types.
 
 - See **Completed Tasks → From the top-level list** for the outer-circuit
   `component_idx`/`prev`/`next` vs. tespy-style `edges` question (flagged
   2026-09-09, decided 2026-09-17: keep as-is) and the `LumpedReservoir`
   initial-pressure bootstrap fix (DONE 2026-08-04) and the production-well
   pump-power formula fix (DONE 2026-08-10).
-- [ ] **SCOPED 2026-08-14, ready to implement: re-architect the production-well
-  pump boost as a Secant-converged iteration over the segment's INLET
-  pressure, not a value tacked onto an already-completed march.**
-  `NumericalProductionWellWithPump`/`LumpedProductionWellWithPump` currently
-  march the entire upper wellbore segment first (`super().solve()`, using
-  the fluid's natural, un-boosted pressure trajectory the whole way), THEN
-  apply the pump boost as a single closed-form enthalpy correction tacked
-  onto the very last step — implicitly treating the pump as sitting exactly
-  at the wellhead, with zero pipe between the pump and the surface. There is
-  no `pump_depth` field anywhere in either component. If the pump physically
-  sits lower in the segment (realistic for an ESP), every cell genuinely
-  above the pump is being marched with the WRONG density: friction/heat-loss
-  per cell depends on local fluid density, and the marching solve computed
-  that density from the natural (un-boosted, lower-pressure) trajectory
-  instead of the boosted one — a small error for a liquid far from its
-  critical point, but potentially a real one exactly in the "approaching a
-  phase boundary" regime this was originally flagged for.
-
-  **Two closed-form sub-questions got resolved along the way, NEITHER of
-  which needs iteration on its own:**
-  1. Accounting for imperfect pump efficiency does NOT require root-finding:
-     entropy at the inlet state → isentropic enthalpy at the target pressure
-     (needs a new `FluidState.with_PS`, straightforward CoolProp PSmass
-     call) → efficiency-derated actual enthalpy via
-     `h_actual = h_in + (h_isentropic - h_in) / pump_efficiency` (pure
-     algebra — efficiency only scales a linear interpolation, no
-     nonlinearity) → actual outlet temperature via the already-existing
-     `FluidState.with_HP`. Four direct property evaluations, no iteration.
-  2. Inverting enthalpy back to temperature does NOT require root-finding
-     either — `FluidState.with_HP` already does this directly.
-
-  **What DOES require iteration, and why cloning is unavoidable:** the
-  segment's own friction/gravity pressure drop is a function of the
-  boosted pressure profile, which is exactly what we're solving for — a
-  genuine fixed-point problem, not a scalar property inversion. Design:
-  guess a boosted inlet pressure, clone `production_well_upper` (a full
-  re-solve mutates ~100 cells' worth of `LockedState` fields — trying a
-  candidate on the live component would either violate the "written once
-  per timestep" contract or require repeatedly mark-staling every cell,
-  neither of which belongs on the real object mid-search), re-march the
-  WHOLE segment with that guessed inlet, compare the resulting outlet
-  pressure to `target_extraction_pressure`, Secant-update the inlet-pressure
-  guess, repeat with a real tolerance check (not a fixed iteration count).
-  Early-exit without a second iteration if the first guess already
-  converges. Commit the final converged state to the real component once
-  done, exactly once per field.
+- See issue [#55](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/55) — re-architect the production-well pump boost as a Secant-converged iteration over segment inlet pressure.
 - See **Completed Tasks → From the top-level list** for
   `pymoo_api.Minimization` saving the front every generation
   (DONE 2026-08-11) and the superseded stop/resume work for
