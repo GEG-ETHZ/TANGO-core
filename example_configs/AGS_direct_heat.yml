@@ -120,11 +120,13 @@ components:
     component_idx: 3            # solved last, loops back to injection_well (next: 0)
     prev: 2
     next: 0
-    injection_pressure: 1_500_000  # Pa — initial guess for the BC-iteration solver;
-                                     # kept below the production wellhead pressure so
-                                     # TESPy's pr<=1 constraint on dh_hx isn't violated
-                                     # (Phase 1 limitation: this guess isn't yet solved
-                                     # for — see SystemBCIteration's module docstring)
+    injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
+                                     # sim_config above); kept below the production
+                                     # wellhead pressure so TESPy's pr<=1 constraint on
+                                     # dh_hx isn't violated. AUTO_PRESSURE mode exists and
+                                     # does converge this value iteratively -- see
+                                     # SystemBCIteration's module docstring -- this config
+                                     # just chooses manual instead.
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m

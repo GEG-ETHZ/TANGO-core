@@ -270,7 +270,9 @@ class LumpedProductionWell(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         s.P_outlet.update(s.P_inlet.get_fresh() - dp_h - dp_f)
-        s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Zhang 2011
+        s.T_outlet.update(
+            s.T_inlet.get_fresh(),
+        )  # perfectly insulated; TODO: transient wellbore heat-loss model (candidate: Zhang 2011)
 
         self.outlet.T.update(s.T_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
@@ -382,7 +384,7 @@ class LumpedProductionWellWithPump(WellComponent):
             s.pump_delta_p.update(0.0)
             s.pump_power_watts.update(0.0)
             s.P_outlet.update(P_after_natural)
-            s.T_outlet.update(T_in)  # simplified: insulated + no pump T rise (Phase 2)
+            s.T_outlet.update(T_in)  # simplified: insulated, no pump-induced T rise modeled yet
 
             self.outlet.T.update(T_in)
             self.outlet.P.update(P_after_natural)

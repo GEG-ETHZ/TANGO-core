@@ -203,10 +203,12 @@ class _InjectionPressureApply:
 
     ``components.<surface_name>.injection_pressure`` is a real, consequential
     parameter for AGS's closed loop under ``injection_mode: manual`` — it's
-    used directly as the loop's actual boundary condition (not iteratively
-    refined; see the base YAML's own "Phase 1 limitation: this guess isn't
-    yet solved for" comment), unlike ``target_extraction_pressure`` (see
-    module docstring for why THAT one is excluded). Same field
+    used directly as the loop's actual boundary condition (fixed, not
+    iteratively refined; ``AUTO_PRESSURE`` mode does converge it, but this
+    config chooses ``manual`` -- see the base YAML's own comment and
+    ``SystemBCIteration``'s module docstring), unlike
+    ``target_extraction_pressure`` (see module docstring for why THAT one is
+    excluded). Same field
     ``opt_hydro_df_electric.py``/``opt_hydro_sf_electric.py`` already expose
     as a decision variable for their own topologies.
     """

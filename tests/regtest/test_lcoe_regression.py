@@ -894,8 +894,9 @@ def test_coolprop_error_is_tango_error() -> None:
 def test_performance_20_timesteps() -> None:
     """Full 20-timestep run completes in under 60 s (NumericalInjectionWell + CoolProp).
 
-    This is a soft upper bound — it will be tightened as Phase 2 physics
-    are added so regressions are caught early.  Adjust the limit if the
+    This is a soft upper bound — it will be tightened as production-well
+    physics gets more detailed (e.g. a spatially-resolved model replacing
+    the current lumped one) so regressions are caught early.  Adjust the limit if the
     threshold proves too tight or too loose on CI hardware.
     """
     start = time.perf_counter()

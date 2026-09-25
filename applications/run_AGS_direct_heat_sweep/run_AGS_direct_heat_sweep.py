@@ -10,13 +10,11 @@ Runs generate -> sweep -> summarize -> plot in sequence. Call individual
 stage scripts directly (generate.py, sweep.py, summarize.py, plot.py) if
 you only need one stage.
 
-**No CAPEX/LCOE in this port.** tango has no wired-up
-``EconomicComponent`` yet (Phase 2 placeholder — nothing reads the
-``economic:`` YAML block, confirmed by grep). Every CAPEX_*/LCOE_* field in
-each result is explicitly ``None`` (not omitted, not silently dropped — see
-``sweep.py``'s module docstring), and ``plot.py`` skips ``lcoe_grid.png``
-entirely rather than plot an all-null column. Re-run this sweep once a real
-economic component lands.
+Every design point's config includes an ``economic:`` block
+(``DoubletEconomicComponent``), so ``CAPEX_*_USD``/``LCOE_USD_per_kWh`` are
+populated per design (see ``sweep.py``'s module docstring for the exact
+read path). ``plot.py`` still skips ``lcoe_grid.png`` -- an LCOE-colored
+grid is queued as a separate follow-up, not because the field is missing.
 
 plot.py writes these to the sweep directory:
   - success_scatter.png       grid of subplots (rows = loop diameter,
@@ -26,8 +24,9 @@ plot.py writes these to the sweep directory:
   - parallel_coordinates.png  static matplotlib version: every design as one
                               line across well depth, mass flow, loop
                               length, loop diameter, T_prod, and thermal
-                              power, colored by thermal power (LCOH isn't
-                              available yet, see above).
+                              power, colored by thermal power (an
+                              LCOE/LCOH-colored variant is queued as a
+                              separate follow-up, see above).
   - parallel_coordinates.html interactive Plotly version of the same plot —
                               draggable axis brushing/filtering. Requires
                               the `dev` dependency group (plotly); skipped

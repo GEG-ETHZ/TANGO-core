@@ -739,15 +739,17 @@ For a low-permeability reservoir the required injection pressure is much higher 
 can reach 15–20% of gross — large enough to determine whether a site is economically viable.
 Getting this right matters most exactly where the resource is marginal.
 
-In `tango` Phase 1, no pump electricity is wired to an `EconomicComponent` yet —
-placeholders with `TODO (Phase 2)` notes throughout.
+Production-well pump electricity is now wired to `DoubletEconomicComponent`
+(`_production_pump_parasitic_power`, `src/tango/components/economic/doublet.py`).
+Injection-well pump electricity is not yet wired to any `EconomicComponent` —
+it remains a `TODO` placeholder (see `LumpedProductionWellWithPump` /
+demo plots for where the zero shows up today).
 
-Phase 2 should:
+Remaining work:
 - Verify the table above with HIL testing on representative configs
-- Fix the CPG production downhole pump gap in `src/tango/`
 - Reconcile `surface.w_net` with the economic-layer value so there is one authoritative
-  net-power number per timestep (see cascading calculation principle below in Phase 2)
-- Wire `pump_power_watts` from all tango wellbore components into the economic component
+  net-power number per timestep (see cascading calculation principle below)
+- Wire `pump_power_watts` from the injection-well component into the economic component
 
 #### Web app config fragmentation (tango-super ecosystem)
 

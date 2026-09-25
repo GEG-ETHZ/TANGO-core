@@ -6,17 +6,19 @@ gets you" below):
 
   1. Temperature vs axial position parameterized by timestep
        - Injection well: full spatial profile (NumericalInjectionWell)
-       - Production well: inlet/outlet only — lumped model, flat profile (Phase 2 TODO)
+       - Production well: inlet/outlet only — lumped model, flat profile
+         (TODO: replace with a spatially-resolved production well model)
   2. Reservoir inlet and outlet temperature vs elapsed time
   3. Gross power, production-pump power, and net power vs time
-       (injection-pump power is Phase 2 — shown as zero placeholder)
+       (injection-pump power isn't wired to the economic layer yet —
+       shown as a zero placeholder)
   4. Cumulative net energy, injection-pump energy, and production-pump energy vs time
 
 Run from the repo root::
 
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
-Default: writes SVGs to this script's own ``outputs/`` directory without
+Default: writes PNGs to this script's own ``outputs/`` directory without
 opening windows. Pass ``--show`` for interactive windows instead (nothing
 is saved in that mode).
 
@@ -248,7 +250,8 @@ def fig2_reservoir_temperature(d: dict, save_path: Path | None = None) -> None:
     ax.set_xlabel("Elapsed time (years)")
     ax.set_ylabel("Temperature (°C)")
     ax.set_title(
-        "Reservoir inlet and outlet temperature vs time\n(LumpedReservoir — no thermal depletion in Phase 1)",
+        "Reservoir inlet and outlet temperature vs time\n"
+        "(LumpedReservoir — Adams (2015) thermal depletion model)",
     )
     ax.grid(True, alpha=0.3)
 
@@ -287,7 +290,7 @@ def fig3_power_vs_time(d: dict, save_path: Path | None = None) -> None:
         d["inj_pump_MW"],
         "g--^",
         ms=4,
-        label="Injection pump (Phase 2 — zero placeholder)",
+        label="Injection pump (not yet wired to economics — zero placeholder)",
     )
     ax.plot(d["years"], d["net_MW"], "k-D", ms=5, lw=1.8, label="Net power")
     ax.set_xlabel("Elapsed time (years)")
@@ -320,7 +323,7 @@ def fig4_cumulative_energy(d: dict, save_path: Path | None = None) -> None:
         d["cum_inj_pump_GWh"],
         "g--^",
         ms=4,
-        label="Cumulative injection-pump energy (Phase 2 — zero)",
+        label="Cumulative injection-pump energy (not yet wired — zero)",
     )
     ax.set_xlabel("Elapsed time (years)")
     ax.set_ylabel("Cumulative energy (GWh)")
