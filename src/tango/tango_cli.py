@@ -202,13 +202,16 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p = sub.add_parser(
         "init",
         allow_abbrev=False,
-        help="Copy the bundled example configs (and optionally applications) into a local directory.",
+        help="Copy the bundled example configs and applications into a local directory.",
         description=(
-            "Copy tango's bundled example_configs/ into DEST (created if "
-            "needed) as a starting point for your own analysis. Fails if "
-            "DEST/example_configs already exists, to avoid silently "
-            "overwriting local edits. Pass --app one or more times to also "
-            "copy one of applications/'s sweep/optimization/demo pipelines."
+            "Copy tango's bundled example_configs/ and every applications/ "
+            "pipeline into DEST (created if needed) as a starting point for "
+            "your own analysis. Anything that already exists under DEST is "
+            "left as-is (not overwritten, not an error), so re-running init "
+            "is always safe -- e.g. to pull down applications/ after an "
+            "earlier init only fetched example_configs/. Pass --app one or "
+            "more times to copy only specific applications/ instead of all "
+            "of them, or --no-apps to skip applications/ entirely."
         ),
         parents=[log_level_parent],
     )
@@ -218,7 +221,7 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=Path(),
         metavar="DEST",
-        help="Directory to copy example_configs/ into. Default: current directory.",
+        help="Directory to copy example_configs/ and applications/ into. Default: current directory.",
     )
     init_p.add_argument(
         "--app",
@@ -226,9 +229,14 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=sorted(_AVAILABLE_APPS),
         dest="apps",
         metavar="APP",
-        help="Also copy DEST/applications/APP. Repeatable. See --list-apps for the "
-        "available names, or applications/README.md in the repository for what "
-        "each one does.",
+        help="Copy only DEST/applications/APP instead of every application. "
+        "Repeatable. See --list-apps for the available names, or "
+        "applications/README.md in the repository for what each one does.",
+    )
+    init_p.add_argument(
+        "--no-apps",
+        action="store_true",
+        help="Copy only example_configs/, skipping applications/ entirely.",
     )
     init_p.add_argument(
         "--list-apps",
@@ -327,17 +335,28 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
             print(app)
         return 0
 
-    apps: list[str] = args.apps or []
+    # No --app given at all -> copy every application (the common case: get
+    # a fully working project in one shot). --app one-or-more times narrows
+    # that to just the named apps. --no-apps skips applications/ entirely.
+    # These three are mutually exclusive by construction (argparse's
+    # choices= already rejects unknown --app values; --no-apps + --app
+    # together is nonsensical but harmless -- --no-apps just wins below).
+    explicit_apps = args.apps is not None
+    apps: list[str] = [] if args.no_apps else (args.apps if explicit_apps else sorted(_AVAILABLE_APPS))
 
-    # Check every destination up front, before copying anything -- avoids
-    # copying example_configs/ (or an earlier --app) and then failing
-    # partway through on a later collision, which would leave DEST in a
-    # half-populated state.
-    targets = [args.dest / "example_configs", *(args.dest / "applications" / app for app in apps)]
-    for target in targets:
-        if target.exists():
-            logger.error("%s already exists -- remove it or choose a different DEST.", target)
-            return 1
+    example_dest = args.dest / "example_configs"
+    app_targets = [args.dest / "applications" / app for app in apps]
+
+    # Only abort on an existing target when the user named that app
+    # explicitly -- an explicit ask that can't be honored without
+    # overwriting is worth stopping for. In the default "copy everything"
+    # case, an already-existing app is just something to leave alone (see
+    # the per-app skip below), same treatment as example_configs/.
+    if explicit_apps:
+        for target in app_targets:
+            if target.exists():
+                logger.error("%s already exists -- remove it or choose a different DEST.", target)
+                return 1
 
     # NOT importlib.resources.files("tango.example_configs") -- example_configs/
     # has no __init__.py, so Python treats it as an implicit namespace package,
@@ -346,13 +365,18 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
     # file's bytes, raising FileNotFoundError). Resolving it as a subdirectory
     # of the real tango package (which has __init__.py) avoids that path --
     # same reasoning applies to each applications/<app> copy below.
-    example_dest = targets[0]
-    src = importlib.resources.files("tango") / "example_configs"
-    with importlib.resources.as_file(src) as src_path:
-        shutil.copytree(src_path, example_dest)
-    logger.info("Copied example configs to %s", example_dest)
+    if example_dest.exists():
+        logger.info("%s already exists -- leaving it as-is.", example_dest)
+    else:
+        src = importlib.resources.files("tango") / "example_configs"
+        with importlib.resources.as_file(src) as src_path:
+            shutil.copytree(src_path, example_dest)
+        logger.info("Copied example configs to %s", example_dest)
 
-    for app, app_dest in zip(apps, targets[1:], strict=True):
+    for app, app_dest in zip(apps, app_targets, strict=True):
+        if app_dest.exists():
+            logger.info("%s already exists -- leaving it as-is.", app_dest)
+            continue
         src = importlib.resources.files("tango") / "applications" / app
         with importlib.resources.as_file(src) as src_path:
             shutil.copytree(src_path, app_dest)
