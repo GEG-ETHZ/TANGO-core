@@ -674,12 +674,41 @@ faster than AGS_electric.yml's own curve — `num_tsteps` shortened to 12
 (net power still 1.07 MW at that point, real margin before the year-13
 crossing). LCOE ~0.66 USD/kWh.
 
+**CO2-AGS heat (`CO2_AGS_direct_heat.yml`, added 2026-09-25)**: same
+closed-loop subsurface shape as `AGS_direct_heat.yml`, CO2 instead of
+H2O. A genuinely different failure mode from anything else in this
+matrix: a first draft at the real Triemli depth (3000 m) ran without
+crashing but produced consistently NEGATIVE `net_thermal_W` across a wide
+sweep of both the DH return-temperature target and `dh_hx`'s outlet
+pressure — confirmed by direct run and cross-checked against an
+independent CoolProp enthalpy calculation (ruling out a units/sign bug).
+Root cause: at that depth, the produced fluid's converged (T, P) sits
+uncomfortably close to CO2's actual critical point (Tc=304.13 K,
+Pc=7.38 MPa) — a genuinely near-critical regime where enthalpy's
+sensitivity to pressure becomes extreme, and a small, otherwise-
+unremarkable pressure drop through `dh_hx` completely overwhelmed the
+temperature-driven cooling, making the heat exchanger net ADD energy
+instead of extracting it. Distinct from `CPG_direct_heat.yml`'s
+near-critical SOLVER CRASH found earlier in this same audit — here
+nothing crashes, the physics is just genuinely unusable at that depth.
+Deepening to 6000 m (with pressures also raised well clear of CO2's
+critical pressure, not just temperature) resolves it entirely — confirmed
+stable and positive across the full 25-year run. Also confirmed (learning
+from `CPG_direct_heat.yml`'s bug) that this closed loop's own production
+pressure is genuinely coupled to the surface plant's downstream pressure
+choices, unlike the reservoir-fed CO2 configs — an initial choice that
+nearly matched the loop's converged pressure left almost no real margin,
+so a value with a confirmed, stable ~0.5 MPa margin was chosen instead.
+LCOE ~2.22 USD/kWh, elevated for the same reason as `AGS_electric.yml`'s
+own hypothetical-deepened design (deep wells, modest output) plus a real
+~185 kW circulation pump draw.
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
 |------------------|-------------------------|----------------------------|
 | AGS              | ✓ `AGS_direct_heat.yml` | ✓ `AGS_electric.yml`       |
-| CO2-AGS          | ☐                       | ☐                          |
+| CO2-AGS          | ✓ `CO2_AGS_direct_heat.yml` | ☐                       |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ✓ `CO2_EGS_direct_heat.yml` | ✓ `CO2_EGS_electric.yml` |
 | CPG              | ✓ `CPG_direct_heat.yml` | ✓ `CPG_electric.yml`       |

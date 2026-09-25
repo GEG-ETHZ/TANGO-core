@@ -1068,7 +1068,16 @@ Open items, in order, before any build work starts:
   (`CO2_EGS_electric.yml` — same depth-deepening story as
   `AGS_electric.yml`, 5000 m not 3000 m; `num_tsteps` shortened to 12 for
   the same depletion-erodes-net-power reason as `AGS_electric.yml`'s own
-  curve, just faster here). Remaining gaps: both CO2-AGS cells.
+  curve, just faster here). **CO2-AGS heat DONE 2026-09-25**
+  (`CO2_AGS_direct_heat.yml` — a genuinely new failure mode: real Triemli
+  depth ran without crashing but net_thermal_W came back consistently
+  NEGATIVE, root-caused to the produced fluid sitting too close to CO2's
+  critical point for a real district-heating exchanger to behave
+  sensibly (property gradients near-critical overwhelm the
+  temperature-driven cooling); deepened to 6000 m with pressures also kept
+  well clear of critical pressure — see vision doc for the full
+  investigation, including a second closed-loop-specific pressure-margin
+  lesson). Remaining gap: CO2-AGS power.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the

@@ -41,6 +41,7 @@ EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 1.3100113526590462),
     ("AGS_electric.yml", 2.6039466403039313),
+    ("CO2_AGS_direct_heat.yml", 2.2196622541499655),
     ("CO2_EGS_direct_heat.yml", 0.6232891844190068),
     ("CO2_EGS_electric.yml", 0.6582844606479155),
     ("CPG_direct_heat.yml", 0.2710985199469586),
