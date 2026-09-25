@@ -531,12 +531,29 @@ through, which had no physical anchor for the turbine/condenser outlet
 pressure and masked a real thermosiphon-related bug. Depth, injection
 pressure, pump efficiency, and economic `project_maturity` were all
 matched directly against old tango's converged/actual values (confirmed
-by running `CPG_num_pp.yml` itself), not re-derived from scratch. The
-full matrix TANGO needs to demonstrate, one worked example per cell:
+by running `CPG_num_pp.yml` itself), not re-derived from scratch.
+
+**AGS power (`AGS_electric.yml`, added 2026-09-25)**: the real Triemli
+site's district-heating depth (3000 m vertical + 707 m horizontal, same as
+`AGS_direct_heat.yml`) only delivers ~53 degC to the surface — confirmed by
+direct run, not a guess — nowhere near enough enthalpy to drive a binary
+(ORC) cycle profitably (net power came back strongly negative). Real
+AGS-for-power concepts go much deeper for exactly this reason, so this
+config uses a hypothetical deepened variant (8000 m vertical + 3000 m
+horizontal, same rock properties/gradient as the real site) — see the
+file's own module docstring for the full rationale and an explicit
+disclaimer that the depth is illustrative, not a real Triemli drilling
+target. Delivers ~95-100 degC and solidly positive net power (~540-750 kW
+over the 25-year run). LCOE comes back very high (real economics, not a
+bug) since 8 km wells dominate CAPEX — expected for a deliberately
+hypothetical, illustrative case, not a claim this design is economically
+viable.
+
+The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
 |------------------|-------------------------|----------------------------|
-| AGS              | ✓ `AGS_direct_heat.yml` | ☐                          |
+| AGS              | ✓ `AGS_direct_heat.yml` | ✓ `AGS_electric.yml`       |
 | CO2-AGS          | ☐                       | ☐                          |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
 | CO2-EGS          | ☐                       | ☐                          |

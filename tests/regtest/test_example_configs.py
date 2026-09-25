@@ -40,6 +40,7 @@ EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
 # sim_config.num_tsteps -- see this module's own docstring for how/why.
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 1.3100113526590462),
+    ("AGS_electric.yml", 2.6039466403039313),
     ("CPG_electric.yml", 0.42984480081224125),
     ("EGS_direct_heat.yml", 0.09235706568562925),
     ("EGS_electric.yml", 5.060246095136903),
