@@ -355,7 +355,7 @@ def main() -> None:
     parser.add_argument(
         "--show",
         action="store_true",
-        help="Open interactive plot windows instead of saving SVGs.",
+        help="Open interactive plot windows instead of saving PNGs.",
     )
     args = parser.parse_args()
 
@@ -370,10 +370,10 @@ def main() -> None:
     def _sp(name: str) -> Path | None:
         return None if args.show else SAVE_DIR / name
 
-    fig1_well_temperature_profiles(d, _sp("fig1_well_temperature_profiles.svg"))
-    fig2_reservoir_temperature(d, _sp("fig2_reservoir_temperature.svg"))
-    fig3_power_vs_time(d, _sp("fig3_power_vs_time.svg"))
-    fig4_cumulative_energy(d, _sp("fig4_cumulative_energy.svg"))
+    fig1_well_temperature_profiles(d, _sp("fig1_well_temperature_profiles.png"))
+    fig2_reservoir_temperature(d, _sp("fig2_reservoir_temperature.png"))
+    fig3_power_vs_time(d, _sp("fig3_power_vs_time.png"))
+    fig4_cumulative_energy(d, _sp("fig4_cumulative_energy.png"))
 
     if args.show:
         plt.show()
