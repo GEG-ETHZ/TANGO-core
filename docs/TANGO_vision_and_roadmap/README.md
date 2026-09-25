@@ -648,6 +648,32 @@ start, and that startup pump's CAPEX has no representation anywhere in
 here (deliberately out of scope: simulating the startup transient itself
 isn't needed, only accounting for the hardware's cost economically).
 
+**CO2-EGS power (`CO2_EGS_electric.yml`, added 2026-09-25)**: same
+CO2-specific design choices as `CO2_EGS_direct_heat.yml` (plain
+`production_well`, pressures above CO2's critical pressure), with a
+binary (ORC) power plant (same topology as `AGS_electric.yml`'s/
+`hydro_orc_electric.yml`'s) instead of a district-heating exchanger.
+Same depth-deepening story as `AGS_electric.yml`: the real 3000 m Triemli
+EGS depth only delivers ~337 K to the surface at CO2's best mass_rate
+(confirmed by direct sweep — mass_rate has only a modest effect, peaking
+around 75-100 kg/s, never enough), so this file deepens to 5000 m (a much
+more modest deepening than AGS needed) for ~385 K, comparable to
+`EGS_direct_heat.yml`'s own H2O design at its real 3000 m depth.
+
+**Same audit that fixed `CPG_direct_heat.yml`/`CO2_EGS_direct_heat.yml`
+caught a third instance of the identical bug here**, before this file was
+ever committed: a first draft set `heatexchanger2`'s CO2-side outlet to
+7.2 MPa without checking it against the network's real natural pressure
+(~18.2 MPa, a huge surplus over `injection_pressure`'s 7.5 MPa) — forcing
+`circulation_control` to resolve as a small, fake Compressor (~46-55 kW)
+instead of the passive Valve the real physics supports. Fixed to 10.0 MPa
+(confirmed by direct run to resolve as a Valve across the whole run,
+net power slightly higher with the fake parasitic draw gone). Reservoir
+depletion still eventually erodes the ORC cycle's net power below zero,
+faster than AGS_electric.yml's own curve — `num_tsteps` shortened to 12
+(net power still 1.07 MW at that point, real margin before the year-13
+crossing). LCOE ~0.66 USD/kWh.
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
@@ -655,7 +681,7 @@ The full matrix TANGO needs to demonstrate, one worked example per cell:
 | AGS              | ✓ `AGS_direct_heat.yml` | ✓ `AGS_electric.yml`       |
 | CO2-AGS          | ☐                       | ☐                          |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
-| CO2-EGS          | ✓ `CO2_EGS_direct_heat.yml` | ☐                       |
+| CO2-EGS          | ✓ `CO2_EGS_direct_heat.yml` | ✓ `CO2_EGS_electric.yml` |
 | CPG              | ✓ `CPG_direct_heat.yml` | ✓ `CPG_electric.yml`       |
 | Hydrothermal     | ✓ `hydro_direct_heat.yml` | ✓ `hydro_sf_electric.yml`  |
 

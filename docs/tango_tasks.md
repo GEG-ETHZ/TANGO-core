@@ -1055,8 +1055,20 @@ Open items, in order, before any build work starts:
   the ~7.5 MPa needed). Fixed to resolve as a passive Valve throughout
   (LCOE dropped ~1.09 → ~0.62 USD/kWh); surfaced a real, separate gap
   (startup-pump CAPEX not modeled for Valve-resolved closed loops) now
-  tracked as GitLab issue #57. Remaining gaps: CO2-EGS power, and both
-  CO2-AGS cells.
+  tracked as GitLab issue #57. **Full CO2/CPG pump-or-valve audit DONE
+  2026-09-25** (prompted by Chad): confirmed `CPG_electric.yml`'s pump is
+  genuine physics (grounded in a real CO2 saturation-pressure value, not
+  guess-avoidance); found and fixed the same class of bug a SECOND time in
+  `CPG_direct_heat.yml` (worse there — a passive component was silently
+  raising pressure with no work input, which also turned out to be the
+  real cause of that file's earlier-documented "near-critical-point
+  crash," now resolved, `num_tsteps` restored to 20); found and fixed a
+  THIRD instance while building `CO2_EGS_electric.yml` below, before it
+  was ever committed. **CO2-EGS power DONE 2026-09-25**
+  (`CO2_EGS_electric.yml` — same depth-deepening story as
+  `AGS_electric.yml`, 5000 m not 3000 m; `num_tsteps` shortened to 12 for
+  the same depletion-erodes-net-power reason as `AGS_electric.yml`'s own
+  curve, just faster here). Remaining gaps: both CO2-AGS cells.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the
