@@ -582,6 +582,52 @@ same class of problem as the documented ~166 kg/s two-phase-crossing
 crash elsewhere in this repo, not something to paper over with another
 guessed number.
 
+**CO2-EGS heat (`CO2_EGS_direct_heat.yml`, added 2026-09-25)**: same
+doublet subsurface/site parameters as `EGS_direct_heat.yml`, just
+`fluid_name: CO2` instead of `H2O` — confirmed by CPG's own port that
+tango's fluid handling is fluid-agnostic, no new code needed. Two
+deliberate differences from `EGS_direct_heat.yml`'s own H2O design,
+following `CPG_electric.yml`'s CO2 precedent instead: (1)
+`production_well_upper` is a plain `production_well`, not
+`production_well_with_pump` — CPG's own header comment explains why
+(thermosiphon is strong enough with CO2; the pump-boost implementation's
+constant-density-through-pump approximation is known not to hold for
+CO2's strongly nonlinear density-vs-pressure behavior, so this avoids
+exercising that gap rather than fixing it); (2)
+`target_extraction_pressure`/`injection_pressure` are both kept above
+CO2's 7.38 MPa critical pressure. Removing the downhole pump meant the
+closed loop had no pressure source left at all — confirmed by direct run,
+tango's own `_check_loop_has_pressure_source` validation correctly
+rejected a first draft outright — so a surface-side `circulation_control`
+(`PumpOrValve`) was added instead, same node CPG_direct_heat.yml uses.
+Runs cleanly across the full 25 years (no `num_tsteps` shortening needed,
+unlike CPG-heat): EGS's reservoir here (3000 m / ~116 degC) sits far
+enough above CO2's ~31 degC critical temperature that the near-critical-
+point instability CPG-heat hit doesn't recur.
+
+**Correction (Chad, 2026-09-25): the first draft of this file had
+`circulation_control` resolving to a running Compressor (~14 kW) every
+timestep, which turned out to be an artifact, not real physics.**
+`dh_hx`'s outlet pressure had been set to 7.42 MPa (just under
+`injection_pressure`'s 7.5 MPa) purely to sidestep the CO2
+TESPy-initial-guess crash (see below) — but that choice also
+under-specified the reservoir's real natural pressure, forcing
+`PumpOrValve` to fall back to its Compressor leg to make up a gap that
+wasn't physically real. Direct run confirmed the actual natural
+production wellhead pressure here is ~11.3 MPa, well above the 7.5 MPa
+needed at injection — CO2's thermosiphon effect genuinely is strong
+enough on its own. Setting `dh_hx`'s outlet to a realistic ~2.5% loss off
+that natural value (11.0 MPa) instead lets `circulation_control` resolve
+to a passive Valve across the entire run, confirmed by direct run:
+`net_power_W` is now exactly 0.0 throughout, and LCOE drops to ~0.62
+USD/kWh (down from the first draft's ~1.09). This surfaced a real,
+separate gap: even a design that resolves to a passive Valve at steady
+state still needs a real pump to kick-start circulation from a standing
+start, and that startup pump's CAPEX has no representation anywhere in
+`DoubletEconomicComponent` today — tracked as GitLab issue #57, not fixed
+here (deliberately out of scope: simulating the startup transient itself
+isn't needed, only accounting for the hardware's cost economically).
+
 The full matrix TANGO needs to demonstrate, one worked example per cell:
 
 |                  | Heat extraction         | Power extraction           |
@@ -589,7 +635,7 @@ The full matrix TANGO needs to demonstrate, one worked example per cell:
 | AGS              | ✓ `AGS_direct_heat.yml` | ✓ `AGS_electric.yml`       |
 | CO2-AGS          | ☐                       | ☐                          |
 | EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
-| CO2-EGS          | ☐                       | ☐                          |
+| CO2-EGS          | ✓ `CO2_EGS_direct_heat.yml` | ☐                       |
 | CPG              | ✓ `CPG_direct_heat.yml` | ✓ `CPG_electric.yml`       |
 | Hydrothermal     | ✓ `hydro_direct_heat.yml` | ✓ `hydro_sf_electric.yml`  |
 

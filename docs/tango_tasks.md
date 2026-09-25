@@ -1031,10 +1031,22 @@ Open items, in order, before any build work starts:
   reservoir depletes — see vision doc's coverage-matrix section for the
   full investigation). AGS, EGS, Hydrothermal, and CPG now all have both
   heat and power cells filled — the full non-CO2 matrix is complete.
-  CO2-AGS/CO2-EGS not started (both cells each), but likely tractable —
-  CPG's port found `tango`'s fluid handling is already CO2-agnostic (see
-  vision doc's 2026-09-21 correction), so the earlier "CO2 needs new
-  FluidState work" assumption for those two rows is probably also stale.
+  **CO2-EGS heat DONE 2026-09-25** (`CO2_EGS_direct_heat.yml` — same
+  subsurface/site as `EGS_direct_heat.yml`, CO2 instead of H2O, plain
+  `production_well` instead of `production_well_with_pump` per
+  `CPG_electric.yml`'s precedent, `circulation_control` added since
+  removing the downhole pump left the closed loop with no pressure source
+  — see vision doc for the full writeup). Confirms `tango`'s fluid
+  handling really is CO2-agnostic (2026-09-21 correction) — no new
+  FluidState work was needed. **Correction (Chad, 2026-09-25):** the
+  first draft had `circulation_control` resolving to a running Compressor
+  — an artifact of an under-specified `dh_hx` outlet pressure, not real
+  physics (natural production wellhead pressure is ~11.3 MPa, well above
+  the ~7.5 MPa needed). Fixed to resolve as a passive Valve throughout
+  (LCOE dropped ~1.09 → ~0.62 USD/kWh); surfaced a real, separate gap
+  (startup-pump CAPEX not modeled for Valve-resolved closed loops) now
+  tracked as GitLab issue #57. Remaining gaps: CO2-EGS power, and both
+  CO2-AGS cells.
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the
