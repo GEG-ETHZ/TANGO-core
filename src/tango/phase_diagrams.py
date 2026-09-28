@@ -1,27 +1,36 @@
-"""Interactive P-h phase diagrams for every working fluid in a Workflow.
+"""Per-year P-h phase-diagram PNGs for every working fluid in a Workflow.
 
 ``tango_cli run --save-dir DIR`` is the caller. Writes one
-``<stem>.phase_<fluid>.html`` file per distinct working fluid found in a
+``<stem>.phase_<fluid>/`` folder per distinct working fluid found in a
 ``GraphSurface`` component's TESPy network (e.g. the primary geofluid plus,
-for a binary/ORC plant, the secondary working fluid) -- an interactive
-Plotly figure with a year slider (see module docstring's own "Inspiration"
-section in GitLab issue #56), loosely modeled on the tango web app's own
-Phase Diagram tab: x-axis specific enthalpy h [kJ/kg], y-axis pressure P
-[bar] (log scale), the fluid's saturation dome, and the (P, h) state at
-every node in that fluid's loop, connected in topology order and faded by
-elapsed time.
+for a binary/ORC plant, the secondary working fluid), containing one static
+PNG per timestep (``0000.png``, ``0001.png``, ...): x-axis specific enthalpy
+h [kJ/kg], y-axis pressure P [bar] (log scale), the fluid's saturation dome,
+and the (P, h) state at every node in that fluid's loop, connected in
+topology order.
+
+Originally an interactive Plotly figure with a year slider (GitLab #56).
+Pivoted to a folder of static matplotlib PNGs (2026-09-28) after Plotly.js's
+log-scale-axis-plus-animation-frame rendering turned out to have an
+unresolved bug (the axis periodically blows out to an absurd range, e.g.
+10^100+, on some slider positions/after the page sits open a while, even
+with an explicit fixed range pinned on every single frame's own layout) --
+a static PNG per year has no animation/frame-transition machinery at all,
+so there's nothing left for that class of bug to attach to.
 
 For the PRIMARY geofluid (``common.fluid_name``) specifically, the loop
-extends past the surface plant's own TESPy network into the outer
-circuit (injection well -> reservoir/horizontal well -> production
-well(s) -> surface -> back to injection well), so the diagram closes into
-a real loop rather than stopping at the surface plant's own inlet/outlet
-(Chad's request, 2026-09-25) -- a secondary ORC/binary-cycle working fluid
-never leaves the surface plant, so it has no subsurface leg to add.
+extends past the surface plant's own TESPy network into the outer circuit
+(injection well -> reservoir/horizontal well -> production well(s) ->
+surface -> back to injection well), so the diagram closes into a real loop
+rather than stopping at the surface plant's own inlet/outlet -- a secondary
+ORC/binary-cycle working fluid never leaves the surface plant, so it has no
+subsurface leg to add.
 
 Each line segment is colored by its SOURCE point's thermodynamic phase
-(liquid/gas/supercritical -- see ``_PHASE_COLORS``), not a single fixed
-color for the whole fluid.
+(liquid/gas/supercritical/two-phase -- see ``_PHASE_COLORS``), not a single
+fixed color for the whole fluid. The axis range is fixed identically across
+every PNG in a fluid's folder (computed once from the full run's data), so
+frames are directly comparable and there's no risk of a per-frame rescale.
 
 Only ``GraphSurface`` surface components are covered -- other
 ``SurfaceComponent`` variants don't expose a TESPy network's per-node
@@ -33,8 +42,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import plotly.graph_objects as go  # type: ignore[import-untyped]
 from CoolProp import CoolProp as CP
+from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 from tango.components.surface.graph import GraphSurface
 from tango.core.constants import J_PER_KG_TO_KJ_PER_KG, PA_TO_BAR
@@ -49,9 +61,8 @@ if TYPE_CHECKING:
 _N_DOME_POINTS = 200
 """Points per saturation-curve branch (liquid/vapor) when tracing the dome."""
 
-_LABEL_YSHIFTS = (0, 18, -18, 9, -9)
-"""Pixel offsets round-robin'd across node labels to reduce overlap between
-labels whose DATA points sit close together (see ``_build_figure``)."""
+_FIGSIZE = (10.0, 6.0)
+_DPI = 150
 
 _PHASE_COLORS: dict[int, str] = {
     CP.iphase_liquid: "blue",
@@ -85,13 +96,11 @@ _PHASE_LEGEND: dict[str, str] = {
     "red": "Two-phase (wet)",
     _PHASE_COLOR_FALLBACK: "Unknown/other",
 }
-"""Line color -> human-readable label, in display order (Chad, 2026-09-28:
-"nothing showing what the colors mean" -- the rendered figure had no
-legend at all for the per-edge phase coloring, only for the dome trace)."""
+"""Line color -> human-readable label, in display order."""
 
 
 def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
-    """Write one ``<stem>.phase_<fluid>.html`` per working fluid found in ``wf``.
+    """Write one ``<stem>.phase_<fluid>/`` folder (one PNG per timestep) per working fluid in ``wf``.
 
     Args:
         wf: A Workflow whose ``run()`` has already completed.
@@ -100,9 +109,8 @@ def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
             own stem.
 
     Returns:
-        Paths actually written, one per distinct working fluid across
-        every ``GraphSurface`` component in ``wf``. Empty if ``wf`` has no
-        ``GraphSurface`` component (nothing to plot).
+        Every PNG path actually written, across every fluid. Empty if
+        ``wf`` has no ``GraphSurface`` component (nothing to plot).
     """
     save_dir.mkdir(parents=True, exist_ok=True)
     dt_years = wf._sim_config.dt_years  # noqa: SLF001
@@ -112,10 +120,8 @@ def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
         if not isinstance(component, GraphSurface):
             continue
         for fluid_name, node_names in _fluid_groups(component).items():
-            path = save_dir / f"{stem}.phase_{fluid_name}.html"
-            fig = _build_figure(wf, component, fluid_name, node_names, dt_years)
-            fig.write_html(path)
-            written.append(path)
+            fluid_dir = save_dir / f"{stem}.phase_{fluid_name}"
+            written += _write_fluid_pngs(wf, component, fluid_name, node_names, dt_years, fluid_dir)
 
     return written
 
@@ -270,14 +276,15 @@ def _add_subsurface_points(
     return [(keyed_order[i][1], keyed_order[(i + 1) % len(keyed_order)][0]) for i in range(len(keyed_order))]
 
 
-def _build_figure(
+def _write_fluid_pngs(
     wf: Workflow,
     component: GraphSurface,
     fluid_name: str,
     node_names: list[str],
     dt_years: float,
-) -> go.Figure:
-    """Build one fluid's P-h figure: saturation dome + a year slider over node states."""
+    fluid_dir: Path,
+) -> list[Path]:
+    """Write one PNG per timestep for ``fluid_name`` into ``fluid_dir``; return the paths written."""
     backend = component.common.coolprop_backend
     node_history = component.history.node_history
     n_tsteps = min(len(node_history[name].get("h", [])) for name in node_names if name in node_history)
@@ -308,131 +315,123 @@ def _build_figure(
 
     h_dome, p_dome = _dome_xy(fluid_name, backend)
 
-    # Explicit axis ranges rather than relying on autorange: Plotly.js's
-    # log-scale autorange combined with animation frames has a real
-    # rendering bug (confirmed empirically -- the real data here spans
-    # 0.006-500 bar, but autorange alone produced a y-axis up to 10^112,
-    # crushing every real point into an unreadable sliver). Padding is a
-    # fixed multiplicative/additive margin, not tied to any specific
-    # config's own numbers. Computed BEFORE the frames loop and set on
-    # EVERY frame's own layout (not just the base figure's) -- a
-    # ``redraw: true`` frame transition can recompute the axis range from
-    # scratch even when the base layout says ``autorange: false``, which
-    # is why the blowup could reappear on some slider positions but not
-    # others (Chad, 2026-09-28).
+    # Fixed axis range, identical across every PNG in this folder (computed
+    # once from the FULL run's data, not per timestep) -- makes frames
+    # directly comparable and, since there's no animation/frame-transition
+    # machinery at all with static PNGs, sidesteps the whole class of
+    # Plotly.js axis-range bug this module used to fight (see module
+    # docstring).
     all_h = [v for series in h_kj.values() for v in series] + h_dome
     all_p = [v for series in p_bar.values() for v in series] + p_dome
     h_min, h_max = min(all_h), max(all_h)
     p_min, p_max = min(all_p), max(all_p)
-    xaxis_range = [h_min - 0.05 * (h_max - h_min), h_max + 0.05 * (h_max - h_min)]
-    yaxis_range = [np.log10(p_min) - 0.2, np.log10(p_max) + 0.2]
+    xlim = (h_min - 0.05 * (h_max - h_min), h_max + 0.05 * (h_max - h_min))
+    ylim = (10 ** (np.log10(p_min) - 0.2), 10 ** (np.log10(p_max) + 0.2))
 
-    fig = go.Figure()
-    fig.add_trace(_dome_trace(fluid_name, h_dome, p_dome))
-
-    frames = []
+    fluid_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
     for t in range(n_tsteps):
-        frame_traces = [*_phase_legend_traces(), _dome_trace(fluid_name, h_dome, p_dome)]
-        for source, target in edges:
-            h_s, h_t = h_kj[source][t], h_kj[target][t]
-            p_s, p_t = p_bar[source][t], p_bar[target][t]
-            color = _phase_color(fluid_name, h_s, p_s, backend)
-            # Midpoint arrow showing flow direction (Chad's request,
-            # 2026-09-25) -- each edge is otherwise just a disconnected
-            # 2-point line with no visual cue for which end is upstream.
-            # P is midpointed in LOG space (matches the log-scale y-axis)
-            # so the arrow actually sits halfway along the RENDERED line,
-            # not halfway in linear P (which would put it right against
-            # one end whenever the two pressures differ by orders of
-            # magnitude, as they often do here).
-            mid_h = (h_s + h_t) / 2
-            mid_p = float(np.sqrt(p_s * p_t)) if p_s > 0 and p_t > 0 else (p_s + p_t) / 2
-            frame_traces.append(
-                go.Scatter(
-                    x=[h_s, mid_h, h_t],
-                    y=[p_s, mid_p, p_t],
-                    mode="lines+markers",
-                    line={"color": color},
-                    marker={
-                        "color": color,
-                        "size": [6, 14, 6],
-                        "symbol": ["circle", "arrow", "circle"],
-                        "angleref": "previous",
-                    },
-                    showlegend=False,
-                    name=f"{source} -> {target}",
-                    # Explicit hover text: the default hover only showed raw
-                    # (h, P) coordinates with no indication of which node or
-                    # edge they belonged to -- impossible to trace a line
-                    # back to its endpoints once zoomed in (Chad, 2026-09-25).
-                    # hovertext is per-POINT (which specific node this end
-                    # is), <extra> is the edge as a whole.
-                    hovertext=[source, f"{source} -> {target}", target],
-                    hovertemplate="<b>%{hovertext}</b><br>h=%{x:.1f} kJ/kg<br>P=%{y:.4g} bar<extra>%{fullData.name}</extra>",
-                ),
-            )
-        # One label per NODE (not per edge endpoint -- a node shared by two
-        # edges, e.g. a Merge node both branches flow into, would otherwise
-        # get its label drawn twice at the identical spot). layout.annotations
-        # supports textangle (vertical labels); plain Scatter text/textposition
-        # does not.
-        # Stagger each label's pixel offset (round-robin over a few
-        # distinct shifts) -- data points close together in (h, P) would
-        # otherwise all place their vertical label at the same spot and
-        # overlap into unreadable mush, even with the rotation above.
-        annotations = [
-            {
-                "x": h_kj[name][t],
-                "y": p_bar[name][t],
-                "text": name,
-                "textangle": -90,
-                "showarrow": False,
-                "xanchor": "left",
-                "yanchor": "middle",
-                "xshift": 8,
-                "yshift": _LABEL_YSHIFTS[i % len(_LABEL_YSHIFTS)],
-            }
-            for i, name in enumerate(node_names)
-        ]
-        frame_layout = {
-            "annotations": annotations,
-            "xaxis": {"range": xaxis_range, "autorange": False},
-            "yaxis": {"range": yaxis_range, "autorange": False, "type": "log"},
-        }
-        frames.append(go.Frame(data=frame_traces, layout=frame_layout, name=str(t)))
+        path = fluid_dir / f"{t:04d}.png"
+        _render_frame(
+            path=path,
+            fluid_name=fluid_name,
+            backend=backend,
+            h_dome=h_dome,
+            p_dome=p_dome,
+            edges=edges,
+            h_kj=h_kj,
+            p_bar=p_bar,
+            t=t,
+            elapsed_years=t * dt_years,
+            xlim=xlim,
+            ylim=ylim,
+        )
+        written.append(path)
+    return written
 
-    fig.frames = frames
-    if frames:
-        fig.add_traces(frames[-1].data)
-        fig.update_layout(annotations=frames[-1].layout.annotations)
 
-    fig.update_layout(
-        title=f"{fluid_name} — P-h phase diagram",
-        xaxis_title="Specific enthalpy h [kJ/kg]",
-        xaxis_range=xaxis_range,
-        xaxis_autorange=False,
-        yaxis_title="Pressure P [bar]",
-        yaxis_type="log",
-        yaxis_range=yaxis_range,
-        yaxis_autorange=False,
-        sliders=[
-            {
-                "steps": [
-                    {
-                        "args": [
-                            [str(t)],
-                            {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"},
-                        ],
-                        "label": f"{t * dt_years:.0f}",
-                        "method": "animate",
-                    }
-                    for t in range(n_tsteps)
-                ],
-                "currentvalue": {"prefix": "Elapsed time (years): "},
-            },
-        ],
+def _render_frame(
+    *,
+    path: Path,
+    fluid_name: str,
+    backend: str,
+    h_dome: list[float],
+    p_dome: list[float],
+    edges: list[tuple[str, str]],
+    h_kj: dict[str, list[float]],
+    p_bar: dict[str, list[float]],
+    t: int,
+    elapsed_years: float,
+    xlim: tuple[float, float],
+    ylim: tuple[float, float],
+) -> None:
+    """Render and save a single year's P-h diagram to ``path``.
+
+    No per-node labels (Chad, 2026-09-28: "the labels are a mess") --
+    dropped rather than fixed for now; hover-free static PNGs have no good
+    substitute for Plotly's hover text, so tracing a specific node needs
+    the caller's own knowledge of the topology for the time being.
+    """
+    fig = Figure(figsize=_FIGSIZE)
+    FigureCanvasAgg(fig)
+    ax = fig.subplots()
+
+    ax.plot(h_dome, p_dome, color="black", linestyle=":", linewidth=1.0)
+
+    for source, target in edges:
+        h_s, h_t = h_kj[source][t], h_kj[target][t]
+        p_s, p_t = p_bar[source][t], p_bar[target][t]
+        color = _phase_color(fluid_name, h_s, p_s, backend)
+        ax.plot([h_s, h_t], [p_s, p_t], color=color, marker="o", markersize=3, linewidth=1.5)
+        _add_direction_arrow(ax, h_s, p_s, h_t, p_t, color)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_yscale("log")
+    ax.set_xlabel("Specific enthalpy h [kJ/kg]")
+    ax.set_ylabel("Pressure P [bar]")
+    ax.set_title(f"{fluid_name} — P-h phase diagram (year {elapsed_years:.0f})")
+    ax.grid(True, which="major", linestyle="-", linewidth=0.5, alpha=0.6)
+    ax.grid(True, which="minor", linestyle="-", linewidth=0.3, alpha=0.3)
+
+    legend_handles = [
+        Line2D([0], [0], marker="o", linestyle="", color=color, label=label)
+        for color, label in _PHASE_LEGEND.items()
+    ]
+    legend_handles.append(
+        Line2D([0], [0], color="black", linestyle=":", label=f"{fluid_name} saturation dome"),
     )
-    return fig
+    ax.legend(handles=legend_handles, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=_DPI)
+
+
+def _add_direction_arrow(ax: Axes, h_s: float, p_s: float, h_t: float, p_t: float, color: str) -> None:
+    """Draw a short arrowhead at an edge's midpoint, showing flow direction source -> target.
+
+    Midpointed in LOG space for P (matches the log-scale y-axis) so the
+    arrow actually sits on the rendered line, not off to one side -- linear
+    midpointing would put it right against one end whenever the two
+    pressures differ by orders of magnitude, as they often do here.
+    """
+    frac = 0.05
+    t0, t1 = 0.5 - frac, 0.5 + frac
+    h0 = h_s + t0 * (h_t - h_s)
+    h1 = h_s + t1 * (h_t - h_s)
+    if p_s > 0 and p_t > 0:
+        log_p_s, log_p_t = np.log10(p_s), np.log10(p_t)
+        p0 = float(10 ** (log_p_s + t0 * (log_p_t - log_p_s)))
+        p1 = float(10 ** (log_p_s + t1 * (log_p_t - log_p_s)))
+    else:
+        p0 = p_s + t0 * (p_t - p_s)
+        p1 = p_s + t1 * (p_t - p_s)
+    ax.annotate(
+        "",
+        xy=(h1, p1),
+        xytext=(h0, p0),
+        arrowprops={"arrowstyle": "-|>", "color": color, "lw": 1.5},
+    )
 
 
 def _phase_color(fluid_name: str, h_kj_val: float, p_bar_val: float, backend: str) -> str:
@@ -446,9 +445,7 @@ def _dome_xy(fluid_name: str, backend: str) -> tuple[list[float], list[float]]:
     """Sweep the saturation dome (liquid + vapor branches, triple point to critical point).
 
     The expensive part of tracing the dome (a real CoolProp property
-    lookup per point) -- called ONCE per figure and cached by
-    ``_dome_trace``'s caller, not once per timestep frame (a figure with
-    ``n_tsteps`` frames doesn't need ``n_tsteps`` identical dome sweeps).
+    lookup per point) -- called ONCE per fluid, not once per timestep PNG.
     """
     state = CP.AbstractState(backend, fluid_name)
     T_triple = state.trivial_keyed_output(CP.iT_triple)
@@ -478,43 +475,3 @@ def _dome_xy(fluid_name: str, backend: str) -> tuple[list[float], list[float]]:
     h_dome = [*h_liquid, h_c, *reversed(h_vapor)]
     p_dome = [*p_liquid, p_c, *reversed(p_vapor)]
     return h_dome, p_dome
-
-
-def _dome_trace(fluid_name: str, h_dome: list[float], p_dome: list[float]) -> go.Scatter:
-    """Build a fresh Scatter trace from an already-computed dome sweep (cheap -- no CoolProp calls)."""
-    return go.Scatter(
-        x=h_dome,
-        y=p_dome,
-        mode="lines",
-        line={"color": "black", "dash": "dot"},
-        name=f"{fluid_name} saturation dome",
-    )
-
-
-def _phase_legend_traces() -> list[go.Scatter]:
-    """One invisible-point trace per phase color, purely to populate the legend.
-
-    Per-edge traces themselves set ``showlegend=False`` (there'd otherwise
-    be one legend entry per edge, not per phase) -- these standalone
-    traces are what actually tells the reader what each color means.
-    Included in every frame (not just the base figure) so the legend
-    doesn't disappear when the year slider swaps frames.
-
-    Empty ``x``/``y`` (not ``[None]``) deliberately -- a ``None`` data
-    point on a log-scale axis is a real suspect for the axis-blowup bug
-    (Chad, 2026-09-28): Plotly.js's internal range/tick computation can
-    choke on a null value under ``type: "log"`` in ways that don't
-    reliably respect an explicit ``autorange: False``, even though these
-    traces carry no data that should affect the range at all.
-    """
-    return [
-        go.Scatter(
-            x=[],
-            y=[],
-            mode="markers",
-            marker={"color": color, "size": 10},
-            name=label,
-            hoverinfo="skip",
-        )
-        for color, label in _PHASE_LEGEND.items()
-    ]
