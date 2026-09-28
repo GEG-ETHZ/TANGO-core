@@ -78,6 +78,7 @@ from tango.core.constants import (
     BAR_TO_PA,
     C_TO_K_OFFSET,
     K_TO_C_OFFSET,
+    KJ_PER_KG_TO_J_PER_KG,
     PA_TO_BAR,
 )
 from tango.core.errors import ConfigError, InvalidPowerStateError, TESPyCoolPropError
@@ -670,12 +671,28 @@ class GraphSurface(SurfaceComponent):
                 conn.set_attr(**{tespy_attr: float(value)})
 
     def _collect_node_detail(self) -> dict[str, dict[str, float]]:
-        """Snapshot every node's P/Q (if present) and outgoing-connection T/p/m.
+        """Snapshot every node's P/Q (if present) and every outgoing connection's T/p/m/h.
 
         Generic by construction: works for any node/component type without
         needing to know the topology ahead of time. ``getattr(..., None)``
         guards handle components that don't have a given TESPy attribute
         (e.g. a Valve has no ``P``/``Q``; a Sink has no outgoing connection).
+
+        A node with more than one outgoing connection (e.g. a
+        ``DropletSeparator``'s liquid/vapor split, or a dual-fluid
+        ``HeatExchanger``'s primary/secondary sides) gets one entry PER
+        connection, keyed ``"{name}:{source_id}"`` (``source_id`` is
+        TESPy's own port label, e.g. ``"out1"``/``"out2"``) rather than one
+        entry for the node as a whole -- an earlier version of this method
+        picked only the first matching connection via
+        ``next(c for c in conns if c.source is node)``, silently dropping
+        every other port's state (found while building phase_diagrams.py:
+        a DropletSeparator's vapor-branch turbine inlet was being recorded
+        as its liquid-branch state instead). A single-output node keeps its
+        plain, unqualified ``name`` key -- this is purely additive, so
+        every existing bare-name lookup (``DoubletEconomicComponent``'s
+        CAPEX dispatch, which only ever looks up single-output nodes like
+        ``turbine``/``condenser``/``pump`` by name) is unaffected.
         """
         detail: dict[str, dict[str, float]] = {}
         for name, node in self._nodes.items():
@@ -686,14 +703,24 @@ class GraphSurface(SurfaceComponent):
             q_attr = getattr(node, "Q", None)
             if q_attr is not None and q_attr.val is not None:
                 values["Q"] = q_attr.val
-
-            outgoing = next((c for c in self._conns if c.source is node), None)
-            if outgoing is not None:
-                values["T"] = outgoing.T.val + C_TO_K_OFFSET
-                values["p"] = outgoing.p.val * BAR_TO_PA
-                values["m"] = outgoing.m.val
-
             detail[name] = values
+
+            outgoing = [c for c in self._conns if c.source is node]
+            for conn in outgoing:
+                key = name if len(outgoing) == 1 else f"{name}:{conn.source_id}"
+                conn_values = detail.setdefault(key, {}) if key != name else values
+                conn_values["T"] = conn.T.val + C_TO_K_OFFSET
+                conn_values["p"] = conn.p.val * BAR_TO_PA
+                conn_values["m"] = conn.m.val
+                conn_values["h"] = conn.h.val * KJ_PER_KG_TO_J_PER_KG
+                # Read directly off the connection rather than re-derived from
+                # (T, p) via CoolProp -- a state sitting exactly on the
+                # saturation curve (e.g. a condenser outlet) makes (T, p) an
+                # ill-posed input pair for a tabular backend (can't tell which
+                # quality it is), while the connection's own h is already
+                # unambiguous (see phase_diagrams.py, the one consumer of this
+                # field).
+
         return detail
 
     def _check_pump_or_valve_validity(self) -> None:

@@ -34,7 +34,7 @@ import sys
 import time
 from pathlib import Path
 
-from tango import __version__, results_export
+from tango import __version__, phase_diagrams, results_export
 from tango.core.errors import ConfigError, TangoError
 from tango.workflows.workflow import Workflow
 
@@ -170,12 +170,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help=(
-            "Write results to DIR (created if needed) as three files: "
-            "<name>.yml (full results -- every component's final config/state, "
-            "reloadable with Workflow.from_file()), <name>.smry.csv (one row "
-            "per timestep, one column per component's own scalar history "
-            "field), and <name>.econ.csv (one row, the economic component's "
-            "final state -- omitted if the config has no economic: block). "
+            "Write results to DIR (created if needed): <name>.yml (full "
+            "results -- every component's final config/state, reloadable "
+            "with Workflow.from_file()), <name>.smry.csv (one row per "
+            "timestep, one column per component's own scalar history "
+            "field), <name>.econ.csv (one row, the economic component's "
+            "final state -- omitted if the config has no economic: block), "
+            "and <name>.phase_<fluid>.html per working fluid (interactive "
+            "P-h phase diagram with a year slider -- omitted if the config "
+            "has no GraphSurface surface component). "
             "Saving is opt-in: nothing is written unless this is given."
         ),
     )
@@ -294,6 +297,7 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
 
     if args.save_dir is not None:
         written = results_export.write_results(wf, args.save_dir, args.input_file.stem)
+        written += phase_diagrams.write_phase_diagrams(wf, args.save_dir, args.input_file.stem)
         for path in written:
             print(f"Wrote: {path}")
 

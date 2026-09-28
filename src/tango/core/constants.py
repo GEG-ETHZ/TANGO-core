@@ -24,6 +24,8 @@ PA_TO_BAR    = 1e-5
 BAR_TO_PA    = 1e5
 W_TO_KW      = 1e-3
 W_TO_MW      = 1e-6
+KJ_PER_KG_TO_J_PER_KG = 1e3
+J_PER_KG_TO_KJ_PER_KG = 1e-3
 
 Temperature offsets (additive, not multiplicative)
 ----------------------------------------------------
@@ -95,6 +97,12 @@ W_TO_KW: float = 1e-3
 
 W_TO_MW: float = 1e-6
 """Multiply W to get MW."""
+
+KJ_PER_KG_TO_J_PER_KG: float = 1e3
+"""Multiply kJ/kg to get J/kg."""
+
+J_PER_KG_TO_KJ_PER_KG: float = 1e-3
+"""Multiply J/kg to get kJ/kg."""
 
 C_TO_K_OFFSET: float = 273.15
 """Add to a temperature in degC to get K."""
