@@ -697,59 +697,7 @@ reasoning doesn't have to be re-derived next session.
 
 ## Active: external binary release to a collaborator (added 2026-09-23)
 
-We need to give an external collaborator a runnable copy of `tango` without
-exposing `src/tango/` (the actual physics/orchestration source). This is a
-different distribution boundary from anything decided so far — the existing
-internal release (see "Release plan for `tango` as an internal release, GEG
-team members only" above) is explicitly GEG-only, and the open-source plan
-below covers only the wellbore model plus its foundation dependencies,
-published under a permissive license. Neither covers "closed code, given to
-one named external party." This is new territory (no prior Python
-binary-distribution precedent in this project), so proceed carefully.
-
-**Scope, confirmed 2026-09-23:** `applications/` scripts are fine to hand
-over as plain, readable `.py` — they're not the sensitive part. Only
-`src/tango/` itself needs to be hidden. The collaborator does need to write/
-run their own code against `tango`, so the deliverable is **a compiled,
-importable `tango` package** (Nuitka `--module` mode: compiles `tango`'s
-own code to a real compiled extension — `.so` on macOS/Linux, `.pyd` on
-Windows — that a plain `import tango` picks up like any other installed
-package, but with no readable source behind it). This rules out a
-standalone Nuitka executable (`--standalone`/`--onefile`) — that produces a
-closed program you *run*, not a library you *import*, which doesn't fit
-"collaborator writes their own scripts against `tango`." It also rules out
-PyInstaller and a plain wheel — neither hides source at all.
-
-Open items, in order, before any build work starts:
-
-1. **Authorization first.** Confirm there's an actual NDA / data-sharing
-   agreement covering this specific collaborator before anything is built,
-   let alone sent. Reusing the internal GEG-only `NOTICE`/`LICENSE.txt` is
-   not sufficient — that license was written for internal distribution and
-   says so explicitly; sending it to an outside party under that license
-   would misstate the terms. This needs its own license text and sign-off,
-   not a reused file.
-2. **Collaborator sets up their own Python environment normally** (their
-   own `uv`/`pip`, their own venv) and installs `tango`'s third-party
-   dependencies (numpy, CoolProp, TESPy, pydantic, pymoo, etc.) the usual
-   way — those are already-public open-source packages, not something we
-   need to hide or bundle. Only the compiled `tango` package itself is
-   handed over as an artifact; `applications/` ships as plain `.py`
-   alongside it, importing `tango` normally.
-3. **Target platform(s) and Python version.** A Nuitka `--module` build is
-   specific to both the OS *and* the Python version/ABI it was compiled
-   against — confirm the collaborator's OS and Python version before
-   building, and expect to produce one build per (OS, Python version)
-   combination they need.
-4. **Test on a genuinely clean machine.** Build a small throwaway spike
-   first — compile one or two simple `tango` modules, confirm
-   `import tango` plus a minimal example config actually runs on a clean
-   VM/machine with no development environment installed — before investing
-   in compiling the whole package. "Works on the machine that built it" is
-   not sufficient evidence it will work for the collaborator.
-5. Once 1–4 are settled: compile the full `src/tango/` package, verify the
-   collaborator's own example scripts run against it exactly as they would
-   against the uncompiled source, then hand it over.
+Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/61) (2026-09-28): licensed Nuitka binary + docs release to Paromita Deb, including the full technical plan formerly here.
 
 ## Backlog (queued, not yet started)
 
