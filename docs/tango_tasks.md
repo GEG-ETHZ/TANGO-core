@@ -280,14 +280,14 @@ Goal: get through all of this in the next session (2026-09-17).
         to the *current* file, not old tango. Triage each one; don't
         blind-strip.
     - **Third-party dependency license compliance tooling needs
-      modernizing** (`tools/check_licenses.py` +
-      `tools/conda_and_pip_package_licenses.csv`, discovered while
-      confirming closed-source licensing didn't conflict with any
-      dependency's own license). Currently: a manual-only script, not
-      wired into anything, dumping a 5,475-row CSV (full pip+conda
-      transitive closure) that's already stale (last generated 2026-08-11).
-      Chad wants:
-      - A more human-readable output format than CSV (undecided — CSV
+      modernizing** (`tools/check_licenses.py` → `tools/licenses.json`,
+      discovered while confirming closed-source licensing didn't conflict
+      with any dependency's own license). Currently: a manual-only script,
+      not wired into anything. The old 5,475-row pip+conda CSV output was
+      dropped (2026-09-30); each `licenses.json` entry now records
+      `Direct`/`Depth`/`Scope` (runtime vs dev)/`RequiredBy` from the
+      installed dependency graph. Chad wants:
+      - A more human-readable output format than JSON/CSV (undecided — CSV
         felt too rigid for this).
       - Wired into `just` (a recipe, not just a standalone script).
       - Enforced via pre-commit and/or GitLab CI, not purely manual.
