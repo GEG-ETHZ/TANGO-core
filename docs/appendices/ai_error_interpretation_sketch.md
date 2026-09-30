@@ -44,6 +44,3 @@ broad base types like `ValueError`.
 and a stable set of error types (`ConvergenceError`,
 `FrackingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
 context attached to be useful.
-
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows
-the AI error agent as a future hook on the right side of the simulation loop.*

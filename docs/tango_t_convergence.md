@@ -15,7 +15,7 @@ until the returning temperature is stable.
 
 ## A. The physical circuit
 
-![Circuit diagram: injection well through reservoir, production wells, and surface plant, back to injection well](diagrams/img/tango/t_convergence_circuit.png)
+![Circuit diagram: injection well through reservoir, production wells, and surface plant, back to injection well](diagrams/img/t_convergence_circuit.png)
 
 - **Separator:** the vapor/liquid split fraction is a flash calculation on
   whatever enthalpy actually arrives from the wellhead (at the valve's
@@ -34,7 +34,7 @@ Because the reservoir's true output can reach the injection temperature
 through the merge above, it has to be re-solved on every attempt like
 everything else in the circuit.
 
-![Flowchart: snapshot convergence state once, then loop restore/mark-stale/solve/wire for every component up to 20 times, check injection temperature, and finish when converged](diagrams/img/tango/t_convergence_loop.png)
+![Flowchart: snapshot convergence state once, then loop restore/mark-stale/solve/wire for every component up to 20 times, check injection temperature, and finish when converged](diagrams/img/t_convergence_loop.png)
 
 - **`snapshot_convergence_state()`** — once, before iterating. Every
   component in the circuit deep-copies its own mutable, cross-timestep

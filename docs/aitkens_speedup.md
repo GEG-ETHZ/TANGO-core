@@ -10,7 +10,7 @@ The fraction can be re-expressed using $\Delta x_n = x_n - x_n{n-1}$ and $\Delta
 $$x_{n+1} = f(x_n) + \frac{\Delta x_n}{\Delta x_n - \Delta x_{n-1}}$$
 This first term is taking the evaulation of $f(x_n)$ the second term is a damping/accelerating term. We can approximatley say that we amplify the series by adding the first derivative and dampen by the second derivative. E.g. if our convergence always trends in one direction Aitkens process will start to take bigger steps thanks to the first derivate. However if we are always "overshooting" the solution, the second derivate will dampen these overshots.
 
-<img src="./diagrams/img/tango/cos_converge_example.png" alt="Example of Aitkens Process in action of Cos(x) = x" width="1100">
+<img src="./diagrams/img/cos_converge_example.png" alt="Example of Aitkens Process in action of Cos(x) = x" width="1100">
 
 ### The Fixed Point problem in Tango
 We approximate the re-injection temperature in our power plants as a fixed point problem. Starting with a re-injection temperature $T_n$ we expect fluid to travel down the injection well(s), through the reservoir, up the production well(s) through the power plant/heat exchanger and be ready for re-injection at a temperature $T_{n+1}$ that is within a small tollerance (less than 0.5K) of the initial re-injection temperature $T_n$. We solve this problem at every timestep, starting with the solution from the last timestep.
@@ -84,7 +84,7 @@ Sweeping Euler (for SF and DF configurations) across mass rates leads to the fol
 
 We see that for high mass rates Euler speeds up. When we look at the temperature over time for different mass rates, this makes sense:
 
-<img src="./diagrams/img/tango/mass_rate_profiles.png" alt="Temperature over time for different mass rates" width="1100">
+<img src="./diagrams/img/mass_rate_profiles.png" alt="Temperature over time for different mass rates" width="1100">
 
 Using a high mass rate seems to smooth out the low to high temperature transition we see, which aligns better with a linear extrapolation. And also explains why Euler worked well in the $0.5 K$ sweep, which ran through the same mass rate sweep.
 

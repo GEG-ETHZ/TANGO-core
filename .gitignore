@@ -73,6 +73,8 @@ builds
 *.svg
 !docs/diagrams/img/**/*.svg
 !docs/diagrams/img/**/*.png
+# Local export only -- the Miro board embeds the .drawio source via plugin
+docs/diagrams/img/hydro_sf_electric_topology.png
 .aider*
 .claude/
 *.drawio.bkp

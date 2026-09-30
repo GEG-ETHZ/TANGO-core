@@ -389,9 +389,6 @@ prevention, leaving room for variants that optimise operating objectives:
 These require the Phase 2 Newton-step solver infrastructure and the pump electricity
 accounting fix to be in place before they can be meaningfully implemented.
 
-*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — shows
-current modes and which trigger the outer convergence loop.*
-
 ### Open Design Questions
 
 Design questions not yet settled — flagged here so the reasoning behind them doesn't
@@ -1233,10 +1230,7 @@ software-sustainability review).
 - **Diagrams** -- need to build out diagrams to communicate to management how
   things are currently structured
 
-*Diagram: [Input File Structure](../diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [Runtime Code Objects](../diagrams/src/phase0_code_objects.drawio)*
-*Diagram: [Module Structure](../diagrams/src/phase0_module_structure.drawio)*
-*Diagram: [Execution Flow](../diagrams/src/phase0_execution_flow.drawio)*
+*Diagrams of the pre-refactor structure were removed once superseded; recover them from git history (last present at `ad00684`).*
 
 **Tasks:**
 - [x] Diagrams
@@ -1452,10 +1446,7 @@ all congruent with each other.
   how things should be structured and why the new structure addresses the
   shortcomings of the old structure
 
-*Diagram: [New Input File Structure](../diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [New Module Structure](../diagrams/src/phase1_new_module_structure.drawio)*
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio)*
-*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
+*Diagrams of the Phase 1 target structure were removed once the implemented code superseded them; recover them from git history (last present at `ad00684`).*
 
 **Tasks:**
 - [x] create temporary space for new structure
@@ -1732,9 +1723,6 @@ hard-code as static error messages.
 for the code-level sketch (a top-level exception handler wrapping `tango_cli run`,
 routed through a stable `TangoError` exception taxonomy modeled on Rust's
 `thiserror`/`anyhow` pattern).
-
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows the
-AI error agent as a future hook on the right side of the simulation loop.*
 
 ---
 

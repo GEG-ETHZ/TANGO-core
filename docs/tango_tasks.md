@@ -2534,7 +2534,7 @@ verified, then this fix popped back in and re-checked).
   syntax), backed by an editable `.drawio` source
   (`docs/diagrams/src/tango/t_convergence.drawio`, two pages —
   "Circuit" and "Convergence loop") with matching exported SVGs under
-  `docs/diagrams/img/tango/`. The warning box in
+  `docs/diagrams/img/`. The warning box in
   `hydro_df_electric_exec_flow.drawio` now points at the new doc
   instead of the Artifact URL. Embeds PNG, not SVG (GitLab refuses to
   render locally-hosted SVGs inline for security reasons and falls back to

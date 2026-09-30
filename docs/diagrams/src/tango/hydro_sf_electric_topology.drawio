@@ -1,0 +1,130 @@
+<mxfile host="Electron">
+  <diagram name="Single-Flash topology" id="hydro-sf-electric-topology">
+    <mxGraphModel dx="1799" dy="1195" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="700" pageHeight="150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontStyle=1" value="hydro_sf_electric.yml — single-flash surface plant topology" vertex="1">
+          <mxGeometry height="24" width="700" x="60" y="-110" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=2" value="Boxes are TESPy nodes (power_plant.nodes); arrows are power_plant.edges. Single fluid loop (H2O, common.fluid_name) throughout -- droplet_separator splits it into a liquid branch (→pump2) and a vapor branch (→turbine→condenser→pump), remerged at mixer." vertex="1">
+          <mxGeometry height="18" width="1100" x="60" y="-86" as="geometry" />
+        </mxCell>
+        <mxCell id="c_inj" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" value="injection well&#xa;component_idx 0" vertex="1">
+          <mxGeometry height="60" width="120" x="60" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="c_res" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" value="reservoir&#xa;idx 1" vertex="1">
+          <mxGeometry height="60" width="110" x="220" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="c_prod" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11;fontStyle=1" value="production well&#xa;lower → upper (pump), idx 2 → 3" vertex="1">
+          <mxGeometry height="60" width="160" x="370" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="c_plant" parent="1" style="rounded=1;dashed=1;fillColor=none;strokeColor=#999C98;verticalAlign=top;fontStyle=1;fontSize=11;align=left;spacingLeft=12;spacingTop=6;strokeWidth=2;" value="          surface plant (GraphSurface) — idx 4 — power_plant.nodes/edges" vertex="1">
+          <mxGeometry height="430" width="780" x="570" y="-50" as="geometry" />
+        </mxCell>
+        <mxCell id="p_inlet" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" value="inlet&#xa;(Source)" vertex="1">
+          <mxGeometry height="45" width="80" x="590" y="-7.5" as="geometry" />
+        </mxCell>
+        <mxCell id="p_valve" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10;fontStyle=1" value="flash_valve&lt;br&gt;(Valve)&lt;br&gt;p_out=0.05 MPa" vertex="1">
+          <mxGeometry height="52.5" width="110" x="695" y="-11.25" as="geometry" />
+        </mxCell>
+        <mxCell id="p_sep" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10;fontStyle=1" value="droplet_separator&#xa;(DropletSeparator)" vertex="1">
+          <mxGeometry height="60" width="140" x="830" y="-15" as="geometry" />
+        </mxCell>
+        <mxCell id="p_pump2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10" value="pump2&#xa;(Compressor)&#xa;role: net_electric" vertex="1">
+          <mxGeometry height="52.5" width="110" x="1070" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="p_mixer" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" value="mixer&#xa;(Merge)" vertex="1">
+          <mxGeometry height="50" width="90" x="1140" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p_outlet" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=11" value="outlet&#xa;(Sink)" vertex="1">
+          <mxGeometry height="45" width="70" x="1260" y="82.5" as="geometry" />
+        </mxCell>
+        <mxCell id="s_turbine" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10" value="turbine&#xa;(Turbine)&#xa;role: net_electric, p_out=0.005 MPa" vertex="1">
+          <mxGeometry height="52.5" width="150" x="810" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="s_condenser" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10" value="condenser&#xa;(SimpleHeatExchanger)&#xa;vapor_mass_fraction_out=0" vertex="1">
+          <mxGeometry height="52.5" width="150" x="1000" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="s_pump" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#3C4550;fontSize=10" value="pump&#xa;(Compressor)&#xa;role: net_electric" vertex="1">
+          <mxGeometry height="52.5" width="110" x="1190" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_primary" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontColor=#C1501F;fontStyle=1;fontSize=10" value="single fluid loop &lt;br&gt;(H2O, common.fluid_name)" vertex="1">
+          <mxGeometry height="18" width="300" x="405" y="34.75" as="geometry" />
+        </mxCell>
+        <mxCell id="oe1" edge="1" parent="1" source="c_inj" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="c_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="oe2" edge="1" parent="1" source="c_res" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="c_prod">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="oe3" edge="1" parent="1" source="c_prod" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1;dashed=1;" target="p_inlet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="p_inlet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="p_valve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="p_valve" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="p_sep">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="p_sep" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.3;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1;fontSize=9;fontColor=#C1501F" target="p_pump2" value="out1 (liquid)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="p_sep" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;endArrow=block;endFill=1;fontSize=9;fontColor=#C1501F" target="s_turbine" value="out2 (vapor)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="s_turbine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="s_condenser">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="s_condenser" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="s_pump">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="s_pump" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=0.5;exitY=0;entryX=0.7;entryY=1;html=1;endArrow=block;endFill=1;fontSize=9;fontColor=#C1501F" target="p_mixer" value="in1 (condensate)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="p_pump2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=0.7;exitY=1;entryX=0.3;entryY=0;html=1;endArrow=block;endFill=1;fontSize=9;fontColor=#C1501F" target="p_mixer" value="in2 (separator liquid)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="p_mixer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="p_outlet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="p_outlet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;dashed=1;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=1;html=1;endArrow=block;endFill=1;fontColor=#C1501F;fontStyle=1;fontSize=9;align=center;verticalAlign=bottom" target="c_inj" value="surface.outlet → injection_well.inlet (next timestep)">
+          <mxGeometry relative="1" x="0.2857" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1295" y="140" />
+              <mxPoint x="1320.06" y="140" />
+              <mxPoint x="1320.06" y="360" />
+              <mxPoint x="120.06" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontColor=#5B6472;fontSize=9;whiteSpace=wrap" value="condenser&#39;s Subtype/set_number/design/cooling_tower_mode fields are cost-only metadata for DoubletEconomicComponent -- ignored by GraphSurface&#39;s own physics solve, which only reads p_out_megapascals and vapor_mass_fraction_out here." vertex="1">
+          <mxGeometry height="90" width="200" x="1000" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="7O8cmxBX6DFDXif6A-V5-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=top;rounded=0;" value="Everything inside the gray dashed line is solved by &lt;i&gt;tespy&lt;/i&gt;&#39;s implicit (aka monolithic) solver, but full system is solved by an outer explicit (aka sequential).&amp;nbsp; The risk of this is that if there is a situation where the reservoir does &lt;i&gt;not &lt;/i&gt;dominate the solution, we&#39;ll have to iterate the implicit solver repeatedly within the convergence iterations of the outer explicit solver.&amp;nbsp;&amp;nbsp;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="270" width="235" x="575" y="45" as="geometry" />
+        </mxCell>
+        <mxCell id="7O8cmxBX6DFDXif6A-V5-5" edge="1" parent="1" source="7O8cmxBX6DFDXif6A-V5-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="90" />
+            </Array>
+            <mxPoint x="120" y="90" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="7O8cmxBX6DFDXif6A-V5-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Current BC convergence checkpoint for temperature (injectioon wellhead inlet)" vertex="1">
+          <mxGeometry height="90" width="120" x="150" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="7O8cmxBX6DFDXif6A-V5-7" edge="1" parent="1" source="7O8cmxBX6DFDXif6A-V5-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="10" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="7O8cmxBX6DFDXif6A-V5-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Bruce&#39;s proposed BC convergence checkpoint for temperature (production wellhead outlet)" vertex="1">
+          <mxGeometry height="100" width="120" x="410" y="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

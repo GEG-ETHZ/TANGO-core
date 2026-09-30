@@ -53,6 +53,23 @@ board(s). Read this before doing any "sync TANGO" work.
     board maintainer. This is **not reproducible through MCP tools** —
     don't try to recreate it if it looks broken; ask a board maintainer
     with UI access instead.
+  - The board's bounds are much larger than its content (one oversized
+    frame, widget id `3458764668417431565`, is ~334k × 360k units), so
+    "zoom to fit" can't show the whole board. Known and deliberately left
+    as-is — don't try to fix it through MCP.
+
+## Diagrams on the board
+
+- Put draw.io diagrams on the board with Miro's **draw.io plugin**, not as
+  native Miro shapes or static PNGs. The source of truth stays in
+  `docs/diagrams/src/**/*.drawio`: edit it there and re-import, so the
+  board copy doesn't drift from the repo.
+- The plugin drops the embed wherever the viewport happens to be, often
+  tiny and outside any frame. After inserting, check its size and
+  position and move it into the right frame.
+- To find a lost embed, `canvas_search` in `matches` mode for
+  `re:type="external_diagram"`, then link to it with
+  `?moveToWidget=<id>`.
 
 ## What "sync" means here
 
