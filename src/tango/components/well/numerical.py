@@ -13,15 +13,16 @@ history fields below despite their name) have ``num_cells + 1`` entries.
 
 Governing equations (per cell):
 
-- Pressure:  P[i] = P[i-1] - f_dir·ρ·g·dz - ΔP_friction   (Darcy-Weisbach)
-- Enthalpy:  h[i] = h[i-1] - f_dir·g·dz - Q_loss / ṁ       (Zhang 2011 heat-loss)
+- Pressure:  P[i] = P[i-1] - upward_component·ρ·g·dz - ΔP_friction   (Darcy-Weisbach)
+- Enthalpy:  h[i] = h[i-1] - upward_component·g·dz - Q_loss / ṁ       (Zhang 2011 heat-loss)
 
 A single class covers injection, production, and (future) deviated wells,
 distinguished only by ``angle_from_vert_deg``: 0° = straight down
 (injection), 180° = straight up (production), values in between describe a
-deviated well, 90° a horizontal one. ``f_dir = -cos(radians(angle))`` so it
+deviated well, 90° a horizontal one. ``upward_component = -cos(radians(angle))``
+(the vertical component of the unit flow direction, positive upward) so it
 matches the sign convention above exactly at the two endpoints
-(``f_dir = -1`` for straight-down injection, ``+1`` for straight-up
+(``upward_component = -1`` for straight-down injection, ``+1`` for straight-up
 production) while interpolating smoothly in between — a horizontal well
 (90°) correctly gets zero elevation-dependent pressure/enthalpy change.
 Friction and heat-loss terms use the full ``cell_length`` (flow-path
@@ -320,7 +321,7 @@ class NumericalWell(WellComponent):
             quantity), so ``T_r`` tracks actual rock temperature rather than
             distance traveled. ``abs()`` is applied because depth increases
             away from the wellhead regardless of flow direction — the
-            separate ``f_dir`` sign in ``solve()`` already handles the
+            separate ``upward_component`` sign in ``_march()`` already handles the
             injection-vs-production gravity direction, so this must stay a
             positive magnitude.
 
@@ -389,10 +390,14 @@ class NumericalWell(WellComponent):
         A = self.cross_sectional_area
         g = self.gravity * self.gravity_scale_factor
         dz = self.cell_length  # flow-path length per cell (friction, heat-loss)
-        # -cos(...) so this matches the f_dir convention above exactly at the
-        # endpoints (-1 straight down / injection, +1 straight up / production)
-        # while interpolating through 0 at 90 degrees (horizontal).
-        f_dir = -math.cos(math.radians(self.angle_from_vert_deg))
+        # -cos(...) so this matches the upward_component convention in the
+        # module docstring exactly at the endpoints (-1 straight down /
+        # injection, +1 straight up / production) while interpolating through
+        # 0 at 90 degrees (horizontal).
+        upward_component = -math.cos(math.radians(self.angle_from_vert_deg))
+        # specific potential-energy gain per cell (J/kg); constant along the
+        # well, so computed once here rather than per cell
+        potential_energy_per_cell = upward_component * g * dz
         T_r = np.asarray(self.T_r)
 
         for i in range(1, n + 1):
@@ -406,9 +411,9 @@ class NumericalWell(WellComponent):
                 t_d=t_d,
                 delta_T=T_f[i - 1] - T_r[i - 1],
             )
-            dp_grav = f_dir * rho[i - 1] * g * dz
+            dp_grav = potential_energy_per_cell * rho[i - 1]
             P[i] = P[i - 1] - dp_grav - dP_loss
-            h[i] = h[i - 1] - f_dir * g * dz - Q_loss / mdot
+            h[i] = h[i - 1] - potential_energy_per_cell - Q_loss / mdot
 
             cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i], self.common.coolprop_backend)
             rho[i] = cell_state.rho
