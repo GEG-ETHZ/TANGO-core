@@ -350,6 +350,13 @@ changelog/release tooling default to expecting a `v` prefix).
    everything going into this release (see [Changelog](#changelog) above).
 2. On `main`, bump `version` in `pyproject.toml` (e.g. `"1.0.0"` →
    `"1.0.1"`) and commit it (normal MR + review, same as any other change).
+   That MR's pipeline runs the `license_check` job
+   (`tools/check_licenses.py`), which fails if any runtime dependency's
+   license isn't allowed. Don't tag until it passes: review each flagged
+   license (the job's artifacts include `licenses.json` and a draw.io
+   dependency tree) and either replace the dependency or add a
+   `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the
+   reason, via its own MR.
 3. Once that commit is on `main`, tag it and push the tag:
    ```bash
    git checkout main && git pull

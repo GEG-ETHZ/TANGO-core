@@ -2,9 +2,12 @@
 
 Two steps, runnable together or separately:
 
-1. **Generate** (``--generate-only``): inspect every package installed in the
+1. **Generate** (``--generate-only``): inspect the packages installed in the
    current environment and write one entry per package to
-   ``tools/licenses.json``. The license comes from the package's own
+   ``tools/licenses.json``. By default only runtime dependencies of
+   ``tango-core`` are included -- what a user of ``tango-core`` actually
+   gets; pass ``--dev`` to also include dev tooling and anything else
+   installed. The license comes from the package's own
    metadata (``License-Expression``, else ``License``, else a
    ``License ::`` classifier, else ``"Unknown"``).
 2. **Check** (``--check-only``): normalize each entry's license string and
@@ -14,7 +17,8 @@ Two steps, runnable together or separately:
 
 Because the input is the installed environment, not ``pyproject.toml`` or
 ``uv.lock``, run it from a fully synced environment (``uv sync``) so the
-report covers exactly what ships and what the dev tooling pulls in.
+report covers exactly what ships (and, with ``--dev``, what the dev
+tooling pulls in).
 
 Each entry in licenses.json has ``Name`` and ``License``, plus where the
 package sits in the dependency graph rooted at ``tango-core``. That graph is
@@ -27,7 +31,7 @@ and extras evaluated) plus the ``dev`` dependency group in ``pyproject.toml``:
 - ``Scope``: ``"runtime"`` if reachable through ``tango-core``'s own
   dependencies, ``"dev"`` if reachable only through the ``dev`` extra or
   the ``dev`` dependency group, ``"unreferenced"`` if not reachable at all
-  (e.g. installed by hand).
+  (e.g. installed by hand). Without ``--dev`` every entry is ``"runtime"``.
 - ``RequiredBy``: installed packages that directly require it
   (``tango-core`` included).
 - ``Parent``: the requirer on one shortest chain from ``tango-core``;
@@ -37,13 +41,14 @@ and extras evaluated) plus the ``dev`` dependency group in ``pyproject.toml``:
 diagram (default ``tools/dependency_tree.drawio``), colored by license:
 green = allowed, red = declares a GPL-family license (read it -- dual
 licenses and linking exceptions land here too), yellow = anything else
-needing review. Dev-only packages have a dashed border.
+needing review. With ``--dev``, dev-only packages have a dashed border.
 
 Usage:
     uv run python tools/check_licenses.py                 # generate + check
     uv run python tools/check_licenses.py --generate-only
     uv run python tools/check_licenses.py --check-only
     uv run python tools/check_licenses.py --generate-only --drawio
+    uv run python tools/check_licenses.py --dev          # include dev tooling
 """
 
 from __future__ import annotations
@@ -77,6 +82,10 @@ ALLOWED_LICENSES = {
     "bsd",
     "isc",
     "mpl-2.0",
+    "epl",
+    "zpl-2.1",
+    "mit-cmu",
+    "tcl",
     "psf",
     "python software foundation",
     "python software foundation license",
@@ -85,11 +94,66 @@ ALLOWED_LICENSES = {
     "hpnd",
 }
 
+# Packages whose license fails the automatic check but has been reviewed by a
+# person and judged fine: canonical package name -> (the License string that
+# was reviewed -- its first line, for packages that put full license text
+# there -- and why it's fine). The approval only applies while the installed
+# license still matches, so a relicensed package gets flagged for review again.
+REVIEWED_PACKAGES: dict[str, tuple[str, str]] = {
+    "pygit2": (
+        "GPLv2 with linking exception",
+        "linking exception grants unlimited permission to link pygit2 into other programs "
+        "and distribute the combination; GPL still applies to modifying pygit2 or "
+        "distributing it on its own (see pygit2's COPYING)",
+    ),
+    "google-crc32c": (
+        "Unknown",
+        "Apache-2.0: no license metadata, but the bundled dist-info/licenses/LICENSE is the Apache License 2.0",
+    ),
+    "python-dateutil": (
+        "Dual License",
+        "Apache-2.0 (contributions since 2017) and BSD-3-Clause (earlier code), per the bundled LICENSE; "
+        "both allowed",
+    ),
+    "graphemeu": (
+        "Copyright (c) 2017 The Python Packaging Authority (PyPA)",
+        "MIT: the License field holds the MIT license text, starting with its copyright lines",
+    ),
+    "docutils": (
+        "Public Domain, Python Software Foundation License, BSD License, GNU General Public License (GPL)",
+        "installed files are public domain, BSD-2/3-Clause, or ZPL-2.1 per the bundled COPYING.txt; its only "
+        "GPL file (tools/editors/emacs/rst.el) is not part of the installed package; "
+        "checked by Chad Baker and Dieter, 2026-10-01",
+    ),
+    "rope": (
+        "LGPL-3.0-or-later",
+        "LGPL, dev-only (pulled in by pylsp-rope for editor refactoring support); never shipped; "
+        "approved by Chad Baker, 2026-10-01",
+    ),
+    "pytoolconfig": (
+        "LGPL-3.0-or-later",
+        "LGPL, dev-only (pulled in by rope); never shipped; approved by Chad Baker, 2026-10-01",
+    ),
+    "docstring-to-markdown": (
+        "LGPL-2.1-or-later",
+        "LGPL, dev-only (pulled in by python-lsp-server); never shipped; approved by Chad Baker, 2026-10-01",
+    ),
+    "coolprop": (
+        "Unknown",
+        'MIT: v6.8.0\'s pyproject.toml declares license = "MIT", but its custom build backend '
+        "drops license metadata from the wheel "
+        "(https://github.com/CoolProp/CoolProp/blob/v6.8.0/pyproject.toml)",
+    ),
+}
+
 LICENSE_ALIASES = {
     "mit license": "mit",
     "apache software license": "apache-2.0",
     "apache 2.0": "apache-2.0",
     "bsd license": "bsd",
+    "new bsd": "bsd",
+    "3-clause bsd": "bsd-3-clause",
+    "zope public": "zpl-2.1",
     "isc license (iscl)": "isc",
     "historical permission notice and disclaimer (hpnd)": "hpnd",
     "mozilla public license 2.0": "mpl-2.0",
@@ -101,9 +165,22 @@ LICENSE_ALIASES = {
 }
 
 
+def _strip_quotes(license_str: str) -> str:
+    """Drop quotes wrapping a whole license string, e.g. ``'MIT'`` -> ``MIT``.
+
+    Some packages write their ``License`` value with literal quotes (a
+    ``setup.py``/``setup.cfg`` quoting slip), which would otherwise keep it
+    from matching any known license.
+    """
+    license_str = license_str.strip()
+    while len(license_str) >= 2 and license_str[0] == license_str[-1] and license_str[0] in "'\"":
+        license_str = license_str[1:-1].strip()
+    return license_str
+
+
 def normalize_license(license_str: str) -> str:
     """Normalize a license string to a canonical lowercase form for comparison."""
-    license_str = license_str.lower().strip()
+    license_str = _strip_quotes(license_str).lower()
     license_str = re.sub(r"[\s]+", " ", license_str)
     license_str = license_str.replace("license", "").strip()
     license_str = license_str.replace("software", "").strip()
@@ -125,6 +202,8 @@ def normalize_license(license_str: str) -> str:
         return "isc"
     if "mozilla public license" in license_str or "mpl 2.0" in license_str:
         return "mpl-2.0"
+    if "eclipse public" in license_str or re.match(r"epl\b|eplv?\d", license_str):
+        return "epl"
     if "hpnd" in license_str:
         return "hpnd"
     if "unlicense" in license_str:
@@ -144,20 +223,45 @@ def normalize_license(license_str: str) -> str:
 def _license_for(dist: metadata.Distribution) -> str:
     """Best-effort license lookup for an installed distribution.
 
-    Newer packages (PEP 639) only populate `License-Expression`; older ones
-    populate the legacy `License` field or a `License ::` classifier.
+    In order of preference:
+
+    1. ``License-Expression`` (PEP 639), e.g. ``MIT OR Apache-2.0``.
+    2. The legacy ``License`` field, if it holds a license *name* -- a short,
+       single line.
+    3. ``License ::`` classifiers, e.g. ``License :: OSI Approved :: MIT
+       License`` -> ``MIT License``. Several are joined with ``", "``, which
+       ``_is_allowed`` treats as AND (the conservative reading).
+    4. The ``License`` field even if it holds the full license text; such
+       text can't be checked automatically, so ``_is_allowed`` leaves it for
+       review.
+    5. ``"Unknown"``.
+
+    Many packages put their whole license text in ``License`` *and* declare
+    a classifier, so preferring the classifier over the text (3 before 4)
+    is what lets them be checked at all.
     """
     expression = dist.metadata.get("License-Expression")
     if expression and expression.strip():
-        return expression.strip()
+        return _strip_quotes(expression)
 
-    license_field = dist.metadata.get("License")
-    if license_field and license_field.strip() and license_field.strip().upper() != "UNKNOWN":
-        return license_field.strip()
+    license_field = _strip_quotes(dist.metadata.get("License") or "")
+    if license_field.upper() == "UNKNOWN":
+        license_field = ""
+    if license_field and "\n" not in license_field and len(license_field) <= _MAX_EXPRESSION_LENGTH:
+        return license_field
 
-    for classifier in dist.metadata.get_all("Classifier") or []:
-        if classifier.startswith("License ::"):
-            return classifier.split("::")[-1].strip()
+    classifiers = [
+        classifier.split("::")[-1].strip()
+        for classifier in dist.metadata.get_all("Classifier") or []
+        if classifier.startswith("License ::")
+    ]
+    # "License :: OSI Approved" on its own names no license
+    classifiers = [name for name in classifiers if name != "OSI Approved"]
+    if classifiers:
+        return ", ".join(dict.fromkeys(classifiers))
+
+    if license_field:
+        return license_field
 
     return "Unknown"
 
@@ -305,6 +409,17 @@ def generate_license_data() -> list[dict[str, Any]]:
     return data
 
 
+def _filter_scope(data: list[dict[str, Any]], *, include_dev: bool) -> list[dict[str, Any]]:
+    """Keep only runtime entries unless ``include_dev``.
+
+    Entries without a ``Scope`` (a licenses.json written before scopes were
+    recorded) are kept, since there's no way to tell what they are.
+    """
+    if include_dev:
+        return data
+    return [pkg for pkg in data if pkg.get("Scope", "runtime") == "runtime"]
+
+
 def write_license_data(data: list[dict[str, Any]]) -> None:
     """Write license data to licenses.json."""
     with JSON_PATH.open("w") as f:
@@ -325,10 +440,103 @@ def _graph_note(pkg: dict[str, Any]) -> str:
     )
 
 
+# splits a license expression into operators, parentheses, and license terms;
+# operators must be whitespace-delimited words so e.g. "GPL-2.0-or-later" stays one term
+_EXPRESSION_TOKEN = re.compile(r"(\(|\)|\s+(?:OR|AND|WITH)\s+|\||&|,|;)", re.IGNORECASE)
+# an operator anywhere means the string is an expression, not one license name;
+# without one, parentheses are part of the name, e.g. "ISC License (ISCL)"
+_HAS_OPERATOR = re.compile(r"\s(?:OR|AND|WITH)\s|[|&,;]", re.IGNORECASE)
+# longer than this, or multi-line, and it's license prose, not an expression
+_MAX_EXPRESSION_LENGTH = 200
+
+
 def _is_allowed(license_str: str) -> bool:
-    """True if every license named in ``license_str`` normalizes into ``ALLOWED_LICENSES``."""
-    parts = {normalize_license(lic.strip()) for lic in license_str.replace(";", ",").split(",")}
-    return parts.issubset(ALLOWED_LICENSES)
+    """True if ``license_str`` permits use under ``ALLOWED_LICENSES``.
+
+    Short, single-line strings are evaluated as license expressions (SPDX
+    style, plus the looser spellings packages actually use):
+
+    - ``A OR B`` / ``A | B``: allowed if either side is -- the user may
+      pick the permissive alternative (e.g. ``GPLv2 | EPLv1``).
+    - ``A AND B`` / ``A & B`` / ``A, B`` / ``A; B``: allowed only if both are.
+    - ``A WITH exception``: judged on ``A`` alone, since an exception only
+      grants extra permissions.
+    - Parentheses group as usual; AND binds tighter than OR.
+
+    A string with no operator is a single license name, parentheses and
+    all. Anything longer or multi-line (packages that put their full
+    license text in the ``License`` field) is never allowed automatically:
+    its prose contains "or"/"and" that aren't operators, and substring
+    matching on it is unreliable (e.g. "isc" inside "disclaimer"), so it
+    is left for a human to read.
+    """
+    text = license_str.strip()
+    if "\n" in text or len(text) > _MAX_EXPRESSION_LENGTH:
+        return False
+    # "Apache License, Version 2.0": the comma is part of the name, not an AND
+    text = re.sub(r",\s*(version\b)", r" \1", text, flags=re.IGNORECASE)
+    if not _HAS_OPERATOR.search(text):
+        return normalize_license(text) in ALLOWED_LICENSES
+    tokens = [token.strip() for token in _EXPRESSION_TOKEN.split(text) if token.strip()]
+    tokens = [{"|": "OR", "&": "AND", ",": "AND", ";": "AND"}.get(token, token) for token in tokens]
+    position = 0
+
+    def peek() -> str | None:
+        return tokens[position].upper() if position < len(tokens) else None
+
+    def parse_or() -> bool:
+        nonlocal position
+        allowed = parse_and()
+        while peek() == "OR":
+            position += 1
+            allowed = parse_and() or allowed
+        return allowed
+
+    def parse_and() -> bool:
+        nonlocal position
+        allowed = parse_term()
+        while peek() == "AND":
+            position += 1
+            allowed = parse_term() and allowed
+        return allowed
+
+    def parse_term() -> bool:
+        nonlocal position
+        if peek() == "(":
+            position += 1
+            allowed = parse_or()
+            if peek() == ")":
+                position += 1
+        elif peek() is None or peek() in {"OR", "AND", "WITH", ")"}:
+            # malformed expression: nothing here to allow
+            allowed = False
+        else:
+            allowed = normalize_license(tokens[position]) in ALLOWED_LICENSES
+            position += 1
+        if peek() == "WITH":
+            position += 2  # skip WITH and the exception identifier
+        return allowed
+
+    allowed = parse_or()
+    # trailing tokens mean the expression didn't parse cleanly; don't guess
+    return allowed and position >= len(tokens)
+
+
+def _review_status(pkg: dict[str, Any]) -> str | None:
+    """``"approved"`` if ``REVIEWED_PACKAGES`` covers this exact license, ``"stale"`` if the
+    package was reviewed under a different license string, else ``None``.
+    """
+    review = REVIEWED_PACKAGES.get(_canonical(pkg.get("Name", "")))
+    if review is None:
+        return None
+    installed = (pkg.get("License") or "").strip()
+    first_line = installed.splitlines()[0].strip() if installed else ""
+    return "approved" if review[0] in {installed, first_line} else "stale"
+
+
+def _is_package_allowed(pkg: dict[str, Any]) -> bool:
+    """True if the package's license passes ``_is_allowed`` or a matching manual review."""
+    return _is_allowed(pkg.get("License", "UNKNOWN")) or _review_status(pkg) == "approved"
 
 
 def check_compliance(data: list[dict[str, Any]]) -> bool:
@@ -340,8 +548,23 @@ def check_compliance(data: list[dict[str, Any]]) -> bool:
     for pkg in data:
         pkg_name = pkg.get("Name", "UNKNOWN")
         pkg_license = pkg.get("License", "UNKNOWN")
-        if not _is_allowed(pkg_license):
-            violations.append((pkg_name, pkg_license, _graph_note(pkg)))
+        if _is_package_allowed(pkg):
+            continue
+        note = _graph_note(pkg)
+        if _review_status(pkg) == "stale":
+            reviewed_license = REVIEWED_PACKAGES[_canonical(pkg_name)][0]
+            note += f"  (license changed since manual review of {reviewed_license!r})"
+        violations.append((pkg_name, pkg_license, note))
+
+    approved = [
+        pkg for pkg in data if not _is_allowed(pkg.get("License", "")) and _review_status(pkg) == "approved"
+    ]
+    if approved:
+        print("\nAllowed by manual review (REVIEWED_PACKAGES):")
+        for pkg in approved:
+            print(
+                f"  - {pkg['Name']}: {_short_license(pkg['License'])} -- {REVIEWED_PACKAGES[_canonical(pkg['Name'])][1]}",
+            )
 
     if violations:
         print("\nFound non-compliant licenses:")
@@ -366,8 +589,10 @@ COLUMN_GAP = 60
 ROW_GAP = 8
 
 
-def _license_class(license_str: str) -> str:
+def _license_class(pkg: dict[str, Any]) -> str:
     """``allowed`` / ``mentions-gpl`` / ``review`` bucket used to color draw.io nodes.
+
+    ``allowed`` includes packages approved via ``REVIEWED_PACKAGES``.
 
     ``mentions-gpl`` means the declared license (its first line) names a
     GPL-family license -- including dual licenses (``Apache-2.0 OR
@@ -376,9 +601,9 @@ def _license_class(license_str: str) -> str:
     mention GPL further down only for bundled third-party components; those
     land in ``review`` instead.
     """
-    if _is_allowed(license_str):
+    if _is_package_allowed(pkg):
         return "allowed"
-    if re.search(r"\b(A|L)?GPL", _short_license(license_str, limit=10_000), re.IGNORECASE):
+    if re.search(r"\b(A|L)?GPL", _short_license(pkg["License"], limit=10_000), re.IGNORECASE):
         return "mentions-gpl"
     return "review"
 
@@ -435,7 +660,7 @@ def write_dependency_tree(data: list[dict[str, Any]], path: Path) -> None:
         if pkg is None:
             label, fill, stroke, dashed = "<b>tango-core</b>", "#dae8fc", "#6c8ebf", 0
         else:
-            fill, stroke = LICENSE_CLASS_STYLE[_license_class(pkg["License"])]
+            fill, stroke = LICENSE_CLASS_STYLE[_license_class(pkg)]
             dashed = int(pkg["Scope"] == "dev")
             label = f"<b>{escape(pkg['Name'])}</b><br>{escape(_short_license(pkg['License']))}"
         style = f"rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor={fill};strokeColor={stroke};dashed={dashed};"
@@ -487,13 +712,18 @@ def main() -> int:
         metavar="PATH",
         help=f"Also write the dependency tree as a draw.io diagram (default: {DEFAULT_DRAWIO_PATH.name}).",
     )
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Include dev dependencies (and unreferenced installed packages), not just runtime ones.",
+    )
     args = parser.parse_args()
 
     if args.check_only:
         with JSON_PATH.open() as f:
-            data = json.load(f)
+            data = _filter_scope(json.load(f), include_dev=args.dev)
     else:
-        data = generate_license_data()
+        data = _filter_scope(generate_license_data(), include_dev=args.dev)
         write_license_data(data)
     if args.drawio:
         write_dependency_tree(data, args.drawio)

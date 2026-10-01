@@ -42,6 +42,33 @@ test:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "web"
 
+# Third-party license gate for releases. Fails if any runtime dependency's
+# license isn't allowed by tools/check_licenses.py (allowed license, or an
+# entry in its REVIEWED_PACKAGES table). Resolving a failure means a person
+# reviews the license and either replaces the dependency or adds a
+# REVIEWED_PACKAGES entry with the reason, through a normal MR.
+#
+# Runs on the version-bump MR into main -- the only point where it can
+# stop a release, since the pushed tag *is* the release (CONTRIBUTING.md §
+# "Cutting an Internal (GEG-only) Release") -- and again on the release tag
+# itself as a record of what shipped. licenses.json and the draw.io
+# dependency tree are kept as artifacts for the reviewer.
+license_check:
+  stage: test
+  interruptible: true
+  script:
+    - uv run --locked python tools/check_licenses.py --drawio tools/dependency_tree.drawio
+  artifacts:
+    when: always
+    expire_in: 1 year
+    paths:
+      - tools/licenses.json
+      - tools/dependency_tree.drawio
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 # Automatically tag the source branch tip before it is deleted by the squash
 # merge. This preserves CHANGELOG.md comparison links (see CONTRIBUTING.md §
 # "Tagging deleted branches"). Runs only in merge-request pipelines, and only
