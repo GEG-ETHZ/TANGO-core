@@ -58,17 +58,6 @@
     "Parent": "aiohttp"
   },
   {
-    "Name": "alabaster",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
     "Name": "alive-progress",
     "License": "MIT",
     "Direct": false,
@@ -147,39 +136,6 @@
     "Parent": "iterative-telemetry"
   },
   {
-    "Name": "appnope",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel"
-    ],
-    "Parent": "ipykernel"
-  },
-  {
-    "Name": "ast_serialize",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "mypy"
-    ],
-    "Parent": "mypy"
-  },
-  {
-    "Name": "asttokens",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "stack-data"
-    ],
-    "Parent": "stack-data"
-  },
-  {
     "Name": "asyncssh",
     "License": "EPL-2.0 OR GPL-2.0-or-later",
     "Direct": false,
@@ -227,17 +183,6 @@
     "Parent": "pymoo"
   },
   {
-    "Name": "babel",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
     "Name": "billiard",
     "License": "BSD",
     "Direct": false,
@@ -247,17 +192,6 @@
       "celery"
     ],
     "Parent": "celery"
-  },
-  {
-    "Name": "black",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "python-lsp-server"
-    ],
-    "Parent": "python-lsp-server"
   },
   {
     "Name": "celery",
@@ -379,17 +313,6 @@
     "Parent": "dvc"
   },
   {
-    "Name": "comm",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel"
-    ],
-    "Parent": "ipykernel"
-  },
-  {
     "Name": "configobj",
     "License": "BSD-3-Clause",
     "Direct": false,
@@ -446,17 +369,6 @@
       "matplotlib"
     ],
     "Parent": "matplotlib"
-  },
-  {
-    "Name": "debugpy",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel"
-    ],
-    "Parent": "ipykernel"
   },
   {
     "Name": "decorator",
@@ -527,28 +439,6 @@
     "Parent": "dvc"
   },
   {
-    "Name": "docstring-to-markdown",
-    "License": "LGPL-2.1-or-later",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "python-lsp-server"
-    ],
-    "Parent": "python-lsp-server"
-  },
-  {
-    "Name": "docutils",
-    "License": "Public Domain, Python Software Foundation License, BSD License, GNU General Public License (GPL)",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
     "Name": "dpath",
     "License": "MIT",
     "Direct": false,
@@ -583,7 +473,7 @@
       "dvc-webdav",
       "tango-core"
     ],
-    "Parent": "dvc-webdav"
+    "Parent": "dvc-gs"
   },
   {
     "Name": "dvc-data",
@@ -695,28 +585,6 @@
       "openpyxl"
     ],
     "Parent": "openpyxl"
-  },
-  {
-    "Name": "execnet",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pytest-xdist"
-    ],
-    "Parent": "pytest-xdist"
-  },
-  {
-    "Name": "executing",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "stack-data"
-    ],
-    "Parent": "stack-data"
   },
   {
     "Name": "filelock",
@@ -1088,73 +956,6 @@
     "Parent": "requests"
   },
   {
-    "Name": "imagesize",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "importlib_metadata",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "docstring-to-markdown"
-    ],
-    "Parent": "docstring-to-markdown"
-  },
-  {
-    "Name": "iniconfig",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pytest"
-    ],
-    "Parent": "pytest"
-  },
-  {
-    "Name": "ipykernel",
-    "License": "BSD-3-Clause",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "ipython",
-    "License": "BSD-3-Clause",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "ipython_pygments_lexers",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipython"
-    ],
-    "Parent": "ipython"
-  },
-  {
     "Name": "iterative-telemetry",
     "License": "Apache-2.0",
     "Direct": false,
@@ -1164,18 +965,6 @@
       "dvc"
     ],
     "Parent": "dvc"
-  },
-  {
-    "Name": "jedi",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipython",
-      "python-lsp-server"
-    ],
-    "Parent": "python-lsp-server"
   },
   {
     "Name": "Jinja2",
@@ -1203,29 +992,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "jupyter_client",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel"
-    ],
-    "Parent": "ipykernel"
-  },
-  {
-    "Name": "jupyter_core",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "jupyter-client"
-    ],
-    "Parent": "ipykernel"
-  },
-  {
     "Name": "kiwisolver",
     "License": "BSD License",
     "Direct": false,
@@ -1248,17 +1014,6 @@
       "dvc-task"
     ],
     "Parent": "dvc"
-  },
-  {
-    "Name": "librt",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "mypy"
-    ],
-    "Parent": "mypy"
   },
   {
     "Name": "markdown-it-py",
@@ -1297,18 +1052,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "matplotlib-inline",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "ipython"
-    ],
-    "Parent": "ipython"
-  },
-  {
     "Name": "mdurl",
     "License": "MIT License",
     "Direct": false,
@@ -1343,29 +1086,6 @@
     "Parent": "aiohttp"
   },
   {
-    "Name": "mypy",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pylsp-mypy"
-    ],
-    "Parent": "pylsp-mypy"
-  },
-  {
-    "Name": "mypy_extensions",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "black",
-      "mypy"
-    ],
-    "Parent": "mypy"
-  },
-  {
     "Name": "narwhals",
     "License": "MIT",
     "Direct": false,
@@ -1375,17 +1095,6 @@
       "scikit-learn"
     ],
     "Parent": "scikit-learn"
-  },
-  {
-    "Name": "nest-asyncio",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel"
-    ],
-    "Parent": "ipykernel"
   },
   {
     "Name": "networkx",
@@ -1420,7 +1129,7 @@
       "tespy",
       "types-networkx"
     ],
-    "Parent": "pandas"
+    "Parent": "fluprodia"
   },
   {
     "Name": "oauthlib",
@@ -1514,28 +1223,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "pandas-stubs",
-    "License": "BSD-3-Clause",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "parso",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "jedi"
-    ],
-    "Parent": "jedi"
-  },
-  {
     "Name": "pathspec",
     "License": "Mozilla Public License 2.0 (MPL 2.0)",
     "Direct": false,
@@ -1602,23 +1289,11 @@
     "License": "MIT",
     "Direct": true,
     "Depth": 1,
-    "Scope": "dev",
+    "Scope": "runtime",
     "RequiredBy": [
       "tango-core"
     ],
     "Parent": "tango-core"
-  },
-  {
-    "Name": "pluggy",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pytest",
-      "python-lsp-server"
-    ],
-    "Parent": "pytest"
   },
   {
     "Name": "polars",
@@ -1641,17 +1316,6 @@
       "polars"
     ],
     "Parent": "polars"
-  },
-  {
-    "Name": "prek",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "prompt_toolkit",
@@ -1729,17 +1393,6 @@
       "pexpect"
     ],
     "Parent": "pexpect"
-  },
-  {
-    "Name": "pure_eval",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "stack-data"
-    ],
-    "Parent": "stack-data"
   },
   {
     "Name": "pyasn1",
@@ -1872,28 +1525,6 @@
     "Parent": "python-arango"
   },
   {
-    "Name": "pylsp-mypy",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "pylsp-rope",
-    "License": "MIT license",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
     "Name": "pymoo",
     "License": "Apache License 2.0",
     "Direct": true,
@@ -1919,29 +1550,6 @@
     "Parent": "matplotlib"
   },
   {
-    "Name": "pytest",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pytest-xdist",
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "pytest-xdist",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
     "Name": "python-arango",
     "License": "MIT License",
     "Direct": true,
@@ -1965,7 +1573,7 @@
       "pandas",
       "webdav4"
     ],
-    "Parent": "pandas"
+    "Parent": "matplotlib"
   },
   {
     "Name": "python-dotenv",
@@ -1977,52 +1585,6 @@
       "pydantic-settings"
     ],
     "Parent": "pydantic-settings"
-  },
-  {
-    "Name": "python-lsp-jsonrpc",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "python-lsp-server"
-    ],
-    "Parent": "python-lsp-server"
-  },
-  {
-    "Name": "python-lsp-server",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pylsp-mypy",
-      "pylsp-rope",
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "pytokens",
-    "License": "MIT License",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "black"
-    ],
-    "Parent": "black"
-  },
-  {
-    "Name": "pytoolconfig",
-    "License": "LGPL-3.0-or-later",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "dev",
-    "RequiredBy": [
-      "rope"
-    ],
-    "Parent": "rope"
   },
   {
     "Name": "pytz",
@@ -2047,18 +1609,6 @@
       "tango-core"
     ],
     "Parent": "tango-core"
-  },
-  {
-    "Name": "pyzmq",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "jupyter-client"
-    ],
-    "Parent": "ipykernel"
   },
   {
     "Name": "requests",
@@ -2116,17 +1666,6 @@
     "Parent": "dvc"
   },
   {
-    "Name": "rope",
-    "License": "LGPL-3.0-or-later",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pylsp-rope"
-    ],
-    "Parent": "pylsp-rope"
-  },
-  {
     "Name": "ruamel.yaml",
     "License": "MIT",
     "Direct": false,
@@ -2137,17 +1676,6 @@
       "gto"
     ],
     "Parent": "dvc"
-  },
-  {
-    "Name": "ruff",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "scikit-learn",
@@ -2275,105 +1803,6 @@
     "Parent": "gitdb"
   },
   {
-    "Name": "snakeviz",
-    "License": "BSD License",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "snowballstemmer",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "Sphinx",
-    "License": "BSD License",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "sphinxcontrib-applehelp",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "sphinxcontrib-devhelp",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "sphinxcontrib-htmlhelp",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "sphinxcontrib-jsmath",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "sphinxcontrib-qthelp",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
-    "Name": "sphinxcontrib-serializinghtml",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "sphinx"
-    ],
-    "Parent": "sphinx"
-  },
-  {
     "Name": "sqltrie",
     "License": "Apache-2.0",
     "Direct": false,
@@ -2383,17 +1812,6 @@
       "dvc-data"
     ],
     "Parent": "dvc-data"
-  },
-  {
-    "Name": "stack-data",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipython"
-    ],
-    "Parent": "ipython"
   },
   {
     "Name": "tabulate",
@@ -2414,7 +1832,7 @@
     "License": "Apache 2.0",
     "Direct": false,
     "Depth": 2,
-    "Scope": "dev",
+    "Scope": "runtime",
     "RequiredBy": [
       "plotly"
     ],
@@ -2465,19 +1883,6 @@
     "Parent": "dvc"
   },
   {
-    "Name": "tornado",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "jupyter-client",
-      "snakeviz"
-    ],
-    "Parent": "ipykernel"
-  },
-  {
     "Name": "tqdm",
     "License": "MPL-2.0 AND MIT",
     "Direct": true,
@@ -2493,21 +1898,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "traitlets",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "ipykernel",
-      "ipython",
-      "jupyter-client",
-      "jupyter-core",
-      "matplotlib-inline"
-    ],
-    "Parent": "ipython"
-  },
-  {
     "Name": "typer",
     "License": "MIT",
     "Direct": false,
@@ -2517,28 +1907,6 @@
       "gto"
     ],
     "Parent": "gto"
-  },
-  {
-    "Name": "types-networkx",
-    "License": "Apache-2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "dev",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "types-pytz",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "pandas-stubs"
-    ],
-    "Parent": "pandas-stubs"
   },
   {
     "Name": "types-PyYAML",
@@ -2628,18 +1996,6 @@
       "celery"
     ],
     "Parent": "celery"
-  },
-  {
-    "Name": "ujson",
-    "License": "BSD-3-Clause AND TCL",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "dev",
-    "RequiredBy": [
-      "python-lsp-jsonrpc",
-      "python-lsp-server"
-    ],
-    "Parent": "python-lsp-server"
   },
   {
     "Name": "urllib3",
@@ -2734,16 +2090,5 @@
       "dvc"
     ],
     "Parent": "dvc"
-  },
-  {
-    "Name": "zipp",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "dev",
-    "RequiredBy": [
-      "importlib-metadata"
-    ],
-    "Parent": "importlib-metadata"
   }
 ]

@@ -25,27 +25,23 @@ def _run_fast(filename: str) -> Workflow:
     return wf
 
 
-def test_single_fluid_config_writes_one_png_per_timestep(tmp_path: Path) -> None:
-    """A single-working-fluid config (Single-Flash, H2O) writes one folder, one PNG per timestep."""
+def test_single_fluid_config_writes_one_file(tmp_path: Path) -> None:
+    """A single-working-fluid config (Single-Flash, H2O) writes exactly one HTML file."""
     wf = _run_fast("hydro_sf_electric.yml")
     written = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
 
-    fluid_dir = tmp_path / "hydro_sf_electric.phase_H2O"
-    assert set(written) == {fluid_dir / f"{t:04d}.png" for t in range(_N_TSTEPS_FAST)}
-    for path in written:
-        assert path.exists()
-        assert path.stat().st_size > 0
+    assert written == [tmp_path / "hydro_sf_electric.phase_H2O.html"]
+    assert written[0].exists()
 
 
-def test_binary_cycle_config_writes_one_folder_per_fluid(tmp_path: Path) -> None:
-    """A binary (ORC) config writes one folder per fluid: the geofluid and the secondary fluid."""
+def test_binary_cycle_config_writes_one_file_per_fluid(tmp_path: Path) -> None:
+    """A binary (ORC) config writes one HTML per fluid: the geofluid and the secondary fluid."""
     wf = _run_fast("hydro_orc_electric.yml")
     written = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_orc_electric")
 
-    folders = {path.parent for path in written}
-    assert folders == {
-        tmp_path / "hydro_orc_electric.phase_H2O",
-        tmp_path / "hydro_orc_electric.phase_R245fa",
+    assert set(written) == {
+        tmp_path / "hydro_orc_electric.phase_H2O.html",
+        tmp_path / "hydro_orc_electric.phase_R245fa.html",
     }
     for path in written:
         assert path.exists()
@@ -112,6 +108,34 @@ def test_fluid_groups_separates_geofluid_from_secondary_fluid() -> None:
     assert "heatexchanger:out2" in groups["R245fa"]
 
 
+def test_every_frame_pins_its_own_axis_range() -> None:
+    """Every animation frame's OWN layout carries the fixed axis range, not just the base figure's.
+
+    Regression guard: setting the fixed range/``autorange: False`` only on
+    the base figure's layout was NOT enough -- Plotly.js's ``redraw: true``
+    frame-transition path can recompute the axis range from scratch on a
+    frame switch regardless of what the base layout says, reproducing the
+    original 10^112-blowout bug on some slider positions but not others
+    (Chad, 2026-09-28). Every frame must carry its own explicit,
+    identical axis range for the fix to actually hold across the whole
+    slider.
+    """
+    wf = _run_fast("hydro_sf_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
+    fluid_name, node_names = next(iter(groups.items()))
+
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+
+    assert fig.frames
+    for frame in fig.frames:
+        assert frame.layout.xaxis.autorange is False
+        assert frame.layout.yaxis.autorange is False
+        assert frame.layout.xaxis.range == fig.layout.xaxis.range
+        assert frame.layout.yaxis.range == fig.layout.yaxis.range
+
+
 def test_two_phase_state_gets_its_own_color_not_the_gray_fallback() -> None:
     """A genuinely two-phase (wet) state is colored distinctly, not lumped into the gray fallback.
 
@@ -133,42 +157,6 @@ def test_two_phase_state_gets_its_own_color_not_the_gray_fallback() -> None:
 
     assert color != phase_diagrams._PHASE_COLOR_FALLBACK  # noqa: SLF001
     assert color == "red"
-
-
-def test_axis_range_is_identical_across_every_timestep_png(tmp_path: Path) -> None:
-    """Every PNG in a fluid's folder is rendered with the SAME fixed axis range.
-
-    Ensures frames are directly comparable and there's no per-timestep
-    rescale -- the whole reason for pivoting away from Plotly's animated
-    slider, which had an unresolved axis-autorange bug (2026-09-28).
-    """
-    wf = _run_fast("hydro_sf_electric.yml")
-    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
-    assert isinstance(surface, GraphSurface)
-    groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
-    fluid_name, node_names = next(iter(groups.items()))
-
-    seen_limits: list[tuple[tuple[float, float], tuple[float, float]]] = []
-
-    def _fake_render_frame(*, xlim: tuple[float, float], ylim: tuple[float, float], **_: object) -> None:
-        seen_limits.append((xlim, ylim))
-
-    orig_render_frame = phase_diagrams._render_frame  # noqa: SLF001
-    phase_diagrams._render_frame = _fake_render_frame  # type: ignore[assignment]  # noqa: SLF001
-    try:
-        phase_diagrams._write_fluid_pngs(  # noqa: SLF001
-            wf,
-            surface,
-            fluid_name,
-            node_names,
-            wf._sim_config.dt_years,  # noqa: SLF001
-            tmp_path / "fluid_dir",
-        )
-    finally:
-        phase_diagrams._render_frame = orig_render_frame  # noqa: SLF001
-
-    assert len(seen_limits) == _N_TSTEPS_FAST
-    assert len(set(seen_limits)) == 1
 
 
 def test_no_graph_surface_writes_nothing(tmp_path: Path) -> None:

@@ -176,9 +176,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "timestep, one column per component's own scalar history "
             "field), <name>.econ.csv (one row, the economic component's "
             "final state -- omitted if the config has no economic: block), "
-            "and <name>.phase_<fluid>/ per working fluid (one P-h phase "
-            "diagram PNG per timestep -- omitted if the config has no "
-            "GraphSurface surface component). "
+            "and <name>.phase_<fluid>.html per working fluid (interactive "
+            "P-h phase diagram with a year slider -- omitted if the config "
+            "has no GraphSurface surface component). "
             "Saving is opt-in: nothing is written unless this is given."
         ),
     )

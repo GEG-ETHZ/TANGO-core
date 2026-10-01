@@ -52,6 +52,8 @@ dependencies = [
     "types-pyyaml>=6.0.12.20250915",
     "dvc-webdav>=3.0.1",
     "dvc-gs>=3.0.2",
+    "plotly>=5.24,<6.0", # interactive parallel-coordinates plots for parameter sweeps;
+                          # interactive P-h phase diagrams from `tango_cli run --save-dir`
 ]
 
 [project.urls]
@@ -75,8 +77,6 @@ dev = [
     "dvc>=3.0,<4.0", # pipeline + experiment tracking
     "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
     "snakeviz>=2.2,<3.0", # cProfile visualisation (tools/run_tango_profile.py --profile)
-    "plotly>=5.24,<6.0", # interactive parallel-coordinates plots for parameter sweeps (planned, not yet built);
-                          # no longer used by phase_diagrams.py, which moved to matplotlib PNGs 2026-09-28
 ]
 
 [dependency-groups]
