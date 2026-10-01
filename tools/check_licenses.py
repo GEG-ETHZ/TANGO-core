@@ -376,11 +376,13 @@ def _dependency_graph(
 
 def generate_license_data() -> list[dict[str, Any]]:
     """Collect license and dependency-graph info for every package installed in the current environment."""
-    dists = {
-        _canonical(dist.metadata["Name"]): dist
-        for dist in metadata.distributions()
-        if dist.metadata.get("Name")
-    }
+    # First match wins, the same rule importlib.metadata.distribution() uses: a
+    # stale *.egg-info lying around on sys.path (e.g. from an old
+    # `pip install -e .`) must not shadow the package that's actually installed.
+    dists: dict[str, metadata.Distribution] = {}
+    for dist in metadata.distributions():
+        if dist.metadata.get("Name"):
+            dists.setdefault(_canonical(dist.metadata["Name"]), dist)
     runtime_depth, runtime_parent, dev_depth, dev_parent, required_by = _dependency_graph(dists)
 
     data: list[dict[str, Any]] = []
