@@ -40,6 +40,7 @@ from scipy.special import erfc  # type: ignore[import-untyped]
 from tango.components.reservoir.base import ReservoirComponent
 from tango.components.reservoir.wellpattern_impedance import WellPattern
 from tango.core.constants import YEAR_TO_SECOND
+from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import (
     fluid_cp,
     fluid_density,
@@ -354,12 +355,15 @@ class LumpedReservoir(ReservoirComponent):
         T_out_prev = self.T_initial if not was_solved_before else s.T_outlet.get_stale()
         P_out_prev = self.P_initial if not was_solved_before else s.P_outlet.get_stale()
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        T_inj = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
+        # this model's depletion physics works in temperature; derive it once from the arriving (h, P)
+        T_inj = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend).T
+        s.T_inlet.update(T_inj)
         mdot = s.mass_rate.get_fresh()
 
         s.T_reservoir_initial.update(self.T_initial)
@@ -397,8 +401,6 @@ class LumpedReservoir(ReservoirComponent):
 
         # Thermal depletion (Adams 2015)
         dT = self.T_initial - T_inj
-        h_in = fluid_enthalpy(fluid_name, T_inj, P_in, backend)
-        s.h_inlet.update(h_in)
 
         h_prod_prev = fluid_enthalpy(fluid_name, T_out_prev, P_out_prev, backend)
         rho_avg = 0.5 * (
@@ -426,6 +428,6 @@ class LumpedReservoir(ReservoirComponent):
         s.T_outlet.update(T_out)
         s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out, backend))
 
-        self.outlet.T.update(T_out)
+        self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(P_out)
         self.outlet.mass_rate.update(mdot)

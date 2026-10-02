@@ -77,14 +77,14 @@ from tango.components.surface.base import SurfaceComponent
 from tango.core.constants import (
     BAR_TO_PA,
     C_TO_K_OFFSET,
+    J_PER_KG_TO_KJ_PER_KG,
     K_TO_C_OFFSET,
     KJ_PER_KG_TO_J_PER_KG,
     PA_TO_BAR,
 )
 from tango.core.errors import ConfigError, InvalidPowerStateError, TESPyCoolPropError
+from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import (
-    fluid_density,
-    fluid_viscosity,
     friction_factor_haaland,
     mean_velocity,
     pressure_drop_friction,
@@ -224,7 +224,10 @@ class GraphSurfaceState(StateMethods):
     each ``solve()``.
     """
 
+    h_inlet: LockedState[float] = field(default_factory=_ls)
+    """Specific enthalpy (J/kg) arriving on ``inlet``; set on TESPy's inlet connection as-is."""
     T_inlet: LockedState[float] = field(default_factory=_ls)
+    """Derived from (``h_inlet``, ``P_inlet``)."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
     mass_rate: LockedState[float] = field(default_factory=_ls)
 
@@ -238,6 +241,8 @@ class GraphSurfaceState(StateMethods):
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Sum of -Q.val (W) over role=net_thermal nodes. 0 if none tagged."""
 
+    h_outlet: LockedState[float] = field(default_factory=_ls)
+    """Specific enthalpy (J/kg) on TESPy's outlet connection -- what ``outlet`` carries."""
     T_outlet: LockedState[float] = field(default_factory=_ls)
     P_outlet: LockedState[float] = field(default_factory=_ls)
     rho: LockedState[float] = field(default_factory=_ls)
@@ -272,6 +277,8 @@ class GraphSurfaceHistory:
     clumsier shape.
     """
 
+    h_inlet: list[float] = field(default_factory=list)
+    h_outlet: list[float] = field(default_factory=list)
     T_inlet: list[float] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
     P_inlet: list[float] = field(default_factory=list)
@@ -293,6 +300,8 @@ class GraphSurfaceHistory:
 
     def record(self, state: GraphSurfaceState) -> None:
         """Append a snapshot of ``state`` as one timestep entry."""
+        self.h_inlet.append(state.h_inlet.get_fresh())
+        self.h_outlet.append(state.h_outlet.get_fresh())
         self.T_inlet.append(state.T_inlet.get_fresh())
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
@@ -811,12 +820,12 @@ class GraphSurface(SurfaceComponent):
     def _solve_active_bundle(
         self,
         mdot: float,
-        T_in: float,
+        h_in: float,
         P_tespy_in: float,
-    ) -> tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float, float]:
         """Solve whichever bundle ``_activate_bundle`` last pointed at, or raise.
 
-        Returns ``(T_out, P_out, net_power_W, net_thermal_W)`` on success.
+        Returns ``(h_out, T_out, P_out, net_power_W, net_thermal_W)`` on success.
         Raises ``TESPyCoolPropError`` (solver/CoolProp failure) or
         ``InvalidPowerStateError`` (a physically invalid result, e.g. a
         Valve that would need to raise pressure) on failure -- ``solve()``
@@ -834,7 +843,7 @@ class GraphSurface(SurfaceComponent):
             # keeps this in sync with FluidState's own CoolProp backend choice.
             fluid={f"{self.common.coolprop_backend}::{self.common.fluid_name}": 1},
             m=mdot,
-            T=T_in + K_TO_C_OFFSET,
+            h=h_in * J_PER_KG_TO_KJ_PER_KG,
             p=P_tespy_in * PA_TO_BAR,
         )
         self._outlet_conn.set_attr(p=self.injection_pressure * PA_TO_BAR)
@@ -859,6 +868,7 @@ class GraphSurface(SurfaceComponent):
                 self._network.iter,
             )
 
+        h_out = self._outlet_conn.h.val * KJ_PER_KG_TO_J_PER_KG
         T_out = self._outlet_conn.T.val + C_TO_K_OFFSET
         P_out = self._outlet_conn.p.val * BAR_TO_PA
 
@@ -886,23 +896,27 @@ class GraphSurface(SurfaceComponent):
             )
         self._check_pump_or_valve_validity()
 
-        return T_out, P_out, net_power_W, net_thermal_W
+        return h_out, T_out, P_out, net_power_W, net_thermal_W
 
     def solve(self, inlet: Stream) -> None:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        T_in = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
         mdot = s.mass_rate.get_fresh()
+        inlet_state = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
+        s.T_inlet.update(inlet_state.T)
 
         # ---- Surface pipe friction drop (wellhead -> plant) ----
-        rho_in = fluid_density(self.common.fluid_name, T_in, P_in, self.common.coolprop_backend)
-        mu_in = fluid_viscosity(self.common.fluid_name, T_in, P_in, self.common.coolprop_backend)
+        # Adiabatic friction drops pressure at constant enthalpy, so TESPy's
+        # inlet gets the arriving h unchanged at the reduced pressure.
+        rho_in = inlet_state.rho
+        mu_in = inlet_state.mu
         u_in = mean_velocity(mdot, rho_in, self.pipe_diameter)
         Re_in = reynolds_number(mdot, self.pipe_diameter, mu_in)
         ff_in = friction_factor_haaland(Re_in, self.pipe_diameter, self.pipe_roughness)
@@ -915,7 +929,11 @@ class GraphSurface(SurfaceComponent):
         if self._dual_mode:
             self._activate_bundle(self._valve_bundle)
             try:
-                T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
+                h_out, T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(
+                    mdot,
+                    h_in,
+                    P_tespy_in,
+                )
             except (TESPyCoolPropError, InvalidPowerStateError):
                 # Whatever went wrong with the valve leg (an unphysical
                 # required pressure rise, or even a CoolProp flash failure
@@ -927,10 +945,19 @@ class GraphSurface(SurfaceComponent):
                 # deficit at the valve leg is a pressure surplus nowhere
                 # near what the compressor leg would need to reject.
                 self._activate_bundle(self._compressor_bundle)
-                T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
+                h_out, T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(
+                    mdot,
+                    h_in,
+                    P_tespy_in,
+                )
         else:
-            T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(mdot, T_in, P_tespy_in)
+            h_out, T_out, P_out, net_power_W, net_thermal_W = self._solve_active_bundle(
+                mdot,
+                h_in,
+                P_tespy_in,
+            )
 
+        s.h_outlet.update(h_out)
         s.T_outlet.update(T_out)
         s.P_outlet.update(P_out)
         s.net_power_W.update(net_power_W)
@@ -944,11 +971,10 @@ class GraphSurface(SurfaceComponent):
         s.node_detail.update(self._collect_node_detail() if self.record_node_detail else {})
 
         # ---- Fluid properties for injection stream ----
-        rho_out = fluid_density(self.common.fluid_name, T_out, P_out, self.common.coolprop_backend)
-        mu_out = fluid_viscosity(self.common.fluid_name, T_out, P_out, self.common.coolprop_backend)
-        s.rho.update(rho_out)
-        s.mu.update(mu_out)
+        outlet_state = FluidState.with_HP(self.common.fluid_name, h_out, P_out, self.common.coolprop_backend)
+        s.rho.update(outlet_state.rho)
+        s.mu.update(outlet_state.mu)
 
-        self.outlet.T.update(T_out)
+        self.outlet.h.update(h_out)
         self.outlet.P.update(P_out)
         self.outlet.mass_rate.update(mdot)

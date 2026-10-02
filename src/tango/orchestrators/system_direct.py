@@ -112,7 +112,7 @@ class SystemDirect(Orchestrator):
             return
         src = component.outlet
         self._pending_inlets[next_idx] = Stream.fresh(
-            T=src.T.get_fresh(),
+            h=src.h.get_fresh(),
             P=src.P.get_fresh(),
             mass_rate=src.mass_rate.get_fresh(),
         )

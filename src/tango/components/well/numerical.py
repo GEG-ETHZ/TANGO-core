@@ -127,7 +127,10 @@ class NumericalWellState(StateMethods):
     module docstring's cells-vs-nodes note).
     """
 
+    h_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Specific enthalpy (J/kg) arriving on ``inlet`` -- the march's starting state."""
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Temperature (K) at the inlet, derived from (``h_inlet``, ``P_inlet``)."""
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
     mass_rate: LockedState[float] = field(default_factory=_ls_nan)
     t_d: LockedState[float] = field(default_factory=_ls_zero)
@@ -145,6 +148,8 @@ class NumericalWellState(StateMethods):
     rho_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
     mu_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
     u_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    h_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Specific enthalpy (J/kg) at the last node -- what ``outlet`` carries."""
     T_outlet: LockedState[float] = field(default_factory=_ls_nan)
     P_outlet: LockedState[float] = field(default_factory=_ls_nan)
     pump_power_watts: LockedState[float] = field(default_factory=_ls_zero)
@@ -168,6 +173,7 @@ class NumericalWellHistory:
     class).
     """
 
+    h_inlet: list[float] = field(default_factory=list)
     T_inlet: list[float] = field(default_factory=list)
     P_inlet: list[float] = field(default_factory=list)
     mass_rate: list[float] = field(default_factory=list)
@@ -178,6 +184,7 @@ class NumericalWellHistory:
     rho_cells: list[list[float]] = field(default_factory=list)
     mu_cells: list[list[float]] = field(default_factory=list)
     u_cells: list[list[float]] = field(default_factory=list)
+    h_outlet: list[float] = field(default_factory=list)
     T_outlet: list[float] = field(default_factory=list)
     P_outlet: list[float] = field(default_factory=list)
     pump_power_watts: list[float] = field(default_factory=list)
@@ -185,6 +192,7 @@ class NumericalWellHistory:
 
     def record(self, state: NumericalWellState) -> None:
         """Append a copy of ``state`` as one timestep entry."""
+        self.h_inlet.append(state.h_inlet.get_fresh())
         self.T_inlet.append(state.T_inlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
         self.mass_rate.append(state.mass_rate.get_fresh())
@@ -195,6 +203,7 @@ class NumericalWellHistory:
         self.rho_cells.append(list(state.rho_cells.get_fresh()))
         self.mu_cells.append(list(state.mu_cells.get_fresh()))
         self.u_cells.append(list(state.u_cells.get_fresh()))
+        self.h_outlet.append(state.h_outlet.get_fresh())
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_outlet.append(state.P_outlet.get_fresh())
         self.pump_power_watts.append(state.pump_power_watts.get_fresh())
@@ -340,7 +349,7 @@ class NumericalWell(WellComponent):
 
     def _march(
         self,
-        T_in: float,
+        h_in: float,
         P_in: float,
         mdot: float,
         t_d: float,
@@ -354,7 +363,7 @@ class NumericalWell(WellComponent):
     ]:
         """Pure cell-by-cell march from a given starting state — no state writes.
 
-        Takes the starting (temperature, pressure, mass rate) and
+        Takes the starting (specific enthalpy, pressure, mass rate) and
         dimensionless time explicitly, rather than reading ``solve()``'s
         ``inlet`` parameter/``self.state.t_d`` directly, so it can be called repeatedly with a
         TRIAL starting state (e.g. a candidate pump-discharge condition in
@@ -379,7 +388,7 @@ class NumericalWell(WellComponent):
         mu = np.zeros(n + 1)
         u = np.zeros(n + 1)
 
-        inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
+        inlet_state = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
@@ -427,7 +436,7 @@ class NumericalWell(WellComponent):
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
@@ -435,11 +444,12 @@ class NumericalWell(WellComponent):
         t_d = s.t_d.get_stale() + del_t
         s.t_d.update(t_d)
 
-        T_in = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
         mdot = s.mass_rate.get_fresh()
 
-        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
+        P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
+        s.T_inlet.update(T_f[0])
 
         s.P_cells.update(P.tolist())
         s.h_cells.update(h.tolist())
@@ -448,10 +458,11 @@ class NumericalWell(WellComponent):
         s.mu_cells.update(mu.tolist())
         s.u_cells.update(u.tolist())
         s.P_outlet.update(P[-1])
+        s.h_outlet.update(h[-1])
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(0.0)
 
-        self.outlet.T.update(T_f[-1])
+        self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)
 
@@ -538,7 +549,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         Pump work uses a standard isentropic-efficiency model — entropy at
         the true inlet state, isentropic enthalpy at the candidate discharge
         pressure, efficiency-derated to the actual enthalpy rise, then
-        flashed back to temperature — rather than assuming the compression
+        handed to the march as enthalpy directly — rather than assuming the compression
         is perfectly isothermal. The gap between an isothermal and an
         isentropic-efficiency result is driven by TEMPERATURE, not pressure
         level or the size of the pressure rise: ``dH|_S - dH|_T =
@@ -552,45 +563,38 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         """
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
         t_d = s.t_d.get_stale() + del_t
 
-        T_in = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
         mdot = s.mass_rate.get_fresh()
         target_Pa = self.target_extraction_pressure
 
-        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
+        before = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
+        s.T_inlet.update(before.T)
+        P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
 
         if target_Pa <= P[-1]:
             pump_pwr = 0.0
         else:
-            before = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
 
-            def _discharge_state(P_pump_out: float) -> tuple[float, float]:
-                """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
+            def _discharge_enthalpy(P_pump_out: float) -> float:
+                """Isentropic-efficiency pump model: discharge pressure -> actual discharge enthalpy."""
                 h_isentropic = FluidState.with_PS(
                     self.common.fluid_name,
                     P_pump_out,
                     before.S,
                     self.common.coolprop_backend,
                 ).H
-                h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
-                t_pump_out = FluidState.with_HP(
-                    self.common.fluid_name,
-                    h_actual,
-                    P_pump_out,
-                    self.common.coolprop_backend,
-                ).T
-                return h_actual, t_pump_out
+                return before.H + (h_isentropic - before.H) / self.pump_efficiency
 
             def _residual(P_pump_out: float) -> float:
-                _, t_pump_out = _discharge_state(P_pump_out)
-                p_trial, *_ = self._march(t_pump_out, P_pump_out, mdot, t_d)
+                p_trial, *_ = self._march(_discharge_enthalpy(P_pump_out), P_pump_out, mdot, t_d)
                 return p_trial[-1] - target_Pa
 
             P_pump_out = secant_solve(
@@ -601,8 +605,8 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
                 max_iter=PUMP_BOOST_MAX_ITER,
                 error_context=f"well component_idx={self.component_idx}: pump-boost pressure convergence",
             )
-            h_actual, T_pump_out = _discharge_state(P_pump_out)
-            P, h, T_f, rho, mu, u = self._march(T_pump_out, P_pump_out, mdot, t_d)
+            h_actual = _discharge_enthalpy(P_pump_out)
+            P, h, T_f, rho, mu, u = self._march(h_actual, P_pump_out, mdot, t_d)
             pump_pwr = mdot * (h_actual - before.H)
             if pump_pwr < 0:
                 raise InvalidPowerStateError(
@@ -622,9 +626,10 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         s.mu_cells.update(mu.tolist())
         s.u_cells.update(u.tolist())
         s.P_outlet.update(P[-1])
+        s.h_outlet.update(h[-1])
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(pump_pwr)
 
-        self.outlet.T.update(T_f[-1])
+        self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)

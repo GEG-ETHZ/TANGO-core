@@ -708,8 +708,8 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     # update(), not direct assignment (there's no `inlet` field at all
     # anymore; it's a solve() call parameter — see Component.solve()'s
     # docstring).
-    components["injection_well"].outlet.T.update(300.0)
-    assert components["injection_well"].outlet.T.get_fresh() == 300.0
+    components["injection_well"].outlet.h.update(1.2e5)
+    assert components["injection_well"].outlet.h.get_fresh() == 1.2e5
     components["surface"].injection_pressure = 2.5e6
     assert components["surface"].injection_pressure == 2.5e6
 

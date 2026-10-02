@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+from tango.core.fluid_state import COOLPROP_BACKEND, FluidState
 from tango.core.locked_state import LockedState
 from tango.core.stream import Stream
 
@@ -39,6 +40,18 @@ _COMMON_FIELDS: dict[str, float | str] = {
     "surface_temperature": 288.0,
     "surface_pressure": 101325.0,
 }
+
+
+def _inlet_at(T: float, P: float, mass_rate: float) -> Stream:
+    """An inlet ``Stream`` at a readable (T, P), converted to the stream's enthalpy with this file's fluid."""
+    h = FluidState.with_PT(
+        str(_COMMON_FIELDS["fluid_name"]),
+        P,
+        T,
+        str(_COMMON_FIELDS.get("coolprop_backend", COOLPROP_BACKEND)),
+    ).H
+    return Stream.fresh(h=h, P=P, mass_rate=mass_rate)
+
 
 _WELL_FIELDS: dict[str, float] = {
     "well_length": 5000.0,
@@ -95,7 +108,7 @@ def test_lumped_injection_well_roundtrip() -> None:
 
     cfg = _well_cfg(1)
     well = LumpedInjectionWell.from_dict(cfg)
-    well.solve(Stream.fresh(T=295.0, P=5e6, mass_rate=50.0))
+    well.solve(_inlet_at(295.0, 5e6, 50.0))
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -125,7 +138,8 @@ def test_lumped_production_well_roundtrip() -> None:
 
     cfg = _well_cfg(3)
     well = LumpedProductionWell.from_dict(cfg)
-    well.solve(Stream.fresh(T=450.0, P=4e7, mass_rate=50.0))
+    # 600 bar bottom-hole: a 5000 m water column alone needs ~450 bar to lift itself
+    well.solve(_inlet_at(450.0, 6e7, 50.0))
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -149,7 +163,7 @@ def test_lumped_reservoir_roundtrip_values() -> None:
 
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
-    res.solve(Stream.fresh(T=350.0, P=5.1e7, mass_rate=50.0))
+    res.solve(_inlet_at(350.0, 5.1e7, 50.0))
 
     T_out = res.state.T_outlet.get_fresh()
     P_out = res.state.P_outlet.get_fresh()
@@ -178,7 +192,7 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
     for i in range(3):
         if i > 0:
             res.mark_all_stale()
-        res.solve(Stream.fresh(T=350.0, P=5.1e7, mass_rate=50.0))
+        res.solve(_inlet_at(350.0, 5.1e7, 50.0))
 
     energy_before = res.state.energy_extracted.get_fresh()
     dump = res.model_dump()
@@ -205,7 +219,7 @@ def test_numerical_well_cell_arrays_roundtrip() -> None:
         **_WELL_FIELDS,
     )
     well = NumericalInjectionWell.from_dict(cfg)
-    well.solve(Stream.fresh(T=295.0, P=5e6, mass_rate=50.0))
+    well.solve(_inlet_at(295.0, 5e6, 50.0))
 
     T_cells = well.state.T_cells.get_fresh()
     P_cells = well.state.P_cells.get_fresh()
@@ -271,7 +285,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
     from tango.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.solve(Stream.fresh(mass_rate=50.0, P=8.5e6, T=423.15))
+    surface.solve(_inlet_at(423.15, 8.5e6, 50.0))
     surface.record(0)
 
     T_out = surface.state.T_outlet.get_fresh()
@@ -306,7 +320,7 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     from tango.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.solve(Stream.fresh(mass_rate=50.0, P=8.5e6, T=423.15))
+    surface.solve(_inlet_at(423.15, 8.5e6, 50.0))
 
     dump = surface.model_dump()
 
@@ -317,7 +331,7 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     # the orchestrator would immediately before each solve().
     surface2.mark_all_stale()
     # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
-    surface2.solve(Stream.fresh(mass_rate=45.0, P=8.5e6, T=423.15))
+    surface2.solve(_inlet_at(423.15, 8.5e6, 45.0))
 
     # abs=2e-5 (not 1e-6): TESPy's own CoolProp lookups now use the
     # BICUBIC-tabulated HEOS backend (see fluid_state.py's COOLPROP_BACKEND),
@@ -325,6 +339,6 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     # the exact set-point (measured stable across 8 repeated runs -- unlike
     # the bimodal jitter seen in the economic-parity golden checks, this
     # particular case doesn't flip between two values) -- 5x margin over that.
-    assert pytest.approx(323.15, abs=2e-5) == surface2.outlet.T.get_fresh()  # fixed by T_out config
+    assert pytest.approx(323.15, abs=2e-5) == surface2.state.T_outlet.get_fresh()  # fixed by T_out config
     assert pytest.approx(7.0e6) == surface2.outlet.P.get_fresh()  # fixed by injection_pressure BC
     assert surface2.state.net_thermal_W.get_fresh() > 0

@@ -18,20 +18,31 @@ def _ls() -> LockedState[float]:
 @dataclass(frozen=True)
 class Stream(StateMethods):
     """Carries mass flow rate and the two thermodynamic properties
-    (pressure, temperature) that actually cross a component boundary.
+    (pressure, specific enthalpy) that actually cross a component boundary.
 
-    SI units throughout: pressures in Pa, temperatures in K,
+    SI units throughout: pressures in Pa, specific enthalpies in J/kg,
     mass flow rates in kg/s.
+
+    Enthalpy, not temperature, is the stream variable -- the same choice
+    Modelica's fluid connectors make. It's intensive on a per-mass basis,
+    it's what each component's energy balance works in, and (h, P) fixes
+    the state everywhere, including inside the two-phase dome where (T, P)
+    doesn't. Passing temperature instead made every component rebuild h
+    from (T, P), and near a fluid's critical point that rebuild is badly
+    conditioned: with a tabular CoolProp backend, near-critical CO2 lost up
+    to 17 kJ/kg crossing a single component boundary. A component that
+    needs temperature derives it locally from (h, P) with its own fluid
+    and backend.
 
     Deliberately narrow: every field here is one every component's
     ``solve()`` both writes (``outlet``) and reads (``inlet``) — see the
     3-line block at the top of every concrete ``solve()``. Fields that are
     *computed* at the outlet condition but never read back by anything
-    (``rho``, ``mu``) or never touched by any component at all (``H``,
-    ``port``) were removed rather than carried here as dead weight — each
+    (``rho``, ``mu``) or never touched by any component at all (``port``)
+    were removed rather than carried here as dead weight — each
     component still computes its own density/viscosity locally wherever
     the physics needs them (e.g. ``state.rho``/``state.mu``, evaluated at
-    whatever T/P that component's own calculation needs, not necessarily
+    whatever state that component's own calculation needs, not necessarily
     the outlet condition); ``Stream`` just isn't the place those live if
     nothing downstream reads them off the wire. Revisit if a future
     consumer (e.g. an external-tool adapter, a cavitation check) actually
@@ -43,8 +54,8 @@ class Stream(StateMethods):
     never a bare, freely-reassignable container of raw floats. ``frozen=True``
     for the same Layer-3 reason every ``*State`` class uses it (see
     ``core/locked_state.py``'s module docstring): it blocks
-    ``stream.T = LockedState(...)`` from silently replacing the wrapper and
-    discarding its status, while leaving ``stream.T.update(...)`` fully
+    ``stream.h = LockedState(...)`` from silently replacing the wrapper and
+    discarding its status, while leaving ``stream.h.update(...)`` fully
     functional.
 
     ``Stream()`` (the bare default constructor) leaves every field STALE —
@@ -67,13 +78,13 @@ class Stream(StateMethods):
 
     mass_rate: LockedState[float] = field(default_factory=_ls)
     P: LockedState[float] = field(default_factory=_ls)
-    T: LockedState[float] = field(default_factory=_ls)
+    h: LockedState[float] = field(default_factory=_ls)
 
     @classmethod
     def fresh(
         cls,
         *,
-        T: float = 0.0,
+        h: float = 0.0,
         P: float = 0.0,
         mass_rate: float = 0.0,
     ) -> Stream:
@@ -92,7 +103,7 @@ class Stream(StateMethods):
         return cls(
             mass_rate=LockedState(mass_rate),
             P=LockedState(P),
-            T=LockedState(T),
+            h=LockedState(h),
         )
 
 
@@ -108,10 +119,10 @@ class StreamHistory:
 
     mass_rate: list[float] = field(default_factory=list)
     P: list[float] = field(default_factory=list)
-    T: list[float] = field(default_factory=list)
+    h: list[float] = field(default_factory=list)
 
     def record(self, stream: Stream) -> None:
         """Append one timestep snapshot."""
         self.mass_rate.append(stream.mass_rate.get_fresh())
         self.P.append(stream.P.get_fresh())
-        self.T.append(stream.T.get_fresh())
+        self.h.append(stream.h.get_fresh())

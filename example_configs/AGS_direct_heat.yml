@@ -18,7 +18,7 @@
 # SystemDirect): only SystemBCIteration seeds the circuit's first inlet
 # (injection_well) with cold conditions on timestep 0 via
 # _seed_circuit_inlet(). injection_mode: manual selects it and runs a single
-# circuit pass per timestep (no reservoir means _converge_injection_T() is a
+# circuit pass per timestep (no reservoir means _converge_injection_enthalpy() is a
 # no-op — see its "if reservoir is None: return" guard).
 #
 # Site parameters (Triemli, Zurich):
