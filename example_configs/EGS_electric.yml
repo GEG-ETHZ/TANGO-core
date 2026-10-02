@@ -1,21 +1,24 @@
 # tango format — Enhanced Geothermal System (EGS), power extraction.
 #
-# Same reservoir/well subsurface as EGS_direct_heat.yml (Triemli, Zurich
-# site parameters), with hydro_sf_electric.yml's Single-Flash surface
-# plant (Source -> Valve -> DropletSeparator -> Turbine/pump2 ->
-# SimpleHeatExchanger(condenser) -> pump -> Merge -> Sink) swapped in for
-# the district-heating exchanger -- completes the EGS row of the tango
-# example coverage matrix (GitLab #67), alongside EGS_direct_heat.yml.
+# EGS doublet with hydro_sf_electric.yml's Single-Flash surface plant
+# (Source -> Valve -> DropletSeparator -> Turbine/pump2 ->
+# SimpleHeatExchanger(condenser) -> pump -> Merge -> Sink) -- completes the
+# EGS row of the tango example coverage matrix (GitLab #67), alongside
+# EGS_direct_heat.yml.
 #
-# Site parameters (Triemli, Zurich):
+# The reservoir is deepened to 5000 m, a hypothetical Triemli-like site
+# (same rock properties/gradient; illustrative, not a drilling target).
+# At the real Triemli EGS depth (3000 m, EGS_direct_heat.yml's site) the
+# brine reaches the surface at only ~115 degC -- too cold for a flash
+# plant, which works by boiling the brine at reduced pressure; with
+# realistic turbine/pump efficiencies the plant there barely stayed
+# net-positive (LCOE ~31). At 5000 m it delivers ~174 degC.
+#
+# Site parameters (Triemli-like, deepened):
 #   surface temperature : 11 degC (284.15 K)
 #   thermal gradient     : 35 degC/km (0.035 K/m)
 #   fluid                : H2O
-#   reservoir temperature: ~116 degC at 3000 m depth -- moderate for
-#                           single-flash (lower vapor fraction / power
-#                           output than a hotter resource like
-#                           hydro_sf_electric.yml's 5000 m/190 degC), but
-#                           still real, non-zero flash power.
+#   reservoir depth      : 5000 m (hypothetical)
 #   application          : power (single-flash), not direct heat
 #
 # target_extraction_pressure is 1.5 MPa here, much lower than
@@ -31,26 +34,16 @@
 # main_product and DoubletEconomicComponent's _production_pump_parasitic_power
 # docstring for that accounting split.
 #
-# KNOWN GAP, 2026-09-21: neither DoubletEconomicComponent nor old tango's
-# economic model (units/native/economic/*.py, preserved at git tag
-# pre-tango-core-rename-2026-09-18) has ever accounted for EGS reservoir
-# stimulation cost (hydraulic fracturing to create permeability in
-# otherwise-tight rock) as a distinct CAPEX line item -- confirmed by
-# searching both, repo-wide. CAPEX_well below reuses the same well-cost
-# formula as a hydrothermal doublet with no stimulation premium. No
-# reference cost figure/formula exists yet to implement against; when one
-# does, it should be a new opt-in CAPEX line item DoubletEconomicComponent
-# checks generically (e.g. a reservoir config field), not something
-# hardcoded to EGS specifically.
+# KNOWN GAP: EGS reservoir stimulation is not costed (GitLab #66).
 
-title: Enhanced Geothermal System (EGS), single-flash, Triemli site
+title: Enhanced Geothermal System (EGS), single-flash, hypothetical deepened Triemli-like site
 
 description:
   summary: EGS doublet with single-flash power extraction (companion to EGS_direct_heat.yml)
   date: "2026-09-21"
   description: >
-    Enhanced Geothermal System doublet at the Triemli, Zurich site
-    parameters, with a single-flash power plant instead of
+    Enhanced Geothermal System doublet at a hypothetical deepened (5000 m)
+    Triemli-like site, with a single-flash power plant instead of
     EGS_direct_heat.yml's district-heating exchanger -- completes the EGS
     row of the tango example coverage matrix.
 
@@ -68,13 +61,13 @@ layout:
   well_pattern: DOUBLET
 
 sim_config:
-  num_tsteps: 25              # 25 years of operation
+  num_tsteps: 20              # years of operation
   dt_years: 1.0                # years
   target_extraction_pressure: 1_500_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 55                 # kg/s
+  mass_rate: 50                 # kg/s
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -91,7 +84,7 @@ components:
     component_idx: 0           # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 3000.0        # m — reservoir depth
+    well_length: 5000.0        # m — reservoir depth (hypothetical deepened site, see header)
     diameter: 0.410             # m — widened from 0.311 to keep friction losses manageable at the mass rate this design needs for positive net power once the downhole pump's own draw is included
     pipe_roughness: 5.5e-5      # m
 
@@ -101,12 +94,12 @@ components:
     component_idx: 1
     prev: 0
     next: 2
-    reservoir_depth: 3000.0       # m
+    reservoir_depth: 5000.0       # m (hypothetical deepened site, see header)
     thickness: 300.0              # m
     permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
     porosity: 0.1
-    hydro_static_pressure: 29_430_000  # Pa = 1000*9.81*3000
-    over_pressure_percentage: 5
+    hydro_static_pressure: 49_050_000  # Pa = 1000*9.81*5000
+    over_pressure_percentage: 10
     well_eff_diameter: 0.410      # m — average of injection/production well diameters (both 0.410)
 
   production_well_lower:
@@ -115,10 +108,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 2400.0         # m = 0.8 x reservoir_depth
+    well_length: 4000.0         # m = 0.8 x reservoir_depth
     diameter: 0.410              # m
     pipe_roughness: 5.5e-5       # m
-    wellhead_depth: 600.0        # m — matches production_well_upper's well_length below
+    wellhead_depth: 1000.0       # m — matches production_well_upper's well_length below
 
   production_well_upper:
     type: production_well_with_pump
@@ -126,9 +119,10 @@ components:
     component_idx: 3
     prev: 2
     next: 4
-    well_length: 600.0          # m = 0.2 x reservoir_depth
+    well_length: 1000.0         # m = 0.2 x reservoir_depth
     diameter: 0.410              # m
     pipe_roughness: 5.5e-5       # m
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above.
 
@@ -165,12 +159,12 @@ components:
         pump2:
           type: Compressor
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.005         # MPa (= 0.05 bar)
 
         condenser:
@@ -187,7 +181,7 @@ components:
         pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         mixer:
           type: Merge

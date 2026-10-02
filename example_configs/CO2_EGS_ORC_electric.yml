@@ -196,7 +196,7 @@ components:
                                          # 7.5 MPa) -- the only node in the loop that should drop
                                          # pressure without doing work
           role: net_electric
-          efficiency: 0.90             # TESPy eta_s; only used if this ever resolves to a pump
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         outlet:
           type: Sink                   # CO2 leaving for injection_well
@@ -205,7 +205,7 @@ components:
         orc_turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0              # TESPy eta_s (isentropic efficiency)
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.1       # MPa (= 1 bar)
 
         orc_desuperheater:
@@ -221,7 +221,7 @@ components:
         orc_feed_pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0              # TESPy eta_s (isentropic efficiency)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.5       # MPa (= 5 bar) — the R245fa boiling pressure
 
         orc_cycle_closer:

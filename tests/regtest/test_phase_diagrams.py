@@ -345,3 +345,12 @@ def test_wells_are_drawn_as_their_marched_profiles() -> None:
         trace = next(tr for tr in frame.data if tr.name == "outlet -> injection_well")
         assert list(trace.x) == pytest.approx([h / 1000 for h in well.history.h_cells[t]])
         assert list(trace.y) == pytest.approx([p * phase_diagrams.PA_TO_BAR for p in well.history.P_cells[t]])
+
+
+def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
+    """A saved diagram's title carries the config file's stem and the config's own ``title``."""
+    wf = _run_fast("hydro_sf_electric.yml")
+    (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
+    html = path.read_text()
+    assert "hydro_sf_electric — H2O P–h phase diagram" in html
+    assert str(wf.to_dict()["title"]) in html

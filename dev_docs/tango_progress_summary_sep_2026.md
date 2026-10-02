@@ -1,7 +1,7 @@
 # tango: Progress Summary & Forward Plan — September 2026
 
-*Prepared 2026-09-16. Covers September 1–16 only — a partial month, not a
-full period like the July/August summaries. Managerial-level summary — for
+*Prepared 2026-09-16, extended 2026-10-02 to cover the full month
+(September 1–30). Managerial-level summary — for
 engineering detail, see `dev_docs/tango_tasks.md` (working task tracker)
 and `dev_docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
 from `dev_docs/tango_progress_summary_aug_2026.md`.*
@@ -129,6 +129,67 @@ same code) or to hold off. Scoped and handed to Chad's manager as a
 decision point; not yet resolved. See `dev_docs/tango_tasks.md` for
 the underlying dependency audit if needed.
 
+## Released TANGO 1.0.0 and 1.0.1: the rewrite now replaces the old codebase on `main` (2026-09-21–24)
+
+**1.0.0 (2026-09-21) made the multi-month rewrite the only TANGO.** The
+whole rewrite landed on `main` as one commit, and the old codebase left the
+working tree (it's preserved at the git tag
+`pre-tango-core-rename-2026-09-18` for reference). Everything since builds
+on the new implementation only.
+
+**1.0.1 (2026-09-24) made results reproducible and checkable.**
+`tango_cli run --save-dir` now writes a run's full results (until then,
+running a config directly from the command line saved nothing). Every
+example config got full-length regression coverage with a golden cost
+value, plus a guard that fails if a new config ships without coverage, and
+a pre-push hook now blocks pushing a release tag unless the full test
+suite passes.
+
+**Two real bugs in the CO2 power example were found and fixed along the
+way.** Its surface plant kept the CO2 supercritical through the turbine,
+which leaves the turbine's outlet pressure with no physical anchor; it now
+condenses the CO2 after the turbine, as real CO2 plants do. And its cost
+came out undefined because the cooling-tower setting assumed dry cooling,
+whose parasitic power exceeded the plant's own output; it now uses wet
+cooling, matching the model it was ported from.
+
+## Completed the example coverage matrix: a worked example for every system type, for both heat and power (2026-09-24–25)
+
+TANGO now has a runnable, sanity-checked example for each combination of
+system type (hydrothermal, EGS, CO2-EGS, CPG, AGS, CO2-AGS) and product
+(heat, power) — 12 cells, all filled.
+
+**Three silent physics bugs of the same kind were found and fixed.** In
+three CO2 examples, a heat exchanger's fixed outlet pressure sat above the
+pressure actually arriving at it, so the model quietly gave the fluid
+"free" compression, or forced a pump to appear where the natural pressure
+surplus needed none. Nothing in the model caught this, and it distorted
+costs (one example's cost was understated about 9x until the hidden pump
+power was counted). This class of check is now on the per-config review
+checklist (GitLab #67).
+
+**Several examples use hypothetical, deeper versions of the real Zurich
+site.** At the real site depth, the closed-loop and CO2 systems don't
+deliver enough heat to run a power plant, so those examples deepen the
+wells (e.g. to 5,000–9,000 m) to illustrate the technology. They are
+illustrative, not drilling proposals.
+
+## Added P–h phase diagrams for every working fluid (2026-09-28)
+
+`tango_cli run --save-dir` now also writes a pressure–enthalpy diagram for
+each fluid in the plant, showing how the fluid's state moves around the
+loop each year. A first interactive version hit a plotting bug (the
+pressure axis could blow up when moving between years), so this month
+ended with static per-year images instead; October brought the interactive
+version back once the bug's cause was found.
+
+## Started third-party license compliance tooling (2026-09-30)
+
+The license checker now records, for every dependency, whether TANGO uses
+it directly or only through another package, how deep in the chain it
+sits, and which packages pull it in, and can draw the dependency tree. This
+groundwork became October's release gate.
+
 ## Smaller items worth noting
 
 - **Optimizer usability**: every optimizer's output file now labels each
@@ -144,6 +205,15 @@ the underlying dependency audit if needed.
   from code and docs, and added two new contribution guidelines
   (descriptive variable names; a documented mapping from past bugs to
   the design principles meant to prevent their recurrence).
+- **Issue tracking moved to GitLab:** the task list's top-level items
+  became GitLab issues (#47–55), and old issues were triaged and
+  cross-referenced.
+- New issues (2026-09-30): reservoir mass imbalance, the high-priority
+  next physics item (#63, with a linked FlexGeo issue), and SPDX license
+  identifiers for TANGO itself (#64).
+- Housekeeping: removed superseded design diagrams from the earlier
+  refactor phases; documented how to put draw.io diagrams on the Miro
+  board; a clarity-only rename in the well model (no physics change).
 - Backlogged a longer-term idea: making economic (cost) calculations a
   responsibility of each component (well, surface, reservoir) rather than
   one large, centralized economic component — flagged for later, not
@@ -151,11 +221,12 @@ the underlying dependency audit if needed.
 
 ## Where things stand
 
-No change to the heat/power coverage table from August — see
-`dev_docs/tango_progress_summary_aug_2026.md`. This period's work was
-concentrated on making existing capabilities (the AGS optimizer, the
-surrogate-accelerated search, well physics accuracy, runtime performance)
-more correct and more trustworthy, not on adding new system-type coverage.
+**The example coverage matrix is complete:** every system type has a
+worked heat example and a worked power example, each regression-tested.
+The first half of the month made existing capabilities (the AGS optimizer,
+the surrogate-accelerated search, well physics accuracy, runtime
+performance) more correct and more trustworthy; the second half shipped
+1.0, filled the remaining matrix cells, and added phase diagrams.
 
 ## Immediate next steps
 
@@ -166,7 +237,10 @@ more correct and more trustworthy, not on adding new system-type coverage.
    temperature constraint is physically meaningful (bug fixed) and
    correctly scored (scoring bug fixed) — a real, usable pareto front is
    now achievable where before the search found nothing valid at all.
-3. Everything queued from August's plan not superseded above (the MOOSE
+3. Review every example config's phase diagram and physics against a
+   common checklist (GitLab #67) — the CO2 bugs above show these examples
+   need a systematic pass, not spot checks.
+4. Everything queued from August's plan not superseded above (the MOOSE
    integration follow-up, the deferred "back off flow rate" injection
    mode, etc.) is unaffected and continues in parallel — see
    `dev_docs/tango_tasks.md`.

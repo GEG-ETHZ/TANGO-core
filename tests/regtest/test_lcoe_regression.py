@@ -172,7 +172,7 @@ def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
     assert nodes["circulation_control"] == {
         "type": "PumpOrValve",
         "role": "net_electric",
-        "efficiency": 1.0,
+        "efficiency": 0.75,
     }
     assert nodes["dh_hx"]["pressure_ratio"] == 0.99
     assert "p_out_megapascals" not in nodes["circulation_control"], (

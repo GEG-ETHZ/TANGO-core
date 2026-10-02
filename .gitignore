@@ -82,6 +82,9 @@ builds
 .claude/
 *.drawio.bkp
 
+# Local run output, e.g. from `just phase-diagrams`
+scratch_output/
+
 # Root-level scratch markdown (planning notes, worklogs) — not meant to be
 # tracked; repo-root only, doesn't affect docs/ etc. Existing tracked
 # root .md files are explicitly excepted below.

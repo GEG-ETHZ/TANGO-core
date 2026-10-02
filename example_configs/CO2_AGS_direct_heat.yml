@@ -157,12 +157,7 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 0.90    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency).
-                                # Resolves to a real, running Compressor (~182 kW, confirmed
-                                # by direct run) across the whole run -- genuine physics: the
-                                # loop's own natural pressure (~8.3 MPa) is below
-                                # injection_pressure's 9.0 MPa target, so an actual pump is
-                                # needed to bridge that gap.
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
         outlet:
           type: Sink
       edges:

@@ -199,12 +199,7 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 1.0    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency), used only
-                              # by this node's Compressor-resolved leg (a no-op for the Valve-
-                              # resolved leg, which has no eta_s attribute -- see
-                              # GraphSurface._apply_node_config). Matches hydro_df_electric.yml's
-                              # pump1/pump2 default; revisit if a more realistic circulation-pump
-                              # efficiency is needed.
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
         outlet:
           type: Sink
       edges:

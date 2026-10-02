@@ -66,7 +66,7 @@ sim_config:
                                           # production wellhead stays
                                           # single-phase supercritical
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 200                # kg/s — CO2's lower density than water needs a higher mass rate for comparable volumetric flow (see old CPG_num_pp.yml)
+  mass_rate: 125              # kg/s — LCOE minimum in a 100-200 kg/s sweep at realistic component efficiencies; 200 kg/s depleted this reservoir to net-negative output in year 19
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -168,7 +168,7 @@ components:
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 0.78                   # dimensionless [0-1] — TESPy eta_s (isentropic efficiency), matches old CPG_num_pp.yml's eta_turbine
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 6.0              # MPa -- expands down to the condenser's own pressure
                                                # (no pressure drop between turbine outlet and condenser
                                                # exit, same pattern as hydro_sf_electric.yml's turbine/
@@ -220,7 +220,7 @@ components:
         pump:
           type: PumpOrValve
           role: net_electric
-          efficiency: 0.90                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); matches old CPG_num_pp.yml's eta_pump default; no-op if this resolves to the Valve leg (TESPy's Valve has no eta_s)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         outlet:
           type: Sink

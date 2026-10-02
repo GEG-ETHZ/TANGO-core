@@ -217,16 +217,7 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 0.90    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency);
-                                # matches CPG_electric.yml's pump node default. Resolves to a
-                                # real, running Compressor across the whole run (confirmed by
-                                # direct run) -- genuine physics, not an artifact: dh_hx's real
-                                # ~5.0 MPa outlet (see its own comment) is well below
-                                # injection_pressure's 7.5 MPa target, so an actual pump is
-                                # needed to bridge that gap. Contrast CO2_EGS_direct_heat.yml's
-                                # own circulation_control, which resolves to a passive Valve
-                                # instead -- that design's natural pressure genuinely exceeds
-                                # its own injection_pressure, this one's doesn't.
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p0_out1: 75          # bar (= 7.5 MPa, matches injection_pressure above) — TESPy guess
                                 # value; NOTE unlike p_out_megapascals, p0_out{N}/h0_out{N} pass
                                 # their raw value straight through in TESPy's own network unit

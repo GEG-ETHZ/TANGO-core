@@ -130,7 +130,7 @@ components:
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 0.78             # TESPy eta_s (isentropic efficiency), same as CPG_electric.yml
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 6.0       # MPa -- expands into the two-phase dome, down to the
                                          # condensing pressure. CO2 saturates at ~295 K at 6.0 MPa,
                                          # above what the cooling tower can reach here
@@ -150,7 +150,7 @@ components:
           type: PumpOrValve            # restores injection_pressure; with the condenser below
                                          # injection_pressure this resolves to a real pump
           role: net_electric
-          efficiency: 0.90             # TESPy eta_s; unused if it ever resolves to a Valve
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         outlet:
           type: Sink                   # CO2 leaving for injection_well

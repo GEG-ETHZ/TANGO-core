@@ -106,9 +106,7 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 1.0    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency), used only
-                              # by this node's Compressor-resolved leg -- see AGS_direct_heat.yml's
-                              # comment on the same node for the full rationale.
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
         outlet:
           type: Sink
       edges:
@@ -162,5 +160,6 @@ components:
     well_length: 1000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above.

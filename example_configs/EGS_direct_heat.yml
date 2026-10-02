@@ -114,6 +114,7 @@ components:
     well_length: 600.0          # m = 0.2 x reservoir_depth — updated per depth in sweep
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure below (see that field's
     # docstring in core/specs.py for the duplicated-value bug this fixed).

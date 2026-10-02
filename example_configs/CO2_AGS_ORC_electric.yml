@@ -63,7 +63,7 @@ layout:
   well_spacing: 707.0        # m — horizontal loop length
 
 sim_config:
-  num_tsteps: 25              # years of operation -- see below if depletion requires shortening
+  num_tsteps: 20              # years -- net output goes negative in year 24 at realistic component efficiencies
   dt_years: 1.0                # years
   target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (plain
                                           # production_well, no pump) -- kept
@@ -170,12 +170,12 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 0.90              # dimensionless [0-1] — TESPy eta_s (isentropic efficiency).
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.1        # MPa (= 1 bar)
 
         cooler:
@@ -191,7 +191,7 @@ components:
         pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); secondary-loop pump
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.5        # MPa (= 5 bar)
 
         cc:

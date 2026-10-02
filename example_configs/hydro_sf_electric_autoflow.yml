@@ -84,12 +84,12 @@ components:
         pump2:
           type: Compressor
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
 
         condenser:
@@ -107,7 +107,7 @@ components:
         pump:
           type: Compressor
           role: net_electric
-          efficiency: 1.0                    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
         mixer:
           type: Merge
@@ -175,6 +175,7 @@ components:
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     num_cells: 100             # axial discretization resolution
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above (see that field's
     # docstring in core/specs.py for the duplicated-value bug this fixed).

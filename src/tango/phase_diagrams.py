@@ -270,7 +270,15 @@ def write_phase_diagrams(
             continue
         for fluid_name, node_names in _fluid_groups(component).items():
             path = save_dir / f"{stem}.phase_{fluid_name}.html"
-            fig = _build_figure(wf, component, fluid_name, node_names, dt_years, config.for_fluid(fluid_name))
+            fig = _build_figure(
+                wf,
+                component,
+                fluid_name,
+                node_names,
+                dt_years,
+                config.for_fluid(fluid_name),
+                config_name=stem,
+            )
             fig.write_html(path)
             written.append(path)
 
@@ -477,8 +485,13 @@ def _build_figure(
     node_names: list[str],
     dt_years: float,
     property_lines: PropertyLineConfig | None = None,
+    config_name: str | None = None,
 ) -> go.Figure:
     """Build one fluid's P-h figure: saturation dome, reference lines, and a year slider over node states.
+
+    The plot title names the config (``config_name``, typically the input
+    file's stem) and the fluid, with the config's own ``title`` field
+    underneath when it has one, so a saved diagram identifies its source.
 
     The dome, reference lines, and legend entries are static: they're the
     base figure's first traces and no animation frame touches them. Each
@@ -626,7 +639,7 @@ def _build_figure(
     fig = go.Figure(data=[*static_traces, *(frames[-1].data if frames else [])], frames=frames)
 
     fig.update_layout(
-        title=f"{fluid_name} — P-h phase diagram",
+        title=_figure_title(wf, fluid_name, config_name),
         xaxis_title="Specific enthalpy h [kJ/kg]",
         xaxis_range=xaxis_range,
         xaxis_autorange=False,
@@ -652,6 +665,17 @@ def _build_figure(
         ],
     )
     return fig
+
+
+def _figure_title(wf: Workflow, fluid_name: str, config_name: str | None) -> str:
+    """``<config> — <fluid> P–h phase diagram``, with the config's own ``title`` as a smaller second line."""
+    heading = (
+        f"{config_name} — {fluid_name} P–h phase diagram"
+        if config_name
+        else f"{fluid_name} — P–h phase diagram"
+    )
+    config_title = wf.to_dict().get("title")
+    return f"{heading}<br><sup>{config_title}</sup>" if config_title else heading
 
 
 def _phase_color_or_fallback(

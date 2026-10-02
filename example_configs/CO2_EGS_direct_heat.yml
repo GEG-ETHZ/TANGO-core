@@ -202,13 +202,7 @@ components:
         circulation_control:
           type: PumpOrValve
           role: net_electric
-          efficiency: 0.90    # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); a
-                                # no-op here (resolves to the Valve leg across the whole run,
-                                # confirmed by direct run -- see dh_hx's own comment above),
-                                # kept for consistency with CPG_electric.yml's/
-                                # CPG_direct_heat.yml's pump default in case a future design
-                                # point (deeper reservoir, lower mass_rate, etc.) needs the
-                                # Compressor leg instead.
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
         outlet:
           type: Sink
       edges:

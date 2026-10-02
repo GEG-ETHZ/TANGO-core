@@ -90,6 +90,30 @@ test *args:
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
 
+# Runs configs one at a time; pass names to run only those: `just phase-diagrams CO2_EGS_electric hydro_sf_electric`.
+# Write each example config's P-h phase diagrams (plus full results) to scratch_output/<config>/
+[unix]
+phase-diagrams *configs:
+    #!/usr/bin/env sh
+    set -u
+    if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls example_configs/*.yml | xargs -n1 basename); fi
+    failed=""
+    for c in "$@"; do
+        c="${c%.yml}"; out="scratch_output/$c"
+        rm -rf "$out"; mkdir -p "$out"
+        echo "== $c"
+        if uv run tango_cli run --save-dir "$out" "example_configs/$c.yml" > "$out/run.log" 2>&1; then
+            ls "$out"/*.phase_*.html 2>/dev/null | sed 's/^/   /'
+        else
+            echo "   FAILED -- see $out/run.log"; failed="$failed $c"
+        fi
+    done
+    if [ -n "$failed" ]; then echo "Failed:$failed"; exit 1; fi
+
+[windows]
+phase-diagrams *configs:
+    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
+
 # Smoke-test every script in applications/. --slow: real multi-thousand-design grids, not --smoke.
 # example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
 # "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
