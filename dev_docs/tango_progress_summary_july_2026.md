@@ -1,8 +1,8 @@
 # tango: Progress Summary & Forward Plan
 
 *Prepared 2026-07-24. Managerial-level summary — for engineering detail, see
-`docs/tango_tasks.md` (working task tracker) and
-`docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap).*
+`dev_docs/tango_tasks.md` (working task tracker) and
+`dev_docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap).*
 
 ## What this covers
 

@@ -135,7 +135,7 @@ class _LoopLengthApply:
     per-component overrides of fields sourced from ``common:``/``layout:``/
     ``sim_config:`` (see ``AGS_direct_heat.yml``'s own
     "well_spacing is NOT set here" comment, and
-    docs/tango_tasks.md's "common:/component-block override
+    dev_docs/tango_tasks.md's "common:/component-block override
     ambiguity" section) — confirmed by ``ConfigError`` when this factory
     initially set it in both places.
     """

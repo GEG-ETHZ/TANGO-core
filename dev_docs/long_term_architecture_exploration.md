@@ -2,14 +2,14 @@
 
 **Status: speculative, not a roadmap.** This is the parking lot for
 "if we ever had a real greenfield opportunity" architecture thinking —
-deliberately kept separate from `docs/TANGO_vision_and_roadmap/README.md` (which
+deliberately kept separate from `dev_docs/TANGO_vision_and_roadmap/README.md` (which
 is already fairly bloated and is meant to track the concrete, near-term
 `tango` roadmap) so long-horizon ideas don't get lost but also don't
 clutter the doc people read to find out what's actually being built next.
 Nothing here should be read as planned, scheduled, or blocking any current
 work. Started 2026-07-24. A follow-up, time-boxed implementation spike
 (Rumoca + MSL, a real multi-component model, LSP tooling) is written up
-separately in `docs/modelica-investigation.md` (2026-07-29) — that doc
+separately in `dev_docs/modelica-investigation.md` (2026-07-29) — that doc
 has the concrete, hands-on findings; this one has the framing and the
 still-open questions.
 
@@ -23,7 +23,7 @@ mismatch worth naming plainly: **TESPy is a causal, imperatively-solved
 network** — you specify a fixed topology, fixed pressures/setpoints on
 individual components, and TESPy's Newton solver resolves the resulting
 system. This was explored in depth in a prior session (see
-`docs/diagrams/src/graph_surface_state_provenance.drawio` and the vision
+`dev_docs/diagrams/src/graph_surface_state_provenance.drawio` and the vision
 doc's "`GraphSurface`'s fixed `p_out` values" section) — the upshot: several
 plant pressures are externally *imposed* design constants rather than
 values *derived* from a genuine resistance/flow relationship, because
@@ -241,7 +241,7 @@ language/ecosystem* itself," which no compiler choice fixes:
   "no mature domain library ecosystem" concern raised when this was first
   discussed is largely unwarranted, since MSL is tool-independent Modelica
   source, not something tied to Dymola/OpenModelica specifically.
-  **Partially answered 2026-07-29** (`docs/modelica-investigation.md`):
+  **Partially answered 2026-07-29** (`dev_docs/modelica-investigation.md`):
   core MSL 4.1.0 resolves and typechecks cleanly against a real checkout,
   and a hand-built multi-component geothermal loop mixing MSL base classes
   with custom two-phase components flattened successfully. Third-party

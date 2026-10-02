@@ -2,9 +2,9 @@
 
 *Prepared 2026-09-16. Covers September 1–16 only — a partial month, not a
 full period like the July/August summaries. Managerial-level summary — for
-engineering detail, see `docs/tango_tasks.md` (working task tracker)
-and `docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
-from `docs/tango_progress_summary_aug_2026.md`.*
+engineering detail, see `dev_docs/tango_tasks.md` (working task tracker)
+and `dev_docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
+from `dev_docs/tango_progress_summary_aug_2026.md`.*
 
 ## Resolved the surrogate optimizer's accuracy problem: a smoother statistical model, not more data, was the fix (2026-08-31–09-01)
 
@@ -126,7 +126,7 @@ there's now interest in open-sourcing all three, not just the wellbore
 model, the real decision is whether to open-source the shared foundation
 itself as its own package (avoiding a permanent, drifting fork of the
 same code) or to hold off. Scoped and handed to Chad's manager as a
-decision point; not yet resolved. See `docs/tango_tasks.md` for
+decision point; not yet resolved. See `dev_docs/tango_tasks.md` for
 the underlying dependency audit if needed.
 
 ## Smaller items worth noting
@@ -152,7 +152,7 @@ the underlying dependency audit if needed.
 ## Where things stand
 
 No change to the heat/power coverage table from August — see
-`docs/tango_progress_summary_aug_2026.md`. This period's work was
+`dev_docs/tango_progress_summary_aug_2026.md`. This period's work was
 concentrated on making existing capabilities (the AGS optimizer, the
 surrogate-accelerated search, well physics accuracy, runtime performance)
 more correct and more trustworthy, not on adding new system-type coverage.
@@ -169,4 +169,4 @@ more correct and more trustworthy, not on adding new system-type coverage.
 3. Everything queued from August's plan not superseded above (the MOOSE
    integration follow-up, the deferred "back off flow rate" injection
    mode, etc.) is unaffected and continues in parallel — see
-   `docs/tango_tasks.md`.
+   `dev_docs/tango_tasks.md`.

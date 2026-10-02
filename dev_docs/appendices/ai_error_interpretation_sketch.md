@@ -1,7 +1,7 @@
 # AI-Assisted Error Interpretation — Implementation Sketch
 
 *Supporting detail for the "Future Direction — AI-Assisted Error Interpretation" section
-of `docs/TANGO_vision_and_roadmap/README.md`. Split out here because it's implementation-level
+of `dev_docs/TANGO_vision_and_roadmap/README.md`. Split out here because it's implementation-level
 detail (code, prerequisites) rather than vision-doc-level narrative.*
 
 **Implementation sketch:**

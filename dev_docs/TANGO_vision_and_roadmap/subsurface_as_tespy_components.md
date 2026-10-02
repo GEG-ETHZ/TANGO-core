@@ -2,7 +2,7 @@
 
 Linked from [`README.md`](README.md)'s "Future Direction — Subsurface as TESPy
 Components" and its `InjectionPolicy` discussion. **Not started, and not to be started
-without explicit sign-off** — tracked as a backlog item in `docs/tango_tasks.md`.
+without explicit sign-off** — tracked as a backlog item in `dev_docs/tango_tasks.md`.
 
 ## The idea
 
@@ -39,9 +39,9 @@ solve every iteration — into one solve, which is a nice side effect for the *c
 single-chain topology too. But that's not the reason to take this on; see below for a
 narrower, lower-risk way to get that side effect without a graph-topology rewrite.)
 
-## This has already been explored once — see `docs/implicit_solver_exploration.md`
+## This has already been explored once — see `dev_docs/implicit_solver_exploration.md`
 
-A prior exploration (`docs/implicit_solver_exploration.md`) looked at this exact
+A prior exploration (`dev_docs/implicit_solver_exploration.md`) looked at this exact
 question — "should TANGO's subsurface components extend tespy's `Component` base
 class?" — and reached two conclusions worth restating here rather than re-deriving:
 

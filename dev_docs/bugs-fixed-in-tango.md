@@ -3,7 +3,7 @@
 A running record of concrete bugs in legacy `src/tango` that `tango`
 either avoids by design or has explicitly fixed, relative to the legacy
 behavior. Scope is deliberately narrow: this is not a general `tango`
-changelog (see `docs/tango_tasks.md` for that) — only bugs that exist
+changelog (see `dev_docs/tango_tasks.md` for that) — only bugs that exist
 (or existed) in `src/tango` and are confirmed not to recur in `tango`
 belong here.
 
@@ -129,7 +129,7 @@ live runtime config. `tests/regtest/test_native.py`'s `testcase6.yml`/
 this exact failure mode) were removed 2026-08-05 rather than `xfail`ed,
 since old tango isn't being fixed for this (see decision below) — the
 equivalent tango coverage is tracked as open cells in
-`docs/TANGO_vision_and_roadmap/README.md`'s example-coverage matrix instead.
+`dev_docs/TANGO_vision_and_roadmap/README.md`'s example-coverage matrix instead.
 
 `tango` doesn't have this class of bug, for a more specific reason
 than "orchestrator selection isn't a string-collapsing dispatch": its
@@ -152,7 +152,7 @@ structurally capable of leaving `t_d_old` un-advanced the way
 Decision (2026-08-03): not fixing the underlying physics gap in
 `src/tango`. AGS/no-reservoir designs are treated as having no
 trustworthy legacy baseline for comparison. Full writeup:
-`docs/tango_progress_summary_aug_2026.md`, `docs/tango_tasks.md`
+`dev_docs/tango_progress_summary_aug_2026.md`, `dev_docs/tango_tasks.md`
 §"AGS sweep parity" and "Open items" sections.
 
 ## `== "yes"` string-comparison trap
@@ -542,7 +542,7 @@ direction the (wrong) example-file edit happened to push it.
 
 `tango` doesn't yet have a real `well_length_seq` equivalent
 (varying outer/casing diameter by segment) — tracked as a planned,
-explicitly-optional future feature in `docs/tango_tasks.md`'s open
+explicitly-optional future feature in `dev_docs/tango_tasks.md`'s open
 items, defaulting to today's single-combined-section behavior when
 unspecified.
 
@@ -617,7 +617,7 @@ answer is consistent with genuinely finding the self-consistent solution,
 but that hasn't been verified beyond "old tango never checks, so its
 speed isn't evidence of correctness." An intern is implementing Aitken's
 process to accelerate `tango`'s T-convergence loop
-(`docs/tango_tasks.md`'s injection-T-guess-robustness section); once
+(`dev_docs/tango_tasks.md`'s injection-T-guess-robustness section); once
 that lands, it becomes cheap to confirm the slow crawl has actually
 reached its true fixed point rather than just satisfying `self.tolerance`
 prematurely.
@@ -741,7 +741,7 @@ power).
 
 `_check_loop_has_pressure_source` is deliberately scoped to the WHOLE
 workflow, not per-loop, since `tango` has no multi-loop/
-grouped-subsystem support yet (see `docs/TANGO_vision_and_roadmap/README.md`'s
+grouped-subsystem support yet (see `dev_docs/TANGO_vision_and_roadmap/README.md`'s
 "Grouped subsystems" open design question) — there is only ever one
 fluid circuit per `Workflow` today, so a whole-workflow check is
 equivalent to a per-loop one for now. Revisit once a config can genuinely

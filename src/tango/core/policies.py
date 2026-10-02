@@ -50,7 +50,7 @@ class InjectionPolicy(enum.StrEnum):
     **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACKING_CHECK`` execute
     one circuit pass per timestep and return.  ``AUTO_*`` variants drive an outer
     Newton-step convergence loop.  See ``SystemBCIteration.run_timestep`` and the
-    BC Iteration Solver diagram in ``docs/diagrams/src/``.
+    BC Iteration Solver diagram in ``dev_docs/diagrams/src/``.
     """
 
     def __new__(cls, value: str, doc: str = "") -> InjectionPolicy:
@@ -97,7 +97,7 @@ class InjectionPolicy(enum.StrEnum):
         "operating point via pymoo instead (applications/"
         "opt_hydro_df_electric/, applications/opt_hydro_sf_electric/), "
         "with fracking-avoidance enforced as a search constraint rather than an "
-        "in-simulation auto-adjustment loop (docs/tango_tasks.md's backlog "
+        "in-simulation auto-adjustment loop (dev_docs/tango_tasks.md's backlog "
         "entry has the full writeup on why this was punted).",
     )
 
@@ -116,7 +116,7 @@ class MainProduct(enum.StrEnum):
 
     A real enum rather than a raw string comparison, to avoid the
     silent-failure modes a stringly-typed field invites — see
-    ``docs/bugs-fixed-in-tango.md``'s "``== \"yes\"`` string-comparison
+    ``dev_docs/bugs-fixed-in-tango.md``'s "``== \"yes\"`` string-comparison
     trap" section for an example of that failure mode.
     """
 

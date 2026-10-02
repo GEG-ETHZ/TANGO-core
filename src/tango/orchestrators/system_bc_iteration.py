@@ -542,14 +542,14 @@ Time: {t * self.dt_years} years
         if self.policy == InjectionPolicy.AUTO_BOTH:
             # Deliberately NOT dispatched to _converge_injection_both (still
             # present below, unreachable from here) — see InjectionPolicy.AUTO_BOTH's
-            # own docstring (core/policies.py) and docs/tango_tasks.md's
+            # own docstring (core/policies.py) and dev_docs/tango_tasks.md's
             # backlog entry: unverified/verified-to-fail near the reservoir's
             # feasibility boundary (InvalidPowerStateError on an intermediate
             # iterate), and not a capability tango needs going forward.
             # Punted, not under active development.
             raise NotImplementedError(
                 "InjectionPolicy.AUTO_BOTH is not implemented — see its docstring "
-                "(core/policies.py) and docs/tango_tasks.md's backlog entry.",
+                "(core/policies.py) and dev_docs/tango_tasks.md's backlog entry.",
             )
 
         raise NotImplementedError(f"InjectionPolicy.{self.policy.name} is not implemented.")
@@ -825,7 +825,7 @@ Time: {t * self.dt_years} years
         state, whose ``fracking_flow()`` estimate then overshoots into a
         mass rate the circuit can't solve from a cold start at all
         (``CoolPropError``, unrelated to fracking — see
-        ``docs/tango_tasks.md``'s "Production-side circuit numerically
+        ``dev_docs/tango_tasks.md``'s "Production-side circuit numerically
         unstable..." open item). Starting from a physically-reasonable guess
         (e.g. the config's normal operating mass rate) avoids this: each
         Picard step is then a comparatively small perturbation, and

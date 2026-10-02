@@ -79,13 +79,9 @@ def friction_factor_darcy(Re: float, diameter: float, roughness: float) -> float
 
     References:
     ----------
-    [Colebrook, C.F. (1939). Turbulent flow in pipes, with particular reference
-    to the transition region between smooth and rough pipe laws.
-    J. Institution of Civil Engineers, 11(4), 133–156.](https://doi.org/10.1680/ijoti.1939.13150)
-
-    [Swamee, P.K. & Jain, A.K. (1976). Explicit equations for pipe-flow problems.
-    J. Hydraulics Division ASCE, 102(5), 657–664.](https://doi.org/10.1061/JYCEAJ.0004542)
-    (Error < 3 % vs. iterative Colebrook–White for Re 5×10³–10⁸, ε/D 10⁻⁶–10⁻².)
+    Colebrook (1939) and Swamee & Jain (1976); see docs/SOURCES.md#colebrook1939
+    and docs/SOURCES.md#swameejain1976. (Error < 3 % vs. iterative
+    Colebrook–White for Re 5×10³–10⁸, ε/D 10⁻⁶–10⁻².)
 
     **Human review needed**: before using results that depend on this
     function for engineering decisions, verify against a trusted reference
@@ -119,8 +115,7 @@ def friction_factor_haaland(Re: float, diameter: float, roughness: float) -> flo
 
     Reference:
     ---------
-    [Haaland, S.E. (1983). Simple and explicit formulas for the friction factor in
-    turbulent pipe flow. J. Fluids Engineering, 105(1), 89-90.](https://doi.org/10.1115/1.3240948)
+    Haaland (1983); see docs/SOURCES.md#haaland1983.
 
     Args:
         Re: Reynolds number (dimensionless).
@@ -199,16 +194,10 @@ def heat_loss_zhang_2011(dL: float, rock_k: float, t_d: float, delta_T: float) -
 
     References:
     ----------
-    β and its two-regime piecewise form (Equations 1 and 2) originate with:
-        [Zhang, Y., Pan, L., Pruess, K., & Finsterle, S. (2011). A
-        time-convolution approach for modeling heat exchange between a
-        wellbore and surrounding formation. Geothermics, 40, 261-266.](https://doi.org/10.1016/j.geothermics.2011.08.003)
-    This implementation's exact form matches Equation S65/S66 of:
-        Adams, B.M., Ogland-Hand, J.D., Bielicki, J.M., Schädle, P., & Saar,
-        M.O. Estimating the geothermal electricity generation potential of
-        sedimentary basins using genGEO (the generalizable GEOthermal
-        techno-economic simulator). Supplemental Information, §S6
-        "Wellbore Model", Eq. S66 (which itself cites Zhang et al., 2011).
+    β and its two-regime piecewise form (Eqs. 1–2) originate with Zhang et al.
+    (2011); see docs/SOURCES.md#zhang2011. This implementation's exact form
+    matches Eqs. S65–S66 of Adams et al. (2021), Supplemental Information §S6;
+    see docs/SOURCES.md#adams2021gengeo.
 
     Args:
         dL: Axial cell length (m).
@@ -234,7 +223,7 @@ def heat_loss_zhang_2011(dL: float, rock_k: float, t_d: float, delta_T: float) -
 # uses — rather than assuming water. These four used to be hardcoded against
 # a single module-level "Water" AbstractState regardless of what fluid a
 # component's Common.fluid_name actually declared; that silently computed
-# wrong properties for any non-water fluid (see docs/tango_tasks.md's
+# wrong properties for any non-water fluid (see dev_docs/tango_tasks.md's
 # fluid-identity review). Callers must pass ``common.fluid_name``, not a
 # literal fluid string, so every component using a shared Common instance
 # stays consistent by construction.

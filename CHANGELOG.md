@@ -152,7 +152,7 @@ tree; everything below refers to the new implementation unless noted otherwise.
 ### Fixed
 
 Real physics/correctness bugs found while porting old TANGO's behavior to the new
-implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
+implementation (see `dev_docs/bugs-fixed-in-tango.md` for full detail on each):
 
 - Fixed AGS never advancing simulated time past year one in old TANGO (a fake-convergence
   bug) — every downstream multi-year AGS number from the old system was invalid. The new
@@ -190,7 +190,7 @@ implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
   deliberate modeling choice — real plant control targets, not derived quantities — but are
   only self-consistent if calibrated to the site's assumed conditions, and nothing currently
   checks that. Old TANGO's pressure-monotonicity sanity guard has no equivalent yet. See
-  `docs/TANGO_vision_and_roadmap/README.md` for the full discussion.
+  `dev_docs/TANGO_vision_and_roadmap/README.md` for the full discussion.
 - **Seasonal heat-demand variation** is not modeled — direct-heat and cogeneration examples
   run at constant mass flow.
 - **Combined heat-and-power (cogeneration)** has topology precedent and support in

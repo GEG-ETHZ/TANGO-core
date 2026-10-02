@@ -15,7 +15,7 @@
 # SimpleHeatExchanger/Compressor/Merge) were already registered in
 # GraphSurface's _COMPONENT_TYPES before this file was written — this
 # topology needed zero new Python code, only YAML composition (see
-# docs/TANGO_vision_and_roadmap/README.md's "Surface plant layouts are now
+# dev_docs/TANGO_vision_and_roadmap/README.md's "Surface plant layouts are now
 # configuration, not code" point).
 #
 # Two orphaned Sink nodes from the old-tango YAML (`turbine1_outlet`,

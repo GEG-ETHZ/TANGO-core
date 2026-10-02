@@ -17,14 +17,9 @@ Temperature model (thermal depletion):
 where T₀ = initial reservoir temperature, T_inj = current injection temperature.
 
 References:
-Doublet impedance:
-    [Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
-    geothermal simulator, v0.0.1 [Software]. Zenodo.](https://doi.org/10.5281/zenodo.4383139)
-
-Thermal depletion (cumulative-energy / γ(ψ) fitting function):
-    [Adams, B.M. et al. (2015). A comparison of electric power output of CO2
-    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
-    conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+    Doublet impedance: Adams & Schädle (2020), genGEO; see docs/SOURCES.md#adams2020gengeo.
+    Thermal depletion (cumulative-energy / γ(ψ) fitting function): Adams et al.
+    (2015); see docs/SOURCES.md#adams2015.
 
 """
 
@@ -301,9 +296,7 @@ class LumpedReservoir(ReservoirComponent):
         within-timestep re-solve (see ``LumpedReservoirState.p1``'s
         docstring).
 
-        Reference: [Adams, B.M. et al. (2015). A comparison of electric power
-        output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
-        varying reservoir conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+        Reference: Adams et al. (2015); see docs/SOURCES.md#adams2015.
         """
         b = self.thickness
         k_rock = self.common.rock_k
@@ -324,7 +317,7 @@ class LumpedReservoir(ReservoirComponent):
     def _depletion_curve(self, psi: float) -> float:
         """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
 
-        Reference: [Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+        Reference: Adams et al. (2015); see docs/SOURCES.md#adams2015
         (same curve-fit as ``_recompute_depletion_coeffs`` above — see its
         docstring).
         """

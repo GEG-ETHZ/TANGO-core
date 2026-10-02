@@ -96,6 +96,12 @@ packages = ["src/tango"]
 # duplicating it, so nothing referencing the top-level path needs to change.
 "example_configs" = "tango/example_configs"
 
+# User-facing docs (docs/; developer docs live in dev_docs/ and are not
+# shipped). Files are listed individually, not the whole directory, for the
+# same reason as applications/ below: force-include copies whatever is on
+# disk, and docs/ will also hold Sphinx build output (docs/_build, docs/api).
+"docs/SOURCES.md" = "tango/docs/SOURCES.md"
+
 # applications/<app>/ files, explicitly enumerated rather than
 # force-including the whole applications/ directory -- app dirs
 # accumulate untracked local run cruft (outputs/*.csv, __pycache__,

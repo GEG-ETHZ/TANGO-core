@@ -1,9 +1,9 @@
 # tango: Progress Summary & Forward Plan — August 2026
 
 *Prepared 2026-08-01, updated 2026-08-14. Managerial-level summary — for
-engineering detail, see `docs/tango_tasks.md` (working task tracker)
-and `docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
-from `docs/tango_progress_summary_july_2026.md`.*
+engineering detail, see `dev_docs/tango_tasks.md` (working task tracker)
+and `dev_docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
+from `dev_docs/tango_progress_summary_july_2026.md`.*
 
 ## Old system is not actually solving AGS — and proof tango doesn't have this bug
 
@@ -41,7 +41,7 @@ Because the legacy system currently has no trustworthy year-by-year baseline
 for AGS, we can't do the usual side-by-side numeric comparison. Every affected
 file has been marked so no one accidentally trusts a bad number in the
 meantime, and the decision on how to handle the legacy system's fix is queued in
-`docs/tango_tasks.md` for when there's time to make that call.
+`dev_docs/tango_tasks.md` for when there's time to make that call.
 
 ### Confirmed via debugger: AGS configs get routed to the no-op placeholder engine (2026-08-04)
 
@@ -73,7 +73,7 @@ is no remaining ambiguity about whether this bug is real.
 **Decision made 2026-08-03**: we are not fixing this in the legacy
 system. AGS/no-reservoir designs are treated as having no trustworthy
 legacy baseline for comparison; `tango`'s own internal checks stand
-in for that comparison instead. See `docs/tango_tasks.md`'s "Open
+in for that comparison instead. See `dev_docs/tango_tasks.md`'s "Open
 items — tracked, not scheduled" section.
 
 ### Hardened the silent AGS failure into a loud one; root cause is a fake convergence check plus a frozen heat-loss clock (2026-08-04/05)
@@ -158,7 +158,7 @@ What's left after this fix is a much smaller, well-understood residual,
 concentrated at the steepest part of one physics curve both systems
 implement identically — the kind of floating-point-level difference
 that's inherent to comparing two independently-written codebases, not a
-discoverable bug. See `docs/TANGO_vision_and_roadmap/README.md` for the full
+discoverable bug. See `dev_docs/TANGO_vision_and_roadmap/README.md` for the full
 technical detail.
 
 **A related point worth recording on its own merits.** Separately, we
@@ -168,7 +168,7 @@ its own right: old tango's convergence loop can, in principle, declare
 value rather than the fully up-to-date one from that same pass.
 tango's design rules this out categorically — every value used in
 any calculation always comes from the same, fully up-to-date pass, by
-construction. See `docs/bugs-fixed-in-tango.md`.
+construction. See `dev_docs/bugs-fixed-in-tango.md`.
 
 ## Economic model and multi-objective optimizer (MOO) (2026-08-07, extended 2026-08-12)
 
@@ -306,7 +306,7 @@ where the underlying physics equation calls for its half-width (radius),
 which skews the computed limit — confirmed by the fact that the old
 system's own formula labels the value "radius" while the code beside it
 plugs in the diameter instead. tango's version uses the correct
-value. Full writeup: `docs/bugs-fixed-in-tango.md`.
+value. Full writeup: `dev_docs/bugs-fixed-in-tango.md`.
 
 **Two new "auto-pilot" modes remove the guesswork entirely.** Instead of a
 person picking a pressure or flow rate and hoping it's safe, tango can
@@ -488,7 +488,7 @@ its own parasitic pumps, but wrong for a pure direct-heat plant that has
 no generator at all and *should* show negative net power once its own
 circulation pump is accounted for) — now scoped to only fire when a real
 generator is actually present. Full technical writeup, including the
-exact numbers and code paths: `docs/bugs-fixed-in-tango.md`.
+exact numbers and code paths: `dev_docs/bugs-fixed-in-tango.md`.
 
 ## Built a surrogate-model-accelerated optimizer — 10x faster, but not yet trustworthy on its own (2026-08-19)
 
@@ -538,13 +538,13 @@ design.
 try a smoother statistical model first (see below for how that played
 out), rather than accepting a result we already knew wasn't trustworthy.
 Continued into September — see
-`docs/tango_progress_summary_sep_2026.md`.
+`dev_docs/tango_progress_summary_sep_2026.md`.
 
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see
-`docs/tango_progress_summary_july_2026.md`'s coverage table and
-`docs/tango_tasks.md` for current detail. AGS direct-heat remains
+`dev_docs/tango_progress_summary_july_2026.md`'s coverage table and
+`dev_docs/tango_tasks.md` for current detail. AGS direct-heat remains
 implemented and runs correctly in `tango` on its own terms (its own
 smoke test and internal self-consistency checks pass); what's blocked is
 specifically the *old-vs-new numeric comparison*, not `tango` itself.
@@ -564,7 +564,7 @@ specifically the *old-vs-new numeric comparison*, not `tango` itself.
    five modes implemented and tested (see above). Remaining, not urgent:
    the combined mode's fuller "back off flow rate until a pressure is
    achievable" design, deliberately deferred — tracked in
-   `docs/tango_tasks.md`, no timeline set.
+   `dev_docs/tango_tasks.md`, no timeline set.
 5. ~~Replace the production-well pump's one-shot pressure correction with
    a real iterative solve, and fix its constant-temperature assumption~~ —
    done 2026-08-14 (see above).

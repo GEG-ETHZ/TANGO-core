@@ -17,7 +17,7 @@ board(s). Read this before doing any "sync TANGO" work.
   primary/authoritative issue tracker. Access it with `glab` (e.g.
   `glab issue list -R geg/tango-projects/tango-core`). GitLab's native MCP
   endpoint is not enabled on `gitlab.ethz.ch` as of 2026-09-23. A planned
-  consolidation of `docs/tango_tasks.md` and GitHub issues into GitLab
+  consolidation of `dev_docs/tango_tasks.md` and GitHub issues into GitLab
   issues is tracked in GitLab issue #45.
 - A sibling repo, `geg/tango-projects/tango-super`
   (`git@gitlab.ethz.ch:geg/tango-projects/tango-super.git`, no GitHub
@@ -27,10 +27,10 @@ board(s). Read this before doing any "sync TANGO" work.
 
 ## Local task docs
 
-- `docs/tango_tasks.md` — granular, frequently-updated working task list.
+- `dev_docs/tango_tasks.md` — granular, frequently-updated working task list.
   Scratch-adjacent but checked in; this is where in-flight, multi-step work
   gets tracked across sessions.
-- `docs/TANGO_vision_and_roadmap/README.md` — the durable, Confluence-bound
+- `dev_docs/TANGO_vision_and_roadmap/README.md` — the durable, Confluence-bound
   narrative doc; its Phase 3 task list is the reconciled, high-level
   counterpart to `tango_tasks.md`.
 - **Reconciliation practice:** when a `tango_tasks.md` entry is fully done,
@@ -62,7 +62,7 @@ board(s). Read this before doing any "sync TANGO" work.
 
 - Put draw.io diagrams on the board with Miro's **draw.io plugin**, not as
   native Miro shapes or static PNGs. The source of truth stays in
-  `docs/diagrams/src/**/*.drawio`: edit it there and re-import, so the
+  `dev_docs/diagrams/src/**/*.drawio`: edit it there and re-import, so the
   board copy doesn't drift from the repo.
 - The plugin drops the embed wherever the viewport happens to be, often
   tiny and outside any frame. After inserting, check its size and
@@ -75,7 +75,7 @@ board(s). Read this before doing any "sync TANGO" work.
 
 1. Pull open issues from both remotes for this repo (GitLab first/primary,
    then GitHub).
-2. Cross-reference against `docs/tango_tasks.md` and the vision doc's
+2. Cross-reference against `dev_docs/tango_tasks.md` and the vision doc's
    Phase 3 list — add anything missing; flag (don't silently drop) anything
    that looks stale or already closed.
 3. Cross-reference the same issues against the Miro board's Gantt/kanban

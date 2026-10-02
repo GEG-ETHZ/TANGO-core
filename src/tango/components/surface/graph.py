@@ -39,7 +39,7 @@ design-point conditions rather than being knowable up front -- see
 builds and holds TWO full networks, tries the Valve-resolved one first
 each ``solve()``, and falls back to the Compressor-resolved one if that's
 physically invalid for the current timestep -- see
-``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
 anywhere" entry for the physical motivation.
 
 Example YAML (AGS direct-heat — the topology that motivated this class):
@@ -194,7 +194,7 @@ class _NetworkBundle:
     networks, one per resolution, is the cost of getting that decision
     right automatically per design point rather than requiring a manual,
     per-config component choice -- see
-    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry for the physical motivation.
     """
 
@@ -530,7 +530,7 @@ class GraphSurface(SurfaceComponent):
         stopping at pressure-increasing ``Compressor`` nodes, flag any
         downstream p_out that exceeds an upstream one.
 
-        Known gap, not covered by this check (see docs/tango_tasks.md):
+        Known gap, not covered by this check (see dev_docs/tango_tasks.md):
         nodes whose pressure is solved via ``Merge``'s pressure-equality
         constraint rather than an explicit ``p_out_megapascals`` (e.g.
         ``pump``/``pump2`` in the Single-Flash examples), and components with

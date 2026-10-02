@@ -210,7 +210,7 @@ components:
           # flash-split vapor fraction, so this parasitic term matters far
           # more here), driving LCOE to NaN. WET's parasitic power is
           # smaller and keeps net power positive -- see
-          # docs/tango_tasks.md's (resolved) entry for the full
+          # dev_docs/tango_tasks.md's (resolved) entry for the full
           # investigation.
           Subtype: condenser
           set_number: 1

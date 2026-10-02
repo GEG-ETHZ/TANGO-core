@@ -4,7 +4,7 @@ Quick, time-boxed spike to gauge whether [Rumoca](https://github.com/CogniPilot/
 (a Rust-native Modelica compiler) is a promising path forward for TANGO, prompted by
 its LSP + playground + explicit multi-stage compiler pipeline looking like a clean,
 modern alternative to the usual Dymola/OpenModelica story. See
-`docs/long_term_architecture_exploration.md` for the original parked discussion this
+`dev_docs/long_term_architecture_exploration.md` for the original parked discussion this
 follows up on.
 
 Two things were tried: getting the `rumoca-lsp` language server working in Helix

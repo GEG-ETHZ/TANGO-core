@@ -52,7 +52,7 @@ TODO: pinned to this rounded value rather than the more precise NIST/ISO
 80000-3 standard value (9.80665) to keep existing golden/reference values
 (e.g. test_example_configs.py's golden LCOE values) stable — switching to
 9.80665 is a one-line change (component-level overrides already exist)
-whenever Chad decides to make it, flagged in docs/tango_tasks.md rather
+whenever Chad decides to make it, flagged in dev_docs/tango_tasks.md rather
 than changed here since it would shift those reference values by a tiny
 amount."""
 
@@ -117,7 +117,7 @@ formula (annual operational hours)."""
 EULER_CONSTANT: float = 0.5772156649015329
 """The Euler-Mascheroni constant γ, to float64 precision. Used by
 ``fluid_utils.heat_loss_zhang_2011``'s wellbore heat-loss β correlation
-for ``t_d > 2.8`` (Zhang et al. 2011, Geothermics 40, 261-266, Eq. 2 —
+for ``t_d > 2.8`` (Zhang et al. 2011, Eq. 2; docs/SOURCES.md#zhang2011 —
 see that function's docstring), whose coefficient is exactly ``2γ``
 (``EULER_CONSTANT_X2``, below)."""
 EULER_CONSTANT_X2: float = EULER_CONSTANT * 2.0

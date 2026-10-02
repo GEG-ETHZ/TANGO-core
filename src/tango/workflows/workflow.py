@@ -400,7 +400,7 @@ def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -
 
     Scoped to the WHOLE workflow, not per-loop: today there is only ever
     one fluid circuit per ``Workflow`` (no multi-loop/grouped-subsystem
-    support yet — see ``docs/TANGO_vision_and_roadmap/README.md``'s "Grouped
+    support yet — see ``dev_docs/TANGO_vision_and_roadmap/README.md``'s "Grouped
     subsystems" open design question), so a whole-workflow check is
     equivalent to a per-loop one. Revisit this scoping once a config can
     genuinely contain more than one independent fluid loop (e.g. a future
@@ -493,7 +493,7 @@ def _build_components(
           (``well_spacing``, ``dt_years``, ``target_extraction_pressure``)
           — still individually threaded per component, not shared-referenced
           via a single frozen object the way ``common`` is (see
-          docs/tango_tasks.md for that scope decision) — but still a
+          dev_docs/tango_tasks.md for that scope decision) — but still a
           SINGLE source value copied out to every declaring component at
           construction time, not independently user-supplied per component.
       (c) all keys from its own YAML block.
@@ -511,7 +511,7 @@ def _build_components(
     ``if key in own: raise`` per field. This is
     deliberate: those per-field checks were added one at a time as each
     duplication bug was found (``common`` first, then
-    ``target_extraction_pressure`` — see ``docs/tango_tasks.md``'s
+    ``target_extraction_pressure`` — see ``dev_docs/tango_tasks.md``'s
     2026-08-10 entry), and ``well_spacing``/``dt_years`` were caught
     missing this same protection by inspection, not by a bug report — a
     generic check closes that whole class of "forgot to add the guard for
@@ -565,7 +565,7 @@ def _build_components(
                 f"Component {name!r} sets {sorted(collisions)!r} in its own YAML "
                 "block — these are always sourced from common:/layout:/sim_config: "
                 "(shared across every component that declares them) and cannot be "
-                "set per-component. See docs/tango_tasks.md's "
+                "set per-component. See dev_docs/tango_tasks.md's "
                 "'common:/component-block override ambiguity' section for the bugs "
                 "this generic guard closes.",
             )

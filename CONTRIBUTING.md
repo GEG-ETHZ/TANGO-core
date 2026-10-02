@@ -78,7 +78,7 @@ with.
   `Stream`, whose own `LockedState` fields are directly `.update()`-able
   by external callers — see [rule: LockedState](#rule-locked-state)) is
   the one exception. **Not yet verified applied uniformly** — see
-  `docs/tango_tasks.md`'s open-items list for the audit task.
+  `dev_docs/tango_tasks.md`'s open-items list for the audit task.
 1. <a id="rule-yaml-booleans"></a>**YAML booleans: `True`/`False`, never `yes`/`no`**: All boolean values in
   TANGO YAML files (`example_configs/`, `tests/`, any input config) must be
   written as `True`/`False` (Python-style capitalisation), never `yes`/`no`/

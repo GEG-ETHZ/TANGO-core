@@ -374,7 +374,7 @@ class DoubletEconomicComponent(EconomicComponent):
         so far. Raises rather than silently picking one if that's ever not
         true: real multi-segment costing (varying outer/casing diameter by
         depth) is a planned tango feature, not built yet (see
-        ``docs/tango_tasks.md``'s open items) — silently ignoring a
+        ``dev_docs/tango_tasks.md``'s open items) — silently ignoring a
         real diameter difference here would misrepresent cost rather than
         just being an approximation.
         """
@@ -387,7 +387,7 @@ class DoubletEconomicComponent(EconomicComponent):
                 f"Production-side wells have differing diameters {sorted(diameters)!r} — "
                 "DoubletEconomicComponent's well-cost model assumes one uniform diameter "
                 "for the combined well until real multi-segment costing is built "
-                "(see docs/tango_tasks.md's open items).",
+                "(see dev_docs/tango_tasks.md's open items).",
             )
         return total_length, next(iter(diameters))
 
@@ -681,7 +681,7 @@ class DoubletEconomicComponent(EconomicComponent):
 
         Guards ``CAPEX <= 0`` and also ``main_power_w <= 0`` → NaN, since a
         negative net power (a real, observed case, ~53/500 designs in the
-        Triemli AGS sweep per ``docs/TANGO_vision_and_roadmap/README.md``'s
+        Triemli AGS sweep per ``dev_docs/TANGO_vision_and_roadmap/README.md``'s
         "Pump electricity accounting" section) would otherwise silently
         produce a deeply negative "cost" rather than an explicit
         not-a-number, and a negative LCOE doesn't mean anything physically.

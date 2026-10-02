@@ -113,7 +113,8 @@ installed, along with TANGO's confidentiality/distribution notice.
     ├── applications/     # Multi-run pipelines (sweeps, optimizations, demos) — scripts only
     ├── CHANGELOG.md
     ├── CONTRIBUTING.md
-    ├── docs/             # Design docs, architecture notes, task tracker
+    ├── dev_docs/         # Developer docs: design notes, architecture, task tracker
+    ├── docs/             # User-facing docs (shipped with the package; Sphinx source)
     ├── example_configs/  # Actively-maintained configs backing tests/applications
     ├── justfile          # Task runner (see `just --list`)
     ├── LICENSE.txt

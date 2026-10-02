@@ -275,7 +275,7 @@ direct consequence of TANGO's explicit, stepwise architecture, not a fact about 
 underlying physics — worth keeping in mind if TANGO ever moves toward an implicit
 formulation (see Phase 2's Newton-step BC iteration, which is a step in that direction for
 the outer loop, though the inner per-component march remains explicit). See
-[`docs/implicit_solver_exploration.md`](../implicit_solver_exploration.md) for an exploration
+[`dev_docs/implicit_solver_exploration.md`](../implicit_solver_exploration.md) for an exploration
 of what adopting a residual/Jacobian-based implicit solve (in the style of tespy's Newton
 network solver) would take, and why the fracking switch itself is the hard part rather than
 the solver mechanics. See also
@@ -404,7 +404,7 @@ sub-problem: the production-pump inner loop that finds `dP_pump` needed to hit
 `target_extraction_pressure` is a single fixed value on `sim_config` — threaded by
 reference to both the surface component and any pump-bearing production well via
 `_build_components`'s `layout_extras` mechanism (fixing a real bug where it used to
-be two independently-set, unvalidated copies — see `docs/bugs-fixed-in-tango.md`) — but the
+be two independently-set, unvalidated copies — see `dev_docs/bugs-fixed-in-tango.md`) — but the
 pump-loop physics itself (the real Newton-Raphson solve old tango does, finding
 `dP_pump` such that the whole circuit is pressure-consistent — see below) is not yet
 implemented; tango's pump-bearing wells currently apply this value directly as
@@ -466,8 +466,8 @@ but the final set hasn't been decided.
 
 Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
 right foundation for this kind of external-simulator composition lives in
-`docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
-A follow-up implementation spike (Rumoca + MSL) is in `docs/modelica-investigation.md`.
+`dev_docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
+A follow-up implementation spike (Rumoca + MSL) is in `dev_docs/modelica-investigation.md`.
 
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
@@ -672,7 +672,7 @@ but flagged here as in play for future robustness against topologies not yet ant
 
 Raised 2026-08-17 while fixing `DoubletEconomicComponent`'s (`components/economic/
 doublet.py`) well-costing logic (it was crashing on `opt_AGS_direct_heat`'s
-independently-swept horizontal-loop diameter — see `docs/tango_tasks.md`'s
+independently-swept horizontal-loop diameter — see `dev_docs/tango_tasks.md`'s
 PAUSED entry for that specific bug). The proposal: instead of one centralized
 economic component that reaches into `WellComponent`/`SurfaceComponent` internals
 and re-derives assumptions about which fields mean what, give each component its
@@ -944,7 +944,7 @@ software-sustainability review).
     state once per timestep, then restores and fully re-solves the *entire*
     circuit — reservoir included, no exceptions — on every inner iteration,
     checking convergence only after each complete pass (see
-    `docs/tango_t_convergence.md` for the full mechanism). Because the
+    `dev_docs/tango_t_convergence.md` for the full mechanism). Because the
     reservoir is genuinely re-solved using *this* iteration's own injection
     temperature every time, by the iteration where convergence is declared,
     `energy_extracted` was already computed from a fully self-consistent,
@@ -1220,7 +1220,7 @@ baseline; the refactor is applied to all input configurations.
       optimization runs — sanity-check that parameter-setting functions actually
       perturb the objective). `src/tango/`'s
       `optimizerr.py` is NOT the reference for this — see
-      `docs/tango_tasks.md`'s optimizerr.py review (2026-07-24) for why.
+      `dev_docs/tango_tasks.md`'s optimizerr.py review (2026-07-24) for why.
       `applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
       small working precedent for the underlying mechanism this API would
       build on: it sweeps `common.rock_k` by mutating a copy of
@@ -1248,7 +1248,7 @@ baseline; the refactor is applied to all input configurations.
       front to a dataframe/CSV (plus one `euclidean`-distance column as a sort
       hint, not a filter) and leave the choice to the human — return the full
       front by default. The ASF/pseudo-weights *math* from
-      `optimizerr.py` is still worth keeping (see the `docs/tango_tasks.md`
+      `optimizerr.py` is still worth keeping (see the `dev_docs/tango_tasks.md`
       review) — just re-scoped as a separate, explicitly-invoked, opt-in
       helper that operates on an already-returned front
       (`suggest_solution(front, method="asf", ...)`-shaped), clearly labeled as
@@ -1402,7 +1402,7 @@ architectural mismatch with `tango`'s Pydantic-based component model, and why
 folding subsurface into one TESPy network would also collide with the outer circuit's
 deliberately linear (`component_idx`/`prev`/`next`) representation. **Do not start a
 prototype of this without explicit sign-off** — it's flagged as a backlog item in
-`docs/tango_tasks.md`, deliberately held.
+`dev_docs/tango_tasks.md`, deliberately held.
 
 ---
 
@@ -1518,7 +1518,7 @@ A wider review confirmed there's no better foundation to switch to right now:
   newer TESPy documents a friendlier custom-component API (`dependents()`,
   `dc_cmc`/`num_eq_sets`) that lets the solver derive Jacobian structure automatically,
   which does not exist in 0.7.1.post1. Bumping the pin is a prerequisite for any
-  custom-component work, not just hygiene (tracked in `docs/tango_tasks.md`).
+  custom-component work, not just hygiene (tracked in `dev_docs/tango_tasks.md`).
 - **Custom components on top of TESPy are feasible today, and there's already a
   concrete candidate.** Every component subclasses
   `tespy.components.component.Component`, implementing `component()`,
@@ -1541,13 +1541,13 @@ A wider review confirmed there's no better foundation to switch to right now:
     holds, arguably more strongly now that there's no native binary at all.
   - *Rumoca* (Rust-based Modelica compiler): still explicitly self-described as
     early/rough/pre-1.0. "Too beta" remains accurate — confirmed hands-on
-    2026-07-29 (`docs/modelica-investigation.md`): a real MSL-based model
+    2026-07-29 (`dev_docs/modelica-investigation.md`): a real MSL-based model
     flattened successfully but an unresolved 184-equation DAE imbalance and a
     broken editor/LSP integration were both hit in a single time-boxed spike.
     (Separately, Modelica's acausal connector semantics do give a real,
     structural mass/momentum/energy conservation guarantee that TESPy's
     causal component model doesn't — see
-    `docs/long_term_architecture_exploration.md` — but that's an argument for
+    `dev_docs/long_term_architecture_exploration.md` — but that's an argument for
     the Modelica *language*, not for Rumoca's current maturity.)
   - *Commercial Modelica (Dymola, SimulationX):* still priced out of reach.
   - *Julia / ModelingToolkit.jl:* the most technically interesting option — genuinely
@@ -1564,7 +1564,7 @@ A wider review confirmed there's no better foundation to switch to right now:
     if TESPy becomes a real blocker.
 
 **Updated recommendation:** keep TESPy as the surface-plant backend. Bump the version
-pin (backlog item, `docs/tango_tasks.md`) to unlock the modern custom-component
+pin (backlog item, `dev_docs/tango_tasks.md`) to unlock the modern custom-component
 API, then build tango-specific components *on top of* TESPy rather than replacing it —
 see
 [`subsurface_as_tespy_components.md`](subsurface_as_tespy_components.md) for the

@@ -51,7 +51,7 @@ add multi-pass outer loops, ``t_d`` must be split between a per-pass
 update and a per-timestep commit. NOTE: AUTO_PRESSURE/
 AUTO_FLOW/AUTO_BOTH are now implemented (SystemBCIteration) — whether this
 simplification still holds for them, or needs the t_d split described
-above, hasn't been re-checked since. Flagged in docs/tango_tasks.md.
+above, hasn't been re-checked since. Flagged in dev_docs/tango_tasks.md.
 
 **History:** each spatially-distributed quantity is one state variable whose value
 is a vector along the well axis; recorded as one entry per timestep.

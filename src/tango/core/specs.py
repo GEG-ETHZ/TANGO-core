@@ -394,7 +394,7 @@ class SimConfig(BaseModel):
     each pump-bearing well's own ``pump_target_pressure_megapascals``) with
     nothing enforcing they matched — a real Rule 5 ("shared via reference,
     not separate copies that can drift") violation. See
-    ``docs/bugs-fixed-in-tango.md``."""
+    ``dev_docs/bugs-fixed-in-tango.md``."""
     injection_mode: InjectionPolicy | None = None
     """Absent selects SystemDirect (no BC iteration); present selects
     SystemBCIteration."""

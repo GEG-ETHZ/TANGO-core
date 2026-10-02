@@ -156,15 +156,7 @@ class WellPattern(StrEnum):
                 defined yet.
 
         References:
-            [Birdsell, D.T., Adams, B.M., Deb, P., Ogland-Hand, J.D.,
-            Bielicki, J.M., Fleming, M.R., & Saar, M.O. (2024). Analytical
-            solutions to evaluate the geothermal energy generation
-            potential from sedimentary-basin reservoirs. Geothermics, 116,
-            102843.](https://doi.org/10.1016/j.geothermics.2023.102843)
-            Previously misattributed as "Adams et al. (2020)" -- corrected
-            2026-09-21 after checking Crossref metadata directly: Adams is
-            the second author, not first, and the paper published in 2024
-            (the DOI's 2023 is the online-first year).
+            Birdsell et al. (2024); see docs/SOURCES.md#birdsell2024.
 
         """
         L = well_spacing

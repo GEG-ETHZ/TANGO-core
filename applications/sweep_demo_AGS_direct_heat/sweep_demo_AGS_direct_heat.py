@@ -13,7 +13,7 @@ Sweeps ``common.rock_k`` (deliberately a ``common:`` field, not a
 component-local one) across a small set of values for
 ``example_configs/AGS_direct_heat.yml``, and reports final-timestep
 net thermal power for each. This is a minimal demo, not the full
-generate/sweep/summarize/plot pipeline — see docs/tango_tasks.md
+generate/sweep/summarize/plot pipeline — see dev_docs/tango_tasks.md
 "IMMEDIATE NEXT" for the scope decision.
 
 Sweep structure, size, and how to change it

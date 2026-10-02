@@ -5,7 +5,7 @@ now exists and has already implemented most of what's checklisted below
 (component/graph structure via `component_idx`/`prev`/`next`, `state`/
 `history`/`LockedState`, per-component `solve()`, `to_dict`/`from_dict`/
 `to_str`/`from_str` serialization, characterization tests against the old
-codebase). `docs/TANGO_vision_and_roadmap/README.md`'s Phase 1/2/3 structure is the
+codebase). `dev_docs/TANGO_vision_and_roadmap/README.md`'s Phase 1/2/3 structure is the
 current, actively-maintained tracking document — checkboxes here were never
 updated as work landed and shouldn't be trusted as current status. Kept for
 historical record of the original framing, not as a live task list.

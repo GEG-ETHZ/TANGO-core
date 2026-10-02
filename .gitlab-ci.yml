@@ -32,7 +32,7 @@ test:
   script:
     # Only tests/unit/ runs here — tests/regtest/ currently takes 1h+ and
     # exceeds the runner timeout (see tests/README.md and the "CI test
-    # subset" note in docs/TANGO_vision_and_roadmap/README.md). The full suite
+    # subset" note in dev_docs/TANGO_vision_and_roadmap/README.md). The full suite
     # (tests/unit/ + tests/regtest/) still runs locally via the prek
     # pre-push hook, so regressions are caught before merge even though
     # this job doesn't cover them.

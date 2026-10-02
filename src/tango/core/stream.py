@@ -70,7 +70,7 @@ class Stream(StateMethods):
     is where ``fluid_name`` lives. Duplicating it here as per-timestep,
     per-stream state would just be a second, unvalidated copy that could
     drift from ``Common`` — exactly the risk this design avoids (see
-    docs/tango_tasks.md's fluid-identity review). If a future component
+    dev_docs/tango_tasks.md's fluid-identity review). If a future component
     needs to represent a genuine fluid *boundary* (e.g. a secondary/ORC loop
     physically separate from the geofluid loop), that calls for an explicit
     typed marker on the boundary component, not a field here.

@@ -15,7 +15,7 @@
 #    production_well_with_pump. CPG_electric.yml's own header comment
 #    explains why: "No downhole pump on the production side (thermosiphon
 #    is strong enough with CO2 that a plain production_well suffices,
-#    matching old tango)." Separately, docs/tango_tasks.md flags that the
+#    matching old tango)." Separately, dev_docs/tango_tasks.md flags that the
 #    current pump-boost implementation treats the fluid as
 #    constant-density through the pump -- a reasonable approximation for
 #    water, but NOT for supercritical CO2's strongly nonlinear

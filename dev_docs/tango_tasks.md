@@ -1,7 +1,7 @@
 # tango granular task tracker
 
 Working-level task list for `tango` porting/parity work. This is the
-detailed, frequently-updated companion to `docs/TANGO_vision_and_roadmap/README.md`
+detailed, frequently-updated companion to `dev_docs/TANGO_vision_and_roadmap/README.md`
 — reconcile the two periodically (when a section here is fully done, fold a
 one-line summary into the vision doc's Phase 3 task list and prune the
 detail from here). The vision doc is the durable, Confluence-bound
@@ -169,7 +169,7 @@ Goal: get through all of this in the next session (2026-09-17).
         versioning/tagging (see the GitLab-tags item above) and whatever
         steps actually publish the release once this plan is implemented.
   - **Follow-ups surfaced while doing this — done (2026-09-18):**
-    - `docs/TANGO_vision_and_roadmap/README.md`'s ~5 stale illustrative
+    - `dev_docs/TANGO_vision_and_roadmap/README.md`'s ~5 stale illustrative
       mentions of the now-deleted `test_old_new_parity.py` — fixed (mix of
       "historical record now" rewording and one restored-to-contemporaneous-
       name citation for the actual 2026-07-16 CI job it referenced).
@@ -233,7 +233,7 @@ Goal: get through all of this in the next session (2026-09-17).
       private memory file names, not anything in this repo; meaningless
       to anyone (including a future session) without that exact memory
       loaded. Replaced with real citations (this module's own docstring,
-      `docs/bugs-fixed-in-tango.md`) or inlined substance. Full list of
+      `dev_docs/bugs-fixed-in-tango.md`) or inlined substance. Full list of
       what was touched, preserved as a record:
       - `example_configs/EGS_direct_heat.yml` (known simplification vs.
         old tango's `max_mass_rate` cap), `hydro_ORC_electric.yml` (dropped
@@ -557,7 +557,7 @@ from scratch.
   `--clean` flags first; not actioned.
 - **Debugger walkthrough** (half done) — blocked on re-tracing
   `hydro_df_electric_exec_flow.drawio`'s T-convergence section
-  against the new mechanism; `docs/tango_t_convergence.md` now
+  against the new mechanism; `dev_docs/tango_t_convergence.md` now
   explains the mechanism itself, but the exec-flow diagram's nodes still
   need re-tracing, not just a warning box.
 - Three "Active" threads below (AGS sweep parity port, `common:`/
@@ -660,7 +660,7 @@ ambiguity"** for the full history (all sub-items landed).
 
 Started 2026-07-22 out of a deep-dive into where `GraphSurface`'s TESPy
 network states are solved vs. imposed — see
-`docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
+`dev_docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
 breakdown for `flexible_SF_manual.yml`) and the vision doc's new
 "`GraphSurface`'s fixed `p_out` values" section (justification for why fixed
 flash/condensing pressure is a legitimate modeling choice, not a shortcut).
@@ -703,7 +703,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
 
 - **Open-source packaging — decision made 2026-09-23**, resolving the
   scoping question from this session's open-source packaging investigation
-  (2026-09-16, see `docs/tango_progress_summary_sep_2026.md`). Three
+  (2026-09-16, see `dev_docs/tango_progress_summary_sep_2026.md`). Three
   separate, independently-versioned pieces:
   - **`tango-utilities`** (working name — feedback welcome; risk of
     confusion with the `tango-core`/`tango` naming already used
@@ -921,7 +921,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   reference example used throughout tango's design/porting work —
   simplest well-understood topology); in practice picked up against
   `hydro_df_electric` instead, using
-  `docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`
+  `dev_docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`
   as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
   node and added the previously-missing `Workflow.__init__` entry node).
   Goal: step through the full execution flow (`Workflow` →
@@ -982,7 +982,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
 - Profiling `tango` once it stabilizes — vision doc, Phase 3.
 - Speculative long-horizon architecture thinking (Modelica-family tooling,
   e.g. Rumoca, as a possible eventual replacement foundation for TESPy's
-  causal-solve approach) — `docs/long_term_architecture_exploration.md`,
+  causal-solve approach) — `dev_docs/long_term_architecture_exploration.md`,
   started 2026-07-24. Explicitly parked, not planned; not blocking
   anything above.
 - See **Completed Tasks → From "Backlog"** for the `src/tango/optimizerr.py`
@@ -1044,10 +1044,10 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
 
 - **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
   (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
-  (`docs/diagrams/*.drawio`, e.g.
+  (`dev_docs/diagrams/*.drawio`, e.g.
   `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
   walkthrough" item above) and the vision doc's own diagram set
-  (`docs/TANGO_vision_and_roadmap/README.md`, already migrated to `.drawio` for
+  (`dev_docs/TANGO_vision_and_roadmap/README.md`, already migrated to `.drawio` for
   Confluence — see `project_vision_doc_diagrams` memory) should be
   reconciled against tango's CURRENT actual architecture/solve order
   (e.g. `component_idx: 0` is now the injection well with the surface
@@ -1059,7 +1059,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   (asked 2026-09-17): yes — every TESPy component subclasses
   `tespy.components.component.Component` and implements `component()`,
   `inlets()`/`outlets()`, `get_parameters()`, `get_mandatory_constraints()`;
-  see `docs/TANGO_vision_and_roadmap/README.md`'s Appendix A for the full
+  see `dev_docs/TANGO_vision_and_roadmap/README.md`'s Appendix A for the full
   assessment. The two items directly below are what that unlocks in
   practice.
 
@@ -1069,7 +1069,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   custom-component extension API (`dependents()`, `dc_cmc`/`num_eq_sets`)
   that doesn't exist in our pinned version — worth having before any
   custom-TESPy-component work starts (see
-  `docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
+  `dev_docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
   whatever breaks, and re-check golden-snapshot economic/LCOE tests for
   drift (same category of issue as the recent CoolProp-BICUBIC tolerance
   loosening). Deliberately held until Chad finishes his current unrelated
@@ -1082,10 +1082,10 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   solving subsurface+surface as one implicit TESPy network instead of
   today's outer BC-iteration loop wrapping a separate `GraphSurface` solve.
   See
-  `docs/TANGO_vision_and_roadmap/subsurface_as_tespy_components.md` for the
+  `dev_docs/TANGO_vision_and_roadmap/subsurface_as_tespy_components.md` for the
   open questions this needs to resolve first (subclass vs. adapter, the
   outer circuit's linear-representation conflict, the fracking
-  complementarity reformulation) and `docs/implicit_solver_exploration.md`
+  complementarity reformulation) and `dev_docs/implicit_solver_exploration.md`
   for the prior exploration this builds on. **Deliberately held — do not
   start until Chad says so.**
 
@@ -1136,7 +1136,7 @@ detailed working record, just filed separately.
   gravity genuinely varies regionally — see the TODO on `GRAVITY` for
   reverting the default once old-tango parity is no longer the active
   concern. Full test suite, golden snapshot, and `ParityCase` tolerances
-  updated. Full technical detail: `docs/TANGO_vision_and_roadmap/README.md`.
+  updated. Full technical detail: `dev_docs/TANGO_vision_and_roadmap/README.md`.
 
 - **DONE 2026-08-10 — production-well pump-power formula fixed; LCOE parity
   went from +16.1%/+11.5% off to -1.1%/-1.0%.** Chad's "urgent" pump-power
@@ -1194,7 +1194,7 @@ detailed working record, just filed separately.
   `tests/regtest/test_old_new_economic_parity.py`'s stale golden values
   and module docstring (previously described a now-superseded
   final-timestep-only/"1-step lag" narrative from an earlier round of
-  this investigation) and `docs/tango_tasks.md`'s "Next session
+  this investigation) and `dev_docs/tango_tasks.md`'s "Next session
   priorities" entry below. Full `tests/unit`+`tests/regtest` suite: 123
   passed, 0 failed (up from 5 pre-existing failures before this fix) —
   `ruff`/`mypy` clean.
@@ -1281,8 +1281,8 @@ detailed working record, just filed separately.
   else here, landing on the wrong side of this site's tight margin;
   `manual-fracking-check` has no self-correction to absorb it. Also added:
   a draw.io topology diagram
-  (`docs/diagrams/src/tango/hydro_ORC_electric_topology.drawio` +
-  rendered PNG). `docs/TANGO_vision_and_roadmap/README.md`'s AGS
+  (`dev_docs/diagrams/src/tango/hydro_ORC_electric_topology.drawio` +
+  rendered PNG). `dev_docs/TANGO_vision_and_roadmap/README.md`'s AGS
   power-generation-sweep port can reuse this pattern directly — no new
   Python needed there either, only YAML composition.
 
@@ -1294,7 +1294,7 @@ detailed working record, just filed separately.
   Changed: `src/tango/components/registry.py`,
   `src/tango/workflows/workflow.py` (`_build_components`,
   `_build_economic_component`, `Workflow.to_dict()`), every
-  `example_configs/*.yml`, `docs/TANGO_vision_and_roadmap/README.md`'s two
+  `example_configs/*.yml`, `dev_docs/TANGO_vision_and_roadmap/README.md`'s two
   `unit: numerical`/`unit: lumped` mentions. Full test suite re-run green
   after the rename. Not a TESPy concept and never was — `GraphSurface`'s own
   `power_plant.nodes` never had a `unit`/`variant` key at all (TESPy
@@ -1321,7 +1321,7 @@ detailed working record, just filed separately.
 - **DONE — `InjectionPolicy` variants in good shape.** `MANUAL`,
   `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH`
   are all real, implemented policies in `orchestrators/system_bc_iteration.py`.
-  See `docs/tango_t_convergence.md` for how `MANUAL`'s convergence
+  See `dev_docs/tango_t_convergence.md` for how `MANUAL`'s convergence
   loop works as the reference case.
 
   **Follow-up once pressure convergence lands, agreed 2026-08-04**: after
@@ -1540,7 +1540,7 @@ against old tango, and locked in with golden-snapshot regression coverage.
       demand, not a real seasonal/dispatch curve — done 2026-07-21:
       `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`
       docstring item 5, cross-referenced from
-      `docs/TANGO_vision_and_roadmap/README.md`'s "Seasonal heat-demand variation"
+      `dev_docs/TANGO_vision_and_roadmap/README.md`'s "Seasonal heat-demand variation"
       section (also cross-references `run_AGS_sweep/`).
 - [ ] Revisit once the seasonal-demand-mechanism design (vision doc,
       same section) is actually built — re-check whether the AGS sweep
@@ -2513,7 +2513,7 @@ verified, then this fix popped back in and re-checked).
   main-pass/T-loop/Pass-2 structure into one uniform loop with no
   special-casing. See the annotated diagram published this session for
   the full mechanism (linked from the warning box added to
-  `docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`,
+  `dev_docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`,
   since that diagram's T-convergence section now describes the old
   mechanism).
 
@@ -2529,12 +2529,12 @@ verified, then this fix popped back in and re-checked).
   proper.** The mechanism (reservoir/production-well/surface-plant
   circuit, the snapshot/restore convergence loop, why the reservoir must
   be re-solved every iteration) previously only existed as a Claude
-  Artifact page. Now checked into the repo: `docs/tango_t_convergence.md`
+  Artifact page. Now checked into the repo: `dev_docs/tango_t_convergence.md`
   (renders natively on GitLab, embeds two SVGs via standard markdown image
   syntax), backed by an editable `.drawio` source
-  (`docs/diagrams/src/tango/t_convergence.drawio`, two pages —
+  (`dev_docs/diagrams/src/tango/t_convergence.drawio`, two pages —
   "Circuit" and "Convergence loop") with matching exported SVGs under
-  `docs/diagrams/img/`. The warning box in
+  `dev_docs/diagrams/img/`. The warning box in
   `hydro_df_electric_exec_flow.drawio` now points at the new doc
   instead of the Artifact URL. Embeds PNG, not SVG (GitLab refuses to
   render locally-hosted SVGs inline for security reasons and falls back to
