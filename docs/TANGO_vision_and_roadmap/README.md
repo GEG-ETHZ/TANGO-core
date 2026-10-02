@@ -507,7 +507,7 @@ specific node name that may not exist.
 
 #### `tango` example coverage matrix — one system type needs both a heat and a power example
 
-Moved to [GitLab #68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/68): the coverage matrix (one worked example per system type × heat/power), per-config porting notes, and the follow-on example work.
+Moved to [GitLab #67](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/67): the coverage matrix (one worked example per system type × heat/power) and the per-config review checklist. The per-config design history is in [#68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/68) (closed).
 
 #### Pump electricity accounting — known inconsistencies (needs HIL verification)
 

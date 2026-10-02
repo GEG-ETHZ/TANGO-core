@@ -972,7 +972,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   sanity-checked config — full details, including the depth-deepening
   rationale for each hypothetical site and three real pump-or-valve bugs
   found and fixed along the way (a CO2/CPG-wide audit prompted by Chad),
-  in GitLab #68 (moved there from the vision doc's coverage-matrix section).
+  in GitLab #68 (closed; the live matrix and review checklist are in #67).
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the
