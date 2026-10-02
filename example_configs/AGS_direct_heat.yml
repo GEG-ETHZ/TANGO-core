@@ -123,7 +123,7 @@ components:
     injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
                                      # sim_config above); kept below the production
                                      # wellhead pressure so TESPy's pr<=1 constraint on
-                                     # dh_hx isn't violated. AUTO_PRESSURE mode exists and
+                                     # district_heating_hx isn't violated. AUTO_PRESSURE mode exists and
                                      # does converge this value iteratively -- see
                                      # SystemBCIteration's module docstring -- this config
                                      # just chooses manual instead.
@@ -181,19 +181,19 @@ components:
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
           pressure_ratio: 0.99   # dimensionless — small, realistic conductive-HX loss (~1%).
-                                   # A RATIO, not an absolute p_out: dh_hx's actual inlet pressure
+                                   # A RATIO, not an absolute p_out: district_heating_hx's actual inlet pressure
                                    # varies by design point (whatever the well naturally delivers,
                                    # from ~tens of kPa to tens of MPa across the swept range — see
                                    # circulation_control comment above), so a fixed absolute p_out
                                    # would be wrong (or physically impossible, > inlet) for most of
-                                   # that range. dh_hx is not the last node before the network's
+                                   # that range. district_heating_hx is not the last node before the network's
                                    # outlet Sink -- injection_pressure's boundary condition sits on
-                                   # circulation_control's outlet instead (see below) -- so dh_hx
+                                   # circulation_control's outlet instead (see below) -- so district_heating_hx
                                    # needs its own pressure-drop spec to keep the network fully
                                    # determined.
         circulation_control:
@@ -203,6 +203,6 @@ components:
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: circulation_control}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
         '3': {source: circulation_control, target: outlet}

@@ -21,7 +21,7 @@ DEFAULT_LOG_LEVEL = "NONE"
 
 # District-heating return temperature (°C) — fluid cools to this in the DH
 # heat exchanger before being re-injected. Matches AGS_direct_heat.yml's
-# power_plant.nodes.dh_hx.T_out: 323.15 K exactly.
+# power_plant.nodes.district_heating_hx.T_out: 323.15 K exactly.
 DH_RETURN_TEMP_C: float = 50.0
 DH_RETURN_TEMP_K: float = DH_RETURN_TEMP_C + 273.15
 

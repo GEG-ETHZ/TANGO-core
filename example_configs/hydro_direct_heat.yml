@@ -7,7 +7,7 @@
 # for the full subsurface rationale. The only thing that differs is the
 # surface plant: instead of a Single-Flash power plant (Valve ->
 # DropletSeparator -> Turbine/Compressor branches), the produced fluid here
-# passes through a district-heating SimpleHeatExchanger (dh_hx), then
+# passes through a district-heating SimpleHeatExchanger (district_heating_hx), then
 # circulation_control brings it back up to injection_pressure before
 # re-injection — the same direct-heat topology as AGS_direct_heat.yml's
 # power_plant, just fed by a real doublet reservoir instead of a closed
@@ -92,13 +92,13 @@ components:
       # turbine, no by-product electricity generation, but real electricity
       # CAN be consumed here (see circulation_control below). Identical
       # shape to AGS_direct_heat.yml's power_plant — see that file's
-      # comments for the full node-by-node rationale (dh_hx's
+      # comments for the full node-by-node rationale (district_heating_hx's
       # pressure_ratio vs. a fixed p_out, circulation_control's
       # PumpOrValve type and why it has no p_out of its own).
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
@@ -110,8 +110,8 @@ components:
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: circulation_control}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
         '3': {source: circulation_control, target: outlet}
 
   injection_well:

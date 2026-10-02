@@ -92,29 +92,29 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     # the raw economic: block already retained verbatim in Workflow.to_dict().
     "economic.discount_rate": (0.5, 2.0),  # scale factor, 4.75-19%
     # --- Power plant components (pressure-sensitive, CoolProp constraints) ---
-    # valve1/turbine1/condenser1/valve2/turbine2/condenser2/pump1/pump2's
+    # high_pressure_flash_valve/high_pressure_turbine/high_pressure_condenser/low_pressure_flash_valve/low_pressure_turbine/low_pressure_condenser/brine_pump/condensate_pump's
     # p_out fields are stored in MPa; since this is a scale-factor sweep,
     # the unit doesn't matter — the scale factor applies directly to
     # whatever unit is already there.
-    "components.surface.power_plant.nodes.valve1.p_out_megapascals": (0.5, 2.0),  # 0.5-2 bar equiv
-    "components.surface.power_plant.nodes.turbine1.efficiency": (0.7, 1.0),  # 70-100% (capped at 1.0)
-    "components.surface.power_plant.nodes.turbine1.p_out_megapascals": (0.5, 3.0),
-    "components.surface.power_plant.nodes.condenser1.p_out_megapascals": (0.5, 3.0),
-    "components.surface.power_plant.nodes.condenser1.vapor_mass_fraction_out": (
+    "components.surface.power_plant.nodes.high_pressure_flash_valve.p_out_megapascals": (0.5, 2.0),  # 0.5-2 bar equiv
+    "components.surface.power_plant.nodes.high_pressure_turbine.efficiency": (0.7, 1.0),  # 70-100% (capped at 1.0)
+    "components.surface.power_plant.nodes.high_pressure_turbine.p_out_megapascals": (0.5, 3.0),
+    "components.surface.power_plant.nodes.high_pressure_condenser.p_out_megapascals": (0.5, 3.0),
+    "components.surface.power_plant.nodes.high_pressure_condenser.vapor_mass_fraction_out": (
         1.0,
         1.0,
     ),  # fixed (no variation)
-    "components.surface.power_plant.nodes.valve2.p_out_megapascals": (0.5, 2.0),
-    "components.surface.power_plant.nodes.turbine2.efficiency": (0.7, 1.0),
-    "components.surface.power_plant.nodes.turbine2.p_out_megapascals": (0.5, 3.0),
-    # condenser2 has no p_out field at all (pinned via merge1's equal-pressure
-    # constraint with condenser1 — see hydro_df_electric.yml's comment).
-    "components.surface.power_plant.nodes.condenser2.vapor_mass_fraction_out": (
+    "components.surface.power_plant.nodes.low_pressure_flash_valve.p_out_megapascals": (0.5, 2.0),
+    "components.surface.power_plant.nodes.low_pressure_turbine.efficiency": (0.7, 1.0),
+    "components.surface.power_plant.nodes.low_pressure_turbine.p_out_megapascals": (0.5, 3.0),
+    # low_pressure_condenser has no p_out field at all (pinned via condensate_mixer's equal-pressure
+    # constraint with high_pressure_condenser — see hydro_df_electric.yml's comment).
+    "components.surface.power_plant.nodes.low_pressure_condenser.vapor_mass_fraction_out": (
         1.0,
         1.0,
     ),  # fixed (no variation)
-    "components.surface.power_plant.nodes.pump1.efficiency": (0.7, 1.0),
-    "components.surface.power_plant.nodes.pump2.efficiency": (0.7, 1.0),
+    "components.surface.power_plant.nodes.brine_pump.efficiency": (0.7, 1.0),
+    "components.surface.power_plant.nodes.condensate_pump.efficiency": (0.7, 1.0),
 }
 
 PARAMETERS = list(PARAMETER_BOUNDS.keys())

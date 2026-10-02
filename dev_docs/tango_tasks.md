@@ -1281,7 +1281,7 @@ detailed working record, just filed separately.
   else here, landing on the wrong side of this site's tight margin;
   `manual-fracking-check` has no self-correction to absorb it. Also added:
   a draw.io topology diagram
-  (`dev_docs/diagrams/src/tango/hydro_ORC_electric_topology.drawio` +
+  (`docs/diagrams/src/hydro_ORC_electric_topology.drawio` +
   rendered PNG). `dev_docs/TANGO_vision_and_roadmap/README.md`'s AGS
   power-generation-sweep port can reuse this pattern directly — no new
   Python needed there either, only YAML composition.

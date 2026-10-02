@@ -1,8 +1,8 @@
 # tango format — Enhanced Geothermal System (EGS), power extraction.
 #
 # EGS doublet with hydro_sf_electric.yml's Single-Flash surface plant
-# (Source -> Valve -> DropletSeparator -> Turbine/pump2 ->
-# SimpleHeatExchanger(condenser) -> pump -> Merge -> Sink) -- completes the
+# (Source -> Valve -> DropletSeparator -> Turbine/brine_pump ->
+# SimpleHeatExchanger(condenser) -> condensate_pump -> Merge -> Sink) -- completes the
 # EGS row of the tango example coverage matrix (GitLab #67), alongside
 # EGS_direct_heat.yml.
 #
@@ -143,20 +143,20 @@ components:
       # -- see components/surface/graph.py module docstring for the
       # inlet/outlet/role naming contract this depends on.
       #
-      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(pump2) -\
-      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(pump) -> Merge -> Sink("outlet")
+      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(brine_pump) -\
+      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(condensate_pump) -> Merge -> Sink("outlet")
       nodes:
         inlet:
           type: Source
 
-        valve:
+        flash_valve:
           type: Valve
           p_out_megapascals: 0.05          # MPa (= 0.5 bar) — kept low enough (well below H2O's ~0.175 MPa saturation pressure at this resource's ~116 degC) to actually flash a meaningful vapor fraction; a higher flash pressure left almost everything liquid, starving the turbine
 
-        droplet_separator:
+        separator:
           type: DropletSeparator
 
-        pump2:
+        brine_pump:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
@@ -178,24 +178,24 @@ components:
           design: closed
           cooling_tower_mode: WET
 
-        pump:
+        condensate_pump:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
-        mixer:
+        reinjection_mixer:
           type: Merge
 
         outlet:
           type: Sink
 
       edges:
-        '1': {source: inlet, target: valve}
-        '2': {source: valve, target: droplet_separator}
-        '3': {source: droplet_separator, target: pump2, source_port: out1}    # liquid branch
-        '4': {source: droplet_separator, target: turbine, source_port: out2}  # vapor branch
+        '1': {source: inlet, target: flash_valve}
+        '2': {source: flash_valve, target: separator}
+        '3': {source: separator, target: brine_pump, source_port: out1}    # liquid branch
+        '4': {source: separator, target: turbine, source_port: out2}  # vapor branch
         '5': {source: turbine, target: condenser}
-        '6': {source: condenser, target: pump}
-        '7': {source: pump, target: mixer, target_port: in1}     # condensate
-        '8': {source: pump2, target: mixer, target_port: in2}    # separator liquid
-        '9': {source: mixer, target: outlet}
+        '6': {source: condenser, target: condensate_pump}
+        '7': {source: condensate_pump, target: reinjection_mixer, target_port: in1}     # condensate
+        '8': {source: brine_pump, target: reinjection_mixer, target_port: in2}    # separator liquid
+        '9': {source: reinjection_mixer, target: outlet}

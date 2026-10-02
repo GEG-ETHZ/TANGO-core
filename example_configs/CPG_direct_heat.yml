@@ -10,7 +10,7 @@
 #
 # The surface plant differs, and is actually SIMPLER than CPG_electric.yml's:
 # no turbine, no phase-change/condensing-pressure reasoning needed at all.
-# A district-heating exchanger (dh_hx) at a realistic DH return temperature
+# A district-heating exchanger (district_heating_hx) at a realistic DH return temperature
 # (50 degC / 323.15 K) is comfortably ABOVE CO2's ~31 degC (304.13 K)
 # critical temperature, so the fluid NEVER crosses into the two-phase dome
 # (T > Tc rules that out at any pressure) -- unlike CPG_electric.yml, which
@@ -30,18 +30,18 @@
 # critical temperature throughout (T > Tc alone guarantees single-phase, no
 # two-phase dome to cross regardless of P), this is still a perfectly valid,
 # crash-free single-phase gas state -- just not "supercritical dense-phase"
-# in the strict thermodynamic sense the earlier draft claimed. dh_hx's own
+# in the strict thermodynamic sense the earlier draft claimed. district_heating_hx's own
 # fixed outlet pressure (below) is chosen with this real, lower natural
 # pressure in mind, not the higher value an earlier (buggy) draft assumed --
 # see that node's own comment for what went wrong and how it was caught.
 #
 # SUPERSEDED FINDING, kept here as a record (2026-09-25): an earlier draft
-# with the unphysical dh_hx pressure bug above ALSO showed production
+# with the unphysical district_heating_hx pressure bug above ALSO showed production
 # temperature declining with reservoir depletion (328 K at t=0 toward
 # 320 K by t=10) and, past ~year 9, dropping below the 50 degC return
 # target -- which motivated shortening num_tsteps to 8 and a real
 # side-investigation into a near-critical-point CoolProp crash when trying
-# to lower the target instead. Once dh_hx's pressure bug was fixed,
+# to lower the target instead. Once district_heating_hx's pressure bug was fixed,
 # production temperature no longer declines at all -- it stabilizes at
 # ~331.6 K almost immediately and stays there the full 20 years (confirmed
 # by direct run), comfortably above both the 50 degC target and CO2's
@@ -165,7 +165,7 @@ components:
                                      # this reinjection point single-phase --
                                      # though see header comment's 2026-09-25
                                      # correction: the fluid earlier in the surface
-                                     # loop (at dh_hx) is actually sub-critical
+                                     # loop (at district_heating_hx) is actually sub-critical
                                      # pressure, just still single-phase gas since
                                      # T stays above Tc throughout. circulation_control
                                      # (below) does the real work of getting from
@@ -179,14 +179,14 @@ components:
       # AGS_direct_heat.yml's/hydro_direct_heat.yml's power_plant -- see
       # those files' comments for the full node-by-node rationale. No
       # phase-change reasoning needed here at all: 50 degC (323.15 K) is
-      # comfortably above CO2's ~31 degC critical temperature, so dh_hx's
+      # comfortably above CO2's ~31 degC critical temperature, so district_heating_hx's
       # T_out keeps the fluid single-phase (T > Tc rules out the two-phase
       # dome regardless of pressure -- see header comment's 2026-09-25
       # correction for why this isn't the same as "supercritical").
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
@@ -204,7 +204,7 @@ components:
                                      # 7.92 MPa (derived from target_extraction_pressure * 0.99,
                                      # mirroring the wrong assumption that this node's own inlet
                                      # would naturally be near 8 MPa). That was WRONG and, worse,
-                                     # unphysical: dh_hx's real solved inlet pressure here is only
+                                     # unphysical: district_heating_hx's real solved inlet pressure here is only
                                      # ~5.6-5.9 MPa (confirmed by direct run) -- well BELOW 7.92
                                      # MPa. A fixed absolute p_out ABOVE a passive component's own
                                      # inlet silently asks it to raise pressure with no work input,
@@ -228,6 +228,6 @@ components:
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: circulation_control}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
         '3': {source: circulation_control, target: outlet}

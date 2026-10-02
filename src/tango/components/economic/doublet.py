@@ -519,7 +519,7 @@ class DoubletEconomicComponent(EconomicComponent):
         Every ``SimpleHeatExchanger`` node with ``Subtype: cooler`` or
         ``Subtype: condenser`` joins its ``set_number``'s group; a
         singleton set (condenser only, no paired cooler — the case for
-        ``hydro_df_electric.yml``'s condenser1/condenser2) works
+        ``hydro_df_electric.yml``'s high_pressure_condenser/low_pressure_condenser) works
         correctly: ``F_cooling -> 0``, cost reduces to the condensing term
         alone.
         """

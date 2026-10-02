@@ -164,7 +164,7 @@ components:
       # confirmed by direct run, not assumed -- a first draft with no
       # circulation device anywhere failed exactly that check.
       #
-      # dh_hx uses an ABSOLUTE p_out_megapascals (not a pressure_ratio) for
+      # district_heating_hx uses an ABSOLUTE p_out_megapascals (not a pressure_ratio) for
       # the same reason CPG_direct_heat.yml does: CO2 near ambient
       # pressure falls outside CoolProp's valid solve range for TESPy's
       # own default initial guess, and a fixed absolute value sidesteps
@@ -172,10 +172,10 @@ components:
       # pressure_ratio here fails outright the same way it did in
       # CPG_direct_heat.yml before that fix).
       #
-      # dh_hx's own absolute value matters physically, not just
+      # district_heating_hx's own absolute value matters physically, not just
       # numerically: the natural production wellhead pressure here is
       # ~11.3 MPa (confirmed by direct run), well above the 7.5 MPa needed
-      # at injection_pressure. Setting dh_hx's outlet near injection_pressure
+      # at injection_pressure. Setting district_heating_hx's outlet near injection_pressure
       # itself (an earlier draft used 7.42 MPa) artificially UNDER-specifies
       # that natural surplus, forcing circulation_control to resolve to its
       # Compressor leg every timestep (~14 kW, confirmed by direct run) to
@@ -190,7 +190,7 @@ components:
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
@@ -206,6 +206,6 @@ components:
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: circulation_control}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
         '3': {source: circulation_control, target: outlet}

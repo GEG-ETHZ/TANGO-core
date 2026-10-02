@@ -141,12 +141,12 @@ components:
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: outlet}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: outlet}

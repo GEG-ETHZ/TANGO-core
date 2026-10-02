@@ -82,7 +82,7 @@ _PIVOT_SPECS: list[tuple[str, str, str]] = [
 _PIVOT_LABELS: dict[str, str] = {
     "T_prod_C": "Production temperature",
     "specific_enthalpy_kJ_kg": "Specific enthalpy  (derived from thermal_power_kW / mass_flow_kg_per_s)",
-    "thermal_power_kW": "Thermal power  (TESPy-solved dh_hx duty, net_thermal_W / 1000)",
+    "thermal_power_kW": "Thermal power  (TESPy-solved district_heating_hx duty, net_thermal_W / 1000)",
     "CAPEX_total_USD": "Total CAPEX  (DoubletEconomicComponent)",
     "LCOE_USD_per_kWh": "Levelized cost of heat  (DoubletEconomicComponent)",
 }

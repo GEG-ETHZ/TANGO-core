@@ -158,7 +158,7 @@ def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
     (``PumpOrValve``, no ``p_out`` of its own, giving the AGS closed loop
     its real circulation device -- see
     ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
-    anywhere" entry) and ``dh_hx``'s ``pressure_ratio``. Not just a smoke
+    anywhere" entry) and ``district_heating_hx``'s ``pressure_ratio``. Not just a smoke
     check that the values are present: rebuilds a second ``Workflow``
     from the dumped dict and confirms its own re-dump is byte-for-byte
     identical, proving the structure is genuinely reconstructible, not
@@ -589,7 +589,7 @@ def test_pressure_monotonicity_rejects_rising_pressure(sf_manual_config: dict[st
     TESPy solve is attempted.
     """
     nodes = sf_manual_config["components"]["surface"]["power_plant"]["nodes"]
-    valve_p_out = nodes["valve"]["p_out_megapascals"]
+    valve_p_out = nodes["flash_valve"]["p_out_megapascals"]
     nodes["turbine"]["p_out_megapascals"] = valve_p_out * 10  # now above upstream valve's p_out
 
     with pytest.raises(ConfigError, match="not monotonically decreasing"):
@@ -907,3 +907,72 @@ def test_performance_20_timesteps() -> None:
         f"20-timestep run took {elapsed:.1f} s — exceeds 60 s soft limit. "
         "Check for CoolProp call overhead or accidental O(n²) behaviour."
     )
+
+
+def test_injection_loop_closes_within_tolerance_every_year() -> None:
+    """The injection well starts from the enthalpy the surface plant hands it, to within the loop tolerance.
+
+    Two invariants of the injection-enthalpy convergence loop, checked every
+    year: the injection well's recorded inlet is the state its own march
+    started from (its first profile node), and it matches the surface
+    outlet to within ``_DH_SURFACE_TOL``. ``AGS_ORC_electric.yml`` needs
+    several iterations per year, so it exercises the relaxed-guess path.
+    """
+    from tango.orchestrators.system_bc_iteration import _DH_SURFACE_TOL
+
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "AGS_ORC_electric.yml").read_text())
+    config["sim_config"]["num_tsteps"] = 5
+    wf = Workflow(config)
+    wf.run()
+    components = wf._orchestrator.components  # noqa: SLF001
+    injection = components["injection_well"].history
+    surface = components["surface"].history
+    for year, (h_inlet, h_cells, h_surface) in enumerate(
+        zip(injection.h_inlet, injection.h_cells, surface.h_outlet, strict=True),
+    ):
+        assert h_inlet == pytest.approx(h_cells[0]), f"year {year}: recorded inlet is not the march's start"
+        assert abs(h_inlet - h_surface) < _DH_SURFACE_TOL, f"year {year}: loop open by {h_inlet - h_surface:.0f} J/kg"
+
+
+@pytest.mark.parametrize("filename", ["CO2_AGS_direct_heat.yml", "hydro_sf_electric.yml"])
+def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
+    """Each numerical well cell gains heat only where the rock is hotter than the fluid, and loses it only where it's colder.
+
+    The heat a cell exchanges is its enthalpy change with the gravity term
+    (``g * dz`` per cell) removed. Checked against the rock temperature at
+    that cell's depth, so a rock profile ordered the wrong way along the flow
+    (deep rock temperatures applied at the top of a production well) fails.
+    Also checks the profile itself: rock gets hotter along the flow going
+    down and cooler going up.
+    """
+    import math
+
+    from tango.components.well.numerical import NumericalWell
+    from tango.core.fluid_state import FluidState
+
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / filename).read_text())
+    config["sim_config"]["num_tsteps"] = 2
+    wf = Workflow(config)
+    wf.run()
+    wells = {n: c for n, c in wf._orchestrator.components.items() if isinstance(c, NumericalWell)}  # noqa: SLF001
+    assert wells
+    for name, well in wells.items():
+        rock = np.asarray(well.T_r)
+        if well.angle_from_vert_deg < 90.0:
+            assert np.all(np.diff(rock) > 0), f"{name}: rock should get hotter along downward flow"
+        elif well.angle_from_vert_deg > 90.0:
+            assert np.all(np.diff(rock) < 0), f"{name}: rock should get cooler along upward flow"
+        upward = -math.cos(math.radians(well.angle_from_vert_deg))
+        gravity_per_cell = upward * well.gravity * well.gravity_scale_factor * well.cell_length
+        for year, (h_cells, p_cells) in enumerate(zip(well.history.h_cells, well.history.P_cells, strict=True)):
+            for i in range(1, len(h_cells)):
+                fluid_t = FluidState.with_HP(
+                    well.common.fluid_name, h_cells[i - 1], p_cells[i - 1], well.common.coolprop_backend,
+                ).T
+                delta_t = rock[i - 1] - fluid_t
+                heat_in = h_cells[i] - h_cells[i - 1] + gravity_per_cell
+                if abs(delta_t) > 0.5:
+                    assert heat_in * delta_t > 0, (
+                        f"{name} year {year} cell {i}: rock {rock[i - 1] - 273.15:.1f} degC, fluid "
+                        f"{fluid_t - 273.15:.1f} degC, but heat into fluid is {heat_in:.0f} J/kg"
+                    )

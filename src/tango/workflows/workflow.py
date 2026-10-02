@@ -365,7 +365,7 @@ def _check_common_identity(components: dict[str, Component], common: Common) -> 
 # node at all could. "Pump" isn't a real GraphSurface component type
 # today (see graph.py's _COMPONENT_TYPES) -- TESPy's Compressor class is
 # used to model a liquid pump via its generic pressure-rise abstraction
-# (see hydro_df_electric.yml's pump1/pump2) -- included here anyway in
+# (see hydro_df_electric.yml's brine_pump/condensate_pump) -- included here anyway in
 # case a dedicated "Pump" type is ever registered, so this check doesn't
 # need updating the day that happens.
 _PRESSURE_SOURCE_NODE_TYPES = frozenset({"Compressor", "Pump", "PumpOrValve"})

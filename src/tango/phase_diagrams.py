@@ -343,12 +343,12 @@ def _target_history_keys(component: GraphSurface, node_name: str, port: str | No
     branches at once -- the split happens exactly at that point -- so every
     branch key is returned instead of arbitrarily picking one.
 
-    This fixes a real bug (Chad, 2026-09-26): ``valve -> droplet_separator``
-    has no ``target_port`` in the YAML (``droplet_separator`` has a single
+    This fixes a real bug (Chad, 2026-09-26): ``flash_valve -> separator``
+    has no ``target_port`` in the YAML (``separator`` has a single
     inlet, so there's no real ambiguity in the TESPy topology), but the
     single-key version of this lookup used to fall back to
     ``outgoing[0].source_id``, drawing the incoming edge to only
-    ``droplet_separator:out1`` and leaving ``droplet_separator:out2`` (the
+    ``separator:out1`` and leaving ``separator:out2`` (the
     vapor branch feeding the turbine) with no visible incoming connection
     at all -- it rendered as a disconnected terminal node.
     """
@@ -390,6 +390,7 @@ def _add_subsurface_points(
     h_kj: dict[str, list[float]],
     p_bar: dict[str, list[float]],
     profiles: dict[str, list[tuple[list[float], list[float]]]],
+    pumped: dict[str, list[bool]],
 ) -> list[tuple[str, str]]:
     """Extend ``h_kj``/``p_bar`` with every non-surface component's own outlet state.
 
@@ -397,7 +398,12 @@ def _add_subsurface_points(
     per-node ``h_cells``/``P_cells``) also gets ``profiles[name][t]`` =
     that year's ``(h [kJ/kg], P [bar])`` along the flow path, and its
     outlet point is the profile's last node -- the state the march actually
-    produced, not one rebuilt from (T, P).
+    produced, not one rebuilt from (T, P). A profiled component whose own
+    pump ran that year (``pump_power_watts > 0``; the pump sits at its
+    inlet, so the march starts at the pump discharge) gets its upstream
+    neighbor's outlet -- the pump suction -- prepended, so the pump's
+    pressure and enthalpy rise is drawn as part of the component's line
+    instead of a gap; ``pumped[name][t]`` records which years that applies to.
 
     Closes the loop visually (Chad's request, 2026-09-25): without this,
     the diagram stops at the surface plant's own ``inlet``/``outlet``
@@ -470,6 +476,20 @@ def _add_subsurface_points(
             ]
         p_bar[name] = [p * PA_TO_BAR for p in history.P_outlet[:n_tsteps]]
 
+    # Second pass: every component's outlet is known now, including the
+    # upstream neighbor of the loop's first component.
+    for i, (name, comp) in enumerate(outer_order):
+        pump_power = getattr(comp.history, "pump_power_watts", None)  # type: ignore[attr-defined]  # see above
+        if name not in profiles or not pump_power:
+            continue
+        upstream_name, upstream = outer_order[i - 1]
+        upstream_key = "outlet" if upstream is component else upstream_name
+        pumped[name] = [pump_power[t] > 0 for t in range(n_tsteps)]
+        for t in range(n_tsteps):
+            if pumped[name][t]:
+                profile_h, profile_p = profiles[name][t]
+                profiles[name][t] = ([h_kj[upstream_key][t], *profile_h], [p_bar[upstream_key][t], *profile_p])
+
     # Consecutive pairs around the full outer loop, entering/exiting the
     # surface plant via its own "inlet"/"outlet" keys instead of its bare
     # component name (which has no state of its own -- it's a whole
@@ -524,8 +544,9 @@ def _build_figure(
     ]
 
     profiles: dict[str, list[tuple[list[float], list[float]]]] = {}
+    pumped: dict[str, list[bool]] = {}
     if fluid_name == component.common.fluid_name:
-        edges += _add_subsurface_points(wf, component, backend, n_tsteps, h_kj, p_bar, profiles)
+        edges += _add_subsurface_points(wf, component, backend, n_tsteps, h_kj, p_bar, profiles, pumped)
 
     h_dome, p_dome = _dome_xy(fluid_name, backend)
 
@@ -547,7 +568,10 @@ def _build_figure(
     # squeezed a 1-5 bar ORC cycle into a sliver. Pressure spans the cycle's
     # nodes and the critical point (so the top of the dome shows), with a
     # factor-of-2 margin below and 1.5 above; enthalpy spans the cycle plus
-    # whatever part of the dome falls inside that pressure range.
+    # whatever part of the dome falls inside that pressure range and within
+    # half the cycle's own enthalpy span of it. Without that last limit an
+    # all-liquid water loop (~200-600 kJ/kg) was stretched to the dome's
+    # ~2800 kJ/kg vapor side and drawn as a sliver.
     cycle_h = [v for series in h_kj.values() for v in series]
     cycle_p = [v for series in p_bar.values() for v in series]
     for yearly in profiles.values():
@@ -557,13 +581,18 @@ def _build_figure(
     p_crit_bar = CP.AbstractState(backend, fluid_name).trivial_keyed_output(CP.iP_critical) * PA_TO_BAR
     p_low = min(cycle_p) / 2.0
     p_high = max(max(cycle_p), p_crit_bar) * 1.5
-    framed_h = cycle_h + [h for h, p in zip(h_dome, p_dome, strict=True) if p_low <= p <= p_high]
+    dome_margin = 0.5 * (max(cycle_h) - min(cycle_h))
+    framed_h = cycle_h + [
+        h
+        for h, p in zip(h_dome, p_dome, strict=True)
+        if p_low <= p <= p_high and min(cycle_h) - dome_margin <= h <= max(cycle_h) + dome_margin
+    ]
     h_min, h_max = min(framed_h), max(framed_h)
     xaxis_range = [h_min - 0.05 * (h_max - h_min), h_max + 0.05 * (h_max - h_min)]
     yaxis_range = [np.log10(p_low), np.log10(p_high)]
 
     static_traces = [
-        *_phase_legend_traces(),
+        *_phase_legend_traces(xaxis_range[0], float(10 ** yaxis_range[0])),
         _dome_trace(fluid_name, h_dome, p_dome),
         *_property_line_traces(
             fluid_name,
@@ -588,34 +617,26 @@ def _build_figure(
                         target,
                         *profiles[target][t],
                         _phase_color_or_fallback(fluid_name, backend, profiles[target][t]),
+                        pumped=pumped.get(target, [False] * n_tsteps)[t],
                     ),
                 )
                 continue
             h_s, h_t = h_kj[source][t], h_kj[target][t]
             p_s, p_t = p_bar[source][t], p_bar[target][t]
-            color = _phase_color(fluid_name, h_s, p_s, backend)
-            # Midpoint arrow showing flow direction (Chad's request,
-            # 2026-09-25) -- each edge is otherwise just a disconnected
-            # 2-point line with no visual cue for which end is upstream.
-            # P is midpointed in LOG space (matches the log-scale y-axis)
-            # so the arrow actually sits halfway along the RENDERED line,
-            # not halfway in linear P (which would put it right against
-            # one end whenever the two pressures differ by orders of
-            # magnitude, as they often do here).
-            mid_h = (h_s + h_t) / 2
+            # Colored by the phase at the line's midpoint (P midpointed in
+            # log space, as the axis is drawn): an endpoint sitting exactly
+            # on the saturation curve -- a pump's saturated-liquid suction,
+            # a turbine's saturated-vapor inlet -- would otherwise color the
+            # whole process two-phase.
             mid_p = float(np.sqrt(p_s * p_t)) if p_s > 0 and p_t > 0 else (p_s + p_t) / 2
+            color = _phase_color(fluid_name, (h_s + h_t) / 2, mid_p, backend)
             frame_traces.append(
                 go.Scatter(
-                    x=[h_s, mid_h, h_t],
-                    y=[p_s, mid_p, p_t],
+                    x=[h_s, h_t],
+                    y=[p_s, p_t],
                     mode="lines+markers",
                     line={"color": color},
-                    marker={
-                        "color": color,
-                        "size": [6, 14, 6],
-                        "symbol": ["circle", "arrow", "circle"],
-                        "angleref": "previous",
-                    },
+                    marker={"color": color, "size": 6},
                     showlegend=False,
                     name=f"{source} -> {target}",
                     # Explicit hover text: the default hover only showed raw
@@ -624,7 +645,7 @@ def _build_figure(
                     # back to its endpoints once zoomed in (Chad, 2026-09-25).
                     # hovertext is per-POINT (which specific node this end
                     # is), <extra> is the edge as a whole.
-                    hovertext=[source, f"{source} -> {target}", target],
+                    hovertext=[source, target],
                     hovertemplate="<b>%{hovertext}</b><br>h=%{x:.1f} kJ/kg<br>P=%{y:.4g} bar<extra>%{fullData.name}</extra>",
                 ),
             )
@@ -683,10 +704,11 @@ def _phase_color_or_fallback(
     backend: str,
     profile: tuple[list[float], list[float]],
 ) -> str:
-    """Phase color at a profile's first node (where the flow enters), like a straight edge's source end."""
+    """Phase color at a profile's middle node, like a straight edge's midpoint."""
     profile_h, profile_p = profile
+    mid = len(profile_h) // 2
     try:
-        return _phase_color(fluid_name, profile_h[0], profile_p[0], backend)
+        return _phase_color(fluid_name, profile_h[mid], profile_p[mid], backend)
     except ValueError:
         return _PHASE_COLOR_FALLBACK
 
@@ -697,29 +719,34 @@ def _profile_trace(
     profile_h: list[float],
     profile_p: list[float],
     color: str,
+    *,
+    pumped: bool = False,
 ) -> go.Scatter:
-    """One edge drawn as a component's marched (h, P) profile, with a flow-direction arrow mid-way.
+    """One edge drawn as a component's marched (h, P) profile.
 
     Starts at the component's OWN first node, not at the upstream point:
     if the two disagree (a state lost across the component boundary), the
     gap stays visible instead of being bridged by a line that looks like a
-    process.
+    process. The one exception is ``pumped``: the profile's first point is
+    then the pump suction (see ``_add_subsurface_points``) and its second
+    the pump discharge, where the march begins.
     """
     n = len(profile_h)
-    mid = n // 2
     sizes = [0] * n
-    symbols = ["circle"] * n
     sizes[0] = sizes[-1] = 6
-    sizes[mid], symbols[mid] = 14, "arrow"
-    hovertext = [f"{target} node {i}/{n - 1}" for i in range(n)]
-    hovertext[0] = f"{target} inlet"
+    first_node = 1 if pumped else 0
+    hovertext = [f"{target} node {i - first_node}/{n - 1 - first_node}" for i in range(n)]
+    hovertext[0] = f"{target} inlet (pump suction)" if pumped else f"{target} inlet"
+    if pumped:
+        sizes[1] = 6
+        hovertext[1] = f"{target} pump discharge"
     hovertext[-1] = target
     return go.Scatter(
         x=profile_h,
         y=profile_p,
         mode="lines+markers",
         line={"color": color},
-        marker={"color": color, "size": sizes, "symbol": symbols, "angleref": "previous"},
+        marker={"color": color, "size": sizes},
         showlegend=False,
         name=f"{source} -> {target}",
         hovertext=hovertext,
@@ -1097,28 +1124,28 @@ def _dome_trace(fluid_name: str, h_dome: list[float], p_dome: list[float]) -> go
     )
 
 
-def _phase_legend_traces() -> list[go.Scatter]:
-    """One invisible-point trace per phase color, purely to populate the legend.
+def _phase_legend_traces(h_anchor: float, p_anchor: float) -> list[go.Scatter]:
+    """One invisible single-point line trace per phase color, purely to populate the legend.
 
     Per-edge traces themselves set ``showlegend=False`` (there'd otherwise
     be one legend entry per edge, not per phase) -- these standalone
     traces are what actually tells the reader what each color means.
-    Included in every frame (not just the base figure) so the legend
-    doesn't disappear when the year slider swaps frames.
+    They're static traces that no frame touches, so the legend stays put
+    when the year slider swaps frames.
 
-    Empty ``x``/``y`` (not ``[None]``) deliberately -- a ``None`` data
-    point on a log-scale axis is a real suspect for the axis-blowup bug
-    (Chad, 2026-09-28): Plotly.js's internal range/tick computation can
-    choke on a null value under ``type: "log"`` in ways that don't
-    reliably respect an explicit ``autorange: False``, even though these
-    traces carry no data that should affect the range at all.
+    Each trace holds one real, in-range point (``h_anchor``, ``p_anchor``,
+    the axes' lower corner) in ``lines`` mode, so nothing is drawn on the
+    plot (a line needs two points) while the legend shows a line sample in
+    the phase color, matching the edges themselves. Plotly leaves a trace
+    with no data out of the legend entirely, and a ``None`` point on a
+    log-scale axis can upset the axis range.
     """
     return [
         go.Scatter(
-            x=[],
-            y=[],
-            mode="markers",
-            marker={"color": color, "size": 10},
+            x=[h_anchor],
+            y=[p_anchor],
+            mode="lines",
+            line={"color": color, "width": 3},
             name=label,
             hoverinfo="skip",
         )

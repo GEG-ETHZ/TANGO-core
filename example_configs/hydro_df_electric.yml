@@ -6,8 +6,8 @@
 # subsurface (doublet reservoir + pumped production) is identical to
 # hydro_sf_electric.yml's —
 # same site numbers, reused verbatim — only the surface plant differs: two
-# flash stages (droplet_separator1 at the higher pressure, droplet_separator2
-# at a lower pressure, per standard double-flash design) each driving their
+# flash stages (high_pressure_separator, then low_pressure_separator at a
+# lower pressure, per standard double-flash design) each driving their
 # own turbine, condensate from both recombined and pumped back to injection
 # pressure through two pump stages.
 #
@@ -73,35 +73,35 @@ components:
     # duplicated-value bug class this guards against).
 
     power_plant:
-      # Double-flash TESPy topology: two flash stages (higher-pressure
-      # droplet_separator1, lower-pressure droplet_separator2), each with
-      # its own turbine, condensate from both recombined via merge1 and
-      # pumped back through two stages (pump1 for the second flash's
-      # residual liquid, pump2 for the combined condensate) via merge2.
+      # Double-flash TESPy topology: two flash stages
+      # (high_pressure_separator, then low_pressure_separator), each with
+      # its own turbine, condensate from both recombined via condensate_mixer and
+      # pumped back through two stages (brine_pump for the second flash's
+      # residual liquid, condensate_pump for the combined condensate) via reinjection_mixer.
       #
-      # Source("inlet") -> valve1 -> droplet_separator1 -(vapor)-> turbine1 -> condenser1 -\
-      #                                                \-(liquid)-> valve2 -> droplet_separator2 -(vapor)-> turbine2 -> condenser2 -\
-      #                                                                                    \-(liquid)-> pump1 -----------------------\
-      #                                                                                                                    merge1(condenser1, condenser2) -> pump2 -\
-      #                                                                                                                                            merge2(pump1, pump2) -> Sink("outlet")
+      # Source("inlet") -> high_pressure_flash_valve -> high_pressure_separator -(vapor)-> high_pressure_turbine -> high_pressure_condenser -\
+      #                                                \-(liquid)-> low_pressure_flash_valve -> low_pressure_separator -(vapor)-> low_pressure_turbine -> low_pressure_condenser -\
+      #                                                                                    \-(liquid)-> brine_pump -----------------------\
+      #                                                                                                                    condensate_mixer(high_pressure_condenser, low_pressure_condenser) -> condensate_pump -\
+      #                                                                                                                                            reinjection_mixer(brine_pump, condensate_pump) -> Sink("outlet")
       nodes:
         inlet:
           type: Source
 
-        valve1:
+        high_pressure_flash_valve:
           type: Valve
           p_out_megapascals: 0.1    # MPa (= 1 bar)
 
-        droplet_separator1:
+        high_pressure_separator:
           type: DropletSeparator
 
-        turbine1:
+        high_pressure_turbine:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.005          # MPa (= 0.05 bar)
 
-        condenser1:
+        high_pressure_condenser:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005          # MPa (= 0.05 bar)
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
@@ -112,66 +112,66 @@ components:
           design: closed
           cooling_tower_mode: WET
 
-        valve2:
+        low_pressure_flash_valve:
           type: Valve
           p_out_megapascals: 0.05    # MPa (= 0.5 bar)
 
-        droplet_separator2:
+        low_pressure_separator:
           type: DropletSeparator
 
-        turbine2:
+        low_pressure_turbine:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.005          # MPa (= 0.05 bar)
 
-        condenser2:
+        low_pressure_condenser:
           type: SimpleHeatExchanger
-          # No p_out here — its outlet pressure is pinned by merge1's
-          # equal-pressure constraint across its inlets to match condenser1's
+          # No p_out here — its outlet pressure is pinned by condensate_mixer's
+          # equal-pressure constraint across its inlets to match high_pressure_condenser's
           # 0.005 MPa, not an independently-declared value.
           vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
-          # Cost-only metadata — see condenser1's comment above.
+          # Cost-only metadata — see high_pressure_condenser's comment above.
           Subtype: condenser
           set_number: 2
           design: closed
           cooling_tower_mode: WET
 
-        pump1:
+        brine_pump:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
-        pump2:
+        condensate_pump:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
-        merge1:
+        condensate_mixer:
           type: Merge
 
-        merge2:
+        reinjection_mixer:
           type: Merge
 
         outlet:
           type: Sink
 
       edges:
-        '1': {source: inlet, target: valve1}
-        '2': {source: valve1, target: droplet_separator1}
-        '3': {source: droplet_separator1, target: turbine1, source_port: out2}    # vapor branch (1st flash)
-        '4': {source: droplet_separator1, target: valve2, source_port: out1}      # liquid branch (1st flash) -> 2nd flash
-        '5': {source: valve2, target: droplet_separator2}
-        '6': {source: droplet_separator2, target: turbine2, source_port: out2}    # vapor branch (2nd flash)
-        '7': {source: droplet_separator2, target: pump1, source_port: out1}       # liquid branch (2nd flash) -> pumped back
-        '8': {source: turbine1, target: condenser1}
-        '9': {source: turbine2, target: condenser2}
-        '10': {source: condenser1, target: merge1, target_port: in1}
-        '11': {source: condenser2, target: merge1, target_port: in2}
-        '12': {source: merge1, target: pump2}
-        '13': {source: pump1, target: merge2, target_port: in1}
-        '14': {source: pump2, target: merge2, target_port: in2}
-        '15': {source: merge2, target: outlet}
+        '1': {source: inlet, target: high_pressure_flash_valve}
+        '2': {source: high_pressure_flash_valve, target: high_pressure_separator}
+        '3': {source: high_pressure_separator, target: high_pressure_turbine, source_port: out2}    # vapor branch (1st flash)
+        '4': {source: high_pressure_separator, target: low_pressure_flash_valve, source_port: out1}      # liquid branch (1st flash) -> 2nd flash
+        '5': {source: low_pressure_flash_valve, target: low_pressure_separator}
+        '6': {source: low_pressure_separator, target: low_pressure_turbine, source_port: out2}    # vapor branch (2nd flash)
+        '7': {source: low_pressure_separator, target: brine_pump, source_port: out1}       # liquid branch (2nd flash) -> pumped back
+        '8': {source: high_pressure_turbine, target: high_pressure_condenser}
+        '9': {source: low_pressure_turbine, target: low_pressure_condenser}
+        '10': {source: high_pressure_condenser, target: condensate_mixer, target_port: in1}
+        '11': {source: low_pressure_condenser, target: condensate_mixer, target_port: in2}
+        '12': {source: condensate_mixer, target: condensate_pump}
+        '13': {source: brine_pump, target: reinjection_mixer, target_port: in1}
+        '14': {source: condensate_pump, target: reinjection_mixer, target_port: in2}
+        '15': {source: reinjection_mixer, target: outlet}
 
   injection_well:
     type: injection_well

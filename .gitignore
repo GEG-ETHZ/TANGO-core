@@ -59,6 +59,7 @@ memory/
 
 # draw.io autosave/crash-recovery files
 dev_docs/diagrams/src/.$*.bkp
+docs/diagrams/src/.$*.bkp
 
 # Configuration and secrets
 *.env
@@ -73,7 +74,7 @@ builds
 *.svg
 # Only images that a markdown doc embeds are tracked (GitLab renders
 # repo-hosted PNGs inline, not SVGs). Diagram exports are regenerated from
-# dev_docs/diagrams/src/**/*.drawio, so anything not embedded stays local.
+# dev_docs/diagrams/src/ and docs/diagrams/src/ *.drawio, so anything not embedded stays local.
 !dev_docs/diagrams/img/t_convergence_circuit.png
 !dev_docs/diagrams/img/t_convergence_loop.png
 !dev_docs/diagrams/img/cos_converge_example.png

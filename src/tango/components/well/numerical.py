@@ -268,6 +268,11 @@ class NumericalWell(WellComponent):
     override that default, e.g. for a mesh-convergence sweep
     (``applications/demo_well_mesh_convergence/``)."""
     wellhead_depth: float = Field(default=0.0, frozen=True)
+    """True vertical depth (m) of the well's shallow end, whichever way the
+    fluid flows: the top of an injection or production well (0 for a well
+    that reaches the surface; the bottom of the upper segment for the lower
+    segment of a split production well), or the depth of a horizontal well.
+    The rock temperature at each cell (``T_r``) is measured from here."""
     gravity_scale_factor: float = Field(default=1.0, frozen=True)
     friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
     heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ZHANG_2011, frozen=True)
@@ -328,11 +333,11 @@ class NumericalWell(WellComponent):
             position onto true vertical depth (via ``cos(angle_from_vert_deg)``)
             before applying ``thermal_gradient`` (a per-vertical-meter
             quantity), so ``T_r`` tracks actual rock temperature rather than
-            distance traveled. ``abs()`` is applied because depth increases
-            away from the wellhead regardless of flow direction — the
-            separate ``upward_component`` sign in ``_march()`` already handles the
-            injection-vs-production gravity direction, so this must stay a
-            positive magnitude.
+            distance traveled. Cells are ordered along the flow: for a well
+            whose flow runs upward (``angle_from_vert_deg`` above 90°, e.g. a
+            production well), the first cell is the deepest one, so depth is
+            measured back from the far (bottom) end of the well rather than
+            down from ``wellhead_depth``.
 
         """
         cell_length = self.well_length / self.num_cells
@@ -342,7 +347,9 @@ class NumericalWell(WellComponent):
             4.0 * self.common.rock_k / (self.common.rock_density * self.common.rock_cp * self.diameter**2)
         )
         zspace = np.linspace(0.0, self.well_length, self.num_cells + 1)
-        zspace = (zspace[1:] + zspace[:-1]) * 0.5
+        zspace = (zspace[1:] + zspace[:-1]) * 0.5  # cell midpoints, along the flow
+        if self.angle_from_vert_deg > 90.0:
+            zspace = self.well_length - zspace  # upward flow: distance from the shallow end is L - z
         vertical_depth = self.wellhead_depth + zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
         return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r

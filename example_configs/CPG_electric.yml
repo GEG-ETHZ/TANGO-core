@@ -160,7 +160,7 @@ components:
       # same as any Rankine-like cycle needing a feed pump after its
       # condenser; that's expected physics, not a design defect.
       #
-      # Source("inlet") -> Turbine -> SimpleHeatExchanger(condenser) -> PumpOrValve(pump) -> Sink("outlet")
+      # Source("inlet") -> Turbine -> SimpleHeatExchanger(condenser) -> PumpOrValve(circulation_control) -> Sink("outlet")
       nodes:
         inlet:
           type: Source
@@ -217,7 +217,7 @@ components:
           design: closed
           cooling_tower_mode: WET
 
-        pump:
+        circulation_control:
           type: PumpOrValve
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
@@ -228,5 +228,5 @@ components:
       edges:
         '1': {source: inlet, target: turbine}
         '2': {source: turbine, target: condenser}
-        '3': {source: condenser, target: pump}
-        '4': {source: pump, target: outlet}
+        '3': {source: condenser, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}

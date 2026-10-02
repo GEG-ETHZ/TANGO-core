@@ -49,12 +49,12 @@ Example YAML (AGS direct-heat — the topology that motivated this class):
       power_plant:
         nodes:
           inlet: {type: Source}
-          dh_hx: {type: SimpleHeatExchanger, role: net_thermal, T_out: 323.15, pressure_ratio: 0.99}
+          district_heating_hx: {type: SimpleHeatExchanger, role: net_thermal, T_out: 323.15, pressure_ratio: 0.99}
           circulation_control: {type: PumpOrValve, role: net_electric, efficiency: 1.0}
           outlet: {type: Sink}
         edges:
-          1: {source: inlet, target: dh_hx}
-          2: {source: dh_hx, target: circulation_control}
+          1: {source: inlet, target: district_heating_hx}
+          2: {source: district_heating_hx, target: circulation_control}
           3: {source: circulation_control, target: outlet}
 
 Unit conventions (TESPy network created with ``p_unit="bar"``, ``T_unit="C"``):
@@ -533,8 +533,8 @@ class GraphSurface(SurfaceComponent):
         Known gap, not covered by this check (see dev_docs/tango_tasks.md):
         nodes whose pressure is solved via ``Merge``'s pressure-equality
         constraint rather than an explicit ``p_out_megapascals`` (e.g.
-        ``pump``/``pump2`` in the Single-Flash examples), and components with
-        no pressure spec at all (e.g. AGS_direct_heat.yml's ``dh_hx``, whose
+        ``condensate_pump``/``brine_pump`` in the single-flash examples), and components with
+        no pressure spec at all (e.g. AGS_direct_heat.yml's ``district_heating_hx``, whose
         pressure is implicitly whatever gap exists between two unrelated
         boundary conditions) — neither is caught by this walk since it only
         traces nodes that declare ``p_out_megapascals`` explicitly.
@@ -592,7 +592,7 @@ class GraphSurface(SurfaceComponent):
         parameter, e.g. ``SimpleHeatExchanger``/``HeatExchanger`` — a
         RATIO, not an absolute value, so it scales with whatever pressure
         actually arrives at this node rather than fixing one; added for
-        ``AGS_direct_heat.yml``'s ``dh_hx``, which needs its own
+        ``AGS_direct_heat.yml``'s ``district_heating_hx``, which needs its own
         pressure-drop spec once it's no longer the last node before the
         network's outlet Sink — see that YAML's ``circulation_control`` comment for
         why); ``pressure_ratio1``/``pressure_ratio2`` -> ``pr1``/``pr2``

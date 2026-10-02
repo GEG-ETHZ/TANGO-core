@@ -27,7 +27,7 @@ stable.
 - **Condenser branch:** its own outlet T/P/enthalpy are pinned boundary
   conditions, genuinely decoupled from the wellhead — but not its mass
   flow (see separator, above).
-- **Liquid branch (via pump2):** neither its state nor its mass flow is
+- **Liquid branch (via brine_pump):** neither its state nor its mass flow is
   pinned — both are dependent on the reservoir/production-well output.
 
 ## B. The convergence loop

@@ -147,11 +147,11 @@ components:
       # Binary (ORC) TESPy topology, identical in shape to
       # hydro_ORC_electric.yml's power_plant (see that file for the full
       # node-by-node rationale): the geofluid loop (Source("inlet") ->
-      # heatexchanger -> heatexchanger2 -> circulation_control ->
+      # evaporator -> preheater -> circulation_control ->
       # Sink("outlet")) transfers heat, at each of two heat exchangers, to a
-      # separate closed secondary working-fluid loop (heatexchanger2.out2 ->
-      # heatexchanger.out2 -> turbine -> cooler -> condenser -> pump -> cc ->
-      # back to heatexchanger2.in2) that never mixes with the geofluid.
+      # separate closed secondary working-fluid loop (preheater.out2 ->
+      # evaporator.out2 -> orc_turbine -> orc_desuperheater -> orc_condenser -> orc_feed_pump -> orc_cycle_closer ->
+      # back to preheater.in2) that never mixes with the geofluid.
       # circulation_control replaces hydro_ORC_electric.yml's pump2 —
       # same PumpOrValve role, same reason (AGS's closed loop has no other
       # pressure source — see AGS_direct_heat.yml's comment on this node).
@@ -166,7 +166,7 @@ components:
         outlet:
           type: Sink
 
-        heatexchanger:
+        evaporator:
           type: HeatExchanger
           ttd_l: 7                     # K — terminal temperature difference (boiler)
           pressure_ratio1: 1.0         # geofluid side — dimensionless
@@ -175,7 +175,7 @@ components:
           p0_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
           vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
 
-        heatexchanger2:
+        preheater:
           type: HeatExchanger
           pressure_ratio1: 1.0         # geofluid side — dimensionless
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
@@ -194,44 +194,44 @@ components:
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 
-        turbine:
+        orc_turbine:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.1        # MPa (= 1 bar)
 
-        cooler:
+        orc_desuperheater:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.1        # MPa (= 1 bar)
           vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
 
-        condenser:
+        orc_condenser:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.1        # MPa (= 1 bar)
           vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
 
-        pump:
+        orc_feed_pump:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
           p_out_megapascals: 0.5        # MPa (= 5 bar)
 
-        cc:
+        orc_cycle_closer:
           type: CycleCloser
           # No config -- purely topological, closes the secondary loop so
           # TESPy can solve it with no open Source/Sink of its own.
 
       edges:
         # Geofluid (primary, closed AGS) loop
-        '1': {source: inlet, target: heatexchanger, target_port: in1}
-        '2': {source: heatexchanger, source_port: out1, target: heatexchanger2, target_port: in1}
-        '3': {source: heatexchanger2, source_port: out1, target: circulation_control}
+        '1': {source: inlet, target: evaporator, target_port: in1}
+        '2': {source: evaporator, source_port: out1, target: preheater, target_port: in1}
+        '3': {source: preheater, source_port: out1, target: circulation_control}
         '4': {source: circulation_control, target: outlet}
         # Secondary (ORC working-fluid) loop
-        '5': {source: cc, target: heatexchanger2, target_port: in2}
-        '6': {source: heatexchanger2, source_port: out2, target: heatexchanger, target_port: in2}
-        '7': {source: heatexchanger, source_port: out2, target: turbine}
-        '8': {source: turbine, target: cooler}
-        '9': {source: cooler, target: condenser}
-        '10': {source: condenser, target: pump}
-        '11': {source: pump, target: cc}
+        '5': {source: orc_cycle_closer, target: preheater, target_port: in2}
+        '6': {source: preheater, source_port: out2, target: evaporator, target_port: in2}
+        '7': {source: evaporator, source_port: out2, target: orc_turbine}
+        '8': {source: orc_turbine, target: orc_desuperheater}
+        '9': {source: orc_desuperheater, target: orc_condenser}
+        '10': {source: orc_condenser, target: orc_feed_pump}
+        '11': {source: orc_feed_pump, target: orc_cycle_closer}

@@ -311,6 +311,18 @@ class LumpedProductionWellWithPump(WellComponent):
 
     TODO: replace with TESPy Compressor or explicit pump curve.
     TODO: track pump electricity consumption in EconomicComponent.
+    Assumptions:
+        - All of the pump's losses heat the produced fluid. The actual
+          enthalpy rise is the isentropic rise divided by
+          ``pump_efficiency``, and the pump's electricity draw is
+          ``mass_rate`` times that same rise. This is right for losses in
+          the pump and its fluid-cooled downhole motor. It is not quite right
+          when ``pump_efficiency`` is an overall pump-string figure that also
+          covers surface equipment (cable, transformer, frequency
+          converter), whose losses heat the surroundings rather than the
+          fluid: the electricity draw is still correct, but the discharge
+          enthalpy is slightly overstated (about 1 kJ/kg for a 50 bar boost
+          of hot brine at an overall efficiency of 0.55).
     """
 
     common: Common = Field(frozen=True)
@@ -318,11 +330,16 @@ class LumpedProductionWellWithPump(WellComponent):
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
     pump_efficiency: float = Field(default=1.0, frozen=True)
-    """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
-    derating). TODO: lower this default to ~0.9 once a real efficiency
-    figure is settled on — deliberately deferred until then. See
-    ``solve()``'s docstring for the isentropic-efficiency pump model this
-    scales."""
+    """Pump efficiency (dimensionless): the isentropic enthalpy rise divided by
+    the actual one, which is also the electricity drawn per unit mass. Defaults
+    to 1.0 (ideal pump). The example configs use **0.55**, the overall
+    electric submersible pump (ESP) string efficiency of van 't Spijker &
+    Ungemach (2016) (see ``docs/SOURCES.md#vantspijker2016``): pump 70% ×
+    motor 90% × cable 97% × transformer 99% × frequency converter 94%. The
+    overall figure is used, not the 70% pump-only one, because downhole pump
+    power is billed as electricity drawn at the surface. See the class's
+    Assumptions section for what this means for the fluid's enthalpy, and
+    ``solve()``'s docstring for the pump model this scales."""
     target_extraction_pressure: float = Field(default=0.0, frozen=True)
     """Target outlet pressure from the pump (Pa). 0 means no active pump.
     Sourced from ``sim_config.target_extraction_pressure`` — the SAME

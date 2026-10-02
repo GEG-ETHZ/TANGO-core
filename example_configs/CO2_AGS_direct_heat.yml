@@ -20,7 +20,7 @@
 # first draft at the real 3000 m depth ran without crashing but produced
 # consistently NEGATIVE net_thermal_W (the district-heating exchanger
 # appeared to be adding heat, not extracting it) across a wide sweep of
-# both the DH return-temperature target and dh_hx's own outlet pressure --
+# both the DH return-temperature target and district_heating_hx's own outlet pressure --
 # confirmed by direct run and an independent CoolProp enthalpy check
 # (matching TESPy's own solved Q to within noise, ruling out a units/sign
 # bug). Root cause: at that depth, the produced fluid's converged (T, P)
@@ -29,7 +29,7 @@
 # near-critical regime where enthalpy's sensitivity to pressure becomes
 # extreme (property gradients diverge at the critical point itself) and
 # stops tracking temperature the way it does for an ordinary fluid state.
-# A small, otherwise-unremarkable pressure change through dh_hx dominated
+# A small, otherwise-unremarkable pressure change through district_heating_hx dominated
 # the enthalpy balance there, overwhelming the temperature-driven cooling
 # entirely -- a real physics effect, not a bug, but one that makes this
 # design point unusable for district-heat extraction as specified. This is
@@ -37,7 +37,7 @@
 # elsewhere in this session's CO2/CPG audit (CPG_direct_heat.yml) -- here
 # nothing crashes, the physics is just genuinely unusable at that depth.
 #
-# Deepening to 6000 m (with injection_pressure/dh_hx's outlet pressure also
+# Deepening to 6000 m (with injection_pressure/district_heating_hx's outlet pressure also
 # raised well clear of CO2's critical pressure, not just its critical
 # temperature) moves the whole design comfortably away from the critical
 # point and gives real, stable net_thermal_W across the full 25-year run --
@@ -45,7 +45,7 @@
 # the real Triemli site -- illustrative only, same spirit as
 # AGS_ORC_electric.yml's own disclaimer.
 #
-# dh_hx's own outlet pressure (7.8 MPa) was checked against the CLOSED
+# district_heating_hx's own outlet pressure (7.8 MPa) was checked against the CLOSED
 # LOOP's own real natural pressure by direct run before being committed --
 # see CPG_direct_heat.yml's own documented mistake for why this matters.
 # Unlike the reservoir-fed CO2 configs, this closed loop's production_well
@@ -141,7 +141,7 @@ components:
 
     power_plant:
       # Direct-heat surface plant, same shape as AGS_direct_heat.yml's own
-      # (dh_hx + circulation_control). dh_hx uses an ABSOLUTE
+      # (district_heating_hx + circulation_control). district_heating_hx uses an ABSOLUTE
       # p_out_megapascals (not AGS_direct_heat.yml's pressure_ratio: 0.99)
       # for the same CO2-TESPy-initial-guess reason as every other CO2
       # config in this matrix -- see header comment for how this specific
@@ -149,7 +149,7 @@ components:
       nodes:
         inlet:
           type: Source
-        dh_hx:
+        district_heating_hx:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
@@ -161,6 +161,6 @@ components:
         outlet:
           type: Sink
       edges:
-        '1': {source: inlet, target: dh_hx}
-        '2': {source: dh_hx, target: circulation_control}
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
         '3': {source: circulation_control, target: outlet}

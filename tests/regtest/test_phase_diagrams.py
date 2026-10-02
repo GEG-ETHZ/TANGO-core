@@ -69,10 +69,10 @@ def test_branching_node_records_each_outgoing_connection_separately() -> None:
     assert isinstance(surface, GraphSurface)
     node_history = surface.history.node_history
 
-    assert "droplet_separator:out1" in node_history
-    assert "droplet_separator:out2" in node_history
-    h_liquid = node_history["droplet_separator:out1"]["h"][-1]
-    h_vapor = node_history["droplet_separator:out2"]["h"][-1]
+    assert "separator:out1" in node_history
+    assert "separator:out2" in node_history
+    h_liquid = node_history["separator:out1"]["h"][-1]
+    h_vapor = node_history["separator:out2"]["h"][-1]
     assert h_vapor > h_liquid * 2, (
         f"vapor-branch h ({h_vapor}) should be far larger than liquid-branch h "
         f"({h_liquid}) -- equal values would mean the branches are being conflated again"
@@ -82,8 +82,8 @@ def test_branching_node_records_each_outgoing_connection_separately() -> None:
 def test_splitting_node_with_unported_edge_connects_every_branch() -> None:
     """An edge with no ``target_port`` into a splitting node draws to EVERY branch.
 
-    Regression guard: ``valve -> droplet_separator`` has no ``target_port``
-    in the YAML (``droplet_separator`` has a single inlet, so there's no
+    Regression guard: ``flash_valve -> separator`` has no ``target_port``
+    in the YAML (``separator`` has a single inlet, so there's no
     real ambiguity in the TESPy topology). An earlier version of this
     lookup fell back to arbitrarily picking the splitting node's FIRST
     outgoing branch only, leaving the second branch (``:out2``, the vapor
@@ -95,9 +95,9 @@ def test_splitting_node_with_unported_edge_connects_every_branch() -> None:
     surface = wf._orchestrator.components["surface"]  # noqa: SLF001
     assert isinstance(surface, GraphSurface)
 
-    targets = phase_diagrams._target_history_keys(surface, "droplet_separator", None)  # noqa: SLF001
+    targets = phase_diagrams._target_history_keys(surface, "separator", None)  # noqa: SLF001
 
-    assert set(targets) == {"droplet_separator:out1", "droplet_separator:out2"}
+    assert set(targets) == {"separator:out1", "separator:out2"}
 
 
 def test_fluid_groups_separates_geofluid_from_secondary_fluid() -> None:
@@ -109,8 +109,8 @@ def test_fluid_groups_separates_geofluid_from_secondary_fluid() -> None:
     groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
 
     assert set(groups.keys()) == {"H2O", "R245fa"}
-    assert "heatexchanger:out1" in groups["H2O"]
-    assert "heatexchanger:out2" in groups["R245fa"]
+    assert "evaporator:out1" in groups["H2O"]
+    assert "evaporator:out2" in groups["R245fa"]
 
 
 def test_every_frame_pins_its_own_axis_range() -> None:
@@ -324,6 +324,7 @@ def test_surface_exit_point_is_the_recorded_state_into_outlet() -> None:
         h_kj,
         p_bar,
         {},
+        {},
     )
     assert h_kj["outlet"] == h_kj["circulation_control"]
     assert p_bar["outlet"] == p_bar["circulation_control"]
@@ -347,6 +348,28 @@ def test_wells_are_drawn_as_their_marched_profiles() -> None:
         assert list(trace.y) == pytest.approx([p * phase_diagrams.PA_TO_BAR for p in well.history.P_cells[t]])
 
 
+def test_pumped_well_line_starts_at_the_pump_suction() -> None:
+    """A well with a pump at its inlet is drawn from the upstream outlet (suction), through the discharge, onward.
+
+    The march starts at the pump discharge, so without the suction point the
+    pump's pressure and enthalpy rise would be a gap between the two wells.
+    """
+    wf = _run_fast("hydro_sf_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    lower = wf._orchestrator.components["production_well_lower"]  # noqa: SLF001
+    upper = wf._orchestrator.components["production_well_upper"]  # noqa: SLF001
+    fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    for t, frame in enumerate(fig.frames):
+        assert upper.history.pump_power_watts[t] > 0
+        trace = next(tr for tr in frame.data if tr.name == "production_well_lower -> production_well_upper")
+        assert list(trace.x) == pytest.approx(
+            [lower.history.h_cells[t][-1] / 1000, *(h / 1000 for h in upper.history.h_cells[t])],
+        )
+        assert trace.y[1] > trace.y[0]  # the pump raises pressure
+
+
 def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
     """A saved diagram's title carries the config file's stem and the config's own ``title``."""
     wf = _run_fast("hydro_sf_electric.yml")
@@ -354,3 +377,19 @@ def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
     html = path.read_text()
     assert "hydro_sf_electric — H2O P–h phase diagram" in html
     assert str(wf.to_dict()["title"]) in html
+
+
+def test_phase_legend_has_one_entry_per_color() -> None:
+    """Every phase color has a legend entry backed by a real data point (an empty trace gets no legend entry)."""
+    fig = _sf_figure()
+    legend_traces = [tr for tr in fig.data if tr.name in phase_diagrams._PHASE_LEGEND.values()]  # noqa: SLF001
+    assert sorted(tr.name for tr in legend_traces) == sorted(phase_diagrams._PHASE_LEGEND.values())  # noqa: SLF001
+    assert all(len(tr.x) == 1 and len(tr.y) == 1 for tr in legend_traces)
+
+
+def test_pump_from_saturated_liquid_is_colored_liquid() -> None:
+    """A condensate pump starts on the saturation curve but pumps liquid, so its line is liquid-colored, not two-phase."""
+    fig = _sf_figure()
+    for frame in fig.frames:
+        trace = next(tr for tr in frame.data if tr.name == "condenser -> condensate_pump")
+        assert trace.line.color == "blue"
