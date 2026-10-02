@@ -9,8 +9,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+import pytest
+from CoolProp import CoolProp as CP
+
 from tango import phase_diagrams
 from tango.components.surface.graph import GraphSurface
+from tango.core.errors import ConfigError
 from tango.workflows.workflow import Workflow
 
 _EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
@@ -36,12 +41,12 @@ def test_single_fluid_config_writes_one_file(tmp_path: Path) -> None:
 
 def test_binary_cycle_config_writes_one_file_per_fluid(tmp_path: Path) -> None:
     """A binary (ORC) config writes one HTML per fluid: the geofluid and the secondary fluid."""
-    wf = _run_fast("hydro_orc_electric.yml")
-    written = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_orc_electric")
+    wf = _run_fast("hydro_ORC_electric.yml")
+    written = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_ORC_electric")
 
     assert set(written) == {
-        tmp_path / "hydro_orc_electric.phase_H2O.html",
-        tmp_path / "hydro_orc_electric.phase_R245fa.html",
+        tmp_path / "hydro_ORC_electric.phase_H2O.html",
+        tmp_path / "hydro_ORC_electric.phase_R245fa.html",
     }
     for path in written:
         assert path.exists()
@@ -97,7 +102,7 @@ def test_splitting_node_with_unported_edge_connects_every_branch() -> None:
 
 def test_fluid_groups_separates_geofluid_from_secondary_fluid() -> None:
     """A dual-fluid HeatExchanger's two sides are correctly attributed to different fluids."""
-    wf = _run_fast("hydro_orc_electric.yml")
+    wf = _run_fast("hydro_ORC_electric.yml")
     surface = wf._orchestrator.components["surface"]  # noqa: SLF001
     assert isinstance(surface, GraphSurface)
 
@@ -168,3 +173,175 @@ def test_no_graph_surface_writes_nothing(tmp_path: Path) -> None:
         assert written == []
     finally:
         wf._orchestrator.components["surface"] = surface  # noqa: SLF001
+
+
+def _sf_figure(config: phase_diagrams.PropertyLineConfig | None = None) -> object:
+    wf = _run_fast("hydro_sf_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
+    return phase_diagrams._build_figure(  # noqa: SLF001
+        wf,
+        surface,
+        fluid_name,
+        node_names,
+        wf._sim_config.dt_years,
+        config,  # noqa: SLF001
+    )
+
+
+def test_frames_only_touch_edge_traces() -> None:
+    """Frames name their trace indices explicitly and never touch the static traces.
+
+    Regression guard: the base figure once had one more trace than each
+    frame (the dome was added twice), so the last base trace -- the final
+    year's ``outlet -> injection_well`` edge -- was never overwritten and
+    stayed on screen as a stale copy on every other year.
+    """
+    fig = _sf_figure()
+    n_static = len(fig.data) - len(fig.frames[0].data)
+    for frame in fig.frames:
+        assert list(frame.traces) == list(range(n_static, len(fig.data)))
+        assert len(frame.data) == len(fig.data) - n_static
+    static_groups = {trace.legendgroup for trace in fig.data[:n_static] if trace.legendgroup}
+    assert static_groups == {"Isotherms (°C)", "Isentropes (kJ/kg·K)", "Isochores (kg/m³)", "Quality (x)"}
+
+
+def test_explicit_reference_line_values_draw_one_line_each() -> None:
+    """Explicit values draw exactly those lines; 0 turns a family off; one legend entry per family."""
+    config = phase_diagrams.PropertyLineConfig(
+        isotherm_temperatures_kelvin=(350.0, 450.0, 700.0),
+        isentrope_entropies_kj_per_kg_kelvin=0,
+        isochore_densities_kg_per_m3=(1.0, 1000.0),
+        qualities=(0.5,),
+    )
+    fig = _sf_figure(config)
+    lines: dict[str, list[object]] = {}
+    for trace in fig.data:
+        if trace.legendgroup and trace.mode == "lines":
+            lines.setdefault(trace.legendgroup, []).append(trace)
+    assert len(lines["Isotherms (°C)"]) == 3
+    assert "Isentropes (kJ/kg·K)" not in lines
+    assert len(lines["Isochores (kg/m³)"]) == 2
+    assert len(lines["Quality (x)"]) == 1
+    for traces in lines.values():
+        assert sum(bool(t.showlegend) for t in traces) == 1
+
+
+def test_subcritical_isotherm_is_flat_across_the_dome() -> None:
+    """Below the critical temperature an isotherm crosses the dome at constant saturation pressure."""
+    pressures = np.geomspace(1e3, 1e8, 100)
+    h_vals, p_vals = phase_diagrams._isotherm("Water", "HEOS", 400.0, pressures)  # noqa: SLF001
+    p_sat_bar = CP.PropsSI("P", "T", 400.0, "Q", 0, "Water") * phase_diagrams.PA_TO_BAR
+    flat = [h for h, p in zip(h_vals, p_vals, strict=True) if p == pytest.approx(p_sat_bar)]
+    assert len(flat) == 2
+    assert flat[0] < flat[1]  # saturated liquid, then saturated vapor
+    assert p_vals == sorted(p_vals, reverse=True)
+
+
+def test_load_config_from_inline_string_and_file(tmp_path: Path) -> None:
+    """The same YAML/JSON works inline or from a file; per-fluid overrides only replace given keys."""
+    text = (
+        "{isotherm_temperatures_kelvin: [300, 400], qualities: 2, fluids: {Isopentane: {qualities: [0.5]}}}"
+    )
+    inline = phase_diagrams.load_phase_diagram_config(text)
+    config_file = tmp_path / "phase.yml"
+    config_file.write_text(text)
+    from_file = phase_diagrams.load_phase_diagram_config(str(config_file))
+    assert inline == from_file
+    assert inline.default.isotherm_temperatures_kelvin == (300.0, 400.0)
+    assert inline.default.qualities == 2
+    isopentane = inline.for_fluid("Isopentane")
+    assert isopentane.qualities == (0.5,)
+    assert isopentane.isotherm_temperatures_kelvin == (300.0, 400.0)
+    assert inline.for_fluid("H2O") == inline.default
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "{isotherms: 5}",  # unknown key
+        "{qualities: [0.5, 1.5]}",  # quality outside [0, 1]
+        "{isochore_densities_kg_per_m3: [-1]}",  # non-positive density
+        "{isotherm_temperatures_kelvin: -2}",  # negative count
+        "{isotherm_temperatures_kelvin: true}",  # bool isn't a count
+        "[1, 2]",  # not a mapping
+        "{fluids: {H2O: {bogus: 1}}}",  # unknown key in a per-fluid override
+    ],
+)
+def test_load_config_rejects_invalid_input(text: str) -> None:
+    """Bad keys or values raise ConfigError before any simulation runs."""
+    with pytest.raises(ConfigError):
+        phase_diagrams.load_phase_diagram_config(text)
+
+
+@pytest.mark.parametrize("backend", ["HEOS", "BICUBIC&HEOS"])
+def test_isotherm_never_enters_the_dome_off_saturation(backend: str) -> None:
+    """Off the saturation pressure an isotherm is liquid above it and vapor below it, never in between.
+
+    Regression guard: with the tabular ``BICUBIC&HEOS`` backend, a 150 °C
+    isotherm queried just below its saturation pressure came back at
+    h = 2138 kJ/kg, inside the dome, drawing a spurious notch.
+    """
+    pressures = np.geomspace(1e4, 1e7, 150)
+    h_vals, p_vals = phase_diagrams._isotherm("Water", backend, 423.15, pressures)  # noqa: SLF001
+    h_liquid = CP.PropsSI("H", "T", 423.15, "Q", 0, "Water") / 1000
+    h_vapor = CP.PropsSI("H", "T", 423.15, "Q", 1, "Water") / 1000
+    p_sat_bar = CP.PropsSI("P", "T", 423.15, "Q", 0, "Water") * phase_diagrams.PA_TO_BAR
+    margin = 0.01 * (h_vapor - h_liquid)
+    for h, p in zip(h_vals, p_vals, strict=True):
+        if p != pytest.approx(p_sat_bar):
+            assert not h_liquid + margin < h < h_vapor - margin, (
+                f"h={h:.1f} kJ/kg at P={p:.3f} bar is inside the dome"
+            )
+
+
+def test_round_numbered_line_values() -> None:
+    """Count specs give round values; ties between round steps pick the step with more lines."""
+    assert phase_diagrams._resolve_line_values(5, [-5.0, 4.0]) == [-4.0, -2.0, 0.0, 2.0, 4.0]  # noqa: SLF001
+    assert phase_diagrams._resolve_line_values(5, [0.05, 1000.0], log=True) == [0.05, 0.6, 7.0, 80.0, 1000.0]  # noqa: SLF001
+    assert phase_diagrams._resolve_line_values((1.5, 2.5), [0.0, 100.0]) == [1.5, 2.5]  # noqa: SLF001
+    assert phase_diagrams._resolve_line_values(0, [0.0, 100.0]) == []  # noqa: SLF001
+
+
+def test_surface_exit_point_is_the_recorded_state_into_outlet() -> None:
+    """The loop's surface-exit point is the recorded state flowing into the ``outlet`` Sink.
+
+    Regression guard: re-deriving it from the plant's outlet (T, P) with
+    a tabular backend drifted 16 kJ/kg from the node feeding ``outlet``
+    for near-critical CO2 (75 bar, ~31.7 degC).
+    """
+    wf = _run_fast("CO2_EGS_ORC_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    h_kj: dict[str, list[float]] = {"circulation_control": [1.0, 2.0, 3.0]}
+    p_bar: dict[str, list[float]] = {"circulation_control": [4.0, 5.0, 6.0]}
+    phase_diagrams._add_subsurface_points(  # noqa: SLF001
+        wf,
+        surface,
+        surface.common.coolprop_backend,
+        _N_TSTEPS_FAST,
+        h_kj,
+        p_bar,
+        {},
+    )
+    assert h_kj["outlet"] == h_kj["circulation_control"]
+    assert p_bar["outlet"] == p_bar["circulation_control"]
+
+
+def test_wells_are_drawn_as_their_marched_profiles() -> None:
+    """A numerical well's edge follows its recorded per-node (h, P) profile, every year.
+
+    It starts at the well's own first node, not the upstream point, so a
+    state lost across the boundary shows as a gap rather than being bridged.
+    """
+    wf = _run_fast("CO2_EGS_ORC_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    well = wf._orchestrator.components["injection_well"]  # noqa: SLF001
+    fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    for t, frame in enumerate(fig.frames):
+        trace = next(tr for tr in frame.data if tr.name == "outlet -> injection_well")
+        assert list(trace.x) == pytest.approx([h / 1000 for h in well.history.h_cells[t]])
+        assert list(trace.y) == pytest.approx([p * phase_diagrams.PA_TO_BAR for p in well.history.P_cells[t]])

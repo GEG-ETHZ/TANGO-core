@@ -5,7 +5,7 @@
 # plant (Source -> Valve -> DropletSeparator -> Turbine/pump2 ->
 # SimpleHeatExchanger(condenser) -> pump -> Merge -> Sink) swapped in for
 # the district-heating exchanger -- completes the EGS row of the tango
-# example coverage matrix (vision doc), alongside EGS_direct_heat.yml.
+# example coverage matrix (GitLab #68), alongside EGS_direct_heat.yml.
 #
 # Site parameters (Triemli, Zurich):
 #   surface temperature : 11 degC (284.15 K)

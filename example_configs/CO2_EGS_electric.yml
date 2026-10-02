@@ -1,70 +1,32 @@
 # tango format — Enhanced Geothermal System (EGS) with CO2 as the working
-# fluid, binary (ORC) power extraction.
+# fluid, direct CO2 power extraction (no secondary loop).
 #
-# Same subsurface SHAPE and CO2-specific design choices as
-# CO2_EGS_direct_heat.yml (plain production_well, no downhole pump --
-# thermosiphon suffices with CO2, matching CPG_electric.yml's precedent;
-# pressures kept above CO2's 7.38 MPa critical pressure) -- see that file's
-# header comment for the full rationale. The reservoir depth is NOT copied
-# verbatim, though: EGS_direct_heat.yml's/CO2_EGS_direct_heat.yml's real
-# Triemli depth (3000 m) only delivers ~337 K (~64 degC) to the surface at
-# CO2's best mass_rate (confirmed by direct sweep: mass_rate has only a
-# modest effect, 30-336 K peaking around 75-100 kg/s, never enough) --
-# nowhere near enough enthalpy to drive the binary-cycle design below
-# profitably, same class of problem AGS_electric.yml hit at its own real
-# Triemli depth. This file deepens to 5000 m instead (a much more modest
-# deepening than AGS_electric.yml's 8000 m needed) -- same rock
-# properties/gradient, same mass_rate -- which delivers ~385 K (~112 degC)
-# to the surface, comparable to EGS_direct_heat.yml's own H2O design at its
-# real 3000 m depth. Not claimed as a realistic drilling target for the
-# real Triemli EGS site -- illustrative only, same spirit as
-# AGS_electric.yml's own disclaimer.
+# Same subsurface as CO2_EGS_ORC_electric.yml (5000 m, hypothetically
+# deepened Triemli-like site -- see that file's header for why the depth
+# differs from EGS_direct_heat.yml's real 3000 m), with CPG_electric.yml's
+# direct surface plant instead of a binary (ORC) cycle: the CO2 expands
+# through the turbine itself, condenses at an ambient-driven 6.0 MPa, and
+# is pumped back to injection_pressure. Using the geofluid as the turbine
+# fluid removes the ORC's heat-exchange step and its losses -- the main
+# point of a CO2 geothermal system. On this subsurface it makes about 1.8x
+# the ORC version's power.
 #
-# The surface plant: same binary (ORC) topology as AGS_electric.yml's/
-# hydro_orc_electric.yml's power_plant (see those files for the full
-# node-by-node rationale) -- the CO2 geofluid loop transfers heat, at each
-# of two heat exchangers, to a closed secondary R245fa working-fluid loop
-# that drives its own turbine. circulation_control (PumpOrValve) replaces
-# AGS_electric.yml's node of the same name / CO2_EGS_direct_heat.yml's own
-# circulation_control -- same role, closing the CO2 loop back to
-# injection_pressure.
+# Reinjecting condensed, cold liquid CO2 (~760 kg/m3) also keeps the
+# thermosiphon strong and far from CO2's pseudo-critical density cliff --
+# the failure mode the ORC version needs its injection_cooler to avoid.
 #
-# heatexchanger2's own CO2-side (out1) outlet pressure is an ABSOLUTE
-# p_out_megapascals, not the pressure_ratio1: 1.0 that AGS_electric.yml/
-# hydro_orc_electric.yml use for their own (H2O) geofluid side: CO2 near
-# ambient pressure falls outside CoolProp's valid solve range for TESPy's
-# own default initial guess, and a bare pressure_ratio here fails outright
-# for the same reason it did in CPG_direct_heat.yml/CO2_EGS_direct_heat.yml
-# before those fixes.
-#
-# CORRECTION (same audit that caught CPG_direct_heat.yml's bug): a first
-# draft set this to 7.2 MPa without actually checking it against the
-# network's real natural pressure. Confirmed by direct run this was
-# another instance of the exact same class of bug: the true natural
-# pressure reaching this point is ~18.2 MPa, a huge surplus over
-# injection_pressure's 7.5 MPa, so 7.2 MPa (just under injection_pressure)
-# forced circulation_control to resolve as a small, fake running
-# Compressor (~46-55 kW) instead of the passive Valve the real physics
-# supports. 10.0 MPa -- comfortably within the real surplus -- fixes this;
-# confirmed by direct run to resolve circulation_control as a Valve across
-# the whole run, and net power actually came out slightly HIGHER once the
-# fake parasitic draw was removed.
-#
-# num_tsteps is shortened to 12 (not the usual 25): confirmed by direct
-# run that net power stays genuinely positive through year 11 (1.07 MW)
-# but goes negative by year 13 as reservoir depletion erodes the ORC
-# cycle's turbine output below its own parasitic load -- same failure mode
-# AGS_electric.yml's own depletion curve approaches, just faster here.
-# Stopped with real margin (year 11's 1.07 MW, not the exact edge).
+# mass_rate is 100 kg/s: close to the LCOE minimum (125-150 kg/s is ~6%
+# cheaper) while leaving the reservoir much less depleted at year 25
+# (wellhead ~327 K vs ~313-319 K), and still producing ~0.9 MW then.
 #
 # Site parameters (Triemli, Zurich) — rock properties/gradient identical to
 # EGS_direct_heat.yml/CO2_EGS_direct_heat.yml, depth deepened (see above):
 #   surface temperature : 11 degC (284.15 K)
 #   thermal gradient     : 35 degC/km (0.035 K/m)
 #   fluid                : CO2
-#   application          : binary (ORC) electricity generation
+#   application          : direct CO2 electricity generation
 
-title: Enhanced Geothermal System (EGS) with CO2, binary (ORC) power extraction, hypothetical deepened Triemli-like site
+title: Enhanced Geothermal System (EGS) with CO2, direct CO2 power extraction, hypothetical deepened Triemli-like site
 
 common:
   fluid_name: CO2
@@ -79,7 +41,7 @@ layout:
   well_spacing: 500.0        # m — typical for EGS doublet
 
 sim_config:
-  num_tsteps: 12              # years -- shortened, see header comment
+  num_tsteps: 25              # years
   dt_years: 1.0                # years
   target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (see
                                           # CO2_EGS_direct_heat.yml's own
@@ -88,20 +50,12 @@ sim_config:
                                           # anything here (plain
                                           # production_well, no pump).
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 75                 # kg/s — near the empirical best for CO2 heat
-                                  # pickup in this well/reservoir combination
-                                  # (confirmed by direct sweep: 30-336 K peaked
-                                  # around 75-100 kg/s), not copied from
-                                  # EGS_direct_heat.yml's H2O-tuned 30 kg/s.
+  mass_rate: 100                # kg/s — see header comment
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
-  # Same CAPEX-coverage caveat as AGS_electric.yml: this surface plant's
-  # turbine/pump/condenser-shaped nodes ARE tagged the same way
-  # hydro_df_electric.yml's are, so CAPEX coverage should be reasonably
-  # complete. Same KNOWN GAP as EGS_direct_heat.yml/EGS_electric.yml/
-  # CO2_EGS_direct_heat.yml: EGS reservoir stimulation cost is not modeled,
-  # in tango or old tango.
+  # KNOWN GAP in CAPEX coverage: EGS reservoir stimulation is not costed
+  # (GitLab #66). The condenser's cooling tower IS costed (set_number 1).
   type: doublet
   project_maturity: green_field
   discount_rate: 0.095
@@ -167,103 +121,42 @@ components:
     pipe_roughness: 5.5e-5             # m
 
     power_plant:
-      # Binary (ORC) TESPy topology, same shape as AGS_electric.yml's/
-      # hydro_orc_electric.yml's power_plant -- see those files for the
-      # full node-by-node rationale.
+      # Direct CO2 plant (same topology as CPG_electric.yml): the CO2 geofluid
+      # is the turbine's working fluid -- no secondary loop. Nodes in flow order.
       nodes:
         inlet:
-          type: Source
-
-        outlet:
-          type: Sink
-
-        heatexchanger:
-          type: HeatExchanger
-          ttd_l: 7                     # K — terminal temperature difference (boiler)
-          pressure_ratio1: 1.0         # geofluid (CO2) side — dimensionless
-          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
-          h0_out1: 540                  # kJ/kg — TESPy guess value (geofluid outlet enthalpy);
-                                          # a real CoolProp value for CO2 near this design point
-                                          # (385 K / 7.2 MPa), not borrowed from a different fluid's
-                                          # own guess (an earlier draft mistakenly reused
-                                          # hydro_orc_electric.yml's H2O-scale 250 kJ/kg guess).
-          p0_out1: 72                   # bar (= 7.2 MPa) — TESPy guess value; see graph.py's
-                                          # _apply_connection_config docstring: p0_out{N} passes
-                                          # its raw value straight through in TESPy's own network
-                                          # unit (bar), no MPa->bar conversion.
-          p0_out2: 1.38                 # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
-          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
-
-        heatexchanger2:
-          type: HeatExchanger
-          p_out_megapascals: 10.0      # MPa -- ABSOLUTE value on the CO2 (out1) side, not
-                                          # AGS_electric.yml's/hydro_orc_electric.yml's
-                                          # pressure_ratio1: 1.0 -- see header comment for why.
-                                          # CORRECTION: a first draft set this to 7.2 MPa without
-                                          # actually checking it against the network's real natural
-                                          # pressure -- confirmed by direct run this was another
-                                          # instance of the same class of bug found elsewhere in
-                                          # this audit (CPG_direct_heat.yml, CO2_EGS_direct_heat.yml):
-                                          # the true natural pressure reaching this point is ~18.2
-                                          # MPa, a large surplus over injection_pressure's 7.5 MPa,
-                                          # so 7.2 MPa (just under injection_pressure) forced
-                                          # circulation_control to resolve as a small, fake running
-                                          # Compressor (~46-55 kW) instead of the passive Valve the
-                                          # real physics supports. 10.0 MPa -- comfortably within the
-                                          # real surplus, confirmed by direct run to resolve
-                                          # circulation_control as a Valve across the whole run.
-          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
-          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
-          p0_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
-          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
-
-        circulation_control:
-          type: PumpOrValve
-          role: net_electric
-          efficiency: 0.90              # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); a
-                                          # no-op here (resolves to the Valve leg across the whole run,
-                                          # confirmed by direct run -- see heatexchanger2's own
-                                          # comment above), kept for consistency with
-                                          # CO2_EGS_direct_heat.yml's own circulation_control.
+          type: Source                 # supercritical CO2 arriving from the production wellhead
 
         turbine:
           type: Turbine
           role: net_electric
-          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency)
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-
-        cooler:
-          type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+          efficiency: 0.78             # TESPy eta_s (isentropic efficiency), same as CPG_electric.yml
+          p_out_megapascals: 6.0       # MPa -- expands into the two-phase dome, down to the
+                                         # condensing pressure. CO2 saturates at ~295 K at 6.0 MPa,
+                                         # above what the cooling tower can reach here
+                                         # (surface_temperature 284.15 K + approach_temperature 7 K)
 
         condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+          p_out_megapascals: 6.0       # MPa -- same pressure as the turbine exhaust
+          vapor_mass_fraction_out: 0.0 # saturated liquid (~295 K): cold, dense (~760 kg/m3)
+                                         # CO2 for the thermosiphon after the pump
+          Subtype: condenser           # cooling-tower cost (DoubletEconomicComponent)
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
 
-        pump:
-          type: Compressor
+        circulation_control:
+          type: PumpOrValve            # restores injection_pressure; with the condenser below
+                                         # injection_pressure this resolves to a real pump
           role: net_electric
-          efficiency: 1.0               # dimensionless [0-1] — TESPy eta_s (isentropic efficiency); secondary-loop pump
-          p_out_megapascals: 0.5        # MPa (= 5 bar)
+          efficiency: 0.90             # TESPy eta_s; unused if it ever resolves to a Valve
 
-        cc:
-          type: CycleCloser
-          # No config -- purely topological, closes the secondary loop so
-          # TESPy can solve it with no open Source/Sink of its own.
+        outlet:
+          type: Sink                   # CO2 leaving for injection_well
 
       edges:
-        # Geofluid (CO2, primary) loop
-        '1': {source: inlet, target: heatexchanger, target_port: in1}
-        '2': {source: heatexchanger, source_port: out1, target: heatexchanger2, target_port: in1}
-        '3': {source: heatexchanger2, source_port: out1, target: circulation_control}
+        '1': {source: inlet, target: turbine}
+        '2': {source: turbine, target: condenser}
+        '3': {source: condenser, target: circulation_control}
         '4': {source: circulation_control, target: outlet}
-        # Secondary (ORC working-fluid) loop
-        '5': {source: cc, target: heatexchanger2, target_port: in2}
-        '6': {source: heatexchanger2, source_port: out2, target: heatexchanger, target_port: in2}
-        '7': {source: heatexchanger, source_port: out2, target: turbine}
-        '8': {source: turbine, target: cooler}
-        '9': {source: cooler, target: condenser}
-        '10': {source: condenser, target: pump}
-        '11': {source: pump, target: cc}

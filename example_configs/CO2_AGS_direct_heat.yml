@@ -15,7 +15,7 @@
 # no new code needed.
 #
 # Depth is NOT copied verbatim from AGS_direct_heat.yml's real 3000 m/707 m,
-# though, for a genuinely different reason than AGS_electric.yml's own
+# though, for a genuinely different reason than AGS_ORC_electric.yml's own
 # deepening (that one needed more TEMPERATURE for its ORC cycle). Here, a
 # first draft at the real 3000 m depth ran without crashing but produced
 # consistently NEGATIVE net_thermal_W (the district-heating exchanger
@@ -43,7 +43,7 @@
 # point and gives real, stable net_thermal_W across the full 25-year run --
 # confirmed by direct run. Not claimed as a realistic drilling target for
 # the real Triemli site -- illustrative only, same spirit as
-# AGS_electric.yml's own disclaimer.
+# AGS_ORC_electric.yml's own disclaimer.
 #
 # dh_hx's own outlet pressure (7.8 MPa) was checked against the CLOSED
 # LOOP's own real natural pressure by direct run before being committed --

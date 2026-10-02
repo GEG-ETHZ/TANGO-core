@@ -23,6 +23,12 @@ Each line segment is colored by its SOURCE point's thermodynamic phase
 (liquid/gas/supercritical -- see ``_PHASE_COLORS``), not a single fixed
 color for the whole fluid.
 
+Behind the cycle, each diagram draws reference lines of constant density
+(isochores), entropy (isentropes), temperature (isotherms), and vapor
+quality, configurable via ``PhaseDiagramConfig`` (``tango_cli run
+--phase-diagram-config``). They're static across years; only the node
+states move with the slider.
+
 Only ``GraphSurface`` surface components are covered -- other
 ``SurfaceComponent`` variants don't expose a TESPy network's per-node
 detail at all, so there's nothing to plot for them.
@@ -30,19 +36,22 @@ detail at all, so there's nothing to plot for them.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field, fields
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import plotly.graph_objects as go  # type: ignore[import-untyped]
+import yaml
 from CoolProp import CoolProp as CP
 
 from tango.components.surface.graph import GraphSurface
 from tango.core.constants import J_PER_KG_TO_KJ_PER_KG, PA_TO_BAR
+from tango.core.errors import ConfigError
 from tango.core.fluid_state import FluidState
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from tango.core.component import Component
     from tango.workflows.workflow import Workflow
 
@@ -85,8 +94,158 @@ _PHASE_LEGEND: dict[str, str] = {
 "nothing showing what the colors mean" -- the rendered figure had no
 legend at all for the per-edge phase coloring, only for the dome trace)."""
 
+_N_PROPERTY_LINE_POINTS = 150
+"""Points per isotherm/isentrope/isochore (swept in pressure) or quality line (swept in temperature)."""
 
-def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
+_PROPERTY_LINE_STYLES: dict[str, tuple[str, str, str]] = {
+    "isotherm_temperatures_kelvin": ("Isotherms (°C)", "dash", "217, 96, 76"),
+    "isentrope_entropies_kj_per_kg_kelvin": ("Isentropes (kJ/kg·K)", "dashdot", "91, 107, 214"),
+    "isochore_densities_kg_per_m3": ("Isochores (kg/m³)", "dot", "111, 154, 58"),
+    "qualities": ("Quality (x)", "longdashdot", "192, 79, 201"),
+}
+"""Config field -> (legend group label, line dash, RGB). Thin, dashed, and
+semi-transparent so they read as background behind the solid, phase-colored
+cycle; each line's label is drawn in the same color, fully opaque."""
+
+_PROPERTY_LINE_OPACITY = 0.55
+
+_LABEL_POSITIONS = {"qualities": "top center"}
+
+_TOP_EDGE_FRACTION = 0.95
+"""Label anchors above this fraction of the (log) pressure axis count as on the top edge."""
+"""Text position relative to a line's label anchor, per family; default ``middle left``
+(anchors at the right edge, so the text stays inside the plot)."""
+
+_REFERENCE_LINE_BACKEND = "HEOS"
+"""CoolProp backend for reference lines, regardless of the simulation's own
+``coolprop_backend``. Tabular backends (e.g. ``BICUBIC&HEOS``) interpolate
+across the phase boundary just off saturation -- a 150 °C isotherm queried
+just below its saturation pressure came back at h = 2138 kJ/kg, inside the
+dome, drawing a spurious notch. The full equation of state is exact there,
+and reference lines are cheap enough that its cost doesn't matter."""
+_DOME_FILL_COLOR = "rgba(250, 225, 190, 0.45)"
+
+LineSpec = int | tuple[float, ...]
+"""Either a count of lines, spread across the range the plotted states span, or explicit values."""
+
+
+@dataclass(frozen=True)
+class PropertyLineConfig:
+    """Which reference lines to draw behind one fluid's cycle.
+
+    Each field is either a count (``int``) or explicit values. A count
+    spreads that many lines across the range spanned by the plotted node
+    states -- linearly for temperature and entropy, logarithmically for
+    density, evenly inside ``(0, 1)`` for quality. ``0`` or ``[]`` turns
+    a family off.
+    """
+
+    isotherm_temperatures_kelvin: LineSpec = 5
+    isentrope_entropies_kj_per_kg_kelvin: LineSpec = 5
+    isochore_densities_kg_per_m3: LineSpec = 5
+    qualities: LineSpec = (0.2, 0.4, 0.6, 0.8)
+
+    @classmethod
+    def from_mapping(cls, data: dict[str, Any], *, where: str) -> PropertyLineConfig:
+        """Validate and build from a parsed YAML/JSON mapping; ``where`` names it in errors."""
+        allowed = {f.name for f in fields(cls)}
+        unknown = sorted(set(data) - allowed)
+        if unknown:
+            raise ConfigError(f"{where}: unknown key(s) {unknown}; allowed: {sorted(allowed)}")
+        values: dict[str, LineSpec] = {}
+        for key, raw in data.items():
+            if isinstance(raw, bool) or not isinstance(raw, (int, list, tuple)):
+                raise ConfigError(f"{where}.{key}: expected a count or a list of numbers, got {raw!r}")
+            if isinstance(raw, int):
+                if raw < 0:
+                    raise ConfigError(f"{where}.{key}: count must be >= 0, got {raw}")
+                values[key] = raw
+                continue
+            try:
+                numbers = tuple(float(v) for v in raw)
+            except (TypeError, ValueError):
+                raise ConfigError(f"{where}.{key}: expected a list of numbers, got {raw!r}") from None
+            if key == "qualities" and any(not 0.0 <= q <= 1.0 for q in numbers):
+                raise ConfigError(f"{where}.{key}: qualities must be within [0, 1], got {list(numbers)}")
+            if key != "qualities" and any(v <= 0 for v in numbers):
+                raise ConfigError(f"{where}.{key}: values must be > 0, got {list(numbers)}")
+            values[key] = numbers
+        return cls(**values)
+
+
+@dataclass(frozen=True)
+class PhaseDiagramConfig:
+    """Reference-line settings for every phase diagram, with optional per-fluid overrides.
+
+    Parsed by ``load_phase_diagram_config`` from YAML or JSON (e.g.
+    ``tango_cli run --phase-diagram-config``)::
+
+        isotherm_temperatures_kelvin: [350, 400, 450, 500, 550]
+        isentrope_entropies_kj_per_kg_kelvin: 4
+        isochore_densities_kg_per_m3: [1, 10, 100, 1000]
+        qualities: [0.2, 0.4, 0.6, 0.8]
+        fluids:
+          Isopentane:
+            isochore_densities_kg_per_m3: 3
+
+    Top-level keys apply to every fluid; a ``fluids.<name>`` entry
+    overrides individual keys for that fluid only (explicit densities
+    that suit water mean little for an ORC working fluid). Omitted keys
+    keep ``PropertyLineConfig``'s defaults.
+    """
+
+    default: PropertyLineConfig = field(default_factory=PropertyLineConfig)
+    per_fluid: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def for_fluid(self, fluid_name: str) -> PropertyLineConfig:
+        """Settings for one fluid: the defaults with that fluid's overrides applied."""
+        overrides = self.per_fluid.get(fluid_name)
+        if not overrides:
+            return self.default
+        given = PropertyLineConfig.from_mapping(overrides, where=f"fluids.{fluid_name}")
+        # take only the keys this fluid actually overrides; the rest come from the defaults
+        merged = {
+            f.name: getattr(given, f.name) if f.name in overrides else getattr(self.default, f.name)
+            for f in fields(PropertyLineConfig)
+        }
+        return PropertyLineConfig(**merged)
+
+
+def load_phase_diagram_config(source: str) -> PhaseDiagramConfig:
+    """Parse a ``PhaseDiagramConfig`` from a YAML/JSON file path or an inline YAML/JSON string.
+
+    Raises:
+        ConfigError: the text isn't a mapping, or any key/value is invalid.
+    """
+    path = Path(source)
+    text = path.read_text() if path.is_file() else source
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"phase diagram config: not valid YAML/JSON ({exc})") from exc
+    if data is None:
+        return PhaseDiagramConfig()
+    if not isinstance(data, dict):
+        raise ConfigError(f"phase diagram config: expected a mapping, got {type(data).__name__}")
+    data = dict(data)
+    per_fluid = data.pop("fluids", None) or {}
+    if not isinstance(per_fluid, dict) or not all(isinstance(v, dict) for v in per_fluid.values()):
+        raise ConfigError("phase diagram config: 'fluids' must map fluid names to mappings")
+    config = PhaseDiagramConfig(
+        default=PropertyLineConfig.from_mapping(data, where="phase diagram config"),
+        per_fluid={str(name): dict(overrides) for name, overrides in per_fluid.items()},
+    )
+    for name in config.per_fluid:
+        config.for_fluid(name)  # validate overrides up front, not mid-run
+    return config
+
+
+def write_phase_diagrams(
+    wf: Workflow,
+    save_dir: Path,
+    stem: str,
+    config: PhaseDiagramConfig | None = None,
+) -> list[Path]:
     """Write one ``<stem>.phase_<fluid>.html`` per working fluid found in ``wf``.
 
     Args:
@@ -94,12 +253,14 @@ def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
         save_dir: Directory to write into; created if it doesn't exist.
         stem: Base filename (no extension) -- typically the input YAML's
             own stem.
+        config: Reference-line settings; ``None`` uses the defaults.
 
     Returns:
         Paths actually written, one per distinct working fluid across
         every ``GraphSurface`` component in ``wf``. Empty if ``wf`` has no
         ``GraphSurface`` component (nothing to plot).
     """
+    config = config or PhaseDiagramConfig()
     save_dir.mkdir(parents=True, exist_ok=True)
     dt_years = wf._sim_config.dt_years  # noqa: SLF001
     written: list[Path] = []
@@ -109,7 +270,7 @@ def write_phase_diagrams(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
             continue
         for fluid_name, node_names in _fluid_groups(component).items():
             path = save_dir / f"{stem}.phase_{fluid_name}.html"
-            fig = _build_figure(wf, component, fluid_name, node_names, dt_years)
+            fig = _build_figure(wf, component, fluid_name, node_names, dt_years, config.for_fluid(fluid_name))
             fig.write_html(path)
             written.append(path)
 
@@ -148,7 +309,7 @@ def _node_history_key(component: GraphSurface, node_name: str, port: str | None)
 
     ``port`` is an edge's own ``source_port``/``target_port`` (already
     present in the YAML for exactly the multi-port cases this matters
-    for -- e.g. ``hydro_orc_electric.yml``'s dual-fluid ``HeatExchanger``
+    for -- e.g. ``hydro_ORC_electric.yml``'s dual-fluid ``HeatExchanger``
     edges). A ``target_port`` (``"in1"``/``"in2"``) is translated to the
     matching outgoing port (``"out1"``/``"out2"``) -- TESPy's own
     dual-fluid ``HeatExchanger`` convention pairs side 1 in with side 1
@@ -220,8 +381,15 @@ def _add_subsurface_points(
     n_tsteps: int,
     h_kj: dict[str, list[float]],
     p_bar: dict[str, list[float]],
+    profiles: dict[str, list[tuple[list[float], list[float]]]],
 ) -> list[tuple[str, str]]:
     """Extend ``h_kj``/``p_bar`` with every non-surface component's own outlet state.
+
+    A component that records a marched axial profile (a numerical well's
+    per-node ``h_cells``/``P_cells``) also gets ``profiles[name][t]`` =
+    that year's ``(h [kJ/kg], P [bar])`` along the flow path, and its
+    outlet point is the profile's last node -- the state the march actually
+    produced, not one rebuilt from (T, P).
 
     Closes the loop visually (Chad's request, 2026-09-25): without this,
     the diagram stops at the surface plant's own ``inlet``/``outlet``
@@ -237,25 +405,61 @@ def _add_subsurface_points(
     """
     fluid_name = component.common.fluid_name
     surface_history = component.history
-    h_kj["outlet"] = [
-        FluidState.with_PT(fluid_name, p, t, backend).H * J_PER_KG_TO_KJ_PER_KG
-        for t, p in zip(
-            surface_history.T_outlet[:n_tsteps],
-            surface_history.P_outlet[:n_tsteps],
-            strict=False,
-        )
-    ]
-    p_bar["outlet"] = [p * PA_TO_BAR for p in surface_history.P_outlet[:n_tsteps]]
+    # The surface plant's exit state is the recorded state of the connection
+    # INTO its "outlet" Sink (GraphSurface requires exactly one). Re-deriving
+    # h from the plant's outlet (T, P) instead is unreliable near the critical
+    # point: CO2 at 75 bar and ~31.7 degC moves 19 kJ/kg per 0.17 K, and a
+    # tabular backend put the re-derived point 16 kJ/kg away from the node
+    # feeding it, drawing a visible gap in the loop.
+    exit_key = next(
+        (
+            _node_history_key(component, edge["source"], edge.get("source_port"))
+            for edge in component.power_plant.get("edges", {}).values()
+            if edge["target"] == "outlet"
+        ),
+        None,
+    )
+    if exit_key in h_kj:
+        h_kj["outlet"] = list(h_kj[exit_key])
+        p_bar["outlet"] = list(p_bar[exit_key])
+    else:
+        h_kj["outlet"] = [
+            FluidState.with_PT(fluid_name, p, t, backend).H * J_PER_KG_TO_KJ_PER_KG
+            for t, p in zip(
+                surface_history.T_outlet[:n_tsteps],
+                surface_history.P_outlet[:n_tsteps],
+                strict=False,
+            )
+        ]
+        p_bar["outlet"] = [p * PA_TO_BAR for p in surface_history.P_outlet[:n_tsteps]]
 
     outer_order = _outer_circuit_order(wf)
     for name, comp in outer_order:
         if comp is component:
             continue
         history = comp.history  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
-        h_kj[name] = [
-            FluidState.with_PT(fluid_name, p, t, backend).H * J_PER_KG_TO_KJ_PER_KG
-            for t, p in zip(history.T_outlet[:n_tsteps], history.P_outlet[:n_tsteps], strict=False)
-        ]
+        h_cells = getattr(history, "h_cells", None)
+        p_cells = getattr(history, "P_cells", None)
+        if h_cells and p_cells and len(h_cells) >= n_tsteps:
+            profiles[name] = [
+                (
+                    [h * J_PER_KG_TO_KJ_PER_KG for h in h_cells[t]],
+                    [p * PA_TO_BAR for p in p_cells[t]],
+                )
+                for t in range(n_tsteps)
+            ]
+            h_kj[name] = [profile_h[-1] for profile_h, _ in profiles[name]]
+            p_bar[name] = [profile_p[-1] for _, profile_p in profiles[name]]
+            continue
+        recorded_h = getattr(history, "h_outlet", None)
+        if recorded_h:
+            # the enthalpy the component actually handed downstream
+            h_kj[name] = [h * J_PER_KG_TO_KJ_PER_KG for h in recorded_h[:n_tsteps]]
+        else:
+            h_kj[name] = [
+                FluidState.with_PT(fluid_name, p, t, backend).H * J_PER_KG_TO_KJ_PER_KG
+                for t, p in zip(history.T_outlet[:n_tsteps], history.P_outlet[:n_tsteps], strict=False)
+            ]
         p_bar[name] = [p * PA_TO_BAR for p in history.P_outlet[:n_tsteps]]
 
     # Consecutive pairs around the full outer loop, entering/exiting the
@@ -272,8 +476,16 @@ def _build_figure(
     fluid_name: str,
     node_names: list[str],
     dt_years: float,
+    property_lines: PropertyLineConfig | None = None,
 ) -> go.Figure:
-    """Build one fluid's P-h figure: saturation dome + a year slider over node states."""
+    """Build one fluid's P-h figure: saturation dome, reference lines, and a year slider over node states.
+
+    The dome, reference lines, and legend entries are static: they're the
+    base figure's first traces and no animation frame touches them. Each
+    frame carries only the per-edge traces and names their indices
+    explicitly (``go.Frame(traces=...)``), so a frame can never shift onto
+    -- or leave stale -- a trace it doesn't own.
+    """
     backend = component.common.coolprop_backend
     node_history = component.history.node_history
     n_tsteps = min(len(node_history[name].get("h", [])) for name in node_names if name in node_history)
@@ -298,8 +510,9 @@ def _build_figure(
         if target_key in h_kj
     ]
 
+    profiles: dict[str, list[tuple[list[float], list[float]]]] = {}
     if fluid_name == component.common.fluid_name:
-        edges += _add_subsurface_points(wf, component, backend, n_tsteps, h_kj, p_bar)
+        edges += _add_subsurface_points(wf, component, backend, n_tsteps, h_kj, p_bar, profiles)
 
     h_dome, p_dome = _dome_xy(fluid_name, backend)
 
@@ -315,17 +528,56 @@ def _build_figure(
     # scratch even when the base layout says ``autorange: false``, which
     # is why the blowup could reappear on some slider positions but not
     # others (Chad, 2026-09-28).
-    all_h = [v for series in h_kj.values() for v in series] + h_dome
-    all_p = [v for series in p_bar.values() for v in series] + p_dome
-    h_min, h_max = min(all_h), max(all_h)
-    p_min, p_max = min(all_p), max(all_p)
+    #
+    # The ranges frame the CYCLE, not the whole saturation dome: the dome
+    # runs down to the triple point (~1e-4 bar for R245fa), and fitting it
+    # squeezed a 1-5 bar ORC cycle into a sliver. Pressure spans the cycle's
+    # nodes and the critical point (so the top of the dome shows), with a
+    # factor-of-2 margin below and 1.5 above; enthalpy spans the cycle plus
+    # whatever part of the dome falls inside that pressure range.
+    cycle_h = [v for series in h_kj.values() for v in series]
+    cycle_p = [v for series in p_bar.values() for v in series]
+    for yearly in profiles.values():
+        for profile_h, profile_p in yearly:
+            cycle_h += profile_h
+            cycle_p += profile_p
+    p_crit_bar = CP.AbstractState(backend, fluid_name).trivial_keyed_output(CP.iP_critical) * PA_TO_BAR
+    p_low = min(cycle_p) / 2.0
+    p_high = max(max(cycle_p), p_crit_bar) * 1.5
+    framed_h = cycle_h + [h for h, p in zip(h_dome, p_dome, strict=True) if p_low <= p <= p_high]
+    h_min, h_max = min(framed_h), max(framed_h)
     xaxis_range = [h_min - 0.05 * (h_max - h_min), h_max + 0.05 * (h_max - h_min)]
-    yaxis_range = [np.log10(p_min) - 0.2, np.log10(p_max) + 0.2]
+    yaxis_range = [np.log10(p_low), np.log10(p_high)]
+
+    static_traces = [
+        *_phase_legend_traces(),
+        _dome_trace(fluid_name, h_dome, p_dome),
+        *_property_line_traces(
+            fluid_name,
+            backend,
+            property_lines or PropertyLineConfig(),
+            h_kj,
+            p_bar,
+            (10 ** yaxis_range[0], 10 ** yaxis_range[1]),
+            (xaxis_range[0], xaxis_range[1]),
+        ),
+    ]
+    edge_trace_indices = list(range(len(static_traces), len(static_traces) + len(edges)))
 
     frames = []
     for t in range(n_tsteps):
-        frame_traces = [*_phase_legend_traces(), _dome_trace(fluid_name, h_dome, p_dome)]
+        frame_traces = []
         for source, target in edges:
+            if target in profiles:
+                frame_traces.append(
+                    _profile_trace(
+                        source,
+                        target,
+                        *profiles[target][t],
+                        _phase_color_or_fallback(fluid_name, backend, profiles[target][t]),
+                    ),
+                )
+                continue
             h_s, h_t = h_kj[source][t], h_kj[target][t]
             p_s, p_t = p_bar[source][t], p_bar[target][t]
             color = _phase_color(fluid_name, h_s, p_s, backend)
@@ -367,16 +619,11 @@ def _build_figure(
             "xaxis": {"range": xaxis_range, "autorange": False},
             "yaxis": {"range": yaxis_range, "autorange": False, "type": "log"},
         }
-        frames.append(go.Frame(data=frame_traces, layout=frame_layout, name=str(t)))
+        frames.append(
+            go.Frame(data=frame_traces, traces=edge_trace_indices, layout=frame_layout, name=str(t)),
+        )
 
-    # The base figure's traces must be exactly one frame's traces, in the
-    # same order: animation frames overwrite traces by position, so any
-    # extra base trace is never updated and stays on screen as a stale
-    # copy of the final year's data whenever the slider moves elsewhere.
-    fig = go.Figure(
-        data=frames[-1].data if frames else [_dome_trace(fluid_name, h_dome, p_dome)],
-        frames=frames,
-    )
+    fig = go.Figure(data=[*static_traces, *(frames[-1].data if frames else [])], frames=frames)
 
     fig.update_layout(
         title=f"{fluid_name} — P-h phase diagram",
@@ -407,6 +654,55 @@ def _build_figure(
     return fig
 
 
+def _phase_color_or_fallback(
+    fluid_name: str,
+    backend: str,
+    profile: tuple[list[float], list[float]],
+) -> str:
+    """Phase color at a profile's first node (where the flow enters), like a straight edge's source end."""
+    profile_h, profile_p = profile
+    try:
+        return _phase_color(fluid_name, profile_h[0], profile_p[0], backend)
+    except ValueError:
+        return _PHASE_COLOR_FALLBACK
+
+
+def _profile_trace(
+    source: str,
+    target: str,
+    profile_h: list[float],
+    profile_p: list[float],
+    color: str,
+) -> go.Scatter:
+    """One edge drawn as a component's marched (h, P) profile, with a flow-direction arrow mid-way.
+
+    Starts at the component's OWN first node, not at the upstream point:
+    if the two disagree (a state lost across the component boundary), the
+    gap stays visible instead of being bridged by a line that looks like a
+    process.
+    """
+    n = len(profile_h)
+    mid = n // 2
+    sizes = [0] * n
+    symbols = ["circle"] * n
+    sizes[0] = sizes[-1] = 6
+    sizes[mid], symbols[mid] = 14, "arrow"
+    hovertext = [f"{target} node {i}/{n - 1}" for i in range(n)]
+    hovertext[0] = f"{target} inlet"
+    hovertext[-1] = target
+    return go.Scatter(
+        x=profile_h,
+        y=profile_p,
+        mode="lines+markers",
+        line={"color": color},
+        marker={"color": color, "size": sizes, "symbol": symbols, "angleref": "previous"},
+        showlegend=False,
+        name=f"{source} -> {target}",
+        hovertext=hovertext,
+        hovertemplate="<b>%{hovertext}</b><br>h=%{x:.1f} kJ/kg<br>P=%{y:.4g} bar<extra>%{fullData.name}</extra>",
+    )
+
+
 def _phase_color(fluid_name: str, h_kj_val: float, p_bar_val: float, backend: str) -> str:
     """Line/marker color for the thermodynamic phase at one (h, P) point (Chad's request, 2026-09-25)."""
     state = CP.AbstractState(backend, fluid_name)
@@ -422,26 +718,9 @@ def _dome_xy(fluid_name: str, backend: str) -> tuple[list[float], list[float]]:
     ``_dome_trace``'s caller, not once per timestep frame (a figure with
     ``n_tsteps`` frames doesn't need ``n_tsteps`` identical dome sweeps).
     """
-    state = CP.AbstractState(backend, fluid_name)
-    T_triple = state.trivial_keyed_output(CP.iT_triple)
-    T_crit = state.trivial_keyed_output(CP.iT_critical)
-    T_values = np.linspace(T_triple, T_crit, _N_DOME_POINTS)[:-1]  # critical point added once, below
-
-    def _branch(quality: float) -> tuple[list[float], list[float]]:
-        h_vals: list[float] = []
-        p_vals: list[float] = []
-        for T in T_values:
-            st = CP.AbstractState(backend, fluid_name)
-            try:
-                st.update(CP.QT_INPUTS, quality, T)
-            except ValueError:
-                continue
-            h_vals.append(st.hmass() * J_PER_KG_TO_KJ_PER_KG)
-            p_vals.append(st.p() * PA_TO_BAR)
-        return h_vals, p_vals
-
-    h_liquid, p_liquid = _branch(0.0)
-    h_vapor, p_vapor = _branch(1.0)
+    T_crit = CP.AbstractState(backend, fluid_name).trivial_keyed_output(CP.iT_critical)
+    h_liquid, p_liquid = _saturation_branch(fluid_name, backend, 0.0, _N_DOME_POINTS)
+    h_vapor, p_vapor = _saturation_branch(fluid_name, backend, 1.0, _N_DOME_POINTS)
     crit = CP.AbstractState(backend, fluid_name)
     crit.update(CP.QT_INPUTS, 0.5, T_crit * (1 - 1e-6))
     h_c = crit.hmass() * J_PER_KG_TO_KJ_PER_KG
@@ -452,14 +731,345 @@ def _dome_xy(fluid_name: str, backend: str) -> tuple[list[float], list[float]]:
     return h_dome, p_dome
 
 
+def _saturation_branch(
+    fluid_name: str,
+    backend: str,
+    quality: float,
+    n_points: int,
+) -> tuple[list[float], list[float]]:
+    """(h [kJ/kg], P [bar]) along constant vapor ``quality``, triple point up to (not including) the critical point."""
+    state = CP.AbstractState(backend, fluid_name)
+    T_triple = state.trivial_keyed_output(CP.iT_triple)
+    T_crit = state.trivial_keyed_output(CP.iT_critical)
+    h_vals: list[float] = []
+    p_vals: list[float] = []
+    for T in np.linspace(T_triple, T_crit, n_points)[:-1]:
+        try:
+            state.update(CP.QT_INPUTS, quality, T)
+        except ValueError:
+            continue
+        h_vals.append(state.hmass() * J_PER_KG_TO_KJ_PER_KG)
+        p_vals.append(state.p() * PA_TO_BAR)
+    return h_vals, p_vals
+
+
+def _round_multiples(low: float, high: float, step: float) -> list[float]:
+    start = np.ceil(low / step) * step
+    return [round(float(v), 10) for v in np.arange(start, high + step * 1e-9, step)]
+
+
+def _round_significant(value: float, digits: int = 1) -> float:
+    return float(round(value, digits - 1 - int(np.floor(np.log10(abs(value))))))
+
+
+def _resolve_line_values(spec: LineSpec, observed: list[float], *, log: bool = False) -> list[float]:
+    """Explicit values as given, or about ``spec`` round-numbered values across the ``observed`` range.
+
+    Linear families get multiples of a round step (1, 2, 2.5, or 5 times a
+    power of ten); logarithmic ones get log-spaced values rounded to one
+    significant figure. Rounding means the count can differ from ``spec``
+    by one or two -- readable labels matter more than an exact count.
+    """
+    if not isinstance(spec, int):
+        return list(spec)
+    finite = [v for v in observed if np.isfinite(v) and (v > 0 or not log)]
+    if spec == 0 or not finite:
+        return []
+    low, high = min(finite), max(finite)
+    if low == high:
+        return [_round_significant(low, 2) if low else 0.0]
+    if log:
+        return sorted({_round_significant(float(v)) for v in np.geomspace(low, high, spec)})
+    # every 1/2/2.5/5 x 10^k step near the even spacing; keep the one whose count is closest to spec
+    magnitude = 10 ** np.floor(np.log10((high - low) / max(spec, 1)))
+    candidates = [_round_multiples(low, high, m * magnitude) for m in (0.5, 1, 2, 2.5, 5, 10)]
+    return min(candidates, key=lambda values: (abs(len(values) - spec), -len(values)))
+
+
+def _isobaric_sweep(
+    fluid_name: str,
+    backend: str,
+    input_pair: int,
+    value: float,
+    pressures_pa: npt.NDArray[np.float64],
+    *,
+    value_first: bool,
+) -> tuple[list[float], list[float]]:
+    """(h [kJ/kg], P [bar]) holding one property fixed while sweeping pressure; failed points are skipped."""
+    state = CP.AbstractState(backend, fluid_name)
+    h_vals: list[float] = []
+    p_vals: list[float] = []
+    for pressure in pressures_pa:
+        try:
+            state.update(input_pair, *((value, pressure) if value_first else (pressure, value)))
+        except ValueError:
+            continue
+        h_vals.append(state.hmass() * J_PER_KG_TO_KJ_PER_KG)
+        p_vals.append(pressure * PA_TO_BAR)
+    return h_vals, p_vals
+
+
+def _isotherm(
+    fluid_name: str,
+    backend: str,
+    temperature_K: float,
+    pressures_pa: npt.NDArray[np.float64],
+) -> tuple[list[float], list[float]]:
+    """(h, P) along one isotherm, highest pressure first.
+
+    Below the critical temperature the isotherm is flat across the dome
+    (constant saturation pressure from saturated liquid to saturated
+    vapor), where (T, P) can't fix the state -- so the pressure sweep
+    skips that pressure and the two saturation end points are inserted
+    explicitly.
+    """
+    state = CP.AbstractState(backend, fluid_name)
+    T_crit = state.trivial_keyed_output(CP.iT_critical)
+    T_triple = state.trivial_keyed_output(CP.iT_triple)
+    descending = np.sort(pressures_pa)[::-1]
+    if not T_triple < temperature_K < T_crit:
+        return _isobaric_sweep(
+            fluid_name,
+            backend,
+            CP.PT_INPUTS,
+            temperature_K,
+            descending,
+            value_first=False,
+        )
+    state.update(CP.QT_INPUTS, 0.0, temperature_K)
+    p_sat, h_liquid = state.p(), state.hmass()
+    state.update(CP.QT_INPUTS, 1.0, temperature_K)
+    h_vapor = state.hmass()
+    above = descending[descending > p_sat * (1 + 1e-6)]
+    below = descending[descending < p_sat * (1 - 1e-6)]
+    h_hi, p_hi = _isobaric_sweep(fluid_name, backend, CP.PT_INPUTS, temperature_K, above, value_first=False)
+    h_lo, p_lo = _isobaric_sweep(fluid_name, backend, CP.PT_INPUTS, temperature_K, below, value_first=False)
+    sat_h = [h_liquid * J_PER_KG_TO_KJ_PER_KG, h_vapor * J_PER_KG_TO_KJ_PER_KG]
+    # Physical guard: above saturation pressure the state is compressed liquid,
+    # below it superheated vapor. A point well inside the dome is an
+    # interpolation artifact (tabular backends, just off saturation), not
+    # physics. Compressed liquid sits slightly ABOVE saturated-liquid enthalpy
+    # at high pressure, so the liquid bound allows a quarter of the dome width.
+    latent = sat_h[1] - sat_h[0]
+    liquid = [(h, p) for h, p in zip(h_hi, p_hi, strict=True) if h <= sat_h[0] + 0.25 * latent]
+    vapor = [(h, p) for h, p in zip(h_lo, p_lo, strict=True) if h >= sat_h[1] - 1e-3 * latent]
+    h_hi, p_hi = [h for h, _ in liquid], [p for _, p in liquid]
+    h_lo, p_lo = [h for h, _ in vapor], [p for _, p in vapor]
+    sat_p = [p_sat * PA_TO_BAR] * 2
+    return [*h_hi, *sat_h, *h_lo], [*p_hi, *sat_p, *p_lo]
+
+
+def _property_line_traces(
+    fluid_name: str,
+    backend: str,
+    config: PropertyLineConfig,
+    h_kj: dict[str, list[float]],
+    p_bar: dict[str, list[float]],
+    pressure_range_bar: tuple[float, float],
+    enthalpy_range_kj: tuple[float, float],
+) -> list[go.Scatter]:
+    """Static reference-line traces (isotherms, isentropes, isochores, quality lines) for one fluid.
+
+    Count-based specs are spread across the temperatures/entropies/
+    densities of the plotted node states (every node, every year), so the
+    lines land where the cycle actually is. Each family is one legend
+    group: clicking its legend entry toggles all of its lines and labels.
+    Lines are computed with ``_REFERENCE_LINE_BACKEND``; ``backend`` (the
+    simulation's own) is only used to read the plotted node states.
+
+    Labels are a text-only trace per family (not ``layout.annotations``):
+    a subcritical isotherm is labeled at its saturated-vapor corner (where
+    its flat run across the dome meets the vapor branch -- these sit at
+    different pressures, so labels don't pile up the way they do at the
+    bottom edge, where low-pressure vapor isotherms all end); other lines
+    at their right-most visible point, quality lines at their lowest.
+    """
+    state = CP.AbstractState(backend, fluid_name)
+    temperatures, entropies, densities = [], [], []
+    for name in h_kj:
+        for h, p in zip(h_kj[name], p_bar[name], strict=False):
+            try:
+                state.update(CP.HmassP_INPUTS, h / J_PER_KG_TO_KJ_PER_KG, p / PA_TO_BAR)
+            except ValueError:
+                continue
+            temperatures.append(state.T())
+            entropies.append(state.smass() / 1000.0)
+            densities.append(state.rhomass())
+
+    # Below the triple-point pressure there's no liquid or two-phase state,
+    # and CoolProp's answers there are meaningless, so the sweep stops at it.
+    line_backend = _REFERENCE_LINE_BACKEND
+    p_triple_bar = CP.AbstractState(line_backend, fluid_name).trivial_keyed_output(CP.iP_triple) * PA_TO_BAR
+    low_bar = max(pressure_range_bar[0], p_triple_bar)
+    pressures_pa = np.geomspace(low_bar, pressure_range_bar[1], _N_PROPERTY_LINE_POINTS) / PA_TO_BAR
+
+    if isinstance(config.isotherm_temperatures_kelvin, int):
+        # pick round values in °C, the unit the labels are read in
+        celsius = _resolve_line_values(
+            config.isotherm_temperatures_kelvin,
+            [T - 273.15 for T in temperatures],
+        )
+        isotherm_values = [c + 273.15 for c in celsius]
+    else:
+        isotherm_values = list(config.isotherm_temperatures_kelvin)
+
+    # (hover label, on-plot label, (h, P))
+    families: dict[str, list[tuple[str, str, tuple[list[float], list[float]]]]] = {
+        "isotherm_temperatures_kelvin": [
+            (
+                f"T = {T:.2f} K ({T - 273.15:.1f} °C)",
+                f"{T - 273.15:g}°C",
+                _isotherm(fluid_name, line_backend, T, pressures_pa),
+            )
+            for T in isotherm_values
+        ],
+        "isentrope_entropies_kj_per_kg_kelvin": [
+            (
+                f"s = {s_val:.4g} kJ/(kg·K)",
+                f"s={s_val:g}",
+                _isobaric_sweep(
+                    fluid_name,
+                    line_backend,
+                    CP.PSmass_INPUTS,
+                    s_val * 1000.0,
+                    pressures_pa,
+                    value_first=False,
+                ),
+            )
+            for s_val in _resolve_line_values(config.isentrope_entropies_kj_per_kg_kelvin, entropies)
+        ],
+        "isochore_densities_kg_per_m3": [
+            (
+                f"ρ = {rho:.4g} kg/m³",
+                f"ρ={rho:g}",
+                _isobaric_sweep(
+                    fluid_name,
+                    line_backend,
+                    CP.DmassP_INPUTS,
+                    rho,
+                    pressures_pa,
+                    value_first=True,
+                ),
+            )
+            for rho in _resolve_line_values(config.isochore_densities_kg_per_m3, densities, log=True)
+        ],
+        "qualities": [
+            (
+                f"x = {q:.2f}",
+                f"x={q:g}",
+                _saturation_branch(fluid_name, line_backend, q, _N_PROPERTY_LINE_POINTS),
+            )
+            for q in (
+                [float(v) for v in np.linspace(0, 1, config.qualities + 2)[1:-1]]
+                if isinstance(config.qualities, int)
+                else config.qualities
+            )
+        ],
+    }
+
+    h_low, h_high = enthalpy_range_kj
+    p_low, p_high = pressure_range_bar
+    traces = []
+    for key, lines in families.items():
+        group_label, dash, rgb = _PROPERTY_LINE_STYLES[key]
+        label_h: list[float] = []
+        label_p: list[float] = []
+        label_text: list[str] = []
+        label_positions: list[str] = []
+        shown_in_legend = False
+        for hover_label, plot_label, (h_vals, p_vals) in lines:
+            if len(h_vals) < 2:
+                continue
+            traces.append(
+                go.Scatter(
+                    x=h_vals,
+                    y=p_vals,
+                    mode="lines",
+                    line={"color": f"rgba({rgb}, {_PROPERTY_LINE_OPACITY})", "dash": dash, "width": 1.2},
+                    name=group_label,
+                    legendgroup=group_label,
+                    showlegend=not shown_in_legend,
+                    hovertemplate=(
+                        f"<b>{hover_label}</b><br>h=%{{x:.1f}} kJ/kg<br>P=%{{y:.4g}} bar<extra>{group_label}</extra>"
+                    ),
+                ),
+            )
+            shown_in_legend = True
+            visible = [
+                (h, p)
+                for h, p in zip(h_vals, p_vals, strict=True)
+                if h_low <= h <= h_high and p_low <= p <= p_high
+            ]
+            corners = [
+                (h_vals[i + 1], p_vals[i + 1])
+                for i in range(len(p_vals) - 1)
+                if key == "isotherm_temperatures_kelvin" and p_vals[i] == p_vals[i + 1]
+            ]
+            visible_corners = [c for c in corners if c in visible]
+            if visible_corners:
+                anchor = visible_corners[0]
+            elif visible:
+                anchor = min(visible, key=lambda point: point[1]) if key == "qualities" else max(visible)
+            else:
+                continue
+            label_h.append(anchor[0])
+            label_p.append(anchor[1])
+            label_text.append(plot_label)
+            label_positions.append(
+                _label_position(key, anchor[1], pressure_range_bar, at_dome_corner=bool(visible_corners)),
+            )
+        if label_text:
+            traces.append(
+                go.Scatter(
+                    x=label_h,
+                    y=label_p,
+                    mode="text",
+                    text=label_text,
+                    textposition=label_positions,
+                    textfont={"color": f"rgb({rgb})", "size": 11},
+                    legendgroup=group_label,
+                    showlegend=False,
+                    hoverinfo="skip",
+                    name=f"{group_label} labels",
+                    # a label right at the plot edge may overhang it slightly; don't cut it off
+                    cliponaxis=False,
+                ),
+            )
+    return traces
+
+
+def _label_position(
+    key: str,
+    anchor_p_bar: float,
+    pressure_range_bar: tuple[float, float],
+    *,
+    at_dome_corner: bool,
+) -> str:
+    """Plotly ``textposition`` for one reference-line label, keeping the text inside the plot.
+
+    A label anchored where its line leaves the TOP of the plot (steep lines:
+    isentropes, liquid-density isochores) goes below its anchor -- centered
+    on it, the upper half of the text would sit outside the plot area.
+    """
+    if at_dome_corner:
+        return "middle right"
+    low, high = np.log10(pressure_range_bar[0]), np.log10(pressure_range_bar[1])
+    if (np.log10(anchor_p_bar) - low) / (high - low) > _TOP_EDGE_FRACTION:
+        return "bottom left"
+    return _LABEL_POSITIONS.get(key, "middle left")
+
+
 def _dome_trace(fluid_name: str, h_dome: list[float], p_dome: list[float]) -> go.Scatter:
     """Build a fresh Scatter trace from an already-computed dome sweep (cheap -- no CoolProp calls)."""
     return go.Scatter(
         x=h_dome,
         y=p_dome,
         mode="lines",
-        line={"color": "black", "dash": "dot"},
+        line={"color": "black", "width": 1},
+        fill="toself",
+        fillcolor=_DOME_FILL_COLOR,
         name=f"{fluid_name} saturation dome",
+        hoverinfo="skip",
     )
 
 

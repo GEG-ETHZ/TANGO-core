@@ -4,7 +4,7 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontStyle=1" value="hydro_orc_electric.yml — binary (ORC) surface plant topology" vertex="1">
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontStyle=1" value="hydro_ORC_electric.yml — binary (ORC) surface plant topology" vertex="1">
           <mxGeometry height="24" width="700" x="20" y="-50" as="geometry" />
         </mxCell>
         <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=2" value="Boxes are TESPy nodes (power_plant.nodes); arrows are power_plant.edges. Orange = geofluid loop (common.fluid_name), teal = secondary/R245fa loop — the two never mix, only exchange heat at heatexchanger/heatexchanger2." vertex="1">

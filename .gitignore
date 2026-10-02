@@ -71,10 +71,13 @@ builds
 # Images
 *.png
 *.svg
-!docs/diagrams/img/**/*.svg
-!docs/diagrams/img/**/*.png
-# Local export only -- the Miro board embeds the .drawio source via plugin
-docs/diagrams/img/hydro_sf_electric_topology.png
+# Only images that a markdown doc embeds are tracked (GitLab renders
+# repo-hosted PNGs inline, not SVGs). Diagram exports are regenerated from
+# docs/diagrams/src/**/*.drawio, so anything not embedded stays local.
+!docs/diagrams/img/t_convergence_circuit.png
+!docs/diagrams/img/t_convergence_loop.png
+!docs/diagrams/img/cos_converge_example.png
+!docs/diagrams/img/mass_rate_profiles.png
 .aider*
 .claude/
 *.drawio.bkp

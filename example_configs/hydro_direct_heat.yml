@@ -27,7 +27,7 @@
 # Reservoir temperature here (~5000 m depth, same as hydro_sf_electric.yml)
 # is far hotter than a district-heating return temperature needs -- this is
 # a deliberately favorable case for direct-heat extraction (the opposite
-# problem from AGS_electric.yml, where the shallow AGS loop needed
+# problem from AGS_ORC_electric.yml, where the shallow AGS loop needed
 # deepening to reach a power-viable temperature).
 
 title: Hydrothermal doublet system, direct-heat (district heating), manual flow rate

@@ -182,6 +182,22 @@ def _build_parser() -> argparse.ArgumentParser:
             "Saving is opt-in: nothing is written unless this is given."
         ),
     )
+    run_p.add_argument(
+        "--phase-diagram-config",
+        default=None,
+        metavar="CONFIG",
+        help=(
+            "Reference lines drawn on the phase diagrams written by --save-dir: "
+            "a YAML/JSON file path, or the same as an inline string. Keys "
+            "(each a count, spread over the plotted states, or a list of "
+            "values): isotherm_temperatures_kelvin, "
+            "isentrope_entropies_kj_per_kg_kelvin, "
+            "isochore_densities_kg_per_m3, qualities; optional "
+            "fluids.<name> overrides per working fluid. Defaults: 5 "
+            "isotherms/isentropes/isochores, qualities [0.2, 0.4, 0.6, 0.8]. "
+            "Example: '{isotherm_temperatures_kelvin: [350, 450], qualities: 3}'."
+        ),
+    )
     # ---- validate ----
     val_p = sub.add_parser(
         "validate",
@@ -279,6 +295,14 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
     )
     logger.info("Input: %s", args.input_file)
 
+    phase_config = None
+    if args.phase_diagram_config is not None:
+        try:
+            phase_config = phase_diagrams.load_phase_diagram_config(args.phase_diagram_config)
+        except ConfigError as exc:
+            logger.error("Phase diagram config error: %s", exc)
+            return 1
+
     try:
         wf = Workflow.from_file(args.input_file)
     except ConfigError as exc:
@@ -297,7 +321,7 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
 
     if args.save_dir is not None:
         written = results_export.write_results(wf, args.save_dir, args.input_file.stem)
-        written += phase_diagrams.write_phase_diagrams(wf, args.save_dir, args.input_file.stem)
+        written += phase_diagrams.write_phase_diagrams(wf, args.save_dir, args.input_file.stem, phase_config)
         for path in written:
             print(f"Wrote: {path}")
 

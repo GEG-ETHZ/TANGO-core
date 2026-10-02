@@ -236,7 +236,7 @@ Goal: get through all of this in the next session (2026-09-17).
       `docs/bugs-fixed-in-tango.md`) or inlined substance. Full list of
       what was touched, preserved as a record:
       - `example_configs/EGS_direct_heat.yml` (known simplification vs.
-        old tango's `max_mass_rate` cap), `hydro_orc_electric.yml` (dropped
+        old tango's `max_mass_rate` cap), `hydro_ORC_electric.yml` (dropped
         cost-metadata attributes; the manual-vs-manual-fracking-check
         numeric-margin rationale).
       - `src/tango/orchestrators/system_bc_iteration.py`,
@@ -972,7 +972,7 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   sanity-checked config — full details, including the depth-deepening
   rationale for each hypothetical site and three real pump-or-valve bugs
   found and fixed along the way (a CO2/CPG-wide audit prompted by Chad),
-  in `docs/TANGO_vision_and_roadmap/README.md`'s coverage-matrix section.
+  in GitLab #68 (moved there from the vision doc's coverage-matrix section).
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the
@@ -1257,7 +1257,7 @@ detailed working record, just filed separately.
   it is.
 
 - **DONE 2026-09-17 — ported `examples/flexible_ORC_manual.yml` as
-  `example_configs/hydro_orc_electric.yml`; no dedicated ORC component
+  `example_configs/hydro_ORC_electric.yml`; no dedicated ORC component
   needed.** The binary (ORC) plant is a plain `GraphSurface` subgraph — the
   secondary R245fa loop lives entirely inside `power_plant.nodes`/`edges`,
   closed via `CycleCloser`. Needed one real `GraphSurface` extension:
@@ -1281,7 +1281,7 @@ detailed working record, just filed separately.
   else here, landing on the wrong side of this site's tight margin;
   `manual-fracking-check` has no self-correction to absorb it. Also added:
   a draw.io topology diagram
-  (`docs/diagrams/src/tango/hydro_orc_electric_topology.drawio` +
+  (`docs/diagrams/src/tango/hydro_ORC_electric_topology.drawio` +
   rendered PNG). `docs/TANGO_vision_and_roadmap/README.md`'s AGS
   power-generation-sweep port can reuse this pattern directly — no new
   Python needed there either, only YAML composition.
@@ -1583,7 +1583,7 @@ old tango's apps — that's task 3 below, still blocked/deferred.
 - [x] **Blocking gap RESOLVED 2026-09-17**: a binary/ORC plant is now a
       plain `GraphSurface` subgraph, no dedicated ORC component needed —
       confirmed by porting `examples/flexible_ORC_manual.yml` to
-      `example_configs/hydro_orc_electric.yml` (parity case added to
+      `example_configs/hydro_ORC_electric.yml` (parity case added to
       `tests/regtest/test_old_new_parity.py`). The secondary (ORC
       working-fluid) loop lives entirely inside `power_plant.nodes`/
       `edges` — `CycleCloser` closes it, and a two-sided `HeatExchanger`

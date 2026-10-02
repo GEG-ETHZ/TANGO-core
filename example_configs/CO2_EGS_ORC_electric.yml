@@ -1,0 +1,246 @@
+# tango format — Enhanced Geothermal System (EGS) with CO2 as the working
+# fluid, binary (ORC) power extraction.
+#
+# Same subsurface SHAPE and CO2-specific design choices as
+# CO2_EGS_direct_heat.yml (plain production_well, no downhole pump --
+# thermosiphon suffices with CO2, matching CPG_electric.yml's precedent;
+# pressures kept above CO2's 7.38 MPa critical pressure) -- see that file's
+# header comment for the full rationale. The reservoir depth is NOT copied
+# verbatim, though: EGS_direct_heat.yml's/CO2_EGS_direct_heat.yml's real
+# Triemli depth (3000 m) only delivers ~337 K (~64 degC) to the surface at
+# CO2's best mass_rate (confirmed by direct sweep: mass_rate has only a
+# modest effect, 30-336 K peaking around 75-100 kg/s, never enough) --
+# nowhere near enough enthalpy to drive the binary-cycle design below
+# profitably, same class of problem AGS_ORC_electric.yml hit at its own real
+# Triemli depth. This file deepens to 5000 m instead (a much more modest
+# deepening than AGS_ORC_electric.yml's 8000 m needed) -- same rock
+# properties/gradient -- which delivers ~393 K (~119 degC) to the surface in
+# year 1, falling to ~349 K by year 25 as the reservoir depletes. Not claimed as a realistic drilling target for the
+# real Triemli EGS site -- illustrative only, same spirit as
+# AGS_ORC_electric.yml's own disclaimer.
+#
+# The surface plant: binary (ORC) topology, like AGS_ORC_electric.yml's/
+# hydro_ORC_electric.yml's -- the CO2 geofluid heats a closed R245fa loop
+# through two heat exchangers (evaporator, then preheater) and the R245fa
+# drives its own turbine. Two CO2-specific additions:
+#
+# - injection_cooler: cools the CO2 to 30 degC before reinjection. This is
+#   what makes the thermosiphon (natural circulation driven by the density
+#   difference between the cold injection and hot production columns)
+#   robust. Without it the CO2 left the preheater lukewarm (~55 degC) and,
+#   once throttled to injection_pressure, landed right on CO2's
+#   pseudo-critical "density cliff" at 75 bar. As the reservoir slowly
+#   depleted, the injected CO2 warmed slightly, its density fell from ~570
+#   to ~460 kg/m3, the weaker injection column cut bottom-hole pressure, and
+#   the thermosiphon weakened further -- a runaway that drove net power
+#   negative by year 10. Cooled to 30 degC the injected CO2 is ~800 kg/m3,
+#   well away from the cliff.
+# - circulation_control (PumpOrValve): throttles the CO2's large natural
+#   pressure surplus down to injection_pressure as a passive Valve. Both
+#   heat exchangers and the cooler keep the CO2's pressure
+#   (pressure_ratio 1.0); this valve is the only node that should drop
+#   pressure without doing work.
+#
+# mass_rate is 60 kg/s: the highest flow this reservoir sustains for the
+# full 25 years (75 kg/s exhausts it -- net power reaches ~0 by year 17).
+#
+# Site parameters (Triemli, Zurich) — rock properties/gradient identical to
+# EGS_direct_heat.yml/CO2_EGS_direct_heat.yml, depth deepened (see above):
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   fluid                : CO2
+#   application          : binary (ORC) electricity generation
+
+title: Enhanced Geothermal System (EGS) with CO2, binary (ORC) power extraction, hypothetical deepened Triemli-like site
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)  — typical crystalline basement
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  well_spacing: 500.0        # m — typical for EGS doublet
+
+sim_config:
+  num_tsteps: 25              # years
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (see
+                                          # CO2_EGS_direct_heat.yml's own
+                                          # correction) -- kept for
+                                          # consistency, not because it does
+                                          # anything here (plain
+                                          # production_well, no pump).
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  mass_rate: 60                 # kg/s — the highest flow this reservoir sustains for
+                                  # the full 25 years; see header comment
+  bc_checkpoint_idx: 4           # component_idx of the surface (below)
+
+economic:
+  # KNOWN GAPS in CAPEX coverage:
+  # - The ORC's heat rejection (orc_desuperheater, orc_condenser: ~8 MW) has
+  #   no Subtype/set_number tags, so its cooling tower is not costed.
+  #   injection_cooler IS tagged (set_number 2).
+  # - EGS reservoir stimulation is not costed (GitLab #66).
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    well_length: 5000.0        # m — reservoir depth (hypothetically deepened, see header comment)
+    diameter: 0.311             # m  (~12-inch casing, typical for EGS)
+    pipe_roughness: 5.5e-5      # m
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m (hypothetically deepened, see header comment)
+    thickness: 300.0              # m
+    permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
+    porosity: 0.1
+    hydro_static_pressure: 49_050_000  # Pa = 1000*9.81*5000
+    over_pressure_percentage: 5
+    well_eff_diameter: 0.311      # m — average of injection/production well diameters (both 0.311)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    well_length: 4000.0         # m = 0.8 x reservoir_depth
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    wellhead_depth: 1000.0        # m — matches production_well_upper's well_length below
+
+  production_well_upper:
+    type: production_well       # plain, NOT production_well_with_pump -- see header comment
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0          # m = 0.2 x reservoir_depth
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4            # solved last, loops back to injection_well (next: 0)
+    prev: 3
+    next: 0
+    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
+                                     # matching CO2_EGS_direct_heat.yml's own reasoning.
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+
+    power_plant:
+      # Binary (ORC) TESPy topology. Nodes are listed in flow order: the CO2
+      # geofluid loop first, then the closed R245fa loop it heats. The two
+      # heat exchangers belong to both loops (CO2 on side 1, R245fa on side 2).
+      nodes:
+        # ---- CO2 geofluid loop: wellhead -> heat exchangers -> cooler -> valve -> injection ----
+        inlet:
+          type: Source                 # CO2 arriving from production_well_upper
+
+        evaporator:
+          type: HeatExchanger          # hottest CO2 boils the R245fa to saturated vapor
+          ttd_l: 7                     # K — terminal temperature difference at the cold end
+          pressure_ratio1: 1.0         # CO2 side — no pressure drop
+          pressure_ratio2: 1.0         # R245fa side — no pressure drop
+          h0_out1: 340                 # kJ/kg — TESPy starting guess for the CO2 outlet enthalpy
+          p0_out1: 225                 # bar — TESPy starting guess for the CO2 outlet pressure
+                                         # (p0_out{N} goes to TESPy as-is, in bar; see graph.py's
+                                         # _apply_connection_config)
+          p0_out2: 5                   # bar — TESPy starting guess for the R245fa outlet pressure
+          vapor_mass_fraction_out2: 1  # R245fa leaves as saturated vapor
+
+        preheater:
+          type: HeatExchanger          # cooler CO2 heats the R245fa feed to saturated liquid
+          pressure_ratio1: 1.0         # CO2 side — no pressure drop; the CO2's natural pressure
+                                         # surplus is throttled by circulation_control, not here
+          pressure_ratio2: 1.0         # R245fa side — no pressure drop
+          vapor_mass_fraction_out2: 0  # R245fa leaves as saturated liquid, ready to boil
+          p0_out2: 5                   # bar — TESPy starting guess for the R245fa outlet pressure
+          fluid_out2: R245fa           # the ORC working fluid; never mixes with the CO2
+
+        injection_cooler:
+          type: SimpleHeatExchanger    # cools the CO2 before reinjection -- see header comment
+          T_out: 303.15                # K (30 degC) — cold, dense CO2 (~800 kg/m3) for the thermosiphon
+          pressure_ratio: 1.0          # no pressure drop
+          p0_out1: 225                 # bar — TESPy starting guess for the outlet pressure
+          h0_out1: 255                 # kJ/kg — TESPy starting guess for the outlet enthalpy
+          Subtype: cooler              # cooling-tower cost (DoubletEconomicComponent)
+          set_number: 2
+          design: closed
+          cooling_tower_mode: WET
+
+        circulation_control:
+          type: PumpOrValve            # resolves to a passive Valve: throttles the CO2's natural
+                                         # pressure surplus (~22 MPa arriving vs injection_pressure's
+                                         # 7.5 MPa) -- the only node in the loop that should drop
+                                         # pressure without doing work
+          role: net_electric
+          efficiency: 0.90             # TESPy eta_s; only used if this ever resolves to a pump
+
+        outlet:
+          type: Sink                   # CO2 leaving for injection_well
+
+        # ---- R245fa ORC loop: feed pump -> preheater -> evaporator -> turbine -> condenser ----
+        orc_turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 1.0              # TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.1       # MPa (= 1 bar)
+
+        orc_desuperheater:
+          type: SimpleHeatExchanger    # superheated turbine exhaust -> saturated vapor
+          p_out_megapascals: 0.1       # MPa (= 1 bar)
+          vapor_mass_fraction_out: 1   # saturated vapor
+
+        orc_condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.1       # MPa (= 1 bar)
+          vapor_mass_fraction_out: 0   # saturated liquid
+
+        orc_feed_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 1.0              # TESPy eta_s (isentropic efficiency)
+          p_out_megapascals: 0.5       # MPa (= 5 bar) — the R245fa boiling pressure
+
+        orc_cycle_closer:
+          type: CycleCloser
+          # No config -- purely topological, closes the R245fa loop so TESPy
+          # can solve it with no open Source/Sink of its own.
+
+      edges:
+        # CO2 geofluid loop
+        '1': {source: inlet, target: evaporator, target_port: in1}
+        '2': {source: evaporator, source_port: out1, target: preheater, target_port: in1}
+        '3': {source: preheater, source_port: out1, target: injection_cooler}
+        '4': {source: injection_cooler, target: circulation_control}
+        '5': {source: circulation_control, target: outlet}
+        # R245fa ORC loop
+        '6': {source: orc_feed_pump, target: orc_cycle_closer}
+        '7': {source: orc_cycle_closer, target: preheater, target_port: in2}
+        '8': {source: preheater, source_port: out2, target: evaporator, target_port: in2}
+        '9': {source: evaporator, source_port: out2, target: orc_turbine}
+        '10': {source: orc_turbine, target: orc_desuperheater}
+        '11': {source: orc_desuperheater, target: orc_condenser}
+        '12': {source: orc_condenser, target: orc_feed_pump}
