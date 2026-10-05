@@ -32,13 +32,13 @@ guide). Given that:
 2.  **Add `tango-core` from GitLab, pinned to a release tag**, from inside the
     new project:
     ```bash
-    uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.0.1
+    uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.1.0
     ```
     (there's no standalone `--git` flag — the git source is part of the
     package spec itself, as shown; `--tag` alongside it still works to pin
     the ref.)
 
-    Swap `v1.0.1` for whichever tag you want to pin to (see
+    Swap `v1.1.0` for whichever tag you want to pin to (see
     [`CONTRIBUTING.md`'s release section](./CONTRIBUTING.md#cutting-an-internal-geg-only-release)
     for how those are cut); `uv add` records the exact tag (and resolved
     commit) in `pyproject.toml`/`uv.lock`, so builds stay reproducible until

@@ -12,7 +12,7 @@ Follow [README.md's "General users" → "Installation"](./README.md#general-user
 section directly:
 
 1. Scaffold a project with the GEG cookiecutter template.
-2. `uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.0.1`
+2. `uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.1.0`
    (swap in whatever the current release tag is).
 3. `tango_cli init .` to pull down `example_configs/` and every
    `applications/` pipeline into the new project (`--app` narrows this to

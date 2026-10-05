@@ -9,6 +9,111 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ---
 
+## [1.1.0] — 2026-10-05
+
+Completes the example coverage matrix, moves the stream interface from
+temperature to specific enthalpy, adds interactive phase diagrams, and
+fixes several physics and solver bugs those diagrams exposed. Adds
+run-time guards that turn physically impossible surface-plant results into
+typed errors, realistic cited component efficiencies, and a third-party
+license gate. **Results change substantially for CO2 and closed-loop (AGS)
+configs**; every example config is regoldened.
+[Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
+
+### Added
+
+- **Coverage matrix complete**: `AGS_ORC_electric.yml`,
+  `hydro_direct_heat.yml`, `CPG_direct_heat.yml`, `CO2_EGS_direct_heat.yml`,
+  `CO2_AGS_direct_heat.yml`, and the CO2 power cells, including direct-CO2
+  plants `CO2_EGS_electric.yml` and `CO2_AGS_electric.yml` (the CO2 itself
+  drives the turbine; LCOE 0.40 and 2.89 vs 1.55 and 10.9 for the binary
+  versions). Matrix and per-config review checklist: GitLab #67.
+- **Interactive P-h phase diagrams** (GitLab #56): `tango_cli run
+  --save-dir` writes one Plotly `<config>.phase_<fluid>.html` per working
+  fluid, with a year slider, configurable isotherms/isentropes/isochores/
+  quality lines (`--phase-diagram-config`), a shaded two-phase region, a
+  phase-color legend, and wells drawn along their computed profiles
+  (including the downhole pump step). `just phase-diagrams` writes every
+  config's into gitignored `scratch_output/<config>/`.
+- **Run-time guards** in `GraphSurface`, as typed errors that optimizers
+  treat as infeasible designs:
+  - `PassivePressureRiseError`: a heat exchanger, valve, separator, mixer
+    or cycle closer whose outlet pressure is above its inlet (TESPy solves
+    a fixed absolute `p_out` above the real inlet as free compression).
+  - `NegativeNetPowerError`: a turbine plant that consumes more power than
+    it makes.
+  - `TESPyConvergenceError`: an unconverged TESPy solve, except TESPy's
+    measured ~1 J/kg stall on a pump drawing exactly saturated liquid,
+    which is used with a warning naming the pump.
+- **`subcooling_K`** surface-node key (TESPy `Td_bp`): an outlet that many
+  kelvin below saturation at its actual pressure.
+- **Third-party license tooling**: `tools/check_licenses.py` records the
+  dependency graph (direct/indirect, depth, scope), evaluates license
+  expressions, supports reviewed approvals, and draws a draw.io dependency
+  tree; a `license_check` CI job runs on MRs into `main` and on release
+  tags.
+- **`docs/SOURCES.md`**, a verified bibliography that code and configs cite
+  by key; `docs/` is now user-facing (shipped in the wheel), with developer
+  docs in `dev_docs/`. `dev_docs/tespy_limitations.md` lists what TESPy
+  solves without complaint and TANGO's guards.
+
+### Fixed
+
+- **Energy was lost at every component boundary for CO2**: components
+  passed temperature and each rebuilt enthalpy from (T, P), and near CO2's
+  critical point the tabular property backend lost up to ~42 kJ/kg per
+  hand-off (~1.1 MW in `CO2_EGS_direct_heat.yml`). `Stream` now carries
+  specific enthalpy. The wellhead-to-plant pipe now drops pressure at
+  constant enthalpy (it was isothermal).
+- **Production wells had their rock temperatures upside down**: the
+  rock-temperature profile increased in depth along the flow, which is
+  reversed for upward flow. Small effect for hydrothermal/EGS/CPG (within
+  ~1%), large for closed AGS loops (`CO2_AGS_ORC_electric` LCOE 55.1 ->
+  10.9).
+- **The injection-enthalpy loop could accept an open loop**: its relaxed
+  guess never reached the injection well, and convergence was checked
+  against that unused guess (loop open by up to ~3.6 kJ/kg). Every config
+  now closes within 1 kJ/kg every year.
+- **`AUTO_PRESSURE`/`AUTO_BOTH` depleted the reservoir once per outer
+  iteration** instead of once per timestep.
+- **Free compression in two heat configs**: `CPG_direct_heat.yml` and
+  `CO2_EGS_direct_heat.yml` had heat exchangers raising pressure for free,
+  which had been letting them reinject dense CO2. Both now use a pressure
+  ratio and an injection cooler; `CPG_direct_heat.yml` runs at 75 kg/s and
+  its reservoir now supplies the heat (its CO2 had been reinjected hotter
+  than the reservoir, so all delivered heat was pump work).
+- **The `PumpOrValve` fallback reported the wrong error**: a negative-net-
+  power or free-compression failure was retried as a pump and surfaced as
+  "negative pump power".
+- **A CO2 EGS power example ran away**: reinjected CO2 sat on its
+  pseudo-critical density drop; `CO2_EGS_ORC_electric.yml` now cools it
+  before reinjection.
+
+### Changed
+
+- **Realistic component efficiencies** in every example config, each with
+  a citation: turbines 0.85 and surface pumps 0.75 (DiPippo 2016),
+  downhole pumps 0.55 overall ESP string (van 't Spijker & Ungemach 2016).
+  Three marginal examples were adjusted to stay net-positive
+  (`EGS_electric.yml` deepened to a hypothetical 5000 m; `CPG_electric.yml`
+  at 125 kg/s; `CO2_AGS_ORC_electric.yml` at 20 years).
+- **Descriptive surface node names** in the example configs (e.g.
+  `evaporator`, `preheater`, `flash_valve`, `separator`, `brine_pump`,
+  `condensate_pump`, `district_heating_hx`; every `PumpOrValve` is
+  `circulation_control`). Application parameter paths that address these
+  nodes changed accordingly.
+- **Binary (ORC) plant configs carry `ORC` in their file names.**
+- **Condensers subcool by 1 K** (`subcooling_K: 1.0`) instead of ending at
+  exactly saturated liquid, except four ORC condensers and
+  `CPG_electric.yml`'s, which already sit at or below their cooling limit.
+- `tango_cli init` copies every application by default (`--app` narrows,
+  `--no-apps` skips).
+- The pre-push remote-freshness hook passes when you have rewritten your
+  own pushed commits (amend/rebase), and still blocks when someone else
+  pushed.
+
+---
+
 ## [1.0.1] — 2026-09-24
 
 Patch release: completes two more cells of the example coverage matrix,
@@ -203,6 +308,7 @@ implementation (see `dev_docs/bugs-fixed-in-tango.md` for full detail on each):
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
-[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.0.1...HEAD
+[Unreleased]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.1.0...HEAD
+[1.1.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.0.1...v1.1.0
 [1.0.1]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/v1.0.0...v1.0.1
 [1.0.0]: https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/compare/old-tango-main-2026-06-08...v1.0.0
