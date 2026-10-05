@@ -104,7 +104,12 @@ components:
         high_pressure_condenser:
           type: SimpleHeatExchanger
           p_out_megapascals: 0.005          # MPa (= 0.05 bar)
-          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+          p0_out1: 0.05                  # bar -- TESPy starting guess; with no guess the
+                                         # subcooled-outlet spec diverged in year 0
+          h0_out1: 135                   # kJ/kg -- TESPy starting guess
           # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
           # physics): a singleton set (no paired cooler), closed/wet cooling tower.
           Subtype: condenser
@@ -130,7 +135,12 @@ components:
           # No p_out here — its outlet pressure is pinned by condensate_mixer's
           # equal-pressure constraint across its inlets to match high_pressure_condenser's
           # 0.005 MPa, not an independently-declared value.
-          vapor_mass_fraction_out: 0          # dimensionless [0-1] — TESPy vapor quality x (0 = saturated liquid, 1 = saturated vapor)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+          p0_out1: 0.05                  # bar -- TESPy starting guess; with no guess the
+                                         # subcooled-outlet spec diverged in year 0
+          h0_out1: 135                   # kJ/kg -- TESPy starting guess
           # Cost-only metadata — see high_pressure_condenser's comment above.
           Subtype: condenser
           set_number: 2

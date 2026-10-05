@@ -106,7 +106,7 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     ),  # 70-100% (capped at 1.0)
     "components.surface.power_plant.nodes.high_pressure_turbine.p_out_megapascals": (0.5, 3.0),
     "components.surface.power_plant.nodes.high_pressure_condenser.p_out_megapascals": (0.5, 3.0),
-    "components.surface.power_plant.nodes.high_pressure_condenser.vapor_mass_fraction_out": (
+    "components.surface.power_plant.nodes.high_pressure_condenser.subcooling_K": (
         1.0,
         1.0,
     ),  # fixed (no variation)
@@ -115,7 +115,7 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "components.surface.power_plant.nodes.low_pressure_turbine.p_out_megapascals": (0.5, 3.0),
     # low_pressure_condenser has no p_out field at all (pinned via condensate_mixer's equal-pressure
     # constraint with high_pressure_condenser — see hydro_df_electric.yml's comment).
-    "components.surface.power_plant.nodes.low_pressure_condenser.vapor_mass_fraction_out": (
+    "components.surface.power_plant.nodes.low_pressure_condenser.subcooling_K": (
         1.0,
         1.0,
     ),  # fixed (no variation)

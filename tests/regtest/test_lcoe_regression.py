@@ -26,7 +26,10 @@ from tango.core.errors import (
     CoolPropError,
     FrackingViolationError,
     InvalidPowerStateError,
+    NegativeNetPowerError,
+    PassivePressureRiseError,
     TangoError,
+    TESPyConvergenceError,
 )
 from tango.workflows.workflow import Workflow
 
@@ -983,3 +986,80 @@ def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
                         f"{name} year {year} cell {i}: rock {rock[i - 1] - 273.15:.1f} degC, fluid "
                         f"{fluid_t - 273.15:.1f} degC, but heat into fluid is {heat_in:.0f} J/kg"
                     )
+
+
+def test_heat_exchanger_raising_pressure_is_rejected() -> None:
+    """A heat exchanger whose fixed outlet pressure is above what reaches it raises PassivePressureRiseError.
+
+    Rebuilds CO2_EGS_direct_heat.yml's former plant: no injection cooler and
+    a fixed 11.0 MPa district_heating_hx outlet, while its inlet is only
+    ~10.4 MPa. The error names the heat exchanger; the PumpOrValve fallback
+    must not swallow it and report a negative pump power instead.
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CO2_EGS_direct_heat.yml").read_text())
+    config["sim_config"]["num_tsteps"] = 2
+    plant = config["components"]["surface"]["power_plant"]
+    hx = plant["nodes"]["district_heating_hx"]
+    hx.pop("pressure_ratio")
+    hx["p_out_megapascals"] = 11.0
+    del plant["nodes"]["injection_cooler"]
+    plant["edges"] = {
+        "1": {"source": "inlet", "target": "district_heating_hx"},
+        "2": {"source": "district_heating_hx", "target": "circulation_control"},
+        "3": {"source": "circulation_control", "target": "outlet"},
+    }
+    with pytest.raises(PassivePressureRiseError, match="district_heating_hx"):
+        Workflow(config).run()
+
+
+def test_negative_net_power_is_reported_as_itself() -> None:
+    """A depleted power plant fails with NegativeNetPowerError, not a retried pump's misleading error.
+
+    CO2_EGS_ORC_electric.yml at 80 kg/s cools its reservoir until, in year
+    16, the turbine no longer covers the plant's own pumps. The
+    PumpOrValve fallback must not retry with circulation_control as a pump,
+    which used to surface as "circulation_control reports P=... (negative)".
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CO2_EGS_ORC_electric.yml").read_text())
+    config["sim_config"]["mass_rate"] = 80
+    with pytest.raises(NegativeNetPowerError, match="net_power_W"):
+        Workflow(config).run()
+
+
+def test_unconverged_tespy_solve_raises() -> None:
+    """A TESPy solve that stops short of converging raises TESPyConvergenceError.
+
+    hydro_df_electric.yml's condensers need TESPy starting guesses for their
+    subcooled outlets; without them the network diverges in year 0.
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_df_electric.yml").read_text())
+    config["sim_config"]["num_tsteps"] = 1
+    for name in ("high_pressure_condenser", "low_pressure_condenser"):
+        node = config["components"]["surface"]["power_plant"]["nodes"][name]
+        del node["p0_out1"], node["h0_out1"]
+    with pytest.raises(TESPyConvergenceError):
+        Workflow(config).run()
+
+
+def test_saturated_pump_stall_is_accepted_with_a_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """TESPy's ~1 J/kg stall on a pump drawing saturated liquid is used, and logged by pump name.
+
+    EGS_electric.yml's brine_pump draws the flash separator's saturated
+    liquid; in year 2 TESPy stops 0.8 J/kg short on its efficiency equation
+    with every other equation satisfied.
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "EGS_electric.yml").read_text())
+    config["sim_config"]["num_tsteps"] = 3
+    with caplog.at_level("WARNING", logger="tango.components.surface.graph"):
+        Workflow(config).run()
+    assert any(
+        "brine_pump" in r.getMessage() and "saturated liquid" in r.getMessage() for r in caplog.records
+    )
+
+
+def test_subcooling_must_be_positive() -> None:
+    """subcooling_K is kelvin below saturation, so zero or a negative value is a config error."""
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml").read_text())
+    config["components"]["surface"]["power_plant"]["nodes"]["condenser"]["subcooling_K"] = 0.0
+    with pytest.raises(ConfigError, match="subcooling_K"):
+        Workflow(config).run()

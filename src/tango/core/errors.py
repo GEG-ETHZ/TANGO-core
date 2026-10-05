@@ -59,6 +59,33 @@ class InvalidPowerStateError(TangoError):
     """
 
 
+class NegativeNetPowerError(InvalidPowerStateError):
+    """Raised when a power plant with a turbine is a net consumer of electricity.
+
+    The turbine's output no longer covers the plant's own pump load, e.g.
+    once the reservoir has cooled. Kept distinct from the other
+    ``InvalidPowerStateError`` cases because it doesn't depend on whether a
+    ``PumpOrValve`` node resolves to a valve or a pump: as a pump it would
+    only draw more power, so ``GraphSurface`` re-raises it rather than
+    retrying with the pump.
+    """
+
+
+class PassivePressureRiseError(InvalidPowerStateError):
+    """Raised when a passive surface-plant component raises its fluid's pressure.
+
+    Heat exchangers, valves, separators, mixers and cycle closers do no
+    work, so pressure can only fall (or stay level) across them. TESPy
+    solves such a network anyway when a component has a fixed absolute
+    outlet pressure above what actually arrives at its inlet: the
+    component compresses the fluid for free, and the pump work that rise
+    would really cost is never charged. A subclass of
+    ``InvalidPowerStateError`` because the result is the same kind of
+    error, uncharged work, and so that an optimizer treats it as an
+    infeasible design point.
+    """
+
+
 class CoolPropError(TangoError):
     """Wraps a CoolProp failure raised by *our own* direct property lookup.
 
@@ -83,12 +110,19 @@ class TESPyError(TangoError):
     raise ``TESPyCoolPropError`` instead so it's still catchable as a
     CoolProp-rooted error.
 
-    TESPy integration is real (``GraphSurface`` solves an actual TESPy
-    ``Network`` each timestep), but no call site wraps a TESPy solve failure
-    in this class yet — ``GraphSurface.solve()`` lets TESPy's own exceptions
-    propagate directly. This class exists so the error taxonomy is ready to
-    wrap those failures (see vision doc, Future Direction — AI-Assisted
-    Error Interpretation, for why this taxonomy matters).
+    ``GraphSurface`` raises the subclasses ``TESPyConvergenceError`` (the
+    solve didn't converge) and ``TESPyCoolPropError`` (a property lookup
+    failed inside the solve).
+    """
+
+
+class TESPyConvergenceError(TESPyError, ConvergenceError):
+    """Raised when a TESPy network solve returns without converging.
+
+    TESPy's ``Network.solve()`` returns normally when it stops short of its
+    convergence tolerance, leaving outlet values that may be wrong. A
+    subclass of ``ConvergenceError`` too, so an optimizer treats it as an
+    infeasible design point.
     """
 
 
@@ -99,8 +133,6 @@ class TESPyCoolPropError(TESPyError, CoolPropError):
     catch either: ``except TESPyError`` to catch any TESPy-related failure,
     or ``except CoolPropError`` to catch any CoolProp-rooted failure
     regardless of whether it was raised directly or via TESPy.
-
-    Not yet wired to any call site — see ``TESPyError`` docstring.
     """
 
 

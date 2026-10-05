@@ -40,9 +40,23 @@ systems, so one network can't decide which of the two the plant needs.
 
 **Remaining gaps:**
 
-- The fallback catches *any* `TESPyCoolPropError` on the Valve leg, so a
-  genuine CoolProp failure is silently retried as a pump.
+- The fallback is triggered by *any* `TESPyCoolPropError` or
+  `InvalidPowerStateError` on the Valve leg, including failures that have
+  nothing to do with whether `circulation_control` is a valve or a pump.
+  The retry can't fix those, and the Compressor leg then fails for its own
+  reason, so the error the user sees names the wrong problem. Known cases:
+  - a genuine CoolProp failure is silently retried as a pump;
+  - negative plant net power (turbine output below the plant's own pump
+    load, e.g. `CO2_EGS_ORC_electric.yml` at 80 kg/s once the reservoir
+    has cooled by year 16) is reported as "circulation_control reports
+    P = -1.1 MW (negative)" from the retried pump.
+  `PassivePressureRiseError` and `NegativeNetPowerError` are now
+  re-raised without the retry, since neither depends on the valve/pump
+  choice; the CoolProp case is still retried.
 - A loop that resolves to a passive valve has no startup pump costed (#57).
+- *[TANGO]* A `PumpOrValve` that runs as a pump is never costed:
+  `DoubletEconomicComponent._injection_pump_cost` only counts nodes whose
+  config type is `Compressor` (#72).
 - The longer-term replacement is a custom hybrid TESPy component, which
   needs a newer TESPy (see the version pin below).
 
@@ -68,20 +82,23 @@ out-of-range error. A fixed absolute pressure sidesteps that.
 **Where it hit:**
 
 - `CPG_direct_heat.yml`: fixed once (commit `09fcb48`: LCOE was a
-  fictitious 0.031 instead of 0.27 USD/kWh). It has **regressed**: in the
-  2026-10-02 runs the inlet is 32–44 bar against a fixed 50 bar outlet,
-  every year.
-- `CO2_EGS_direct_heat.yml`: the fixed 11.0 MPa was chosen below a
-  ~11.3 MPa natural wellhead pressure, but the inlet is now 103 bar in
-  year 0 falling to 88 bar, below the 110 bar outlet every year.
-- Both regressions went unnoticed until the phase diagrams showed them,
-  because the inlet pressure is set at run time by the wells and nothing
-  compares it with the fixed outlet.
+  fictitious 0.031 instead of 0.27 USD/kWh), then regressed: the inlet
+  fell to 32–44 bar against a fixed 50 bar outlet.
+- `CO2_EGS_direct_heat.yml`: a fixed 11.0 MPa outlet against an inlet of
+  104 bar falling to 89 bar.
+- Both went unnoticed until the phase diagrams showed them, because the
+  inlet pressure is set at run time by the wells.
+- In both, the free compression was propping up the loop: it let the CO2
+  be reinjected dense. With the pressure rise removed, both needed an
+  injection cooler to reinject the CO2 cold and dense instead.
 
-**TANGO guard:** none at run time. `_validate_pressure_monotonicity` only
-compares *declared* `p_out_megapascals` values with each other. GitLab #67's
-review checklist has a manual "no passive node raises pressure" check;
-#62 covers valve pressure direction and efficiency bounds.
+**TANGO guard:** `GraphSurface._check_passive_pressure` raises
+`PassivePressureRiseError` whenever a heat exchanger, valve, separator,
+mixer or cycle closer has a higher outlet pressure than inlet pressure
+(checked after every solve). It is raised straight through the
+`PumpOrValve` fallback, since switching `circulation_control` to a pump
+can't fix an upstream node. `_validate_pressure_monotonicity` separately
+compares *declared* `p_out_megapascals` values when the config is loaded.
 
 ## A heat exchanger with no pressure spec absorbs any pressure gap
 
@@ -140,13 +157,39 @@ rejects unknown keys).
 
 ## An unconverged solve returns normally
 
-**TESPy allows:** `Network.solve()` can run out of iterations and return
-without raising.
+**TESPy allows:** `Network.solve()` can stop short of its convergence
+tolerance and return without raising, leaving outlet values that may be
+wrong.
 
-**TANGO guard:** `GraphSurface` checks `network.converged` but only logs a
-warning; the unconverged outlet values are still used. CoolProp failures
+**TANGO guard:** `GraphSurface` raises `TESPyConvergenceError` (a
+`ConvergenceError`, so optimizers treat it as infeasible) whenever
+`network.converged` is false, with one exception below. CoolProp failures
 inside TESPy surface as a bare `ValueError`, which TANGO wraps as
 `TESPyCoolPropError`.
+
+**The exception: TESPy stalls on a pump drawing exactly saturated liquid.**
+It stops about 1 J/kg short on that pump's efficiency equation (on a rise
+of ~2,000-2,700 J/kg) with every other equation satisfied, whatever the
+starting point or iteration budget. Seen on `hydro_df_electric.yml`'s
+`condensate_pump` (fed by condensers set to `vapor_mass_fraction_out: 0`)
+and `EGS_electric.yml`'s `brine_pump` (fed by a flash separator's liquid
+outlet, which is saturated by definition). The mechanism is not known: it
+is not a CoolProp backend inconsistency at the saturation line (HEOS and
+BICUBIC&HEOS agree there to 0.03 J/kg). `GraphSurface._saturated_pump_stall`
+accepts exactly this case, with a warning naming the pump: all remaining
+residual in pump (`Compressor`) equations, under 10 in total, and each
+such pump's inlet within 100 J/kg of saturated liquid.
+
+**Condensers are subcooled to avoid it.** Condenser outlets use
+`subcooling_K: 1.0` (TESPy's `Td_bp`, relative to saturation at the actual
+outlet pressure) instead of exactly saturated liquid, which also gives the
+pump a margin against cavitation. A subcooled outlet can need TESPy
+starting guesses (`p0_out1`, `h0_out1`): without them,
+`hydro_df_electric.yml` diverged in year 0. Separator liquid can't be
+subcooled, so the stall exception is still needed for brine pumps. Four
+ORC condensers and `CPG_electric.yml`'s still condense to saturated liquid
+because subcooling them would put them below their cooling limit
+(surface temperature plus approach); see GitLab #67.
 
 ## Power and heat are in watts regardless of the network's units
 
@@ -155,7 +198,7 @@ component `P.val` / `Q.val` are always in W, positive into the fluid. This
 caused a silent 1000x power error during development.
 
 **TANGO workaround:** net totals are summed as `-P.val` / `-Q.val` over
-role-tagged nodes; negative net power raises `InvalidPowerStateError` only
+role-tagged nodes; negative net power raises `NegativeNetPowerError` only
 when the plant has a `Turbine`.
 
 ## TESPy's own warnings are suppressed *[TANGO]*

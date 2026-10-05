@@ -41,8 +41,11 @@
 #   (pressure_ratio 1.0); this valve is the only node that should drop
 #   pressure without doing work.
 #
-# mass_rate is 60 kg/s: the highest flow this reservoir sustains for the
-# full 25 years (75 kg/s exhausts it -- net power reaches ~0 by year 17).
+# mass_rate is 60 kg/s: the highest flow whose heat extraction the
+# reservoir sustains for the full 25 years. More flow cools the reservoir
+# faster, until the turbine's output no longer covers the plant's own pumps
+# (at 80 kg/s, net power turns negative in year 16). The limit is thermal
+# depletion, not hydraulics.
 #
 # Site parameters (Triemli, Zurich) — rock properties/gradient identical to
 # EGS_direct_heat.yml/CO2_EGS_direct_heat.yml, depth deepened (see above):
@@ -75,8 +78,8 @@ sim_config:
                                           # anything here (plain
                                           # production_well, no pump).
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 60                 # kg/s — the highest flow this reservoir sustains for
-                                  # the full 25 years; see header comment
+  mass_rate: 60                 # kg/s -- highest flow before reservoir cooling drives net
+                                  # power negative within 25 years; see header comment
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -192,9 +195,14 @@ components:
 
         circulation_control:
           type: PumpOrValve            # resolves to a passive Valve: throttles the CO2's natural
-                                         # pressure surplus (~22 MPa arriving vs injection_pressure's
-                                         # 7.5 MPa) -- the only node in the loop that should drop
-                                         # pressure without doing work
+                                         # pressure surplus (230 bar arriving in year 0, 174 bar by
+                                         # year 24, vs injection_pressure's 75 bar) -- the only node
+                                         # in the loop that should drop pressure without doing work.
+                                         # This throws away 840 kW (year 0) to 558 kW (year 24) that a
+                                         # power-recovery turbine could make, about as much as the
+                                         # whole plant's net output. Kept as a valve on purpose: this
+                                         # config is the pure-binary reference case. A hybrid version
+                                         # is GitLab #72.
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 

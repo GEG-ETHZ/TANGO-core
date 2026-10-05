@@ -36,8 +36,9 @@
 #    was added -- see the power_plant block below. Confirmed by direct
 #    run: this resolves to a passive Valve across the entire run, not a
 #    running pump -- CO2's thermosiphon effect here is genuinely strong
-#    enough on its own (production wellhead delivers ~11.3 MPa naturally,
-#    well above the 7.5 MPa needed at injection); the device only
+#    enough on its own once the CO2 is reinjected dense (production
+#    wellhead delivers ~12-14 MPa, well above the 7.5 MPa needed at
+#    injection; see injection_cooler below); the device only
 #    throttles the natural surplus down, it doesn't add to it. See
 #    GitLab issue #57 for the real gap this surfaces: a system that
 #    resolves to a passive Valve at steady state still needs a real pump
@@ -164,29 +165,30 @@ components:
       # confirmed by direct run, not assumed -- a first draft with no
       # circulation device anywhere failed exactly that check.
       #
-      # district_heating_hx uses an ABSOLUTE p_out_megapascals (not a pressure_ratio) for
-      # the same reason CPG_direct_heat.yml does: CO2 near ambient
-      # pressure falls outside CoolProp's valid solve range for TESPy's
-      # own default initial guess, and a fixed absolute value sidesteps
-      # that entirely -- confirmed by direct run, not assumed (a bare
-      # pressure_ratio here fails outright the same way it did in
-      # CPG_direct_heat.yml before that fix).
+      # district_heating_hx takes a pressure_ratio (a 2.5% loss), not an
+      # absolute p_out: the production wellhead pressure falls over the run
+      # (from ~104 bar in year 0 to ~89 bar by year 24), so any fixed outlet
+      # pressure ends up above the inlet in some years, and TESPy would solve
+      # that as free compression. p0_out1 is only TESPy's starting guess
+      # (bar): without it, TESPy's default guess is below CO2's triple-point
+      # pressure and the solve fails outright.
       #
-      # district_heating_hx's own absolute value matters physically, not just
-      # numerically: the natural production wellhead pressure here is
-      # ~11.3 MPa (confirmed by direct run), well above the 7.5 MPa needed
-      # at injection_pressure. Setting district_heating_hx's outlet near injection_pressure
-      # itself (an earlier draft used 7.42 MPa) artificially UNDER-specifies
-      # that natural surplus, forcing circulation_control to resolve to its
-      # Compressor leg every timestep (~14 kW, confirmed by direct run) to
-      # make up a gap that isn't physically real -- an artifact of that
-      # choice, not a genuine thermosiphon shortfall. 11.0 MPa (a realistic
-      # ~2.5% HX pressure loss off the ~11.3 MPa natural value) instead lets
-      # circulation_control resolve to its passive Valve leg across the
-      # entire run (confirmed by direct run) -- CO2's thermosiphon effect
-      # here genuinely is strong enough on its own; the device only needs
-      # to THROTTLE the naturally-oversupplied pressure down to
-      # injection_pressure, not add to it.
+      # injection_cooler then cools the CO2 from the 50 degC district-heating
+      # return to 38 degC so it is reinjected dense (~670-690 kg/m3). The
+      # window is narrow:
+      # - Without the cooler the CO2 leaves at ~76 bar and 50 degC
+      #   (~220 kg/m3): the injection column is light, the thermosiphon
+      #   weakens, the wellhead pressure falls with it, and the loop settles
+      #   at about a fifth of the heat output.
+      # - Colder than ~35 degC, the dense column pushes the injection well's
+      #   bottom-hole pressure past the 30.9 MPa fracking threshold
+      #   (34 degC: 31.0 MPa).
+      # - Warmer than ~42 degC, the injected CO2 nears its pseudo-critical
+      #   density drop and the loop stops converging.
+      # At 38 degC the bottom-hole pressure peaks at 30.0 MPa. The heat
+      # rejected below 50 degC is too cold for the district-heating network.
+      # circulation_control resolves to its passive Valve leg and throttles
+      # the natural surplus down to injection_pressure.
       nodes:
         inlet:
           type: Source
@@ -194,11 +196,18 @@ components:
           type: SimpleHeatExchanger
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
-          p_out_megapascals: 11.0  # MPa -- realistic HX loss off the ~11.3 MPa natural
-                                     # production wellhead pressure (see comment above), well
-                                     # above CO2's 7.38 MPa critical pressure and above
-                                     # injection_pressure (7.5 MPa) so circulation_control
-                                     # resolves as a passive Valve, not a running pump.
+          pressure_ratio: 0.975   # 2.5% heat-exchanger pressure loss
+          p0_out1: 100            # bar -- TESPy starting guess only (see comment above)
+        injection_cooler:
+          type: SimpleHeatExchanger    # cools the CO2 before reinjection -- see comment above
+          T_out: 311.15                # K (38 degC) -- dense CO2 for the thermosiphon; see comment above
+          pressure_ratio: 1.0          # no pressure drop
+          p0_out1: 100                 # bar -- TESPy starting guess for the outlet pressure
+          h0_out1: 270                 # kJ/kg -- TESPy starting guess for the outlet enthalpy
+          Subtype: cooler              # cooling-tower cost (DoubletEconomicComponent)
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
         circulation_control:
           type: PumpOrValve
           role: net_electric
@@ -207,5 +216,6 @@ components:
           type: Sink
       edges:
         '1': {source: inlet, target: district_heating_hx}
-        '2': {source: district_heating_hx, target: circulation_control}
-        '3': {source: circulation_control, target: outlet}
+        '2': {source: district_heating_hx, target: injection_cooler}
+        '3': {source: injection_cooler, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}
