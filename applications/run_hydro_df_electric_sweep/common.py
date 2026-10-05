@@ -96,8 +96,14 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     # p_out fields are stored in MPa; since this is a scale-factor sweep,
     # the unit doesn't matter — the scale factor applies directly to
     # whatever unit is already there.
-    "components.surface.power_plant.nodes.high_pressure_flash_valve.p_out_megapascals": (0.5, 2.0),  # 0.5-2 bar equiv
-    "components.surface.power_plant.nodes.high_pressure_turbine.efficiency": (0.7, 1.0),  # 70-100% (capped at 1.0)
+    "components.surface.power_plant.nodes.high_pressure_flash_valve.p_out_megapascals": (
+        0.5,
+        2.0,
+    ),  # 0.5-2 bar equiv
+    "components.surface.power_plant.nodes.high_pressure_turbine.efficiency": (
+        0.7,
+        1.0,
+    ),  # 70-100% (capped at 1.0)
     "components.surface.power_plant.nodes.high_pressure_turbine.p_out_megapascals": (0.5, 3.0),
     "components.surface.power_plant.nodes.high_pressure_condenser.p_out_megapascals": (0.5, 3.0),
     "components.surface.power_plant.nodes.high_pressure_condenser.vapor_mass_fraction_out": (

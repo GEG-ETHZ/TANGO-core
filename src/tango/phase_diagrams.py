@@ -488,7 +488,10 @@ def _add_subsurface_points(
         for t in range(n_tsteps):
             if pumped[name][t]:
                 profile_h, profile_p = profiles[name][t]
-                profiles[name][t] = ([h_kj[upstream_key][t], *profile_h], [p_bar[upstream_key][t], *profile_p])
+                profiles[name][t] = (
+                    [h_kj[upstream_key][t], *profile_h],
+                    [p_bar[upstream_key][t], *profile_p],
+                )
 
     # Consecutive pairs around the full outer loop, entering/exiting the
     # surface plant via its own "inlet"/"outlet" keys instead of its bare

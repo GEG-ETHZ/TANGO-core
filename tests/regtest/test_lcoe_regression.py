@@ -174,7 +174,7 @@ def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
         "role": "net_electric",
         "efficiency": 0.75,
     }
-    assert nodes["dh_hx"]["pressure_ratio"] == 0.99
+    assert nodes["district_heating_hx"]["pressure_ratio"] == 0.99
     assert "p_out_megapascals" not in nodes["circulation_control"], (
         "circulation_control must have no pressure target of its own -- injection_pressure "
         "already pins the network's outlet connection; a second target would over-determine "
@@ -931,7 +931,9 @@ def test_injection_loop_closes_within_tolerance_every_year() -> None:
         zip(injection.h_inlet, injection.h_cells, surface.h_outlet, strict=True),
     ):
         assert h_inlet == pytest.approx(h_cells[0]), f"year {year}: recorded inlet is not the march's start"
-        assert abs(h_inlet - h_surface) < _DH_SURFACE_TOL, f"year {year}: loop open by {h_inlet - h_surface:.0f} J/kg"
+        assert abs(h_inlet - h_surface) < _DH_SURFACE_TOL, (
+            f"year {year}: loop open by {h_inlet - h_surface:.0f} J/kg"
+        )
 
 
 @pytest.mark.parametrize("filename", ["CO2_AGS_direct_heat.yml", "hydro_sf_electric.yml"])
@@ -964,10 +966,15 @@ def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
             assert np.all(np.diff(rock) < 0), f"{name}: rock should get cooler along upward flow"
         upward = -math.cos(math.radians(well.angle_from_vert_deg))
         gravity_per_cell = upward * well.gravity * well.gravity_scale_factor * well.cell_length
-        for year, (h_cells, p_cells) in enumerate(zip(well.history.h_cells, well.history.P_cells, strict=True)):
+        for year, (h_cells, p_cells) in enumerate(
+            zip(well.history.h_cells, well.history.P_cells, strict=True),
+        ):
             for i in range(1, len(h_cells)):
                 fluid_t = FluidState.with_HP(
-                    well.common.fluid_name, h_cells[i - 1], p_cells[i - 1], well.common.coolprop_backend,
+                    well.common.fluid_name,
+                    h_cells[i - 1],
+                    p_cells[i - 1],
+                    well.common.coolprop_backend,
                 ).T
                 delta_t = rock[i - 1] - fluid_t
                 heat_in = h_cells[i] - h_cells[i - 1] + gravity_per_cell

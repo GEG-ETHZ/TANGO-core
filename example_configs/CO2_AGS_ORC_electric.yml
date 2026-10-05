@@ -29,7 +29,7 @@
 #
 # The surface plant: same binary (ORC) topology as AGS_ORC_electric.yml's/
 # CO2_EGS_ORC_electric.yml's power_plant -- see those files for the full
-# node-by-node rationale. heatexchanger2's own CO2-side (out1) outlet
+# node-by-node rationale. preheater's own CO2-side (out1) outlet
 # pressure is an ABSOLUTE p_out_megapascals (not a pressure_ratio1), for
 # the same CO2-TESPy-initial-guess reason as every other CO2 config in this
 # matrix. This value (8.5 MPa) was checked against the closed loop's own
@@ -63,7 +63,7 @@ layout:
   well_spacing: 707.0        # m — horizontal loop length
 
 sim_config:
-  num_tsteps: 20              # years -- net output goes negative in year 24 at realistic component efficiencies
+  num_tsteps: 20              # years
   dt_years: 1.0                # years
   target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (plain
                                           # production_well, no pump) -- kept
@@ -140,7 +140,7 @@ components:
         outlet:
           type: Sink
 
-        heatexchanger:
+        evaporator:
           type: HeatExchanger
           ttd_l: 7                     # K — terminal temperature difference (boiler)
           pressure_ratio1: 1.0         # geofluid (CO2) side — dimensionless

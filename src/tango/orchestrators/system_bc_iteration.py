@@ -175,18 +175,6 @@ _INJECTION_T_FLOOR = 275  # K reset for an injection temperature that drops belo
 DEFAULT_MAX_INNER_ITER: int = 20
 
 
-def _is_previous_value(h: float) -> bool:
-    """True if ``h`` is a real committed enthalpy, not a never-written placeholder.
-
-    A well's ``h_inlet`` starts stale as NaN (numerical wells) or 0.0
-    (lumped wells) before its first solve; both mean "no previous
-    iteration to compare against". Unlike the old temperature check
-    (``T > 0``), a negative enthalpy is a legitimate value -- h's zero is an
-    arbitrary reference state -- so only NaN and exactly 0.0 are excluded.
-    """
-    return h == h and h != 0.0
-
-
 class SystemBCIteration(SystemDirect):
     """Convergence-loop orchestrator for injection-pressure BC iteration.
 
@@ -420,6 +408,20 @@ class SystemBCIteration(SystemDirect):
         common = surface.common if surface is not None else inj_well.common  # type: ignore[attr-defined]
         h = FluidState.with_PT(common.fluid_name, P, T, common.coolprop_backend).H
         self._pending_inlets[0] = Stream.fresh(h=h, P=P, mass_rate=self.mass_rate)
+
+    def _set_circuit_entry_enthalpy(self, h: float) -> None:
+        """Overwrite ``self._pending_inlets[0]``'s enthalpy, preserving P/mass rate.
+
+        This is how the injection-enthalpy loop hands its next guess to the
+        injection well: the well's ``solve()`` reads its inlet from this
+        stream, so a guess written anywhere else never reaches it.
+        """
+        current = self._pending_inlets.get(0, Stream.fresh())
+        self._pending_inlets[0] = Stream.fresh(
+            h=h,
+            P=current.P.get_fresh(),
+            mass_rate=current.mass_rate.get_fresh(),
+        )
 
     def _set_circuit_entry_mass_rate(self, mass_rate: float) -> None:
         """Overwrite ``self._pending_inlets[0]``'s mass rate, preserving h/P.
@@ -938,15 +940,16 @@ Time: {t * self.dt_years} years
         iteration starts from "state as committed at the end of the
         previous timestep," not from whatever the last iteration left
         behind), solve the whole circuit in order, wire streams as usual.
-        Repeat until the injection enthalpy (surface outlet ``h``) changes by
-        less than ``_DH_SURFACE_TOL`` between iterations. The iteration
-        that satisfies convergence is already the final, committed answer.
+        The injection well solves from its inlet stream
+        (``self._pending_inlets[0]``): the previous timestep's surface
+        outlet on the first iteration, then the Aitken-relaxed guess. The
+        loop is converged once the surface outlet ``h`` differs by less than
+        ``_DH_SURFACE_TOL`` from the enthalpy the injection well actually
+        solved from, so the committed iteration closes the loop to within
+        that tolerance.
 
         Args:
-            inj_well: Injection well (``component_idx == 0``) — its
-                ``state.h_inlet`` is read as the initial guess and updated
-                in place each iteration with the Aitkens-accelerated guess
-                once one is available.
+            inj_well: Injection well (``component_idx == 0``).
             surface: Surface component (last in solve order).
             snapshot: Per-``component_idx`` result of
                 ``Component.snapshot_convergence_state()``, captured once
@@ -963,20 +966,13 @@ Time: {t * self.dt_years} years
         """
         r_prev = None
         delta_prev = None
-
-        inj_well.state.h_inlet.mark_stale()  # it is ok to mark everything stale because we will be doing at least one solve of everything now
-        h_inj_prev: float = inj_well.state.h_inlet.get_stale()
-        h_inj_new: float | None = None
+        # The enthalpy the injection well solves from on this iteration.
+        h_inj_used: float = self._next_inlet(inj_well).h.get_fresh()
 
         for inner_iter in range(self.max_inner_iterations):
-            retry_below_freezing = False  # NOTE: This triggers ressetting the
+            retry_below_freezing = False
             for component in self._ordered:
                 component.restore_convergence_state(snapshot[component.component_idx])
-                if h_inj_new is not None:
-                    inj_well.state.h_inlet.mark_stale()  # Marking stale so that we can update the enthalpy with the aitken's guess.
-                    inj_well.state.h_inlet.update(  # Update the next injection enthalpy as the aitkens guess, NOTE: aitkens returns back the piccard iteration for the first two runs (aitkens essentially needs to make a first and second derivative before it kicks in)
-                        h_inj_new,
-                    )
                 component.mark_all_stale()
                 try:
                     component.solve(self._next_inlet(component))
@@ -987,19 +983,19 @@ Time: {t * self.dt_years} years
                             "%.1f J/kg drove %s below water's freezing point; resetting "
                             "to the enthalpy at %.1f K and retrying.",
                             inner_iter,
-                            h_inj_prev,
+                            h_inj_used,
                             component.__class__.__name__,
                             _INJECTION_T_FLOOR,
                         )
                         retry_below_freezing = True
-                        # on the next run update the enthalpy to the value just above freezing
                         common = inj_well.common  # type: ignore[attr-defined]
-                        h_inj_new = FluidState.with_PT(
+                        h_inj_used = FluidState.with_PT(
                             common.fluid_name,
                             self._next_inlet(inj_well).P.get_fresh(),
                             _INJECTION_T_FLOOR,
                             common.coolprop_backend,
                         ).H
+                        self._set_circuit_entry_enthalpy(h_inj_used)
                         break
 
                     raise CoolPropError(f"""
@@ -1014,34 +1010,32 @@ Time: {t * self.dt_years} years
             if retry_below_freezing:
                 continue
 
-            h_inj_new = surface.outlet.h.get_fresh()
-
-            if _is_previous_value(h_inj_prev) and abs(h_inj_new - h_inj_prev) < _DH_SURFACE_TOL:
+            h_surface_out = surface.outlet.h.get_fresh()
+            if abs(h_surface_out - h_inj_used) < _DH_SURFACE_TOL:
                 logger.debug(
-                    "h-convergence finished: inner iter %d, h_inj_new =%.1f J/kg, dh=%.1f J/kg",
+                    "h-convergence finished: inner iter %d, h_inj =%.1f J/kg, dh=%.1f J/kg",
                     inner_iter + 1,  # e.g. print 1 when `inner_iter` is 0
-                    h_inj_new,
-                    abs(h_inj_new - h_inj_prev),
+                    h_surface_out,
+                    abs(h_surface_out - h_inj_used),
                 )
                 return None
 
-            """Aitken h_new = aitken(h_tilde, h_prev ...)"""
-            if _is_previous_value(h_inj_prev):
-                h_inj_new, r_prev, delta_prev = aitken_relax(
-                    iteration=inner_iter,
-                    x_tilde=h_inj_new,
-                    x_prev=h_inj_prev,
-                    r_prev=r_prev,
-                    delta_prev=delta_prev,
-                )  # Perform aitkens if h_inj_prev is a real previous value
-
-            h_inj_prev = h_inj_new  # The new value becomes the previous value for the next loop
+            # _record_outlet has already wired the surface outlet into the
+            # injection well's inlet; replace its h with the relaxed guess.
+            h_inj_used, r_prev, delta_prev = aitken_relax(
+                iteration=inner_iter,
+                x_tilde=h_surface_out,
+                x_prev=h_inj_used,
+                r_prev=r_prev,
+                delta_prev=delta_prev,
+            )
+            self._set_circuit_entry_enthalpy(h_inj_used)
 
         else:
             raise ConvergenceError(
                 f"h-convergence: max inner iterations ({self.max_inner_iterations}) "
                 f"reached without convergence (final dh="
-                f"{abs(surface.outlet.h.get_fresh() - h_inj_prev):.1f} "
+                f"{abs(surface.outlet.h.get_fresh() - h_inj_used):.1f} "
                 f"J/kg > tol={_DH_SURFACE_TOL:.1f} J/kg)",
             )
 

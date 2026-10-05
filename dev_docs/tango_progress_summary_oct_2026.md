@@ -1,6 +1,6 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
-*Prepared 2026-10-02. Covers October 1–2 so far; extend as the month goes
+*Prepared 2026-10-02, updated 2026-10-05. Covers October 1–5 so far; extend as the month goes
 on. Managerial-level summary — for engineering detail, see the GitLab
 issues linked below and `dev_docs/tango_tasks.md`. Continues from
 `dev_docs/tango_progress_summary_sep_2026.md`.*
@@ -55,8 +55,8 @@ that made things worse — a runaway. Adding a cooler before reinjection
 **Direct-CO2 power examples:** the CO2 power examples had used a binary
 plant, where the CO2 heats a second fluid that drives the turbine. Using
 the CO2 itself in the turbine — the main point of a CO2 geothermal system
-— is much better on the same wells: cost 0.40 vs 1.57 (EGS) and 3.16 vs
-52.9 (AGS), with realistic component efficiencies. Binary-plant examples now carry `ORC` in their file
+— is much better on the same wells: cost 0.40 vs 1.55 (EGS) and 2.90 vs
+10.9 (AGS), with realistic component efficiencies. Binary-plant examples now carry `ORC` in their file
 names, and both versions are kept.
 
 ## Phase diagrams are interactive again, with engineering reference lines and true well paths (2026-10-01–02)
@@ -101,9 +101,39 @@ largest single driver.
   flash example.
 - *CPG power* depleted its reservoir at 200 kg/s; 125 kg/s keeps it
   producing for 20 years and is also its lowest-cost flow.
-- *Binary CO2 AGS power* barely produces power at all with realistic
+- *Binary CO2 AGS power* barely produces power with realistic
   efficiencies; shortened to 20 years. Its direct-CO2 sibling is the
-  meaningful example for that cell.
+  meaningful example for that cell. (After the well fix below it stays
+  positive for 30 years, so the shorter run is no longer required.)
+
+## Production wells had their rock temperatures upside down (2026-10-05)
+
+**In plain terms:** each well exchanges heat with the surrounding rock,
+which gets hotter with depth. Production wells were given the rock
+temperatures in reverse: the bottom of the well saw near-surface rock
+and the top saw the hottest, deepest rock. Every production well in every
+example was affected. Found
+from a phase diagram in which a production well gained heat near the
+surface, where it should lose it.
+
+**Effect on results:** small for hydrothermal, EGS and CPG examples (cost
+within about 1%, slightly better for power), because their brine leaves
+the reservoir at about rock temperature either way. Large for the closed
+AGS loops, which collect most of their heat in the wells: the binary CO2
+AGS power example's cost fell from 55 to 10.9, the direct-CO2 one by 8%,
+and the CO2 AGS heat example's rose 61%. A new test checks that heat in
+every well cell flows from hot to cold.
+
+## The injection loop could stop iterating before it had actually closed (2026-10-05)
+
+Each year TANGO iterates until the fluid leaving the surface plant matches
+what enters the injection well. A wiring mistake meant the iteration's
+own speed-up step never took effect, and the "close enough" test compared
+against a value no component had used, so a year could be accepted with
+the loop open by up to 3.6 kJ/kg (about 2% of an ORC plant's heat). Every
+example now closes within the 1 kJ/kg tolerance; costs moved by under
+0.25% except the binary CO2 AGS power example (+4.3%, before the well fix
+above) and the auto-pressure example (−1%).
 
 ## Smaller items worth noting
 
