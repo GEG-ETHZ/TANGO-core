@@ -63,8 +63,8 @@ board(s). Read this before doing any "sync TANGO" work.
 - Put draw.io diagrams on the board with Miro's **draw.io plugin**, not as
   native Miro shapes or static PNGs. The source of truth stays in
   `dev_docs/diagrams/src/**/*.drawio` (developer diagrams) or
-  `docs/diagrams/src/*.drawio` (user-facing ones): edit it there and re-import, so the
-  board copy doesn't drift from the repo.
+  `docs/diagrams/src/*.drawio` (user-facing ones): edit it there and re-import,
+  so the board copy doesn't drift from the repo.
 - The plugin drops the embed wherever the viewport happens to be, often
   tiny and outside any frame. After inserting, check its size and
   position and move it into the right frame.

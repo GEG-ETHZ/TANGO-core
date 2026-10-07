@@ -28,9 +28,9 @@ node_modules/
 
 ## Why This Matters
 
-Git treats the entire line (including spaces and comments) as the pattern. The pattern
-`dist/        # comment` will NOT match a folder named `dist/` - it will try to match
-a folder literally named `dist/        # comment`.
+Git treats the entire line (including spaces and comments) as the pattern. The
+pattern `dist/        # comment` will NOT match a folder named `dist/` - it will
+try to match a folder literally named `dist/        # comment`.
 
 **Always test** your `.gitignore` patterns:
 

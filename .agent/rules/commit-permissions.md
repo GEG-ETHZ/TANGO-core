@@ -36,11 +36,13 @@ GEG recommends the conventional commit specification, which is summarized below.
 
 ## Scope
 
-The scope should be a short description of the area of the codebase affected (e.g., `provisioning`, `nginx`, `common`, `postgresql`).
+The scope should be a short description of the area of the codebase affected
+(e.g., `provisioning`, `nginx`, `common`, `postgresql`).
 
 ## Emoji
 
-Place an appropriate emoji immediately after the scope and colon. Choose emojis that represent the nature of the change.
+Place an appropriate emoji immediately after the scope and colon. Choose emojis
+that represent the nature of the change.
 
 ### By Commit Type (Common Mappings)
 
@@ -138,6 +140,7 @@ Place an appropriate emoji immediately after the scope and colon. Choose emojis 
 - Use the body to explain the *what* and *why* vs. the *how*
 - Reference issue numbers in the footer
 - Use `BREAKING CHANGE:` in the footer for breaking changes
-- **Do NOT include absolute file paths** in commit messages. Filenames and relative paths are allowed.
+- **Do NOT include absolute file paths** in commit messages. Filenames and
+  relative paths are allowed.
   - ❌ Bad: "Updated `/Users/an/git/projects/geg.ethz.ch/geg-backend/scripts/import-content.js`"
   - ✅ Good: "Updated `import-content.js`" or "Fixed `geg-backend/scripts/provision-users.js`"

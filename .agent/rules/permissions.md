@@ -20,6 +20,7 @@
   and designed for "fail fast" testing.
 
 ## General
+
 ### macOS (Host Machine)
 
 - **Priority**: Always prioritize **Homebrew** (`brew install`) for installing
