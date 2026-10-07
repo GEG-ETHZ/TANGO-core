@@ -6,5 +6,5 @@
 # it's a fixed full-factorial grid defined in common.py, changed by editing
 # that file directly (which already invalidates generate.py's dvc.yaml deps).
 
-n_workers: 8
+n_workers: 45
 log_level: NONE
