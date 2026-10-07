@@ -20,11 +20,12 @@
 # a district-heating design for exactly this reason. This file uses 8000 m
 # vertical + 3000 m horizontal instead -- same rock properties/gradient,
 # same mass_rate -- which delivers ~95-100 degC to the surface and gives
-# solidly positive net power (~690-750 kW over the first two timesteps,
-# verified by direct run, not just a temperature guess). Not claimed as a
-# realistic drilling target for the real Triemli site -- illustrative only,
-# same spirit as AGS_direct_heat.yml's own note that its depth is "one
-# point from the original sweep's range," not a site-specific commitment.
+# solidly positive net power (~520 kW in the first year, declining to
+# ~390 kW by year 25, verified by direct run, not just a temperature
+# guess). Not claimed as a realistic drilling target for the real Triemli
+# site -- illustrative only, same spirit as AGS_direct_heat.yml's own note
+# that its depth is "one point from the original sweep's range," not a
+# site-specific commitment.
 #
 # The surface plant itself: instead of a district-heating SimpleHeatExchanger
 # (dh_hx), the produced geofluid here transfers heat to a closed secondary
@@ -37,11 +38,12 @@
 # its geofluid loop.
 #
 # The secondary-loop setpoints (ttd_l, pressure ratios, R245fa working
-# fluid, turbine/cooler/condenser pressures) are copied as-is from
-# hydro_ORC_electric.yml — a generic, reasonable binary-cycle design, NOT
-# independently re-optimized for this site's specific produced-fluid
-# temperature. Revisit if these numbers ever need to be realistic rather
-# than illustrative.
+# fluid, feed-pump pressure) are copied as-is from hydro_ORC_electric.yml
+# — a generic, reasonable binary-cycle design, NOT independently
+# re-optimized for this site's specific produced-fluid temperature. Revisit
+# if these numbers ever need to be realistic rather than illustrative. The
+# condensing pressure is the exception: it is set from this site's cooling
+# limit (see orc_condenser).
 #
 # Site parameters — rock properties/gradient identical to AGS_direct_heat.yml's
 # real Triemli values, well depths hypothetically deepened (see above):
@@ -198,17 +200,23 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
 
         orc_desuperheater:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
           vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
 
         orc_condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 20.4 degC at 1.25 bar, so the 1 K subcooled outlet
+          # (19.4 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 11 + 7 = 18 degC.
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
 
         orc_feed_pump:
           type: Compressor
