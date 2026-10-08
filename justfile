@@ -203,6 +203,9 @@ slurm *args:
                 echo "              starting when the previous one ends, whether it succeeded or not"
                 echo "              (--dependency=afterany), since each job already uses its whole"
                 echo "              48-core allocation"
+                echo ""
+                echo "Refuses to submit if the uv environment is out of date (compute nodes have no"
+                echo "internet, so jobs can't sync it); run \`just setup\` first in that case."
                 exit 0 ;;
             --parallel) parallel=1 ;;
             -*) echo "unknown option: $arg (see just slurm --help)"; exit 1 ;;
@@ -210,6 +213,10 @@ slurm *args:
         esac
     done
     command -v sbatch >/dev/null || { echo "sbatch not found -- run this on Euler"; exit 1; }
+    # Compute nodes have no internet, so jobs can't install or rebuild anything
+    # (e.g. after a `git pull` that changed pyproject.toml); catch that here,
+    # before queueing jobs that would each fail the same way.
+    uv sync --check --offline >/dev/null 2>&1 || { echo "The uv environment is out of date: run \`just setup\` (or \`uv sync\`) first, then resubmit."; exit 1; }
     if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"

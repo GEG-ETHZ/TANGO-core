@@ -68,6 +68,16 @@ echo ""
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
+# Compute nodes have no internet, so a job can't install or rebuild anything
+# (e.g. after a `git pull` that changed pyproject.toml). Stop right away with
+# instructions instead of failing partway through `uv run`.
+if ! uv sync --check --offline --project "$REPO_ROOT" >/dev/null 2>&1; then
+  echo "The uv environment is out of date for $REPO_ROOT." >&2
+  echo "On the login node, run: cd $REPO_ROOT && just setup   (or: uv sync)" >&2
+  echo "then resubmit." >&2
+  exit 1
+fi
+
 # --wait-for-lock: every job runs `dvc repro` in this one checkout, and DVC
 # takes a repo-wide lock while it sets up and records each stage (not while
 # the stage's command runs). Without it, jobs that start together give up
