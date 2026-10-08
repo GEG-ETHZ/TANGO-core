@@ -2,9 +2,8 @@
 
 Exercises every stage (LHS sampling -> real-sim sweep -> surrogate training ->
 surrogate-driven NSGA2 -> real-sim validation) against
-``opt_hydro_df_electric``'s REAL ``_param_specs``/``_objective_specs``/
-``build_baseline`` (fewest decision variables among the ``opt_*`` apps, so
-the cheapest full round-trip) with tiny sample/pop/gen counts. Checks
+``opt_hydro_df_electric``'s real ``APP`` (decision variables, objectives,
+baseline) with tiny sample/pop/gen counts. Checks
 schema/shape/plumbing correctness only — a handful of LHS samples is nowhere
 near enough for a genuinely accurate surrogate, so ``tolerance`` in the
 validation step is left deliberately loose (this is not a surrogate-quality
@@ -63,12 +62,12 @@ def app() -> ModuleType:
 
 def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     """LHS -> real-sim sweep -> train -> surrogate NSGA2 -> real-sim validation, schema-only."""
-    params = app._param_specs()  # noqa: SLF001
-    objectives = app._objective_specs()  # noqa: SLF001
+    params = app.APP.param_specs()
+    objectives = app.APP.objective_specs
     param_names = [p.name for p in params]
     objective_names = [o.name for o in objectives]
 
-    base_wf, _wf_manual = app.build_baseline()
+    base_wf, _wf_manual = app.APP.build_baseline()
 
     n_samples = 20
     x = generate_lhs_samples(params, n_samples=n_samples, seed=1)

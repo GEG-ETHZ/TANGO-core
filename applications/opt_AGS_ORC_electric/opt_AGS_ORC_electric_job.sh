@@ -8,12 +8,11 @@
 #SBATCH --error=opt_AGS_ORC_electric_%j.err
 
 # ---------------------------------------------------------------------------
-# Runs the tango AGS_ORC_electric pymoo optimization (well depth + loop
-# length + loop/vertical-well/surface-pipe diameters + injection pressure +
-# mass flow rate + ORC feed-pump pressure -> minimize LCOE, maximize mean
-# net electric power) via `dvc repro`. Unlike
-# the sibling run_*_sweep_job.sh scripts, this job does NOT write anything
-# into params.yaml and does NOT accept CLI overrides -- params.yaml is the
+# Runs the tango opt_AGS_ORC_electric pymoo optimization via `dvc repro`
+# (see opt_AGS_ORC_electric.py's docstring for its decision variables and
+# objectives). Like the sibling run_*_sweep_job.sh scripts, this job does
+# NOT write anything into params.yaml and does NOT accept CLI overrides --
+# params.yaml is the
 # single source of truth for every hyperparameter (n_max_gen, pop_size,
 # ftol, xtol, seed, n_processes, crossover_prob, mutation_prob). Edit
 # params.yaml directly before submitting; `dvc repro` picks up whatever's

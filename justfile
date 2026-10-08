@@ -163,30 +163,22 @@ apps *args:
     # accuracy — validate_surrogate.py's default 1% tolerance is what it's
     # FOR (catching a genuinely bad surrogate) and WILL legitimately fail
     # on this little training data, so --tolerance 1.0 (100%) is relaxed
-    # here on purpose, the same way opt_AGS_direct_heat.py's
-    # --min-production-temperature-c is relaxed above.
+    # here on purpose, the same way each opt_* app's --smoke relaxes any
+    # constraint a tiny population would miss.
     tmp=$(mktemp -d); uv run python applications/opt_hydro_df_electric_surrogate/run_trajectory.py --pop-size 8 --n-gen 2 --save-dir "$tmp" --quiet; uv run python applications/opt_hydro_df_electric_surrogate/train_surrogate.py --save-dir "$tmp" --cv-folds 2; uv run python applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --no-plot --quiet; uv run python applications/opt_hydro_df_electric_surrogate/validate_surrogate.py --save-dir "$tmp" --tolerance 1.0 --no-plot
-    # opt_*.py has no --smoke flag of its own (not a generate/sweep pipeline)
-    # -- tiny --n-max-gen/--pop-size + a fresh tempdir --save-dir gets the
-    # same "pipeline still runs end to end" coverage without the real
-    # ~200-gen/40-pop search or touching outputs/. Not tied to --slow: there's
-    # no "real" variant to switch to here (that's what the Euler job script /
-    # `dvc repro` are for).
-    # Each app runs --no-plot then --plot-only against the same --save-dir,
-    # exercising the two-stage optimize/plot DVC split (see each app's
-    # dvc.yaml) instead of only the default combined path.
-    # opt_AGS_direct_heat.py's production_temperature_constraint's real
-    # threshold (105 degC) is tuned for the actual search, not this tiny
-    # smoke population -- at --pop-size 6/--n-max-gen 2, it's easy for
-    # every evaluated design to miss it by chance, leaving an empty
-    # Pareto front that only proves the search ran, not that plotting on
-    # a real result works. --min-production-temperature-c relaxes it so
-    # this smoke run reliably gets several real designs through the WHOLE
-    # pipeline (search + plot), not just an empty-input no-op.
-    tmp=$(mktemp -d); uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --min-production-temperature-c 50 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir "$tmp" --log-level ERROR --plot-only
-    tmp=$(mktemp -d); uv run python applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
-    tmp=$(mktemp -d); uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
-    tmp=$(mktemp -d); uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
+    # Every opt_* app (not the surrogate pipeline above): --smoke runs a
+    # 2-generation, population-6 search plus the app's own relaxations (see
+    # tango.pymoo_api.OptApp.smoke_args), into a throwaway --save-dir, never
+    # outputs/. --no-plot then --plot-only exercises the two-stage
+    # optimize/plot DVC split. Not tied to --slow: the full-size runs are
+    # `just slurm` / `dvc repro`.
+    for app in applications/opt_*/; do \
+        name=$(basename "$app"); script="$app$name.py"; \
+        grep -q "APP = OptApp(" "$script" 2>/dev/null || continue; \
+        echo "== $name"; tmp=$(mktemp -d); \
+        uv run python "$script" --smoke --save-dir "$tmp" --log-level ERROR --no-plot --quiet && \
+        uv run python "$script" --save-dir "$tmp" --log-level ERROR --plot-only || exit 1; \
+    done
 
 # Submit full-size Euler (SLURM) runs: sbatch each app's *_job.sh from its own directory (the job
 # scripts find the repo through $SLURM_SUBMIT_DIR). No args = every app with a job script; or name
@@ -218,10 +210,7 @@ apps:
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py --smoke --n-workers 2 --quiet
     # See the [unix] demos recipe's comment above the equivalent line for why
-    # opt_hydro_df_electric_surrogate's --tolerance is relaxed and why
-    # --min-production-temperature-c is relaxed below.
+    # opt_hydro_df_electric_surrogate's --tolerance is relaxed, and for what
+    # each opt_* app's --smoke does.
     $tmp0 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp0 | Out-Null; uv run python applications/opt_hydro_df_electric_surrogate/run_trajectory.py --pop-size 8 --n-gen 2 --save-dir $tmp0 --quiet; uv run python applications/opt_hydro_df_electric_surrogate/train_surrogate.py --save-dir $tmp0 --cv-folds 2; uv run python applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py --n-max-gen 2 --pop-size 6 --save-dir $tmp0 --no-plot --quiet; uv run python applications/opt_hydro_df_electric_surrogate/validate_surrogate.py --save-dir $tmp0 --tolerance 1.0 --no-plot
-    $tmp1 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp1 | Out-Null; uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --min-production-temperature-c 50 --save-dir $tmp1 --log-level ERROR --no-plot; uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir $tmp1 --log-level ERROR --plot-only
-    $tmp4 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp4 | Out-Null; uv run python applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp4 --log-level ERROR --no-plot; uv run python applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py --save-dir $tmp4 --log-level ERROR --plot-only
-    $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR --no-plot; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir $tmp2 --log-level ERROR --plot-only
-    $tmp3 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp3 | Out-Null; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp3 --log-level ERROR --no-plot; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir $tmp3 --log-level ERROR --plot-only
+    Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }

@@ -2302,7 +2302,7 @@ verified, then this fix popped back in and re-checked).
   minimizing LCOE and maximizing power, which is exactly pymoo's job
   (`opt_*` apps), with fracking-avoidance enforced as a constraint/CV
   exception (`FrackingViolationError`, already in `pymoo_api.py`'s
-  `_CV_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
+  `INFEASIBLE_DESIGN_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
   loop needs to hunt for live. Consistent with `pymoo_api.py`'s own module
   docstring, which already explains why `AUTO_*` policies aren't wired
   into `Minimization` at all — `MANUAL`/`MANUAL_FRACKING_CHECK` plus

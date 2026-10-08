@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
-import plotly.graph_objects as go  # type: ignore[import-untyped]
+import plotly.graph_objects as go
 import yaml
 from CoolProp import CoolProp as CP
 

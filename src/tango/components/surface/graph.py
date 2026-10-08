@@ -792,7 +792,7 @@ class GraphSurface(SurfaceComponent):
           negative flow resistance -- unphysical for a real throttle.
 
         Both raise ``InvalidPowerStateError`` (an existing ``pymoo_api``
-        ``_CV_EXCEPTIONS`` member, so a plain ``Valve``/``Compressor``
+        ``INFEASIBLE_DESIGN_EXCEPTIONS`` member, so a plain ``Valve``/``Compressor``
         node hitting this just marks the design point infeasible during a
         search rather than crashing it). For a ``type: PumpOrValve`` node
         specifically, ``solve()`` catches the Valve-leg version of this
@@ -951,9 +951,9 @@ class GraphSurface(SurfaceComponent):
         # flash failure (e.g. a design near the fluid's stability limits, where
         # CoolProp's internal solver can't find a solution) surfaces here as a
         # bare ValueError. Wrapping it here, rather than adding a bare
-        # ValueError to pymoo_api._CV_EXCEPTIONS, keeps the CV net scoped to
+        # ValueError to pymoo_api.INFEASIBLE_DESIGN_EXCEPTIONS, keeps the CV net scoped to
         # this ONE call site instead of the entire simulation --
-        # _CV_EXCEPTIONS already catches CoolPropError, and TESPyCoolPropError
+        # INFEASIBLE_DESIGN_EXCEPTIONS already catches CoolPropError, and TESPyCoolPropError
         # subclasses it, so no change is needed there once this is wrapped.
         try:
             self._network.solve("design")
