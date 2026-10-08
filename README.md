@@ -166,10 +166,10 @@ These directories serve different purposes and are easy to mix up:
   cd applications/run_hydro_df_electric_sweep
   uv run dvc repro    # runs only stale stages, caches the rest
   ```
-  On Euler/other SLURM clusters, submit the job script instead (see
+  On Euler/other SLURM clusters, submit it with `just slurm` instead (see
   [Running on Euler](#running-on-euler)):
   ```bash
-  sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 200
+  just slurm run_hydro_df_electric_sweep
   ```
 
 ## Developers and Internal Users
@@ -222,9 +222,15 @@ Note that these instructions have been verified to work on Euler.
     to install [`just`](https://github.com/casey/just) for your Euler user account (no `sudo`
     needed — installs a prebuilt binary into `~/.local/bin`). Make sure `~/.local/bin` is on your
     `PATH` (add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` if it isn't already).
-1. Run `rsync -ahPv ~/tango-core/applications/ /cluster/scratch/<username>/tango-applications/` to get the demo files into your working directory
-1. Run `cd /cluster/scratch/<username>/tango-applications/run_hydro_df_electric_sweep`
-1. Run `sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 39` to kick off a slurm job with 16 CPUs, 13 workers, and 39 design evaluations
-    Note: by using fewer than 48 CPUs, we're able to avoid having this count against our Euler quota
-1. Run `myjobs` to check status
-1. When the job is finished, run `uv run --project ~/tango-core run_hydro_df_electric_analysis.py`
+1. Submit full-size runs with `just slurm` from anywhere in `~/tango-core`,
+    naming the apps to run (no names submits every app under
+    `applications/` that has a `*_job.sh`):
+    `just slurm opt_AGS_ORC_electric run_hydro_df_electric_sweep`.
+    Each job runs its app's `dvc repro` inside the checkout, so its results
+    land in that app's own `outputs/`. Hyperparameters (population size,
+    worker count, ...) come from each app's `params.yaml`; edit and commit
+    that file rather than passing arguments to the job.
+1. Run `myjobs` to check status. Each job writes `<app>_<jobid>.out`/`.err`
+    in its app directory, and a failed job shows as FAILED in `sacct`.
+1. When the jobs finish, copy each app's `outputs/` back to your laptop and
+    run `dvc push` there so the results are kept.

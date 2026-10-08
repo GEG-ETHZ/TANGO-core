@@ -9,14 +9,14 @@
 
 # ---------------------------------------------------------------------------
 # Runs the DVC pipeline for the tango Triemli AGS direct-heat sweep.
-# n_workers is computed from the SLURM CPU allocation and written into
-# params.yaml before calling dvc repro so DVC tracks it correctly. Unlike the
+# n_workers comes from params.yaml, which this job never rewrites, so Euler's
+# checkout stays clean for `git pull`; keep it a few below --cpus-per-task. Unlike the
 # DF manual sweep, the design grid itself (well depth / mass flow / loop
 # length / loop diameter) is fixed in common.py, not a params.yaml value —
 # there is no n_samples to override here.
 #
 # Example:
-#   sbatch --cpus-per-task=16 run_AGS_direct_heat_sweep_job.sh
+#   sbatch run_AGS_direct_heat_sweep_job.sh
 # ---------------------------------------------------------------------------
 
 # Stop at the first failing command (including inside a pipeline) and on any
@@ -41,25 +41,11 @@ REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/run_AGS_direct_heat_sweep"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
-CPUS="${SLURM_CPUS_PER_TASK:-48}"
-N_WORKERS=$(( CPUS - 3 ))
-
-# --- Write params.yaml so DVC picks up the right value ---
-# n_workers is not tracked by DVC for staleness (runtime-only), but the
-# script reads it from params.yaml, so we still update it here.
-uv run --project "$REPO_ROOT" python - <<EOF
-import yaml, pathlib
-p = pathlib.Path("$PARAMS_FILE")
-params = yaml.safe_load(p.read_text())
-params["n_workers"] = $N_WORKERS
-p.write_text(yaml.dump(params, default_flow_style=False, sort_keys=False))
-EOF
-
 echo "=========================================="
 echo "Job started on: $(date)"
 echo "Job ID: ${SLURM_JOB_ID:-}"
 echo "Running on node: ${SLURMD_NODENAME:-}"
-echo "CPUs: $CPUS  |  workers: $N_WORKERS"
+echo "Using params from: $PARAMS_FILE"
 echo "Working directory: $PWD"
 echo "=========================================="
 echo "System information:"
