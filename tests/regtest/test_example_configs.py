@@ -14,11 +14,12 @@ own real ``sim_config.num_tsteps`` (never a reduced smoke count):
   ``main_product: electricity``, ``net_thermal_W`` for ``main_product: heat``)
   is positive at every timestep past the known t=0 cold-start transient
   (see ``SystemBCIteration._seed_circuit_inlet``'s docstring).
-- ``economic.state.LCOE`` matches a committed golden snapshot (``rel=2e-3``,
-  sized off directly-measured run-to-run solver jitter -- up to ~4.5e-4
-  relative observed on ``EGS_electric.yml`` -- with margin). This is a
-  self-consistency check against tango's own prior output, not a
-  comparison against any other implementation.
+- ``economic.state.LCOE`` matches a committed golden snapshot (``rel=1e-6``:
+  with the exact ``HEOS`` CoolProp backend, reruns agree to within 2e-11
+  relative, so this leaves room for platform differences while still
+  catching any real change). This is a self-consistency check against
+  tango's own prior output, not a comparison against any other
+  implementation.
 
 Marked ``@pytest.mark.slow`` (full-length runs) -- run explicitly with
 ``just test --example-configs`` or ``just test --all``.
@@ -39,25 +40,25 @@ EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
 # Values captured by actually running each config at its own
 # sim_config.num_tsteps -- see this module's own docstring for how/why.
 _CONFIGS: list[tuple[str, float]] = [
-    ("AGS_direct_heat.yml", 1.347554525584351),
-    ("AGS_ORC_electric.yml", 3.6194314005368255),
-    ("CO2_AGS_direct_heat.yml", 3.430560824840202),
-    ("CO2_AGS_electric.yml", 2.894305692588767),
-    ("CO2_AGS_ORC_electric.yml", 10.858518773583747),
-    ("CO2_EGS_direct_heat.yml", 0.37081623810556097),
-    ("CO2_EGS_electric.yml", 0.39591097194615527),
-    ("CO2_EGS_ORC_electric.yml", 1.5521956606601846),
-    ("CPG_direct_heat.yml", 0.07724845121928584),
-    ("CPG_electric.yml", 0.3144985475945345),
-    ("EGS_direct_heat.yml", 0.09835620317948932),
-    ("EGS_electric.yml", 1.5503718832532005),
-    ("hydro_df_electric.yml", 0.9803072013606611),
-    ("hydro_direct_heat.yml", 0.05386014520503487),
-    ("hydro_ORC_electric.yml", 0.481298499943199),
-    ("hydro_sf_electric.yml", 1.456149720517969),
-    ("hydro_sf_electric_5spot.yml", 0.8111606891042009),
-    ("hydro_sf_electric_autoflow.yml", 1.3571990756178616),
-    ("hydro_sf_electric_autopressure.yml", 1.2939627476272397),
+    ("AGS_direct_heat.yml", 1.3475576013063868),
+    ("AGS_ORC_electric.yml", 3.6194303622082757),
+    ("CO2_AGS_direct_heat.yml", 3.129297942040642),
+    ("CO2_AGS_electric.yml", 2.8949027148267015),
+    ("CO2_AGS_ORC_electric.yml", 13.956545302567246),
+    ("CO2_EGS_direct_heat.yml", 0.37073791943490964),
+    ("CO2_EGS_electric.yml", 0.3961955974193008),
+    ("CO2_EGS_ORC_electric.yml", 1.8617470779002125),
+    ("CPG_direct_heat.yml", 0.07947389995392734),
+    ("CPG_electric.yml", 0.32758117792605873),
+    ("EGS_direct_heat.yml", 0.09834065587233098),
+    ("EGS_electric.yml", 1.5500549109279105),
+    ("hydro_df_electric.yml", 0.9798179385267604),
+    ("hydro_direct_heat.yml", 0.05385055117157296),
+    ("hydro_ORC_electric.yml", 0.6061371946348579),
+    ("hydro_sf_electric.yml", 1.4550707448734892),
+    ("hydro_sf_electric_5spot.yml", 0.8108358034934499),
+    ("hydro_sf_electric_autoflow.yml", 1.3553794729273547),
+    ("hydro_sf_electric_autopressure.yml", 1.2936739601447262),
 ]
 
 
@@ -109,6 +110,6 @@ def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
 
     assert wf._economic is not None, f"{filename}: expected an economic: block"  # noqa: SLF001
     lcoe = wf._economic.state.LCOE.get_fresh()  # noqa: SLF001
-    assert lcoe == pytest.approx(reference_lcoe, rel=2e-3), (
-        f"{filename}: LCOE {lcoe} is more than 0.2% off the golden value {reference_lcoe}"
+    assert lcoe == pytest.approx(reference_lcoe, rel=1e-6), (
+        f"{filename}: LCOE {lcoe} is more than 1e-6 relative off the golden value {reference_lcoe}"
     )

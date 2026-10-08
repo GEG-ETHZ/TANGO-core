@@ -19,7 +19,8 @@ Adapted to tango's actual seams:
   irrelevant, so it can just be ``0.0`` rather than a magic huge number.
 - **Only specific, known-physical failure modes become a CV — everything
   else raises.** ``_evaluate_one`` catches exactly ``_CV_EXCEPTIONS``
-  (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``) —
+  (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``,
+  ``InvalidPowerStateError``, ``CoolingLimitError``) —
   the ``tango`` errors that genuinely mean "this sampled design is
   infeasible," not "something is broken." A bare ``except Exception``
   would also swallow ``ConfigError`` (almost always a bug in a
@@ -82,6 +83,7 @@ from pymoo.util.display.output import Output
 
 from tango.core.errors import (
     ConvergenceError,
+    CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
     InvalidPowerStateError,
@@ -111,6 +113,7 @@ from tango.workflows.workflow import Workflow
 # whole run rather than silently poison results across an unattended
 # search.
 _CV_EXCEPTIONS: tuple[type[Exception], ...] = (
+    CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
     ConvergenceError,

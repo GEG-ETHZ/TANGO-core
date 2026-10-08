@@ -23,6 +23,7 @@ import yaml
 from tango.core import fluid_utils
 from tango.core.errors import (
     ConfigError,
+    CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
     InvalidPowerStateError,
@@ -1012,6 +1013,41 @@ def test_heat_exchanger_raising_pressure_is_rejected() -> None:
         Workflow(config).run()
 
 
+@pytest.mark.parametrize(
+    ("filename", "condensing_nodes", "pressure_megapascals", "first_violation"),
+    [
+        (
+            "AGS_ORC_electric.yml",
+            ("orc_turbine", "orc_desuperheater", "orc_condenser"),
+            0.1,
+            "orc_desuperheater",
+        ),
+        ("CPG_electric.yml", ("turbine", "condenser"), 6.0, "condenser"),
+    ],
+)
+def test_condensing_below_cooling_limit_is_rejected(
+    filename: str,
+    condensing_nodes: tuple[str, ...],
+    pressure_megapascals: float,
+    first_violation: str,
+) -> None:
+    """Condensing below surface temperature + approach temperature raises CoolingLimitError.
+
+    R245fa at 0.1 MPa saturates at 14.7 degC, below AGS_ORC_electric.yml's
+    18.0 degC limit, so the desuperheater (saturated-vapor outlet) is the
+    first node below it. CO2 at 6.0 MPa saturates at 22.0 degC, just above
+    CPG_electric.yml's 21.85 degC limit, so only the 1 K subcooled condenser
+    outlet (21.0 degC) falls below it.
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / filename).read_text())
+    config["sim_config"]["num_tsteps"] = 1
+    nodes = config["components"]["surface"]["power_plant"]["nodes"]
+    for name in condensing_nodes:
+        nodes[name]["p_out_megapascals"] = pressure_megapascals
+    with pytest.raises(CoolingLimitError, match=f"^{first_violation} "):
+        Workflow(config).run()
+
+
 def test_negative_net_power_is_reported_as_itself() -> None:
     """A depleted power plant fails with NegativeNetPowerError, not a retried pump's misleading error.
 
@@ -1026,35 +1062,26 @@ def test_negative_net_power_is_reported_as_itself() -> None:
         Workflow(config).run()
 
 
-def test_unconverged_tespy_solve_raises() -> None:
+def test_unconverged_tespy_solve_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     """A TESPy solve that stops short of converging raises TESPyConvergenceError.
 
-    hydro_df_electric.yml's condensers need TESPy starting guesses for their
-    subcooled outlets; without them the network diverges in year 0.
+    Caps TESPy at a single Newton iteration, so every solve returns
+    unconverged regardless of the config.
     """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_df_electric.yml").read_text())
+    from tespy.networks import Network
+
+    original_solve = Network.solve
+
+    def solve_one_iteration(self: Network, mode: str, **kwargs: Any) -> None:
+        kwargs["max_iter"] = 1
+        kwargs["min_iter"] = 1
+        original_solve(self, mode, **kwargs)
+
+    monkeypatch.setattr(Network, "solve", solve_one_iteration)
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml").read_text())
     config["sim_config"]["num_tsteps"] = 1
-    for name in ("high_pressure_condenser", "low_pressure_condenser"):
-        node = config["components"]["surface"]["power_plant"]["nodes"][name]
-        del node["p0_out1"], node["h0_out1"]
-    with pytest.raises(TESPyConvergenceError):
+    with pytest.raises(TESPyConvergenceError, match="did not converge"):
         Workflow(config).run()
-
-
-def test_saturated_pump_stall_is_accepted_with_a_warning(caplog: pytest.LogCaptureFixture) -> None:
-    """TESPy's ~1 J/kg stall on a pump drawing saturated liquid is used, and logged by pump name.
-
-    EGS_electric.yml's brine_pump draws the flash separator's saturated
-    liquid; in year 2 TESPy stops 0.8 J/kg short on its efficiency equation
-    with every other equation satisfied.
-    """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "EGS_electric.yml").read_text())
-    config["sim_config"]["num_tsteps"] = 3
-    with caplog.at_level("WARNING", logger="tango.components.surface.graph"):
-        Workflow(config).run()
-    assert any(
-        "brine_pump" in r.getMessage() and "saturated liquid" in r.getMessage() for r in caplog.records
-    )
 
 
 def test_subcooling_must_be_positive() -> None:

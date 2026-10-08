@@ -169,35 +169,23 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 6.0              # MPa -- expands down to the condenser's own pressure
+          p_out_megapascals: 6.3              # MPa -- expands down to the condenser's own pressure
                                                # (no pressure drop between turbine outlet and condenser
                                                # exit, same pattern as hydro_sf_electric.yml's turbine/
-                                               # condenser pair). This is a physically grounded absolute
-                                               # value: 6.0 MPa is CO2's saturation pressure at ~295.1 K
-                                               # (T_sat computed via CoolProp's BICUBIC&HEOS backend,
-                                               # AbstractState low-level API -- PropsSI's high-level
-                                               # interface can't do Q-based lookups against a tabular
-                                               # backend), i.e. essentially
-                                               # common.surface_temperature (288 K) +
-                                               # surface.approach_temperature (7 K) = 295 K ambient-
-                                               # driven condensing target, the same inputs
-                                               # hydro_sf_electric.yml's condenser is implicitly
-                                               # designed around.
+                                               # condenser pair). See the condenser's comment for where
+                                               # this value comes from.
 
         condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 6.0              # MPa -- see turbine's comment above for where this
-                                               # value comes from.
-          vapor_mass_fraction_out: 0.0        # saturated liquid -- T follows from the saturation
-                                               # curve at the pressure above (~295.1 K); do not also
-                                               # fix T_out here, it would over-constrain against x=0
-                                               # at a fixed pressure. Confirmed BICUBIC&HEOS's
-                                               # saturation-curve (Q-based) lookup matches plain HEOS
-                                               # exactly (0 Pa difference, tested 290-303 K) -- BICUBIC's
-                                               # known near-critical-point accuracy limit is specific to
-                                               # single-phase PT flashes interpolated off its tabulated
-                                               # grid, not the saturation curve itself, so it doesn't
-                                               # apply here.
+          # Condensing pressure, set by the site rather than chosen: CO2
+          # saturates at 24.1 degC at 6.3 MPa, so the 1 K subcooled outlet
+          # (23.1 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC. Well below CO2's
+          # 7.38 MPa / 31 degC critical point.
+          p_out_megapascals: 6.3              # MPa
+          subcooling_K: 1.0                   # K below saturation: slightly subcooled condensate, so the pump never
+                                               # draws exactly saturated liquid (TESPy left the condensate pump's
+                                               # equation unconverged at x = 0) and has a margin against cavitation
           # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
           # physics): a singleton set (no paired cooler), wet cooling tower --
           # matches old tango's CPG_num_pp.yml, which never overrides

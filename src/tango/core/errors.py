@@ -86,6 +86,19 @@ class PassivePressureRiseError(InvalidPowerStateError):
     """
 
 
+class CoolingLimitError(TangoError):
+    """Raised when a surface-plant component cools its fluid below what the site can reject heat to.
+
+    Heat rejected to the environment needs a heat sink colder than the fluid
+    leaving the cooler or condenser by at least the approach temperature, so
+    no outlet can be colder than ``surface_temperature +
+    approach_temperature``. TESPy solves a fixed outlet state below that
+    limit without complaint, as if free refrigeration were available, which
+    overstates the turbine's expansion and the plant's output. Treated as an
+    infeasible design by an optimizer.
+    """
+
+
 class CoolPropError(TangoError):
     """Wraps a CoolProp failure raised by *our own* direct property lookup.
 
