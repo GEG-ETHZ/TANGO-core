@@ -68,7 +68,11 @@ echo ""
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
-uv run --project "$REPO_ROOT" dvc repro applications/opt_hydro_df_electric_surrogate/dvc.yaml
+# --wait-for-lock: every job runs `dvc repro` in this one checkout, and DVC
+# takes a repo-wide lock while it sets up and records each stage (not while
+# the stage's command runs). Without it, jobs that start together give up
+# after ~3 s and fail.
+uv run --project "$REPO_ROOT" dvc --wait-for-lock repro applications/opt_hydro_df_electric_surrogate/dvc.yaml
 
 echo ""
 echo "=========================================="
