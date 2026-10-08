@@ -226,8 +226,10 @@ Note that these instructions have been verified to work on Euler.
     naming the apps to run (no names submits every app under
     `applications/` that has a `*_job.sh`):
     `just slurm opt_AGS_ORC_electric run_hydro_df_electric_sweep`.
-    Each job runs its app's `dvc repro` inside the checkout, so its results
-    land in that app's own `outputs/`. Hyperparameters (population size,
+    Jobs run one after another (each uses a whole 48-core allocation);
+    `just slurm --parallel ...` runs them at the same time instead. Each job
+    runs its app's `dvc repro` inside the checkout, so its results land in
+    that app's own `outputs/`. Hyperparameters (population size,
     worker count, ...) come from each app's `params.yaml`; edit and commit
     that file rather than passing arguments to the job.
 1. Run `myjobs` to check status. Each job writes `<app>_<jobid>.out`/`.err`

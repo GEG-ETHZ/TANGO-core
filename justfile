@@ -181,23 +181,38 @@ apps *args:
     done
 
 # Submit full-size Euler (SLURM) runs: sbatch each app's *_job.sh from its own directory (the job
-# scripts find the repo through $SLURM_SUBMIT_DIR). No args = every app with a job script; or name
+# scripts find the repo through $SLURM_SUBMIT_DIR). No names = every app with a job script; or name
 # some: `just slurm opt_AGS_ORC_electric run_AGS_direct_heat_sweep`. Checks every name before
-# submitting anything.
+# submitting anything. Jobs run one at a time by default (each already uses its whole 48-core
+# allocation): each one waits for the previous to end, whether it succeeded or not
+# (--dependency=afterany). `just slurm --parallel ...` submits them to run concurrently instead.
 [unix]
-slurm *apps:
+slurm *args:
     #!/usr/bin/env sh
     set -eu
     command -v sbatch >/dev/null || { echo "sbatch not found -- run this on Euler"; exit 1; }
-    if [ -n "{{apps}}" ]; then set -- {{apps}}; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
+    parallel=""
+    apps=""
+    for arg in {{args}}; do
+        case "$arg" in
+            --parallel) parallel=1 ;;
+            -*) echo "unknown option: $arg (only --parallel)"; exit 1 ;;
+            *) apps="$apps $arg" ;;
+        esac
+    done
+    if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
         [ -f "applications/$a/${a}_job.sh" ] || { echo "no job script: applications/$a/${a}_job.sh"; exit 1; }
     done
+    prev=""
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
-        printf '%-36s ' "$a"
-        (cd "applications/$a" && sbatch "${a}_job.sh")
+        if [ -z "$parallel" ] && [ -n "$prev" ]; then dep="--dependency=afterany:$prev"; else dep=""; fi
+        job=$(cd "applications/$a" && sbatch --parsable $dep "${a}_job.sh")
+        job="${job%%;*}"
+        printf '%-36s job %s%s\n' "$a" "$job" "${dep:+ (after $prev)}"
+        prev="$job"
     done
 
 [windows]
