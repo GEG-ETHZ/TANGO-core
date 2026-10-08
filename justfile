@@ -114,9 +114,9 @@ phase-diagrams *configs:
 phase-diagrams *configs:
     $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
-# Smoke-test every script in applications/. --slow: real multi-thousand-design grids, not --smoke.
 # example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
 # "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
+# Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
 [unix]
 apps *args:
     #!/usr/bin/env sh
@@ -180,26 +180,36 @@ apps *args:
         uv run python "$script" --save-dir "$tmp" --log-level ERROR --plot-only || exit 1; \
     done
 
-# Submit full-size Euler (SLURM) runs: sbatch each app's *_job.sh from its own directory (the job
-# scripts find the repo through $SLURM_SUBMIT_DIR). No names = every app with a job script; or name
-# some: `just slurm opt_AGS_ORC_electric run_AGS_direct_heat_sweep`. Checks every name before
-# submitting anything. Jobs run one at a time by default (each already uses its whole 48-core
-# allocation): each one waits for the previous to end, whether it succeeded or not
-# (--dependency=afterany). `just slurm --parallel ...` submits them to run concurrently instead.
+# Runs sbatch on each app's *_job.sh from its own directory (the job scripts find the repo through
+# $SLURM_SUBMIT_DIR), after checking every name. See `just slurm --help` for the full usage.
+# Submit full-size Euler (SLURM) runs, one job at a time (`just slurm --help` for options)
 [unix]
 slurm *args:
     #!/usr/bin/env sh
     set -eu
-    command -v sbatch >/dev/null || { echo "sbatch not found -- run this on Euler"; exit 1; }
     parallel=""
     apps=""
     for arg in {{args}}; do
         case "$arg" in
+            -h|--help)
+                echo "Usage: just slurm [--parallel] [app ...]"
+                echo ""
+                echo "Submit full-size Euler (SLURM) runs: sbatch each app's applications/<app>/<app>_job.sh"
+                echo "from its own directory. Every name is checked before anything is submitted."
+                echo ""
+                echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric run_AGS_direct_heat_sweep"
+                echo "              (default: every app under applications/ that has a *_job.sh)"
+                echo "  --parallel  submit all jobs to run at the same time. Default: one at a time, each"
+                echo "              starting when the previous one ends, whether it succeeded or not"
+                echo "              (--dependency=afterany), since each job already uses its whole"
+                echo "              48-core allocation"
+                exit 0 ;;
             --parallel) parallel=1 ;;
-            -*) echo "unknown option: $arg (only --parallel)"; exit 1 ;;
+            -*) echo "unknown option: $arg (see just slurm --help)"; exit 1 ;;
             *) apps="$apps $arg" ;;
         esac
     done
+    command -v sbatch >/dev/null || { echo "sbatch not found -- run this on Euler"; exit 1; }
     if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
