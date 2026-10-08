@@ -54,7 +54,7 @@
 # `sbatch` was invoked FROM, which the documented workflow always is
 # (this script's own directory). Falls back to `dirname "$0"` only for
 # local testing outside SLURM, where $SLURM_SUBMIT_DIR is unset.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/opt_AGS_direct_heat"
 PARAMS_FILE="$APP_DIR/params.yaml"
 

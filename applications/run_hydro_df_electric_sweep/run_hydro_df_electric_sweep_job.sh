@@ -32,7 +32,7 @@
 # which is always this script's own directory in the documented workflow.
 # Falls back to `dirname "$0"` only for local testing outside SLURM, where
 # $SLURM_SUBMIT_DIR is unset.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/run_hydro_df_electric_sweep"
 PARAMS_FILE="$APP_DIR/params.yaml"
 

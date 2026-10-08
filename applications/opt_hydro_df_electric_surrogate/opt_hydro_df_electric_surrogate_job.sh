@@ -34,7 +34,7 @@
 # See opt_hydro_df_electric_job.sh for why $SLURM_SUBMIT_DIR (not git or
 # $0/dirname) is the reliable way to resolve REPO_ROOT under a real sbatch
 # job.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/opt_hydro_df_electric_surrogate"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
