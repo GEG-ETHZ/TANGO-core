@@ -49,6 +49,13 @@ temperature, specific investment cost, and OPEX for its Pareto front.
 | `opt_AGS_direct_heat` | None; also constrains production temperature to at least 105 °C |
 | `opt_hydro_df_electric_surrogate` | `opt_hydro_df_electric`'s search against a trained surrogate model instead of the real simulation (see its own `train_surrogate.py`/`validate_surrogate.py`) — much cheaper per evaluation |
 
+Before searching, every app checks that each decision variable actually
+matters: moving it up and down from the config's own value must change at
+least one objective or constraint, or the run stops with
+`InertParameterError` naming it. This costs `1 + 2 × (number of variables)`
+extra simulations; skip it with `--skip-param-check` once an app is known to
+be good.
+
 For a fast end-to-end check, run an app with `--smoke` (a 2-generation,
 population-6 search plus any relaxed constraint) and a throwaway `--save-dir`.
 The top-level `justfile`'s `apps` recipe does this for every app, running

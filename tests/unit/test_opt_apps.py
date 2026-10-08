@@ -51,7 +51,8 @@ def _narrow_bounds(app: OptApp) -> dict[str, tuple[float, float]]:
     cfg = Workflow(app.base_config()).to_dict()
     bounds = {}
     for spec in app.param_specs():
-        value = spec.apply.read(cfg)  # type: ignore[attr-defined]
+        assert spec.read is not None, f"{spec.name} has no read()"
+        value = spec.read(cfg)
         bounds[spec.name] = (value - 0.01 * abs(value), value + 0.01 * abs(value))
     return bounds
 
@@ -62,7 +63,8 @@ def test_default_bounds_contain_base_design(name: str) -> None:
     app = _load(name)
     cfg = Workflow(app.base_config()).to_dict()
     for spec in app.param_specs():
-        value = spec.apply.read(cfg)  # type: ignore[attr-defined]
+        assert spec.read is not None, f"{spec.name} has no read()"
+        value = spec.read(cfg)
         lo, hi = spec.bounds
         assert lo <= value <= hi, f"{name}: {spec.name}={value} outside {spec.bounds}"
 
@@ -76,7 +78,8 @@ def test_param_apply_round_trips(name: str) -> None:
         lo, hi = spec.bounds
         value = lo + 0.37 * (hi - lo)
         cfg = spec.apply(cfg, value)
-        assert spec.apply.read(cfg) == pytest.approx(value), f"{name}: {spec.name}"  # type: ignore[attr-defined]
+        assert spec.read is not None
+        assert spec.read(cfg) == pytest.approx(value), f"{name}: {spec.name}"
 
 
 @pytest.mark.slow
@@ -106,3 +109,10 @@ def test_optimization_writes_finite_pareto_csv_and_plots(name: str, tmp_path: Pa
     app.make_plots(df, tmp_path)
     for plot in ("pareto_parallel_coordinates.png", "pareto_scatter.png", "pareto_scatter_by_param.png"):
         assert (tmp_path / plot).exists(), f"{name}: {plot} not written"
+
+
+def test_smoke_refuses_default_outputs_dir() -> None:
+    """--smoke without a throwaway --save-dir would overwrite the app's DVC-tracked outputs/."""
+    app = _load(_APP_NAMES[0])
+    with pytest.raises(SystemExit):
+        app.parse_args(["--smoke"])

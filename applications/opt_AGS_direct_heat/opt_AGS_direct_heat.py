@@ -65,6 +65,8 @@ class _PathsApply:
             target = cfg
             for key in path[:-1]:
                 target = target[key]
+            if path[-1] not in target:
+                raise KeyError(f"config has no {'.'.join(path)} to set (typo in this param's path?)")
             target[path[-1]] = float(value)
         return cfg
 

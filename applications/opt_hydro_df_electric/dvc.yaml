@@ -42,6 +42,8 @@ stages:
     deps:
       - opt_hydro_df_electric.py
       - outputs/pareto_results.csv
+      # Plotting code lives in tango.pymoo_api (OptApp.make_plots).
+      - ../../src/tango.hash
     outs:
       - outputs/pareto_parallel_coordinates.png
       - outputs/pareto_parallel_coordinates.html

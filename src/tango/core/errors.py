@@ -23,6 +23,18 @@ class ConfigError(TangoError):
     """Raised when an input configuration is invalid or inconsistent."""
 
 
+class InertParameterError(ConfigError):
+    """Raised when an optimization decision variable has no effect on any objective or constraint.
+
+    Perturbing the parameter up and down from its baseline left every
+    objective and constraint unchanged, so the search would spend a whole
+    dimension on it for nothing. Usually a ``ParamSpec.apply`` that writes a
+    config field nothing reads, or a field that is inert for this topology.
+    A ``ConfigError``, so an optimizer never mistakes it for an infeasible
+    design.
+    """
+
+
 class FrackingViolationError(TangoError):
     """Raised when injection would exceed a hydraulic-fracking threshold.
 

@@ -61,6 +61,8 @@ class _PathsApply:
             target = cfg
             for key in path[:-1]:
                 target = target[key]
+            if path[-1] not in target:
+                raise KeyError(f"config has no {'.'.join(path)} to set (typo in this param's path?)")
             target[path[-1]] = float(value)
         return cfg
 
@@ -228,11 +230,16 @@ class _EconomicStateEvaluate:
 
 @dataclass
 class _NegativeMeanPowerEvaluate:
-    """Picklable ``ObjectiveSpec.evaluate``: ``-`` mean of the surface's ``history.net_power_W``."""
+    """Picklable ``ObjectiveSpec.evaluate``: ``-`` the run's mean net electric power (W).
+
+    ``economic.state.net_power_W``: the surface plant's net output minus the
+    cooling/condensing parasitics and any downhole production pump, the same
+    net power LCOE divides by, so the two objectives agree on what a design
+    produces.
+    """
 
     def __call__(self, wf: Workflow) -> float:
-        values: list[float] = wf._orchestrator.components["surface"].history.net_power_W  # noqa: SLF001
-        return -sum(values) / len(values)
+        return -float(wf.to_dict()["economic"]["state"]["net_power_W"])
 
 
 @dataclass

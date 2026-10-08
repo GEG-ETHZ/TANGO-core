@@ -8,17 +8,17 @@
 #SBATCH --error=opt_hydro_sf_electric_%j.err
 
 # ---------------------------------------------------------------------------
-# Runs the tango hydro_sf_electric pymoo optimization (mass flow rate +
-# injection pressure + target extraction pressure -> minimize LCOE, maximize
-# mean net power) via `dvc repro`. Unlike the sibling run_*_sweep_job.sh
-# scripts, this job does NOT write anything into params.yaml and does NOT
-# accept CLI overrides -- params.yaml is the single source of truth for
-# every hyperparameter (n_max_gen, pop_size, ftol, xtol, seed, n_processes,
-# crossover_prob, mutation_prob). Edit params.yaml directly before
-# submitting; `dvc repro` picks up whatever's committed there. This avoids
-# the job silently rewriting params.yaml on every submission (which made it
-# impossible to tell, after the fact, what values a given run actually used
-# without checking job logs).
+# Runs the tango opt_hydro_sf_electric pymoo optimization via `dvc repro`
+# (see opt_hydro_sf_electric.py's docstring for its decision variables and
+# objectives). Like the sibling run_*_sweep_job.sh scripts, this job does
+# NOT write anything into params.yaml and does NOT accept CLI overrides --
+# params.yaml is the
+# single source of truth for every hyperparameter (n_max_gen, pop_size,
+# ftol, xtol, seed, n_processes, crossover_prob, mutation_prob). Edit
+# params.yaml directly before submitting; `dvc repro` picks up whatever's
+# committed there. This avoids the job silently rewriting params.yaml on
+# every submission (which made it impossible to tell, after the fact, what
+# values a given run actually used without checking job logs).
 #
 # n_processes is therefore NOT auto-derived from --cpus-per-task anymore --
 # keep params.yaml's n_processes in sync with whatever --cpus-per-task you
@@ -89,9 +89,6 @@ echo ""
 # unflushed buffer and doesn't show up in the .out file until it fills or
 # the process exits, making a long-running job look stalled even though
 # outputs/pareto_results_partial.csv proves it's progressing fine.
-# Confirmed the hard way on a real Euler run (2026-08-14): opt_*.py's own
-# --quiet defaults to off, so this was purely a buffering artifact, not a
-# verbosity setting.
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"

@@ -333,9 +333,7 @@ specific to deleted old-tango files/apps).
   ```
   Benefits: merges component config with graph structure, eliminates
   redundant per-component sections, multi-port components use a dict for
-  `connects_to`. See also
-  [ALTRIOS's rail network representation](https://github.com/NatLabRockies/altrios/blob/main/python/altrios/resources/networks/Taconite.yaml)
-  for another take on a self-contained graph format.
+  `connects_to`.
 - **Restore/update `GUIDELINES.md`.** Doesn't exist in this repo at all
   currently (not even a stale copy) — the original TODO pointed at
   `https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md`,

@@ -8,7 +8,7 @@
 # overrides params.yaml. n_processes is not tracked by DVC.
 
 n_max_gen: 200
-pop_size: 225
+pop_size: 45
 ftol: 0.005
 xtol: 0.0005
 seed: 1

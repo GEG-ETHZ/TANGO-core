@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import dataclasses
 import itertools
 import json
 import logging
@@ -85,10 +86,12 @@ from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
 
 from tango.core.errors import (
+    ConfigError,
     ConvergenceError,
     CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
+    InertParameterError,
     InvalidPowerStateError,
 )
 from tango.core.policies import InjectionPolicy
@@ -686,12 +689,19 @@ class ParamSpec:
             ``__call__`` pickles fine, by class reference + simple field
             values — use that shape, not a closure.)
         bounds: ``(lower, upper)`` bound pymoo searches within.
+        read: ``config_dict -> value``: the value this parameter currently has
+            in a config, in the same units as ``bounds``. Gives
+            ``Minimization``'s parameter check its baseline (see
+            ``Minimization.check_param_sensitivity``); without it, the
+            bounds midpoint stands in. Same picklability requirement as
+            ``apply``.
 
     """
 
     name: str
     apply: Callable[[dict[str, Any], float], dict[str, Any]]
     bounds: tuple[float, float]
+    read: Callable[[dict[str, Any]], float] | None = None
 
 
 @dataclass
@@ -950,6 +960,15 @@ class Minimization:
     (no extra columns)."""
     log_failures: bool = False
     extra_cv_exceptions: tuple[type[Exception], ...] = ()
+    check_param_sensitivity: bool = True
+    """Before searching, check that every param moves at least one objective
+    or constraint (see ``_check_param_sensitivity``); raises
+    ``InertParameterError`` otherwise. Costs ``1 + 2 * len(params)``
+    evaluations, parallelized like the search. Turn off for a setup already
+    known to be good."""
+    sensitivity_step_frac: float = 0.05
+    """Size of the parameter check's up/down step, as a fraction of each
+    param's bounds width."""
     capture_trajectory_path: Path | str | None = None
     """If given, append EVERY generation's newly-evaluated individuals
     (params + objectives if feasible + a ``success`` bool) to this CSV
@@ -1088,6 +1107,9 @@ class Minimization:
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
         """Build, run, and score one design — CV on self._cv_exceptions, raise on anything else.
 
+        A design whose objectives aren't all finite (e.g. a NaN LCOE because
+        the plant's net power is <= 0) counts as infeasible too.
+
         Returns ``len(self.constraints) + 1`` G values: index 0 is the
         built-in physical-feasibility constraint, the rest are
         ``self.constraints`` in order (see ``ConstraintSpec``). When the
@@ -1124,8 +1146,134 @@ class Minimization:
                 _INFEASIBLE_G,
                 *([float("inf")] * len(self.constraints)),
             ]
+        f = [spec.evaluate(wf) for spec in self.objectives]
+        if not all(np.isfinite(f)):
+            # A NaN/inf objective (e.g. LCOE when net power is <= 0, see
+            # DoubletEconomicComponent._compute_lcoe) would otherwise rank as
+            # feasible, and pymoo's non-dominated sorting puts NaN rows in
+            # the first front. Treat it as infeasible like a failed solve.
+            self.n_failures += 1
+            if self.log_failures:
+                self._log_failure(
+                    x,
+                    ValueError(
+                        f"non-finite objective(s) {dict(zip([o.name for o in self.objectives], f, strict=True))}",
+                    ),
+                )
+            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [
+                _INFEASIBLE_G,
+                *([float("inf")] * len(self.constraints)),
+            ]
         g_extra = [c.evaluate(wf) for c in self.constraints]
-        return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G, *g_extra]
+        return f, [_FEASIBLE_G, *g_extra]
+
+    def _baseline_x(self) -> npt.NDArray[np.float64]:
+        """Each param's value in ``base_cfg`` (``ParamSpec.read``), or its bounds midpoint, clipped to bounds."""
+        values = []
+        for p in self.params:
+            lo, hi = p.bounds
+            if p.read is None:
+                logger.info(
+                    "Parameter check: %s has no read(); using its bounds midpoint as the baseline.",
+                    p.name,
+                )
+                value = 0.5 * (lo + hi)
+            else:
+                value = p.read(self.base_cfg)
+            values.append(min(max(value, lo), hi))
+        return np.array(values, dtype=float)
+
+    def _check_param_sensitivity(self, problem: ElementwiseProblem) -> None:
+        """Raise if any param leaves every objective and constraint unchanged when moved up or down.
+
+        Evaluates the baseline (``_baseline_x``), then each param alone at
+        baseline ± ``sensitivity_step_frac`` × its bounds width, clipped to
+        bounds; a side with no room (baseline at a bound) is skipped. A side
+        "moves" the design if any objective or constraint value differs from
+        the baseline's by more than a relative 1e-9, which includes becoming
+        infeasible. Evaluated through ``problem`` so it runs on the same
+        worker pool as the search; these evaluations aren't counted in
+        ``n_failures`` or logged to ``failures.jsonl``.
+
+        A param whose bounds leave no room on either side is logged and
+        skipped rather than reported as inert.
+
+        Raises:
+            ConfigError: If the baseline design itself is infeasible: the
+                check needs a feasible starting point, and an infeasible one
+                usually means the config or forced injection policy is wrong.
+            InertParameterError: Naming every param neither side of which
+                moved anything. A param with only one dead side is logged as a
+                warning instead (legitimate near a bound or a kink).
+
+        """
+        x0 = self._baseline_x()
+        rows = [x0]
+        sides: list[tuple[int, str, float]] = []
+        for i, p in enumerate(self.params):
+            lo, hi = p.bounds
+            step = self.sensitivity_step_frac * (hi - lo)
+            for label, value in (("+", min(x0[i] + step, hi)), ("-", max(x0[i] - step, lo))):
+                if value == x0[i]:
+                    continue
+                x = x0.copy()
+                x[i] = value
+                rows.append(x)
+                sides.append((i, label, value))
+
+        n_failures, log_failures = self.n_failures, self.log_failures
+        self.log_failures = False
+        try:
+            f, g = problem.evaluate(np.array(rows), return_values_of=["F", "G"])
+        finally:
+            self.n_failures, self.log_failures = n_failures, log_failures
+        out = np.hstack([np.atleast_2d(f), np.atleast_2d(g)])
+
+        if g[0][0] > 0:
+            raise ConfigError(
+                "Parameter check: the baseline design ("
+                + ", ".join(f"{p.name}={v:.6g}" for p, v in zip(self.params, x0, strict=True))
+                + ") is infeasible, so there's nothing to perturb from. Fix the config (or the forced "
+                "injection policy), or pass check_param_sensitivity=False.",
+            )
+
+        moved: dict[int, dict[str, bool]] = {i: {} for i in range(len(self.params))}
+        tried: dict[int, list[float]] = {i: [] for i in range(len(self.params))}
+        for row, (i, label, value) in enumerate(sides, start=1):
+            moved[i][label] = not bool(
+                np.all(np.isclose(out[row], out[0], rtol=1e-9, atol=0.0, equal_nan=True)),
+            )
+            tried[i].append(value)
+
+        inert = []
+        for i, p in enumerate(self.params):
+            logger.info(
+                "Parameter check: %s baseline %.6g, %s",
+                p.name,
+                x0[i],
+                ", ".join(f"{label}{'moves' if m else ' changes nothing'}" for label, m in moved[i].items())
+                or "no room to move within bounds",
+            )
+            if not moved[i]:
+                continue  # bounds leave no room to move; nothing to judge
+            if not any(moved[i].values()):
+                inert.append(
+                    f"{p.name} (baseline {x0[i]:.6g}, tried {', '.join(f'{v:.6g}' for v in tried[i])})",
+                )
+            elif not all(moved[i].values()):
+                dead = [label for label, m in moved[i].items() if not m]
+                logger.warning(
+                    "Parameter check: moving %s in the %s direction from %.6g changed no objective or constraint.",
+                    p.name,
+                    "/".join(dead),
+                    x0[i],
+                )
+        if inert:
+            raise InertParameterError(
+                "These parameters changed no objective or constraint when moved up or down from their baseline: "
+                + "; ".join(inert)
+                + ". Check what each one's ParamSpec.apply writes, or drop it from the search.",
+            )
 
     def _elementwise_runner(self) -> LoopedElementwiseEvaluation | StarmapParallelization:
         assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
@@ -1167,6 +1315,8 @@ class Minimization:
         assert isinstance(self.save_dir, Path)
 
         problem = _Problem(self)
+        if self.check_param_sensitivity:
+            self._check_param_sensitivity(problem)
         termination = DMOT(
             xtol=self.pymoo_config.xtol,
             ftol=self.pymoo_config.ftol,
@@ -1500,8 +1650,9 @@ class OptApp:
 
     Each param's ``apply`` must also have a ``read(config) -> float`` method
     returning the value the config currently holds, in the param's own units.
-    The smoke tests use it to build narrow bounds around each config's own
-    design point.
+    ``param_specs`` copies it into ``ParamSpec.read``, which gives
+    ``Minimization``'s parameter check its baseline and lets the smoke tests
+    build narrow bounds around each config's own design point.
 
     Args:
         title: Short name used in plot titles, e.g. ``"AGS_ORC_electric"``.
@@ -1566,7 +1717,12 @@ class OptApp:
         b = self.default_bounds if bounds is None else bounds
         if set(b) != set(self.default_bounds):
             raise ValueError(f"bounds keys {sorted(b)} must match {sorted(self.default_bounds)}")
-        specs = self.param_factory(b)
+        specs = [
+            p
+            if p.read is not None or not hasattr(p.apply, "read")
+            else dataclasses.replace(p, read=p.apply.read)
+            for p in self.param_factory(b)
+        ]
         names = [p.name for p in specs]
         if sorted(names) != sorted(self.default_bounds):
             raise ValueError(f"param names {names} must match bounds keys {sorted(self.default_bounds)}")
@@ -1588,6 +1744,12 @@ class OptApp:
                 "throwaway directory."
             ),
         )
+        parser.add_argument(
+            "--skip-param-check",
+            action="store_true",
+            help="Skip the check that every decision variable moves an objective or constraint "
+            "(see Minimization.check_param_sensitivity).",
+        )
         if self.configure_parser is not None:
             self.configure_parser(parser)
         return parser
@@ -1598,6 +1760,10 @@ class OptApp:
         argv = sys.argv[1:] if argv is None else argv
         args = parser.parse_args(argv)
         if args.smoke:
+            if Path(args.save_dir).resolve() == self.default_output_dir.resolve():
+                parser.error(
+                    "--smoke needs a throwaway --save-dir; it would overwrite this app's DVC-tracked outputs/",
+                )
             args = parser.parse_args([*argv, "--n-max-gen", "2", "--pop-size", "6", *self.smoke_args])
         return args
 
@@ -1655,6 +1821,7 @@ class OptApp:
             verbose=not args.quiet,
             save_dir=args.save_dir,
             seed_from=args.seed_from,
+            check_param_sensitivity=not args.skip_param_check,
         )
         res, df = m.run()
         return res, df, m

@@ -8,11 +8,11 @@
 #SBATCH --error=opt_AGS_direct_heat_%j.err
 
 # ---------------------------------------------------------------------------
-# Runs the tango AGS_direct_heat pymoo optimization (well depth +
-# horizontal loop length + horizontal loop diameter + mass flow rate ->
-# minimize LCOE, maximize mean net thermal power) via `dvc repro`. Unlike
-# the sibling run_*_sweep_job.sh scripts, this job does NOT write anything
-# into params.yaml and does NOT accept CLI overrides -- params.yaml is the
+# Runs the tango opt_AGS_direct_heat pymoo optimization via `dvc repro`
+# (see opt_AGS_direct_heat.py's docstring for its decision variables and
+# objectives). Like the sibling run_*_sweep_job.sh scripts, this job does
+# NOT write anything into params.yaml and does NOT accept CLI overrides --
+# params.yaml is the
 # single source of truth for every hyperparameter (n_max_gen, pop_size,
 # ftol, xtol, seed, n_processes, crossover_prob, mutation_prob). Edit
 # params.yaml directly before submitting; `dvc repro` picks up whatever's
