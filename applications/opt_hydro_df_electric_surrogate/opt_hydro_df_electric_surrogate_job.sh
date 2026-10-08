@@ -31,6 +31,11 @@
 #   sbatch opt_hydro_df_electric_surrogate_job.sh
 # ---------------------------------------------------------------------------
 
+# Stop at the first failing command (including inside a pipeline) and on any
+# unset variable, so a failed run exits nonzero and shows as FAILED in sacct
+# instead of COMPLETED.
+set -euo pipefail
+
 # See opt_hydro_df_electric_job.sh for why $SLURM_SUBMIT_DIR (not git or
 # $0/dirname) is the reliable way to resolve REPO_ROOT under a real sbatch
 # job.
@@ -45,8 +50,8 @@ fi
 
 echo "=========================================="
 echo "Job started on: $(date)"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Running on node: $SLURMD_NODENAME"
+echo "Job ID: ${SLURM_JOB_ID:-}"
+echo "Running on node: ${SLURMD_NODENAME:-}"
 echo "Using params from: $PARAMS_FILE"
 echo "Working directory: $PWD"
 echo "Outputs -> $APP_DIR/outputs"

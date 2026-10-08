@@ -19,6 +19,11 @@
 #   sbatch --cpus-per-task=16 run_AGS_direct_heat_sweep_job.sh
 # ---------------------------------------------------------------------------
 
+# Stop at the first failing command (including inside a pipeline) and on any
+# unset variable, so a failed run exits nonzero and shows as FAILED in sacct
+# instead of COMPLETED.
+set -euo pipefail
+
 # NOT git-based (`git -C ... rev-parse --show-toplevel`) -- that assumes a
 # git checkout, which isn't confirmed for every Euler checkout of this repo
 # (the documented workflow (README.md's "Running on Euler") is rsync-based
@@ -52,8 +57,8 @@ EOF
 
 echo "=========================================="
 echo "Job started on: $(date)"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Running on node: $SLURMD_NODENAME"
+echo "Job ID: ${SLURM_JOB_ID:-}"
+echo "Running on node: ${SLURMD_NODENAME:-}"
 echo "CPUs: $CPUS  |  workers: $N_WORKERS"
 echo "Working directory: $PWD"
 echo "=========================================="

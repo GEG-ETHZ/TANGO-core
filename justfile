@@ -188,6 +188,26 @@ apps *args:
     tmp=$(mktemp -d); uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
     tmp=$(mktemp -d); uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --log-level ERROR --no-plot; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir "$tmp" --log-level ERROR --plot-only
 
+# Submit full-size Euler (SLURM) runs: sbatch each app's *_job.sh from its own directory (the job
+# scripts find the repo through $SLURM_SUBMIT_DIR). No args = every app with a job script; or name
+# some: `just slurm opt_AGS_ORC_electric run_AGS_direct_heat_sweep`. Checks every name before
+# submitting anything.
+[unix]
+slurm *apps:
+    #!/usr/bin/env sh
+    set -eu
+    command -v sbatch >/dev/null || { echo "sbatch not found -- run this on Euler"; exit 1; }
+    if [ -n "{{apps}}" ]; then set -- {{apps}}; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        [ -f "applications/$a/${a}_job.sh" ] || { echo "no job script: applications/$a/${a}_job.sh"; exit 1; }
+    done
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        printf '%-36s ' "$a"
+        (cd "applications/$a" && sbatch "${a}_job.sh")
+    done
+
 [windows]
 apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py

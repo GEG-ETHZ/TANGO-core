@@ -38,6 +38,11 @@
 #   sbatch opt_AGS_ORC_electric_job.sh
 # ---------------------------------------------------------------------------
 
+# Stop at the first failing command (including inside a pipeline) and on any
+# unset variable, so a failed run exits nonzero and shows as FAILED in sacct
+# instead of COMPLETED.
+set -euo pipefail
+
 # NOT git-based (unlike the sibling sweep job scripts' `git -C ... rev-parse
 # --show-toplevel`) -- that assumes a git clone, but the documented Euler
 # workflow (README.md's "Running on Euler") is rsync-based and doesn't
@@ -66,8 +71,8 @@ fi
 
 echo "=========================================="
 echo "Job started on: $(date)"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Running on node: $SLURMD_NODENAME"
+echo "Job ID: ${SLURM_JOB_ID:-}"
+echo "Running on node: ${SLURMD_NODENAME:-}"
 echo "Using params from: $PARAMS_FILE"
 echo "Working directory: $PWD"
 echo "Outputs -> $APP_DIR/outputs"
