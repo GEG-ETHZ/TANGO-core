@@ -23,36 +23,40 @@ from tango.core.errors import CoolPropError
 class CoolPropBackend(enum.StrEnum):
     """Selects which CoolProp equation-of-state backend tango uses for fluid property lookups.
 
-    **YAML field:** ``common.coolprop_backend`` (defaults to ``BICUBIC_HEOS``
-    if omitted — see that member's own docstring for why this is the
-    default rather than ``HEOS``). See TANGO Commandments (CONTRIBUTING.md)
-    for when to switch away from the default.
+    **YAML field:** ``common.coolprop_backend`` (defaults to ``HEOS`` if
+    omitted — see ``BICUBIC_HEOS``'s docstring for why the faster tabular
+    backend is not the default).
     """
 
     BICUBIC_HEOS = "BICUBIC&HEOS"
-    """BICUBIC-tabulated HEOS: builds an interpolation table over the
-    solve's actual P/T range, roughly halving CoolProp call time versus
-    raw HEOS (see commits ecaabcf/4b6583d) — negligible accuracy loss
-    (~3e-5 relative) away from a fluid's phase boundaries/critical point,
-    but the table's cell resolution gets coarse right at the critical
-    point (CoolProp's own docs cite ~14 K cell width there for CO2),
-    which can make a solve converge (small residual) to a state that's
-    still meaningfully off from what was actually requested — confirmed
-    empirically building ``example_configs/CPG_electric.yml`` (a fixed
-    315 K target solving to ~305.3 K at a nearby operating point).
-    Default, since most tango examples don't operate near a phase
-    boundary."""
+    """BICUBIC-tabulated HEOS: interpolates properties from a table instead of
+    solving the equation of state, roughly halving CoolProp call time versus
+    raw HEOS, with ~3e-5 relative error away from phase boundaries. Not the
+    default because its (P, T) lookups are unreliable near phase boundaries,
+    and TESPy trusts them without checking:
+
+    - Near the critical point the table cells are coarse (CoolProp's docs
+      cite ~14 K cell width for CO2): a fixed 315 K CO2 target solved to
+      ~305.3 K at a nearby operating point.
+    - Just below saturation, a (P, T) flash can return an enthalpy on the
+      wrong side of the saturation curve. For R245fa 1 K below saturation it
+      returns 343.7 kJ/kg at 0.14 MPa and 257.5 kJ/kg at 0.145 MPa against
+      the exact 229.6 and 230.8 kJ/kg, so a ``subcooling_K`` condenser outlet
+      comes out as a two-phase mixture and its pump compresses wet vapor,
+      while the TESPy solve still reports convergence. Errors depend on where
+      the pressure falls in the table, so a pressure that works says nothing
+      about its neighbors.
+
+    Use only for a system known to stay well away from phase boundaries,
+    after checking its results against ``HEOS``."""
 
     HEOS = "HEOS"
     """Raw (non-tabulated) HEOS — solves the actual equation of state
-    directly, no interpolation-table error, at real (but generally
-    tolerable) extra cost. Switch to this for any system that
-    deliberately operates near a fluid's critical point or another phase
-    boundary (see TANGO Commandments), where ``BICUBIC_HEOS``'s table
-    resolution isn't trustworthy."""
+    directly, no interpolation-table error, at roughly 1.4-2.2x the runtime
+    of ``BICUBIC_HEOS`` for the example configs. Default."""
 
 
-COOLPROP_BACKEND = CoolPropBackend.BICUBIC_HEOS
+COOLPROP_BACKEND = CoolPropBackend.HEOS
 """Default CoolProp backend for ``common.coolprop_backend`` (see
 ``core/specs.py``'s ``Common`` model) when a YAML config doesn't set it
 explicitly. Anywhere else a fluid backend needs naming explicitly (e.g.

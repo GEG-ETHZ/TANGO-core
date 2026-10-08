@@ -49,10 +49,9 @@ class Common(BaseModel):
     surface_pressure: float
     coolprop_backend: CoolPropBackend = COOLPROP_BACKEND
     """CoolProp equation-of-state backend for all fluid-property lookups
-    (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to the
-    tabulated, faster backend; switch to ``HEOS`` for a system that
-    deliberately operates near a phase boundary/critical point — see
-    TANGO Commandments (CONTRIBUTING.md)."""
+    (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to exact
+    ``HEOS``; the faster tabulated ``BICUBIC&HEOS`` is unreliable near phase
+    boundaries (see its docstring)."""
 
     # NOTE: FIELD AND MODEL VALIDATION
 
