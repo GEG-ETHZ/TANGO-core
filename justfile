@@ -91,21 +91,8 @@ test *args:
     exit "$status"
 
 # Update src/tango.hash from what's staged under src/tango/, and stage it, so the next commit passes the hash hook first time
-[unix]
 hash-src:
-    #!/usr/bin/env sh
-    # -e: stop at the first command that fails.
-    # -u: an unset variable is an error instead of an empty string.
-    set -eu
-    # The hash covers the STAGED src/tango/ tree (git's index), the same thing
-    # the hash-tango pre-commit hook hashes, so stage your src/tango/ changes
-    # first. tools/hash_tango.py exits 1 when it rewrites the file (that's how
-    # it blocks a commit as a hook); here that just means "updated".
-    status=0
-    uv run python tools/hash_tango.py || status=$?
-    if [ "$status" -gt 1 ]; then exit "$status"; fi
-    git add src/tango.hash
-    if [ "$status" -eq 1 ]; then echo "Staged the updated src/tango.hash."; else echo "src/tango.hash already up to date."; fi
+    uv run python tools/hash_tango.py --stage
 
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
