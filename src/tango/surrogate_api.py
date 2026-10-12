@@ -64,23 +64,13 @@ from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
-from tango.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
-from tango.pymoo_api import ParetoProgressOutput
+from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS, ParetoProgressOutput
 from tango.workflows.workflow import Workflow
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
     from tango.pymoo_api import ObjectiveSpec, ParamSpec, PymooConfig
-
-# Same physical-infeasibility-vs-bug distinction pymoo_api.py's _CV_EXCEPTIONS
-# makes (see that module's docstring) — a sampled LHS design failing one of
-# these is an expected outcome, not a crash; anything else should still raise.
-_INFEASIBLE_EXCEPTIONS: tuple[type[Exception], ...] = (
-    CoolPropError,
-    FrackingViolationError,
-    ConvergenceError,
-)
 
 # Same shape as pymoo_api.py's _CV_OBJECTIVE_FALLBACK/_FEASIBLE_G/_INFEASIBLE_G
 # (private there, redefined here rather than imported — pymoo_api.py isn't
@@ -95,11 +85,11 @@ _INFEASIBLE_G = 1.0
 class SurrogateInfeasibleError(Exception):
     """Raised by ``SurrogateModel.evaluate_one`` when the feasibility classifier predicts failure.
 
-    Mirrors ``pymoo_api.Minimization``'s ``_CV_EXCEPTIONS`` pattern (a
+    Mirrors ``pymoo_api.Minimization``'s ``INFEASIBLE_DESIGN_EXCEPTIONS`` pattern (a
     specific, anticipated "this design doesn't work" signal, not a crash) —
     ``_SurrogateProblem._evaluate`` catches exactly this and turns it into a
     real pymoo constraint violation (``G > 0``), the same way
-    ``Minimization._evaluate_one`` turns a real ``_CV_EXCEPTIONS`` into one.
+    ``Minimization._evaluate_one`` turns a real ``INFEASIBLE_DESIGN_EXCEPTIONS`` into one.
     A caller building their OWN ``Minimization`` against a hybrid classifier-
     gated evaluator (rather than this module's independent surrogate driver)
     can pass this type via ``Minimization(..., extra_cv_exceptions=(SurrogateInfeasibleError,))``
@@ -164,7 +154,7 @@ def evaluate_training_row(
     try:
         wf = Workflow(cfg)
         wf.run()
-    except _INFEASIBLE_EXCEPTIONS as exc:
+    except INFEASIBLE_DESIGN_EXCEPTIONS as exc:
         row["error_type"] = type(exc).__name__
         row["error_message"] = str(exc)
         return row

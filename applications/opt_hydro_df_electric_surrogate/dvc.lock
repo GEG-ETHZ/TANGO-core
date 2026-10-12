@@ -62,22 +62,22 @@ stages:
   train_surrogate:
     cmd: python train_surrogate.py
     deps:
-    - path: ../../../src/tango.hash
+    - path: ../../src/tango.hash
       hash: md5
-      md5: c402624273599bd5e02f1e05902b0efd
+      md5: 1c523a3eba96acb84f2a6e6e075f6a5c
       size: 41
     - path: common.py
       hash: md5
-      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
-      size: 3085
+      md5: f3e1c6e8cd579097cd5b8531ab968f3c
+      size: 3091
     - path: outputs/lhs_training_data.csv
       hash: md5
-      md5: 57269365cee88019a89d0c7bca36cc0f
-      size: 1157693
+      md5: 587b021de3a19fd67ae1bbb37260c5ea
+      size: 966920
     - path: train_surrogate.py
       hash: md5
-      md5: dbea28829e3a4dd2d8850cd9163a3d2f
-      size: 5683
+      md5: 6b07f1085cd18bbe5008204cd8c18923
+      size: 5701
     params:
       params.yaml:
         classifier_n_estimators: 300
@@ -85,7 +85,7 @@ stages:
         cv_folds: 5
         gpr_n_restarts_optimizer: 5
         mlp_alpha: 0.001
-        mlp_hidden_layer_sizes: 64,64
+        mlp_hidden_layer_sizes: 16,16
         mlp_max_iter: 2000
         regressor: mlp
         regressor_rf_n_estimators: 300
@@ -93,16 +93,16 @@ stages:
     outs:
     - path: outputs/surrogate_classifier_diagnostics.csv
       hash: md5
-      md5: b6f579ee49818097120b44e68ef9d6ac
+      md5: 0c00261e0ffcc585d64984145a488838
       size: 84
     - path: outputs/surrogate_diagnostics.csv
       hash: md5
-      md5: 4f7e72b0b4ba0e741c6b67932d74016a
-      size: 126
+      md5: bc5179c60473878af19abf4551767f28
+      size: 127
     - path: outputs/surrogate_model.joblib
       hash: md5
-      md5: 0a767378b3da7a8387f0bfe9823b20d8
-      size: 7232660
+      md5: cf1143aa78a61c74393e0959a8ddcabf
+      size: 15097156
   optimize_surrogate:
     cmd: python optimize_surrogate.py
     deps:
@@ -155,3 +155,41 @@ stages:
       hash: md5
       md5: b9cdd49001a111170ccc0c90e43e3735
       size: 5132
+  run_trajectory:
+    cmd: python run_trajectory.py
+    deps:
+    - path: ../../example_configs/hydro_df_electric.yml
+      hash: md5
+      md5: 38df7e7516e2a50ef5beef08ec05d38f
+      size: 10973
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: 1c523a3eba96acb84f2a6e6e075f6a5c
+      size: 41
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: 105c411d540fa9e1d150db540b2bd8f0
+      size: 11962
+    - path: common.py
+      hash: md5
+      md5: f3e1c6e8cd579097cd5b8531ab968f3c
+      size: 3091
+    - path: run_trajectory.py
+      hash: md5
+      md5: ff2c75b717b37b958ebaea441c2b1c37
+      size: 6529
+    params:
+      params.yaml:
+        trajectory_dedup_tol_frac: 0.001
+        trajectory_n_gen: 5
+        trajectory_pop_size: 1000
+        trajectory_seed: 1
+    outs:
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: 587b021de3a19fd67ae1bbb37260c5ea
+      size: 966920
+    - path: outputs/trajectory_pareto_results.csv
+      hash: md5
+      md5: 49fca8b013499db4d3f28528829fa548
+      size: 1701

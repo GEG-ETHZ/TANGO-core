@@ -2,7 +2,7 @@
 ``restore_convergence_state()``.
 
 ``inlet`` is not a stored ``Component`` field — ``solve(inlet)`` takes it as
-a call parameter (see ``Component.solve()``'s docstring) — and ``outlet``,
+a call parameter (see ``FlowComponent.solve()``'s docstring) — and ``outlet``,
 while still a stored field, is written from exactly the same values every
 concrete ``solve()`` also records into ``state`` (``state.T_outlet``/
 ``P_outlet``/``mass_rate``, or their production-well equivalents). This

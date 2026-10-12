@@ -6,12 +6,12 @@ from abc import abstractmethod
 
 from pydantic import Field, PositiveFloat
 
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 from tango.core.specs import Common
 from tango.core.stream import Stream
 
 
-class SurfaceComponent(Component):
+class SurfaceComponent(FlowComponent):
     """Abstract base for surface / power-plant components.
 
     The surface component is always at component_idx=0 (the BC checkpoint).
@@ -57,5 +57,5 @@ class SurfaceComponent(Component):
     that explicitly)."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> None:
-        """Compute power plant outputs and reinjection state from production inlet."""
+    def solve(self, inlet: Stream) -> Stream:
+        """Compute power plant outputs, and compute and return the reinjection state from the production inlet."""

@@ -333,9 +333,7 @@ specific to deleted old-tango files/apps).
   ```
   Benefits: merges component config with graph structure, eliminates
   redundant per-component sections, multi-port components use a dict for
-  `connects_to`. See also
-  [ALTRIOS's rail network representation](https://github.com/NatLabRockies/altrios/blob/main/python/altrios/resources/networks/Taconite.yaml)
-  for another take on a self-contained graph format.
+  `connects_to`.
 - **Restore/update `GUIDELINES.md`.** Doesn't exist in this repo at all
   currently (not even a stale copy) — the original TODO pointed at
   `https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md`,
@@ -1063,17 +1061,14 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   assessment. The two items directly below are what that unlocks in
   practice.
 
-- **LOW PRIORITY, NO URGENCY — bump the `tespy` pin.** Flagged 2026-09-17.
-  `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current release is
-  0.11.2 (Sept 2026) — 4 minor versions behind. Newer TESPy has a friendlier
-  custom-component extension API (`dependents()`, `dc_cmc`/`num_eq_sets`)
-  that doesn't exist in our pinned version — worth having before any
-  custom-TESPy-component work starts (see
-  `dev_docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
-  whatever breaks, and re-check golden-snapshot economic/LCOE tests for
-  drift (same category of issue as the recent CoolProp-BICUBIC tolerance
-  loosening). Deliberately held until Chad finishes his current unrelated
-  work in another session.
+- **DONE 2026-10-12 — bumped the `tespy` pin to 0.11.2** (GitLab #75).
+  The breaks were the network-units API (`Network.units.set_defaults()`),
+  `Td_bp` becoming `td_bubble`, and the solver's iteration count and residual
+  history moving to `Network.problem`. Every LCOE golden held at 1e-6. On a
+  40-design sample of each ORC app's bounds, TESPy convergence failures went
+  from 45 to 0 and the repeat-solve flip-flop disappeared (0.11 seeds its
+  mass-flow starting values by component label; 0.7.1 drew them from the
+  global random generator). CoolProp is still pinned at 6.8.0.
 
 - **AGS-wellbore-as-TESPy-component prototype.** Flagged 2026-09-17, not
   started. Explore modeling a standalone surface plant with a custom
@@ -2302,7 +2297,7 @@ verified, then this fix popped back in and re-checked).
   minimizing LCOE and maximizing power, which is exactly pymoo's job
   (`opt_*` apps), with fracking-avoidance enforced as a constraint/CV
   exception (`FrackingViolationError`, already in `pymoo_api.py`'s
-  `_CV_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
+  `INFEASIBLE_DESIGN_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
   loop needs to hunt for live. Consistent with `pymoo_api.py`'s own module
   docstring, which already explains why `AUTO_*` policies aren't wired
   into `Minimization` at all — `MANUAL`/`MANUAL_FRACKING_CHECK` plus

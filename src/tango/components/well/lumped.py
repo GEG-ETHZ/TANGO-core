@@ -187,7 +187,7 @@ class LumpedInjectionWell(WellComponent):
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
 
@@ -229,6 +229,7 @@ class LumpedInjectionWell(WellComponent):
         self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
         self.outlet.mass_rate.update(s.mass_rate.get_fresh())
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ class LumpedProductionWell(WellComponent):
     state: WellboreState = Field(default_factory=WellboreState)
     history: WellboreHistory = Field(default_factory=WellboreHistory)
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
 
@@ -299,6 +300,7 @@ class LumpedProductionWell(WellComponent):
         self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
         self.outlet.mass_rate.update(s.mass_rate.get_fresh())
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +372,7 @@ class LumpedProductionWellWithPump(WellComponent):
         P_outlet = P_start - dp_h - dp_f
         return P_outlet, rho, mu, vel, re, ff, dp_f, dp_h
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute wellhead T and P including wellbore losses and pump boost.
 
         If a pump boost is needed, the boosted pump-discharge pressure is
@@ -430,7 +432,7 @@ class LumpedProductionWellWithPump(WellComponent):
             self.outlet.h.update(s.h_outlet.get_fresh())
             self.outlet.P.update(P_after_natural)
             self.outlet.mass_rate.update(mdot)
-            return
+            return self.outlet
 
         before = FluidState.with_HP(
             self.common.fluid_name,
@@ -499,3 +501,4 @@ class LumpedProductionWellWithPump(WellComponent):
         self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(P_outlet)
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

@@ -1,0 +1,53 @@
+stages:
+
+  # Stage 1: run NSGA2, write pareto_results.csv/pareto_configs only.
+  # --no-plot: plotting is the separate `plot` stage below (see
+  # build_pymoo_parser's docstring in src/tango/pymoo_api.py) — a
+  # plot-only code change shouldn't force a full search to rerun.
+  optimize:
+    # --clean: outputs/pareto_configs is a DVC `outs:` directory, so DVC
+    # caches whatever's actually in it after this runs. Without --clean, a
+    # rerun producing fewer pareto designs than last time leaves stale
+    # design_NNN.yml files behind (see the flag's own --help text) and DVC
+    # would cache those as if they were still part of the current result.
+    cmd: python opt_CO2_AGS_ORC_electric.py --clean --no-plot
+    deps:
+      - opt_CO2_AGS_ORC_electric.py
+      - ../../example_configs/CO2_AGS_ORC_electric.yml
+      # Content hash of src/tango/, kept current by the hash-tango
+      # pre-commit hook (tools/hash_tango.py). Tracking this one small
+      # file instead of the whole src/tango/ tree directly means DVC
+      # doesn't have to hash hundreds of source files on every `dvc repro`.
+      - ../../src/tango.hash
+    params:
+      # n_processes deliberately excluded -- parallelism, not a result-
+      # affecting param (same seeded search either way); tracking it would
+      # invalidate the cache on a pure worker-count retune for no reason.
+      - params.yaml:
+          - n_max_gen
+          - pop_size
+          - ftol
+          - xtol
+          - seed
+          - crossover_prob
+          - mutation_prob
+    outs:
+      - outputs/pareto_results.csv
+      - outputs/pareto_configs
+
+  # Stage 2: build every plot from outputs/pareto_results.csv via --plot-only
+  # (no simulation, no Minimization instance — see main()'s docstring).
+  plot:
+    cmd: python opt_CO2_AGS_ORC_electric.py --plot-only
+    deps:
+      - opt_CO2_AGS_ORC_electric.py
+      - outputs/pareto_results.csv
+      # Plotting code lives in tango.pymoo_api (OptApp.make_plots).
+      - ../../src/tango.hash
+    outs:
+      - outputs/pareto_parallel_coordinates.png
+      - outputs/pareto_parallel_coordinates.html
+      - outputs/pareto_scatter.png
+      - outputs/pareto_scatter_zscore.png
+      - outputs/pareto_scatter_by_param.png
+      - outputs/pareto_scatter_param_pairs.png

@@ -156,7 +156,7 @@ from tango.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
     from tango.components.economic.base import EconomicComponent
-    from tango.core.component import Component
+    from tango.core.component import FlowComponent
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ class SystemBCIteration(SystemDirect):
 
     def __init__(
         self,
-        components: dict[str, Component],
+        components: dict[str, FlowComponent],
         n_tsteps: int,
         dt_years: float,
         mass_rate: float,
@@ -782,7 +782,7 @@ Time: {t * self.dt_years} years
 
     def _converge_injection_flow(
         self,
-        surface: Component,
+        surface: FlowComponent,
         inj_well: WellComponent,
         reservoir: ReservoirComponent,
     ) -> None:
@@ -803,7 +803,7 @@ Time: {t * self.dt_years} years
         ``self.mass_rate`` is written into the circuit's entry inlet via
         ``self._set_circuit_entry_mass_rate()`` (``SystemDirect._pending_inlets``
         bookkeeping — not a stored ``Component`` field; see
-        ``Component.solve()``'s docstring for why ``inlet`` is a call
+        ``FlowComponent.solve()``'s docstring for why ``inlet`` is a call
         parameter) before each ``_converge_injection_enthalpy`` call, same idea as
         ``_converge_injection_pressure`` writing ``surface.injection_pressure``
         — but simpler: mass rate is conserved through the whole circuit each
@@ -919,7 +919,7 @@ Time: {t * self.dt_years} years
     def _converge_injection_enthalpy(
         self,
         inj_well: WellComponent,
-        surface: Component,
+        surface: FlowComponent,
         snapshot: dict[int, Any],
     ) -> None:
         """Converge the injection enthalpy, re-solving the whole circuit every iteration.
@@ -975,7 +975,7 @@ Time: {t * self.dt_years} years
                 component.restore_convergence_state(snapshot[component.component_idx])
                 component.mark_all_stale()
                 try:
-                    component.solve(self._next_inlet(component))
+                    outlet = component.solve(self._next_inlet(component))
                 except CoolPropError as exc:
                     if "Tmelt" in str(exc):
                         logger.warning(
@@ -1005,7 +1005,7 @@ Time: {t * self.dt_years} years
                     {exc}
                     """) from exc
 
-                self._record_outlet(component)
+                self._record_outlet(component, outlet)
 
             if retry_below_freezing:
                 continue
@@ -1090,7 +1090,7 @@ Time: {t * self.dt_years} years
         P_inj = p_outlet.get_fresh() if p_outlet is not None else float("nan")
         # T_prod: the production T arriving at the surface — read from the
         # surface's OWN state.T_inlet (derived from the arriving inlet's (h, P),
-        # see Component.solve()'s docstring), not a `surface.inlet` field —
+        # see FlowComponent.solve()'s docstring), not a `surface.inlet` field —
         # `inlet` is no longer a stored Component field.
         T_prod = t_inlet.get_fresh() if t_inlet is not None else float("nan")
         logger.info(

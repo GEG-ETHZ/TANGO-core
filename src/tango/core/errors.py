@@ -23,6 +23,18 @@ class ConfigError(TangoError):
     """Raised when an input configuration is invalid or inconsistent."""
 
 
+class InertParameterError(ConfigError):
+    """Raised when an optimization decision variable has no effect on any objective or constraint.
+
+    Perturbing the parameter up and down from its baseline left every
+    objective and constraint unchanged, so the search would spend a whole
+    dimension on it for nothing. Usually a ``ParamSpec.apply`` that writes a
+    config field nothing reads, or a field that is inert for this topology.
+    A ``ConfigError``, so an optimizer never mistakes it for an infeasible
+    design.
+    """
+
+
 class FrackingViolationError(TangoError):
     """Raised when injection would exceed a hydraulic-fracking threshold.
 
@@ -83,6 +95,19 @@ class PassivePressureRiseError(InvalidPowerStateError):
     ``InvalidPowerStateError`` because the result is the same kind of
     error, uncharged work, and so that an optimizer treats it as an
     infeasible design point.
+    """
+
+
+class CoolingLimitError(TangoError):
+    """Raised when a surface-plant component cools its fluid below what the site can reject heat to.
+
+    Heat rejected to the environment needs a heat sink colder than the fluid
+    leaving the cooler or condenser by at least the approach temperature, so
+    no outlet can be colder than ``surface_temperature +
+    approach_temperature``. TESPy solves a fixed outlet state below that
+    limit without complaint, as if free refrigeration were available, which
+    overstates the turbine's expansion and the plant's output. Treated as an
+    infeasible design by an optimizer.
     """
 
 

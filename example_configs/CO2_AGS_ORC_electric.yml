@@ -176,17 +176,23 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
 
         orc_desuperheater:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
           vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
 
         orc_condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 20.4 degC at 1.25 bar, so the 1 K subcooled outlet
+          # (19.4 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 11 + 7 = 18 degC.
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
 
         orc_feed_pump:
           type: Compressor

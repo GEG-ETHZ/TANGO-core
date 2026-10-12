@@ -31,10 +31,17 @@
 #   sbatch opt_hydro_df_electric_surrogate_job.sh
 # ---------------------------------------------------------------------------
 
+# -e: stop at the first command that fails.
+# -u: an unset variable is an error instead of an empty string.
+# -o pipefail: a pipeline fails if any command in it fails, not just the last.
+# Together: a failed run exits nonzero and shows as FAILED in sacct instead of
+# COMPLETED.
+set -euo pipefail
+
 # See opt_hydro_df_electric_job.sh for why $SLURM_SUBMIT_DIR (not git or
 # $0/dirname) is the reliable way to resolve REPO_ROOT under a real sbatch
 # job.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/opt_hydro_df_electric_surrogate"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
@@ -45,8 +52,8 @@ fi
 
 echo "=========================================="
 echo "Job started on: $(date)"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Running on node: $SLURMD_NODENAME"
+echo "Job ID: ${SLURM_JOB_ID:-}"
+echo "Running on node: ${SLURMD_NODENAME:-}"
 echo "Using params from: $PARAMS_FILE"
 echo "Working directory: $PWD"
 echo "Outputs -> $APP_DIR/outputs"
@@ -63,7 +70,21 @@ echo ""
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
-uv run --project "$REPO_ROOT" dvc repro applications/opt_hydro_df_electric_surrogate/dvc.yaml
+# Compute nodes have no internet, so a job can't install or rebuild anything
+# (e.g. after a `git pull` that changed pyproject.toml). Stop right away with
+# instructions instead of failing partway through `uv run`.
+if ! uv sync --check --offline --project "$REPO_ROOT" >/dev/null 2>&1; then
+  echo "The uv environment is out of date for $REPO_ROOT." >&2
+  echo "On the login node, run: cd $REPO_ROOT && just setup   (or: uv sync)" >&2
+  echo "then resubmit." >&2
+  exit 1
+fi
+
+# --wait-for-lock: every job runs `dvc repro` in this one checkout, and DVC
+# takes a repo-wide lock while it sets up and records each stage (not while
+# the stage's command runs). Without it, jobs that start together give up
+# after ~3 s and fail.
+uv run --project "$REPO_ROOT" dvc --wait-for-lock repro applications/opt_hydro_df_electric_surrogate/dvc.yaml
 
 echo ""
 echo "=========================================="

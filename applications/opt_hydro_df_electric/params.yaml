@@ -1,13 +1,11 @@
-# Parameters for the tango hydro_df_electric pymoo optimization
-# (mass flow rate + injection pressure + target extraction pressure ->
-# minimize LCOE, maximize mean net power).
+# NSGA2 settings for opt_hydro_df_electric (see opt_hydro_df_electric.py's
+# docstring for its decision variables and objectives).
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
 #
-# Defaults match tango.pymoo_api.PymooConfig's own defaults — see
-# opt_hydro_df_electric.py's load_params()/build_parser() for how these
-# flow into the actual CLI (params.yaml overrides PymooConfig's default,
-# an explicit CLI flag overrides params.yaml).
+# These become the CLI defaults (see tango.pymoo_api.build_pymoo_parser):
+# params.yaml overrides PymooConfig's default, an explicit CLI flag
+# overrides params.yaml. n_processes is not tracked by DVC.
 
 n_max_gen: 200
 pop_size: 45

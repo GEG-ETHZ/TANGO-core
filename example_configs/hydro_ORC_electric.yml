@@ -21,9 +21,11 @@
 # to a TESPy set_attr() call, so omitting them here doesn't affect
 # GraphSurface's physics.
 #
-# target_extraction_pressure/injection_pressure/mass_rate differ from the
-# SF/DF examples — matching flexible_ORC_manual.yml's own values, not
-# copied from the other two examples.
+# target_extraction_pressure/mass_rate differ from the SF/DF examples —
+# matching flexible_ORC_manual.yml's own values, not copied from the other
+# two examples. injection_pressure matches hydro_sf_electric.yml on the
+# same wells: flexible_ORC_manual.yml's 6 MPa puts the injection well's
+# bottom-hole pressure just above the reservoir's fracking threshold.
 
 title: Hydrothermal system with binary (ORC) power plant, manual flow rate
 
@@ -74,8 +76,8 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 6_000_000   # Pa — initial guess for bc_iteration solver, matches
-                                     # flexible_ORC_manual.yml's schedule.injection_pressure
+    injection_pressure: 2_000_000   # Pa — fixed injection wellhead pressure under injection_mode:
+                                     # manual; see the header for why not flexible_ORC_manual.yml's 6 MPa
     pipe_diameter: 0.41        # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
@@ -120,12 +122,12 @@ components:
         circulation_control:
           # PumpOrValve (not a fixed Compressor): whether this geofluid
           # recirculation point is a real pump or a passive throttle depends
-          # on design-point conditions -- at target_extraction_pressure
-          # (3 MPa) well below injection_pressure (6 MPa), the loop's own
-          # natural driving pressure can already exceed what a fixed-p_out
-          # Compressor would need, same ambiguity AGS_direct_heat.yml's
-          # circulation_control resolves this way -- see graph.py's module
-          # docstring.
+          # on design-point conditions -- with target_extraction_pressure
+          # (3 MPa) and injection_pressure (2 MPa) close together, the
+          # loop's own driving pressure can land on either side of what a
+          # fixed-p_out Compressor would need, the same ambiguity
+          # AGS_direct_heat.yml's circulation_control resolves this way --
+          # see graph.py's module docstring.
           type: PumpOrValve
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
@@ -134,17 +136,23 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar) -- condensing pressure, see orc_condenser
 
         orc_desuperheater:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar) -- condensing pressure, see orc_condenser
           vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
 
         orc_condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.1        # MPa (= 1 bar)
-          vapor_mass_fraction_out: 0    # dimensionless [0-1] — TESPy vapor quality x
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 24.3 degC at 1.45 bar, so the 1 K subcooled outlet
+          # (23.3 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC.
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
 
         orc_feed_pump:
           type: Compressor

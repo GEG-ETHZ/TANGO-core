@@ -6,9 +6,8 @@ from abc import abstractmethod
 
 from pydantic import Field, PositiveFloat, PrivateAttr
 
-from tango.core.component import Component
+from tango.core.component import Component, FlowComponent
 from tango.core.policies import MainProduct, ProjectMaturity
-from tango.core.stream import Stream
 
 
 class EconomicComponent(Component):
@@ -17,11 +16,13 @@ class EconomicComponent(Component):
     Economic components run exactly once, after all physical timesteps are
     complete, and compute project-level metrics (CAPEX, LCOE, etc.) from the
     other components' final solved state — not once per timestep like every
-    other ``Component`` subclass. See ``SystemDirect.finalize()`` and
+    other component. It is a plain ``Component``, not a ``FlowComponent``:
+    no fluid flows through it, so it has no ``inlet``/``outlet`` and its
+    ``solve()`` takes no inlet. See ``SystemDirect.finalize()`` and
     ``Workflow._build_economic_component()`` for how this is wired: an
     economic component is deliberately excluded from the per-timestep
-    ``_ordered``/``_by_idx`` circuit (no ``prev``/``next``, no ``inlet``/
-    ``outlet`` wiring), and instead receives every other component by
+    ``_ordered``/``_by_idx`` circuit (no ``prev``/``next``), and instead
+    receives every other component by
     reference (``self._components``, set by the orchestrator immediately
     before calling ``solve()``) — see ``DoubletEconomicComponent`` for the
     concrete implementation.
@@ -35,7 +36,7 @@ class EconomicComponent(Component):
     class's own methods.
     """
 
-    _components: dict[str, Component] = PrivateAttr(default_factory=dict)
+    _components: dict[str, FlowComponent] = PrivateAttr(default_factory=dict)
     """Every other component in the Workflow, keyed by YAML name — set by
     ``SystemDirect.finalize()`` immediately before calling ``solve()``."""
     _total_years: PositiveFloat = PrivateAttr(default=float("nan"))
@@ -52,16 +53,11 @@ class EconomicComponent(Component):
     """Which output is the plant's primary product — determines LCOE vs LCOH."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> None:
+    def solve(self) -> None:
         """Compute economic metrics from the other components' final solved state.
 
-        Unlike every other ``Component`` subclass, this reads sibling
-        components via ``self._components`` (a private, non-Pydantic
-        attribute set by the orchestrator right before this call — see the
-        class docstring). ``inlet`` is accepted (unused) purely for Liskov
-        compatibility with ``Component.solve()``'s signature — an economic
-        component has no fluid inlet of its own (see the class docstring's
-        "no ``inlet``/``outlet`` wiring" note); ``SystemDirect.finalize()``
-        passes ``Stream()`` (the empty default) as a documented no-op value.
+        Reads sibling components via ``self._components`` (a private,
+        non-Pydantic attribute set by the orchestrator right before this
+        call — see the class docstring).
         """
         ...

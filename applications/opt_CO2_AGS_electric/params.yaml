@@ -1,0 +1,19 @@
+# NSGA2 settings for opt_CO2_AGS_electric (see opt_CO2_AGS_electric.py's
+# docstring for its decision variables and objectives).
+# Changing any value here marks the dependent DVC stage as stale.
+# Run `uv run dvc repro` from this directory to re-execute stale stages.
+#
+# These become the CLI defaults (see tango.pymoo_api.build_pymoo_parser):
+# params.yaml overrides PymooConfig's default, an explicit CLI flag
+# overrides params.yaml. n_processes is not tracked by DVC.
+
+n_max_gen: 200
+pop_size: 45
+ftol: 0.005
+xtol: 0.0005
+seed: 1
+n_processes: 45
+crossover_prob: 0.9  # pymoo SBX's own default -- a genuine constant, safe to pin here
+mutation_prob: null  # pymoo PM's own default is 1/n_var (varies with param count) --
+                      # null defers to that instead of hardcoding a value that would
+                      # silently go stale if a param gets added/removed above

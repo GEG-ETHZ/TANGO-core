@@ -1,6 +1,7 @@
 # Code Quality and Linting
 
-- **Adhere to Code Quality Standards:** Ensure all modifications comply with both general and language-specific linting rules.
+- **Adhere to Code Quality Standards:** Ensure all modifications comply with
+  both general and language-specific linting rules.
 - For Markdown files, ensure:
   - Fenced code blocks have language specified
   - Emphasis uses asterisks (`*text*`) not underscores (`_text_`)
@@ -31,3 +32,9 @@
   `__name` has no special behaviour — it is just a name with underscores. When
   name mangling is intentionally used, explain why in the docstring so the
   reason is not lost.
+
+- **No development history in docstrings or comments.** Describe what the code
+  does and why it is correct now, not how it got that way ("previously this
+  used X", "changed after the refactor", "fixed the bug where …"). That history
+  belongs in commit messages and issues, where it stays attached to the change
+  instead of going stale in the source.

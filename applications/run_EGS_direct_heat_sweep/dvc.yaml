@@ -26,7 +26,6 @@ stages:
       - ../../src/tango.hash
     params:
       - params.yaml:
-          - n_workers
           - log_level
     outs:
       - outputs/results

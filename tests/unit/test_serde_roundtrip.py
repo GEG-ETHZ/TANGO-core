@@ -333,12 +333,6 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
     surface2.solve(_inlet_at(423.15, 8.5e6, 45.0))
 
-    # abs=2e-5 (not 1e-6): TESPy's own CoolProp lookups now use the
-    # BICUBIC-tabulated HEOS backend (see fluid_state.py's COOLPROP_BACKEND),
-    # whose interpolation noise leaves the solved T_out a fixed ~4.04e-6 K off
-    # the exact set-point (measured stable across 8 repeated runs -- unlike
-    # the bimodal jitter seen in the economic-parity golden checks, this
-    # particular case doesn't flip between two values) -- 5x margin over that.
-    assert pytest.approx(323.15, abs=2e-5) == surface2.state.T_outlet.get_fresh()  # fixed by T_out config
+    assert pytest.approx(323.15, abs=1e-6) == surface2.state.T_outlet.get_fresh()  # fixed by T_out config
     assert pytest.approx(7.0e6) == surface2.outlet.P.get_fresh()  # fixed by injection_pressure BC
     assert surface2.state.net_thermal_W.get_fresh() > 0

@@ -22,22 +22,45 @@ uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
 ## Optimizations — `opt_*`
 
-Multi-objective optimization (NSGA2 via `tango.pymoo_api.Minimization`) against
-a real config, each with its own DVC pipeline and SLURM job script. No
-dedicated `--smoke` flag — use tiny `--n-max-gen`/`--pop-size` plus a
-throwaway `--save-dir` for a fast end-to-end check instead (see the top-level
-`justfile`'s `demos` recipe for the exact invocation).
+One app per example config: multi-objective optimization (NSGA2 via
+`tango.pymoo_api.Minimization`) minimizing LCOE and maximizing mean net
+power (electric, or thermal for the direct-heat configs), each with its own
+DVC pipeline and SLURM job script. Every app script defines its own decision
+variables, bounds, and objectives and hands them to `tango.pymoo_api.OptApp`,
+which supplies the CLI, the baseline run, the search, and the plots.
 
-| App | Optimizes |
+Every app searches mass flow rate, injection pressure, and the surface pipe
+diameter. Doublets also search the injection and production well diameters,
+plus the target extraction pressure where the production well has a pump; AGS
+apps also search well depth, horizontal loop length and diameter, and
+vertical well diameter. Condensing pressures for water and ORC cycles are
+site conditions and are not searched. Each app also reports production
+temperature, specific investment cost, and OPEX for its Pareto front.
+
+| App | Plant-specific variables |
 |---|---|
-| `opt_hydro_sf_electric` | Single-flash: mass flow rate, injection wellhead pressure, target extraction pressure → minimize LCOE, maximize mean net electric power. |
-| `opt_hydro_df_electric` | Same objectives, double-flash topology. |
-| `opt_hydro_df_electric_surrogate` | Same search, against a trained surrogate model instead of the real simulation (see its own `train_surrogate.py`/`validate_surrogate.py`) — much cheaper per evaluation. |
-| `opt_AGS_direct_heat` | AGS direct-heat design (depth, loop length/diameter, mass flow rate) → minimize LCOE, subject to a minimum production-temperature constraint. |
+| `opt_hydro_sf_electric`, `opt_hydro_sf_electric_5spot`, `opt_EGS_electric` | Flash (separator) pressure |
+| `opt_hydro_df_electric` | High-pressure flash pressure, low-pressure flash as a fraction of it |
+| `opt_hydro_ORC_electric`, `opt_AGS_ORC_electric`, `opt_CO2_EGS_ORC_electric` | ORC feed-pump (evaporating) pressure |
+| `opt_CO2_AGS_ORC_electric` | ORC feed-pump pressure, `preheater` CO2 outlet pressure |
+| `opt_CO2_EGS_electric`, `opt_CPG_electric`, `opt_CO2_AGS_electric` | CO2 condensing (turbine exhaust) pressure |
+| `opt_CO2_AGS_direct_heat` | District-heating exchanger outlet pressure |
+| `opt_hydro_direct_heat`, `opt_EGS_direct_heat`, `opt_CO2_EGS_direct_heat`, `opt_CPG_direct_heat` | None |
+| `opt_AGS_direct_heat` | None; also constrains production temperature to at least 105 °C |
+| `opt_hydro_df_electric_surrogate` | `opt_hydro_df_electric`'s search against a trained surrogate model instead of the real simulation (see its own `train_surrogate.py`/`validate_surrogate.py`) — much cheaper per evaluation |
 
-Each app runs `--no-plot` then `--plot-only` against the same `--save-dir` in
-CI/smoke checks, exercising the two-stage optimize/plot split described in its
-own `dvc.yaml`.
+Before searching, every app checks that each decision variable actually
+matters: moving it up and down from the config's own value must change at
+least one objective or constraint, or the run stops with
+`InertParameterError` naming it. This costs `1 + 2 × (number of variables)`
+extra simulations; skip it with `--skip-param-check` once an app is known to
+be good.
+
+For a fast end-to-end check, run an app with `--smoke` (a 2-generation,
+population-6 search plus any relaxed constraint) and a throwaway `--save-dir`.
+The top-level `justfile`'s `apps` recipe does this for every app, running
+`--no-plot` then `--plot-only` against the same `--save-dir` to exercise the
+two-stage optimize/plot split in each app's `dvc.yaml`.
 
 ## Sweeps — `run_*_sweep`
 
@@ -60,9 +83,9 @@ cd applications/run_hydro_df_electric_sweep
 uv run dvc repro    # runs only stale stages, caches the rest
 ```
 
-Or submit the job script on Euler/other SLURM clusters (see the top-level
-`README.md`'s "Running on Euler" section):
+Or submit it on Euler/other SLURM clusters (see the top-level `README.md`'s
+"Running on Euler" section):
 
 ```bash
-sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 200
+just slurm run_hydro_df_electric_sweep
 ```

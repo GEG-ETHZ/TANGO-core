@@ -83,8 +83,7 @@ from tango.core.policies import MainProduct, ProjectMaturity
 from tango.core.state_methods import StateMethods
 
 if TYPE_CHECKING:
-    from tango.core.component import Component
-    from tango.core.stream import Stream
+    from tango.core.component import FlowComponent
 
 # Default probability of success; not exposed as a tango config field
 # since nothing varies it yet.
@@ -245,10 +244,8 @@ class DoubletEconomicComponent(EconomicComponent):
 
     state: EconomicState = Field(default_factory=EconomicState)
 
-    def solve(self, inlet: Stream) -> None:  # noqa: ARG002
+    def solve(self) -> None:
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).
-
-        ``inlet`` is unused — see ``EconomicComponent.solve()``'s docstring.
 
         Raises:
             RuntimeError: If called without ``self._components`` having been
@@ -256,7 +253,7 @@ class DoubletEconomicComponent(EconomicComponent):
                 ``SystemDirect.finalize()``).
 
         """
-        components: dict[str, Component] | None = getattr(self, "_components", None)
+        components: dict[str, FlowComponent] | None = getattr(self, "_components", None)
         if components is None:
             raise RuntimeError(
                 "DoubletEconomicComponent.solve() requires self._components to be set "

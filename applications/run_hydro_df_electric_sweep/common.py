@@ -48,12 +48,12 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     # --- Material properties (relatively flexible) ---
     # props.brine_density dropped — no tango Common field (see docstring).
     "common.rock_density": (0.8, 1.2),  # scale factor, ±20%
-    "common.rock_cp": (0.5, 2.0),  # scale factor, wide range ok
+    "common.rock_cp": (0.5, 1.5),  # scale factor, 500-1500 J/(kg*K): the full range Common accepts
     "common.rock_k": (0.5, 2.0),  # scale factor, wide range ok
     "common.thermal_gradient": (0.7, 1.5),  # scale factor, ±30-50%
     # --- Surface parameters ---
     "common.surface_temperature": (0.9, 1.1),  # scale factor, ±10% (base ~288K)
-    "common.surface_pressure": (0.9, 1.1),  # scale factor, ±10% (base 100kPa)
+    "common.surface_pressure": (0.9, 1.05),  # scale factor, 90-105 kPa (Common accepts 90-108.4 kPa)
     "components.surface.pipe_diameter": (0.5, 2.0),  # scale factor, max 5m validation limit
     "components.surface.approach_temperature": (0.5, 2.0),  # scale factor, 3.5-14K range
     "sim_config.target_extraction_pressure": (
@@ -78,9 +78,11 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     # and sweep.py's _sync_injection_well_length), not swept independently.
     "components.injection_well.diameter": (0.5, 2.0),  # scale factor, max ~0.8m (under 5m limit)
     "components.production_well_lower.well_length": (0.5, 2.5),  # scale factor, max ~10km
-    "components.production_well_lower.diameter": (0.5, 2.0),  # scale factor
+    "components.production_well_lower.diameter": (
+        0.5,
+        2.0,
+    ),  # scale factor; also sets the upper section (see LINKED_PATHS)
     "components.production_well_upper.well_length": (0.5, 2.5),  # scale factor, max ~2.5km
-    "components.production_well_upper.diameter": (0.5, 2.0),  # scale factor
     # --- Schedule parameters ---
     "sim_config.mass_rate": (0.5, 2.0),  # scale factor, 25-100 kg/s
     "layout.well_spacing": (0.5, 2.0),  # scale factor, 350-1400m — the sole
@@ -104,7 +106,8 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
         0.7,
         1.0,
     ),  # 70-100% (capped at 1.0)
-    "components.surface.power_plant.nodes.high_pressure_turbine.p_out_megapascals": (0.5, 3.0),
+    # The condensing pressure: also sets both turbines' exhaust pressure (see
+    # LINKED_PATHS), since each turbine expands straight to it.
     "components.surface.power_plant.nodes.high_pressure_condenser.p_out_megapascals": (0.5, 3.0),
     "components.surface.power_plant.nodes.high_pressure_condenser.subcooling_K": (
         1.0,
@@ -112,7 +115,6 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     ),  # fixed (no variation)
     "components.surface.power_plant.nodes.low_pressure_flash_valve.p_out_megapascals": (0.5, 2.0),
     "components.surface.power_plant.nodes.low_pressure_turbine.efficiency": (0.7, 1.0),
-    "components.surface.power_plant.nodes.low_pressure_turbine.p_out_megapascals": (0.5, 3.0),
     # low_pressure_condenser has no p_out field at all (pinned via condensate_mixer's equal-pressure
     # constraint with high_pressure_condenser — see hydro_df_electric.yml's comment).
     "components.surface.power_plant.nodes.low_pressure_condenser.subcooling_K": (
@@ -124,6 +126,19 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 PARAMETERS = list(PARAMETER_BOUNDS.keys())
+
+LINKED_PATHS: dict[str, tuple[str, ...]] = {
+    # The cost model requires one production-well diameter.
+    "components.production_well_lower.diameter": ("components.production_well_upper.diameter",),
+    # Scaling a turbine's exhaust apart from the condenser it feeds would make
+    # pressure rise across a passive part (rejected at config time).
+    "components.surface.power_plant.nodes.high_pressure_condenser.p_out_megapascals": (
+        "components.surface.power_plant.nodes.high_pressure_turbine.p_out_megapascals",
+        "components.surface.power_plant.nodes.low_pressure_turbine.p_out_megapascals",
+    ),
+}
+"""Extra config paths each listed parameter's scale factor also applies to, so
+values that must stay equal move together."""
 
 # Defaults (overridden by params.yaml if present)
 DEFAULT_N_WORKERS = 8

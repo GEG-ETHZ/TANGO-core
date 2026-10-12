@@ -6,12 +6,12 @@ from abc import abstractmethod
 
 from pydantic import Field, PositiveFloat
 
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 from tango.core.constants import GRAVITY
 from tango.core.stream import Stream
 
 
-class ReservoirComponent(Component):
+class ReservoirComponent(FlowComponent):
     """Abstract base for all reservoir components.
 
     External simulators (CMG, MOOSE) implement this interface as adapters.
@@ -51,5 +51,5 @@ class ReservoirComponent(Component):
     GRAVITY, overridable per reservoir since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> None:
-        """Compute reservoir outlet state from injection inlet state."""
+    def solve(self, inlet: Stream) -> Stream:
+        """Compute and return the reservoir outlet state from the injection inlet state."""

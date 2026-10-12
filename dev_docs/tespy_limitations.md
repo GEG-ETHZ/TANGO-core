@@ -163,37 +163,36 @@ wrong.
 
 **TANGO guard:** `GraphSurface` raises `TESPyConvergenceError` (a
 `ConvergenceError`, so optimizers treat it as infeasible) whenever
-`network.converged` is false, with one exception below. CoolProp failures
-inside TESPy surface as a bare `ValueError`, which TANGO wraps as
-`TESPyCoolPropError`.
+`network.converged` is false. CoolProp failures inside TESPy surface as a
+bare `ValueError`, which TANGO wraps as `TESPyCoolPropError`.
 
-**The exception: TESPy stalls on a pump drawing exactly saturated liquid.**
-It stops about 1 J/kg short on that pump's efficiency equation (on a rise
-of ~2,000-2,700 J/kg) with every other equation satisfied, whatever the
-starting point or iteration budget. Seen on `hydro_df_electric.yml`'s
-`condensate_pump` (fed by condensers set to `vapor_mass_fraction_out: 0`)
-and `EGS_electric.yml`'s `brine_pump` (fed by a flash separator's liquid
-outlet, which is saturated by definition). The mechanism is not known: it
-is not a CoolProp backend inconsistency at the saturation line (HEOS and
-BICUBIC&HEOS agree there to 0.03 J/kg). `GraphSurface._saturated_pump_stall`
-accepts exactly this case, with a warning naming the pump: all remaining
-residual in pump (`Compressor`) equations, under 10 in total, and each
-such pump's inlet within 100 J/kg of saturated liquid.
+**A stall on pumps drawing saturated liquid, gone under exact HEOS.** With
+the tabular `BICUBIC&HEOS` backend, TESPy sometimes stopped about 1 J/kg
+short on the efficiency equation of a pump drawing exactly saturated liquid
+(`hydro_df_electric.yml`'s `condensate_pump`, `EGS_electric.yml`'s
+`brine_pump`) with every other equation satisfied. TANGO used to accept that
+case with a warning. Under exact `HEOS`, the default since 2026-10-07, no
+example config stalls, and under `BICUBIC&HEOS` the stall came and went with
+the run length and even between identical runs, so it was table noise.
+The acceptance path was removed: an unconverged solve always raises.
 
-**Condensers are subcooled to avoid it.** Condenser outlets use
-`subcooling_K: 1.0` (TESPy's `Td_bp`, relative to saturation at the actual
+**Condensers are subcooled.** Condenser outlets use
+`subcooling_K: 1.0` (TESPy's `td_bubble`, relative to saturation at the actual
 outlet pressure) instead of exactly saturated liquid, which also gives the
 pump a margin against cavitation. A subcooled outlet can need TESPy
 starting guesses (`p0_out1`, `h0_out1`): without them,
-`hydro_df_electric.yml` diverged in year 0. Separator liquid can't be
-subcooled, so the stall exception is still needed for brine pumps. Four
-ORC condensers and `CPG_electric.yml`'s still condense to saturated liquid
-because subcooling them would put them below their cooling limit
-(surface temperature plus approach); see GitLab #67.
+`hydro_df_electric.yml` diverged in year 0 under `BICUBIC&HEOS` (it
+converges without them under exact `HEOS`). Separator liquid can't be
+subcooled. Every example condenser is now subcooled; the ORC and
+`CPG_electric.yml` condensers needed their condensing pressure raised first
+so the subcooled outlet stays above the site's cooling limit (surface
+temperature plus approach, enforced by `GraphSurface._check_cooling_limit`;
+GitLab #73).
 
 ## Power and heat are in watts regardless of the network's units
 
-**TESPy allows:** `h_unit="kJ / kg"` changes connection units only;
+**TESPy allows:** `Network.units.set_defaults(enthalpy="kJ / kg")` changes
+connection units only;
 component `P.val` / `Q.val` are always in W, positive into the fluid. This
 caused a silent 1000x power error during development.
 
@@ -207,23 +206,43 @@ when the plant has a `Turbine`.
 resets it) to silence noisy "invalid value for pr/zeta" warnings. Genuine
 bound violations are hidden along with the noise.
 
-## The pinned TESPy version is old
+## Old TESPy versions started from a random guess *[TESPy, fixed by upgrade]*
 
-`pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023; current release is
-0.11.x). That version has no custom-component API, its Newton solver is
-sensitive to the initial guess (oemof/tespy#314), and there is no warm
-start: every solve begins from scratch. The bump is in the backlog
-(`dev_docs/tango_tasks.md`).
+`pyproject.toml` pinned `tespy==0.7.1.post1` until 2026-10-12. That version
+started any mass flow without a guess from the global random number
+generator, so the same ORC design could converge in one run and fail in the
+next. On a 40-design sample of each ORC app's bounds, 45 designs failed to
+converge. TESPy 0.11.2 seeds each starting value by its component's label,
+and none of the same designs fail to converge. Its Newton solver is still
+sensitive to the starting guess (oemof/tespy#314), and there is no warm
+start: every solve begins from scratch.
 
-## Tabular CoolProp errors near the CO2 critical point *[CoolProp]*
+## Tabular CoolProp errors near phase boundaries *[CoolProp, fixed by default]*
 
-The `BICUBIC&HEOS` backend loses accuracy near the critical point:
-rebuilding enthalpy from (T, P) lost up to 42 kJ/kg per component boundary
-(about 1.1 MW in the CO2 EGS heat example) until streams carried enthalpy
-directly (commit `e11d0e6`). It also produces small run-to-run jitter
-(~3e-5 relative in CAPEX/LCOE; commit `4b6583d`). A saturated state such as
-a condenser outlet can't be rebuilt from (T, P) at all, so node states are
-read as enthalpy straight off the TESPy connection.
+The `BICUBIC&HEOS` backend interpolates from a table, and TESPy trusts its
+lookups without checking them. Since 2026-10-07 tango defaults to exact
+`HEOS` (about 1.4-2.2x the runtime) because of two failures:
+
+- **Just below saturation.** With a fixed outlet pressure, TESPy turns
+  `subcooling_K` (`td_bubble`) into a fixed enthalpy once, before solving, from a
+  (P, T) flash 1 K below saturation. `BICUBIC&HEOS` sometimes returns the
+  wrong side of the saturation curve: for R245fa it gives 257.5 kJ/kg at
+  0.145 MPa (exact: 230.8) and 343.7 kJ/kg at 0.14 MPa (exact: 229.6), while
+  0.125 and 0.15 MPa are exact. `hydro_ORC_electric.yml` at 0.145 MPa had a
+  13% vapor condenser outlet, a feed pump compressing wet vapor (201 kW
+  instead of ~48 kW), and a solve that reported convergence. The CO2
+  condensers in `CO2_AGS_electric.yml`/`CO2_EGS_electric.yml` were subcooled
+  1.37 K instead of 1 K. Whether a pressure works depends on where it falls in
+  the table, so a working pressure says nothing about its neighbors.
+- **Near the CO2 critical point.** Table cells are coarse there:
+  rebuilding enthalpy from (T, P) lost up to 42 kJ/kg per component boundary
+  (about 1.1 MW in the CO2 EGS heat example) until streams carried enthalpy
+  directly (commit `e11d0e6`), and a fixed 315 K target once solved to
+  ~305.3 K. It also produces small run-to-run jitter (~3e-5 relative in
+  CAPEX/LCOE; commit `4b6583d`).
+
+A config can still opt into `common.coolprop_backend: BICUBIC&HEOS` for
+speed; check its results against `HEOS` first.
 
 ## Negative heat extraction is accepted *[physics, no guard]*
 

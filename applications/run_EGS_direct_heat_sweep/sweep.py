@@ -85,6 +85,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS  # noqa: E402
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 
@@ -179,11 +180,11 @@ def run_single_simulation(args: tuple) -> None:
         # recorded history entry).
         T_prod_K: float = prod.history.T_outlet[-1]
 
-        # Injection temperature = surface outlet (live read). The DH heat
+        # Injection temperature = surface outlet, last recorded timestep. The DH heat
         # exchanger's T_out is a hard TESPy connection constraint, not an
         # effectiveness model, so a converged solve always produces exactly
         # the configured return temperature here.
-        T_inj_K: float = surface.outlet.T.get_fresh()
+        T_inj_K: float = surface.history.T_outlet[-1]
 
         # Thermal power: tango computes this correctly already (mdot *
         # actual enthalpy drop across dh_hx, solved by TESPy) — no manual
@@ -212,7 +213,11 @@ def run_single_simulation(args: tuple) -> None:
         result["LCOE_USD_per_kWh"] = econ_state["LCOE"]
         result["net_thermal_power_kW"] = econ_state["net_thermal_W"] / 1000.0
 
-    except Exception as e:
+    # Only the errors that mean "this design doesn't work" (fracking, a failed
+    # fluid-property lookup, non-convergence, ...) are recorded as a failed
+    # design. Anything else is a bug and stops the sweep, instead of being
+    # recorded once per design.
+    except INFEASIBLE_DESIGN_EXCEPTIONS as e:
         result["error"] = {
             "type": type(e).__name__,
             "message": str(e),

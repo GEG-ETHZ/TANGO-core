@@ -2,10 +2,9 @@
 
 Every stage script (``generate_lhs.py``, ``sweep_lhs.py``, ``train_surrogate.py``,
 ``optimize_surrogate.py``, ``validate_surrogate.py``) reuses THIS system's own
-``_param_specs``/``_objective_specs``/``build_baseline``/``make_plots``/
-``DISPLAY_RENAME`` from the sibling ``opt_hydro_df_electric`` app directory
-directly, rather than redefining them here — see ``tango.surrogate_api``'s
-module docstring for why this whole pipeline stays generic about the system
+decision variables, objectives, baseline, plots, and display renames from the
+sibling ``opt_hydro_df_electric`` app's ``APP`` directly, rather than
+redefining them here — see ``tango.surrogate_api``'s module docstring for why this whole pipeline stays generic about the system
 it's optimizing (this ``common.py`` is the one place that's NOT generic; it's
 this app's own glue).
 
@@ -53,23 +52,27 @@ def opt_app_pymoo_params() -> dict:
 
 
 def param_specs():
-    """Decision variables — see ``opt_hydro_df_electric._param_specs``."""
-    return opt_app._param_specs()  # noqa: SLF001
+    """Decision variables — see ``opt_hydro_df_electric.APP``."""
+    return opt_app.APP.param_specs()
 
 
 def objective_specs():
-    """Objectives — see ``opt_hydro_df_electric._objective_specs``."""
-    return opt_app._objective_specs()  # noqa: SLF001
+    """Objectives — see ``opt_hydro_df_electric.APP``."""
+    return opt_app.APP.objective_specs
 
 
 def build_baseline():
-    """UNRUN template + run() baseline workflows — see ``opt_hydro_df_electric.build_baseline``."""
-    return opt_app.build_baseline()
+    """UNRUN template + run() baseline workflows — see ``OptApp.build_baseline``."""
+    return opt_app.APP.build_baseline()
 
 
 def make_plots(df, save_dir, param_cols, objective_cols):
-    """Every pareto plot, reused as-is — see ``opt_hydro_df_electric.make_plots``."""
-    opt_app.make_plots(df, save_dir, param_cols, objective_cols)
+    """Every pareto plot — see ``OptApp.make_plots``.
+
+    ``param_cols``/``objective_cols`` are accepted for the stage scripts'
+    existing call sites; ``OptApp`` derives both from its own specs.
+    """
+    opt_app.APP.make_plots(df, save_dir)
 
 
-DISPLAY_RENAME = opt_app.DISPLAY_RENAME
+DISPLAY_RENAME = opt_app.APP.display_rename

@@ -14,6 +14,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 - **Phase diagrams** number every state point in flow order, with a
   "State points" key under the plot, and open on the final year instead of
   animating through every year on load.
+- **TESPy 0.7.1 → 0.11.2** (GitLab #75). LCOE results for every example
+  config are unchanged to 1e-6. ORC designs that used to fail to converge at
+  random now solve every time. The `subcooling_K` surface-node key now maps
+  to TESPy's `td_bubble`.
 
 ---
 
@@ -53,7 +57,8 @@ configs**; every example config is regoldened.
   - `TESPyConvergenceError`: an unconverged TESPy solve, except TESPy's
     measured ~1 J/kg stall on a pump drawing exactly saturated liquid,
     which is used with a warning naming the pump.
-- **`subcooling_K`** surface-node key (TESPy `Td_bp`): an outlet that many
+- **`subcooling_K`** surface-node key (TESPy `Td_bp`, `td_bubble` since
+  TESPy 0.11): an outlet that many
   kelvin below saturation at its actual pressure.
 - **Third-party license tooling**: `tools/check_licenses.py` records the
   dependency graph (direct/indirect, depth, scope), evaluates license

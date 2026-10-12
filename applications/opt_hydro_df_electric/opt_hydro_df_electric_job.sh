@@ -8,17 +8,17 @@
 #SBATCH --error=opt_hydro_df_electric_%j.err
 
 # ---------------------------------------------------------------------------
-# Runs the tango hydro_df_electric pymoo optimization (mass flow rate +
-# injection pressure + target extraction pressure -> minimize LCOE, maximize
-# mean net power) via `dvc repro`. Unlike the sibling run_*_sweep_job.sh
-# scripts, this job does NOT write anything into params.yaml and does NOT
-# accept CLI overrides -- params.yaml is the single source of truth for
-# every hyperparameter (n_max_gen, pop_size, ftol, xtol, seed, n_processes,
-# crossover_prob, mutation_prob). Edit params.yaml directly before
-# submitting; `dvc repro` picks up whatever's committed there. This avoids
-# the job silently rewriting params.yaml on every submission (which made it
-# impossible to tell, after the fact, what values a given run actually used
-# without checking job logs).
+# Runs the tango opt_hydro_df_electric pymoo optimization via `dvc repro`
+# (see opt_hydro_df_electric.py's docstring for its decision variables and
+# objectives). Like the sibling run_*_sweep_job.sh scripts, this job does
+# NOT write anything into params.yaml and does NOT accept CLI overrides --
+# params.yaml is the
+# single source of truth for every hyperparameter (n_max_gen, pop_size,
+# ftol, xtol, seed, n_processes, crossover_prob, mutation_prob). Edit
+# params.yaml directly before submitting; `dvc repro` picks up whatever's
+# committed there. This avoids the job silently rewriting params.yaml on
+# every submission (which made it impossible to tell, after the fact, what
+# values a given run actually used without checking job logs).
 #
 # n_processes is therefore NOT auto-derived from --cpus-per-task anymore --
 # keep params.yaml's n_processes in sync with whatever --cpus-per-task you
@@ -37,6 +37,13 @@
 #   sbatch opt_hydro_df_electric_job.sh
 # ---------------------------------------------------------------------------
 
+# -e: stop at the first command that fails.
+# -u: an unset variable is an error instead of an empty string.
+# -o pipefail: a pipeline fails if any command in it fails, not just the last.
+# Together: a failed run exits nonzero and shows as FAILED in sacct instead of
+# COMPLETED.
+set -euo pipefail
+
 # NOT git-based (unlike the sibling sweep job scripts' `git -C ... rev-parse
 # --show-toplevel`) -- that assumes a git clone, but the documented Euler
 # workflow (README.md's "Running on Euler") is rsync-based and doesn't
@@ -54,7 +61,7 @@
 # `sbatch` was invoked FROM, which the documented workflow always is
 # (this script's own directory). Falls back to `dirname "$0"` only for
 # local testing outside SLURM, where $SLURM_SUBMIT_DIR is unset.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/opt_hydro_df_electric"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
@@ -65,8 +72,8 @@ fi
 
 echo "=========================================="
 echo "Job started on: $(date)"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Running on node: $SLURMD_NODENAME"
+echo "Job ID: ${SLURM_JOB_ID:-}"
+echo "Running on node: ${SLURMD_NODENAME:-}"
 echo "Using params from: $PARAMS_FILE"
 echo "Working directory: $PWD"
 echo "Outputs -> $APP_DIR/outputs"
@@ -84,13 +91,24 @@ echo ""
 # unflushed buffer and doesn't show up in the .out file until it fills or
 # the process exits, making a long-running job look stalled even though
 # outputs/pareto_results_partial.csv proves it's progressing fine.
-# Confirmed the hard way on a real Euler run (2026-08-14): opt_*.py's own
-# --quiet defaults to off, so this was purely a buffering artifact, not a
-# verbosity setting.
 export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
-uv run --project "$REPO_ROOT" dvc repro applications/opt_hydro_df_electric/dvc.yaml
+# Compute nodes have no internet, so a job can't install or rebuild anything
+# (e.g. after a `git pull` that changed pyproject.toml). Stop right away with
+# instructions instead of failing partway through `uv run`.
+if ! uv sync --check --offline --project "$REPO_ROOT" >/dev/null 2>&1; then
+  echo "The uv environment is out of date for $REPO_ROOT." >&2
+  echo "On the login node, run: cd $REPO_ROOT && just setup   (or: uv sync)" >&2
+  echo "then resubmit." >&2
+  exit 1
+fi
+
+# --wait-for-lock: every job runs `dvc repro` in this one checkout, and DVC
+# takes a repo-wide lock while it sets up and records each stage (not while
+# the stage's command runs). Without it, jobs that start together give up
+# after ~3 s and fail.
+uv run --project "$REPO_ROOT" dvc --wait-for-lock repro applications/opt_hydro_df_electric/dvc.yaml
 
 echo ""
 echo "=========================================="
