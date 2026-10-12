@@ -177,7 +177,7 @@ the run length and even between identical runs, so it was table noise.
 The acceptance path was removed: an unconverged solve always raises.
 
 **Condensers are subcooled.** Condenser outlets use
-`subcooling_K: 1.0` (TESPy's `Td_bp`, relative to saturation at the actual
+`subcooling_K: 1.0` (TESPy's `td_bubble`, relative to saturation at the actual
 outlet pressure) instead of exactly saturated liquid, which also gives the
 pump a margin against cavitation. A subcooled outlet can need TESPy
 starting guesses (`p0_out1`, `h0_out1`): without them,
@@ -191,7 +191,8 @@ GitLab #73).
 
 ## Power and heat are in watts regardless of the network's units
 
-**TESPy allows:** `h_unit="kJ / kg"` changes connection units only;
+**TESPy allows:** `Network.units.set_defaults(enthalpy="kJ / kg")` changes
+connection units only;
 component `P.val` / `Q.val` are always in W, positive into the fluid. This
 caused a silent 1000x power error during development.
 
@@ -205,13 +206,16 @@ when the plant has a `Turbine`.
 resets it) to silence noisy "invalid value for pr/zeta" warnings. Genuine
 bound violations are hidden along with the noise.
 
-## The pinned TESPy version is old
+## Old TESPy versions started from a random guess *[TESPy, fixed by upgrade]*
 
-`pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023; current release is
-0.11.x). That version has no custom-component API, its Newton solver is
-sensitive to the initial guess (oemof/tespy#314), and there is no warm
-start: every solve begins from scratch. The bump is in the backlog
-(`dev_docs/tango_tasks.md`).
+`pyproject.toml` pinned `tespy==0.7.1.post1` until 2026-10-12. That version
+started any mass flow without a guess from the global random number
+generator, so the same ORC design could converge in one run and fail in the
+next. On a 40-design sample of each ORC app's bounds, 45 designs failed to
+converge. TESPy 0.11.2 seeds each starting value by its component's label,
+and none of the same designs fail to converge. Its Newton solver is still
+sensitive to the starting guess (oemof/tespy#314), and there is no warm
+start: every solve begins from scratch.
 
 ## Tabular CoolProp errors near phase boundaries *[CoolProp, fixed by default]*
 
@@ -220,7 +224,7 @@ lookups without checking them. Since 2026-10-07 tango defaults to exact
 `HEOS` (about 1.4-2.2x the runtime) because of two failures:
 
 - **Just below saturation.** With a fixed outlet pressure, TESPy turns
-  `subcooling_K` (`Td_bp`) into a fixed enthalpy once, before solving, from a
+  `subcooling_K` (`td_bubble`) into a fixed enthalpy once, before solving, from a
   (P, T) flash 1 K below saturation. `BICUBIC&HEOS` sometimes returns the
   wrong side of the saturation curve: for R245fa it gives 257.5 kJ/kg at
   0.145 MPa (exact: 230.8) and 343.7 kJ/kg at 0.14 MPa (exact: 229.6), while

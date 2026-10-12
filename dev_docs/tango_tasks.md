@@ -1061,17 +1061,14 @@ Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core
   assessment. The two items directly below are what that unlocks in
   practice.
 
-- **LOW PRIORITY, NO URGENCY — bump the `tespy` pin.** Flagged 2026-09-17.
-  `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current release is
-  0.11.2 (Sept 2026) — 4 minor versions behind. Newer TESPy has a friendlier
-  custom-component extension API (`dependents()`, `dc_cmc`/`num_eq_sets`)
-  that doesn't exist in our pinned version — worth having before any
-  custom-TESPy-component work starts (see
-  `dev_docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
-  whatever breaks, and re-check golden-snapshot economic/LCOE tests for
-  drift (same category of issue as the recent CoolProp-BICUBIC tolerance
-  loosening). Deliberately held until Chad finishes his current unrelated
-  work in another session.
+- **DONE 2026-10-12 — bumped the `tespy` pin to 0.11.2** (GitLab #75).
+  The breaks were the network-units API (`Network.units.set_defaults()`),
+  `Td_bp` becoming `td_bubble`, and the solver's iteration count and residual
+  history moving to `Network.problem`. Every LCOE golden held at 1e-6. On a
+  40-design sample of each ORC app's bounds, TESPy convergence failures went
+  from 45 to 0 and the repeat-solve flip-flop disappeared (0.11 seeds its
+  mass-flow starting values by component label; 0.7.1 drew them from the
+  global random generator). CoolProp is still pinned at 6.8.0.
 
 - **AGS-wellbore-as-TESPy-component prototype.** Flagged 2026-09-17, not
   started. Explore modeling a standalone surface plant with a custom

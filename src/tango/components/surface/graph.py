@@ -493,7 +493,13 @@ class GraphSurface(SurfaceComponent):
                 ),
             )
 
-        net = Network(p_unit="bar", T_unit="C", h_unit="kJ / kg", iterinfo=False)
+        net = Network(iterinfo=False)
+        net.units.set_defaults(
+            pressure="bar",
+            pressure_difference="bar",
+            temperature="degC",
+            enthalpy="kJ / kg",
+        )
         net.add_conns(*conns)
 
         # ---- Per-node fixed attributes (efficiency, T_out, p_out, ...) ----
@@ -667,8 +673,8 @@ class GraphSurface(SurfaceComponent):
           outgoing connection for every type, incoming for a ``Sink``):
           ``p_out_megapascals`` -> ``p`` (MPa -> bar), ``T_out`` (K) -> ``T``
           (K -> degC), ``vapor_mass_fraction_out`` -> ``x``, ``subcooling_K``
-          -> ``Td_bp`` (negated: an outlet that many kelvin below the
-          saturation temperature at its own pressure, so it tracks the
+          -> ``td_bubble`` (an outlet that many kelvin below the bubble-point
+          temperature at its own pressure, so it tracks the
           pressure if that changes, e.g. in a sweep).
         - ``_out{N}``-suffixed keys (``_PORT_SUFFIXED_ATTRS``), targeting
           specifically the connection whose ``source_id == f"out{N}"``:
@@ -694,7 +700,7 @@ class GraphSurface(SurfaceComponent):
                 raise ConfigError(
                     f"subcooling_K must be positive (kelvin below saturation), got {subcooling}",
                 )
-            conn_attrs["Td_bp"] = -subcooling
+            conn_attrs["td_bubble"] = subcooling
         if conn_attrs:
             if type_name == "Sink":
                 conn = next(c for c in conns if c.target is node)
@@ -962,8 +968,8 @@ class GraphSurface(SurfaceComponent):
 
         if not self._network.converged:
             raise TESPyConvergenceError(
-                f"TESPy network did not converge ({self._network.iter} iterations, residual "
-                f"{self._network.residual_history[-1]:.3g}); its outlet conditions can't be trusted.",
+                f"TESPy network did not converge ({self._network.problem.iter} iterations, residual "
+                f"{self._network.problem.residual_history[-1]:.3g}); its outlet conditions can't be trusted.",
             )
 
         h_out = self._outlet_conn.h.val * KJ_PER_KG_TO_J_PER_KG
