@@ -58,6 +58,9 @@ if TYPE_CHECKING:
 _N_DOME_POINTS = 200
 """Points per saturation-curve branch (liquid/vapor) when tracing the dome."""
 
+_LABEL_MERGE_FRACTION = 0.01
+"""State points closer than this fraction of the plot's width and height share one number label."""
+
 _PHASE_COLORS: dict[int, str] = {
     CP.iphase_liquid: "blue",
     CP.iphase_gas: "orange",
@@ -279,7 +282,9 @@ def write_phase_diagrams(
                 config.for_fluid(fluid_name),
                 config_name=stem,
             )
-            fig.write_html(path)
+            # auto_play=False: open on the final year, static, and let the
+            # reader drag the slider instead of animating every year on load.
+            fig.write_html(path, auto_play=False)
             written.append(path)
 
     return written
@@ -518,9 +523,13 @@ def _build_figure(
 
     The dome, reference lines, and legend entries are static: they're the
     base figure's first traces and no animation frame touches them. Each
-    frame carries only the per-edge traces and names their indices
-    explicitly (``go.Frame(traces=...)``), so a frame can never shift onto
-    -- or leave stale -- a trace it doesn't own.
+    frame carries only the per-edge traces plus the state-number labels and
+    names their indices explicitly (``go.Frame(traces=...)``), so a frame
+    can never shift onto -- or leave stale -- a trace it doesn't own.
+
+    Every state point is numbered in flow order (``_state_point_order``),
+    and a "State points" key under the plot maps each number to its node.
+    The figure opens on the final year.
     """
     backend = component.common.coolprop_backend
     node_history = component.history.node_history
@@ -607,7 +616,10 @@ def _build_figure(
             (xaxis_range[0], xaxis_range[1]),
         ),
     ]
-    edge_trace_indices = list(range(len(static_traces), len(static_traces) + len(edges)))
+    numbered = _state_point_order(edges, list(h_kj))
+    static_traces += _state_key_traces(numbered, xaxis_range[0], float(10 ** yaxis_range[0]))
+    # One trace per edge, then the numbered-label trace last.
+    frame_trace_indices = list(range(len(static_traces), len(static_traces) + len(edges) + 1))
 
     frames = []
     for t in range(n_tsteps):
@@ -652,12 +664,13 @@ def _build_figure(
                     hovertemplate="<b>%{hovertext}</b><br>h=%{x:.1f} kJ/kg<br>P=%{y:.4g} bar<extra>%{fullData.name}</extra>",
                 ),
             )
+        frame_traces.append(_state_number_trace(numbered, h_kj, p_bar, t, xaxis_range, yaxis_range))
         frame_layout = {
             "xaxis": {"range": xaxis_range, "autorange": False},
             "yaxis": {"range": yaxis_range, "autorange": False, "type": "log"},
         }
         frames.append(
-            go.Frame(data=frame_traces, traces=edge_trace_indices, layout=frame_layout, name=str(t)),
+            go.Frame(data=frame_traces, traces=frame_trace_indices, layout=frame_layout, name=str(t)),
         )
 
     fig = go.Figure(data=[*static_traces, *(frames[-1].data if frames else [])], frames=frames)
@@ -671,8 +684,23 @@ def _build_figure(
         yaxis_type="log",
         yaxis_range=yaxis_range,
         yaxis_autorange=False,
+        # The State points key sits under the plot, below the slider.
+        legend2={
+            "title": {"text": "State points"},
+            "orientation": "h",
+            "x": 0,
+            "xanchor": "left",
+            "y": -0.27,
+            "yanchor": "top",
+            "itemclick": False,
+            "itemdoubleclick": False,
+        },
+        margin={"b": 160},
         sliders=[
             {
+                # Start on the last year, which is what the base figure
+                # shows before the slider is touched.
+                "active": max(n_tsteps - 1, 0),
                 "steps": [
                     {
                         "args": [
@@ -755,6 +783,95 @@ def _profile_trace(
         hovertext=hovertext,
         hovertemplate="<b>%{hovertext}</b><br>h=%{x:.1f} kJ/kg<br>P=%{y:.4g} bar<extra>%{fullData.name}</extra>",
     )
+
+
+def _state_point_order(edges: list[tuple[str, str]], keys: list[str]) -> list[str]:
+    """State-point keys in flow order, for numbering them 1, 2, 3, ...
+
+    Walks the edges downstream from ``inlet`` (the geofluid entering the
+    surface plant) or, for a fluid with no ``inlet`` (an ORC's working
+    fluid), from the first edge's source. Points the walk never reaches are
+    appended in their original order, so every point gets a number.
+    """
+    downstream: dict[str, list[str]] = {}
+    for source, target in edges:
+        downstream.setdefault(source, []).append(target)
+    if "inlet" in keys:
+        start = "inlet"
+    elif edges:
+        start = edges[0][0]
+    else:
+        return list(keys)
+    order: list[str] = []
+    stack = [start]
+    while stack:
+        key = stack.pop()
+        if key in order or key not in keys:
+            continue
+        order.append(key)
+        stack.extend(reversed(downstream.get(key, [])))
+    return order + [key for key in keys if key not in order]
+
+
+def _state_number_trace(
+    numbered: list[str],
+    h_kj: dict[str, list[float]],
+    p_bar: dict[str, list[float]],
+    t: int,
+    xaxis_range: list[float],
+    yaxis_range: list[float],
+) -> go.Scatter:
+    """Each state point's number, drawn next to its marker for year ``t``.
+
+    Points within ``_LABEL_MERGE_FRACTION`` of the plot's width and height
+    of each other share one label (e.g. ``"9, 1"``), so a component that
+    passes a state straight through, or a short surface pipe, doesn't print
+    two numbers on top of each other. ``yaxis_range`` is in log10(bar), as
+    the axis is drawn.
+    """
+    h_tol = _LABEL_MERGE_FRACTION * (xaxis_range[1] - xaxis_range[0])
+    logp_tol = _LABEL_MERGE_FRACTION * (yaxis_range[1] - yaxis_range[0])
+    groups: list[tuple[float, float, list[str]]] = []
+    for i, key in enumerate(numbered, start=1):
+        h, p = h_kj[key][t], p_bar[key][t]
+        log_p = float(np.log10(p)) if p > 0 else yaxis_range[0]
+        for group_h, group_log_p, numbers in groups:
+            if abs(h - group_h) <= h_tol and abs(log_p - group_log_p) <= logp_tol:
+                numbers.append(str(i))
+                break
+        else:
+            groups.append((h, log_p, [str(i)]))
+    return go.Scatter(
+        x=[h for h, _, _ in groups],
+        y=[10**log_p for _, log_p, _ in groups],
+        text=[", ".join(numbers) for _, _, numbers in groups],
+        mode="text",
+        textposition="top right",
+        textfont={"size": 12, "color": "black"},
+        showlegend=False,
+        name="State numbers",
+        hoverinfo="skip",
+    )
+
+
+def _state_key_traces(numbered: list[str], h_anchor: float, p_anchor: float) -> list[go.Scatter]:
+    """One legend entry per state point, ``"<number>  <node>"``, in the separate ``legend2`` key.
+
+    Same invisible single-point trick as ``_phase_legend_traces``, with a
+    transparent line so the entry shows only its text.
+    """
+    return [
+        go.Scatter(
+            x=[h_anchor],
+            y=[p_anchor],
+            mode="lines",
+            line={"color": "rgba(0, 0, 0, 0)", "width": 0},
+            name=f"{i}  {key}",
+            legend="legend2",
+            hoverinfo="skip",
+        )
+        for i, key in enumerate(numbered, start=1)
+    ]
 
 
 def _phase_color(fluid_name: str, h_kj_val: float, p_bar_val: float, backend: str) -> str:

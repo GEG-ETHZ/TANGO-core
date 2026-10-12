@@ -5,7 +5,15 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ## [In Development]
 
-*(Nothing yet.)*
+### Changed
+
+- **`tango_cli run --save-dir`** writes the full results as
+  `<name>.results.yml` (was `<name>.yml`, the same name as the input file).
+- **CSV headers carry units**: every `.smry.csv`/`.econ.csv` column ends in
+  its unit, e.g. `production_well_T_outlet [K]`, `LCOE [USD/kWh]`.
+- **Phase diagrams** number every state point in flow order, with a
+  "State points" key under the plot, and open on the final year instead of
+  animating through every year on load.
 
 ---
 

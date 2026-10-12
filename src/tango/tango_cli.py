@@ -170,12 +170,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help=(
-            "Write results to DIR (created if needed): <name>.yml (full "
+            "Write results to DIR (created if needed): <name>.results.yml (full "
             "results -- every component's final config/state, reloadable "
             "with Workflow.from_file()), <name>.smry.csv (one row per "
             "timestep, one column per component's own scalar history "
             "field), <name>.econ.csv (one row, the economic component's "
-            "final state -- omitted if the config has no economic: block), "
+            "final state -- omitted if the config has no economic: block; "
+            "every CSV header ends in its unit, e.g. [K]), "
             "and <name>.phase_<fluid>.html per working fluid (interactive "
             "P-h phase diagram with a year slider -- omitted if the config "
             "has no GraphSurface surface component). "

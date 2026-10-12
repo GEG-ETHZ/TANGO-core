@@ -393,3 +393,34 @@ def test_pump_from_saturated_liquid_is_colored_liquid() -> None:
     for frame in fig.frames:
         trace = next(tr for tr in frame.data if tr.name == "condenser -> condensate_pump")
         assert trace.line.color == "blue"
+
+
+def test_written_diagram_opens_static_on_the_final_year(tmp_path: Path) -> None:
+    """The HTML doesn't animate on load, and its slider starts on the final year the plot shows."""
+    wf = _run_fast("hydro_sf_electric.yml")
+    (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
+    assert "Plotly.animate(" not in path.read_text()
+
+    fig = _sf_figure()
+    assert fig.layout.sliders[0].active == len(fig.frames) - 1
+
+
+def test_state_points_are_numbered_in_flow_order() -> None:
+    """Geofluid points are numbered from the surface inlet downstream; the key lists every point once."""
+    wf = _run_fast("hydro_ORC_electric.yml")
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
+    for fluid_name, node_names in groups.items():
+        fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, 1.0)  # noqa: SLF001
+        key = [tr.name for tr in fig.data if tr.legend == "legend2"]
+        names = [entry.split("  ", 1)[1] for entry in key]
+        assert [entry.split("  ", 1)[0] for entry in key] == [str(i) for i in range(1, len(key) + 1)]
+        assert len(set(names)) == len(names)
+        if fluid_name == surface.common.fluid_name:
+            assert names[:3] == ["inlet", "evaporator:out1", "preheater:out1"]
+            assert names[-1] == "production_well_upper"
+        labels = fig.frames[-1].data[-1]
+        assert labels.mode == "text"
+        numbers = sorted(int(n) for text in labels.text for n in text.split(", "))
+        assert numbers == list(range(1, len(key) + 1))
