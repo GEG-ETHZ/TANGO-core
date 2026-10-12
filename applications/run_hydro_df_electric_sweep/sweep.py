@@ -68,6 +68,7 @@ from common import (
     DEFAULT_LOG_LEVEL,
     DEFAULT_N_WORKERS,
     DEFAULT_SWEEP_DIR,
+    LINKED_PATHS,
     PARAMETERS,
     get_nested_value,
     load_params,
@@ -78,6 +79,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS  # noqa: E402
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 
@@ -133,9 +135,9 @@ def run_single_simulation(args: tuple) -> None:
         cfg = base_wf.to_dict()
 
         for param in PARAMETERS:
-            original_value = get_nested_value(cfg, param)
             scale_factor = row[param]
-            set_nested_value(cfg, param, original_value * scale_factor)
+            for path in (param, *LINKED_PATHS.get(param, ())):
+                set_nested_value(cfg, path, get_nested_value(cfg, path) * scale_factor)
 
         # Sync injection well length to the (scaled) sum of the production
         # well segments — see _sync_injection_well_length's docstring.
@@ -166,7 +168,11 @@ def run_single_simulation(args: tuple) -> None:
         result["CAPEX_total_USD"] = econ_state["CAPEX_total"]
         result["LCOE_USD_per_kWh"] = econ_state["LCOE"]
 
-    except Exception as e:
+    # Only the errors that mean "this design doesn't work" (fracking, a failed
+    # fluid-property lookup, non-convergence, ...) are recorded as a failed
+    # design. Anything else is a bug and stops the sweep, instead of being
+    # recorded once per design.
+    except INFEASIBLE_DESIGN_EXCEPTIONS as e:
         result["error"] = {
             "type": type(e).__name__,
             "message": str(e),

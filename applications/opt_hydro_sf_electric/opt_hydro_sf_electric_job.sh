@@ -37,9 +37,11 @@
 #   sbatch opt_hydro_sf_electric_job.sh
 # ---------------------------------------------------------------------------
 
-# Stop at the first failing command (including inside a pipeline) and on any
-# unset variable, so a failed run exits nonzero and shows as FAILED in sacct
-# instead of COMPLETED.
+# -e: stop at the first command that fails.
+# -u: an unset variable is an error instead of an empty string.
+# -o pipefail: a pipeline fails if any command in it fails, not just the last.
+# Together: a failed run exits nonzero and shows as FAILED in sacct instead of
+# COMPLETED.
 set -euo pipefail
 
 # NOT git-based (unlike the sibling sweep job scripts' `git -C ... rev-parse

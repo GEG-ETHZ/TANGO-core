@@ -80,6 +80,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS  # noqa: E402
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 # Floor value: AGS_direct_heat.yml's original fixed target_extraction_pressure,
@@ -259,7 +260,11 @@ def run_single_simulation(args: tuple) -> None:
         result["LCOE_USD_per_kWh"] = econ_state["LCOE"]
         result["net_thermal_power_kW"] = econ_state["net_thermal_W"] / 1000.0
 
-    except Exception as e:
+    # Only the errors that mean "this design doesn't work" (fracking, a failed
+    # fluid-property lookup, non-convergence, ...) are recorded as a failed
+    # design. Anything else is a bug and stops the sweep, instead of being
+    # recorded once per design.
+    except INFEASIBLE_DESIGN_EXCEPTIONS as e:
         result["error"] = {
             "type": type(e).__name__,
             "message": str(e),

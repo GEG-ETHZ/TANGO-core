@@ -52,6 +52,9 @@ typecheck:
 # Run test suite. No args/--fast: fast subset (matches pre-push). --perf: perf tests only. --all: everything.
 test *args:
     #!/usr/bin/env bash
+    # -u: an unset variable is an error instead of an empty string.
+    # -o pipefail: a pipeline fails if any command in it fails, not just the last.
+    # No -e: pytest's exit status is captured below and reported, not aborted on.
     set -uo pipefail
     # For anything else, pass your own -m straight through, e.g.
     # `just test -m "perf"` or `just test -m "slow"`.
@@ -95,6 +98,9 @@ check: fmt lint typecheck test
 [unix]
 phase-diagrams *configs:
     #!/usr/bin/env sh
+    # -u: an unset variable is an error instead of an empty string.
+    # No -e: a config that fails is recorded and the loop moves on; failures
+    # are reported together at the end.
     set -u
     if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls example_configs/*.yml | xargs -n1 basename); fi
     failed=""
@@ -120,6 +126,8 @@ phase-diagrams *configs:
 [unix]
 apps *args:
     #!/usr/bin/env sh
+    # -e: stop at the first command that fails.
+    # -u: an unset variable is an error instead of an empty string.
     set -eu
     # applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
     # matrix, written to a fresh OS tempdir every run — never outputs/) instead
@@ -186,6 +194,8 @@ apps *args:
 [unix]
 slurm *args:
     #!/usr/bin/env sh
+    # -e: stop at the first command that fails, so nothing is submitted after an error.
+    # -u: an unset variable is an error instead of an empty string.
     set -eu
     parallel=""
     apps=""

@@ -31,9 +31,11 @@
 #   sbatch opt_hydro_df_electric_surrogate_job.sh
 # ---------------------------------------------------------------------------
 
-# Stop at the first failing command (including inside a pipeline) and on any
-# unset variable, so a failed run exits nonzero and shows as FAILED in sacct
-# instead of COMPLETED.
+# -e: stop at the first command that fails.
+# -u: an unset variable is an error instead of an empty string.
+# -o pipefail: a pipeline fails if any command in it fails, not just the last.
+# Together: a failed run exits nonzero and shows as FAILED in sacct instead of
+# COMPLETED.
 set -euo pipefail
 
 # See opt_hydro_df_electric_job.sh for why $SLURM_SUBMIT_DIR (not git or
