@@ -329,7 +329,7 @@ class LumpedReservoir(ReservoirComponent):
             C = 1.13
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * math.exp(-C * (p2 * psi + p1)))
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
 
@@ -424,3 +424,4 @@ class LumpedReservoir(ReservoirComponent):
         self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(P_out)
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

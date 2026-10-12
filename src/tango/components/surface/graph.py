@@ -998,7 +998,7 @@ class GraphSurface(SurfaceComponent):
 
         return h_out, T_out, P_out, net_power_W, net_thermal_W
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
         s = self.state
 
@@ -1087,3 +1087,4 @@ class GraphSurface(SurfaceComponent):
         self.outlet.h.update(h_out)
         self.outlet.P.update(P_out)
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

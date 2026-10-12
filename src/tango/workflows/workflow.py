@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from tango.components.economic.base import EconomicComponent
 from tango.components.registry import COMPONENT_REGISTRY
-from tango.core.component import Component
+from tango.core.component import Component, FlowComponent
 from tango.core.errors import ConfigError
 from tango.core.specs import Common, Description, Layout, SimConfig
 from tango.orchestrators.system_bc_iteration import SystemBCIteration
@@ -316,7 +316,7 @@ def _yaml_safe(obj: Any) -> Any:
     return obj
 
 
-def _check_common_identity(components: dict[str, Component], common: Common) -> None:
+def _check_common_identity(components: dict[str, FlowComponent], common: Common) -> None:
     """Assert every component's ``common`` (if declared) is this Workflow's SAME instance.
 
     Called once, at construction time, right after ``_build_components``.
@@ -481,7 +481,7 @@ def _build_components(
     layout: Layout,
     dt_years: float,
     target_extraction_pressure: float,
-) -> dict[str, Component]:
+) -> dict[str, FlowComponent]:
     """Instantiate all components from the ``components:`` YAML block.
 
     Each component receives:
@@ -545,7 +545,7 @@ def _build_components(
         f"{sorted(_LAYOUT_EXTRA_KEYS)} — update both together."
     )
 
-    built: dict[str, Component] = {}
+    built: dict[str, FlowComponent] = {}
     for name, comp_cfg in components_block.items():
         comp_type: str = comp_cfg.get("type", "")
         comp_variant: str = comp_cfg.get("variant", "lumped")
@@ -598,6 +598,11 @@ def _build_components(
                 f"Failed to build component {name!r} ({comp_type}/{comp_variant}): {exc}",
             ) from exc
 
+        if not isinstance(component, FlowComponent):
+            raise ConfigError(
+                f"Component {name!r} ({comp_type}/{comp_variant}) has no fluid inlet/outlet, so it can't be "
+                "part of the components: circuit (an economic component goes in its own economic: block).",
+            )
         built[name] = component
         logger.debug("Built component %r  idx=%d", name, component.component_idx)
 

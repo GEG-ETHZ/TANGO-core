@@ -439,7 +439,7 @@ class NumericalWell(WellComponent):
 
         return P, h, T_f, rho, mu, u
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
 
@@ -472,6 +472,7 @@ class NumericalWell(WellComponent):
         self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +553,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
     ``_build_components`` (see that field's docstring in ``core/specs.py``
     for the duplicated-value bug this replaced)."""
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """March wellbore heat loss, then apply a pump boost if needed.
 
         If the natural (un-boosted) march already reaches
@@ -657,3 +658,4 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

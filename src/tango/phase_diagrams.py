@@ -52,7 +52,7 @@ from tango.core.errors import ConfigError
 from tango.core.fluid_state import FluidState
 
 if TYPE_CHECKING:
-    from tango.core.component import Component
+    from tango.core.component import FlowComponent
     from tango.workflows.workflow import Workflow
 
 _N_DOME_POINTS = 200
@@ -361,7 +361,7 @@ def _target_history_keys(component: GraphSurface, node_name: str, port: str | No
     return [f"{node_name}:{conn.source_id}" for conn in outgoing]
 
 
-def _outer_circuit_order(wf: Workflow) -> list[tuple[str, Component]]:
+def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     """Every component in ``wf``, in physical loop order (following ``.next`` from idx 0).
 
     Mirrors the outer-circuit convention used throughout ``tango``
@@ -371,7 +371,7 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, Component]]:
     """
     components = wf._orchestrator.components  # noqa: SLF001
     by_idx = {c.component_idx: (name, c) for name, c in components.items()}
-    order: list[tuple[str, Component]] = []
+    order: list[tuple[str, FlowComponent]] = []
     idx = 0
     seen: set[int] = set()
     while idx not in seen:

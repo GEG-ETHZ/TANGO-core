@@ -710,7 +710,7 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     # Fields that are legitimately reassigned during simulation stay mutable.
     # `outlet` is LockedState-wrapped (like any `state` field) — write via
     # update(), not direct assignment (there's no `inlet` field at all
-    # anymore; it's a solve() call parameter — see Component.solve()'s
+    # anymore; it's a solve() call parameter — see FlowComponent.solve()'s
     # docstring).
     components["injection_well"].outlet.h.update(1.2e5)
     assert components["injection_well"].outlet.h.get_fresh() == 1.2e5
