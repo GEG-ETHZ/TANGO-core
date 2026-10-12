@@ -68,9 +68,11 @@ def main(stage: bool = False) -> int:
 
     """
     new_hash = compute_hash() + "\n"
-    old_hash = HASH_FILE.read_bytes().decode() if HASH_FILE.exists() else None
+    # Compare without line endings: Git for Windows usually checks text files
+    # out with CRLF, which must not count as a different hash.
+    old_hash = HASH_FILE.read_bytes().decode().strip() if HASH_FILE.exists() else None
     rel = HASH_FILE.relative_to(REPO_ROOT)
-    changed = old_hash != new_hash
+    changed = old_hash != new_hash.strip()
     if changed:
         HASH_FILE.write_bytes(new_hash.encode())
     if stage:
