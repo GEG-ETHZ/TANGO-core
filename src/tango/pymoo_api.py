@@ -7,7 +7,9 @@ Adapted to tango's actual seams:
   base_wf.to_dict(); cfg[...] = ...; Workflow(cfg).run()``) — a fresh
   ``Workflow`` is built and run from a mutated copy of the base config on
   every evaluation, rather than trying to mutate a live, already-solved
-  ``Workflow`` in place.
+  ``Workflow`` in place. The same goes for everything sent to worker
+  processes: only plain data (config dicts, picklable specs) crosses a
+  process boundary, never a live ``Workflow``.
 - **Constraint violations are real pymoo constraints, not objective-space
   penalties.** A common alternative pattern falls back to a fixed huge
   objective value (e.g. ``1.02e12``) on simulation failure — that value has
@@ -837,9 +839,9 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        wf = Workflow.from_file("example_configs/hydro_df_electric.yml")
+        cfg = Workflow.from_file("example_configs/hydro_df_electric.yml").to_dict()
         m = Minimization(
-            base_workflow=wf,
+            base_cfg=cfg,
             params=[
                 mass_rate_param(bounds=(10.0, 100.0)),
                 injection_pressure_param(bounds=(1e6, 10e6)),
@@ -849,9 +851,13 @@ class Minimization:
         res, df = m.run()
 
     Args:
-        base_workflow: Template ``Workflow`` — its config (via ``to_dict()``)
-            is the starting point every evaluation mutates a copy of. Never
-            mutated or re-run itself.
+        base_cfg: Template config dict (as ``Workflow.to_dict()`` returns
+            it, for a workflow that hasn't been run) — the starting point
+            every evaluation mutates a copy of. Validated once, up front,
+            by building a ``Workflow`` from it in ``__post_init__``. Only
+            plain data is kept: ``Minimization`` is pickled to worker
+            processes when ``n_processes > 1``, and a live ``Workflow``
+            can't always be pickled (a TESPy network can't).
         params: Decision variables — see ``ParamSpec``'s own docstring for
             why the concrete factories live in the calling script, not here.
         objectives: Objectives to minimize — see ``ObjectiveSpec``'s own
@@ -929,12 +935,12 @@ class Minimization:
             ``_append_trajectory``. Default ``None`` (no capture).
 
     Raises:
-        ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
+        ValueError: If ``base_cfg``'s own ``sim_config.injection_mode``
             is not one of the two allowed policies (see module docstring).
 
     """
 
-    base_workflow: Workflow
+    base_cfg: dict[str, Any]
     params: list[ParamSpec]
     objectives: list[ObjectiveSpec]
     pymoo_config: PymooConfig | None = None
@@ -979,7 +985,6 @@ class Minimization:
     optimizer's own search trajectory. See ``_append_trajectory``."""
 
     # Derived/internal state, not constructor args -- set in __post_init__.
-    base_cfg: dict[str, Any] = field(init=False, repr=False)
     policy: InjectionPolicy = field(init=False)
     n_failures: int = field(init=False, default=0)
     """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
@@ -1006,7 +1011,10 @@ class Minimization:
         the top to re-narrow -- see their docstrings/comments, not repeated
         here.
         """
-        self.base_cfg = self.base_workflow.to_dict()
+        # Building the Workflow validates the config here, in the main
+        # process, and to_dict() fills in every default; the Workflow
+        # itself is dropped so only plain data is kept (see ``base_cfg``).
+        self.base_cfg = Workflow(copy.deepcopy(self.base_cfg)).to_dict()
         # No policy= override -- always the base config's OWN choice.
         # Confirmed the hard way: an earlier override param let a caller
         # (opt_hydro_df_electric.py) never pass it at all, silently forcing
@@ -1773,25 +1781,14 @@ class OptApp:
         cfg["sim_config"]["injection_mode"] = self.injection_mode.value
         return cfg
 
-    def build_baseline(self) -> tuple[Workflow, Workflow]:
-        """Return ``(wf, wf_manual)``: the UNRUN template and a separately run baseline.
-
-        ``wf`` must stay unrun: ``Minimization`` builds every evaluation's
-        config from ``wf.to_dict()``, which includes each component's history,
-        so a run ``wf`` would pre-populate every evaluation with the baseline's
-        timesteps. ``wf_manual`` is an independent copy built through
-        ``Workflow(wf.to_dict())`` (``copy.deepcopy`` doesn't survive
-        ``GraphSurface``'s live TESPy network) and run only to report the
-        baseline.
-        """
+    def build_baseline(self) -> Workflow:
+        """Run the config's own design point, to report the baseline objectives."""
         wf = Workflow(self.base_config())
-        wf_manual = Workflow(wf.to_dict())
-        wf_manual.run()
-        return wf, wf_manual
+        wf.run()
+        return wf
 
     def run_optimization(
         self,
-        base_wf: Workflow,
         args: argparse.Namespace,
         param_specs: list[ParamSpec] | None = None,
     ) -> tuple[Result, pd.DataFrame, Minimization]:
@@ -1802,7 +1799,7 @@ class OptApp:
 
         """
         m = Minimization(
-            base_workflow=base_wf,
+            base_cfg=self.base_config(),
             params=self.param_specs() if param_specs is None else param_specs,
             objectives=self.objective_specs,
             constraints=self.constraint_factory(args) if self.constraint_factory is not None else [],
@@ -1899,11 +1896,11 @@ class OptApp:
                 shutil.rmtree(args.save_dir)
             args.save_dir.mkdir(parents=True, exist_ok=True)
 
-            wf, wf_manual = self.build_baseline()
-            baseline = ", ".join(f"{o.name}={o.evaluate(wf_manual):.6g}" for o in self.objective_specs)
+            baseline_wf = self.build_baseline()
+            baseline = ", ".join(f"{o.name}={o.evaluate(baseline_wf):.6g}" for o in self.objective_specs)
             print(f"Baseline (config design point): {baseline}")
 
-            _res, df, _m = self.run_optimization(wf, args)
+            _res, df, _m = self.run_optimization(args)
             print(f"Pareto front: {len(df)} designs")
             print(df)
 

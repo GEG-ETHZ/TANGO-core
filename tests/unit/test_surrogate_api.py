@@ -67,14 +67,14 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     param_names = [p.name for p in params]
     objective_names = [o.name for o in objectives]
 
-    base_wf, _wf_manual = app.APP.build_baseline()
+    base_cfg = app.APP.base_config()
 
     n_samples = 20
     x = generate_lhs_samples(params, n_samples=n_samples, seed=1)
     assert x.shape == (n_samples, len(params))
 
     training_df = run_lhs_sweep(
-        base_wf,
+        base_cfg,
         params,
         objectives,
         x,
@@ -119,7 +119,7 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     # This is a schema/plumbing check, not a surrogate-quality check.
     try:
         comparison = validate_surrogate_pareto(
-            base_wf,
+            base_cfg,
             params,
             objectives,
             pareto_df,

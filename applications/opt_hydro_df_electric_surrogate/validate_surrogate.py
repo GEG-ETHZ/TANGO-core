@@ -34,7 +34,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, build_baseline, make_plots, objective_specs, param_specs
+from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, base_config, make_plots, objective_specs, param_specs
 from common import DISPLAY_RENAME as _DISPLAY_RENAME
 
 from tango.pymoo_api import load_params
@@ -103,12 +103,11 @@ def main(args: argparse.Namespace) -> None:
     param_names = [p.name for p in params]
     objective_names = [o.name for o in objectives]
     surrogate_df = pd.read_csv(args.save_dir / "surrogate_pareto_results.csv")
-    base_wf, _wf_manual = build_baseline()
 
     out_path = args.save_dir / "surrogate_validation.csv"
     try:
         comparison = validate_surrogate_pareto(
-            base_wf,
+            base_config(),
             params,
             objectives,
             surrogate_df,

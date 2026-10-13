@@ -51,7 +51,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, build_baseline, objective_specs, param_specs
+from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, base_config, objective_specs, param_specs
 from pymoo.algorithms.moo.nsga2 import NSGA2
 
 from tango.pymoo_api import Minimization, ParamToleranceDuplicateElimination, PymooConfig, load_params
@@ -95,7 +95,6 @@ def main(args: argparse.Namespace) -> None:
 
     params = param_specs()
     objectives = objective_specs()
-    base_wf, _wf_manual = build_baseline()
 
     algorithm = NSGA2(
         pop_size=args.pop_size,
@@ -119,7 +118,7 @@ def main(args: argparse.Namespace) -> None:
     training_path.unlink(missing_ok=True)  # this run's own trajectory, not appended to a stale prior one
 
     m = Minimization(
-        base_workflow=base_wf,
+        base_cfg=base_config(),
         params=params,
         objectives=objectives,
         pymoo_config=pymoo_config,

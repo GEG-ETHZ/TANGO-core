@@ -220,7 +220,7 @@ def _evaluate_and_write(
 
 
 def run_lhs_sweep(
-    base_workflow: Workflow,
+    base_cfg: dict[str, Any],
     params: list[ParamSpec],
     objectives: list[ObjectiveSpec],
     x: npt.NDArray[np.float64],
@@ -240,7 +240,8 @@ def run_lhs_sweep(
     job (unlike the surrogate-driven GA below, which is cheap enough to just
     rerun from scratch if killed).
     """
-    base_cfg = base_workflow.to_dict()
+    # Validate and fill in defaults once, here; workers get only the dict.
+    base_cfg = Workflow(copy.deepcopy(base_cfg)).to_dict()
     n_samples = x.shape[0]
     results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -891,7 +892,7 @@ class SurrogateValidationError(Exception):
 
 
 def validate_surrogate_pareto(
-    base_workflow: Workflow,
+    base_cfg: dict[str, Any],
     params: list[ParamSpec],
     objectives: list[ObjectiveSpec],
     surrogate_df: pd.DataFrame,
@@ -915,7 +916,7 @@ def validate_surrogate_pareto(
     objective_names = [o.name for o in objectives]
     x = surrogate_df[param_names].to_numpy(dtype=float)
 
-    actual_df = run_lhs_sweep(base_workflow, params, objectives, x, n_workers, results_dir, quiet=quiet)
+    actual_df = run_lhs_sweep(base_cfg, params, objectives, x, n_workers, results_dir, quiet=quiet)
 
     comparison = surrogate_df[param_names].copy()
     violations: list[str] = []

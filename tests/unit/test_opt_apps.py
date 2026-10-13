@@ -88,11 +88,10 @@ def test_optimization_writes_finite_pareto_csv_and_plots(name: str, tmp_path: Pa
     """A ``--smoke`` run finishes, writes finite results, and plots from them."""
     app = _load(name)
     params = app.param_specs(_narrow_bounds(app))
-    base_wf, _ = app.build_baseline()
     args = app.parse_args(
         ["--smoke", "--n-processes", "1", "--seed", "1", "--quiet", "--save-dir", str(tmp_path)],
     )
-    _res, df, m = app.run_optimization(base_wf, args, param_specs=params)
+    _res, df, m = app.run_optimization(args, param_specs=params)
 
     assert m.n_failures == 0
     results = pd.read_csv(tmp_path / "pareto_results.csv")

@@ -61,9 +61,9 @@ def objective_specs():
     return opt_app.APP.objective_specs
 
 
-def build_baseline():
-    """UNRUN template + run() baseline workflows — see ``OptApp.build_baseline``."""
-    return opt_app.APP.build_baseline()
+def base_config():
+    """The template config dict every design starts from — see ``OptApp.base_config``."""
+    return opt_app.APP.base_config()
 
 
 def make_plots(df, save_dir, param_cols, objective_cols):

@@ -9,10 +9,12 @@ constraint, on short (2-timestep) runs of real example configs.
 
 from __future__ import annotations
 
+import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 import yaml
 
@@ -101,7 +103,7 @@ def _minimization(config: str, params: list[ParamSpec], tmp_path: Path, **overri
     for path, value in overrides.pop("set", {}).items():
         _SetPath(tuple(path.split(".")))(cfg, value)
     return Minimization(
-        base_workflow=Workflow(cfg),
+        base_cfg=cfg,
         params=params,
         objectives=[ObjectiveSpec(name="LCOE", evaluate=_Lcoe())],
         pymoo_config=PymooConfig(n_max_gen=1, pop_size=2, seed=1),
@@ -175,3 +177,20 @@ def test_param_check_skips_param_with_no_room(tmp_path: Path) -> None:
     pinned = _param("pinned_depth_m", "components.injection_well.well_length", (3000.0, 3000.0))
     m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE), pinned], tmp_path)
     m._check_param_sensitivity(_Problem(m))  # noqa: SLF001
+
+
+def test_minimization_pickles_for_worker_processes(tmp_path: Path) -> None:
+    """A Minimization on a TESPy (GraphSurface) config pickles, and the copy still evaluates designs.
+
+    ``n_processes > 1`` sends the problem to worker processes by pickling
+    it. A TESPy network can't be pickled (its pint units registry holds
+    lambdas), so ``Minimization`` must hold only plain data, never a live
+    ``Workflow``.
+    """
+    mass_rate = _param(*_MASS_RATE)
+    mgr = _minimization("hydro_ORC_electric.yml", [mass_rate], tmp_path)
+    copy = pickle.loads(pickle.dumps(_Problem(mgr)))
+    assert not any(isinstance(value, Workflow) for value in vars(copy.mgr).values())
+    f, g = copy.mgr._evaluate_one([30.0])  # noqa: SLF001
+    assert np.isfinite(f).all()
+    assert g[0] <= 0
