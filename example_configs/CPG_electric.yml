@@ -65,7 +65,7 @@ sim_config:
                                           # critical pressure so the
                                           # production wellhead stays
                                           # single-phase supercritical
-  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
   mass_rate: 125              # kg/s — LCOE minimum in a 100-200 kg/s sweep at realistic component efficiencies; 200 kg/s depleted this reservoir to net-negative output in year 19
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
@@ -83,7 +83,7 @@ components:
     component_idx: 0          # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 2500.0       # m — reservoir depth; matches old tango's CPG_num_pp.yml exactly
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
@@ -97,13 +97,13 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 25_000_000  # Pa — nominal, used only for the fracking-safety ceiling
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
     over_pressure_percentage: 20
     brine_density: 1000            # kg/m3 — used for the reservoir's own
                                     # initial/undepleted pressure, not the
                                     # circulating fluid (see brine_density's
                                     # own docstring in core/specs.py)
-    well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -111,10 +111,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 2000.0       # m
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    wellhead_depth: 500.0     # m — matches production_well_upper's well_length below
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well
@@ -134,8 +134,7 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 7_131_030   # Pa — manual value (injection_mode: manual-fracking-check
-                                     # doesn't converge this the way auto-pressure would); matches
+    injection_pressure: 7_131_030   # Pa — fixed value (injection_mode: manual-fracking-check); matches
                                      # old tango's CPG_num_pp.yml's own converged wellhead pressure
                                      # at this same depth (confirmed by running it directly). This
                                      # is below CO2's 7.38 MPa critical pressure by design -- CO2 is

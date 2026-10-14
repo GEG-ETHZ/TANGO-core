@@ -240,8 +240,10 @@ def run_lhs_sweep(
     job (unlike the surrogate-driven GA below, which is cheap enough to just
     rerun from scratch if killed).
     """
-    # Validate and fill in defaults once, here; workers get only the dict.
-    base_cfg = Workflow(copy.deepcopy(base_cfg)).to_dict()
+    # Validate once, here; workers get only the dict, kept as written (see
+    # Minimization.base_cfg for why not Workflow.to_dict()).
+    Workflow(copy.deepcopy(base_cfg))
+    base_cfg = copy.deepcopy(base_cfg)
     n_samples = x.shape[0]
     results_dir.mkdir(exist_ok=True, parents=True)
 

@@ -145,11 +145,56 @@ _PUMP_POWER_TOLERANCE_W = 1e-3
 # dict -- see _apply_connection_config's staticmethod, which needs to read
 # this without an instance.
 _PORT_SUFFIXED_ATTRS: dict[str, str] = {
-    "h0_out": "h0",  # TESPy guess value, not a fixed constraint
-    "p0_out": "p0",  # TESPy guess value, not a fixed constraint
+    "h0_out": "h0",  # TESPy guess value (kJ/kg), not a fixed constraint
+    "p0_megapascals_out": "p0",  # TESPy guess value, not a fixed constraint; MPa -> bar
     "fluid_out": "fluid",
     "vapor_mass_fraction_out": "x",
 }
+
+_NODE_KEYS: frozenset[str] = frozenset(
+    {
+        "type",
+        "role",
+        "efficiency",
+        "pressure_ratio",
+        "pressure_ratio1",
+        "pressure_ratio2",
+        "ttd_l",
+        "p_out_megapascals",
+        "T_out",
+        "vapor_mass_fraction_out",
+        "subcooling_K",
+        # Read by DoubletEconomicComponent for cooling-tower cost.
+        "Subtype",
+        "set_number",
+        "design",
+        "cooling_tower_mode",
+    },
+)
+"""Every key a ``power_plant.nodes`` entry may have, besides the ``_PORT_SUFFIXED_ATTRS``
+forms. Anything else is rejected, so a typo or a renamed key fails loudly
+instead of being silently ignored."""
+
+
+def _check_node_keys(name: str, cfg: dict[str, Any]) -> None:
+    """Raise ``ConfigError`` for any key in node ``name``'s config that nothing reads."""
+    unknown = []
+    for key in cfg:
+        prefix = key.rstrip("0123456789")
+        if key in _NODE_KEYS or (prefix != key and prefix in _PORT_SUFFIXED_ATTRS):
+            continue
+        unknown.append(key)
+    if unknown:
+        hint = (
+            " (p0_out{N} was renamed p0_megapascals_out{N}, given in MPa)"
+            if any(k.rstrip("0123456789") == "p0_out" for k in unknown)
+            else ""
+        )
+        raise ConfigError(
+            f"power_plant.nodes.{name}: unknown key(s) {sorted(unknown)}{hint}. Allowed: "
+            f"{sorted(_NODE_KEYS)}, plus {sorted(p + '{N}' for p in _PORT_SUFFIXED_ATTRS)}.",
+        )
+
 
 # Mirror-image tolerance for the "a valve can't raise pressure" check below
 # (solve()): a real throttle valve is passive and dissipative, so it can
@@ -504,6 +549,7 @@ class GraphSurface(SurfaceComponent):
 
         # ---- Per-node fixed attributes (efficiency, T_out, p_out, ...) ----
         for name, cfg in node_cfgs.items():
+            _check_node_keys(name, cfg)
             GraphSurface._apply_node_config(nodes[name], conns, cfg, backend)
 
         # ---- Role-tagged nodes, for net power/thermal aggregation ----
@@ -678,7 +724,8 @@ class GraphSurface(SurfaceComponent):
           pressure if that changes, e.g. in a sweep).
         - ``_out{N}``-suffixed keys (``_PORT_SUFFIXED_ATTRS``), targeting
           specifically the connection whose ``source_id == f"out{N}"``:
-          ``h0_out{N}``/``p0_out{N}`` (TESPy guess values), ``fluid_out{N}``
+          ``h0_out{N}`` (kJ/kg) / ``p0_megapascals_out{N}`` (MPa -> bar) (TESPy
+          guess values), ``fluid_out{N}``
           (a plain fluid-name string, e.g. ``R245fa`` -- wrapped in the same
           ``BACKEND::name`` CoolProp-backend syntax as the main loop's fluid,
           using this same node's ``backend`` param), ``vapor_mass_fraction_out{N}`` -> ``x``.
@@ -717,6 +764,8 @@ class GraphSurface(SurfaceComponent):
             tespy_attr = _PORT_SUFFIXED_ATTRS[prefix]
             if tespy_attr == "fluid":
                 conn.set_attr(fluid={f"{backend}::{value}": 1})
+            elif tespy_attr == "p0":
+                conn.set_attr(p0=float(value) * 10.0)  # MPa -> bar (the network's pressure unit)
             else:
                 conn.set_attr(**{tespy_attr: float(value)})
 

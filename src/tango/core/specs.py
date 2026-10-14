@@ -15,7 +15,7 @@ way ``components:`` entries are, via ``Workflow._build_economic_component()``.
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
 
@@ -398,23 +398,8 @@ class SimConfig(BaseModel):
     """Absent selects SystemDirect (no BC iteration); present selects
     SystemBCIteration."""
     mass_rate: float | None = None
-    """Required whenever injection_mode is present. For MANUAL/
-    MANUAL_FRACKING_CHECK/AUTO_PRESSURE this is the fixed mass rate used
-    every timestep. For AUTO_FLOW/AUTO_BOTH it is instead the INITIAL GUESS
-    for the Picard iteration that converges mass_rate = fracking_flow()
-    each pass (mirrors injection_pressure's role as AUTO_PRESSURE's initial
-    guess). Do not default this to 0.0 or another near-zero value for
-    AUTO_FLOW/AUTO_BOTH: the numerical well model is genuinely degenerate at
-    near-zero flow, and the resulting first Picard step can overshoot into
-    a mass rate the circuit can't solve from a cold start (confirmed
-    empirically 2026-08-13 — see SystemBCIteration._converge_injection_flow's
-    docstring)."""
-    max_mass_rate: float | None = None
-    """Optional cap (kg/s) on the mass rate AUTO_FLOW/AUTO_BOTH's Picard
-    iteration converges to — ``mass_rate = min(fracking_flow(...),
-    max_mass_rate)`` each pass. None (default) means uncapped: mass_rate converges to
-    whatever fracking_flow() actually computes. Must be omitted for every
-    other injection_mode — there is nothing for it to cap."""
+    """Mass flow rate (kg/s), used every timestep. Required whenever
+    injection_mode is present."""
     bc_checkpoint_idx: int | None = None
     """Required when injection_mode is present."""
 
@@ -447,82 +432,49 @@ class SimConfig(BaseModel):
         # TODO: should we add warnings for large timesteps?
         return dt
 
+    @field_validator("injection_mode", mode="before")
+    @classmethod
+    def reject_removed_injection_modes(cls, value: Any) -> Any:
+        """Explain the removed automatic modes instead of a bare "invalid enum value".
+
+        Raises:
+            ValueError: ``value`` is ``auto-pressure``, ``auto-flow`` or ``auto-both``.
+        """
+        if value in _REMOVED_INJECTION_MODES:
+            raise ValueError(
+                f"injection_mode {value!r} was removed (see InjectionPolicy's docstring). Use "
+                "manual or manual-fracking-check with a fixed mass_rate and injection_pressure; to "
+                "find good operating points, run an applications/opt_*/ search.",
+            )
+        return value
+
     @model_validator(mode="after")
     def check_injection_mode_requirements(self) -> SimConfig:
-        """Validate the fields ``injection_mode`` gates: ``bc_checkpoint_idx``,
-        ``mass_rate``, and ``max_mass_rate``.
+        """Require ``bc_checkpoint_idx`` and ``mass_rate`` whenever ``injection_mode`` is set.
 
-        ``injection_mode`` absent means ``SystemDirect`` (no BC iteration
-        at all) — none of the other three fields have any meaning, so
-        ``max_mass_rate`` being set in that case is rejected rather than
-        silently ignored (same rationale as the other two branches below).
-
-        ``injection_mode`` present means ``SystemBCIteration``, which
-        always needs ``bc_checkpoint_idx`` (raises if absent), and then
-        splits by whether this mode computes ``mass_rate`` itself:
-
-        - ``MANUAL``/``MANUAL_FRACKING_CHECK``/``AUTO_PRESSURE`` (not in
-          ``auto_computed``) use a fixed, user-supplied ``mass_rate``
-          (raises if absent) — and have no use for ``max_mass_rate``
-          (raises if set; there is nothing for it to cap).
-        - ``AUTO_FLOW``/``AUTO_BOTH`` (``auto_computed``) solve for
-          ``mass_rate`` themselves each pass, so ``max_mass_rate`` is
-          meaningful there (an optional cap) but never required — only
-          warns (does not raise) if it's absent, since running uncapped
-          is a legitimate, if riskier, choice.
+        ``injection_mode`` absent means ``SystemDirect`` (no BC iteration),
+        which needs neither.
 
         Returns:
             ``self`` unchanged, once every applicable check has passed.
 
         Raises:
-            ValueError: If ``max_mass_rate`` is set while ``injection_mode``
-                is absent or is a mode that doesn't compute ``mass_rate``;
-                if ``bc_checkpoint_idx`` is absent while ``injection_mode``
-                is set; or if ``mass_rate`` is absent for a mode that
-                requires a fixed value.
+            ValueError: If ``injection_mode`` is set and ``bc_checkpoint_idx``
+                or ``mass_rate`` is absent.
         """
         if self.injection_mode is None:
-            if self.max_mass_rate is not None:
-                raise ValueError(
-                    """max_mass_rate is only meaningful for AUTO_FLOW/AUTO_BOTH, but
-                    injection_mode is absent (SystemDirect, no BC iteration) -- there is
-                    nothing for max_mass_rate to cap. Remove max_mass_rate or set
-                    injection_mode to AUTO_FLOW/AUTO_BOTH in the input YAML file""",
-                )
             return self
-
-        elif self.bc_checkpoint_idx is None:
+        if self.bc_checkpoint_idx is None:
             raise ValueError(
                 f"""bc_checkpoint_idx is required when injection mode is set
                 got injection_mode={self.injection_mode}""",
             )
-
-        auto_computed = {
-            InjectionPolicy.AUTO_FLOW,
-            InjectionPolicy.AUTO_BOTH,
-        }  # NOTE: Update this if there are other ``auto`` modes created
-
-        if self.injection_mode not in auto_computed:
-            if self.mass_rate is None:
-                raise ValueError(
-                    f"""mass_rate is required when injection_mode={self.injection_mode}
-                    (only AUTO_FLOW/AUTO_BOTH compute the mass rate)""",
-                )
-            if self.max_mass_rate is not None:
-                raise ValueError(
-                    f"""max_mass_rate is only meaningful for AUTO_FLOW/AUTO_BOTH, but
-                    injection_mode={self.injection_mode} does not compute mass_rate --
-                    there is nothing for max_mass_rate to cap. Remove it from the input
-                    YAML file""",
-                )
-
-        elif self.max_mass_rate is None:
-            logger.warning(
-                "Injection mode is %s but no max mass rate entered. There will be no upper bound on the mass rate in this simulation! To enter a mass rate please add ``max_mass_rate: `` to your ``sim_config``",
-                self.injection_mode,
-            )
-
+        if self.mass_rate is None:
+            raise ValueError(f"mass_rate is required when injection_mode={self.injection_mode}")
         return self
+
+
+_REMOVED_INJECTION_MODES = frozenset({"auto-pressure", "auto-flow", "auto-both"})
 
 
 class Description(BaseModel):

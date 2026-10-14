@@ -67,7 +67,7 @@ sim_config:
                                           # Kept at CPG_electric.yml's own value
                                           # for consistency, not because it does
                                           # anything here.
-  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
   mass_rate: 75                 # kg/s -- lowest LCOE that keeps heat output positive for 20 years (see header)
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
@@ -89,7 +89,7 @@ components:
     component_idx: 0          # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 2500.0       # m — reservoir depth; matches CPG_electric.yml exactly
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
@@ -103,13 +103,13 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 25_000_000  # Pa — nominal, used only for the fracking-safety ceiling
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
     over_pressure_percentage: 20
     brine_density: 1000            # kg/m3 — used for the reservoir's own
                                     # initial/undepleted pressure, not the
                                     # circulating fluid (see brine_density's
                                     # own docstring in core/specs.py)
-    well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -117,10 +117,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 2000.0       # m
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    wellhead_depth: 500.0     # m — matches production_well_upper's well_length below
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well
@@ -163,25 +163,20 @@ components:
           pressure_ratio: 0.975   # 2.5% heat-exchanger pressure loss (not an absolute p_out:
                                   # the wellhead pressure changes over the run, and a fixed
                                   # outlet above the inlet would be free compression)
-          p0_out1: 60             # bar -- TESPy starting guess only; without it, TESPy's default
+          p0_megapascals_out1: 6             # MPa -- TESPy starting guess only; without it, TESPy's default
                                   # guess is below CO2's triple-point pressure and the solve fails
         circulation_control:
           type: PumpOrValve
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p0_out1: 75          # bar (= 7.5 MPa, matches injection_pressure above) — TESPy guess
-                                # value; NOTE unlike p_out_megapascals, p0_out{N}/h0_out{N} pass
-                                # their raw value straight through in TESPy's own network unit
-                                # (bar), no MPa->bar conversion (see graph.py's
-                                # _apply_connection_config docstring). Must use the {N}-suffixed
-                                # form even for a single-port node -- a bare p0_out never matches
-                                # any connection's source_id ("out1"), so it's silently a no-op.
+          p0_megapascals_out1: 7.5      # MPa (near injection_pressure above) — TESPy guess value;
+                                # the {N} port suffix is required even for a single-port node
         injection_cooler:
           type: SimpleHeatExchanger    # cools the CO2 before reinjection -- see header comment
           T_out: 298.15                # K (25 degC) -- cold, dense CO2; above the 22 degC cooling
                                        # limit (15 degC surface + 7 K approach)
           pressure_ratio: 1.0          # no pressure drop
-          p0_out1: 75                  # bar -- TESPy starting guess for the outlet pressure
+          p0_megapascals_out1: 7.5                  # MPa -- TESPy starting guess for the outlet pressure
           h0_out1: 260                 # kJ/kg -- TESPy starting guess for the outlet enthalpy
           Subtype: cooler              # cooling-tower cost (DoubletEconomicComponent)
           set_number: 1

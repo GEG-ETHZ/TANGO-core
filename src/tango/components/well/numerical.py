@@ -44,14 +44,9 @@ Default physics selections:
   FrictionModel.HAALAND, HeatTransferModel.ZHANG_2011.
 See ``core/physics_models.py`` to add or select a different variant.
 
-**Known simplification (flag for later):** dimensionless time (``t_d``) only
-advances correctly when ``solve()`` is called exactly once per timestep — true
-today because only ``InjectionPolicy.MANUAL`` is implemented. Once AUTO_* policies
-add multi-pass outer loops, ``t_d`` must be split between a per-pass
-update and a per-timestep commit. NOTE: AUTO_PRESSURE/
-AUTO_FLOW/AUTO_BOTH are now implemented (SystemBCIteration) — whether this
-simplification still holds for them, or needs the t_d split described
-above, hasn't been re-checked since. Flagged in dev_docs/tango_tasks.md.
+**Dimensionless time:** ``t_d`` advances once per committed timestep; the
+injection-enthalpy loop's re-solves within a timestep restore it from the
+timestep-start snapshot (``Component.snapshot_convergence_state``).
 
 **History:** each spatially-distributed quantity is one state variable whose value
 is a vector along the well axis; recorded as one entry per timestep.
@@ -64,17 +59,18 @@ performance; results are converted to lists before storing in state.
 
 from __future__ import annotations
 
+import enum
 import math
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import Field, model_validator
+from pydantic import Field, PositiveInt, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from tango.components.well.base import WellComponent
 from tango.core.constants import YEAR_TO_SECOND
-from tango.core.errors import InvalidPowerStateError
+from tango.core.errors import ConfigError, InvalidPowerStateError
 from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import reynolds_number
 from tango.core.locked_state import LockedState
@@ -239,6 +235,72 @@ has headroom under the 0.1% target.
 """
 
 
+_DERIVED_REL_TOL = 1e-9
+"""Relative tolerance for a derived value supplied in a config to count as matching (float noise only)."""
+
+DERIVED_FIELDS: tuple[str, ...] = ("relative_roughness", "cross_sectional_area", "t_scaling_factor", "T_r")
+"""``NumericalWell`` fields computed by ``init()`` from its inputs. Not
+serialized; a config should leave them out (``init()`` rejects a value that
+disagrees with the computed one)."""
+
+
+def default_num_cells(well_length: float) -> int:
+    """``num_cells`` for a well whose config gives neither ``num_cells`` nor ``cell_length``."""
+    return math.ceil(math.ceil(well_length / TARGET_CELL_LENGTH_M) / 10) * 10
+
+
+def _cells_for_target(well_length: float, cell_length: float) -> int:
+    """Fewest cells no longer than ``cell_length`` (the tolerance absorbs ``well_length / n`` round-trips)."""
+    return max(1, math.ceil(well_length / cell_length * (1.0 - _DERIVED_REL_TOL)))
+
+
+class WellLengthSideEffect(enum.StrEnum):
+    """Which linked quantity absorbs a ``well_length`` change -- see ``set_well_length``."""
+
+    KEEP_CELL_LENGTH = "keep-cell-length"
+    """Keep the resolution: ``num_cells`` follows the new length."""
+    KEEP_NUM_CELLS = "keep-num-cells"
+    """Keep the cell count: ``cell_length`` follows the new length."""
+
+
+def expunge_derived_fields(well_cfg: dict[str, Any]) -> None:
+    """Remove ``DERIVED_FIELDS`` from a well's config dict so ``init()`` recomputes them.
+
+    ``Workflow.to_dict()`` doesn't write them, so this only matters for a
+    config dict that was given them explicitly.
+    """
+    for name in DERIVED_FIELDS:
+        well_cfg.pop(name, None)
+
+
+def set_well_length(well_cfg: dict[str, Any], well_length: float, side_effect: WellLengthSideEffect) -> None:
+    """Set ``well_length`` in a ``NumericalWell`` config dict, keeping its discretization consistent.
+
+    ``well_length``, ``num_cells`` and ``cell_length`` are linked, so
+    changing the length means one of the other two must change too;
+    ``side_effect`` says which. A config that gives neither keeps giving
+    neither (the default resolution applies to the new length). Also
+    removes the derived fields (``expunge_derived_fields``).
+    """
+    old_length = float(well_cfg["well_length"])
+    num_cells: int | None = well_cfg.get("num_cells")
+    cell_length: float | None = well_cfg.get("cell_length")
+    if num_cells is not None or cell_length is not None:
+        if cell_length is None:
+            assert num_cells is not None  # noqa: S101 -- narrows for mypy; guaranteed by the branch condition
+            cell_length = old_length / num_cells
+        elif num_cells is None:
+            num_cells = _cells_for_target(old_length, cell_length)
+        if side_effect is WellLengthSideEffect.KEEP_CELL_LENGTH:
+            well_cfg["cell_length"] = cell_length
+            well_cfg.pop("num_cells", None)
+        else:
+            well_cfg["num_cells"] = num_cells
+            well_cfg.pop("cell_length", None)
+    well_cfg["well_length"] = float(well_length)
+    expunge_derived_fields(well_cfg)
+
+
 class NumericalWell(WellComponent):
     """Discretized wellbore: one marching scheme for injection, production,
     and (future) deviated/horizontal wells.
@@ -260,13 +322,27 @@ class NumericalWell(WellComponent):
     come from and no way for this well to silently diverge from the
     reservoir or any other well. See core/specs.py."""
     dt_years: float = Field(frozen=True)
-    num_cells: int = Field(frozen=True)
-    """Axial discretization cell count. Left unset in YAML, it is derived
-    from ``well_length`` by the ``_default_num_cells`` validator below to
-    match ``TARGET_CELL_LENGTH_M`` per cell, rounded up to the nearest 10 --
-    see that constant's docstring for the rationale. Set explicitly only to
-    override that default, e.g. for a mesh-convergence sweep
-    (``applications/demo_well_mesh_convergence/``)."""
+    num_cells: PositiveInt = Field(frozen=True)
+    """Axial discretization cell count. ``well_length``, ``num_cells`` and
+    ``cell_length`` are linked (``well_length = num_cells * cell_length``);
+    a config may give ``num_cells``, ``cell_length``, both (they must agree)
+    or neither (``num_cells`` then defaults to ``TARGET_CELL_LENGTH_M`` per
+    cell, rounded up to the nearest 10 -- see that constant's docstring).
+    Resolved by the ``_resolve_discretization`` validator below. To change
+    ``well_length`` in a config dict, use ``set_well_length``, which makes
+    the caller choose which of the other two absorbs the change."""
+    discretization_given: tuple[str, ...] = Field(default=(), frozen=True, exclude=True)
+    """Which of ``num_cells``/``cell_length`` the config itself gave (set by
+    ``_resolve_discretization``). Serialization writes only those, so a
+    ``to_dict()`` copy re-derives a default cell count from its own
+    ``well_length`` rather than pinning the original one."""
+    cell_length: float = Field(frozen=True)
+    """Flow-path length per cell (m), exactly ``well_length / num_cells``.
+    Given alone in a config, it is a target: ``num_cells`` becomes the
+    smallest count whose cells are no longer than it, and this field is
+    then set to the exact resulting length. Used for friction and heat-loss
+    geometry, deliberately *not* scaled by angle, since those depend on
+    distance traveled."""
     wellhead_depth: float = Field(default=0.0, frozen=True)
     """True vertical depth (m) of the well's shallow end, whichever way the
     fluid flows: the top of an injection or production well (0 for a well
@@ -279,29 +355,71 @@ class NumericalWell(WellComponent):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_num_cells(cls, data: Any) -> Any:
-        """Fill in ``num_cells`` from ``well_length`` when not given explicitly.
+    def _resolve_discretization(cls, data: Any) -> Any:
+        """Resolve ``num_cells``/``cell_length`` from whichever of them the config gives.
 
-        Runs before field validation, so ``num_cells`` still comes out a
-        required, frozen ``int`` field -- this only supplies the value when
-        the YAML config (or caller) omits it. See ``TARGET_CELL_LENGTH_M``'s
-        docstring for why matching cell_length (not num_cells) across wells
-        is the right invariant to hold.
+        Runs before field validation, so both still come out required,
+        frozen fields. See ``num_cells``'s docstring for the rules.
+
+        Raises:
+            ConfigError: ``num_cells`` and ``cell_length`` are both given but
+                don't multiply out to ``well_length`` (e.g. ``well_length``
+                was edited in a saved config without ``set_well_length``),
+                ``num_cells`` isn't a positive integer, or ``cell_length``
+                isn't positive.
         """
-        if isinstance(data, dict) and data.get("num_cells") is None:
-            cells_needed = math.ceil(data["well_length"] / TARGET_CELL_LENGTH_M)
-            data["num_cells"] = math.ceil(cells_needed / 10) * 10
+        if not isinstance(data, dict):
+            return data
+        well_length = float(data["well_length"])
+        num_cells, cell_length = data.get("num_cells"), data.get("cell_length")
+        if num_cells is not None and (
+            isinstance(num_cells, bool) or not isinstance(num_cells, int) or num_cells <= 0
+        ):
+            raise ConfigError(f"num_cells must be a positive integer, got {num_cells!r}")
+        data["discretization_given"] = tuple(
+            key
+            for key, value in (("num_cells", num_cells), ("cell_length", cell_length))
+            if value is not None
+        )
+        if num_cells is not None and cell_length is not None:
+            if not math.isclose(num_cells * cell_length, well_length, rel_tol=_DERIVED_REL_TOL):
+                raise ConfigError(
+                    f"num_cells ({num_cells}) x cell_length ({cell_length} m) = "
+                    f"{num_cells * cell_length} m, but well_length is {well_length} m. Give only one "
+                    "of num_cells/cell_length, or change well_length with set_well_length().",
+                )
+        elif cell_length is not None:
+            if cell_length <= 0:
+                raise ConfigError(f"cell_length must be positive, got {cell_length}")
+            num_cells = _cells_for_target(well_length, cell_length)
+        elif num_cells is None:
+            num_cells = default_num_cells(well_length)
+        data["num_cells"] = num_cells
+        data["cell_length"] = well_length / num_cells
         return data
 
-    # ---- Derived quantities (computed by init(), serialized for save/restore) ----
-    # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
+    @model_serializer(mode="wrap")
+    def _omit_derived_discretization(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Leave out whichever of ``num_cells``/``cell_length`` the config didn't give (see ``discretization_given``)."""
+        data: dict[str, Any] = handler(self)
+        for key in ("num_cells", "cell_length"):
+            if key not in self.discretization_given:
+                data.pop(key, None)
+        return data
+
+    # ---- Derived quantities (computed by init()) ----
+    # Deliberately NOT frozen — init() computes relative_roughness/
     # cross_sectional_area/t_scaling_factor/T_r via direct assignment; see
     # Component's class docstring for why fields like this stay mutable.
-    cell_length: float = 0.0
-    relative_roughness: float = 0.0
-    cross_sectional_area: float = 0.0
-    t_scaling_factor: float = 0.0
-    T_r: list[float] = Field(default_factory=list)
+    # Excluded from serialization: they are pure functions of the inputs and
+    # recomputed by every init(), so a serialized copy could only go stale
+    # when a saved config's inputs are edited. A config that supplies one
+    # anyway is checked against the computed value; a mismatch raises
+    # instead of being silently overwritten.
+    relative_roughness: float = Field(default=0.0, exclude=True)
+    cross_sectional_area: float = Field(default=0.0, exclude=True)
+    t_scaling_factor: float = Field(default=0.0, exclude=True)
+    T_r: list[float] = Field(default_factory=list, exclude=True)
     """Rock temperature profile along well axis (K), one value per cell."""
 
     # ---- Runtime state / history ----
@@ -309,24 +427,21 @@ class NumericalWell(WellComponent):
     history: NumericalWellHistory = Field(default_factory=NumericalWellHistory)
 
     def init(self) -> None:
-        """Pre-compute geometry constants from validated input fields."""
-        (
-            self.cell_length,
-            self.relative_roughness,
-            self.cross_sectional_area,
-            self.t_scaling_factor,
-            self.T_r,
-        ) = self._compute_derived()
+        """Pre-compute geometry constants from validated input fields.
 
-    def _compute_derived(self) -> tuple[float, float, float, float, list[float]]:
+        Raises:
+            ConfigError: The config supplied a derived value (see
+                ``DERIVED_FIELDS``) that disagrees with what this well's
+                inputs give. Remove it (``expunge_derived_fields``) so it is
+                recomputed.
+        """
+        self._set_derived(**dict(zip(DERIVED_FIELDS, self._compute_derived(), strict=True)))
+
+    def _compute_derived(self) -> tuple[float, float, float, list[float]]:
         """Compute geometry-derived constants from this well's validated input fields.
 
         Returns:
-            Tuple of ``(cell_length, relative_roughness, cross_sectional_area,
-            t_scaling_factor, T_r)``. ``cell_length`` is flow-path length per
-            cell (m) — used for friction and heat-loss geometry, deliberately
-            *not* scaled by angle, since those depend on distance traveled.
-            ``T_r`` is the rock temperature (K) at each cell's true vertical
+            Tuple in ``DERIVED_FIELDS`` order. ``T_r`` is the rock temperature (K) at each cell's true vertical
             depth — ``num_cells`` entries, ONE PER CELL (not per node —
             ``_march`` uses ``T_r[i - 1]`` for marching step ``i``, i.e. the
             cell that step falls within) — computed by projecting flow-path
@@ -340,7 +455,6 @@ class NumericalWell(WellComponent):
             down from ``wellhead_depth``.
 
         """
-        cell_length = self.well_length / self.num_cells
         relative_roughness = self.pipe_roughness / self.diameter
         cross_sectional_area = 0.25 * math.pi * self.diameter**2
         t_scaling_factor = (
@@ -352,7 +466,7 @@ class NumericalWell(WellComponent):
             zspace = self.well_length - zspace  # upward flow: distance from the shallow end is L - z
         vertical_depth = self.wellhead_depth + zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
-        return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
+        return relative_roughness, cross_sectional_area, t_scaling_factor, T_r
 
     def _march(
         self,

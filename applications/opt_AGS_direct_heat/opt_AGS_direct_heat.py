@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tango.components.well.numerical import WellLengthSideEffect, set_well_length
 from tango.core.policies import InjectionPolicy
 from tango.pymoo_api import ConstraintSpec, ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
 from tango.workflows.workflow import Workflow
@@ -82,6 +83,49 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
     return ParamSpec(name=name, apply=_PathsApply(tuple(tuple(p.split(".")) for p in paths)), bounds=bounds)
 
 
+@dataclass
+class _DepthApply:
+    """Picklable ``ParamSpec.apply`` for the loop's depth, i.e. the injection well's length.
+
+    The production well's length and the horizontal well's starting depth
+    are derived from it (``tango.workflows.linked_quantities``). The length
+    changes through ``set_well_length`` with ``KEEP_CELL_LENGTH``, so the
+    well's axial resolution stays what the config asked for (or the
+    default) instead of stretching a fixed cell count over the new length.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        set_well_length(
+            cfg["components"]["injection_well"],
+            float(value),
+            WellLengthSideEffect.KEEP_CELL_LENGTH,
+        )
+        return cfg
+
+    def read(self, cfg: dict[str, Any]) -> float:
+        return float(cfg["components"]["injection_well"]["well_length"])
+
+
+@dataclass
+class _LoopLengthApply:
+    """Picklable ``ParamSpec.apply`` for the horizontal loop's length.
+
+    ``layout.well_spacing`` is derived from it. See ``_DepthApply`` for why
+    the length goes through ``set_well_length``.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        set_well_length(
+            cfg["components"]["horizontal_well"],
+            float(value),
+            WellLengthSideEffect.KEEP_CELL_LENGTH,
+        )
+        return cfg
+
+    def read(self, cfg: dict[str, Any]) -> float:
+        return float(cfg["components"]["horizontal_well"]["well_length"])
+
+
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # Depth, loop length, loop diameter, and mass flow cover the AGS
     # direct-heat sweep's own axes (run_AGS_direct_heat_sweep/common.py).
@@ -110,19 +154,8 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
       pressure drop and its cost.
     """
     return [
-        _param(
-            "depth_m",
-            bounds["depth_m"],
-            "components.injection_well.well_length",
-            "components.horizontal_well.wellhead_depth",
-            "components.production_well.well_length",
-        ),
-        _param(
-            "loop_length_m",
-            bounds["loop_length_m"],
-            "components.horizontal_well.well_length",
-            "layout.well_spacing",
-        ),
+        ParamSpec(name="depth_m", apply=_DepthApply(), bounds=bounds["depth_m"]),
+        ParamSpec(name="loop_length_m", apply=_LoopLengthApply(), bounds=bounds["loop_length_m"]),
         _param("loop_diameter_m", bounds["loop_diameter_m"], "components.horizontal_well.diameter"),
         _param(
             "vertical_well_diameter_m",

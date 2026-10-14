@@ -60,7 +60,7 @@ common:
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
-  well_spacing: 707.0        # m — horizontal loop length
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
 
 sim_config:
   num_tsteps: 20              # years
@@ -105,7 +105,7 @@ components:
     well_length: 707.0          # m — horizontal loop flow-path length
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    wellhead_depth: 9000.0       # m — starting (vertical) depth, matches injection_well's well_length
+    # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
 
   production_well:
@@ -114,7 +114,7 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 9000.0         # m — vertical well depth (hypothetically deepened, see header comment)
+    # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
 
@@ -149,11 +149,8 @@ components:
                                           # for CO2 near this design point, not borrowed from a
                                           # different fluid -- see CO2_EGS_ORC_electric.yml's own
                                           # correction for why this matters).
-          p0_out1: 95                   # bar (= 9.5 MPa) — TESPy guess value; see graph.py's
-                                          # _apply_connection_config docstring: p0_out{N} passes
-                                          # its raw value straight through in TESPy's own network
-                                          # unit (bar), no MPa->bar conversion.
-          p0_out2: 1.38                 # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out1: 9.5      # MPa — TESPy guess value
+          p0_megapascals_out2: 1.38                 # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
           vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
 
         preheater:
@@ -164,7 +161,7 @@ components:
                                           # pressure across the whole run, not just at t=0.
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
           vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
-          p0_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
           fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
 
         circulation_control:

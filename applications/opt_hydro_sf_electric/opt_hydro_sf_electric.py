@@ -77,12 +77,11 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
 
 @dataclass
 class _WellDiameterApply:
-    """Picklable ``ParamSpec.apply`` for a wellbore diameter that also moves the reservoir's effective diameter.
+    """Picklable ``ParamSpec.apply`` for a wellbore diameter, set on every well segment in ``wells``.
 
-    ``reservoir.well_eff_diameter`` is the average of the injection and
-    production well diameters. Each diameter param recomputes it from
-    whatever the config holds for the other, so the result is the same in
-    either application order.
+    ``reservoir.well_eff_diameter``, the average of the injection and
+    production well diameters, is derived from these
+    (``tango.workflows.linked_quantities``).
     """
 
     wells: tuple[str, ...]
@@ -91,9 +90,6 @@ class _WellDiameterApply:
         components = cfg["components"]
         for well in self.wells:
             components[well]["diameter"] = float(value)
-        components["reservoir"]["well_eff_diameter"] = 0.5 * (
-            components["injection_well"]["diameter"] + components["production_well_lower"]["diameter"]
-        )
         return cfg
 
     def read(self, cfg: dict[str, Any]) -> float:

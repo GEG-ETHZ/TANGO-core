@@ -23,8 +23,6 @@ uv run tango_cli validate example_configs/hydro_sf_electric.yml
 |---|---|
 | `hydro_sf_electric.yml` | Flexible Single-Flash hydrothermal, manual mass flow rate, electric output. |
 | `hydro_sf_electric_5spot.yml` | Single-Flash hydrothermal on a five-spot well pattern. |
-| `hydro_sf_electric_autoflow.yml` | Single-Flash hydrothermal, mass flow converged automatically (`auto-flow`). |
-| `hydro_sf_electric_autopressure.yml` | Single-Flash hydrothermal, injection pressure converged automatically (`auto-pressure`). |
 | `hydro_df_electric.yml` | Conventional hydrothermal, double-flash electric power plant (two flash stages). |
 | `hydro_ORC_electric.yml` | Hydrothermal system with a binary (ORC) power plant. |
 | `hydro_direct_heat.yml` | Hydrothermal, direct heat. |

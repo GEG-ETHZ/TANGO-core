@@ -80,12 +80,11 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
 
 @dataclass
 class _WellDiameterApply:
-    """Picklable ``ParamSpec.apply`` for a wellbore diameter that also moves the reservoir's effective diameter.
+    """Picklable ``ParamSpec.apply`` for a wellbore diameter, set on every well segment in ``wells``.
 
-    ``reservoir.well_eff_diameter`` is the average of the injection and
-    production well diameters. Each diameter param recomputes it from
-    whatever the config holds for the other, so the result is the same in
-    either application order.
+    ``reservoir.well_eff_diameter``, the average of the injection and
+    production well diameters, is derived from these
+    (``tango.workflows.linked_quantities``).
     """
 
     wells: tuple[str, ...]
@@ -94,9 +93,6 @@ class _WellDiameterApply:
         components = cfg["components"]
         for well in self.wells:
             components[well]["diameter"] = float(value)
-        components["reservoir"]["well_eff_diameter"] = 0.5 * (
-            components["injection_well"]["diameter"] + components["production_well_lower"]["diameter"]
-        )
         return cfg
 
     def read(self, cfg: dict[str, Any]) -> float:
@@ -117,7 +113,7 @@ class _OrcFeedPumpPressureApply:
     a guess left at the base design's value makes the solve fail at many
     pressures inside the bounds:
 
-    - the preheater's and evaporator's ``p0_out2``, to this pressure;
+    - the preheater's and evaporator's ``p0_megapascals_out2``, to this pressure;
     - the evaporator's ``h0_out1`` (geofluid outlet enthalpy), to its exact
       solved value: R245fa enters the evaporator as saturated liquid
       (``preheater.vapor_mass_fraction_out2: 0``), so ``ttd_l`` puts the
@@ -129,8 +125,8 @@ class _OrcFeedPumpPressureApply:
     def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
         nodes = cfg["components"]["surface"]["power_plant"]["nodes"]
         nodes["orc_feed_pump"]["p_out_megapascals"] = float(value)
-        nodes["preheater"]["p0_out2"] = float(value)
-        nodes["evaporator"]["p0_out2"] = float(value)
+        nodes["preheater"]["p0_megapascals_out2"] = float(value)
+        nodes["evaporator"]["p0_megapascals_out2"] = float(value)
 
         orc_fluid = nodes["preheater"]["fluid_out2"]
         geofluid = cfg["common"]["fluid_name"]
@@ -173,8 +169,8 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
       value, threaded to the surface and the pump-bearing production well.
     - ``production_well_diameter_m`` sets both production well sections
       together: ``DoubletEconomicComponent`` costs them as one well and
-      requires one diameter. Both diameters also move
-      ``reservoir.well_eff_diameter``, their average.
+      requires one diameter. ``reservoir.well_eff_diameter``, their
+      average, is derived from both.
     - ``surface_pipe_diameter_m`` sets both the surface pipe's friction
       pressure drop and its cost.
     """

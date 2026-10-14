@@ -139,15 +139,17 @@ comments); `dev_docs/bugs-fixed-in-tango.md`.
 
 **TANGO guard:** convention only (no `p_out` on the circulation device).
 
-## Unknown or misspelled config keys are dropped *[TANGO]*
+## Unknown or misspelled config keys *[TANGO, surface nodes fixed]*
 
-- `_apply_node_config` reads only the keys it knows; any other key on a
-  surface node, including a typo, is silently ignored.
-- A bare `p0_out` / `h0_out` (without the `{N}` port suffix) never matches
-  a connection and is a silent no-op.
-- Units are inconsistent: `p_out_megapascals` is converted MPa → bar, but
-  `p0_out{N}` / `h0_out{N}` pass straight through in TESPy's network units
-  (bar, kJ/kg), so `p0_out1: 75` means 7.5 MPa.
+- Surface nodes: any key `GraphSurface` doesn't read, including a typo or
+  a bare `p0_megapascals_out` / `h0_out` without the `{N}` port suffix,
+  raises `ConfigError` listing the allowed keys (`_check_node_keys`).
+  Before, such keys were silently ignored.
+- Pressure units are now consistent: `p_out_megapascals` and the starting
+  guess `p0_megapascals_out{N}` are both in MPa and converted to bar for
+  TESPy. The old `p0_out{N}` key was passed through unconverted (bar), and
+  the ORC configs and opt apps wrote MPa values into it, so their guesses
+  were 10x too low. `h0_out{N}` stays in kJ/kg, TESPy's enthalpy unit here.
 - TESPy's own component attributes behave the same way: a wrong attribute
   name fails silently at construction and only errors, confusingly, at
   solve time.
@@ -180,7 +182,7 @@ The acceptance path was removed: an unconverged solve always raises.
 `subcooling_K: 1.0` (TESPy's `td_bubble`, relative to saturation at the actual
 outlet pressure) instead of exactly saturated liquid, which also gives the
 pump a margin against cavitation. A subcooled outlet can need TESPy
-starting guesses (`p0_out1`, `h0_out1`): without them,
+starting guesses (`p0_megapascals_out1`, `h0_out1`): without them,
 `hydro_df_electric.yml` diverged in year 0 under `BICUBIC&HEOS` (it
 converges without them under exact `HEOS`). Separator liquid can't be
 subcooled. Every example condenser is now subcooled; the ORC and

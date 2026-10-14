@@ -115,3 +115,17 @@ def test_smoke_refuses_default_outputs_dir() -> None:
     app = _load(_APP_NAMES[0])
     with pytest.raises(SystemExit):
         app.parse_args(["--smoke"])
+
+
+def test_hydro_df_flash_params_commute() -> None:
+    """The two flash-pressure params give the same config in either application order."""
+    app = _load("opt_hydro_df_electric")
+    specs = {s.name: s for s in app.param_specs()}
+    high, ratio = specs["high_flash_pressure_MPa"], specs["low_flash_pressure_ratio"]
+    a = ratio.apply(high.apply(app.base_config(), 0.4), 0.5)
+    b = high.apply(ratio.apply(app.base_config(), 0.5), 0.4)
+    nodes_a = a["components"]["surface"]["power_plant"]["nodes"]
+    nodes_b = b["components"]["surface"]["power_plant"]["nodes"]
+    for node in ("high_pressure_flash_valve", "low_pressure_flash_valve"):
+        assert nodes_a[node]["p_out_megapascals"] == pytest.approx(nodes_b[node]["p_out_megapascals"])
+    assert nodes_a["low_pressure_flash_valve"]["p_out_megapascals"] == pytest.approx(0.2)

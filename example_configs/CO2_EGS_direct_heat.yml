@@ -74,7 +74,7 @@ sim_config:
   target_extraction_pressure: 8_000_000  # Pa — kept above CO2's 7.38 MPa
                                           # critical pressure, matching
                                           # CPG_electric.yml/CPG_direct_heat.yml
-  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
   mass_rate: 30                 # kg/s — matches EGS_direct_heat.yml's subsurface loop
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
@@ -97,7 +97,7 @@ components:
     component_idx: 0           # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 3000.0        # m — reservoir depth
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
     diameter: 0.311             # m  (~12-inch casing, typical for EGS)
     pipe_roughness: 5.5e-5      # m
 
@@ -111,9 +111,9 @@ components:
     thickness: 300.0              # m
     permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
     porosity: 0.1
-    hydro_static_pressure: 29_430_000  # Pa = 1000*9.81*3000
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
     over_pressure_percentage: 5
-    well_eff_diameter: 0.311      # m — average of injection/production well diameters (both 0.311)
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -121,10 +121,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 2400.0         # m = 0.8 x reservoir_depth
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    wellhead_depth: 600.0        # m — matches production_well_upper's well_length below
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well       # plain, NOT production_well_with_pump -- see header comment
@@ -169,8 +169,8 @@ components:
       # absolute p_out: the production wellhead pressure falls over the run
       # (from ~104 bar in year 0 to ~89 bar by year 24), so any fixed outlet
       # pressure ends up above the inlet in some years, and TESPy would solve
-      # that as free compression. p0_out1 is only TESPy's starting guess
-      # (bar): without it, TESPy's default guess is below CO2's triple-point
+      # that as free compression. p0_megapascals_out1 is only TESPy's starting
+      # guess (MPa): without it, TESPy's default guess is below CO2's triple-point
       # pressure and the solve fails outright.
       #
       # injection_cooler then cools the CO2 from the 50 degC district-heating
@@ -197,12 +197,12 @@ components:
           role: net_thermal
           T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
           pressure_ratio: 0.975   # 2.5% heat-exchanger pressure loss
-          p0_out1: 100            # bar -- TESPy starting guess only (see comment above)
+          p0_megapascals_out1: 10            # MPa -- TESPy starting guess only (see comment above)
         injection_cooler:
           type: SimpleHeatExchanger    # cools the CO2 before reinjection -- see comment above
           T_out: 311.15                # K (38 degC) -- dense CO2 for the thermosiphon; see comment above
           pressure_ratio: 1.0          # no pressure drop
-          p0_out1: 100                 # bar -- TESPy starting guess for the outlet pressure
+          p0_megapascals_out1: 10                 # MPa -- TESPy starting guess for the outlet pressure
           h0_out1: 270                 # kJ/kg -- TESPy starting guess for the outlet enthalpy
           Subtype: cooler              # cooling-tower cost (DoubletEconomicComponent)
           set_number: 1

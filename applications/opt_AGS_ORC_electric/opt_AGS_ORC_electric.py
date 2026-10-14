@@ -39,6 +39,7 @@ from typing import Any
 
 from CoolProp.CoolProp import PropsSI
 
+from tango.components.well.numerical import WellLengthSideEffect, set_well_length
 from tango.core.policies import InjectionPolicy
 from tango.pymoo_api import ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
 from tango.workflows.workflow import Workflow
@@ -84,6 +85,49 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
 
 
 @dataclass
+class _DepthApply:
+    """Picklable ``ParamSpec.apply`` for the loop's depth, i.e. the injection well's length.
+
+    The production well's length and the horizontal well's starting depth
+    are derived from it (``tango.workflows.linked_quantities``). The length
+    changes through ``set_well_length`` with ``KEEP_CELL_LENGTH``, so the
+    well's axial resolution stays what the config asked for (or the
+    default) instead of stretching a fixed cell count over the new length.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        set_well_length(
+            cfg["components"]["injection_well"],
+            float(value),
+            WellLengthSideEffect.KEEP_CELL_LENGTH,
+        )
+        return cfg
+
+    def read(self, cfg: dict[str, Any]) -> float:
+        return float(cfg["components"]["injection_well"]["well_length"])
+
+
+@dataclass
+class _LoopLengthApply:
+    """Picklable ``ParamSpec.apply`` for the horizontal loop's length.
+
+    ``layout.well_spacing`` is derived from it. See ``_DepthApply`` for why
+    the length goes through ``set_well_length``.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        set_well_length(
+            cfg["components"]["horizontal_well"],
+            float(value),
+            WellLengthSideEffect.KEEP_CELL_LENGTH,
+        )
+        return cfg
+
+    def read(self, cfg: dict[str, Any]) -> float:
+        return float(cfg["components"]["horizontal_well"]["well_length"])
+
+
+@dataclass
 class _OrcFeedPumpPressureApply:
     """Picklable ``ParamSpec.apply`` for the ORC feed-pump outlet pressure (MPa).
 
@@ -97,7 +141,7 @@ class _OrcFeedPumpPressureApply:
     a guess left at the base design's value makes the solve fail at many
     pressures inside the bounds:
 
-    - the preheater's and evaporator's ``p0_out2``, to this pressure;
+    - the preheater's and evaporator's ``p0_megapascals_out2``, to this pressure;
     - the evaporator's ``h0_out1`` (geofluid outlet enthalpy), to its exact
       solved value: R245fa enters the evaporator as saturated liquid
       (``preheater.vapor_mass_fraction_out2: 0``), so ``ttd_l`` puts the
@@ -109,8 +153,8 @@ class _OrcFeedPumpPressureApply:
     def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
         nodes = cfg["components"]["surface"]["power_plant"]["nodes"]
         nodes["orc_feed_pump"]["p_out_megapascals"] = float(value)
-        nodes["preheater"]["p0_out2"] = float(value)
-        nodes["evaporator"]["p0_out2"] = float(value)
+        nodes["preheater"]["p0_megapascals_out2"] = float(value)
+        nodes["evaporator"]["p0_megapascals_out2"] = float(value)
 
         orc_fluid = nodes["preheater"]["fluid_out2"]
         geofluid = cfg["common"]["fluid_name"]
@@ -164,19 +208,8 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
       pressure drop and its cost.
     """
     return [
-        _param(
-            "depth_m",
-            bounds["depth_m"],
-            "components.injection_well.well_length",
-            "components.horizontal_well.wellhead_depth",
-            "components.production_well.well_length",
-        ),
-        _param(
-            "loop_length_m",
-            bounds["loop_length_m"],
-            "components.horizontal_well.well_length",
-            "layout.well_spacing",
-        ),
+        ParamSpec(name="depth_m", apply=_DepthApply(), bounds=bounds["depth_m"]),
+        ParamSpec(name="loop_length_m", apply=_LoopLengthApply(), bounds=bounds["loop_length_m"]),
         _param("loop_diameter_m", bounds["loop_diameter_m"], "components.horizontal_well.diameter"),
         _param(
             "vertical_well_diameter_m",

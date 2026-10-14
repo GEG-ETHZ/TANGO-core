@@ -57,8 +57,6 @@ _CONFIGS: list[tuple[str, float]] = [
     ("hydro_ORC_electric.yml", 0.6406065415168369),
     ("hydro_sf_electric.yml", 1.4550707448734892),
     ("hydro_sf_electric_5spot.yml", 0.8108358034934499),
-    ("hydro_sf_electric_autoflow.yml", 1.3553794729273547),
-    ("hydro_sf_electric_autopressure.yml", 1.2936739601447262),
 ]
 
 

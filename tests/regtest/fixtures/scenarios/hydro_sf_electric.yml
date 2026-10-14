@@ -1,3 +1,8 @@
+# Frozen copy of example_configs/hydro_sf_electric.yml as of 2026-10-13, used as a fixed
+# scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
+# configs change when their design point is re-optimized; these tests check
+# behavior that needs a specific design (e.g. which regime a pump runs in), so
+# they read this copy instead. Update it deliberately, not alongside the example.
 # tango format — flexible Single-Flash system, manual mass flow rate
 #
 # Structural changes from the old format:
@@ -15,6 +20,16 @@
 #                     →[3]→ production_well_upper(3) →[4]→ surface(4) →[0]→ injection_well(0)
 
 title: Hydrothermal system with flexible Single-Flash power plant and manual flow rate
+
+description:
+  summary: Flagship single-flash example — canonical config other apps/tests build on
+  date: "2026-09-18"
+  description: >
+    Manual mass-flow-rate single-flash hydrothermal system, doublet well
+    pattern. This is the config most other apps and tests treat as the
+    "known-good starting point": demo_hydro_sf_electric,
+    demo_well_mesh_convergence, opt_hydro_sf_electric, and
+    test_lcoe_regression.py's REFERENCE_LCOE all build on it directly.
 # Orchestrator is selected automatically:
 #   sim_config.injection_mode present  →  SystemBCIteration
 #   sim_config.injection_mode absent   →  SystemDirect
@@ -40,15 +55,15 @@ sim_config:
   target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
-  injection_mode: auto-flow  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 50              # kg/s — omit (or ignored) for auto-flow and auto-both
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 50              # kg/s
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
-  max_mass_rate: 70
 
 economic:
   type: doublet
   project_maturity: green_field  # green_field or brown_field
   discount_rate: 0.095
+  main_product: electricity      # matches MainProduct's own default -- explicit rather than implicit
 
 components:
 
@@ -76,7 +91,7 @@ components:
 
         flash_valve:
           type: Valve
-          p_out_megapascals: 0.05          # MPa (= 0.5 bar — matches old tango p_out: 0.5 bar)
+          p_out_megapascals: 0.05          # MPa (= 0.5 bar)
 
         separator:
           type: DropletSeparator
@@ -90,17 +105,16 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar)
 
         condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.005         # MPa (= 0.05 bar — matches old tango p_out: 0.05 bar)
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar)
           subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
                                          # exactly saturated liquid (TESPy left the condensate pump's equation
                                          # unconverged at x = 0) and has a margin against cavitation
           # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
-          # physics) — matches old tango's flexible_SF_manual.yml condenser block
-          # exactly: a singleton set (no paired cooler), closed/wet cooling tower.
+          # physics): a singleton set (no paired cooler), closed/wet cooling tower.
           Subtype: condenser
           set_number: 1
           design: closed
@@ -131,13 +145,12 @@ components:
   injection_well:
     type: injection_well
     variant: numerical           # discretized marching solver; "lumped" = LumpedInjectionWell (single closed-form calc)
-    component_idx: 0          # first component solved each pass — circuit cut here (matches old tango solve order)
+    component_idx: 0          # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 5000.0       # m
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution
 
   reservoir:
     type: reservoir
@@ -149,11 +162,11 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 50_000_000  # Pa — nominal, used only for the fracking-safety ceiling
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
     over_pressure_percentage: 10
     brine_density: 1000           # kg/m3 — used for the reservoir's own
                                    # initial/undepleted pressure (brine_density * g * depth)
-    well_eff_diameter: 0.410      # m — average of injection (0.410) and production (0.410) well diameters
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -161,11 +174,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 4000.0       # m
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution
-    wellhead_depth: 1000.0    # m — equals the well's own length (pump_well_length)
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well_with_pump
@@ -176,7 +188,6 @@ components:
     well_length: 1000.0       # m
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    num_cells: 100             # axial discretization resolution
     pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above (see that field's

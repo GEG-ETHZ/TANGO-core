@@ -12,10 +12,7 @@
 # every timestep (same single pass as `manual`), but the solved result is
 # checked against both fracking thresholds afterward, raising
 # FrackingViolationError on violation rather than performing no check at
-# all. `auto-flow`/`auto-both` (which solve for mass_rate directly each
-# pass, with an optional `max_mass_rate` cap) are also available now —
-# switching this config to one of those instead is a design choice worth
-# considering later, not something this file needs to resolve.
+# all.
 #
 # Site parameters (Triemli, Zurich):
 #   surface temperature : 11 degC (284.15 K)
@@ -44,7 +41,7 @@ sim_config:
   target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
-  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
   mass_rate: 30                 # kg/s
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
@@ -76,7 +73,7 @@ components:
     component_idx: 0           # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    well_length: 3000.0        # m — reservoir depth; updated per depth in sweep
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
     diameter: 0.311             # m  (~12-inch casing, typical for EGS)
     pipe_roughness: 5.5e-5      # m
 
@@ -90,9 +87,9 @@ components:
     thickness: 300.0              # m
     permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
     porosity: 0.1
-    hydro_static_pressure: 29_430_000  # Pa = 1000*9.81*3000 — updated per depth in sweep
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
     over_pressure_percentage: 5
-    well_eff_diameter: 0.311      # m — average of injection/production well diameters (both 0.311)
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -100,10 +97,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 2400.0         # m = 0.8 x reservoir_depth — updated per depth in sweep
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    wellhead_depth: 600.0        # m — matches production_well_upper's well_length below
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well_with_pump

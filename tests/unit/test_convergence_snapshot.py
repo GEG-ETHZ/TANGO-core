@@ -323,9 +323,7 @@ def test_surface_power_output_reproducible_across_convergence_attempts() -> None
     ``injection_pressure`` lives outside ``state`` (see
     ``SurfaceComponent.injection_pressure``'s docstring), so
     ``restore_convergence_state()`` never rolls it back — this test resets
-    it explicitly, the same way ``SystemBCIteration._converge_injection_pressure``
-    writes it directly each outer iteration, rather than relying on the
-    snapshot mechanism for it.
+    it explicitly rather than relying on the snapshot mechanism for it.
     """
     wf = _load_hydro_sf_electric_workflow(num_tsteps=1)
     wf.run()

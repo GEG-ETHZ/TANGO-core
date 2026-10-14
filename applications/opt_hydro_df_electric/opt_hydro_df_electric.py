@@ -77,12 +77,11 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
 
 @dataclass
 class _WellDiameterApply:
-    """Picklable ``ParamSpec.apply`` for a wellbore diameter that also moves the reservoir's effective diameter.
+    """Picklable ``ParamSpec.apply`` for a wellbore diameter, set on every well segment in ``wells``.
 
-    ``reservoir.well_eff_diameter`` is the average of the injection and
-    production well diameters. Each diameter param recomputes it from
-    whatever the config holds for the other, so the result is the same in
-    either application order.
+    ``reservoir.well_eff_diameter``, the average of the injection and
+    production well diameters, is derived from these
+    (``tango.workflows.linked_quantities``).
     """
 
     wells: tuple[str, ...]
@@ -91,9 +90,6 @@ class _WellDiameterApply:
         components = cfg["components"]
         for well in self.wells:
             components[well]["diameter"] = float(value)
-        components["reservoir"]["well_eff_diameter"] = 0.5 * (
-            components["injection_well"]["diameter"] + components["production_well_lower"]["diameter"]
-        )
         return cfg
 
     def read(self, cfg: dict[str, Any]) -> float:
@@ -101,13 +97,40 @@ class _WellDiameterApply:
 
 
 @dataclass
+class _HighFlashPressureApply:
+    """Picklable ``ParamSpec.apply`` for the high-pressure flash, keeping the low/high ratio.
+
+    The config stores both valves' absolute pressures, but the search sets
+    the low-pressure one as a ratio of the high-pressure one
+    (``_LowFlashPressureRatioApply``). Moving the high-pressure valve
+    therefore moves the low-pressure one with it at the current ratio, so
+    the two params give the same config in either application order.
+    """
+
+    def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
+        nodes = cfg["components"]["surface"]["power_plant"]["nodes"]
+        high, low = nodes["high_pressure_flash_valve"], nodes["low_pressure_flash_valve"]
+        ratio = float(low["p_out_megapascals"]) / float(high["p_out_megapascals"])
+        high["p_out_megapascals"] = float(value)
+        low["p_out_megapascals"] = ratio * float(value)
+        return cfg
+
+    def read(self, cfg: dict[str, Any]) -> float:
+        return float(
+            cfg["components"]["surface"]["power_plant"]["nodes"]["high_pressure_flash_valve"][
+                "p_out_megapascals"
+            ],
+        )
+
+
+@dataclass
 class _LowFlashPressureRatioApply:
     """Picklable ``ParamSpec.apply`` for the low-pressure flash as a fraction of the high-pressure flash.
 
     Setting the low-pressure valve as a ratio of the high-pressure one keeps
-    ``high > low`` by construction. Reads the high-pressure valve's current
-    value, so this param must come after ``high_flash_pressure_MPa`` in the
-    param list (``Minimization`` applies params in list order).
+    ``high > low`` by construction. ``_HighFlashPressureApply`` keeps this
+    ratio when it moves the high-pressure valve, so the order the two params
+    are applied in doesn't matter.
     """
 
     def __call__(self, cfg: dict[str, Any], value: float) -> dict[str, Any]:
@@ -185,10 +208,10 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
             bounds["surface_pipe_diameter_m"],
             "components.surface.pipe_diameter",
         ),
-        _param(
-            "high_flash_pressure_MPa",
-            bounds["high_flash_pressure_MPa"],
-            "components.surface.power_plant.nodes.high_pressure_flash_valve.p_out_megapascals",
+        ParamSpec(
+            name="high_flash_pressure_MPa",
+            apply=_HighFlashPressureApply(),
+            bounds=bounds["high_flash_pressure_MPa"],
         ),
         ParamSpec(
             name="low_flash_pressure_ratio",

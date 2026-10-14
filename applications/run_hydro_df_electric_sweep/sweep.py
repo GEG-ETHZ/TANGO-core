@@ -1,7 +1,8 @@
 """Simulation sweep stage: run each one-at-a-time design point in parallel.
 
-Every design point re-reads ``hydro_df_electric.yml`` fresh
-(``Workflow.from_file(BASE_YAML).to_dict()``), mutates a plain dict copy
+Every design point re-reads ``hydro_df_electric.yml`` fresh as a plain
+dict (not ``Workflow.to_dict()``, which writes out every derived value and
+would pin it at the base design's), mutates it
 using the scale factors read per-row from the design matrix (see
 ``generate.py`` for how those rows are built), and builds a brand-new
 ``Workflow`` from it — see ``Workflow``'s class docstring
@@ -63,6 +64,7 @@ import traceback
 from pathlib import Path
 
 import polars as pl
+import yaml
 from common import (
     BASE_YAML,
     DEFAULT_LOG_LEVEL,
@@ -81,22 +83,6 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS  # noqa: E402
 from tango.workflows.workflow import Workflow  # noqa: E402
-
-
-def _sync_injection_well_length(cfg: dict) -> None:
-    """Sync injection well length to the (scaled) sum of the two production well segments.
-
-    Sets ``injection_well.well_length = production_well_lower.well_length
-    + production_well_upper.well_length`` after all scale factors are
-    applied, i.e. total injection depth = sum of the two production well
-    segments post-scaling. The sampled scale factor for
-    ``injection_well.well_length`` itself is thrown away — which is why
-    it isn't in ``PARAMETER_BOUNDS`` at all here (see common.py's
-    docstring).
-    """
-    prod_len = get_nested_value(cfg, "components.production_well_lower.well_length")
-    pump_len = get_nested_value(cfg, "components.production_well_upper.well_length")
-    set_nested_value(cfg, "components.injection_well.well_length", prod_len + pump_len)
 
 
 def run_single_simulation(args: tuple) -> None:
@@ -129,19 +115,15 @@ def run_single_simulation(args: tuple) -> None:
     }
 
     try:
-        # Fresh Workflow every design point — never mutate a live Workflow;
-        # cfg = base_wf.to_dict() then mutate the plain dict then Workflow(cfg).
-        base_wf = Workflow.from_file(BASE_YAML)
-        cfg = base_wf.to_dict()
+        # Fresh config dict every design point, as written in the YAML:
+        # derived values (well lengths, cell counts, ...) then follow the
+        # scaled inputs instead of keeping the base design's.
+        cfg = yaml.safe_load(BASE_YAML.read_text())
 
         for param in PARAMETERS:
             scale_factor = row[param]
             for path in (param, *LINKED_PATHS.get(param, ())):
                 set_nested_value(cfg, path, get_nested_value(cfg, path) * scale_factor)
-
-        # Sync injection well length to the (scaled) sum of the production
-        # well segments — see _sync_injection_well_length's docstring.
-        _sync_injection_well_length(cfg)
 
         # No mirroring of layout.well_spacing onto components.surface here:
         # well_spacing is sourced only from layout: and rejected as a

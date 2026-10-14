@@ -32,9 +32,10 @@ class SurfaceComponent(FlowComponent):
     independent copy. Provides surface_temperature/surface_pressure
     (ambient BC state). See core/specs.py."""
     injection_pressure: PositiveFloat
-    """Initial guess for injection wellhead pressure used by SystemBCIteration (Pa).
-    Updated in-place by SystemBCIteration each convergence pass — deliberately
-    NOT frozen, unlike the other fields here; see Component's class docstring.
+    """Injection wellhead pressure (Pa), fixed for the whole run.
+
+    Not frozen, unlike the other fields here: tests and tools set it
+    directly on a built component (see Component's class docstring).
     """
     pipe_diameter: PositiveFloat = Field(frozen=True)
     """Surface pipe inner diameter (m)."""

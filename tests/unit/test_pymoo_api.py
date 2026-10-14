@@ -9,7 +9,9 @@ constraint, on short (2-timestep) runs of real example configs.
 
 from __future__ import annotations
 
+import copy
 import pickle
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -174,7 +176,10 @@ def test_non_finite_objective_counts_as_infeasible(tmp_path: Path) -> None:
 
 def test_param_check_skips_param_with_no_room(tmp_path: Path) -> None:
     """A param whose bounds leave no room on either side is skipped, not reported as inert."""
-    pinned = _param("pinned_depth_m", "components.injection_well.well_length", (3000.0, 3000.0))
+    diameter = yaml.safe_load((_EXAMPLE_CONFIGS / "AGS_direct_heat.yml").read_text())["components"][
+        "injection_well"
+    ]["diameter"]
+    pinned = _param("pinned_diameter_m", "components.injection_well.diameter", (diameter, diameter))
     m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE), pinned], tmp_path)
     m._check_param_sensitivity(_Problem(m))  # noqa: SLF001
 
@@ -194,3 +199,15 @@ def test_minimization_pickles_for_worker_processes(tmp_path: Path) -> None:
     f, g = copy.mgr._evaluate_one([30.0])  # noqa: SLF001
     assert np.isfinite(f).all()
     assert g[0] <= 0
+
+
+def test_evaluation_resolves_well_cells_for_its_own_length(tmp_path: Path) -> None:
+    """A loop-length param gets the default resolution for the NEW length, not the base design's cell count."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "applications" / "opt_AGS_direct_heat"))
+    from opt_AGS_direct_heat import APP  # noqa: PLC0415
+
+    loop_length = next(p for p in APP.param_specs() if p.name == "loop_length_m")
+    mgr = _minimization("AGS_direct_heat.yml", [loop_length], tmp_path)
+    cfg = loop_length.apply(copy.deepcopy(mgr.base_cfg), 8000.0)
+    loop = Workflow(cfg)._orchestrator.components["horizontal_well"]  # noqa: SLF001
+    assert loop.num_cells == 40

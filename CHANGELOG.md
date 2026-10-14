@@ -18,6 +18,59 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   config are unchanged to 1e-6. ORC designs that used to fail to converge at
   random now solve every time. The `subcooling_K` surface-node key now maps
   to TESPy's `td_bubble`.
+- **Linked config values have one source.** A quantity that several
+  components need is written once and the rest derived
+  (`tango.workflows.linked_quantities`); a config that gives a copy which
+  disagrees raises `ConfigError` instead of running with it. Doublet:
+  `reservoir.reservoir_depth` and the pump depth
+  (`production_well_upper.well_length`) set the injection well's length, the
+  lower production segment, `well_eff_diameter` and `hydro_static_pressure`
+  (= brine density x g x depth; 2% lower than the old hand-entered 50 MPa in
+  the hydro configs, 24.5 vs 25 MPa in CPG). AGS: the injection well's length
+  sets the production well and the loop's depth, and the loop length sets
+  `layout.well_spacing`. Every example config drops its redundant copies.
+- **Numerical wells:** `num_cells` and `cell_length` are linked to
+  `well_length` (give either, both if they agree, or neither for the
+  default). Derived values (`T_r`, cross-section, ...) are no longer written
+  by `to_dict()`, and a config that supplies one that disagrees raises
+  instead of being silently overwritten; `LumpedReservoir`'s derived values
+  work the same way. `set_well_length()` changes a length with an explicit
+  choice of what follows it.
+- **Surface-node keys are checked:** an unknown key (a typo, a renamed key)
+  raises `ConfigError` instead of being ignored. The TESPy starting-pressure
+  guess is now `p0_megapascals_out{N}`, in MPa like `p_out_megapascals`; the
+  old `p0_out{N}` was passed to TESPy unconverted in bar, so the ORC
+  configs' and opt apps' MPa values were 10x too low.
+
+### Removed
+
+- **`auto-pressure`, `auto-flow` and `auto-both` injection modes**, with
+  `sim_config.max_mass_rate` and the `hydro_sf_electric_autopressure.yml`
+  and `hydro_sf_electric_autoflow.yml` examples. They iterated pressure or
+  flow toward a fracking threshold within each timestep; `auto-pressure`
+  could cycle without converging, and `auto-both` was never implemented.
+  Find operating points with the `applications/opt_*/` searches instead,
+  which treat fracking as a constraint under `manual-fracking-check`.
+
+### Fixed
+
+- **Optimizations used the base design's well resolution.** `Minimization`
+  built its template with `Workflow.to_dict()`, which pinned each numerical
+  well's cell count, so AGS designs with longer wells were simulated with
+  far coarser cells (an 8000 m loop in 10 cells of 800 m instead of 40 of
+  200 m; up to 1.3% in LCOE). The template is now the config as written.
+- **Sweeps:** the EGS direct-heat sweep never moved the lower production
+  segment's starting depth with the reservoir depth, so its rock
+  temperatures stayed at the base design's; the hydro_df sweep varied the
+  reservoir depth and the well lengths independently; all three sweeps
+  inherited the pinned cell counts above. They now build from the YAML and
+  set only source values; the hydro_df one-at-a-time design drops from 59
+  to 55 rows.
+- **Parallel optimizations on TESPy 0.11:** `Minimization` and the surrogate
+  sweep take a config dict (`base_cfg`), not a `Workflow`, so nothing
+  unpicklable is sent to worker processes.
+- **hydro_df's two flash-pressure parameters** give the same design in
+  either application order.
 
 ---
 

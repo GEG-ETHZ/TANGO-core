@@ -18,7 +18,8 @@ from tango.components.surface.graph import GraphSurface
 from tango.core.errors import ConfigError
 from tango.workflows.workflow import Workflow
 
-_EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
+# Frozen scenario copies of example configs; see test_lcoe_regression.py.
+_EXAMPLE_CONFIGS_DIR = Path(__file__).parent / "fixtures" / "scenarios"
 _N_TSTEPS_FAST = 3
 
 

@@ -250,26 +250,29 @@ class LumpedReservoir(ReservoirComponent):
     """Well pattern for analytic impedance solution — threaded from
     ``Layout.well_pattern`` (already validated/coerced there) via
     ``_build_components``'s ``layout_extras`` mechanism."""
-    wp: WellPattern = WellPattern.Doublet
+    wp: WellPattern = Field(default=WellPattern.Doublet, exclude=True)
     """Resolved ``well_pattern`` object"""
     net_to_gross_ratio: float = Field(default=1.0, frozen=True)
     """Net-to-gross ratio for effective reservoir thickness (dimensionless)."""
 
     # ---- Derived constants (computed once by init(), never touched by solve()) ----
+    # Excluded from serialization: pure functions of the inputs, recomputed
+    # by every init(), so a serialized copy could only go stale. A config
+    # that supplies one anyway is checked (Component._set_derived).
     # Deliberately NOT frozen — init() assigns these directly (plain floats,
     # not LockedState) once; see Component's class docstring for why fields
     # like this stay mutable rather than Field(frozen=True). Unlike p1/p2/p3
     # (now in `state` — see LumpedReservoirState), solve() never reassigns
     # these, so they have no need to live in `state` either.
-    T_initial: float = 0.0
+    T_initial: float = Field(default=0.0, exclude=True)
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
-    P_initial: float = 0.0
+    P_initial: float = Field(default=0.0, exclude=True)
     """Un-depleted reservoir pressure = brine_density × g × reservoir_depth
     (Pa). Distinct from the fracking-safety ceiling
     (hydro_static_pressure × (1 + over_pressure_percentage/100))."""
-    rock_volume: float = 0.0
+    rock_volume: float = Field(default=0.0, exclude=True)
     """Rock (non-fluid) volume = thickness × area × (1 − porosity) (m³)."""
-    rock_C_v: float = 0.0  # noqa: N815
+    rock_C_v: float = Field(default=0.0, exclude=True)  # noqa: N815
     """Volumetric heat capacity of rock = rock_density × rock_cp (J/(m³·K))."""
 
     # ---- Runtime state / history ----
@@ -278,15 +281,16 @@ class LumpedReservoir(ReservoirComponent):
 
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""
-        self.wp = self.well_pattern if self.well_pattern is not None else WellPattern.Doublet
-
-        self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
-        self.P_initial = self.brine_density * self.gravity * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
         volume = self.thickness * area
         fluid_volume = self.porosity * volume
-        self.rock_volume = volume - fluid_volume
-        self.rock_C_v = self.common.rock_density * self.common.rock_cp
+        self._set_derived(
+            wp=self.well_pattern if self.well_pattern is not None else WellPattern.Doublet,
+            T_initial=self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth,
+            P_initial=self.brine_density * self.gravity * self.reservoir_depth,
+            rock_volume=volume - fluid_volume,
+            rock_C_v=self.common.rock_density * self.common.rock_cp,
+        )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
         """Update ``state``'s thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.

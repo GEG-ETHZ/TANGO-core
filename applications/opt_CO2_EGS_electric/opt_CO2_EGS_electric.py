@@ -78,12 +78,11 @@ def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
 
 @dataclass
 class _WellDiameterApply:
-    """Picklable ``ParamSpec.apply`` for a wellbore diameter that also moves the reservoir's effective diameter.
+    """Picklable ``ParamSpec.apply`` for a wellbore diameter, set on every well segment in ``wells``.
 
-    ``reservoir.well_eff_diameter`` is the average of the injection and
-    production well diameters. Each diameter param recomputes it from
-    whatever the config holds for the other, so the result is the same in
-    either application order.
+    ``reservoir.well_eff_diameter``, the average of the injection and
+    production well diameters, is derived from these
+    (``tango.workflows.linked_quantities``).
     """
 
     wells: tuple[str, ...]
@@ -92,9 +91,6 @@ class _WellDiameterApply:
         components = cfg["components"]
         for well in self.wells:
             components[well]["diameter"] = float(value)
-        components["reservoir"]["well_eff_diameter"] = 0.5 * (
-            components["injection_well"]["diameter"] + components["production_well_lower"]["diameter"]
-        )
         return cfg
 
     def read(self, cfg: dict[str, Any]) -> float:
@@ -120,8 +116,8 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
 
     - ``production_well_diameter_m`` sets both production well sections
       together: ``DoubletEconomicComponent`` costs them as one well and
-      requires one diameter. Both diameters also move
-      ``reservoir.well_eff_diameter``, their average.
+      requires one diameter. ``reservoir.well_eff_diameter``, their
+      average, is derived from both.
     - ``surface_pipe_diameter_m`` sets both the surface pipe's friction
       pressure drop and its cost.
     - ``condensing_pressure_MPa`` sets the turbine's exhaust and the

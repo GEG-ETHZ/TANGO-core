@@ -1,5 +1,19 @@
 r"""Multi-objective optimization API for tango, built on pymoo.
 
+A thin wrapper around pymoo that provides:
+
+- **Typed interfaces** (``Minimization``, ``ParamSpec``, ``ObjectiveSpec``,
+  ``PymooConfig``) in place of pymoo's ``*args``/``**kwargs``-heavy API, so
+  a misconfigured search fails at construction instead of deep inside pymoo.
+- **A strong mechanism for setting decision variables and extracting
+  objectives:** each ``ParamSpec`` applies its value to a config dict (and
+  reads it back), and each ``ObjectiveSpec`` reads one number from a
+  finished run.
+- **Parallel evaluation with minimal configuration:** set
+  ``PymooConfig.n_processes``.
+- **Plotting utilities** (Pareto scatter and parallel-coordinates plots) to
+  help downselect designs from a front.
+
 Adapted to tango's actual seams:
 
 - **Parameters mutate config dicts, not live objects.** ``Workflow.to_dict()``'s
@@ -31,22 +45,10 @@ Adapted to tango's actual seams:
   poisoning results across a long unattended search instead of crashing
   loudly where the bug actually is.
 
-``InjectionPolicy`` restriction: only ``MANUAL`` and ``MANUAL_FRACKING_CHECK``
-are accepted (see ``Minimization.__init__``). ``AUTO_BOTH`` raises
-``NotImplementedError`` from ``SystemBCIteration.run_timestep`` outright (see
-``InjectionPolicy.AUTO_BOTH``'s own docstring — not under active
-development). ``AUTO_PRESSURE``/``AUTO_FLOW`` ARE implemented,
-but deliberately NOT accepted here: each drives its own inner Newton/Picard
-loop that actively overwrites a field (``components.<surface>.injection_pressure``
-for ``AUTO_PRESSURE``, ``sim_config.mass_rate`` for ``AUTO_FLOW``) every
-timestep — exactly the kind of field an app script's own ``ParamSpec`` might
-hand to pymoo as a decision variable. Accepting either would mean pymoo's
-outer search and ``SystemBCIteration``'s own inner solver fighting over the
-same parameter, with whichever one writes last silently winning — not a
-"maybe investigate this," a real correctness hazard any future policy widening
-must design
-around (e.g. rejecting the combination of a policy that owns a field and a
-``ParamSpec`` that also targets it), not just re-check informally.
+``InjectionPolicy``: the base config must set ``sim_config.injection_mode``
+(``MANUAL`` or ``MANUAL_FRACKING_CHECK``, the only modes there are); the
+search itself chooses the operating point, with a fracking violation under
+``MANUAL_FRACKING_CHECK`` counting as an infeasible design.
 """
 
 from __future__ import annotations
@@ -839,7 +841,7 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        cfg = Workflow.from_file("example_configs/hydro_df_electric.yml").to_dict()
+        cfg = yaml.safe_load(Path("example_configs/hydro_df_electric.yml").read_text())
         m = Minimization(
             base_cfg=cfg,
             params=[
@@ -851,10 +853,12 @@ class Minimization:
         res, df = m.run()
 
     Args:
-        base_cfg: Template config dict (as ``Workflow.to_dict()`` returns
-            it, for a workflow that hasn't been run) — the starting point
-            every evaluation mutates a copy of. Validated once, up front,
-            by building a ``Workflow`` from it in ``__post_init__``. Only
+        base_cfg: Template config dict, as written (e.g. a loaded example
+            config) — the starting point every evaluation mutates a copy of.
+            Validated once, up front, by building a ``Workflow`` from it in
+            ``__post_init__``, but kept as given rather than replaced by
+            ``Workflow.to_dict()``, which would pin defaults derived from
+            inputs the params change. Only
             plain data is kept: ``Minimization`` is pickled to worker
             processes when ``n_processes > 1``, and a live ``Workflow``
             can't always be pickled (a TESPy network can't).
@@ -1011,24 +1015,23 @@ class Minimization:
         the top to re-narrow -- see their docstrings/comments, not repeated
         here.
         """
-        # Building the Workflow validates the config here, in the main
-        # process, and to_dict() fills in every default; the Workflow
-        # itself is dropped so only plain data is kept (see ``base_cfg``).
-        self.base_cfg = Workflow(copy.deepcopy(self.base_cfg)).to_dict()
+        # Built once only to validate the config here, in the main process;
+        # the Workflow is dropped so only plain data is kept (see
+        # ``base_cfg``). The template stays as written, NOT Workflow.to_dict():
+        # that output pins every default derived from another input (e.g. a
+        # numerical well's num_cells from its well_length), and an evaluation
+        # that changes the input must get the default for the new value.
+        Workflow(copy.deepcopy(self.base_cfg))
+        self.base_cfg = copy.deepcopy(self.base_cfg)
         # No policy= override -- always the base config's OWN choice.
         # Confirmed the hard way: an earlier override param let a caller
         # (opt_hydro_df_electric.py) never pass it at all, silently forcing
         # MANUAL and skipping hydro_df_electric.yml's own
         # manual-fracking-check setting entirely, with no error to catch it.
-        # An unsupported policy (AUTO_*) is a real setup error -- raise
-        # rather than silently coercing it to something else.
         policy = InjectionPolicy(self.base_cfg["sim_config"]["injection_mode"])
         if policy not in ALLOWED_POLICIES:
             raise ValueError(
-                f"Minimization only supports {[p.value for p in ALLOWED_POLICIES]!r}, got {policy.value!r} — "
-                "AUTO_BOTH raises NotImplementedError in SystemBCIteration outright (not under active "
-                "development); AUTO_PRESSURE/AUTO_FLOW ARE implemented but not accepted "
-                "here either (see module docstring).",
+                f"Minimization only supports {[p.value for p in ALLOWED_POLICIES]!r}, got {policy.value!r}.",
             )
         self.policy = policy
         self.params = list(self.params)

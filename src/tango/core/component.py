@@ -34,8 +34,10 @@ Round-trip test pattern (config-only, skip_init=True)::
     assert json1 == json2
 
 ``skip_init=True`` leaves derived fields at their defaults (zero / empty list)
-and is used for serde round-trip tests and for restoring a previously-solved
-model (where derived fields are already embedded in the serialized data).
+and is used for serde round-trip tests. Derived fields that are pure
+functions of the inputs may be excluded from serialization (e.g.
+``NumericalWell``'s), so a restored model that will be solved again needs
+``init()``.
 
 History / save_interval
 -----------------------
@@ -102,11 +104,13 @@ accumulator or not.
 from __future__ import annotations
 
 import copy
+import math
 from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from tango.core.errors import ConfigError
 from tango.core.state_methods import StateMethods
 from tango.core.stream import Stream, StreamHistory
 
@@ -158,15 +162,37 @@ class Component(BaseModel, ABC, StateMethods):
 
         Args:
             config: Merged dict of common + layout + component-specific fields.
-            skip_init: If ``True``, skip ``init()`` — use this when restoring a
-                previously-solved model (derived fields are already in ``config``)
-                or for serde round-trip tests.
+            skip_init: If ``True``, skip ``init()`` — for serde round-trip
+                tests that compare serialized fields only.
 
         """
         obj = cls.model_validate(config)
         if not skip_init:
             obj.init()
         return obj
+
+    def _set_derived(self, **values: Any) -> None:
+        """Assign fields computed by ``init()``, rejecting a config value that disagrees.
+
+        A derived field is a pure function of other inputs, so a config that
+        supplies one (by hand, or as a stale copy left in an edited
+        ``to_dict()`` output) and gets a different value back would otherwise
+        have its value silently replaced. Only fields the config explicitly
+        set are checked (``model_fields_set``), so re-running ``init()`` on an
+        already-initialized component is fine.
+
+        Raises:
+            ConfigError: A field in ``values`` was given in the config with a
+                different value (beyond float noise).
+        """
+        for name, value in values.items():
+            if name in self.model_fields_set and not _same_value(getattr(self, name), value):
+                raise ConfigError(
+                    f"{type(self).__name__}.{name} given in the config ({_short(getattr(self, name))}) doesn't "
+                    f"match the value computed from its inputs ({_short(value)}). It is derived, not an "
+                    "input: leave it out of the config.",
+                )
+            setattr(self, name, value)
 
     def init(self) -> None:
         """Compute derived quantities from validated input fields.
@@ -267,3 +293,25 @@ class FlowComponent(Component):
         pairs = super()._state_history_pairs()
         pairs.append((self.outlet, self.outlet_history))
         return pairs
+
+
+_DERIVED_REL_TOL = 1e-9
+"""Relative tolerance for a supplied derived value to count as matching (float noise only)."""
+
+
+def _same_value(given: Any, computed: Any) -> bool:
+    if isinstance(computed, float) or isinstance(given, float):
+        return math.isclose(float(given), float(computed), rel_tol=_DERIVED_REL_TOL)
+    if isinstance(computed, list):
+        return (
+            isinstance(given, list)
+            and len(given) == len(computed)
+            and all(_same_value(g, c) for g, c in zip(given, computed, strict=True))
+        )
+    return bool(given == computed)
+
+
+def _short(value: Any) -> str:
+    if isinstance(value, list):
+        return f"{len(value)} values, first {value[0]:.6g}" if value else "[]"
+    return f"{value:.6g}" if isinstance(value, float) else repr(value)

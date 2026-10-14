@@ -1,0 +1,225 @@
+# Frozen copy of example_configs/CPG_electric.yml as of 2026-10-13, used as a fixed
+# scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
+# configs change when their design point is re-optimized; these tests check
+# behavior that needs a specific design (e.g. which regime a pump runs in), so
+# they read this copy instead. Update it deliberately, not alongside the example.
+# tango format — CO2 Plume Geothermal (CPG), power extraction.
+#
+# Ported from old tango's examples/CPG_num_pp.yml (preserved at git tag
+# pre-tango-core-rename-2026-09-18), simplified from its 6-pattern
+# INVERTED_5SPOT field to a single doublet, matching how AGS_direct_heat.yml
+# and EGS_direct_heat.yml were ported. Reservoir/well topology reuses
+# hydro_sf_electric.yml's doublet numerical-well pieces. The surface plant
+# stays supercritical/dense-phase up to and through the turbine (the
+# subsurface side, target_extraction_pressure below, is kept above CO2's
+# 7.38 MPa critical pressure so the production wellhead never two-phases),
+# but the turbine expands CO2 all the way down into the two-phase dome and
+# condenses it afterward -- same as old tango's CPG model and the same
+# ambient-driven-condensing-temperature mechanism hydro_sf_electric.yml's
+# water cycle uses for its own condenser. An absolute condenser/turbine
+# outlet pressure only has real physical meaning where a fluid's
+# temperature and pressure are locked together by its saturation curve;
+# above the critical point that lock doesn't exist, so a fixed absolute
+# pressure there has no physical grounding at all -- see the turbine/
+# condenser nodes' own comments below for the saturation-curve values
+# this uses.
+#
+# Component circuit (main loop):
+#   injection_well(0) →[1]→ reservoir(1) →[2]→ production_well_lower(2)
+#                     →[3]→ production_well_upper(3) →[4]→ surface(4) →[0]→ injection_well(0)
+#
+# Depth matches the old-tango reference exactly (2500 m). No downhole
+# pump on the production side (thermosiphon is strong enough with CO2
+# that a plain production_well suffices, matching old tango).
+# injection_pressure below is old tango's own converged value for this
+# depth, confirmed (by actually running old tango's CPG_num_pp.yml) to
+# settle at ~7.13 MPa wellhead / ~26.8 MPa injection-well-outlet, about
+# 3.2 MPa under this reservoir's 30 MPa fracking threshold.
+
+title: CO2 Plume Geothermal (CPG), doublet, power extraction
+
+description:
+  summary: CPG doublet with supercritical-CO2 turbine expansion, condensing after the turbine
+  date: "2026-09-22"
+  description: >
+    Single-doublet CO2 Plume Geothermal system: CO2 circulates through an
+    injection well, reservoir, and production well as supercritical/
+    dense-phase fluid, then expands through a turbine at the surface down
+    into the two-phase dome and condenses at an ambient-driven condensing
+    temperature -- the same condensing mechanism hydro_sf_electric.yml's
+    water cycle uses for its own condenser, and the same one old tango's
+    CPG model used.
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — kept above CO2's 7.38 MPa
+                                          # critical pressure so the
+                                          # production wellhead stays
+                                          # single-phase supercritical
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 125              # kg/s — LCOE minimum in a 100-200 kg/s sweep at realistic component efficiencies; 200 kg/s depleted this reservoir to net-negative output in year 19
+  bc_checkpoint_idx: 4           # component_idx of the surface (below)
+
+economic:
+  type: doublet
+  project_maturity: brown_field  # matches old tango's CPG_num_pp.yml
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0          # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 2500.0       # m — matches old tango's CPG_num_pp.yml exactly
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    over_pressure_percentage: 20
+    brine_density: 1000            # kg/m3 — used for the reservoir's own
+                                    # initial/undepleted pressure, not the
+                                    # circulating fluid (see brine_density's
+                                    # own docstring in core/specs.py)
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+
+  production_well_upper:
+    type: production_well
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 500.0        # m
+    diameter: 0.410           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last (surface consumes production well output)
+    prev: 3
+    next: 0
+    injection_pressure: 7_131_030   # Pa — manual value (injection_mode: manual-fracking-check
+                                     # doesn't converge this the way auto-pressure would); matches
+                                     # old tango's CPG_num_pp.yml's own converged wellhead pressure
+                                     # at this same depth (confirmed by running it directly). This
+                                     # is below CO2's 7.38 MPa critical pressure by design -- CO2 is
+                                     # condensed liquid by the time it's reinjected, not
+                                     # supercritical, unlike the production side (see
+                                     # target_extraction_pressure above).
+    pipe_diameter: 0.41        # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Supercritical CO2 arrives at "inlet" (subsurface side stays above
+      # CO2's 7.38 MPa critical pressure the whole way, per
+      # target_extraction_pressure above); the turbine expands it straight
+      # down into the two-phase dome and the condenser finishes condensing
+      # it at an ambient-driven condensing pressure -- same mechanism as
+      # hydro_sf_electric.yml's water condenser and old tango's CPG model
+      # (see this file's header comment). PumpOrValve then restores
+      # whatever pressure is needed to reach injection_pressure -- given
+      # the condensing pressure below is well under injection_pressure,
+      # this will in practice almost always resolve to a real Compressor,
+      # same as any Rankine-like cycle needing a feed pump after its
+      # condenser; that's expected physics, not a design defect.
+      #
+      # Source("inlet") -> Turbine -> SimpleHeatExchanger(condenser) -> PumpOrValve(circulation_control) -> Sink("outlet")
+      nodes:
+        inlet:
+          type: Source
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 6.3              # MPa -- expands down to the condenser's own pressure
+                                               # (no pressure drop between turbine outlet and condenser
+                                               # exit, same pattern as hydro_sf_electric.yml's turbine/
+                                               # condenser pair). See the condenser's comment for where
+                                               # this value comes from.
+
+        condenser:
+          type: SimpleHeatExchanger
+          # Condensing pressure, set by the site rather than chosen: CO2
+          # saturates at 24.1 degC at 6.3 MPa, so the 1 K subcooled outlet
+          # (23.1 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC. Well below CO2's
+          # 7.38 MPa / 31 degC critical point.
+          p_out_megapascals: 6.3              # MPa
+          subcooling_K: 1.0                   # K below saturation: slightly subcooled condensate, so the pump never
+                                               # draws exactly saturated liquid (TESPy left the condensate pump's
+                                               # equation unconverged at x = 0) and has a margin against cavitation
+          # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
+          # physics): a singleton set (no paired cooler), wet cooling tower --
+          # matches old tango's CPG_num_pp.yml, which never overrides
+          # cooling_mode and so gets SurfaceSpecsCPGNative's own "WET"
+          # default. An earlier version of this file set DRY instead (not
+          # grounded in anything old tango actually did) -- DRY's
+          # cooling-tower parasitic power came out larger than this
+          # config's own net turbine output (unlike hydro_sf_electric.yml,
+          # CPG condenses its ENTIRE mass flow, not just a small
+          # flash-split vapor fraction, so this parasitic term matters far
+          # more here), driving LCOE to NaN. WET's parasitic power is
+          # smaller and keeps net power positive -- see
+          # dev_docs/tango_tasks.md's (resolved) entry for the full
+          # investigation.
+          Subtype: condenser
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
+
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        outlet:
+          type: Sink
+
+      edges:
+        '1': {source: inlet, target: turbine}
+        '2': {source: turbine, target: condenser}
+        '3': {source: condenser, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}

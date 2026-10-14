@@ -64,10 +64,7 @@ common:
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
-  well_spacing: 3000.0       # m — horizontal loop length; used by the surface
-                              # component as the injector-to-producer surface
-                              # pipe run. Matches horizontal_well's own
-                              # (hypothetically lengthened) well_length below.
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
 
 sim_config:
   num_tsteps: 25              # 25 years of operation
@@ -114,7 +111,7 @@ components:
                                    # lengthened alongside the vertical depth, see module docstring)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    wellhead_depth: 8000.0       # m — starting (vertical) depth, matches injection_well's well_length
+    # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
 
   production_well:
@@ -123,7 +120,7 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    well_length: 8000.0         # m — vertical well depth (hypothetically deepened, see module docstring)
+    # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
 
@@ -134,10 +131,7 @@ components:
     prev: 2
     next: 0
     injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
-                                     # sim_config above); AUTO_PRESSURE mode exists and
-                                     # does converge this value iteratively -- see
-                                     # SystemBCIteration's module docstring -- this config
-                                     # just chooses manual instead, matching AGS_direct_heat.yml.
+                                     # sim_config above), matching AGS_direct_heat.yml.
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
@@ -174,7 +168,7 @@ components:
           pressure_ratio1: 1.0         # geofluid side — dimensionless
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
           h0_out1: 250                 # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
-          p0_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
           vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
 
         preheater:
@@ -182,7 +176,7 @@ components:
           pressure_ratio1: 1.0         # geofluid side — dimensionless
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
           vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
-          p0_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
           fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
 
         circulation_control:

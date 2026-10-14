@@ -32,7 +32,7 @@ sim_config:
   num_tsteps: 20
   dt_years: 1.0
   target_extraction_pressure: 7_000_000  # Pa
-  injection_mode: auto-flow
+  injection_mode: manual
   mass_rate: 50
   bc_checkpoint_idx: 4
 
@@ -131,7 +131,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

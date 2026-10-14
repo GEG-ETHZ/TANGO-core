@@ -21,10 +21,12 @@ the corresponding tango schema field doesn't exist:
 - ``schedule.num_pp`` — ``Layout``'s schema has no ``num_pp`` field at all;
   not a tango concept yet.
 
-``injection_well.well_length`` is also excluded from the sweep bounds —
-see ``sweep.py``'s sync step, which overwrites it with
-``production_well.well_length + production_well_pump.well_length`` after all
-other scale factors are applied.
+Depth enters through two parameters only: ``reservoir.reservoir_depth`` and
+the pump setting depth (``production_well_upper.well_length``). The injection
+well's length, the lower production segment's length and starting depth,
+``well_eff_diameter`` and ``hydro_static_pressure`` are all derived from
+those and the well diameters (``tango.workflows.linked_quantities``), so
+they aren't swept independently.
 
 Bounds reflect real validation limits, physics/CoolProp constraints, and
 sensitivity considerations for each physical quantity (see inline
@@ -70,19 +72,16 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
         10.0,
     ),  # scale factor, wide range (log-scale in reality)
     "components.reservoir.porosity": (0.5, 2.0),  # scale factor, 5-20% range
-    "components.reservoir.hydro_static_pressure": (0.8, 1.2),  # scale factor, ±20%
     "components.reservoir.over_pressure_percentage": (0.5, 2.0),  # scale factor, 5-20% range
     # --- Well parameters (constrained by 15km max validation limit) ---
-    # Base: inj=5km, prod=4km, pump=1km -> total prod=5km
-    # injection_well.well_length dropped — synced post-hoc (see docstring
-    # and sweep.py's _sync_injection_well_length), not swept independently.
+    # Base: reservoir 5 km, pump 1 km; the injection well and the lower
+    # production segment are derived from those (see docstring).
     "components.injection_well.diameter": (0.5, 2.0),  # scale factor, max ~0.8m (under 5m limit)
-    "components.production_well_lower.well_length": (0.5, 2.5),  # scale factor, max ~10km
     "components.production_well_lower.diameter": (
         0.5,
         2.0,
     ),  # scale factor; also sets the upper section (see LINKED_PATHS)
-    "components.production_well_upper.well_length": (0.5, 2.5),  # scale factor, max ~2.5km
+    "components.production_well_upper.well_length": (0.5, 2.5),  # scale factor, 0.5-2.5 km pump setting depth
     # --- Schedule parameters ---
     "sim_config.mass_rate": (0.5, 2.0),  # scale factor, 25-100 kg/s
     "layout.well_spacing": (0.5, 2.0),  # scale factor, 350-1400m — the sole

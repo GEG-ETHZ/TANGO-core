@@ -1,7 +1,8 @@
 """Simulation sweep stage: run each (depth, mass-flow) design point in parallel.
 
-Every design point re-reads ``EGS_direct_heat.yml`` fresh
-(``Workflow.from_file(BASE_YAML).to_dict()``), mutates a plain dict copy, and
+Every design point re-reads ``EGS_direct_heat.yml`` fresh as a plain
+dict (not ``Workflow.to_dict()``, which writes out every derived value and
+would pin it at the base design's), mutates it, and
 builds a brand-new ``Workflow`` from it — see ``Workflow``'s class docstring
 (``src/tango/workflows/workflow.py``) for why a live ``Workflow``/
 ``Component`` must never be mutated in place. Re-reading from the YAML file
@@ -72,6 +73,7 @@ import traceback
 from pathlib import Path
 
 import polars as pl
+import yaml
 from common import (
     BASE_YAML,
     DEFAULT_LOG_LEVEL,
@@ -90,27 +92,15 @@ from tango.workflows.workflow import Workflow  # noqa: E402
 
 
 def _apply_depth(cfg: dict, depth_m: float) -> None:
-    """Update all depth-dependent parameters in-place on a config dict.
+    """Set the reservoir depth and the pump setting depth (20% of it) in-place on a config dict.
 
-    Four components
-    move together when reservoir depth changes (unlike the AGS sweep's
-    three, since EGS's production well is split into a lower/upper segment
-    pair rather than one unbroken well):
-      - ``components.reservoir.reservoir_depth`` — the depth itself
-      - ``components.reservoir.hydro_static_pressure`` — rho*g*depth, rho=1000 kg/m3
-      - ``components.injection_well.well_length`` — full depth
-      - ``components.production_well_lower.well_length`` — 80% of depth
-      - ``components.production_well_upper.well_length`` — 20% of depth
+    Everything else that follows depth (the injection well's length, the
+    lower production segment's length and starting depth, and
+    ``hydro_static_pressure``) is derived from these two
+    (``tango.workflows.linked_quantities``).
     """
     set_nested_value(cfg, "components.reservoir.reservoir_depth", depth_m)
-    set_nested_value(cfg, "components.reservoir.hydro_static_pressure", 1000 * 9.81 * depth_m)
-
-    set_nested_value(cfg, "components.injection_well.well_length", depth_m)
-
-    prod_lower = 0.8 * depth_m
-    prod_upper = 0.2 * depth_m
-    set_nested_value(cfg, "components.production_well_lower.well_length", prod_lower)
-    set_nested_value(cfg, "components.production_well_upper.well_length", prod_upper)
+    set_nested_value(cfg, "components.production_well_upper.well_length", 0.2 * depth_m)
 
 
 def _apply_mass_flow(cfg: dict, mdot: float) -> None:
@@ -158,9 +148,10 @@ def run_single_simulation(args: tuple) -> None:
 
     try:
         # Fresh Workflow every design point — never mutate a live Workflow;
-        # cfg = base_wf.to_dict() then mutate the plain dict then Workflow(cfg).
-        base_wf = Workflow.from_file(BASE_YAML)
-        cfg = base_wf.to_dict()
+        # Config dict as written in the YAML (not Workflow.to_dict(), which
+        # writes out every derived value and would pin it at the base
+        # design's), mutated, then Workflow(cfg).
+        cfg = yaml.safe_load(BASE_YAML.read_text())
 
         _apply_depth(cfg, depth_m)
         _apply_mass_flow(cfg, mdot)

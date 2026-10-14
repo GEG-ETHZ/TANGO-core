@@ -1,7 +1,8 @@
 """Simulation sweep stage: run each (depth, mass-flow, loop-length, loop-diameter) design point in parallel.
 
-Every design point re-reads ``AGS_direct_heat.yml`` fresh
-(``Workflow.from_file(BASE_YAML).to_dict()``), mutates a plain dict copy, and
+Every design point re-reads ``AGS_direct_heat.yml`` fresh as a plain
+dict (not ``Workflow.to_dict()``, which writes out every derived value and
+would pin it at the base design's), mutates it, and
 builds a brand-new ``Workflow`` from it — see ``Workflow``'s class docstring
 (``src/tango/workflows/workflow.py``) for why a live ``Workflow``/
 ``Component`` must never be mutated in place. Re-reading from the YAML file
@@ -67,6 +68,7 @@ from pathlib import Path
 
 import CoolProp.CoolProp as CP
 import polars as pl
+import yaml
 from common import (
     BASE_YAML,
     DEFAULT_LOG_LEVEL,
@@ -80,6 +82,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from tango.components.well.numerical import WellLengthSideEffect, set_well_length  # noqa: E402
 from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS  # noqa: E402
 from tango.workflows.workflow import Workflow  # noqa: E402
 
@@ -94,15 +97,13 @@ _TARGET_EXTRACTION_PRESSURE_SAFETY_FACTOR = 1.2
 
 
 def _apply_depth(cfg: dict, depth_m: float) -> None:
-    """Update all depth-dependent parameters in-place on a config dict.
+    """Set the loop's depth (the injection well's length) in-place on a config dict.
 
-    For the AGS topology (injection_well -> horizontal_well -> production_well),
-    depth controls the vertical sections only; loop length is a separate axis
-    (see _apply_loop_length).
+    The production well's length and the horizontal well's starting depth
+    are derived from it (``tango.workflows.linked_quantities``); loop length
+    is a separate axis (see _apply_loop_length).
     """
-    set_nested_value(cfg, "components.injection_well.well_length", depth_m)
-    set_nested_value(cfg, "components.horizontal_well.wellhead_depth", depth_m)
-    set_nested_value(cfg, "components.production_well.well_length", depth_m)
+    set_well_length(cfg["components"]["injection_well"], depth_m, WellLengthSideEffect.KEEP_CELL_LENGTH)
 
 
 def _apply_target_extraction_pressure(cfg: dict, depth_m: float) -> None:
@@ -132,17 +133,16 @@ def _apply_target_extraction_pressure(cfg: dict, depth_m: float) -> None:
 
 
 def _apply_loop_length(cfg: dict, loop_length_m: float) -> None:
-    """Update the horizontal loop length in-place.
+    """Set the horizontal loop length in-place.
 
-    ``layout.well_spacing`` must equal the horizontal loop length by
-    convention (see ``AGS_direct_heat.yml``'s ``layout.well_spacing``
-    comment) — set alongside ``horizontal_well.well_length``. Does NOT also
-    set ``components.surface.well_spacing``: ``well_spacing`` is sourced
-    only from ``layout:`` and rejected as a per-component override (see
-    ``Workflow``'s ``_PROTECTED_COMPONENT_KEYS``).
+    ``layout.well_spacing`` is derived from it
+    (``tango.workflows.linked_quantities``).
     """
-    set_nested_value(cfg, "components.horizontal_well.well_length", loop_length_m)
-    set_nested_value(cfg, "layout.well_spacing", loop_length_m)
+    set_well_length(
+        cfg["components"]["horizontal_well"],
+        loop_length_m,
+        WellLengthSideEffect.KEEP_CELL_LENGTH,
+    )
 
 
 def _apply_loop_diameter(cfg: dict, loop_diameter_m: float) -> None:
@@ -205,9 +205,10 @@ def run_single_simulation(args: tuple) -> None:
 
     try:
         # Fresh Workflow every design point — never mutate a live Workflow;
-        # cfg = base_wf.to_dict() then mutate the plain dict then Workflow(cfg).
-        base_wf = Workflow.from_file(BASE_YAML)
-        cfg = base_wf.to_dict()
+        # Config dict as written in the YAML (not Workflow.to_dict(), which
+        # writes out every derived value and would pin it at the base
+        # design's), mutated, then Workflow(cfg).
+        cfg = yaml.safe_load(BASE_YAML.read_text())
 
         _apply_depth(cfg, depth_m)
         _apply_target_extraction_pressure(cfg, depth_m)

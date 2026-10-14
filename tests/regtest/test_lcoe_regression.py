@@ -20,7 +20,6 @@ import numpy as np
 import pytest
 import yaml
 
-from tango.core import fluid_utils
 from tango.core.errors import (
     ConfigError,
     CoolingLimitError,
@@ -38,7 +37,10 @@ from tango.workflows.workflow import Workflow
 # Paths and reference values
 # ---------------------------------------------------------------------------
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
+# Frozen scenario copies of example configs (see that directory's file
+# headers): these tests need specific designs, which the example configs
+# don't keep once they're re-optimized.
+EXAMPLE_CONFIGS_DIR = Path(__file__).parent / "fixtures" / "scenarios"
 HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
 AGS_DIRECT_HEAT = EXAMPLE_CONFIGS_DIR / "AGS_direct_heat.yml"
 
@@ -105,8 +107,15 @@ def test_workflow_to_dict_reflects_source_yaml_inputs() -> None:
     assert dumped["common"]["fluid_name"] == original["common"]["fluid_name"]
     assert dumped["sim_config"]["num_tsteps"] == original["sim_config"]["num_tsteps"]
     assert (
+        dumped["components"]["reservoir"]["reservoir_depth"]
+        == original["components"]["reservoir"]["reservoir_depth"]
+    )
+    # Derived from reservoir_depth (see tango.workflows.linked_quantities),
+    # so present in to_dict() although the source file leaves it out.
+    assert "well_length" not in original["components"]["injection_well"]
+    assert (
         dumped["components"]["injection_well"]["well_length"]
-        == original["components"]["injection_well"]["well_length"]
+        == original["components"]["reservoir"]["reservoir_depth"]
     )
 
 
@@ -777,93 +786,22 @@ def test_manual_fracking_check_raises_on_flow_induced_violation(
 
 
 # ---------------------------------------------------------------------------
-# InjectionPolicy.AUTO_PRESSURE — outer Newton loop on injection pressure
+# Removed automatic injection modes
 # ---------------------------------------------------------------------------
 
 
-def test_auto_pressure_converges_to_fracking_threshold(sf_manual_config: dict[str, Any]) -> None:
-    """AUTO_PRESSURE's outer Newton loop drives the reservoir inlet pressure to
-    (approximately) ``fluid_utils.target_reservoir_pressure()`` — the whole
-    point of the policy — within a few outer iterations, without raising.
-    """
-    sf_manual_config["sim_config"]["num_tsteps"] = 3
-    sf_manual_config["sim_config"]["injection_mode"] = "auto-pressure"
-    wf = Workflow(sf_manual_config)
-    wf.run()
-
-    orch = wf._orchestrator
-    reservoir = orch._find_reservoir()
-    inj_well = orch._by_idx[0]
-    target_reservoir_P = fluid_utils.target_reservoir_pressure(
-        reservoir.hydro_static_pressure,
-        reservoir.over_pressure_percentage,
-    )
-
-    inj_outlet_P = inj_well.outlet.P.get_fresh()
-    rel_error = abs(inj_outlet_P - target_reservoir_P) / target_reservoir_P
-    assert rel_error < 1e-3, (
-        f"inj_well.outlet.P ({inj_outlet_P:.6g} Pa) should have converged near "
-        f"target_reservoir_P ({target_reservoir_P:.6g} Pa), rel_error={rel_error:.2e}"
-    )
+@pytest.mark.parametrize("mode", ["auto-pressure", "auto-flow", "auto-both"])
+def test_removed_injection_modes_point_to_the_opt_apps(sf_manual_config: dict[str, Any], mode: str) -> None:
+    """A config asking for a removed automatic mode gets an explanation, not a bare enum error."""
+    sf_manual_config["sim_config"]["injection_mode"] = mode
+    with pytest.raises(ConfigError, match=r"was removed.*applications/opt_"):
+        Workflow(sf_manual_config)
 
 
-def test_auto_pressure_requires_reservoir(ags_direct_heat_config: dict[str, Any]) -> None:
-    """AUTO_PRESSURE has no fracking-safety target to converge toward on a
-    reservoir-less topology (e.g. AGS's closed loop) — raises ConfigError
-    rather than silently doing nothing or crashing on a missing attribute.
-    """
-    ags_direct_heat_config["sim_config"]["injection_mode"] = "auto-pressure"
-
-    with pytest.raises(ConfigError, match="requires a reservoir component"):
-        Workflow(ags_direct_heat_config).run()
-
-
-# ---------------------------------------------------------------------------
-# InjectionPolicy.AUTO_FLOW — outer Picard loop on mass rate
-# ---------------------------------------------------------------------------
-
-
-def test_auto_flow_converges_to_capped_mass_rate(sf_manual_config: dict[str, Any]) -> None:
-    """AUTO_FLOW's outer Picard loop converges mass_rate to ``max_mass_rate``
-    when the cap sits below the reservoir's natural (uncapped)
-    ``fracking_flow()`` threshold.
-
-    Capped rather than left uncapped: this config's natural, uncapped
-    fracking-flow threshold (~165 kg/s) sits right at the edge of a known,
-    separately-documented production-side numerical instability that a cold
-    solve can hit near/above ~166 kg/s (``dev_docs/tango_tasks.md``). A
-    generous cap well clear of that boundary keeps this test robust without
-    depending on it.
-    """
-    sf_manual_config["sim_config"]["num_tsteps"] = 3
-    sf_manual_config["sim_config"]["injection_mode"] = "auto-flow"
+def test_max_mass_rate_is_rejected(sf_manual_config: dict[str, Any]) -> None:
+    """``max_mass_rate`` only capped the removed auto-flow mode; a leftover one is an unknown key."""
     sf_manual_config["sim_config"]["max_mass_rate"] = 100.0
-    wf = Workflow(sf_manual_config)
-    wf.run()
-
-    orch = wf._orchestrator
-    assert orch.mass_rate == pytest.approx(100.0)
-
-
-def test_auto_flow_requires_reservoir(ags_direct_heat_config: dict[str, Any]) -> None:
-    """AUTO_FLOW has no fracking-flow threshold to converge toward on a
-    reservoir-less topology (e.g. AGS's closed loop) — raises ConfigError
-    rather than silently doing nothing or crashing on a missing attribute.
-    """
-    ags_direct_heat_config["sim_config"]["injection_mode"] = "auto-flow"
-
-    with pytest.raises(ConfigError, match="requires a reservoir component"):
-        Workflow(ags_direct_heat_config).run()
-
-
-def test_auto_flow_rejects_max_mass_rate_on_other_policies(sf_manual_config: dict[str, Any]) -> None:
-    """``max_mass_rate`` is meaningless outside AUTO_FLOW/AUTO_BOTH — set
-    alongside any other injection_mode, it raises ConfigError rather than
-    being silently ignored.
-    """
-    sf_manual_config["sim_config"]["max_mass_rate"] = 100.0  # injection_mode stays manual-fracking-check
-
-    with pytest.raises(ConfigError, match="only meaningful for AUTO_FLOW/AUTO_BOTH"):
+    with pytest.raises(ConfigError, match="max_mass_rate"):
         Workflow(sf_manual_config)
 
 

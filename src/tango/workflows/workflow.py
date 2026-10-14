@@ -18,6 +18,7 @@ from tango.core.errors import ConfigError
 from tango.core.specs import Common, Description, Layout, SimConfig
 from tango.orchestrators.system_bc_iteration import SystemBCIteration
 from tango.orchestrators.system_direct import SystemDirect
+from tango.workflows.linked_quantities import resolve_linked_quantities
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,13 @@ class Workflow:
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
-        """Build the orchestrator and components from a parsed config dict."""
+        """Build the orchestrator and components from a parsed config dict.
+
+        Linked values across components (e.g. a doublet's reservoir depth and
+        its wells' lengths) are filled in and checked first; see
+        ``tango.workflows.linked_quantities``.
+        """
+        config = resolve_linked_quantities(config)
         self.title = config.get("title")
 
         try:
@@ -161,7 +168,7 @@ class Workflow:
         if self._sim_config.injection_mode is not None:
             _check_loop_has_pressure_source(config["components"])
 
-        # mass_rate/max_mass_rate/bc_checkpoint_idx requirements are all
+        # mass_rate/bc_checkpoint_idx requirements are both
         # enforced by SimConfig.check_injection_mode_requirements above
         # (raises ValueError -> caught as ConfigError by the try block
         # above) -- nothing left to check here, just read the validated
@@ -179,7 +186,6 @@ class Workflow:
                     mass_rate=self._sim_config.mass_rate,
                     bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                     policy=self._sim_config.injection_mode,
-                    max_mass_rate=self._sim_config.max_mass_rate,
                     economic=self._economic,
                 )
             )
