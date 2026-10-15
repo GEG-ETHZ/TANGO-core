@@ -1,0 +1,40 @@
+# Tag a topic branch's tip as bak/<branch> on every PR update, so the commits
+# survive after a squash merge deletes the branch. Mirrors .gitlab-ci.yml's
+# tag_branch job; preserves CHANGELOG.md comparison links (see CONTRIBUTING.md
+# § "Tagging deleted branches"). Skips main and develop.
+name: tag-branch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write  # to push the bak/ tag
+
+jobs:
+  tag_branch:
+    name: tag branch tip
+    if: github.head_ref != 'main' && github.head_ref != 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Tag bak/${{ github.head_ref }}
+        env:
+          BRANCH: ${{ github.head_ref }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # If a newer commit was pushed while this run was queued, skip:
+          # the run for that newer commit will tag it.
+          REMOTE_TIP=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          if [ "$SHA" != "$REMOTE_TIP" ]; then
+            echo "Skipping tag: $SHA is stale (branch tip is $REMOTE_TIP)."
+            exit 0
+          fi
+          git tag --force "bak/$BRANCH" "$SHA"
+          git push --force origin "refs/tags/bak/$BRANCH"

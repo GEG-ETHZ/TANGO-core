@@ -1,6 +1,7 @@
 # Lint, type-check, and unit tests on every PR and on pushes to main/develop.
-# Mirrors .gitlab-ci.yml's lint and test jobs, plus a macOS/Linux/Windows test
-# matrix. tests/regtest/ isn't run here: it takes over an hour (see
+# Mirrors .gitlab-ci.yml's lint and test jobs (same checks), plus a
+# macOS/Linux/Windows test matrix. license-check.yml and tag-branch.yml mirror
+# its other two jobs. tests/regtest/ isn't run here: it takes over an hour (see
 # tests/README.md); the pre-push hook runs it locally.
 name: tests
 
