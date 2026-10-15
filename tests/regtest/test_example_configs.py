@@ -43,9 +43,7 @@ EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 1.3475576013063868),
     ("AGS_ORC_electric.yml", 3.6194303622082757),
-    # Same system as AGS_ORC_electric.yml with its wells as one grouped_subsurface
-    # component, so the same golden value.
-    ("AGS_ORC_electric_grouped_subsurface.yml", 3.6194303622082757),
+    ("AGS_ORC_electric_grouped_subsurface.yml", 3.421900718151467),
     ("CO2_AGS_direct_heat.yml", 3.129297942040642),
     ("CO2_AGS_electric.yml", 2.8949027148267015),
     ("CO2_AGS_ORC_electric.yml", 13.956545302567246),

@@ -1,19 +1,38 @@
-# tango format — AGS_ORC_electric.yml with its subsurface loop configured as
-# ONE grouped_subsurface component (variant: numerical) instead of three separate
-# well components. Everything else (site, surface plant, economics) is
-# identical, and so are the results: this is the config the grouped_subsurface
-# component is checked against, and the template for its other variants
-# (e.g. raft). See AGS_ORC_electric.yml for the design rationale.
+# tango format — Advanced Geothermal System (AGS), binary (ORC) power
+# extraction, with the whole subsurface loop as ONE grouped_subsurface
+# component (variant: numerical): an injection well, a horizontal well at
+# depth and a production well, marched in sequence inside it (see
+# tango.components.well.grouped_subsurface).
+#
+# A hypothetical site, not a real one. Its rock properties and surface
+# temperature are those of RAFT's coupled AGS example
+# (config/config_example_AGS_coupled_single.yaml, RAFT v0.2.0), so the
+# numerical and raft variants of grouped_subsurface simulate the same
+# site and can be compared directly.
+#
+# Geometry: 8000 m vertical wells and a 3000 m horizontal loop, deep enough
+# for the produced water (~100 degC) to drive a binary cycle; RAFT's AGS
+# mesh is built for the same geometry. The surface plant is a binary (ORC)
+# cycle: the produced water heats a closed R245fa loop that drives the
+# turbine. Its setpoints (ttd_l, pressure ratios, feed-pump pressure) are
+# generic binary-cycle values, not optimized for this site; the condensing
+# pressure is set from the site's cooling limit (see orc_condenser).
+#
+# Site parameters:
+#   surface temperature : 290 K (16.85 degC) — ambient
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   rock                 : 2600 kg/m3, 850 J/(kg*K), 2.5 W/(m*K)
+#   fluid                : H2O
 
-title: Advanced Geothermal System (AGS), binary (ORC) power extraction, hypothetical deepened Triemli-like site, subsurface as one grouped_subsurface component
+title: Advanced Geothermal System (AGS), binary (ORC) power extraction, hypothetical site, subsurface as one grouped_subsurface component
 
 common:
   fluid_name: H2O
-  rock_density: 2650.0       # kg/m3
-  rock_cp: 1000.0            # J/(kg*K)
-  rock_k: 2.1                # W/(m*K)
-  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
-  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  rock_density: 2600.0       # kg/m3 — RAFT's coupled AGS example
+  rock_cp: 850.0             # J/(kg*K) — RAFT's coupled AGS example
+  rock_k: 2.5                # W/(m*K) — RAFT's coupled AGS example
+  thermal_gradient: 0.035    # K/m  (35 degC/km)
+  surface_temperature: 290.0   # K  (16.85 degC) — ambient; RAFT's T_ini at z=0
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
@@ -27,7 +46,7 @@ sim_config:
                                           # (surface, pump-bearing production wells)
   injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
                                 # even without a reservoir
-  mass_rate: 30                 # kg/s — matches AGS_direct_heat.yml's subsurface loop
+  mass_rate: 30                 # kg/s
   bc_checkpoint_idx: 1           # component_idx of the surface (below)
 
 economic:
@@ -46,16 +65,14 @@ components:
 
   grouped_subsurface:
     # The whole subsurface loop as one component (see
-    # tango.components.well.grouped_subsurface): the same three wells as
-    # AGS_ORC_electric.yml's injection_well/horizontal_well/production_well,
-    # marched in sequence inside it.
+    # tango.components.well.grouped_subsurface).
     type: grouped_subsurface
     variant: numerical
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
     prev: 1
     next: 1
     injection_well:
-      well_length: 8000.0        # m — vertical well depth (hypothetically deepened, see AGS_ORC_electric.yml)
+      well_length: 8000.0        # m — vertical well depth
       diameter: 0.311             # m  (~12-inch casing)
       pipe_roughness: 5.5e-5      # m
     horizontal_well:
@@ -75,7 +92,7 @@ components:
     prev: 0
     next: 0
     injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
-                                     # sim_config above), matching AGS_direct_heat.yml.
+                                     # sim_config above)
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
@@ -138,20 +155,21 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar) -- condensing pressure, see orc_condenser
 
         orc_desuperheater:
           type: SimpleHeatExchanger
-          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar) -- condensing pressure, see orc_condenser
           vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
 
         orc_condenser:
           type: SimpleHeatExchanger
           # Condensing pressure, set by the site rather than chosen: R245fa
-          # saturates at 20.4 degC at 1.25 bar, so the 1 K subcooled outlet
-          # (19.4 degC) stays above the cooling limit of surface_temperature +
-          # approach_temperature = 11 + 7 = 18 degC.
-          p_out_megapascals: 0.125      # MPa (= 1.25 bar)
+          # saturates at 25.3 degC at 1.5 bar, so the 1 K subcooled outlet
+          # (24.3 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 16.85 + 7 = 23.85 degC (rounded up to the
+          # next half bar).
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar)
           subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
                                          # exactly saturated liquid (TESPy left the condensate pump's equation
                                          # unconverged at x = 0) and has a margin against cavitation

@@ -273,10 +273,11 @@ style = { depends-on = ["fmt", "lint"] }
 [tool.pixi.dependencies]
 
 [tool.uv.sources]
-# Pinned to a full commit SHA; bump deliberately. Private repo for now:
-# CI jobs that install the `raft` extra need read access (deploy key), while
-# `uv sync --locked` without the extra never fetches it.
-raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", rev = "85d38e573cca37b1756f274224e23cda4d0afbf9" }
+# Pinned to a release tag (uv.lock records its commit); bump deliberately.
+# Private repo for now: CI jobs that install the `raft` extra need read
+# access (deploy key), while `uv sync --locked` without the extra never
+# fetches it.
+raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", tag = "v0.2.0" }
 
 [tool.uv]
 # Common uv commands:

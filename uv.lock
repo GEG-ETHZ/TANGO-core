@@ -2612,8 +2612,8 @@ wheels = [
 
 [[package]]
 name = "raft"
-version = "0.1.0"
-source = { git = "https://github.com/GEG-ETHZ/RAFT.git?rev=85d38e573cca37b1756f274224e23cda4d0afbf9#85d38e573cca37b1756f274224e23cda4d0afbf9" }
+version = "0.2.0"
+source = { git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.0#777057379a332a4c35a7cf9e2bf0b89eec87da3f" }
 dependencies = [
     { name = "coolprop" },
     { name = "matplotlib" },
@@ -3094,7 +3094,7 @@ requires-dist = [
     { name = "python-arango" },
     { name = "python-lsp-server", marker = "extra == 'dev'", specifier = "~=1.10" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
-    { name = "raft", marker = "extra == 'raft'", git = "https://github.com/GEG-ETHZ/RAFT.git?rev=85d38e573cca37b1756f274224e23cda4d0afbf9" },
+    { name = "raft", marker = "extra == 'raft'", git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11.9" },
     { name = "scikit-learn", specifier = ">=1.6,<2.0" },
     { name = "scipy", specifier = ">=1.15,<2.0" },

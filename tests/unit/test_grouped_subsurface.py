@@ -1,8 +1,8 @@
 """The ``grouped_subsurface`` component: an AGS loop's three wells as one circuit component.
 
-``AGS_ORC_electric_grouped_subsurface.yml`` is ``AGS_ORC_electric.yml`` with its
-three well components configured as one ``grouped_subsurface`` (variant
-``numerical``), so the two must give identical results.
+The ``numerical`` variant must give exactly the same results as the same
+three wells configured as separate circuit components; ``_ungrouped``
+builds that equivalent config from ``AGS_ORC_electric_grouped_subsurface.yml``.
 """
 
 from __future__ import annotations
@@ -25,14 +25,35 @@ from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow
 
 _CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
-_THREE_WELLS = "AGS_ORC_electric.yml"
-_CLOSED_LOOP = "AGS_ORC_electric_grouped_subsurface.yml"
+_GROUPED = "AGS_ORC_electric_grouped_subsurface.yml"
 
 
 def _load(name: str, num_tsteps: int | None = None) -> dict[str, Any]:
     cfg: dict[str, Any] = yaml.safe_load((_CONFIGS / name).read_text())
     if num_tsteps is not None:
         cfg["sim_config"]["num_tsteps"] = num_tsteps
+    return cfg
+
+
+def _ungrouped(cfg: dict[str, Any]) -> dict[str, Any]:
+    """The same system with the grouped subsurface's three segments as separate circuit components (indices 0-2)."""
+    cfg = copy.deepcopy(cfg)
+    components = cfg["components"]
+    group = components.pop("grouped_subsurface")
+    surface = components.pop("surface")
+    for idx, name in enumerate(SEGMENT_NAMES):
+        components[name] = {
+            "type": "horizontal_well" if name == "horizontal_well" else name,
+            "variant": "numerical",
+            "component_idx": idx,
+            "prev": (idx - 1) % 4,
+            "next": idx + 1,
+            **group[name],
+        }
+        if name == "horizontal_well":
+            components[name]["angle_from_vert_deg"] = 90.0
+    components["surface"] = {**surface, "component_idx": 3, "prev": 2, "next": 0}
+    cfg["sim_config"]["bc_checkpoint_idx"] = 3
     return cfg
 
 
@@ -44,9 +65,9 @@ def _loop(wf: Workflow) -> NumericalGroupedSubsurface:
 
 def test_grouped_subsurface_reproduces_three_separate_wells_exactly() -> None:
     """Every year's production wellhead state, surface power and the LCOE are bit-identical."""
-    three = Workflow(_load(_THREE_WELLS))
+    three = Workflow(_ungrouped(_load(_GROUPED)))
     three.run()
-    loop_wf = Workflow(_load(_CLOSED_LOOP))
+    loop_wf = Workflow(_load(_GROUPED))
     loop_wf.run()
 
     three_comps = three._orchestrator.components  # noqa: SLF001
@@ -66,7 +87,7 @@ def test_grouped_subsurface_reproduces_three_separate_wells_exactly() -> None:
 
 def test_linked_lengths_are_derived_from_the_injection_well() -> None:
     """Production length and horizontal wellhead depth follow the injection length; well_spacing the loop length."""
-    cfg = _load(_CLOSED_LOOP, num_tsteps=1)
+    cfg = _load(_GROUPED, num_tsteps=1)
     cfg["components"]["grouped_subsurface"]["injection_well"]["well_length"] = 5000.0
     cfg["components"]["grouped_subsurface"]["horizontal_well"]["well_length"] = 2000.0
     wf = Workflow(cfg)
@@ -78,7 +99,7 @@ def test_linked_lengths_are_derived_from_the_injection_well() -> None:
 
 def test_disagreeing_linked_length_is_rejected() -> None:
     """A production well length that differs from the injection well's is a ConfigError, not silently replaced."""
-    cfg = _load(_CLOSED_LOOP, num_tsteps=1)
+    cfg = _load(_GROUPED, num_tsteps=1)
     cfg["components"]["grouped_subsurface"]["production_well"]["well_length"] = 7000.0
     with pytest.raises(ConfigError, match=r"production_well\.well_length"):
         Workflow(cfg)
@@ -87,7 +108,7 @@ def test_disagreeing_linked_length_is_rejected() -> None:
 @pytest.mark.parametrize("key", LOOP_SET_SEGMENT_KEYS)
 def test_segment_block_may_not_set_loop_set_fields(key: str) -> None:
     """A segment block giving a field the loop sets for it is a ConfigError."""
-    cfg = _load(_CLOSED_LOOP, num_tsteps=1)
+    cfg = _load(_GROUPED, num_tsteps=1)
     cfg["components"]["grouped_subsurface"]["horizontal_well"][key] = 90.0
     with pytest.raises(ConfigError):
         Workflow(cfg)
@@ -95,7 +116,7 @@ def test_segment_block_may_not_set_loop_set_fields(key: str) -> None:
 
 def test_config_round_trips_and_segment_blocks_stay_clean() -> None:
     """``to_dict()`` loads back, and its segment blocks hold none of the fields the loop sets."""
-    wf = Workflow(_load(_CLOSED_LOOP, num_tsteps=1))
+    wf = Workflow(_load(_GROUPED, num_tsteps=1))
     dumped = wf.to_dict()
     for name in SEGMENT_NAMES:
         assert not set(LOOP_SET_SEGMENT_KEYS) & dumped["components"]["grouped_subsurface"][name].keys()
@@ -105,7 +126,7 @@ def test_config_round_trips_and_segment_blocks_stay_clean() -> None:
 
 def test_well_sections_cost_the_three_segments_by_role() -> None:
     """The economic model sees an injection, a horizontal and a production section with the loop's geometry."""
-    loop = _loop(Workflow(_load(_CLOSED_LOOP, num_tsteps=1)))
+    loop = _loop(Workflow(_load(_GROUPED, num_tsteps=1)))
     sections = loop.well_sections()
     assert [s.role for s in sections] == [WellRole.INJECTION, WellRole.HORIZONTAL, WellRole.PRODUCTION]
     assert [s.well_length for s in sections] == [8000.0, 3000.0, 8000.0]
@@ -114,7 +135,7 @@ def test_well_sections_cost_the_three_segments_by_role() -> None:
 
 def test_convergence_snapshot_covers_every_segment() -> None:
     """Restoring a snapshot rolls back each segment's dimensionless time, not just the loop's own state."""
-    loop = _loop(Workflow(_load(_CLOSED_LOOP, num_tsteps=1)))
+    loop = _loop(Workflow(_load(_GROUPED, num_tsteps=1)))
     inlet = Stream.fresh(h=100_000.0, P=1_500_000.0, mass_rate=30.0)
     snapshot = loop.snapshot_convergence_state()
     loop.solve(inlet)
@@ -139,6 +160,6 @@ def test_mass_rate_lost_in_the_circuit_is_an_error(monkeypatch: pytest.MonkeyPat
         )
 
     monkeypatch.setattr(NumericalGroupedSubsurface, "solve", leaky_solve)
-    wf = Workflow(_load(_CLOSED_LOOP, num_tsteps=1))
+    wf = Workflow(_load(_GROUPED, num_tsteps=1))
     with pytest.raises(ConfigError, match="does not conserve mass"):
         wf.run()
