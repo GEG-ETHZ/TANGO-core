@@ -44,6 +44,7 @@ _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 1.3475576013063868),
     ("AGS_ORC_electric.yml", 3.6194303622082757),
     ("AGS_ORC_electric_grouped_subsurface.yml", 3.421900718151467),
+    ("AGS_ORC_electric_raft.yml", 2.1193281005233104),
     ("CO2_AGS_direct_heat.yml", 3.129297942040642),
     ("CO2_AGS_electric.yml", 2.8949027148267015),
     ("CO2_AGS_ORC_electric.yml", 13.956545302567246),
@@ -78,15 +79,29 @@ def _components(wf: Workflow) -> dict[str, Any]:
 
 
 def _injection_well(comps: dict[str, Any]) -> Any:
-    """The injection well: its own component, or the first segment of a ``grouped_subsurface``."""
+    """The injection well: its own component, the first segment of a numerical ``grouped_subsurface``, or
+    (for a ``grouped_subsurface`` an external simulator models as a whole) the loop itself.
+    """
     entry = next(c for c in comps.values() if c.component_idx == 0)
     return entry.injection_well if isinstance(entry, NumericalGroupedSubsurface) else entry
 
 
+# Example configs whose subsurface needs the optional RAFT extra; skipped without it.
+_NEEDS_RAFT = {"AGS_ORC_electric_raft.yml"}
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
-def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
+def test_example_config_full_run(
+    filename: str,
+    reference_lcoe: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Run one example_configs/*.yml at its own full sim_config.num_tsteps and check it."""
+    if filename in _NEEDS_RAFT:
+        pytest.importorskip("raft")
+    # RAFT's config template is given relative to the repository root.
+    monkeypatch.chdir(EXAMPLE_CONFIGS_DIR.parent)
     path = EXAMPLE_CONFIGS_DIR / filename
     wf = Workflow.from_file(path)
     wf.run()

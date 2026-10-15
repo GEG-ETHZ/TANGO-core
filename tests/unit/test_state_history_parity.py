@@ -30,6 +30,7 @@ from tango.components.well.lumped import (
 from tango.components.well.numerical import NumericalWellHistory, NumericalWellState
 from tango.core.locked_state import LockedState
 from tango.core.stream import Stream, StreamHistory
+from tango.external.raft_wrapper import RaftWrapperHistory, RaftWrapperState
 
 # Fields whose *State type isn't a plain scalar/list LockedState and has a
 # deliberately differently-shaped *History analog instead of a literal
@@ -49,6 +50,7 @@ _PAIRS: list[tuple[type, type]] = [
     (LumpedReservoirState, LumpedReservoirHistory),
     (GraphSurfaceState, GraphSurfaceHistory),
     (GroupedSubsurfaceState, GroupedSubsurfaceHistory),
+    (RaftWrapperState, RaftWrapperHistory),
 ]
 
 

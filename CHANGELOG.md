@@ -22,6 +22,17 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   `uv sync` never fetches it; see the README for access to the private repo.
   With direnv, a git-ignored `.envrc.local` can set `TANGO_UV_SYNC_ARGS` so
   the automatic sync keeps extras installed.
+- **`grouped_subsurface` variant `raft`**: RAFT simulates the loop's wells and
+  the surrounding rock (`example_configs/AGS_ORC_electric_raft.yml`, same
+  site and plant as the numerical example). `tango.external.raft_wrapper.RaftWrapper`
+  (the config's `raft:` block) drives RAFT one trial per injection-enthalpy
+  iteration and accepts the last one per timestep, converting between
+  tango's enthalpy and RAFT's temperature. RAFT's config template and mesh
+  (`example_configs/raft/`, made by hand; the mesh is stored with DVC, so
+  `dvc pull` it first) are checked against the tango config rather than
+  overridden. Its `state`/`history` record RAFT's inlet
+  and outlet values and the solves and wall time each timestep took.
+- `FluidState.with_PQ()`/`update_PQ()`: saturation states.
 - `Component.accept_timestep()`: called once per timestep after the final
   solve, before `record()`; a no-op unless a component keeps state outside
   tango (e.g. in an external simulator).

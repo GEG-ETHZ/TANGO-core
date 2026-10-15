@@ -10,6 +10,10 @@ by different models behind the same config shape:
 - ``NumericalGroupedSubsurface`` (variant ``numerical``): the three wells are
   ``NumericalWell`` segments marched in sequence, exactly as when they are
   configured as three separate components.
+- ``RaftGroupedSubsurface`` (variant ``raft``): RAFT simulates the wells and
+  the surrounding rock (see ``tango.external.raft_wrapper``). Its segment
+  blocks give only geometry (``well_length``, ``diameter``,
+  ``pipe_roughness``), and a ``raft:`` block names RAFT's config template.
 
 The loop's geometry is given as three segment blocks, each a well config::
 
@@ -41,16 +45,26 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveFloat,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from tango.components.well.base import HORIZONTAL_ANGLE_DEG, WellRole, WellSection
 from tango.components.well.numerical import NumericalInjectionWell, NumericalProductionWell, NumericalWell
 from tango.core.component import FlowComponent
+from tango.core.constants import YEAR_TO_SECOND
 from tango.core.errors import ConfigError
 from tango.core.locked_state import LockedState
 from tango.core.specs import Common
 from tango.core.state_methods import StateMethods
 from tango.core.stream import Stream
+from tango.external.raft_wrapper import LoopGeometry, RaftWrapper
 
 SEGMENT_NAMES: tuple[str, str, str] = ("injection_well", "horizontal_well", "production_well")
 """The loop's segment blocks, in flow order."""
@@ -285,5 +299,106 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
         roles = (WellRole.INJECTION, WellRole.HORIZONTAL, WellRole.PRODUCTION)
         return [
             WellSection(role, segment.well_length, segment.diameter, tuple(segment.history.pump_power_watts))
+            for role, segment in zip(roles, self.segments(), strict=True)
+        ]
+
+
+class WellSegment(BaseModel):
+    """One segment of a grouped subsurface whose wells an external simulator models: geometry only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    well_length: PositiveFloat = Field(frozen=True)
+    """Segment length along the flow path (m)."""
+    diameter: PositiveFloat = Field(frozen=True)
+    """Inner diameter (m)."""
+    pipe_roughness: PositiveFloat = Field(frozen=True)
+    """Absolute wall roughness (m)."""
+    wellhead_depth: float = Field(default=0.0, frozen=True)
+    """True vertical depth (m) of the segment's shallow end; for the horizontal
+    well, derived from the injection well's length (see
+    ``tango.workflows.linked_quantities``)."""
+
+
+class RaftGroupedSubsurface(GroupedSubsurfaceComponent):
+    """Closed loop simulated by RAFT: wells and surrounding rock (see ``tango.external.raft_wrapper``).
+
+    RAFT models the loop as one well with one diameter and roughness, so the
+    three segments must share them. The segment lengths must match the well
+    alignment in RAFT's config template, which its mesh was built for.
+    """
+
+    injection_well: WellSegment
+    horizontal_well: WellSegment
+    production_well: WellSegment
+    raft: RaftWrapper
+    """RAFT's config template and the RAFT model run from it, with RAFT's own
+    per-timestep ``state``/``history``."""
+
+    def segments(self) -> tuple[WellSegment, WellSegment, WellSegment]:
+        """Return the three segments in flow order."""
+        return self.injection_well, self.horizontal_well, self.production_well
+
+    def init(self) -> None:
+        """Check the segments and prepare RAFT's config from its template.
+
+        Raises:
+            ConfigError: The segments differ in diameter or roughness, or the
+                RAFT template disagrees with this config (see
+                ``RaftWrapper.prepare``).
+        """
+        for quantity in ("diameter", "pipe_roughness"):
+            values = {getattr(segment, quantity) for segment in self.segments()}
+            if len(values) > 1:
+                raise ConfigError(
+                    f"grouped_subsurface variant 'raft' models the loop as one well, so all three segments "
+                    f"need the same {quantity}; got {sorted(values)}.",
+                )
+        self.raft.prepare(
+            self.common,
+            LoopGeometry(
+                injection_length=self.injection_well.well_length,
+                horizontal_length=self.horizontal_well.well_length,
+                production_length=self.production_well.well_length,
+                diameter=self.injection_well.diameter,
+                pipe_roughness=self.injection_well.pipe_roughness,
+            ),
+        )
+
+    def solve(self, inlet: Stream) -> Stream:
+        """Run one RAFT trial over this timestep."""
+        result = self.raft.solve(inlet, self.dt_years * YEAR_TO_SECOND)
+        return self._record_loop_state(
+            inlet,
+            h_outlet=result.h_outlet,
+            P_outlet=result.P_outlet,
+            T_inlet=result.T_inlet,
+            T_outlet=result.T_outlet,
+        )
+
+    def snapshot_convergence_state(self) -> Any:
+        """Deep-copy the loop's own ``state`` and RAFT's (RAFT restarts each trial from its accepted state itself)."""
+        return {"loop": copy.deepcopy(self.state), "raft": copy.deepcopy(self.raft.state)}
+
+    def restore_convergence_state(self, snapshot: Any) -> None:
+        """Restore the loop's own ``state`` and RAFT's from a ``snapshot_convergence_state()`` result."""
+        self.state = copy.deepcopy(snapshot["loop"])
+        self.raft.state = copy.deepcopy(snapshot["raft"])
+
+    def accept_timestep(self) -> None:
+        """Keep RAFT's last trial for this timestep."""
+        self.raft.accept()
+
+    def _state_history_pairs(self) -> list[tuple[Any, Any]]:
+        """Add RAFT's ``(state, history)`` pair to the loop's own."""
+        pairs = super()._state_history_pairs()
+        pairs.append((self.raft.state, self.raft.history))
+        return pairs
+
+    def well_sections(self) -> list[WellSection]:
+        """Return the three segments as injection, horizontal and production sections (no downhole pumps)."""
+        roles = (WellRole.INJECTION, WellRole.HORIZONTAL, WellRole.PRODUCTION)
+        return [
+            WellSection(role, segment.well_length, segment.diameter)
             for role, segment in zip(roles, self.segments(), strict=True)
         ]

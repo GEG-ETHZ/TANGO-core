@@ -103,6 +103,13 @@ class FluidState:
         return fs
 
     @staticmethod
+    def with_PQ(fluid_name: str, P: float, Q: float, backend: str = COOLPROP_BACKEND) -> FluidState:
+        """Construct a saturated FluidState from pressure (Pa) and vapor mass fraction ``Q`` (0 = liquid, 1 = vapor)."""
+        fs = FluidState(fluid_name, backend)
+        fs.update_PQ(P, Q)
+        return fs
+
+    @staticmethod
     def copy(other: FluidState) -> FluidState:
         """Construct a new FluidState with the same fluid, backend, and (P, T) as ``other``."""
         return FluidState.with_PT(other.fluid_name, other.P, other.T, other.backend)
@@ -123,6 +130,15 @@ class FluidState:
         except ValueError as exc:
             raise CoolPropError(
                 f"updateHP(H={H:.6g} J/kg, P={P:.6g} Pa) failed for {self.fluid_name}: {exc}",
+            ) from exc
+
+    def update_PQ(self, P: float, Q: float) -> None:
+        """Update this state in place to saturation at pressure (Pa), with vapor mass fraction ``Q``."""
+        try:
+            self._state.update(CoolProp.PQ_INPUTS, P, Q)
+        except ValueError as exc:
+            raise CoolPropError(
+                f"updatePQ(P={P:.6g} Pa, Q={Q:.6g}) failed for {self.fluid_name}: {exc}",
             ) from exc
 
     def update_PS(self, P: float, S: float) -> None:
