@@ -5,6 +5,27 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ## [In Development]
 
+### Added
+
+- **`grouped_subsurface` component** (`type: grouped_subsurface`): an AGS
+  loop's injection, horizontal and production wells grouped into one circuit
+  component, configured as three segment blocks (see
+  `example_configs/AGS_ORC_electric_grouped_subsurface.yml`); a first,
+  fixed-topology step toward grouped subsystems (GitHub #102).
+  Variant `numerical` marches the three `NumericalWell`s in sequence and gives
+  results identical to configuring them as separate components; it is the
+  shape an external subsurface simulator plugs in behind. The linked lengths
+  (production length, loop depth, `layout.well_spacing`) are derived the same
+  way as for the three-component AGS configs.
+- **Optional `raft` extra** for the RAFT wellbore/rock simulator
+  (`just setup-raft`, or `uv sync --extra raft`), pinned to a commit. Plain
+  `uv sync` never fetches it; see the README for access to the private repo.
+  With direnv, a git-ignored `.envrc.local` can set `TANGO_UV_SYNC_ARGS` so
+  the automatic sync keeps extras installed.
+- `Component.accept_timestep()`: called once per timestep after the final
+  solve, before `record()`; a no-op unless a component keeps state outside
+  tango (e.g. in an external simulator).
+
 ### Changed
 
 - **`tango_cli run --save-dir`** writes the full results as
@@ -54,6 +75,11 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Fixed
 
+- **Mass rate around a closed circuit is checked.** The BC iteration fed the
+  surface outlet's mass rate back as the next pass's injected rate; a
+  component that lost mass would have lowered the injected rate on every
+  pass without an error. It now raises `ConfigError` (GitHub #63). No example
+  config is affected: every component conserves mass.
 - **Optimizations used the base design's well resolution.** `Minimization`
   built its template with `Workflow.to_dict()`, which pinned each numerical
   well's cell count, so AGS designs with longer wells were simulated with

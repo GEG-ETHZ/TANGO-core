@@ -47,6 +47,7 @@ import yaml
 from CoolProp import CoolProp as CP
 
 from tango.components.surface.graph import GraphSurface
+from tango.components.well.grouped_subsurface import SEGMENT_NAMES, NumericalGroupedSubsurface
 from tango.core.constants import J_PER_KG_TO_KJ_PER_KG, PA_TO_BAR
 from tango.core.errors import ConfigError
 from tango.core.fluid_state import FluidState
@@ -372,7 +373,9 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     Mirrors the outer-circuit convention used throughout ``tango``
     (``component_idx``/``prev``/``next``, a single cycle across every
     component including the surface plant) -- see ``Workflow``'s own class
-    docstring.
+    docstring. A ``grouped_subsurface`` component is listed as its three well
+    segments (``"<name>.injection_well"`` etc.), so each gets its own
+    profile.
     """
     components = wf._orchestrator.components  # noqa: SLF001
     by_idx = {c.component_idx: (name, c) for name, c in components.items()}
@@ -382,7 +385,13 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     while idx not in seen:
         seen.add(idx)
         name, comp = by_idx[idx]
-        order.append((name, comp))
+        if isinstance(comp, NumericalGroupedSubsurface):
+            order += [
+                (f"{name}.{segment_name}", segment)
+                for segment_name, segment in zip(SEGMENT_NAMES, comp.segments(), strict=True)
+            ]
+        else:
+            order.append((name, comp))
         idx = comp.next  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
     return order
 

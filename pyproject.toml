@@ -63,6 +63,11 @@ Homepage = "https://tango.app/"
 tango_cli = "tango.tango_cli:main"
 
 [project.optional-dependencies]
+# RAFT (GEG-ETHZ/RAFT): FEM wellbore + rock heat simulator behind the
+# `closed_loop` component's `raft` variant. Optional: `uv sync --extra raft`.
+# The source is pinned in [tool.uv.sources] below. The name `raft` on PyPI
+# is an unrelated package, so install through uv, not plain pip.
+raft = ["raft"]
 dev = [
     "pylsp-mypy>=0.7.0", # provides connection from python LSP to mypy
     "pylsp-rope>=0.1.17", # provides linting tools
@@ -267,6 +272,12 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.pixi.dependencies]
 
+[tool.uv.sources]
+# Pinned to a full commit SHA; bump deliberately. Private repo for now:
+# CI jobs that install the `raft` extra need read access (deploy key), while
+# `uv sync --locked` without the extra never fetches it.
+raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", rev = "85d38e573cca37b1756f274224e23cda4d0afbf9" }
+
 [tool.uv]
 # Common uv commands:
 #   uv sync                          -- install base dependencies (editable)
@@ -397,6 +408,7 @@ module = [
     "scipy.stats",
     "sklearn.*",
     "plotly.*",
+    "raft.*",  # optional extra; absent in a plain `uv sync`
 ]
 ignore_missing_imports = true
 

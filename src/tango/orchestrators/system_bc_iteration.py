@@ -51,12 +51,12 @@ crossings.  Replace with a convergence-based loop::
 from __future__ import annotations
 
 import logging
+import math
 from typing import TYPE_CHECKING, Any
 
 from tango.components.reservoir.base import ReservoirComponent
 from tango.components.surface.base import SurfaceComponent
 from tango.components.well.base import WellComponent
-from tango.components.well.numerical import NumericalInjectionWell
 from tango.core import fluid_utils
 from tango.core.accelerators import aitken_relax
 from tango.core.constants import PA_TO_MPA, W_TO_MW
@@ -80,6 +80,11 @@ logger = logging.getLogger(__name__)
 # critical point T can stop moving while h is still off by kJ/kg.
 _DH_SURFACE_TOL: float = 1_000.0  # J/kg
 _INJECTION_T_FLOOR = 275  # K reset for an injection temperature that drops below freezing point. although this is very unlikely to happen
+
+# Relative tolerance for the mass rate returning to the circuit entry to count
+# as unchanged (see _check_mass_rate_conserved). Every component passes the
+# mass rate through unchanged, so this only needs to absorb float noise.
+_MASS_RATE_REL_TOL: float = 1e-9
 
 # Default for max_inner_iterations (see SystemBCIteration.__init__).
 DEFAULT_MAX_INNER_ITER: int = 20
@@ -179,17 +184,36 @@ class SystemBCIteration(SystemDirect):
                 return component
         return None
 
-    def _find_injection_well(self) -> NumericalInjectionWell | None:
-        """Return the circuit's reservoir component, or None if absent.
+    def _find_circuit_entry(self) -> FlowComponent | None:
+        """Return the circuit-entry component (``component_idx == 0``), or None if absent.
 
-        Duck-typed via ``isinstance`` against the abstract ``NumericalInjectionWell``
-        base, same pattern as ``_find_surface`` — NOTE: works for NumeircalInjectionWell only.
+        The circuit entry is where each timestep's solve pass starts and
+        what the converged injection stream feeds: an injection well, or a
+        component covering the whole subsurface loop (``grouped_subsurface``).
         """
-        for component in self._ordered:
-            if isinstance(component, NumericalInjectionWell):
-                return component
+        return self._by_idx.get(0)
 
-        return None
+    def _check_mass_rate_conserved(self, circuit_entry: FlowComponent) -> None:
+        """Raise if the stream wired back to the circuit entry no longer carries ``self.mass_rate``.
+
+        The circuit entry's mass rate is pinned once per timestep
+        (``_set_circuit_entry_mass_rate``), but each later pass feeds the
+        last component's outlet, mass rate included, back into it. Every
+        component is assumed to conserve mass; one that doesn't would
+        silently change the injected rate on every pass, so this fails
+        loudly instead.
+
+        Raises:
+            ConfigError: The returning mass rate differs from ``self.mass_rate``.
+        """
+        returned = self._next_inlet(circuit_entry).mass_rate.get_fresh()
+        if not math.isclose(returned, self.mass_rate, rel_tol=_MASS_RATE_REL_TOL):
+            raise ConfigError(
+                f"The stream returning to the circuit entry carries {returned:.6g} kg/s, but "
+                f"sim_config.mass_rate is {self.mass_rate:.6g} kg/s: a component in this circuit "
+                "does not conserve mass. A mass flow rate that varies around the circuit "
+                "(e.g. fluid lost to the rock) is not supported.",
+            )
 
     def _check_fracking(self, reservoir: ReservoirComponent, inj_well: WellComponent) -> None:
         """Raise ``FrackingViolationError`` if the reservoir's fracking limit is exceeded, by pressure or by flow.
@@ -345,13 +369,14 @@ class SystemBCIteration(SystemDirect):
 
         self._seed_circuit_inlet()
         surface: SurfaceComponent | None = self._find_surface()
-        inj_well = self._find_injection_well()
+        circuit_entry = self._find_circuit_entry()
 
-        if inj_well is None:
-            raise ConfigError("""Need an injection well to converge injection temperature""")
+        if circuit_entry is None:
+            raise ConfigError(
+                "Need a circuit-entry component (component_idx 0) to converge injection enthalpy",
+            )
 
-        if inj_well is not None:
-            self._set_circuit_entry_mass_rate(self.mass_rate)
+        self._set_circuit_entry_mass_rate(self.mass_rate)
 
         # Snapshot every component's convergence-sensitive state (see
         # Component.snapshot_convergence_state's docstring) as it stood
@@ -365,7 +390,7 @@ class SystemBCIteration(SystemDirect):
 
         if surface is not None:
             try:
-                self._converge_injection_enthalpy(inj_well, surface, snapshot)
+                self._converge_injection_enthalpy(circuit_entry, surface, snapshot)
             except CoolPropError as exc:
                 raise CoolPropError(f"""
 Iteration: {t}
@@ -380,13 +405,13 @@ Time: {t * self.dt_years} years
             # back under the threshold and silently re-solved (see
             # FrackingViolationError's docstring).
             reservoir = self._find_reservoir()
-            if reservoir is not None and isinstance(inj_well, WellComponent):
-                self._check_fracking(reservoir, inj_well)
+            if reservoir is not None and isinstance(circuit_entry, WellComponent):
+                self._check_fracking(reservoir, circuit_entry)
 
     def _converge_injection_enthalpy(
         self,
-        inj_well: WellComponent,
-        surface: FlowComponent,
+        circuit_entry: FlowComponent,
+        surface: SurfaceComponent,
         snapshot: dict[int, Any],
     ) -> None:
         """Converge the injection enthalpy, re-solving the whole circuit every iteration.
@@ -416,7 +441,8 @@ Time: {t * self.dt_years} years
         that tolerance.
 
         Args:
-            inj_well: Injection well (``component_idx == 0``).
+            circuit_entry: Circuit-entry component (``component_idx == 0``),
+                e.g. the injection well.
             surface: Surface component (last in solve order).
             snapshot: Per-``component_idx`` result of
                 ``Component.snapshot_convergence_state()``, captured once
@@ -429,12 +455,15 @@ Time: {t * self.dt_years} years
                 failure, not a warning — silently continuing on an
                 unconverged state would let a physically-inconsistent
                 timestep pass as if it were a real answer.
+            ConfigError: A pass returns a different mass rate to the
+                circuit entry than ``self.mass_rate`` (see
+                ``_check_mass_rate_conserved``).
 
         """
         r_prev = None
         delta_prev = None
-        # The enthalpy the injection well solves from on this iteration.
-        h_inj_used: float = self._next_inlet(inj_well).h.get_fresh()
+        # The enthalpy the circuit entry solves from on this iteration.
+        h_inj_used: float = self._next_inlet(circuit_entry).h.get_fresh()
 
         for inner_iter in range(self.max_inner_iterations):
             retry_below_freezing = False
@@ -455,10 +484,10 @@ Time: {t * self.dt_years} years
                             _INJECTION_T_FLOOR,
                         )
                         retry_below_freezing = True
-                        common = inj_well.common  # type: ignore[attr-defined]
+                        common = surface.common
                         h_inj_used = FluidState.with_PT(
                             common.fluid_name,
-                            self._next_inlet(inj_well).P.get_fresh(),
+                            self._next_inlet(circuit_entry).P.get_fresh(),
                             _INJECTION_T_FLOOR,
                             common.coolprop_backend,
                         ).H
@@ -476,6 +505,8 @@ Time: {t * self.dt_years} years
 
             if retry_below_freezing:
                 continue
+
+            self._check_mass_rate_conserved(circuit_entry)
 
             h_surface_out = surface.outlet.h.get_fresh()
             if abs(h_surface_out - h_inj_used) < _DH_SURFACE_TOL:

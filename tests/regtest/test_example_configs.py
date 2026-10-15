@@ -32,6 +32,7 @@ from typing import Any
 
 import pytest
 
+from tango.components.well.grouped_subsurface import NumericalGroupedSubsurface
 from tango.workflows.workflow import Workflow
 
 EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
@@ -42,6 +43,9 @@ EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 1.3475576013063868),
     ("AGS_ORC_electric.yml", 3.6194303622082757),
+    # Same system as AGS_ORC_electric.yml with its wells as one grouped_subsurface
+    # component, so the same golden value.
+    ("AGS_ORC_electric_grouped_subsurface.yml", 3.6194303622082757),
     ("CO2_AGS_direct_heat.yml", 3.129297942040642),
     ("CO2_AGS_electric.yml", 2.8949027148267015),
     ("CO2_AGS_ORC_electric.yml", 13.956545302567246),
@@ -75,6 +79,12 @@ def _components(wf: Workflow) -> dict[str, Any]:
     return wf._orchestrator.components  # noqa: SLF001
 
 
+def _injection_well(comps: dict[str, Any]) -> Any:
+    """The injection well: its own component, or the first segment of a ``grouped_subsurface``."""
+    entry = next(c for c in comps.values() if c.component_idx == 0)
+    return entry.injection_well if isinstance(entry, NumericalGroupedSubsurface) else entry
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
 def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
@@ -84,7 +94,7 @@ def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
     wf.run()
 
     comps = _components(wf)
-    inj = comps["injection_well"]
+    inj = _injection_well(comps)
     assert inj.state.T_outlet.get_fresh() > inj.state.T_inlet.get_fresh(), (
         f"{filename}: injection well outlet T should exceed inlet T (geothermal gradient heats downward flow)"
     )

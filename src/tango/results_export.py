@@ -31,6 +31,7 @@ import dataclasses
 from pathlib import Path
 from typing import Any
 
+from tango.components.well.grouped_subsurface import SEGMENT_NAMES, NumericalGroupedSubsurface
 from tango.workflows.workflow import Workflow
 
 FIELD_UNITS: dict[str, str] = {
@@ -66,6 +67,7 @@ FIELD_UNITS: dict[str, str] = {
     "p3": "-",
     "energy_extraction_rate": "W",
     "energy_extracted": "J",
+    "heat_extracted_watts": "W",
     "ever_solved": "bool",
     # Power
     "pump_power_watts": "W",
@@ -126,11 +128,23 @@ def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
     return written
 
 
+def _named_histories(wf: Workflow) -> list[tuple[str, Any]]:
+    """``(name, history)`` for every component, plus every segment of a ``grouped_subsurface`` (``"<name>.<segment>"``)."""
+    named: list[tuple[str, Any]] = []
+    for name, component in wf._orchestrator.components.items():  # noqa: SLF001
+        named.append((name, getattr(component, "history", None)))
+        if isinstance(component, NumericalGroupedSubsurface):
+            named += [
+                (f"{name}.{segment_name}", segment.history)
+                for segment_name, segment in zip(SEGMENT_NAMES, component.segments(), strict=True)
+            ]
+    return named
+
+
 def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
     """One row per timestep; columns are every component's own scalar history fields."""
     columns: dict[str, list[Any]] = {}
-    for name, component in wf._orchestrator.components.items():  # noqa: SLF001
-        history = getattr(component, "history", None)
+    for name, history in _named_histories(wf):
         if history is None:
             continue
         for f in dataclasses.fields(history):

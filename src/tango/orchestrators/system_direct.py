@@ -169,6 +169,8 @@ class SystemDirect(Orchestrator):
         """Execute all timesteps, then the economic finalize step (if any)."""
         for t in range(self.n_tsteps):
             self.run_timestep(t)
+            for component in self._ordered:
+                component.accept_timestep()
             self._after_timestep(t)
             self.record(t)
         self.finalize()

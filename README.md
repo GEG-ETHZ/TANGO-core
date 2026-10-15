@@ -189,6 +189,16 @@ These directories serve different purposes and are easy to mix up:
 
 After that, entering the directory runs `uv sync` and activates the venv automatically.
 
+### Optional: RAFT subsurface simulator
+
+The `grouped_subsurface` component's `raft` variant delegates the wells and surrounding rock to [RAFT](https://github.com/GEG-ETHZ/RAFT). It is an optional extra, pinned to a commit in `pyproject.toml`:
+
+1. RAFT is a private repository for now. uv fetches it over HTTPS, so either have GitHub HTTPS credentials set up (e.g. `gh auth setup-git`), or route it over SSH:
+   `git config --global url."ssh://git@github.com/GEG-ETHZ/RAFT".insteadOf "https://github.com/GEG-ETHZ/RAFT"`
+2. Run `just setup-raft` (or `uv sync --extra raft`). With direnv, the recipe also writes `TANGO_UV_SYNC_ARGS="--extra raft"` to the git-ignored `.envrc.local`, so the automatic `uv sync` keeps RAFT installed.
+
+Install it through uv, not plain `pip install tango-core[raft]`: the name `raft` on PyPI belongs to an unrelated package.
+
 ### Running Checks
 -   **Tests:** `uv run pytest -v` -- to be run from the root directory
 -   **Linting:** `uv run ruff check .`

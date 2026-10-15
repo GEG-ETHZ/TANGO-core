@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from tango.components.economic.doublet import DoubletEconomicComponent
 from tango.components.reservoir.lumped import LumpedReservoir
 from tango.components.surface.graph import GraphSurface
+from tango.components.well.grouped_subsurface import NumericalGroupedSubsurface
 from tango.components.well.lumped import (
     LumpedInjectionWell,
     LumpedProductionWell,
@@ -42,6 +43,7 @@ COMPONENT_REGISTRY: dict[tuple[str, str], type[Component]] = {
     ("production_well_with_pump", "lumped"): LumpedProductionWellWithPump,
     ("production_well_with_pump", "numerical"): NumericalProductionWellWithPump,
     ("horizontal_well", "numerical"): NumericalWell,
+    ("grouped_subsurface", "numerical"): NumericalGroupedSubsurface,
     ("surface", "graph"): GraphSurface,
     ("economic", "doublet"): DoubletEconomicComponent,
 }

@@ -45,3 +45,32 @@ jobs:
       - name: src/tango.hash is current
         run: uv run python tools/hash_tango.py
       - run: uv run pytest tests/unit -v
+
+  raft:
+    # The optional RAFT extra (closed_loop variant `raft`). GEG-ETHZ/RAFT is
+    # private until its public release, so installing it needs the read-only
+    # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
+    # and the insteadOf rewrite routes the fetch over SSH. Every step is
+    # skipped while the secret is absent (e.g. PRs from forks). Drop the key
+    # and the rewrite once RAFT is public.
+    name: unit tests with RAFT (ubuntu-latest)
+    runs-on: ubuntu-latest
+    env:
+      RAFT_DEPLOY_KEY: ${{ secrets.RAFT_DEPLOY_KEY }}
+    steps:
+      - if: env.RAFT_DEPLOY_KEY == ''
+        run: echo "::notice::RAFT_DEPLOY_KEY is not set; skipping the RAFT job."
+      - if: env.RAFT_DEPLOY_KEY != ''
+        uses: actions/checkout@v4
+      - if: env.RAFT_DEPLOY_KEY != ''
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.RAFT_DEPLOY_KEY }}
+      - if: env.RAFT_DEPLOY_KEY != ''
+        run: git config --global url."ssh://git@github.com/GEG-ETHZ/RAFT".insteadOf "https://github.com/GEG-ETHZ/RAFT"
+      - if: env.RAFT_DEPLOY_KEY != ''
+        uses: astral-sh/setup-uv@v6
+      - if: env.RAFT_DEPLOY_KEY != ''
+        run: uv sync --locked --extra raft
+      - if: env.RAFT_DEPLOY_KEY != ''
+        run: uv run pytest tests/unit -v

@@ -20,6 +20,7 @@ import pytest
 
 from tango.components.reservoir.lumped import LumpedReservoirHistory, LumpedReservoirState
 from tango.components.surface.graph import GraphSurfaceHistory, GraphSurfaceState
+from tango.components.well.grouped_subsurface import GroupedSubsurfaceHistory, GroupedSubsurfaceState
 from tango.components.well.lumped import (
     ProductionWellWithPumpHistory,
     ProductionWellWithPumpState,
@@ -47,6 +48,7 @@ _PAIRS: list[tuple[type, type]] = [
     (NumericalWellState, NumericalWellHistory),
     (LumpedReservoirState, LumpedReservoirHistory),
     (GraphSurfaceState, GraphSurfaceHistory),
+    (GroupedSubsurfaceState, GroupedSubsurfaceHistory),
 ]
 
 
