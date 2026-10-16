@@ -21,7 +21,7 @@ jobs:
     if: github.head_ref != 'main' && github.head_ref != 'develop'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Tag bak/${{ github.head_ref }}
