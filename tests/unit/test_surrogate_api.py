@@ -141,6 +141,6 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     # Schema-only: at this tiny scale the corrected front may legitimately be
     # empty (few/no real-feasible designs among a 6-pop, 2-gen surrogate
     # search) -- only assert column shape, not that it's non-empty.
-    for col in [*param_names, *objective_names, "euclidean"]:
+    for col in [*param_names, *objective_names, "ideal_distance"]:
         assert col in corrected.columns
     assert len(corrected) <= int(comparison["real_success"].sum())

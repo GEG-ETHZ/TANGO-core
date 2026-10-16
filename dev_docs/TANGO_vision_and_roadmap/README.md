@@ -1245,8 +1245,9 @@ baseline; the refactor is applied to all input configurations.
       single-objective optimizer gets to the same kind of single answer with
       far less machinery — the point of running MOO is to *not* pre-commit to
       that. `tango`'s pymoo API should write every point on the returned
-      front to a dataframe/CSV (plus one `euclidean`-distance column as a sort
-      hint, not a filter) and leave the choice to the human — return the full
+      front to a dataframe/CSV (plus one `ideal_distance` column, the
+      normalized distance to the ideal corner, as a sort hint, not a filter)
+      and leave the choice to the human — return the full
       front by default. The ASF/pseudo-weights *math* from
       `optimizerr.py` is still worth keeping (see the `dev_docs/tango_tasks.md`
       review) — just re-scoped as a separate, explicitly-invoked, opt-in

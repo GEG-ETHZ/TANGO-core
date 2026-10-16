@@ -21,7 +21,15 @@ import pytest
 import yaml
 
 from tango.core.errors import ConfigError, InertParameterError
-from tango.pymoo_api import Minimization, ObjectiveSpec, ParamSpec, PymooConfig, _Problem, build_pymoo_parser
+from tango.pymoo_api import (
+    Minimization,
+    ObjectiveSpec,
+    ParamSpec,
+    PymooConfig,
+    _Problem,
+    build_pymoo_parser,
+    ideal_distance,
+)
 from tango.workflows.workflow import Workflow
 
 _EXAMPLE_CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
@@ -211,3 +219,25 @@ def test_evaluation_resolves_well_cells_for_its_own_length(tmp_path: Path) -> No
     cfg = loop_length.apply(copy.deepcopy(mgr.base_cfg), 8000.0)
     loop = Workflow(cfg)._orchestrator.components["horizontal_well"]  # noqa: SLF001
     assert loop.num_cells == 40
+
+
+def test_ideal_distance_is_normalized_distance_to_the_best_of_each_objective() -> None:
+    """Each objective counts 0-1 regardless of units; the two ends of a front sit at distance 1."""
+    # LCOE and negated power (both minimized), on very different scales.
+    f = np.array([[0.5, -1.0e6], [1.0, -2.0e6], [0.75, -1.5e6], [0.6, -1.9e6]])
+    np.testing.assert_allclose(
+        ideal_distance(f),
+        [1.0, 1.0, np.hypot(0.5, 0.5), np.hypot(0.2, 0.1)],
+    )
+
+
+def test_ideal_distance_ignores_how_designs_are_spaced_along_the_front() -> None:
+    """Crowding extra designs at one end of the front doesn't change any design's distance."""
+    f = np.array([[0.5, -1.0e6], [1.0, -2.0e6], [0.6, -1.9e6]])
+    crowded = np.vstack([f, [[0.51, -1.05e6], [0.52, -1.1e6], [0.53, -1.15e6]]])
+    np.testing.assert_allclose(ideal_distance(crowded)[:3], ideal_distance(f))
+
+
+def test_ideal_distance_treats_a_constant_objective_as_zero() -> None:
+    """An objective with the same value for every design adds nothing (no division by zero)."""
+    np.testing.assert_allclose(ideal_distance(np.array([[1.0, 3.0], [2.0, 3.0]])), [0.0, 1.0])
