@@ -577,6 +577,10 @@ def plot_objective_vs_param_scatter(
             # gives each label room regardless of how narrow the column's
             # actual data range is.
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+            # A parameter pinned at a bound spans a tiny range, and matplotlib
+            # would then label it as an offset (e.g. "+6.9999e1") that's
+            # unreadable and collides with the axis label. Plain values instead.
+            ax.ticklabel_format(axis="x", useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
@@ -645,6 +649,8 @@ def plot_param_pair_vs_objective_scatter(
             ax.grid(visible=True, alpha=0.3)
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
             ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+            # Plain values, not offsets (see plot_objective_vs_param_scatter).
+            ax.ticklabel_format(useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
