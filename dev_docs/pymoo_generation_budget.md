@@ -30,6 +30,14 @@ generation it was evaluated in (`--capture-trajectory`), in
 `tools/n_max_gen_study_job.sh`; its header has the submission loop. These
 runs never touch the apps' DVC-tracked `outputs/`.
 
+Submitted October 16, 2026 at commit `bb09ddc7`:
+
+| App | Seed 1 | Seed 2 | Seed 3 |
+|---|---|---|---|
+| `opt_hydro_direct_heat` | 17268391 | 17268394 | 17268399 |
+| `opt_hydro_sf_electric` | 17268402 | 17268406 | 17268408 |
+| `opt_AGS_ORC_electric` | 17268411 | 17268415 | 17268418 |
+
 **Seeds.** The seed sets NSGA-II's random choices: the starting population
 and every mutation and crossover. Two runs with the same settings and
 different seeds take different random paths toward the front. Seed 1 is the
