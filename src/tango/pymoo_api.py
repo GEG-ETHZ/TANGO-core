@@ -459,6 +459,18 @@ def build_pymoo_parser(
             "beyond what the file provides are filled via LHS."
         ),
     )
+    parser.add_argument(
+        "--capture-trajectory",
+        type=Path,
+        default=None,
+        metavar="CSV",
+        help=(
+            "Append every evaluated design (parameters, objectives, feasibility, "
+            "and the generation it was evaluated in) to this CSV, not just the "
+            "final front. Used to study how the front improves generation by "
+            "generation. Appends to an existing file, so point it at a new one."
+        ),
+    )
     plot_group = parser.add_mutually_exclusive_group()
     plot_group.add_argument(
         "--plot-only",
@@ -963,8 +975,9 @@ class Minimization:
             Default ``()`` (no change from the base set).
         capture_trajectory_path: If given, append every generation's
             newly-evaluated individuals (not just the final front) to this
-            CSV path as surrogate training data — see
-            ``_append_trajectory``. Default ``None`` (no capture).
+            CSV path, e.g. as surrogate training data or to study how the
+            front improves per generation — see ``_append_trajectory``.
+            Default ``None`` (no capture).
 
     Raises:
         ValueError: If ``base_cfg``'s own ``sim_config.injection_mode``
@@ -1832,6 +1845,7 @@ class OptApp:
             save_dir=args.save_dir,
             seed_from=args.seed_from,
             check_param_sensitivity=not args.skip_param_check,
+            capture_trajectory_path=args.capture_trajectory,
         )
         res, df = m.run()
         return res, df, m

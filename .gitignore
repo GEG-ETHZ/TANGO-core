@@ -93,3 +93,6 @@ scratch_output/
 !/CHANGELOG.md
 !/CONTRIBUTING.md
 !/README.md
+
+# Study runs that never go through DVC, e.g. tools/n_max_gen_study_job.sh
+studies/
