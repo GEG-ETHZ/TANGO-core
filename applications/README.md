@@ -47,7 +47,6 @@ temperature, specific investment cost, and OPEX for its Pareto front.
 | `opt_CO2_AGS_direct_heat` | District-heating exchanger outlet pressure |
 | `opt_hydro_direct_heat`, `opt_EGS_direct_heat`, `opt_CO2_EGS_direct_heat`, `opt_CPG_direct_heat` | None |
 | `opt_AGS_direct_heat` | None; also constrains production temperature to at least 105 °C |
-| `opt_hydro_df_electric_surrogate` | `opt_hydro_df_electric`'s search against a trained surrogate model instead of the real simulation (see its own `train_surrogate.py`/`validate_surrogate.py`) — much cheaper per evaluation |
 
 Before searching, every app checks that each decision variable actually
 matters: moving it up and down from the config's own value must change at
@@ -61,6 +60,17 @@ population-6 search plus any relaxed constraint) and a throwaway `--save-dir`.
 The top-level `justfile`'s `apps` recipe does this for every app, running
 `--no-plot` then `--plot-only` against the same `--save-dir` to exercise the
 two-stage optimize/plot split in each app's `dvc.yaml`.
+
+## On hold — `_on_hold/`
+
+Apps that are kept but no longer run: `just slurm`, `just apps`, the wheel
+and `tango apps` all skip them.
+
+- `opt_hydro_df_electric_surrogate`: `opt_hydro_df_electric`'s search against
+  a trained surrogate model instead of the real simulation. Its LCOE
+  predictions near the Pareto front never got within the 1% needed to trust
+  the result. Whether to bring it back or delete it is tracked in
+  [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106).
 
 ## Sweeps — `run_*_sweep`
 

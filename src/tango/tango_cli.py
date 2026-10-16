@@ -44,7 +44,6 @@ _AVAILABLE_APPS = frozenset(
         "demo_well_mesh_convergence",
         "opt_AGS_direct_heat",
         "opt_hydro_df_electric",
-        "opt_hydro_df_electric_surrogate",
         "opt_hydro_sf_electric",
         "run_AGS_direct_heat_sweep",
         "run_EGS_direct_heat_sweep",

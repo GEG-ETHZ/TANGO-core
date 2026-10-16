@@ -41,8 +41,8 @@ set -euo pipefail
 # See opt_hydro_df_electric_job.sh for why $SLURM_SUBMIT_DIR (not git or
 # $0/dirname) is the reliable way to resolve REPO_ROOT under a real sbatch
 # job.
-REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
-APP_DIR="$REPO_ROOT/applications/opt_hydro_df_electric_surrogate"
+REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
+APP_DIR="$REPO_ROOT/applications/_on_hold/opt_hydro_df_electric_surrogate"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
 if [ $# -gt 0 ]; then
@@ -84,7 +84,7 @@ fi
 # takes a repo-wide lock while it sets up and records each stage (not while
 # the stage's command runs). Without it, jobs that start together give up
 # after ~3 s and fail.
-uv run --project "$REPO_ROOT" dvc --wait-for-lock repro applications/opt_hydro_df_electric_surrogate/dvc.yaml
+uv run --project "$REPO_ROOT" dvc --wait-for-lock repro applications/_on_hold/opt_hydro_df_electric_surrogate/dvc.yaml
 
 echo ""
 echo "=========================================="
