@@ -1,5 +1,9 @@
 """Multi-objective optimization of the five-spot single-flash hydrothermal electric example.
 
+**Invalid for now (GitHub issue #109):** the five-spot pattern is costed and
+simulated as a single doublet (see ``WellPattern``'s docstring), so this
+app's LCOE and Pareto front aren't meaningful until #109 is fixed.
+
 Searches mass flow rate, injection pressure, target extraction pressure,
 injection and production well diameters, surface pipe diameter, and flash
 (separator) pressure with NSGA2 to minimize LCOE and maximize mean net electric
