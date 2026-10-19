@@ -47,7 +47,7 @@ jobs:
       - run: uv run pytest tests/unit -v
 
   raft:
-    # The optional RAFT extra (closed_loop variant `raft`). GEG-ETHZ/RAFT is
+    # The optional RAFT extra (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
     # private until its public release, so installing it needs the read-only
     # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
     # and the insteadOf rewrite routes the fetch over SSH. Every step is

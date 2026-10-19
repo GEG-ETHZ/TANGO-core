@@ -64,9 +64,10 @@ tango_cli = "tango.tango_cli:main"
 
 [project.optional-dependencies]
 # RAFT (GEG-ETHZ/RAFT): FEM wellbore + rock heat simulator behind the
-# `closed_loop` component's `raft` variant. Optional: `uv sync --extra raft`.
-# The source is pinned in [tool.uv.sources] below. The name `raft` on PyPI
-# is an unrelated package, so install through uv, not plain pip.
+# `grouped_subsurface` component's `raft` variant. Optional:
+# `uv sync --extra raft`. The source is pinned in [tool.uv.sources] below.
+# The name `raft` on PyPI is an unrelated package, so install through uv,
+# not plain pip.
 raft = ["raft"]
 dev = [
     "pylsp-mypy>=0.7.0", # provides connection from python LSP to mypy
