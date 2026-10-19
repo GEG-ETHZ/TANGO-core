@@ -10,7 +10,7 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - [Pre-approved Auto-Run Commands](/.agent/rules/auto-run.md)
 - [Agent Pathing Rules](/.agent/rules/agent-pathing.md)
 - [Code Pathing Rules](/.agent/rules/code-pathing.md)
-- [Commit Message Format](/.agent/workflows/commit.md)
+- [Commit Message Format](/.agent/rules/commit.md)
 - [Gitignore Formatting](/.agent/rules/gitignore.md)
 - [Code Quality and Linting](/.agent/rules/code-quality.md)
 - [Date Handling in Documents](/.agent/rules/dates.md)
@@ -25,12 +25,12 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - **Agent Pathing Rules:** Before referencing or editing any agent
   configurations, read `./.agent/rules/agent-pathing.md`
 - **Code Pathing Rules:** Before referencing or editing any project code, read `./.agent/rules/code-pathing.md`
-- **Commit Workflow & Permissions:** Before initiating any git commit, read `./.agent/rules/commit-permissions.md`
+- **Commit Workflow & Permissions:** Before initiating any git commit, read `./.agent/rules/commit.md`
 
 ## Commit Message Format
 
-When committing, execute the `commit` workflow to ensure proper formatting. Do
-**not** guess the format; load the workflow.
+When writing a commit message, follow `./.agent/rules/commit.md`. Do **not**
+guess the format; read the file.
 
 ---
 
