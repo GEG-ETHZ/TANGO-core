@@ -146,9 +146,15 @@ class _OrcFeedPumpPressureApply:
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "mass_rate_kg_per_s": (10.0, 100.0),
     "injection_pressure_Pa": (1000000.0, 8000000.0),
-    # (0.7, 1.5)x the config's own value, the same scale factor
-    # run_hydro_df_electric_sweep uses.
-    "target_extraction_pressure_Pa": (2100000.0, 4500000.0),
+    # Floor: just above water's saturation pressure (1.25 MPa) at the
+    # estimated reservoir temperature, 288 K + 5000 m x 0.035 K/m ~ 190 degC,
+    # so the produced fluid can't flash in the production well. Pressure
+    # above that only costs production-pump work (here the gain from
+    # lowering it is small, ~0.5% LCOE, since this binary plant doesn't
+    # throttle), and the old (0.7x config value) floor pinned the Pareto
+    # front. Until the target can be solved from a saturation margin
+    # instead (#108).
+    "target_extraction_pressure_Pa": (1300000.0, 4500000.0),
     # 6-24 inch wellbores.
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
