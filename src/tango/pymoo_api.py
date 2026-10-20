@@ -36,7 +36,8 @@ Adapted to tango's actual seams:
 - **Only specific, known-physical failure modes become a CV — everything
   else raises.** ``_evaluate_one`` catches exactly ``INFEASIBLE_DESIGN_EXCEPTIONS``
   (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``,
-  ``InvalidPowerStateError``, ``CoolingLimitError``) —
+  ``InvalidPowerStateError``, ``CoolingLimitError``, ``SaturationError``,
+  ``WellPressureCollapseError``) —
   the ``tango`` errors that genuinely mean "this sampled design is
   infeasible," not "something is broken." A bare ``except Exception``
   would also swallow ``ConfigError`` (almost always a bug in a
@@ -97,6 +98,8 @@ from tango.core.errors import (
     FrackingViolationError,
     InertParameterError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 from tango.core.policies import InjectionPolicy
 from tango.utils import print_dt
@@ -130,6 +133,8 @@ INFEASIBLE_DESIGN_EXCEPTIONS: tuple[type[Exception], ...] = (
     FrackingViolationError,
     ConvergenceError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 
 logger = logging.getLogger(__name__)

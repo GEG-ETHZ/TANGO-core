@@ -168,3 +168,8 @@ class FluidState:
     def cp(self) -> float:
         """Isobaric specific heat capacity (J/(kg·K))."""
         return self._state.cpmass()
+
+    @property
+    def is_two_phase(self) -> bool:
+        """Whether the state lies inside the vapor-liquid dome (0 < quality < 1)."""
+        return self._state.phase() == CoolProp.iphase_twophase

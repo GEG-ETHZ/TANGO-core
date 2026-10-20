@@ -70,7 +70,7 @@ from pydantic import Field, PositiveInt, SerializerFunctionWrapHandler, model_se
 
 from tango.components.well.base import WellComponent
 from tango.core.constants import YEAR_TO_SECOND
-from tango.core.errors import ConfigError, InvalidPowerStateError
+from tango.core.errors import ConfigError, InvalidPowerStateError, SaturationError, WellPressureCollapseError
 from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import reynolds_number
 from tango.core.locked_state import LockedState
@@ -545,7 +545,21 @@ class NumericalWell(WellComponent):
             P[i] = P[i - 1] - dp_grav - dP_loss
             h[i] = h[i - 1] - potential_energy_per_cell - Q_loss / mdot
 
+            if P[i] <= 0.0:
+                raise WellPressureCollapseError(
+                    f"well component_idx={self.component_idx}: pressure fell to {P[i] / 1e5:.2f} bar "
+                    f"{i * dz:.0f} m along the well (cell {i} of {n}), from {P[0] / 1e5:.2f} bar at its "
+                    f"inlet, at {mdot:.2f} kg/s -- friction and the hydrostatic column take more "
+                    "pressure than the inlet provides.",
+                )
             cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i], self.common.coolprop_backend)
+            if cell_state.is_two_phase:
+                raise SaturationError(
+                    f"well component_idx={self.component_idx}: fluid boils {i * dz:.0f} m along the well "
+                    f"(cell {i} of {n}): P={P[i] / 1e5:.2f} bar, T={cell_state.T - 273.15:.1f} degC, "
+                    f"from {P[0] / 1e5:.2f} bar at its inlet, at {mdot:.2f} kg/s. The well model "
+                    "assumes single-phase flow.",
+                )
             rho[i] = cell_state.rho
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T
@@ -716,9 +730,16 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
 
         before = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
         s.T_inlet.update(before.T)
-        P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
+        # Unaided, the well may not lift the flow at all: its pressure collapses
+        # or the fluid boils on the way up. That only means the pump is needed,
+        # so it isn't an error here; the pumped march below decides feasibility.
+        try:
+            P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
+            unpumped_outlet_Pa: float | None = P[-1]
+        except (SaturationError, WellPressureCollapseError):
+            unpumped_outlet_Pa = None
 
-        if target_Pa <= P[-1]:
+        if unpumped_outlet_Pa is not None and target_Pa <= unpumped_outlet_Pa:
             pump_pwr = 0.0
         else:
 
@@ -736,10 +757,32 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
                 p_trial, *_ = self._march(_discharge_enthalpy(P_pump_out), P_pump_out, mdot, t_d)
                 return p_trial[-1] - target_Pa
 
+            if unpumped_outlet_Pa is not None:
+                x0, x1 = P_in, P_in + (target_Pa - unpumped_outlet_Pa)
+            else:
+                # No unaided march to extrapolate from, so start from an
+                # estimate of the pressure the well takes: its hydrostatic
+                # column plus friction, both at inlet conditions. Both guesses
+                # sit at or above it, so the first trial marches don't collapse.
+                well_length = self.cell_length * self.num_cells
+                rise = -math.cos(math.radians(self.angle_from_vert_deg)) * well_length
+                u_in = mdot / self.cross_sectional_area / before.rho
+                ff_in = compute_friction_factor(
+                    self.friction_model,
+                    reynolds_number(mdot, self.diameter, before.mu),
+                    self.diameter,
+                    self.pipe_roughness,
+                )
+                dP_estimate = (
+                    before.rho * self.gravity * self.gravity_scale_factor * rise
+                    + 0.5 * ff_in * well_length * before.rho * u_in**2 / self.diameter
+                )
+                x1 = target_Pa + dP_estimate
+                x0 = x1 + 0.1 * abs(dP_estimate)
             P_pump_out = secant_solve(
                 _residual,
-                x0=P_in,
-                x1=P_in + (target_Pa - P[-1]),
+                x0=x0,
+                x1=x1,
                 tol=PUMP_BOOST_TOL_PA,
                 max_iter=PUMP_BOOST_MAX_ITER,
                 error_context=f"well component_idx={self.component_idx}: pump-boost pressure convergence",

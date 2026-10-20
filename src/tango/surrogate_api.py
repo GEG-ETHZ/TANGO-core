@@ -163,8 +163,15 @@ def evaluate_training_row(
         row["error_type"] = type(exc).__name__
         row["error_message"] = str(exc)
         return row
-    for o in objectives:
-        row[o.name] = o.evaluate(wf)
+    values = {o.name: o.evaluate(wf) for o in objectives}
+    if not all(math.isfinite(v) for v in values.values()):
+        # Same rule as Minimization._evaluate_one: a NaN/inf objective (e.g.
+        # LCOE when net power is <= 0) is an infeasible design, not a
+        # training target.
+        row["error_type"] = "NonFiniteObjective"
+        row["error_message"] = f"non-finite objective(s) {values}"
+        return row
+    row.update(values)
     row["success"] = True
     return row
 
