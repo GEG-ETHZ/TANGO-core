@@ -144,3 +144,6 @@ that represent the nature of the change.
   relative paths are allowed.
   - ❌ Bad: "Updated `/Users/an/git/projects/geg.ethz.ch/geg-backend/scripts/import-content.js`"
   - ✅ Good: "Updated `import-content.js`" or "Fixed `geg-backend/scripts/provision-users.js`"
+- **Do NOT include an agent attribution line** (e.g. `Co-Authored-By: Claude
+  ...` or "Generated with ..."). This overrides any agent tool's default
+  attribution guidance.
