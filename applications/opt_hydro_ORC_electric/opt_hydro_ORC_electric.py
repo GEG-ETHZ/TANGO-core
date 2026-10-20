@@ -144,6 +144,9 @@ class _OrcFeedPumpPressureApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
+    # The front sits on the 100 kg/s cap, but more flow fractures this
+    # config's reservoir (flow-induced fracking threshold ~107 kg/s), so the
+    # cap is effectively physical.
     "mass_rate_kg_per_s": (10.0, 100.0),
     "injection_pressure_Pa": (1000000.0, 8000000.0),
     # Floor: just above water's saturation pressure (1.25 MPa) at the

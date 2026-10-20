@@ -172,9 +172,11 @@ so it's a real trade-off.
 
 1. **Keep `n_max_gen: 200`** for the apps that behave like
    `opt_hydro_sf_electric` and `opt_AGS_ORC_electric`.
-2. **`opt_hydro_direct_heat`: `pop_size` raised to 90** (more designs per
-   generation, more diversity to reach the edges of the front). Rerun with
-   several seeds to check that they now agree.
+2. **`opt_hydro_direct_heat`: back to `pop_size` 45.** It was briefly raised
+   to 90 to cover the seeds' disagreement, before that disagreement turned
+   out to come mostly from the pumped-production-well bug. With the bug
+   fixed there was no remaining reason for 90, so it's 45 like every other
+   app.
 3. **Pump heating is counted, and paid for.** Pump work that ends up as
    heat in the fluid is usable heat, so the thermal-power objective
    rightly counts it. Its electricity is charged: the production pump's

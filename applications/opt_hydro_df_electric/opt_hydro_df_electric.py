@@ -149,7 +149,10 @@ class _LowFlashPressureRatioApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
-    "mass_rate_kg_per_s": (10.0, 100.0),
+    # Up to 150 kg/s: with the old 100 kg/s cap the whole front sat on it; the
+    # optimum lies near 120 kg/s (<0.5% lower LCOE than at 100 kg/s for the
+    # front's ideal-corner design), and LCOE rises again by 150 kg/s.
+    "mass_rate_kg_per_s": (10.0, 150.0),
     "injection_pressure_Pa": (1.0e6, 8.0e6),
     # Floor: just above water's saturation pressure (1.25 MPa) at the
     # estimated reservoir temperature, 288 K + 5000 m x 0.035 K/m ~ 190 degC,
