@@ -89,6 +89,7 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 from tango.core.errors import (
     ConfigError,
@@ -269,6 +270,16 @@ class PymooConfig:
     """Probability each variable gets mutated (pymoo's default mutation
     operator, ``PM``, calls this ``prob`` — default ``1/n_var`` if left
     ``None`` here). Same ``algorithm=`` caveat as ``crossover_prob`` above."""
+    report_archive: bool = False
+    """Report the non-dominated set of every feasible design evaluated during
+    the run, instead of only the final population's non-dominated designs.
+
+    NSGA-II keeps a fixed-size population (``pop_size``) and thins its front
+    to fit, so the final population holds at most ``pop_size`` designs and
+    can drop good ones found earlier, especially near the ends of the front.
+    The archive keeps them all. It only changes what's reported; the search
+    itself is unchanged. Each reported design is re-solved once for the
+    report columns, so a larger front costs that many extra simulations."""
 
 
 def load_params(params_file: Path) -> dict[str, Any]:
@@ -404,6 +415,17 @@ def build_pymoo_parser(
         type=int,
         default=seed_default,
         help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
+    )
+    report_archive_default = bool(params.get("report_archive", default_pymoo_config.report_archive))
+    parser.add_argument(
+        "--report-archive",
+        action=argparse.BooleanOptionalAction,
+        default=report_archive_default,
+        help=(
+            "Report the non-dominated set of every feasible design evaluated, not just the final "
+            "population's (at most pop_size). The search itself is unchanged. Defaults to "
+            f"{report_archive_default} (params.yaml/PymooConfig)."
+        ),
     )
     parser.add_argument(
         "--no-seed",
@@ -1042,6 +1064,10 @@ class Minimization:
     """``INFEASIBLE_DESIGN_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
     _trajectory_row_idx: int = field(init=False, default=0, repr=False)
     """Running counter for ``_append_trajectory``'s ``row_idx`` column, across generations."""
+    _archive_x: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Decision variables of the non-dominated feasible designs evaluated so far (``report_archive``)."""
+    _archive_f: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Objectives matching ``_archive_x``."""
 
     def __post_init__(self) -> None:
         """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
@@ -1445,11 +1471,14 @@ class Minimization:
                 self._save_intermediate(algorithm)
             if self.capture_trajectory_path is not None:
                 self._append_trajectory(algorithm)
+            if self.pymoo_config.report_archive:
+                self._update_archive(algorithm)
         res = algorithm.result()
 
-        df = self._build_results_df(res.X, res.F)
+        x, f = (self._archive_x, self._archive_f) if self.pymoo_config.report_archive else (res.X, res.F)
+        df = self._build_results_df(x, f)
         if self.report_specs:
-            df = self._add_report_columns(df, res.X)
+            df = self._add_report_columns(df, x)
         if self.n_failures:
             logger.info(
                 "Minimization: %d evaluations were constraint violations (failed to solve).",
@@ -1457,7 +1486,7 @@ class Minimization:
             )
         if self.save_results:
             self._write_pareto(
-                res.X,
+                x,
                 df,
                 self.save_dir / "pareto_results.csv",
                 self.save_dir / "pareto_configs" if self.save_pareto_configs else None,
@@ -1484,6 +1513,31 @@ class Minimization:
             self.save_dir / "pareto_results_partial.csv",
             self.save_dir / "pareto_configs_partial" if self.save_pareto_configs else None,
         )
+
+    def _update_archive(self, algorithm: GeneticAlgorithm) -> None:
+        """Merge this generation's feasible evaluations into the non-dominated archive.
+
+        Reads ``algorithm.off`` (exactly the designs evaluated by this
+        generation; see ``_append_trajectory``) and keeps only the
+        non-dominated designs of archive plus newcomers, so memory stays
+        bounded by the front's size, not the number of evaluations.
+        """
+        off = algorithm.off
+        if off is None or len(off) == 0:
+            return
+        feasible = (off.get("G") <= 0).all(axis=1)
+        if not feasible.any():
+            return
+        x = np.asarray(off.get("X")[feasible], dtype=float)
+        f = np.asarray(off.get("F")[feasible], dtype=float)
+        if self._archive_x is not None and self._archive_f is not None:
+            x = np.vstack([self._archive_x, x])
+            f = np.vstack([self._archive_f, f])
+        front = NonDominatedSorting().do(f, only_non_dominated_front=True)
+        # Identical objective vectors are mutually non-dominated; keep one of each.
+        _, unique = np.unique(f[front], axis=0, return_index=True)
+        keep = np.asarray(front)[np.sort(unique)]
+        self._archive_x, self._archive_f = x[keep], f[keep]
 
     def _append_trajectory(self, algorithm: GeneticAlgorithm) -> None:
         """Append this generation's newly-evaluated individuals to ``capture_trajectory_path``.
@@ -1845,6 +1899,7 @@ class OptApp:
                 seed=None if args.no_seed else args.seed,
                 crossover_prob=args.crossover_prob,
                 mutation_prob=args.mutation_prob,
+                report_archive=args.report_archive,
             ),
             verbose=not args.quiet,
             save_dir=args.save_dir,
