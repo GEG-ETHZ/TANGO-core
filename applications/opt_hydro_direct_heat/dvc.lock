@@ -13,27 +13,27 @@ stages:
       size: 41
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: 341cc3e8a28d7f1236c7cc10c2385735
-      size: 9571
+      md5: 06dd6ce7579da1688cb04f819d1d11a9
+      size: 9836
     params:
       params.yaml:
         crossover_prob: 0.9
         ftol: 0.005
         mutation_prob:
         n_max_gen: 200
-        pop_size: 90
+        pop_size: 45
         seed: 1
         xtol: 0.0005
     outs:
     - path: outputs/pareto_configs
       hash: md5
-      md5: d221a5eaa74a7aed622fcc9f08209d80.dir
-      size: 209581
-      nfiles: 90
+      md5: 6ae4d5b04fe427fb512aa26ae542b3d9.dir
+      size: 104775
+      nfiles: 45
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: ade7358665ee1fb6a4148b7022c916ca
-      size: 20646
+      md5: 8c0d68a8a3a1ae4e75856724ad32d598
+      size: 10465
   plot:
     cmd: python opt_hydro_direct_heat.py --plot-only
     deps:
@@ -43,34 +43,34 @@ stages:
       size: 41
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: 341cc3e8a28d7f1236c7cc10c2385735
-      size: 9571
+      md5: 06dd6ce7579da1688cb04f819d1d11a9
+      size: 9836
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: ade7358665ee1fb6a4148b7022c916ca
-      size: 20646
+      md5: 8c0d68a8a3a1ae4e75856724ad32d598
+      size: 10465
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: b78592625081d3478cc450eb7253fc4b
-      size: 4589755
+      md5: 088e6be0066d3f9f5233da37e2d37332
+      size: 4578903
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
-      md5: c3d7b48a1a44ce4baf7eae1351e17de5
-      size: 1319499
+      md5: 915f9691a1899a42cc46eab5dc9eb84b
+      size: 1042917
     - path: outputs/pareto_scatter.png
       hash: md5
-      md5: 0f757b25304f35a200ced52c467a5d0c
-      size: 115216
+      md5: 4f96fb27850cb47af73907369faab92f
+      size: 90590
     - path: outputs/pareto_scatter_by_param.png
       hash: md5
-      md5: 9320fe970f4c27a7b77de60232db6737
-      size: 306222
+      md5: f3f37ee1976acbd35a73bc419f281c48
+      size: 212568
     - path: outputs/pareto_scatter_normalized.png
       hash: md5
-      md5: 654827639ddada8c2ed418457cb54567
-      size: 138472
+      md5: 04de260df3e64fe14215b9991605eea8
+      size: 113080
     - path: outputs/pareto_scatter_param_pairs.png
       hash: md5
-      md5: b532c56b1a0dbdd9a915b274c77995f3
-      size: 1332646
+      md5: da004e2eecf3b02fb6986cd65b4f63b6
+      size: 1185062
