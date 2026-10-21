@@ -127,8 +127,11 @@ class NumericalWellState(StateMethods):
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Inlet temperature (K). TODO(docs): drafted, review."""
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Inlet pressure (Pa). TODO(docs): drafted, review."""
     mass_rate: LockedState[float] = field(default_factory=_ls_nan)
+    """Mass flow rate through the well (kg/s). TODO(docs): drafted, review."""
     t_d: LockedState[float] = field(default_factory=_ls_zero)
     """Dimensionless time at the end of this solve step (see module docstring).
     Also read via ``get_stale()`` at the start of the NEXT ``solve()`` call to
@@ -139,13 +142,21 @@ class NumericalWellState(StateMethods):
     ``state`` first, so this always advances from the last converged value,
     never from a discarded re-solve attempt."""
     P_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Pressure at each axial node (Pa). TODO(docs): drafted, review."""
     h_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Specific enthalpy at each axial node (J/kg). TODO(docs): drafted, review."""
     T_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Temperature at each axial node (K). TODO(docs): drafted, review."""
     rho_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Fluid density at each axial node (kg/m3). TODO(docs): drafted, review."""
     mu_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Fluid dynamic viscosity at each axial node (Pa s). TODO(docs): drafted, review."""
     u_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
+    """Mean flow velocity at each axial node (m/s). TODO(docs): drafted, review."""
     T_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Outlet temperature (K). TODO(docs): drafted, review."""
     P_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Outlet pressure (Pa). TODO(docs): drafted, review."""
     pump_power_watts: LockedState[float] = field(default_factory=_ls_zero)
     """Pump shaft power (W). Non-zero only for pump-equipped well components."""
 
@@ -168,17 +179,29 @@ class NumericalWellHistory:
     """
 
     T_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet temperature (K). TODO(docs): drafted, review."""
     P_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet pressure (Pa). TODO(docs): drafted, review."""
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate through the well (kg/s). TODO(docs): drafted, review."""
     t_d: list[float] = field(default_factory=list)
+    """Per-timestep dimensionless time at the end of the timestep. TODO(docs): drafted, review."""
     P_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the pressure at each axial node (Pa). TODO(docs): drafted, review."""
     h_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the specific enthalpy at each axial node (J/kg). TODO(docs): drafted, review."""
     T_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the temperature at each axial node (K). TODO(docs): drafted, review."""
     rho_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the fluid density at each axial node (kg/m3). TODO(docs): drafted, review."""
     mu_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the fluid dynamic viscosity at each axial node (Pa s). TODO(docs): drafted, review."""
     u_cells: list[list[float]] = field(default_factory=list)
+    """Per-timestep list of the mean flow velocity at each axial node (m/s). TODO(docs): drafted, review."""
     T_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet temperature (K). TODO(docs): drafted, review."""
     P_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet pressure (Pa). TODO(docs): drafted, review."""
     pump_power_watts: list[float] = field(default_factory=list)
     """Pump shaft power per timestep (W). Zero for non-pump components."""
 
@@ -250,6 +273,7 @@ class NumericalWell(WellComponent):
     come from and no way for this well to silently diverge from the
     reservoir or any other well. See core/specs.py."""
     dt_years: float = Field(frozen=True)
+    """Timestep length (years), threaded from sim_config.dt_years. TODO(docs): drafted, review."""
     num_cells: int = Field(frozen=True)
     """Axial discretization cell count. Left unset in YAML, it is derived
     from ``well_length`` by the ``_default_num_cells`` validator below to
@@ -258,9 +282,13 @@ class NumericalWell(WellComponent):
     override that default, e.g. for a mesh-convergence sweep
     (``applications/demo_well_mesh_convergence/``)."""
     wellhead_depth: float = Field(default=0.0, frozen=True)
+    """Vertical depth at which the well segment starts (m); 0 for a well that starts at the surface. TODO(docs): drafted, review."""
     gravity_scale_factor: float = Field(default=1.0, frozen=True)
+    """Multiplier on gravitational acceleration in the momentum balance (dimensionless). TODO(docs): describe when to change it."""
     friction_model: FrictionModel = Field(default=FrictionModel.HAALAND, frozen=True)
+    """Friction-factor correlation for the pressure loss. TODO(docs): drafted, review."""
     heat_transfer_model: HeatTransferModel = Field(default=HeatTransferModel.ZHANG_2011, frozen=True)
+    """Correlation for heat exchange between the fluid and the surrounding rock. TODO(docs): drafted, review."""
 
     @model_validator(mode="before")
     @classmethod
@@ -283,15 +311,21 @@ class NumericalWell(WellComponent):
     # cross_sectional_area/t_scaling_factor/T_r via direct assignment; see
     # Component's class docstring for why fields like this stay mutable.
     cell_length: float = 0.0
+    """Flow-path length of one cell, well_length / num_cells (m). TODO(docs): drafted, review."""
     relative_roughness: float = 0.0
+    """Pipe roughness divided by diameter (dimensionless). TODO(docs): drafted, review."""
     cross_sectional_area: float = 0.0
+    """Flow cross-section of the well (m2). TODO(docs): drafted, review."""
     t_scaling_factor: float = 0.0
+    """Factor 4 k / (rho c d^2) that converts elapsed time to dimensionless time t_d (1/s). TODO(docs): drafted, review."""
     T_r: list[float] = Field(default_factory=list)
     """Rock temperature profile along well axis (K), one value per cell."""
 
     # ---- Runtime state / history ----
     state: NumericalWellState = Field(default_factory=NumericalWellState)
+    """Per-solve well state; restored before every re-solve within a timestep. TODO(docs): drafted, review."""
     history: NumericalWellHistory = Field(default_factory=NumericalWellHistory)
+    """Per-timestep record of the well state. TODO(docs): drafted, review."""
 
     def init(self) -> None:
         """Pre-compute geometry constants from validated input fields."""
@@ -465,6 +499,7 @@ class NumericalInjectionWell(NumericalWell):
     """
 
     angle_from_vert_deg: float = 0.0
+    """Well angle from vertical (degrees); 0, straight down, for injection. TODO(docs): drafted, review."""
 
 
 class NumericalProductionWell(NumericalWell):
@@ -480,6 +515,7 @@ class NumericalProductionWell(NumericalWell):
     """
 
     angle_from_vert_deg: float = 180.0
+    """Well angle from vertical (degrees); 180, straight up, for production. TODO(docs): drafted, review."""
 
 
 # ---------------------------------------------------------------------------

@@ -205,14 +205,23 @@ class EconomicState(StateMethods):
     """
 
     CAPEX_well: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of all wells ($). TODO(docs): drafted, review."""
     CAPEX_permitting: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of permitting ($). TODO(docs): drafted, review."""
     CAPEX_exploration: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of exploration ($). TODO(docs): drafted, review."""
     CAPEX_surface_pipes: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of the surface piping between wells and plant ($). TODO(docs): drafted, review."""
     CAPEX_surface_plant: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of the surface-plant equipment ($). TODO(docs): drafted, review."""
     CAPEX_total: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Sum of all CAPEX categories above ($). TODO(docs): drafted, review."""
     net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Run-averaged net electric power after parasitic loads (W). TODO(docs): drafted, review."""
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Run-averaged net thermal power (W). TODO(docs): drafted, review."""
     LCOE: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
+    """Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined. TODO(docs): drafted, review."""
     specific_investment_cost: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
     """CAPEX_total per unit of main-product power ($/kW) -- see ``_compute_specific_investment_cost``."""
     OPEX: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))  # noqa: N815
@@ -244,6 +253,7 @@ class DoubletEconomicComponent(EconomicComponent):
     one section). GenGEO's default cost basis."""
 
     state: EconomicState = Field(default_factory=EconomicState)
+    """Final economic results, computed once after the last timestep. TODO(docs): drafted, review."""
 
     def solve(self, inlet: Stream) -> None:  # noqa: ARG002
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).

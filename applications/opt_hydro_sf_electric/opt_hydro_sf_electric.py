@@ -76,6 +76,7 @@ PARAMS_FILE = HERE / "params.yaml"
 # ---------------------------------------------------------------------------
 
 
+# --8<-- [start:param]
 @dataclass
 class _MassRateApply:
     """Picklable ``ParamSpec.apply`` for ``mass_rate_param``.
@@ -98,6 +99,9 @@ class _MassRateApply:
 def mass_rate_param(bounds: tuple[float, float]) -> ParamSpec:
     """Mass flow rate (``sim_config.mass_rate``, kg/s) as a decision variable."""
     return ParamSpec(name="mass_rate_kg_per_s", apply=_MassRateApply(), bounds=bounds)
+
+
+# --8<-- [end:param]
 
 
 @dataclass
@@ -140,6 +144,7 @@ def target_extraction_pressure_param(bounds: tuple[float, float]) -> ParamSpec:
     )
 
 
+# --8<-- [start:objective]
 @dataclass
 class _LcoeEvaluate:
     """Picklable ``ObjectiveSpec.evaluate`` for ``lcoe_objective`` — see ``_MassRateApply``."""
@@ -151,6 +156,9 @@ class _LcoeEvaluate:
 def lcoe_objective() -> ObjectiveSpec:
     """LCOE ($/kWh), from ``DoubletEconomicComponent`` — requires an ``economic:`` block."""
     return ObjectiveSpec(name="LCOE", evaluate=_LcoeEvaluate())
+
+
+# --8<-- [end:objective]
 
 
 @dataclass
@@ -323,6 +331,7 @@ def run_optimization(
         labels) instead of re-typing those same strings a second time.
 
     """
+    # --8<-- [start:minimization]
     m = Minimization(
         base_workflow=base_wf,
         params=_param_specs(),
@@ -342,6 +351,7 @@ def run_optimization(
         save_dir=args.save_dir,
     )
     res, df = m.run()
+    # --8<-- [end:minimization]
     return res, df, m
 
 

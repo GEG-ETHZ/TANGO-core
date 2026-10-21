@@ -83,17 +83,23 @@ class LumpedReservoirState(StateMethods):
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet temperature from the injection well (K). TODO(docs): drafted, review."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet pressure from the injection well (Pa). TODO(docs): drafted, review."""
     mass_rate: LockedState[float] = field(default_factory=_ls)
+    """Mass flow rate through the reservoir (kg/s). TODO(docs): drafted, review."""
     T_reservoir_initial: LockedState[float] = field(default_factory=_ls)
     """Un-depleted geothermal temperature at reservoir depth (K)."""
     P_reservoir: LockedState[float] = field(default_factory=_ls)
     """Un-depleted reservoir pressure (Pa) — see ``LumpedReservoir.P_initial``."""
     rho: LockedState[float] = field(default_factory=_ls)
+    """Fluid density, averaged between inlet and previous outlet (kg/m3). TODO(docs): drafted, review."""
     mu: LockedState[float] = field(default_factory=_ls)
+    """Fluid dynamic viscosity, averaged between inlet and previous outlet (Pa s). TODO(docs): drafted, review."""
     impedance: LockedState[float] = field(default_factory=_ls)
     """Doublet radial-flow impedance Z (Pa·s/kg). ΔP = ṁ·Z."""
     delta_p_darcy: LockedState[float] = field(default_factory=_ls)
+    """Darcy pressure drop across the reservoir, mass_rate times impedance (Pa); P_outlet = P_inlet - delta_p_darcy. TODO(docs): drafted, review."""
     h_inlet: LockedState[float] = field(default_factory=_ls)
     """Specific enthalpy at inlet (J/kg)."""
     h_outlet: LockedState[float] = field(default_factory=_ls)
@@ -179,26 +185,47 @@ class LumpedReservoirHistory:
     """
 
     T_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet temperature (K). TODO(docs): drafted, review."""
     T_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet temperature (K). TODO(docs): drafted, review."""
     P_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet pressure (Pa). TODO(docs): drafted, review."""
     P_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet pressure (Pa). TODO(docs): drafted, review."""
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate (kg/s). TODO(docs): drafted, review."""
     T_reservoir_initial: list[float] = field(default_factory=list)
+    """Per-timestep un-depleted reservoir temperature (K). TODO(docs): drafted, review."""
     P_reservoir: list[float] = field(default_factory=list)
+    """Per-timestep un-depleted reservoir pressure (Pa). TODO(docs): drafted, review."""
     rho: list[float] = field(default_factory=list)
+    """Per-timestep averaged fluid density (kg/m3). TODO(docs): drafted, review."""
     mu: list[float] = field(default_factory=list)
+    """Per-timestep averaged fluid dynamic viscosity (Pa s). TODO(docs): drafted, review."""
     impedance: list[float] = field(default_factory=list)
+    """Per-timestep reservoir impedance (Pa s/kg). TODO(docs): drafted, review."""
     delta_p_darcy: list[float] = field(default_factory=list)
+    """Per-timestep Darcy pressure drop across the reservoir (Pa). TODO(docs): drafted, review."""
     h_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet specific enthalpy (J/kg). TODO(docs): drafted, review."""
     h_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet specific enthalpy (J/kg). TODO(docs): drafted, review."""
     psi: list[float] = field(default_factory=list)
+    """Per-timestep fractional energy extraction psi (dimensionless). TODO(docs): drafted, review."""
     gamma: list[float] = field(default_factory=list)
+    """Per-timestep depletion factor gamma, between 0 and 1. TODO(docs): drafted, review."""
     p1: list[float] = field(default_factory=list)
+    """Per-timestep depletion curve coefficient p1. TODO(docs): drafted, review."""
     p2: list[float] = field(default_factory=list)
+    """Per-timestep depletion curve coefficient p2. TODO(docs): drafted, review."""
     p3: list[float] = field(default_factory=list)
+    """Per-timestep depletion curve coefficient p3. TODO(docs): drafted, review."""
     energy_extraction_rate: list[float] = field(default_factory=list)
+    """Per-timestep thermal power extracted from the reservoir (W). TODO(docs): drafted, review."""
     energy_extracted: list[float] = field(default_factory=list)
+    """Per-timestep cumulative thermal energy extracted (J). TODO(docs): drafted, review."""
     ever_solved: list[bool] = field(default_factory=list)
+    """Per-timestep flag: whether the reservoir had been solved before. TODO(docs): drafted, review."""
 
     def record(self, state: LumpedReservoirState) -> None:
         """Append one timestep snapshot."""
@@ -278,7 +305,9 @@ class LumpedReservoir(ReservoirComponent):
 
     # ---- Runtime state / history ----
     state: LumpedReservoirState = Field(default_factory=LumpedReservoirState)
+    """Per-solve reservoir state; restored before every re-solve within a timestep. TODO(docs): drafted, review."""
     history: LumpedReservoirHistory = Field(default_factory=LumpedReservoirHistory)
+    """Per-timestep record of the reservoir state. TODO(docs): drafted, review."""
 
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""

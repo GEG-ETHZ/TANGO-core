@@ -171,7 +171,7 @@ class LockedState(Generic[T]):
     __slots__ = ("__value", "__status")
 
     def __init__(self, initial_value: T) -> None:
-        """Initialise with ``initial_value``; status starts **fresh**."""
+        """Initialize with ``initial_value``; status starts **fresh**."""
         self.__value: T = initial_value
         self.__status: _Status = _Status.FRESH
 

@@ -41,12 +41,19 @@ class Common(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     fluid_name: str
+    """Working fluid as a CoolProp fluid name, e.g. H2O or CO2. TODO(docs): drafted, review."""
     rock_density: float
+    """Rock density (kg/m3). TODO(docs): drafted, review."""
     rock_cp: float
+    """Rock specific heat capacity (J/(kg K)). TODO(docs): drafted, review."""
     rock_k: float
+    """Rock thermal conductivity (W/(m K)). TODO(docs): drafted, review."""
     thermal_gradient: float
+    """Geothermal gradient (K/m). TODO(docs): drafted, review."""
     surface_temperature: float
+    """Ambient surface temperature (K). TODO(docs): drafted, review."""
     surface_pressure: float
+    """Ambient surface pressure (Pa). TODO(docs): drafted, review."""
     coolprop_backend: CoolPropBackend = COOLPROP_BACKEND
     """CoolProp equation-of-state backend for all fluid-property lookups
     (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to the
@@ -284,6 +291,7 @@ class Layout(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     well_spacing: float
+    """Distance between injection and production wells (m). TODO(docs): drafted, review."""
     well_pattern: WellPattern | None = None
     """Consumed by ``LumpedReservoir``. Typed as ``WellPattern`` itself
     (not ``str``) so Pydantic's own enum coercion — via ``WellPattern``'s
@@ -382,7 +390,9 @@ class SimConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     num_tsteps: int
+    """Number of timesteps in the run. TODO(docs): drafted, review."""
     dt_years: float
+    """Length of one timestep (years). TODO(docs): drafted, review."""
     target_extraction_pressure: float
     """Minimum required extraction pressure at the surface inlet (Pa) — the
     SINGLE shared source of this value. Threaded to any component
@@ -567,6 +577,10 @@ class Description(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     summary: Annotated[str, StringConstraints(max_length=200, strip_whitespace=True)]
+    """One-line purpose of the config. TODO(docs): drafted, review."""
     author: str | None = None
+    """Who wrote the config. TODO(docs): drafted, review."""
     date: str | None = None
+    """When the config was written, as free text. TODO(docs): drafted, review."""
     description: Annotated[str, StringConstraints(max_length=2000, strip_whitespace=True)] = ""
+    """Free text: what is modeled, why the config exists and how. TODO(docs): drafted, review."""
