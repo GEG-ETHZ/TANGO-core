@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If TANGO contributes to your work, please cite it using these metadata."
+type: software
+title: "TANGO: Techno-economic ANalysis of Geoenergy Operations"
+abstract: >-
+  Techno-economic simulation of geothermal energy systems. TANGO couples
+  reservoir, wells and surface plant in one modular simulator, solves them
+  over the project's lifetime and computes the levelized cost of
+  electricity or heat.
+authors:
+  - name: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zürich"
+version: 1.0.1
+date-released: 2026-09-24
+repository-code: "https://github.com/GEG-ETHZ/TANGO-core"
+keywords:
+  - geothermal energy
+  - techno-economic analysis
+  - LCOE
+  - reservoir simulation
+  - well modeling
+  - surface plant
