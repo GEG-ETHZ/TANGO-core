@@ -1,0 +1,60 @@
+# Docs site: build on every pull request (a broken page fails the check),
+# build and deploy to GitHub Pages on every push to main, and on demand
+# (Actions → Docs site → Run workflow).
+#
+# The deployed site is the INTERNAL build (mkdocs.internal.yml): the public
+# pages plus the task log, roadmap and archive, for organization members
+# only. If the site is ever made public, deploy the public build (`site/`,
+# mkdocs.yml) instead.
+#
+# Deploy is gated on the repository variable PAGES_PRIVATE == "true".
+# Pages sites are org-private only on GitHub Enterprise Cloud; on any other
+# plan the site would be public, which NOTICE forbids. Set the variable
+# (Settings → Secrets and variables → Actions → Variables) only after
+# Settings → Pages shows "Visibility: Private".
+name: Docs site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --only-group docs --no-install-project
+      - name: Build the public site
+        run: uv run --no-sync zensical build --clean
+      - name: Build the internal site (deployed)
+        run: uv run --no-sync zensical build --clean -f mkdocs.internal.yml
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: site-internal
+
+  deploy:
+    if: github.event_name != 'pull_request' && vars.PAGES_PRIVATE == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
