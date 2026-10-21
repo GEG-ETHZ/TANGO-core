@@ -1,9 +1,14 @@
-# Implicit solver exploration: residual/Jacobian components in tango
+# Implicit Solver Exploration
+
+**Exploration — not implemented.** Whether TANGO's wells and reservoir could
+be written as residual/Jacobian components and solved together with the
+surface plant as one implicit system.
+
 
 Context: this note grew out of a question about whether TANGO's subsurface components
 (wells, reservoir) should extend tespy's `Component` base class, in order to eventually
 solve the well/reservoir/surface loop as one coupled implicit system instead of marching
-through it explicitly (see [`TANGO_vision_and_roadmap/README.md`](TANGO_vision_and_roadmap/README.md)'s
+through it explicitly (see [`TANGO_vision_and_roadmap/README.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/TANGO_vision_and_roadmap/README.md)'s
 discussion of the two fracking mechanisms around line 257 for the motivating problem, and
 [`TANGO_vision_and_roadmap/subsurface_as_tespy_components.md`](TANGO_vision_and_roadmap/subsurface_as_tespy_components.md)
 for how this note's conclusions bear on that specific proposal).
@@ -32,7 +37,7 @@ surface/process-plant components only; it has no wellbore or reservoir physics a
 `SystemBCIteration` (`src/tango/orchestrators/system_bc_iteration.py`) currently
 hand-rolls a fixed-point (Picard) update:
 
-```
+```text
 test_p += target_reservoir_P − inj_well.outlet.P
 ```
 
@@ -88,6 +93,6 @@ orchestrator, rather than inheriting from tespy at all:
    the same matrix — couple wells+reservoir to surface via an interface residual, not by
    merging both solvers into one system.
 
-This gets the causality fix without importing tespy's design/offdesign/characteristic-curve
+This gets the causality fix without importing tespy's design/offdesign/characteriztic-curve
 machinery, and avoids fighting the Pydantic model shape that the rest of `tango` is
 built on.

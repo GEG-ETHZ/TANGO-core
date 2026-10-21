@@ -179,3 +179,24 @@ apps:
     $tmp1 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp1 | Out-Null; uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --n-max-gen 2 --pop-size 6 --min-production-temperature-c 50 --save-dir $tmp1 --log-level ERROR --no-plot; uv run python applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py --save-dir $tmp1 --log-level ERROR --plot-only
     $tmp2 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp2 | Out-Null; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp2 --log-level ERROR --no-plot; uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --save-dir $tmp2 --log-level ERROR --plot-only
     $tmp3 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp3 | Out-Null; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --n-max-gen 2 --pop-size 6 --save-dir $tmp3 --log-level ERROR --no-plot; uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py --save-dir $tmp3 --log-level ERROR --plot-only
+
+# Preview the docs site on localhost with live reload
+docs:
+    uv run --group docs zensical serve
+
+# Build the docs site into site/ (what CI runs on every pull request)
+docs-build:
+    uv run --group docs zensical build --clean
+
+# Preview the internal docs (adds the task log, roadmap and archive); never deploy this build
+docs-internal:
+    uv run --group docs zensical serve -f mkdocs.internal.yml
+
+# Regenerate the README banner (docs/assets/) and the editable diagrams (docs/diagrams/); needs the drawio CLI
+diagrams:
+    uv run python tools/readme_assets.py
+    uv run python tools/diagrams/build.py
+
+# Regenerate the config-key and output tables of the docs from the code
+docs-gen:
+    uv run python tools/gen_reference.py

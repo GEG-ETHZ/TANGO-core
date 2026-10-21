@@ -1,7 +1,29 @@
-# ERROR TRACE BACKS
-We want users and agents to know exactly where and when tango is running into errors for quicker debugging. To do this when a function runs into an error we want to propagate exceptions up the call stack adding more context wherever possible and practical. For example if we fail with a value error of negative temperature in a coolProp function we want to know <strong>Where</strong> in the tango simulation this occured i.e. which Component, was it at an outlet in inlet? <strong>When</strong> within the simulation did this occur, was is in a Convergence Loop or part of the Outer Loop, what was the iteration and timestep? And importantly <strong>What Was The Error</strong>, we keep passing the original error message. It's pretty simple but it will save users and contributors lots of time when using the code.
-## Cool Prop
-This has first been implemented to traceback coolProp errors in the development of Tango Next. For example coolProp is used to update the pressure and temperature of a coolProp fluid in ``src/tango/core/fluid_state.py``.
+# Error Tracebacks
+
+How TANGO adds context to an error as it travels up the call stack, so that a
+failure names the component, the timestep and iteration, and the original
+message. Status: available for CoolProp errors.
+
+## Goal
+
+An error raised deep inside a property call should tell the reader three
+things:
+
+1. **Where**: which component, and its index in the circuit.
+2. **When**: which timestep and simulated time, and which convergence
+   iteration.
+3. **What**: the original error message, unchanged.
+
+Each layer of the call stack catches the error, adds the context it knows
+and re-raises it with `raise ... from exc`, so the original traceback stays
+attached.
+
+## CoolProp errors
+
+CoolProp property updates are wrapped in `src/tango/core/fluid_state.py`.
+A failed update, for example a negative pressure, raises `CoolPropError`
+with the inputs that caused it:
+
 ```python
     def update_PT(self, P: float, T: float) -> None:
         """Update this state in place from pressure (Pa) and temperature (K)."""
@@ -12,13 +34,20 @@ This has first been implemented to traceback coolProp errors in the development 
                 f"updatePT(P={P:.6g} Pa, T={T:.6g} K) failed for {self.fluid_name}: {exc}",
             ) from exc
 ```
-The Value error could be raised by CoolProp if pressure (P) is negative at some point in the simulation. The user would like like to find that point ...
-so we add ``try`` and ``except``s for ``CoolPropError``s up the call stack.
-In ``system_bc_iteration.py`` in the function ``_converge_injection_T`` we append the <strong>Where</strong> to the message.
+
+`SystemBCIteration._converge_injection_T`
+(`src/tango/orchestrators/system_bc_iteration.py`) adds **where**: the
+component and the iteration of the injection-temperature loop. A "Tmelt"
+error is the one exception: the guess drove water below its freezing
+point, so the loop resets the guess to 275 K and retries instead of
+failing.
+
 ```python
                 try:
-                    component.solve()
+                    component.solve(self._next_inlet(component))
                 except CoolPropError as exc:
+                    if "Tmelt" in str(exc):
+                        ...  # reset the guess to 275 K and retry
                     raise CoolPropError(f"""
                     Component: {component.__class__.__name__}
                     Component Index: {component.component_idx}
@@ -26,20 +55,32 @@ In ``system_bc_iteration.py`` in the function ``_converge_injection_T`` we appen
                     {exc}
                     """) from exc
 ```
-And in the ``run_timestep`` function where ``_converge_injection_T`` is called we add <strong>When</strong> to the error message.
+
+`SystemBCIteration.run_timestep` adds **when**:
+
 ```python
             if surface is not None:
                 try:
-                    self._converge_injection_T(surface, snapshot)
+                    self._converge_injection_T(inj_well, surface, snapshot)
                 except CoolPropError as exc:
                     raise CoolPropError(f"""
-                    Iteration: {t}
-                    Time: {t * self.dt_years} years
-                    {exc}
-                    """) from exc
-            return
+Iteration: {t}
+Time: {t * self.dt_years} years
+{exc}
+                                        """) from exc
 ```
 
-The coolProp functions that are currently handled like this are:
-1. ``CoolProp.HmassP_INPUTS``
-2. ``CoolProp.PT_INPUTS``
+`SystemDirect.run_timestep` (`src/tango/orchestrators/system_direct.py`)
+adds the timestep and the component in one step, because it has no inner
+loop.
+
+The wrapped CoolProp inputs are:
+
+1. `CoolProp.HmassP_INPUTS` (`FluidState.update_HP`)
+2. `CoolProp.PT_INPUTS` (`FluidState.update_PT`)
+
+A failed TESPy network solve in the surface plant raises
+`TESPyCoolPropError` (`src/tango/components/surface/graph.py`). It
+subclasses `CoolPropError`, so the same orchestrator layers add where and
+when. Every `TangoError` that reaches `tango_cli run` ends the run with exit
+code 2.

@@ -1,4 +1,4 @@
-# Long-term architecture exploration
+# Long-Term Architecture Exploration
 
 **Status: speculative, not a roadmap.** This is the parking lot for
 "if we ever had a real greenfield opportunity" architecture thinking —
@@ -23,7 +23,7 @@ mismatch worth naming plainly: **TESPy is a causal, imperatively-solved
 network** — you specify a fixed topology, fixed pressures/setpoints on
 individual components, and TESPy's Newton solver resolves the resulting
 system. This was explored in depth in a prior session (see
-`docs/diagrams/src/graph_surface_state_provenance.drawio` and the vision
+`docs/archive/diagrams/graph_surface_state_provenance.drawio` and the vision
 doc's "`GraphSurface`'s fixed `p_out` values" section) — the upshot: several
 plant pressures are externally *imposed* design constants rather than
 values *derived* from a genuine resistance/flow relationship, because

@@ -1,0 +1,142 @@
+# Docs site config, read by Zensical (`uv run --group docs zensical serve`).
+# Navigation is explicit below; pages not listed are either excluded or
+# reachable by link only. See docs/AGENTS.md for how to write a page.
+site_name: TANGO
+site_description: Techno-economic ANalysis of Geoenergy Operations
+repo_url: https://github.com/GEG-ETHZ/TANGO-core
+repo_name: GEG-ETHZ/TANGO-core
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - content.action.edit
+    - content.code.copy
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+extra_css:
+  - stylesheets/tango.css
+
+plugins:
+  - search
+  # Zensical ignores mkdocs' exclude_docs; its built-in exclude plugin
+  # keeps internal pages out of the build and the search index.
+  - exclude:
+      glob:
+        - AGENTS.md
+        - "archive/*"
+        - long_term_architecture_exploration.md
+        - tango_tasks.md
+        - TANGO_vision_and_roadmap/README.md
+        # fragments written by tools/gen_reference.py, included by snippets
+        - "reference/generated/*"
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            merge_init_into_class: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style heading ids, so in-page links written for GitHub also work on the site
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Install: guides/install.md
+      - Run a simulation: guides/run.md
+      - Example configs: guides/example-configs.md
+      - Applications: guides/applications.md
+      - Optimization: guides/optimization.md
+      - Running on Euler: guides/euler.md
+      - Glossary: guides/glossary.md
+  - Components:
+      - components/index.md
+      - Wells: components/wells.md
+      - Reservoir: components/reservoir.md
+      - Surface plant: components/surface-plant.md
+      - Economics: components/economics.md
+  - Architecture:
+      - architecture/index.md
+      - Config to objects: architecture/config.md
+      - Component circuit: architecture/components.md
+      - Package tour: architecture/package-tour.md
+  - Runtime:
+      - runtime/index.md
+      - Boundary-condition iteration: runtime/bc-iteration.md
+      - One run: runtime/one-run.md
+  - Deep dives:
+      - Config validation: CONFIG_VALIDATION.md
+      - Error tracebacks: ERROR_TRACEBACKS.md
+      - Injection-temperature convergence: tango_t_convergence.md
+      - Aitken speed-up: aitkens_speedup.md
+      - Well-pattern impedance: WELL_PATTERN_IMPEDANCE.md
+      - Bugs found and fixed: bugs-fixed-in-tango.md
+  - Reference:
+      - Config reference: reference/config.md
+      - Outputs: reference/outputs.md
+      - API: reference/index.md
+      - Core: reference/core.md
+      - Components: reference/components.md
+      - Orchestrators: reference/orchestrators.md
+      - Workflow: reference/workflows.md
+      - Optimization and surrogates: reference/optimization.md
+      - CLI and export: reference/cli.md
+  - Project:
+      - Contributing: project/contributing.md
+      - Tests: project/tests.md
+      - Tools: project/tools.md
+      - Changelog: project/changelog.md
+      - Design notes:
+          - Implicit solver: implicit_solver_exploration.md
+          - Modelica: modelica-investigation.md
+          - Subsurface as TESPy components: TANGO_vision_and_roadmap/subsurface_as_tespy_components.md
+          - AI error interpretation: appendices/ai_error_interpretation_sketch.md

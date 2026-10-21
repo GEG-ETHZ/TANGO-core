@@ -1,0 +1,30 @@
+# Internal preview of the docs site: everything in docs/, including the
+# internal pages the public build excludes (task log, roadmap, archive,
+# long-term exploration). Never deploy this build.
+#   just docs-internal   → http://127.0.0.1:8000
+INHERIT: mkdocs.yml
+site_name: TANGO (internal)
+site_dir: site-internal
+nav:
+  - Internal:
+      - Task log: tango_tasks.md
+      - Vision and roadmap: TANGO_vision_and_roadmap/README.md
+      - Long-term architecture: long_term_architecture_exploration.md
+      - Archive: archive/README.md
+plugins:
+  - search
+  - exclude:
+      glob:
+        - AGENTS.md
+        # rates named colleagues; kept off every build until it is deleted or rewritten
+        - archive/code-quality-report.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            merge_init_into_class: true

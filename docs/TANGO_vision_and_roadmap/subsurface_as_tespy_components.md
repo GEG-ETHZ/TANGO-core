@@ -1,6 +1,10 @@
-# Future direction: subsurface as TESPy components (fully implicit solve)
+# Subsurface as TESPy Components
 
-Linked from [`README.md`](README.md)'s "Future Direction — Subsurface as TESPy
+**Exploration — not implemented.** A proposal to model wells and reservoir as
+TESPy components, so the whole circuit is solved as one implicit system.
+
+
+Linked from [`README.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/TANGO_vision_and_roadmap/README.md)'s "Future Direction — Subsurface as TESPy
 Components" and its `InjectionPolicy` discussion. **Not started, and not to be started
 without explicit sign-off** — tracked as a backlog item in `docs/tango_tasks.md`.
 
@@ -77,7 +81,7 @@ The prior exploration's own suggested direction was, in fact, to **not** adopt T
 replace `SystemBCIteration`'s fixed-point update with a real Newton step, keep
 surface's TESPy `Network` solve at the boundary, coupled via an interface residual
 rather than merged into one matrix). That gets the causality fix without importing
-TESPy's design/offdesign/characteristic-curve machinery or fighting the Pydantic model
+TESPy's design/offdesign/characteriztic-curve machinery or fighting the Pydantic model
 shape the rest of `tango` is built on.
 
 ## The central tension: the outer circuit's representation is linear by design
