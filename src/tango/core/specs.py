@@ -417,9 +417,8 @@ class SimConfig(BaseModel):
     guess). Do not default this to 0.0 or another near-zero value for
     AUTO_FLOW/AUTO_BOTH: the numerical well model is genuinely degenerate at
     near-zero flow, and the resulting first Picard step can overshoot into
-    a mass rate the circuit can't solve from a cold start (confirmed
-    empirically 2026-08-13 — see SystemBCIteration._converge_injection_flow's
-    docstring)."""
+    a mass rate the circuit can't solve from a cold start (see
+    SystemBCIteration._converge_injection_flow's docstring)."""
     max_mass_rate: float | None = None
     """Optional cap (kg/s) on the mass rate AUTO_FLOW/AUTO_BOTH's Picard
     iteration converges to — ``mass_rate = min(fracking_flow(...),

@@ -103,7 +103,7 @@ BANNER_W, BANNER_H = 1200, 340
 def banner(p: Palette) -> str:
     """The wordmark in the cold-to-hot gradient, the headline, and the loop mark."""
     aria = f"TANGO, Techno-economic ANalysis of Geoenergy Operations. {HEADLINE}. {SUPPORT_1} {SUPPORT_2}"
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{BANNER_W}" height="{BANNER_H}" viewBox="0 0 {BANNER_W} {BANNER_H}" role="img" aria-label="{escape(aria)}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{BANNER_W}" height="{BANNER_H}" viewBox="0 0 {BANNER_W} {BANNER_H}" role="img" aria-label="{escape(aria, {chr(34): "&quot;"})}">
   <title>TANGO</title>
   <defs>
     {gradient(f"word-{p.name}", p, vertical=False)}
