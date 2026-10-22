@@ -20,6 +20,7 @@ lint:
   interruptible: true
   script:
     - uv run ruff check .
+    - uv run ruff format --check .
     - uv run mypy src/
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -36,6 +37,11 @@ test:
     # (tests/unit/ + tests/regtest/) still runs locally via the prek
     # pre-push hook, so regressions are caught before merge even though
     # this job doesn't cover them.
+    #
+    # src/tango.hash must be current (it drives DVC's staleness checks).
+    # Same checks as .github/workflows/tests.yml, which also runs this job on
+    # macOS and Windows.
+    - uv run python tools/hash_tango.py
     - uv run pytest tests/unit -v
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

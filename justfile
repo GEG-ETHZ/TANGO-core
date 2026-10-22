@@ -137,6 +137,27 @@ phase-diagrams *configs:
 phase-diagrams *configs:
     $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
+# Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
+# `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
+# each SVG ~40 KB instead of ~500 KB; viewers fall back to their default sans-serif.
+# Export every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg
+[unix]
+diagrams:
+    #!/usr/bin/env sh
+    set -eu
+    if [ -x /Applications/draw.io.app/Contents/MacOS/draw.io ]; then
+        drawio=/Applications/draw.io.app/Contents/MacOS/draw.io
+    elif command -v drawio >/dev/null 2>&1; then
+        drawio=drawio
+    else
+        echo "draw.io not found: install the draw.io desktop app (https://github.com/jgraph/drawio-desktop/releases)"; exit 1
+    fi
+    for src in docs/diagrams/src/*.drawio; do
+        out="docs/diagrams/$(basename "$src" .drawio).svg"
+        "$drawio" --export --format svg --embed-svg-fonts false --border 10 --output "$out" "$src" >/dev/null 2>&1 || { echo "export failed: $src"; exit 1; }
+        echo "$src -> $out"
+    done
+
 # example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
 # "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
 # Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
@@ -180,23 +201,12 @@ apps *args:
     uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
     uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py $smoke_flag --n-workers 2 --quiet
-    # opt_hydro_df_electric_surrogate's 4-stage DVC pipeline (trajectory ->
-    # train -> optimize -> validate), chained through one shared --save-dir
-    # tempdir since each stage reads the previous one's output from there.
-    # Tiny --pop-size/--n-gen at every stage, same "pipeline runs end to
-    # end" goal as the other smoke coverage here, not real surrogate
-    # accuracy — validate_surrogate.py's default 1% tolerance is what it's
-    # FOR (catching a genuinely bad surrogate) and WILL legitimately fail
-    # on this little training data, so --tolerance 1.0 (100%) is relaxed
-    # here on purpose, the same way each opt_* app's --smoke relaxes any
-    # constraint a tiny population would miss.
-    tmp=$(mktemp -d); uv run python applications/opt_hydro_df_electric_surrogate/run_trajectory.py --pop-size 8 --n-gen 2 --save-dir "$tmp" --quiet; uv run python applications/opt_hydro_df_electric_surrogate/train_surrogate.py --save-dir "$tmp" --cv-folds 2; uv run python applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py --n-max-gen 2 --pop-size 6 --save-dir "$tmp" --no-plot --quiet; uv run python applications/opt_hydro_df_electric_surrogate/validate_surrogate.py --save-dir "$tmp" --tolerance 1.0 --no-plot
-    # Every opt_* app (not the surrogate pipeline above): --smoke runs a
-    # 2-generation, population-6 search plus the app's own relaxations (see
-    # tango.pymoo_api.OptApp.smoke_args), into a throwaway --save-dir, never
-    # outputs/. --no-plot then --plot-only exercises the two-stage
-    # optimize/plot DVC split. Not tied to --slow: the full-size runs are
-    # `just slurm` / `dvc repro`.
+    # Every opt_* app: --smoke runs a 2-generation, population-6 search plus
+    # the app's own relaxations (see tango.pymoo_api.OptApp.smoke_args), into
+    # a throwaway --save-dir, never outputs/. --no-plot then --plot-only
+    # exercises the two-stage optimize/plot DVC split. Not tied to --slow: the
+    # full-size runs are `just slurm` / `dvc repro`. Apps under
+    # applications/_on_hold/ are skipped (see applications/README.md).
     for app in applications/opt_*/; do \
         name=$(basename "$app"); script="$app$name.py"; \
         grep -q "APP = OptApp(" "$script" 2>/dev/null || continue; \
@@ -259,6 +269,76 @@ slurm *args:
         prev="$job"
     done
 
+# Works on Euler and on a laptop that rsynced the logs back. Never touches the log of a job that
+# squeue still lists. See `just slurm-clean --help`.
+# Delete old SLURM job logs (*.out/*.err), keeping each app's newest (`just slurm-clean --help` for options)
+[unix]
+slurm-clean *args:
+    #!/usr/bin/env sh
+    # -e: stop at the first command that fails. -u: an unset variable is an error.
+    set -eu
+    keep_newest=1
+    dry_run=""
+    partials=""
+    for arg in {{args}}; do
+        case "$arg" in
+            -h|--help)
+                echo "Usage: just slurm-clean [--all] [--partials] [--dry-run]"
+                echo ""
+                echo "Delete SLURM job logs (<app>_<jobid>.out/.err) in applications/<app>/ and"
+                echo "applications/_on_hold/<app>/. By default each app keeps its newest job's logs."
+                echo "Logs of jobs that squeue still lists (pending or running) are never deleted."
+                echo ""
+                echo "  --all       delete every app's logs, including the newest"
+                echo "  --partials  also delete each app's outputs/pareto_results_partial.csv and"
+                echo "              outputs/pareto_configs_partial/ (an interrupted run's progress), except"
+                echo "              for apps with a job still queued or running"
+                echo "  --dry-run   list what would be deleted, delete nothing"
+                exit 0 ;;
+            --all) keep_newest="" ;;
+            --partials) partials=1 ;;
+            -n|--dry-run) dry_run=1 ;;
+            *) echo "unknown option: $arg (see just slurm-clean --help)"; exit 1 ;;
+        esac
+    done
+    # Jobs that are still pending or running, and their apps (job name tango_<app>);
+    # squeue only exists on Euler.
+    active=" "
+    active_apps=" "
+    if command -v squeue >/dev/null 2>&1; then
+        active=" $(squeue -h -u "$USER" -o %i | tr '\n' ' ') "
+        active_apps=" $(squeue -h -u "$USER" -o %j | sed 's/^tango_//' | tr '\n' ' ') "
+    fi
+    n=0
+    for dir in applications/*/ applications/_on_hold/*/; do
+        [ -d "$dir" ] || continue
+        # Job IDs from <app>_<jobid>.out/.err, newest (largest) last.
+        ids=$(ls "$dir" | sed -n -E 's/.*_([0-9]+)\.(out|err)$/\1/p' | sort -un)
+        [ -n "$ids" ] || continue
+        newest=$(printf '%s\n' "$ids" | tail -n 1)
+        for id in $ids; do
+            if [ -n "$keep_newest" ] && [ "$id" = "$newest" ]; then continue; fi
+            case "$active" in *" $id "*) echo "keeping $dir*_$id.* (job $id is still queued or running)"; continue ;; esac
+            for f in "$dir"*_"$id".out "$dir"*_"$id".err; do
+                [ -e "$f" ] || continue
+                if [ -n "$dry_run" ]; then echo "would delete $f"; else rm -- "$f"; fi
+                n=$((n + 1))
+            done
+        done
+    done
+    if [ -n "$partials" ]; then
+        for dir in applications/*/ applications/_on_hold/*/; do
+            app=$(basename "$dir")
+            case "$active_apps" in *" $app "*) echo "keeping $app's partial outputs (it has a job queued or running)"; continue ;; esac
+            for f in "${dir}outputs/pareto_results_partial.csv" "${dir}outputs/pareto_configs_partial"; do
+                [ -e "$f" ] || continue
+                if [ -n "$dry_run" ]; then echo "would delete $f"; else rm -r -- "$f"; fi
+                n=$((n + 1))
+            done
+        done
+    fi
+    if [ -n "$dry_run" ]; then echo "$n files would be deleted"; else echo "deleted $n files"; fi
+
 [windows]
 apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
@@ -268,8 +348,6 @@ apps:
     uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
     uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py --smoke --n-workers 2 --quiet
-    # See the [unix] demos recipe's comment above the equivalent line for why
-    # opt_hydro_df_electric_surrogate's --tolerance is relaxed, and for what
+    # See the [unix] demos recipe's comment above the equivalent loop for what
     # each opt_* app's --smoke does.
-    $tmp0 = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp0 | Out-Null; uv run python applications/opt_hydro_df_electric_surrogate/run_trajectory.py --pop-size 8 --n-gen 2 --save-dir $tmp0 --quiet; uv run python applications/opt_hydro_df_electric_surrogate/train_surrogate.py --save-dir $tmp0 --cv-folds 2; uv run python applications/opt_hydro_df_electric_surrogate/optimize_surrogate.py --n-max-gen 2 --pop-size 6 --save-dir $tmp0 --no-plot --quiet; uv run python applications/opt_hydro_df_electric_surrogate/validate_surrogate.py --save-dir $tmp0 --tolerance 1.0 --no-plot
     Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }

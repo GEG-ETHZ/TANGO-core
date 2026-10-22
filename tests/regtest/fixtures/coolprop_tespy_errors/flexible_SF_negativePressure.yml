@@ -1,3 +1,10 @@
+# INVALID FOR NOW (GitHub issue #109): five-spot patterns are costed and
+# simulated as a single doublet. Only the reservoir impedance uses
+# well_pattern; the economics cost one injection and one production well and
+# one well_spacing of surface pipe, and the single modeled production well carries
+# the full mass rate instead of its per-well share. Don't use this config's
+# LCOE until #109 is fixed.
+#
 # tango format — Inverted 5-spot hydrothermal system, automatic mass flow rate
 #
 # Structural changes from the old format:

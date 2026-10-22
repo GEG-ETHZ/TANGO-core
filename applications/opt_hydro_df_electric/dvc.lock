@@ -5,16 +5,16 @@ stages:
     deps:
     - path: ../../example_configs/hydro_df_electric.yml
       hash: md5
-      md5: 38df7e7516e2a50ef5beef08ec05d38f
-      size: 10973
+      md5: ccd03c211d870d7a2953733541f8b092
+      size: 11250
     - path: ../../src/tango.hash
       hash: md5
-      md5: 1c523a3eba96acb84f2a6e6e075f6a5c
+      md5: 861fb9903842fcd4080b7e0ed0af99fd
       size: 41
     - path: opt_hydro_df_electric.py
       hash: md5
-      md5: 105c411d540fa9e1d150db540b2bd8f0
-      size: 11962
+      md5: 7d4a69178a91a57517a9b3f3b60c8852
+      size: 13422
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -27,50 +27,50 @@ stages:
     outs:
     - path: outputs/pareto_configs
       hash: md5
-      md5: f786600089f9ba9953a46a5abd586d1f.dir
-      size: 520840
+      md5: 2bda702889ab24b6ec70dd8714b8521b.dir
+      size: 218287
       nfiles: 45
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 76cde1a537b744df54471a7a544c2cad
-      size: 12294
+      md5: 66b4f5237c2ba93af538bf23ac287b6a
+      size: 12341
   plot:
     cmd: python opt_hydro_df_electric.py --plot-only
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 1c523a3eba96acb84f2a6e6e075f6a5c
+      md5: 861fb9903842fcd4080b7e0ed0af99fd
       size: 41
     - path: opt_hydro_df_electric.py
       hash: md5
-      md5: 105c411d540fa9e1d150db540b2bd8f0
-      size: 11962
+      md5: 7d4a69178a91a57517a9b3f3b60c8852
+      size: 13422
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 76cde1a537b744df54471a7a544c2cad
-      size: 12294
+      md5: 66b4f5237c2ba93af538bf23ac287b6a
+      size: 12341
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 2a81382312be892a77763ce355d6c3c7
-      size: 4580823
+      md5: a81744b561ce6de9bd6d4ff5bc3e5d38
+      size: 4580901
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
-      md5: 309bb27214e85dfc523f1b0b2588f460
-      size: 1229779
+      md5: dfc54c67b2f8e3ca3999ac22b8c0e55b
+      size: 1083942
     - path: outputs/pareto_scatter.png
       hash: md5
-      md5: b5855bf13dd582dceea8e2fa845917dc
-      size: 93167
+      md5: b0d7f21d82f6e0e3590ff1f80af9a76b
+      size: 94229
     - path: outputs/pareto_scatter_by_param.png
       hash: md5
-      md5: 80385fbeb488bec9f5f67bc92f5bf0fe
-      size: 264884
+      md5: 3a94e5d040d4dfffe93b8a000c20eba9
+      size: 243020
+    - path: outputs/pareto_scatter_normalized.png
+      hash: md5
+      md5: 363957d014942c5a722396b20dc4676a
+      size: 114807
     - path: outputs/pareto_scatter_param_pairs.png
       hash: md5
-      md5: ef01c2d566d39d2ca4fe855ea8fc9dde
-      size: 1904672
-    - path: outputs/pareto_scatter_zscore.png
-      hash: md5
-      md5: 4d1fb47e4558dfb6bbeecf3182092bf0
-      size: 93121
+      md5: df8471d9f80f5996c06be12bfe96f1e2
+      size: 1951065

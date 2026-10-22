@@ -438,6 +438,8 @@ scheduled" below) — old tango is not being patched.
 
 ## Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap
 
+**On hold since 2026-10-16.** The app was moved to `applications/_on_hold/`, because LCOE accuracy never reached the 1% target near the front. The trajectory-based redesign scored a cross-validated R² of 0.27–0.34. Whether to bring it back or delete it is tracked in [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106). The history below is kept for reference.
+
 See **Completed Tasks → From "Surrogate-assisted optimization
 (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open
 2026-08-19"** for the full investigation and its resolution

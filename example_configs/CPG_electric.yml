@@ -168,7 +168,7 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 6.3              # MPa -- expands down to the condenser's own pressure
+          p_out_megapascals: 6.55             # MPa -- expands down to the condenser's own pressure
                                                # (no pressure drop between turbine outlet and condenser
                                                # exit, same pattern as hydro_sf_electric.yml's turbine/
                                                # condenser pair). See the condenser's comment for where
@@ -177,14 +177,15 @@ components:
         condenser:
           type: SimpleHeatExchanger
           # Condensing pressure, set by the site rather than chosen: CO2
-          # saturates at 24.1 degC at 6.3 MPa, so the 1 K subcooled outlet
-          # (23.1 degC) stays above the cooling limit of surface_temperature +
-          # approach_temperature = 14.85 + 7 = 21.85 degC. Well below CO2's
+          # saturates at 25.8 degC at 6.55 MPa, so the 3 K subcooled outlet
+          # (22.8 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC, with room for
+          # opt_CPG_electric's +-1% smoke-test window. Well below CO2's
           # 7.38 MPa / 31 degC critical point.
-          p_out_megapascals: 6.3              # MPa
-          subcooling_K: 1.0                   # K below saturation: slightly subcooled condensate, so the pump never
-                                               # draws exactly saturated liquid (TESPy left the condensate pump's
-                                               # equation unconverged at x = 0) and has a margin against cavitation
+          p_out_megapascals: 6.55             # MPa
+          subcooling_K: 3.0                   # K below saturation. The condensate flows straight into the injection
+                                               # well, which must stay common.saturation_margin (5%) clear of the
+                                               # saturation pressure; 3 K gives ~7% (2 K would give ~5%, too tight).
           # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
           # physics): a singleton set (no paired cooler), wet cooling tower --
           # matches old tango's CPG_num_pp.yml, which never overrides

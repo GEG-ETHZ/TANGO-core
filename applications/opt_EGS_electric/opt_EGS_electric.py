@@ -97,7 +97,10 @@ class _WellDiameterApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
-    "mass_rate_kg_per_s": (10.0, 100.0),
+    # Up to 200 kg/s: with the old 100 kg/s cap the whole front sat on it, and
+    # the optimum lies near 150 kg/s (LCOE ~11% lower than at 100 kg/s for the
+    # front's ideal-corner design); by 200 kg/s LCOE is rising steeply again.
+    "mass_rate_kg_per_s": (10.0, 200.0),
     "injection_pressure_Pa": (500000.0, 8000000.0),
     # (0.7, 1.5)x the config's own value, the same scale factor
     # run_hydro_df_electric_sweep uses.
@@ -249,7 +252,7 @@ APP = OptApp(
         "production_temperature_C": "rep:production_temperature [°C]",
         "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
         "OPEX": "rep:OPEX [$/yr]",
-        "euclidean": "euclidean [z-score]",
+        "ideal_distance": "ideal_distance [normalized, 0 = ideal corner]",
     },
     scatter=ObjectiveScatter(
         x_col="LCOE",

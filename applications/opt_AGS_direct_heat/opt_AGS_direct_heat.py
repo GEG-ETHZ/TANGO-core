@@ -310,7 +310,7 @@ APP = OptApp(
         "production_temperature_C": "rep:production_temperature [°C]",
         "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
         "OPEX": "rep:OPEX [$/yr]",
-        "euclidean": "euclidean [z-score]",
+        "ideal_distance": "ideal_distance [normalized, 0 = ideal corner]",
     },
     scatter=ObjectiveScatter(
         x_col="LCOE",

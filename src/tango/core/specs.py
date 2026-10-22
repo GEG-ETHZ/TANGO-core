@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from tango.components.reservoir.wellpattern_impedance import WellPattern
 from tango.core.fluid_state import COOLPROP_BACKEND, CoolPropBackend
@@ -52,6 +52,23 @@ class Common(BaseModel):
     (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to exact
     ``HEOS``; the faster tabulated ``BICUBIC&HEOS`` is unreliable near phase
     boundaries (see its docstring)."""
+    saturation_margin: float = Field(default=0.05, ge=0.0, lt=1.0)
+    """Minimum relative distance (fraction) between a well cell's pressure and
+    the fluid's saturation pressure at that cell's temperature.
+
+    The well models assume single-phase flow, so a cell whose pressure lies
+    within ``saturation_margin * p_sat(T)`` of ``p_sat(T)``, on either side,
+    or inside the vapor-liquid dome, raises ``SaturationError``. Only applies
+    below the fluid's critical temperature, where a saturation pressure
+    exists. ``0`` rejects only states that are actually two-phase.
+
+    The 5% default is engineering judgement: no published standard gives a
+    margin to saturation for wells in this form. Related practice that
+    motivated it: pump suction NPSH margin ratios of 1.1-1.3 (ANSI/HI
+    9.6.1, application-dependent), the margin to the saturation line kept
+    at supercritical-CO2 compressor inlets (sized case by case, e.g. by
+    inlet Mach number), and dense-phase CO2 pipelines operated well above
+    their phase-change pressure."""
 
     # NOTE: FIELD AND MODEL VALIDATION
 

@@ -1,6 +1,7 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
-*Prepared 2026-10-02, updated 2026-10-05. Covers October 1–5 so far; extend as the month goes
+*Prepared 2026-10-02, updated 2026-10-05 and 2026-10-15. Covers October 1–5,
+plus the parallel-optimization fix of 2026-10-13; extend as the month goes
 on. Managerial-level summary — for engineering detail, see the GitLab
 issues linked below and `dev_docs/tango_tasks.md`. Continues from
 `dev_docs/tango_progress_summary_sep_2026.md`.*
@@ -134,6 +135,32 @@ the loop open by up to 3.6 kJ/kg (about 2% of an ORC plant's heat). Every
 example now closes within the 1 kJ/kg tolerance; costs moved by under
 0.25% except the binary CO2 AGS power example (+4.3%, before the well fix
 above) and the auto-pressure example (−1%).
+
+## Optimizations run on many processes again: workers now receive the config, not the live model (2026-10-13)
+
+**In plain terms:** to use all 48 CPUs on Euler, the optimizer copies the
+problem to each worker process. Python makes those copies by serializing
+the object ("pickling"), and the problem carried a live, fully built model.
+After the TESPy upgrade, a model containing a TESPy surface plant can no
+longer be pickled (TESPy's units library holds unpicklable functions), so
+every multi-process optimization of a TESPy plant failed before evaluating
+a single design.
+
+**Fix:** only plain data crosses a process boundary. The optimizer now holds
+the config as a dictionary, exactly as written. It builds the model once
+up front only to check that the config is valid, then discards it. It
+deliberately does not keep the model's own filled-in copy of the config:
+that copy pins defaults computed from other inputs (such as each well's
+cell count, from its length) at the starting design's values. Each worker
+builds its own model from the dictionary for every design it evaluates. The
+LHS sweeps and surrogate-validation runs pass the config the same way.
+
+**Why it matters beyond this bug:** parallel runs no longer depend on
+whether any third-party solver object can be pickled, so a future solver
+or external tool can't break them the same way. This works because the
+config dictionary is the single source of truth and a model can always
+be rebuilt from it. A test now pickles a TESPy-plant problem, checks that it
+carries no live model, and checks that it still evaluates a design.
 
 ## Smaller items worth noting
 

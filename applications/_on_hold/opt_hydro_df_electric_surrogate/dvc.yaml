@@ -10,11 +10,11 @@ stages:
     deps:
       - run_trajectory.py
       - common.py
-      - ../opt_hydro_df_electric/opt_hydro_df_electric.py
-      - ../../example_configs/hydro_df_electric.yml
+      - ../../opt_hydro_df_electric/opt_hydro_df_electric.py
+      - ../../../example_configs/hydro_df_electric.yml
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py).
-      - ../../src/tango.hash
+      - ../../../src/tango.hash
     params:
       # n_train_workers deliberately excluded -- parallelism, not a
       # result-affecting param.
@@ -45,7 +45,7 @@ stages:
       # stale-cache fix both landed in surrogate_api.py, but two consecutive
       # Euler runs kept reusing the pre-fix surrogate_model.joblib because
       # this dependency was missing.
-      - ../../src/tango.hash
+      - ../../../src/tango.hash
     params:
       - params.yaml:
           - regressor
@@ -88,7 +88,7 @@ stages:
       - outputs/pareto_parallel_coordinates.png
       - outputs/pareto_parallel_coordinates.html
       - outputs/pareto_scatter.png
-      - outputs/pareto_scatter_zscore.png
+      - outputs/pareto_scatter_normalized.png
       - outputs/pareto_scatter_by_param.png
       - outputs/pareto_scatter_param_pairs.png
 
@@ -100,7 +100,7 @@ stages:
     deps:
       - validate_surrogate.py
       - common.py
-      - ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      - ../../opt_hydro_df_electric/opt_hydro_df_electric.py
       - outputs/surrogate_pareto_results.csv
     params:
       - params.yaml:

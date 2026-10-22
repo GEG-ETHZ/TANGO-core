@@ -96,6 +96,9 @@ class _WellDiameterApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
+    # The front sits on the 60 kg/s cap, but more flow fractures this config's
+    # reservoir (flow-induced fracking threshold ~64 kg/s), so the cap is
+    # effectively physical.
     "mass_rate_kg_per_s": (5.0, 60.0),
     "injection_pressure_Pa": (100000.0, 3000000.0),
     # (0.7, 1.5)x the config's own value, the same scale factor
@@ -231,7 +234,7 @@ APP = OptApp(
         "production_temperature_C": "rep:production_temperature [°C]",
         "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
         "OPEX": "rep:OPEX [$/yr]",
-        "euclidean": "euclidean [z-score]",
+        "ideal_distance": "ideal_distance [normalized, 0 = ideal corner]",
     },
     scatter=ObjectiveScatter(
         x_col="LCOE",

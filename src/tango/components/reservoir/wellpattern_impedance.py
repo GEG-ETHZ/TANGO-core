@@ -15,6 +15,16 @@ class WellPattern(StrEnum):
     Example: ``WellPattern("DOUBLET")``, ``WellPattern("doublet")``, and
     ``WellPattern("Doublet")`` (member name) all resolve to the same
     member — lookup is case-insensitive via ``_missing_`` below.
+
+    .. warning::
+        Configs using ``FiveSpot`` or ``InvertedFiveSpot`` are invalid for
+        now (GitHub issue #109). Only the reservoir impedance below knows
+        about the pattern. The economics cost them as a single doublet (one
+        injection and one production well, one ``well_spacing`` of surface
+        pipe), and the single modeled injection or production well carries
+        the full mass rate instead of its per-well share. The member
+        docstrings' layouts (which wells sit at the corners) also disagree
+        with the pre-1.0 cost model's; #109 tracks settling which is right.
     """
 
     Doublet = "DOUBLET"

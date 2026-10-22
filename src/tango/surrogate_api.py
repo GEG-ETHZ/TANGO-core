@@ -64,7 +64,12 @@ from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
-from tango.pymoo_api import INFEASIBLE_DESIGN_EXCEPTIONS, ParetoProgressOutput
+from tango.pymoo_api import (
+    IDEAL_DISTANCE_COL,
+    INFEASIBLE_DESIGN_EXCEPTIONS,
+    ParetoProgressOutput,
+    ideal_distance,
+)
 from tango.workflows.workflow import Workflow
 
 if TYPE_CHECKING:
@@ -158,8 +163,15 @@ def evaluate_training_row(
         row["error_type"] = type(exc).__name__
         row["error_message"] = str(exc)
         return row
-    for o in objectives:
-        row[o.name] = o.evaluate(wf)
+    values = {o.name: o.evaluate(wf) for o in objectives}
+    if not all(math.isfinite(v) for v in values.values()):
+        # Same rule as Minimization._evaluate_one: a NaN/inf objective (e.g.
+        # LCOE when net power is <= 0) is an infeasible design, not a
+        # training target.
+        row["error_type"] = "NonFiniteObjective"
+        row["error_message"] = f"non-finite objective(s) {values}"
+        return row
+    row.update(values)
     row["success"] = True
     return row
 
@@ -848,7 +860,7 @@ def run_surrogate_optimization(
     — the exact SAME ``Output`` class ``Minimization.run()`` itself uses, not
     a second, independently-shaped one — so the real-sim and surrogate-driven
     runs print IDENTICAL tables (``n_gen``/``n_eval``/``n_nds``/``t [s]``/
-    ``euclid_min (z)``), directly comparable line for line. Without the
+    ``ideal_min``), directly comparable line for line. Without the
     elapsed-time column specifically, there's no way to tell from the log
     whether a fast run converged early via ``ftol``/``xtol`` after a handful
     of generations or actually ran every one of ``n_max_gen``, which matters
@@ -876,16 +888,8 @@ def run_surrogate_optimization(
     f_df = pd.DataFrame(f, columns=surrogate.objective_names)
     df = pd.concat([x_df, f_df], axis=1)
 
-    # Same z-score-normalized Euclidean-distance column
-    # Minimization._build_results_df computes (see that method's docstring
-    # for why it's z-score, not raw-unit, normalized) — required for
-    # make_plots' plot_pareto_parallel_coordinates/plot_pareto_scatter_zscore,
-    # which color by this column and KeyError without it (confirmed the hard
-    # way on a real Euler run: optimize_surrogate.py wrote
-    # surrogate_pareto_results.csv successfully, then crashed in make_plots).
-    std = f_df.std().replace(0.0, 1.0)
-    z = (f_df - f_df.mean()) / std
-    df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    # Same column Minimization._build_results_df adds.
+    df[IDEAL_DISTANCE_COL] = ideal_distance(f)
     return df
 
 
@@ -978,7 +982,7 @@ def corrected_pareto_front(
 
     Returns a DataFrame in the same column shape as ``Minimization``'s own
     results (param columns + objective columns, using the PLAIN objective
-    names — not ``actual_<name>`` — plus ``euclidean``), so it's directly
+    names — not ``actual_<name>`` — plus ``ideal_distance``), so it's directly
     plottable with any app's existing ``make_plots()``.
     """
     real = comparison[comparison["real_success"]].copy()
@@ -988,15 +992,12 @@ def corrected_pareto_front(
     result = result.reset_index(drop=True)
 
     if len(result) == 0:
-        result["euclidean"] = pd.Series(dtype=float)
+        result[IDEAL_DISTANCE_COL] = pd.Series(dtype=float)
         return result
 
     f = result[objective_names].to_numpy(dtype=float)
     front_idx = NonDominatedSorting().do(f, only_non_dominated_front=True)
     result = result.iloc[front_idx].reset_index(drop=True)
 
-    f_df = result[objective_names]
-    std = f_df.std().replace(0.0, 1.0)
-    z = (f_df - f_df.mean()) / std
-    result["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    result[IDEAL_DISTANCE_COL] = ideal_distance(result[objective_names])
     return result

@@ -7,6 +7,7 @@ from tango.core.errors import (
     ConvergenceError,
     SaturationError,
     TangoError,
+    WellPressureCollapseError,
 )
 from tango.core.init_protocol import Init
 from tango.core.orchestrator import Orchestrator
@@ -22,4 +23,5 @@ __all__ = [
     "SaturationError",
     "Stream",
     "TangoError",
+    "WellPressureCollapseError",
 ]

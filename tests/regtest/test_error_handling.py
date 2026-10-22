@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tango.core.errors import CoolPropError, TESPyError
+from tango.core.errors import CoolPropError, SaturationError, TESPyError
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 ERROR_CONFIG_DIR = Path(__file__).parent / "fixtures" / "coolprop_tespy_errors"
@@ -38,11 +38,23 @@ class TESPyFailure(ErrorCase):
     expect_fail: bool = True
 
 
-FAIL_CASES: list[coolPropFailure] = [
-    coolPropFailure(
+@dataclass
+class SaturationFailure(ErrorCase):
+    """Takes standard ErrorCase and adds error_type = SaturationError"""
+
+    error_type = SaturationError
+    expect_fail: bool = True
+
+
+FAIL_CASES: list[ErrorCase] = [
+    SaturationFailure(
         yml="flexible_SF_negativePressure.yml",
-        error_message="|".join(re.escape(s) for s in ["updatePT", "ProductionWell", "Convergence"]),
-        notes="coolPropError arrises somewhere in one of the injection wells",
+        error_message=re.escape("the fluid is two-phase"),
+        notes=(
+            "The production well's pressure falls through the produced fluid's saturation "
+            "pressure on the way up; the well march stops there with SaturationError instead "
+            "of marching on into a negative pressure that CoolProp can't evaluate."
+        ),
     ),
 ]
 

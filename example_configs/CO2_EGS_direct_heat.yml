@@ -37,7 +37,7 @@
 #    run: this resolves to a passive Valve across the entire run, not a
 #    running pump -- CO2's thermosiphon effect here is genuinely strong
 #    enough on its own once the CO2 is reinjected dense (production
-#    wellhead delivers ~12-14 MPa, well above the 7.5 MPa needed at
+#    wellhead delivers ~12-14 MPa, well above the 8 MPa needed at
 #    injection; see injection_cooler below); the device only
 #    throttles the natural surplus down, it doesn't add to it. See
 #    GitLab issue #57 for the real gap this surfaces: a system that
@@ -142,9 +142,12 @@ components:
     component_idx: 4            # solved last, loops back to injection_well (next: 0)
     prev: 3
     next: 0
-    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
+    injection_pressure: 8_000_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
                                      # matching CPG_direct_heat.yml's own reasoning
-                                     # (see this file's header comment).
+                                     # (see this file's header comment). 8 MPa, not
+                                     # 7.5 MPa: the ~30 degC reinjected CO2 must stay
+                                     # common.saturation_margin (5%) clear of its
+                                     # saturation pressure (7.15 MPa at 29.6 degC).
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m

@@ -131,10 +131,12 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "mass_rate_kg_per_s": (5.0, 70.0),
     "injection_pressure_Pa": (5000000.0, 12000000.0),
     "surface_pipe_diameter_m": (0.2, 0.75),
-    # Lower bound: the pressure at which 1 K subcooled CO2 reaches the site's
-    # cooling limit (lower fails CoolingLimitError). Upper bound stays below
-    # CO2's 7.38 MPa critical pressure.
-    "condensing_pressure_MPa": (5.6, 7.0),
+    # Lower bound: the pressure at which 3 K subcooled CO2 (the config's
+    # subcooling_K, set so the condensate entering the injection well keeps a
+    # 5% margin to saturation) reaches the site's cooling limit (lower fails
+    # CoolingLimitError). Upper bound stays below CO2's 7.38 MPa critical
+    # pressure.
+    "condensing_pressure_MPa": (5.87, 7.0),
 }
 
 
@@ -273,7 +275,7 @@ APP = OptApp(
         "production_temperature_C": "rep:production_temperature [°C]",
         "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
         "OPEX": "rep:OPEX [$/yr]",
-        "euclidean": "euclidean [z-score]",
+        "ideal_distance": "ideal_distance [normalized, 0 = ideal corner]",
     },
     scatter=ObjectiveScatter(
         x_col="LCOE",

@@ -1,6 +1,7 @@
 # Lint, type-check, and unit tests on every PR and on pushes to main/develop.
-# Mirrors .gitlab-ci.yml's lint and test jobs, plus a macOS/Linux/Windows test
-# matrix. tests/regtest/ isn't run here: it takes over an hour (see
+# Mirrors .gitlab-ci.yml's lint and test jobs (same checks), plus a
+# macOS/Linux/Windows test matrix. license-check.yml and tag-branch.yml mirror
+# its other two jobs. tests/regtest/ isn't run here: it takes over an hour (see
 # tests/README.md); the pre-push hook runs it locally.
 name: tests
 
@@ -20,8 +21,8 @@ jobs:
     name: lint and type-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -37,8 +38,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       # src/tango.hash must come out identical on every platform (it drives
       # DVC's staleness checks); a mismatch means hash_tango.py differs by OS.

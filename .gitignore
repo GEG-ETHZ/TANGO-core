@@ -74,9 +74,12 @@ builds
 # Images
 *.png
 *.svg
-# Only images that a markdown doc embeds are tracked (GitLab renders
-# repo-hosted PNGs inline, not SVGs). Diagram exports are regenerated from
-# dev_docs/diagrams/src/ and docs/diagrams/src/ *.drawio, so anything not embedded stays local.
+# Only images that a markdown doc embeds are tracked. Diagram exports are
+# regenerated from dev_docs/diagrams/src/ and docs/diagrams/src/ *.drawio, so
+# anything not embedded stays local -- except docs/diagrams/*.svg, the
+# user-facing topology diagrams written by `just diagrams` (GitHub and Sphinx
+# both render SVG).
+!docs/diagrams/*.svg
 !dev_docs/diagrams/img/t_convergence_circuit.png
 !dev_docs/diagrams/img/t_convergence_loop.png
 !dev_docs/diagrams/img/cos_converge_example.png
@@ -95,3 +98,6 @@ scratch_output/
 !/CHANGELOG.md
 !/CONTRIBUTING.md
 !/README.md
+
+# Study runs that never go through DVC, e.g. tools/n_max_gen_study_job.sh
+studies/

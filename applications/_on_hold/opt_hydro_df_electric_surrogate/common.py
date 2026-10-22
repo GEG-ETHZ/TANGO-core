@@ -27,7 +27,7 @@ from pathlib import Path
 from tango.pymoo_api import load_params
 
 HERE = Path(__file__).parent
-_OPT_APP_DIR = HERE.parent / "opt_hydro_df_electric"
+_OPT_APP_DIR = HERE.parents[1] / "opt_hydro_df_electric"
 if str(_OPT_APP_DIR) not in sys.path:
     sys.path.insert(0, str(_OPT_APP_DIR))
 

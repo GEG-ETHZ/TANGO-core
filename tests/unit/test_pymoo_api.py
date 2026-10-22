@@ -21,7 +21,15 @@ import pytest
 import yaml
 
 from tango.core.errors import ConfigError, InertParameterError
-from tango.pymoo_api import Minimization, ObjectiveSpec, ParamSpec, PymooConfig, _Problem, build_pymoo_parser
+from tango.pymoo_api import (
+    Minimization,
+    ObjectiveSpec,
+    ParamSpec,
+    PymooConfig,
+    _Problem,
+    build_pymoo_parser,
+    ideal_distance,
+)
 from tango.workflows.workflow import Workflow
 
 _EXAMPLE_CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
@@ -211,3 +219,55 @@ def test_evaluation_resolves_well_cells_for_its_own_length(tmp_path: Path) -> No
     cfg = loop_length.apply(copy.deepcopy(mgr.base_cfg), 8000.0)
     loop = Workflow(cfg)._orchestrator.components["horizontal_well"]  # noqa: SLF001
     assert loop.num_cells == 40
+
+
+def test_ideal_distance_is_normalized_distance_to_the_best_of_each_objective() -> None:
+    """Each objective counts 0-1 regardless of units; the two ends of a front sit at distance 1."""
+    # LCOE and negated power (both minimized), on very different scales.
+    f = np.array([[0.5, -1.0e6], [1.0, -2.0e6], [0.75, -1.5e6], [0.6, -1.9e6]])
+    np.testing.assert_allclose(
+        ideal_distance(f),
+        [1.0, 1.0, np.hypot(0.5, 0.5), np.hypot(0.2, 0.1)],
+    )
+
+
+def test_ideal_distance_ignores_how_designs_are_spaced_along_the_front() -> None:
+    """Crowding extra designs at one end of the front doesn't change any design's distance."""
+    f = np.array([[0.5, -1.0e6], [1.0, -2.0e6], [0.6, -1.9e6]])
+    crowded = np.vstack([f, [[0.51, -1.05e6], [0.52, -1.1e6], [0.53, -1.15e6]]])
+    np.testing.assert_allclose(ideal_distance(crowded)[:3], ideal_distance(f))
+
+
+def test_ideal_distance_treats_a_constant_objective_as_zero() -> None:
+    """An objective with the same value for every design adds nothing (no division by zero)."""
+    np.testing.assert_allclose(ideal_distance(np.array([[1.0, 3.0], [2.0, 3.0]])), [0.0, 1.0])
+
+
+def test_archive_keeps_every_non_dominated_feasible_design_across_generations(tmp_path: Path) -> None:
+    """report_archive's archive holds the non-dominated feasible designs of all generations, once each."""
+    from pymoo.core.population import Population  # noqa: PLC0415
+
+    mgr = _minimization("hydro_ORC_electric.yml", [_param(*_MASS_RATE)], tmp_path)
+
+    class _Algorithm:
+        off: Population
+
+    algorithm = _Algorithm()
+    feasible, infeasible = [[-1.0]], [[1.0]]
+    # Generation 1: two non-dominated designs and one infeasible one.
+    algorithm.off = Population.new(
+        X=np.array([[10.0], [20.0], [30.0]]),
+        F=np.array([[1.0, 4.0], [2.0, 3.0], [0.0, 0.0]]),
+        G=np.array([*feasible, *feasible, *infeasible]),
+    )
+    mgr._update_archive(algorithm)  # noqa: SLF001
+    # Generation 2: one design dominates [2, 3], one duplicates [1, 4], one extends the front.
+    algorithm.off = Population.new(
+        X=np.array([[21.0], [11.0], [40.0]]),
+        F=np.array([[1.5, 2.5], [1.0, 4.0], [3.0, 1.0]]),
+        G=np.array([*feasible, *feasible, *feasible]),
+    )
+    mgr._update_archive(algorithm)  # noqa: SLF001
+    assert mgr._archive_f is not None  # noqa: SLF001
+    got = sorted(map(tuple, mgr._archive_f.tolist()))  # noqa: SLF001
+    assert got == [(1.0, 4.0), (1.5, 2.5), (3.0, 1.0)]

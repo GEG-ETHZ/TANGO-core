@@ -16,7 +16,26 @@ class ComponentSolveError(TangoError):
 
 
 class SaturationError(TangoError):
-    """Raised when a fluid state unexpectedly enters or approaches a two-phase region."""
+    """Raised when a fluid state unexpectedly enters or approaches a two-phase region.
+
+    The well models assume single-phase flow (their friction and heat-loss
+    correlations don't apply to a boiling mixture), so a well cell whose
+    state falls inside the vapor-liquid dome raises this instead of
+    silently marching on with mixture properties.
+    """
+
+
+class WellPressureCollapseError(TangoError):
+    """Raised when a well's pressure falls to zero or below while marching along it.
+
+    The flow can't be pushed (or lifted) through the well at this mass rate:
+    friction and the hydrostatic column take more pressure than the well's
+    inlet provides. An infeasible design, not a bug. A hot liquid usually
+    hits ``SaturationError`` first, on its way down through its saturation
+    pressure; this covers a cell step that jumps straight past it, and
+    fluids above their critical temperature, which have no saturation
+    pressure.
+    """
 
 
 class ConfigError(TangoError):

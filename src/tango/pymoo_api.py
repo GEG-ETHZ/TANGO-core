@@ -36,7 +36,8 @@ Adapted to tango's actual seams:
 - **Only specific, known-physical failure modes become a CV — everything
   else raises.** ``_evaluate_one`` catches exactly ``INFEASIBLE_DESIGN_EXCEPTIONS``
   (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``,
-  ``InvalidPowerStateError``, ``CoolingLimitError``) —
+  ``InvalidPowerStateError``, ``CoolingLimitError``, ``SaturationError``,
+  ``WellPressureCollapseError``) —
   the ``tango`` errors that genuinely mean "this sampled design is
   infeasible," not "something is broken." A bare ``except Exception``
   would also swallow ``ConfigError`` (almost always a bug in a
@@ -88,6 +89,7 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 from tango.core.errors import (
     ConfigError,
@@ -97,6 +99,8 @@ from tango.core.errors import (
     FrackingViolationError,
     InertParameterError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 from tango.core.policies import InjectionPolicy
 from tango.utils import print_dt
@@ -130,6 +134,8 @@ INFEASIBLE_DESIGN_EXCEPTIONS: tuple[type[Exception], ...] = (
     FrackingViolationError,
     ConvergenceError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 
 logger = logging.getLogger(__name__)
@@ -264,6 +270,16 @@ class PymooConfig:
     """Probability each variable gets mutated (pymoo's default mutation
     operator, ``PM``, calls this ``prob`` — default ``1/n_var`` if left
     ``None`` here). Same ``algorithm=`` caveat as ``crossover_prob`` above."""
+    report_archive: bool = False
+    """Report the non-dominated set of every feasible design evaluated during
+    the run, instead of only the final population's non-dominated designs.
+
+    NSGA-II keeps a fixed-size population (``pop_size``) and thins its front
+    to fit, so the final population holds at most ``pop_size`` designs and
+    can drop good ones found earlier, especially near the ends of the front.
+    The archive keeps them all. It only changes what's reported; the search
+    itself is unchanged. Each reported design is re-solved once for the
+    report columns, so a larger front costs that many extra simulations."""
 
 
 def load_params(params_file: Path) -> dict[str, Any]:
@@ -400,6 +416,17 @@ def build_pymoo_parser(
         default=seed_default,
         help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
     )
+    report_archive_default = bool(params.get("report_archive", default_pymoo_config.report_archive))
+    parser.add_argument(
+        "--report-archive",
+        action=argparse.BooleanOptionalAction,
+        default=report_archive_default,
+        help=(
+            "Report the non-dominated set of every feasible design evaluated, not just the final "
+            "population's (at most pop_size). The search itself is unchanged. Defaults to "
+            f"{report_archive_default} (params.yaml/PymooConfig)."
+        ),
+    )
     parser.add_argument(
         "--no-seed",
         action="store_true",
@@ -457,6 +484,18 @@ def build_pymoo_parser(
             "restarts at generation 1) -- see Minimization's seed_from "
             "docstring for the full tradeoff. Remaining population slots "
             "beyond what the file provides are filled via LHS."
+        ),
+    )
+    parser.add_argument(
+        "--capture-trajectory",
+        type=Path,
+        default=None,
+        metavar="CSV",
+        help=(
+            "Append every evaluated design (parameters, objectives, feasibility, "
+            "and the generation it was evaluated in) to this CSV, not just the "
+            "final front. Used to study how the front improves generation by "
+            "generation. Appends to an existing file, so point it at a new one."
         ),
     )
     plot_group = parser.add_mutually_exclusive_group()
@@ -577,6 +616,10 @@ def plot_objective_vs_param_scatter(
             # gives each label room regardless of how narrow the column's
             # actual data range is.
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+            # A parameter pinned at a bound spans a tiny range, and matplotlib
+            # would then label it as an offset (e.g. "+6.9999e1") that's
+            # unreadable and collides with the axis label. Plain values instead.
+            ax.ticklabel_format(axis="x", useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
@@ -645,6 +688,8 @@ def plot_param_pair_vs_objective_scatter(
             ax.grid(visible=True, alpha=0.3)
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
             ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+            # Plain values, not offsets (see plot_objective_vs_param_scatter).
+            ax.ticklabel_format(useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
@@ -772,6 +817,46 @@ class ConstraintSpec:
 
 
 # ---------------------------------------------------------------------------
+# Distance to the ideal corner
+# ---------------------------------------------------------------------------
+
+IDEAL_DISTANCE_COL = "ideal_distance"
+"""Results column: each design's normalized distance to the front's ideal corner."""
+
+
+def normalized_shortfall(f: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Each objective rescaled to 0-1 over the given designs: 0 = best, 1 = worst.
+
+    ``f`` holds minimized objectives, one row per design (as pymoo stores
+    them; a maximized quantity is stored negated, e.g.
+    ``negative_mean_power_W``). An objective that's the same for every
+    design maps to 0.
+    """
+    f = np.asarray(f, dtype=float)
+    f = f if f.ndim == 2 else f.reshape(1, -1)
+    span = np.ptp(f, axis=0)
+    return (f - f.min(axis=0)) / np.where(span > 0, span, 1.0)
+
+
+def ideal_distance(f: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Each design's distance to the ideal corner of a set of designs.
+
+    The ideal corner pairs the best value of every objective found among
+    the designs (for LCOE vs. power: the cheapest LCOE and the highest
+    power). No single design usually reaches it. Each objective is first
+    rescaled to 0-1 over the designs (``normalized_shortfall``), so
+    objectives with different units count equally. The result runs from 0
+    (a design that's best in every objective) to ``sqrt(n_objectives)``.
+    The design with the smallest distance is the default pick: the one
+    that gives up the least in all objectives at once.
+
+    It depends only on the best and worst value of each objective, not on
+    how the optimizer happened to space the designs along the front.
+    """
+    return np.sqrt((normalized_shortfall(f) ** 2).sum(axis=1))
+
+
+# ---------------------------------------------------------------------------
 # Live progress output (verbose=True)
 # ---------------------------------------------------------------------------
 
@@ -779,25 +864,12 @@ class ConstraintSpec:
 class ParetoProgressOutput(Output):
     """Per-generation progress table for ``Minimization.run()`` (``verbose=True``).
 
-    Two design choices worth calling out explicitly:
+    ``n_nds`` and ``ideal_min`` both describe ``algorithm.opt`` (the
+    current non-dominated front), not the whole population, so the two
+    columns describe the same designs. ``ideal_min`` is the smallest
+    ``ideal_distance`` on that front.
 
-    1. **Scale mixing.** Summing RAW, unnormalized objective values before
-       taking a norm is only meaningful if every objective is on a
-       comparable scale. Not true here (LCOE ~0.1-1,
-       ``negative_mean_power_W`` ~1e6-1e7): the larger-magnitude objective would
-       completely dominate, making the metric say almost nothing about the
-       smaller one. Z-score normalizing each objective column (subtract
-       its mean, divide by its std, both computed fresh from the CURRENT
-       front every generation) puts them on equal footing before summing.
-    2. **Consistent solution set.** ``n_nds`` and ``euclid_min`` both report
-       on ``algorithm.opt`` (the non-dominated front), not a mix of
-       ``algorithm.opt`` for one column and ``algorithm.pop`` (the WHOLE
-       population, including dominated individuals) for the other — two
-       columns should describe the same set, not different ones.
-
-    This only changes what prints during a run (nothing here touches the
-    saved results dataframe, which already reports on the final pareto
-    front only, not the full population).
+    This only changes what prints during a run, not the saved results.
     """
 
     def __init__(self) -> None:
@@ -806,8 +878,8 @@ class ParetoProgressOutput(Output):
         self.t_start = time.perf_counter()
         self.n_nds = Column("n_nds", width=8)
         self.t_s = Column("t [s]", width=10)
-        self.euclid_min = Column("euclid_min (z)", width=16)
-        self.columns += [self.n_nds, self.t_s, self.euclid_min]
+        self.ideal_min = Column("ideal_min", width=12)
+        self.columns += [self.n_nds, self.t_s, self.ideal_min]
 
     def update(self, algorithm: GeneticAlgorithm) -> None:
         """Refresh each column from the current generation's non-dominated front."""
@@ -816,14 +888,9 @@ class ParetoProgressOutput(Output):
         self.n_nds.set(len(algorithm.opt))
         self.t_s.set(f"{time.perf_counter() - self.t_start:.3g}")
         if opt_f is None or len(opt_f) == 0:
-            self.euclid_min.set("n/a")
+            self.ideal_min.set("n/a")
             return
-        opt_f = np.asarray(opt_f, dtype=float)
-        std = opt_f.std(axis=0)
-        std = np.where(std > 0, std, 1.0)  # constant column -> no scaling, avoid /0
-        z = (opt_f - opt_f.mean(axis=0)) / std
-        euclid = np.sqrt((z**2).sum(axis=1)).min()
-        self.euclid_min.set(f"{euclid:.3g}")
+        self.ideal_min.set(f"{ideal_distance(opt_f).min():.3g}")
 
 
 # ---------------------------------------------------------------------------
@@ -935,8 +1002,9 @@ class Minimization:
             Default ``()`` (no change from the base set).
         capture_trajectory_path: If given, append every generation's
             newly-evaluated individuals (not just the final front) to this
-            CSV path as surrogate training data — see
-            ``_append_trajectory``. Default ``None`` (no capture).
+            CSV path, e.g. as surrogate training data or to study how the
+            front improves per generation — see ``_append_trajectory``.
+            Default ``None`` (no capture).
 
     Raises:
         ValueError: If ``base_cfg``'s own ``sim_config.injection_mode``
@@ -996,6 +1064,10 @@ class Minimization:
     """``INFEASIBLE_DESIGN_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
     _trajectory_row_idx: int = field(init=False, default=0, repr=False)
     """Running counter for ``_append_trajectory``'s ``row_idx`` column, across generations."""
+    _archive_x: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Decision variables of the non-dominated feasible designs evaluated so far (``report_archive``)."""
+    _archive_f: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Objectives matching ``_archive_x``."""
 
     def __post_init__(self) -> None:
         """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
@@ -1087,7 +1159,7 @@ class Minimization:
         the in-memory ``df`` this class returns from ``run()``, and every
         plotting function downstream all keep using bare (unprefixed)
         names throughout; only what lands in the CSV on disk changes.
-        Columns not covered here (currently just ``euclidean``) are left
+        Columns not covered here (currently just ``ideal_distance``) are left
         bare — they're neither a decision variable, an active objective,
         nor a ``report_specs`` read-out, so no category prefix applies.
         """
@@ -1313,7 +1385,7 @@ class Minimization:
             ``(res, df)`` — ``res`` is pymoo's own ``Result`` (``res.X``/
             ``res.F`` are the pareto-front decision variables/objectives);
             ``df`` has one row per pareto-front design, one column per
-            param, one column per objective, plus ``euclidean`` (see
+            param, one column per objective, plus ``ideal_distance`` (see
             ``_build_results_df``).
 
         """
@@ -1399,11 +1471,14 @@ class Minimization:
                 self._save_intermediate(algorithm)
             if self.capture_trajectory_path is not None:
                 self._append_trajectory(algorithm)
+            if self.pymoo_config.report_archive:
+                self._update_archive(algorithm)
         res = algorithm.result()
 
-        df = self._build_results_df(res.X, res.F)
+        x, f = (self._archive_x, self._archive_f) if self.pymoo_config.report_archive else (res.X, res.F)
+        df = self._build_results_df(x, f)
         if self.report_specs:
-            df = self._add_report_columns(df, res.X)
+            df = self._add_report_columns(df, x)
         if self.n_failures:
             logger.info(
                 "Minimization: %d evaluations were constraint violations (failed to solve).",
@@ -1411,7 +1486,7 @@ class Minimization:
             )
         if self.save_results:
             self._write_pareto(
-                res.X,
+                x,
                 df,
                 self.save_dir / "pareto_results.csv",
                 self.save_dir / "pareto_configs" if self.save_pareto_configs else None,
@@ -1438,6 +1513,31 @@ class Minimization:
             self.save_dir / "pareto_results_partial.csv",
             self.save_dir / "pareto_configs_partial" if self.save_pareto_configs else None,
         )
+
+    def _update_archive(self, algorithm: GeneticAlgorithm) -> None:
+        """Merge this generation's feasible evaluations into the non-dominated archive.
+
+        Reads ``algorithm.off`` (exactly the designs evaluated by this
+        generation; see ``_append_trajectory``) and keeps only the
+        non-dominated designs of archive plus newcomers, so memory stays
+        bounded by the front's size, not the number of evaluations.
+        """
+        off = algorithm.off
+        if off is None or len(off) == 0:
+            return
+        feasible = (off.get("G") <= 0).all(axis=1)
+        if not feasible.any():
+            return
+        x = np.asarray(off.get("X")[feasible], dtype=float)
+        f = np.asarray(off.get("F")[feasible], dtype=float)
+        if self._archive_x is not None and self._archive_f is not None:
+            x = np.vstack([self._archive_x, x])
+            f = np.vstack([self._archive_f, f])
+        front = NonDominatedSorting().do(f, only_non_dominated_front=True)
+        # Identical objective vectors are mutually non-dominated; keep one of each.
+        _, unique = np.unique(f[front], axis=0, return_index=True)
+        keep = np.asarray(front)[np.sort(unique)]
+        self._archive_x, self._archive_f = x[keep], f[keep]
 
     def _append_trajectory(self, algorithm: GeneticAlgorithm) -> None:
         """Append this generation's newly-evaluated individuals to ``capture_trajectory_path``.
@@ -1510,26 +1610,10 @@ class Minimization:
     ) -> pd.DataFrame:
         """Pareto-front results (params ``x`` + objectives ``f``) as a dataframe.
 
-        Adds a ``euclidean`` aggregate column. Deliberately no ``n_gen``
-        column — every row of one results dataframe comes from the SAME
-        (final, or one intermediate) generation, so the column would be
-        constant across the whole file and carry no actual information;
-        ``ParetoProgressOutput``'s live
-        per-generation console table (a genuinely different thing — it
-        varies row-to-row over TIME, not over one saved file's rows) is
-        unaffected.
-
-        ``euclidean`` is a Z-SCORE-NORMALIZED Euclidean distance
-        (``sqrt(Σ z_i²)``, ``z_i = (objective_i - mean) / std`` across the
-        pareto front) — deliberately NOT a sum of RAW objective values,
-        which would be dominated by whichever objective happens to have the
-        largest units (e.g. here, ``negative_mean_power_W`` ~1e6-1e7 vs.
-        LCOE ~0.1-1 — the raw version would make LCOE contribute nothing).
-        Normalization is computed fresh from this call's own pareto front
-        and used ONLY inline, in the expression below — every column saved
-        to ``df``/the CSV stays in its original, un-normalized units, so
-        a different normalization can always be recomputed later from the
-        raw data without having lost anything.
+        Adds an ``ideal_distance`` column (see ``ideal_distance``), computed
+        over this front. Every other column keeps its original units.
+        Deliberately no ``n_gen`` column: every row comes from the same
+        generation, so it would be constant.
         """
         if x is None or f is None:
             return pd.DataFrame(columns=[p.name for p in self.params] + [o.name for o in self.objectives])
@@ -1540,9 +1624,7 @@ class Minimization:
         x_df = pd.DataFrame(x, columns=[p.name for p in self.params])
         f_df = pd.DataFrame(f, columns=[o.name for o in self.objectives])
         df = pd.concat([x_df, f_df], axis=1)
-        std = f_df.std().replace(0.0, 1.0)  # constant column -> no scaling, avoid /0
-        z = (f_df - f_df.mean()) / std
-        df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+        df[IDEAL_DISTANCE_COL] = ideal_distance(f)
         return df
 
     def _add_report_columns(self, df: pd.DataFrame, x: npt.NDArray[np.float64] | None) -> pd.DataFrame:
@@ -1817,11 +1899,13 @@ class OptApp:
                 seed=None if args.no_seed else args.seed,
                 crossover_prob=args.crossover_prob,
                 mutation_prob=args.mutation_prob,
+                report_archive=args.report_archive,
             ),
             verbose=not args.quiet,
             save_dir=args.save_dir,
             seed_from=args.seed_from,
             check_param_sensitivity=not args.skip_param_check,
+            capture_trajectory_path=args.capture_trajectory,
         )
         res, df = m.run()
         return res, df, m
@@ -1836,9 +1920,15 @@ class OptApp:
         No empty-``df`` guard: an empty front means no feasible design was
         found, which should fail loudly here.
         """
+        # Recomputed here rather than read from the CSV, so --plot-only also
+        # works on results saved before this column existed.
+        objective_names = [o.name for o in self.objective_specs]
+        df = df.drop(columns=["euclidean"], errors="ignore")
+        df[IDEAL_DISTANCE_COL] = ideal_distance(df[objective_names])
         plot_df = prepare_plot_df(df, self.display_rename)
         param_cols = [p.name for p in self.param_specs()]
-        objective_cols = [self.display_rename.get(o.name, o.name) for o in self.objective_specs]
+        objective_cols = [self.display_rename.get(name, name) for name in objective_names]
+        display_to_objective = dict(zip(objective_cols, objective_names, strict=True))
         plot_pareto_parallel_coordinates(
             plot_df,
             save_dir / "pareto_parallel_coordinates.png",
@@ -1858,14 +1948,17 @@ class OptApp:
             title=f"{self.title} — pareto front (objective space)",
             labels=self.column_labels,
         )
-        plot_pareto_objective_scatter(
-            plot_df,
-            save_dir / "pareto_scatter_zscore.png",
-            self.scatter,
-            title=f"{self.title} — pareto front (z-score)",
-            labels=self.column_labels,
-            zscore=True,
-        )
+        if self.scatter.x_col in display_to_objective and self.scatter.y_col in display_to_objective:
+            plot_pareto_objective_scatter(
+                plot_df,
+                save_dir / "pareto_scatter_normalized.png",
+                self.scatter,
+                title=f"{self.title} — pareto front (normalized, ideal corner at 0, 0)",
+                labels=self.column_labels,
+                shortfall=normalized_shortfall(
+                    df[[display_to_objective[self.scatter.x_col], display_to_objective[self.scatter.y_col]]],
+                ),
+            )
         plot_objective_vs_param_scatter(
             plot_df,
             param_cols=param_cols,
@@ -1918,7 +2011,7 @@ def plot_pareto_parallel_coordinates(
     out_path: Path,
     title: str,
     labels: dict[str, str] | None = None,
-    color_col: str = "euclidean",
+    color_col: str = IDEAL_DISTANCE_COL,
 ) -> None:
     """Static parallel-coordinates plot across every pareto-front design.
 
@@ -2002,7 +2095,7 @@ def plot_pareto_parallel_coordinates_interactive(
     out_path: Path,
     title: str,
     labels: dict[str, str] | None = None,
-    color_col: str = "euclidean",
+    color_col: str = IDEAL_DISTANCE_COL,
 ) -> bool:
     """Interactive HTML version of ``plot_pareto_parallel_coordinates`` (Plotly Parcoords).
 
@@ -2080,7 +2173,7 @@ def plot_pareto_objective_scatter(
     title: str,
     labels: dict[str, str] | None = None,
     *,
-    zscore: bool = False,
+    shortfall: npt.NDArray[np.float64] | None = None,
 ) -> None:
     """2D scatter of two result columns, each point labeled with its design number.
 
@@ -2090,22 +2183,38 @@ def plot_pareto_objective_scatter(
         scatter: Axes and coloring.
         title: Plot title.
         labels: Colorbar label per display column.
-        zscore: Plot each axis as a z-score instead of its scaled value.
+        shortfall: If given, plot this instead of the raw values: one row per
+            design, columns for the x and y objectives, each rescaled to 0-1
+            (0 = best on the front; see ``normalized_shortfall``). The ideal
+            corner is then (0, 0), and the design closest to it (the
+            smallest ``ideal_distance`` in these two objectives) is ringed.
 
     """
     labels = labels or {}
     x = df[scatter.x_col].astype(float)
     y = df[scatter.y_col].astype(float) * scatter.y_scale
     x_label, y_label = scatter.x_label, scatter.y_label
-    if zscore:
-        x = (x - x.mean()) / (x.std() or 1.0)
-        y = (y - y.mean()) / (y.std() or 1.0)
-        x_label, y_label = f"{x_label} (z-score)", f"{y_label} (z-score)"
+    if shortfall is not None:
+        x = pd.Series(shortfall[:, 0], index=df.index)
+        y = pd.Series(shortfall[:, 1], index=df.index)
+        x_label = f"{x_label}: 0 = best on front, 1 = worst"
+        y_label = f"{y_label}: 0 = best on front, 1 = worst"
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    if zscore:
-        ax.axhline(0, color="grey", linewidth=0.8, zorder=1)
-        ax.axvline(0, color="grey", linewidth=0.8, zorder=1)
+    if shortfall is not None:
+        ax.scatter([0.0], [0.0], marker="*", s=250, color="tab:red", zorder=4, label="ideal corner")
+        pick = int(np.hypot(x, y).argmin())
+        ax.scatter(
+            [x.iloc[pick]],
+            [y.iloc[pick]],
+            s=220,
+            facecolors="none",
+            edgecolors="tab:red",
+            linewidths=2,
+            zorder=4,
+            label=f"closest to ideal corner (design {pick})",
+        )
+        ax.legend(loc="upper right")
     if scatter.color_col is None:
         ax.scatter(x, y, s=40, zorder=3)
     else:

@@ -1,5 +1,9 @@
 """Multi-objective optimization of the five-spot single-flash hydrothermal electric example.
 
+**Invalid for now (GitHub issue #109):** the five-spot pattern is costed and
+simulated as a single doublet (see ``WellPattern``'s docstring), so this
+app's LCOE and Pareto front aren't meaningful until #109 is fixed.
+
 Searches mass flow rate, injection pressure, target extraction pressure,
 injection and production well diameters, surface pipe diameter, and flash
 (separator) pressure with NSGA2 to minimize LCOE and maximize mean net electric
@@ -99,9 +103,14 @@ class _WellDiameterApply:
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "mass_rate_kg_per_s": (10.0, 100.0),
     "injection_pressure_Pa": (1000000.0, 8000000.0),
-    # (0.7, 1.5)x the config's own value, the same scale factor
-    # run_hydro_df_electric_sweep uses.
-    "target_extraction_pressure_Pa": (4200000.0, 9000000.0),
+    # Floor: just above water's saturation pressure (1.25 MPa) at the
+    # estimated reservoir temperature, 288 K + 5000 m x 0.035 K/m ~ 190 degC,
+    # so the produced fluid can't flash in the production well. Pressure
+    # above that buys nothing in a flash plant: the flash valve throws it
+    # away, so the production pump's extra work is wasted, and the old
+    # (0.7x config value) floor pinned every Pareto front. Until the target
+    # can be solved from a saturation margin instead (#108).
+    "target_extraction_pressure_Pa": (1300000.0, 9000000.0),
     # 6-24 inch wellbores.
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
@@ -249,7 +258,7 @@ APP = OptApp(
         "production_temperature_C": "rep:production_temperature [°C]",
         "specific_investment_cost": "rep:specific_investment_cost [$/kW]",
         "OPEX": "rep:OPEX [$/yr]",
-        "euclidean": "euclidean [z-score]",
+        "ideal_distance": "ideal_distance [normalized, 0 = ideal corner]",
     },
     scatter=ObjectiveScatter(
         x_col="LCOE",
