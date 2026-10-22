@@ -41,7 +41,8 @@ def export(script: str, name: str, drawio: str, workdir: Path) -> Path:
     source = workdir / f"{name}.drawio"
     source.write_text(xml, encoding="utf-8")
     target = OUT / f"{name}.drawio.svg"
-    subprocess.run(
+    target.unlink(missing_ok=True)
+    result = subprocess.run(
         [
             drawio,
             "-x",
@@ -56,9 +57,14 @@ def export(script: str, name: str, drawio: str, workdir: Path) -> Path:
             str(target),
             str(source),
         ],
-        check=True,
+        check=False,
         capture_output=True,
+        text=True,
     )
+    if result.returncode != 0 or not target.exists():
+        raise RuntimeError(
+            f"drawio failed to export {name} (exit {result.returncode}): {result.stderr.strip()}",
+        )
     return target
 
 
