@@ -124,6 +124,27 @@ phase-diagrams *configs:
 phase-diagrams *configs:
     $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
+# Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
+# `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
+# each SVG ~40 KB instead of ~500 KB; viewers fall back to their default sans-serif.
+# Export every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg
+[unix]
+diagrams:
+    #!/usr/bin/env sh
+    set -eu
+    if [ -x /Applications/draw.io.app/Contents/MacOS/draw.io ]; then
+        drawio=/Applications/draw.io.app/Contents/MacOS/draw.io
+    elif command -v drawio >/dev/null 2>&1; then
+        drawio=drawio
+    else
+        echo "draw.io not found: install the draw.io desktop app (https://github.com/jgraph/drawio-desktop/releases)"; exit 1
+    fi
+    for src in docs/diagrams/src/*.drawio; do
+        out="docs/diagrams/$(basename "$src" .drawio).svg"
+        "$drawio" --export --format svg --embed-svg-fonts false --border 10 --output "$out" "$src" >/dev/null 2>&1 || { echo "export failed: $src"; exit 1; }
+        echo "$src -> $out"
+    done
+
 # example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
 # "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
 # Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
