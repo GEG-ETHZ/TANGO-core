@@ -11,7 +11,7 @@
 # own turbine, condensate from both recombined and pumped back to injection
 # pressure through two pump stages.
 #
-# All ten node types below (Source/Sink/Valve/DropletSeparator/Turbine/
+# All eight node types below (Source/Sink/Valve/DropletSeparator/Turbine/
 # SimpleHeatExchanger/Compressor/Merge) were already registered in
 # GraphSurface's _COMPONENT_TYPES before this file was written — this
 # topology needed zero new Python code, only YAML composition (see

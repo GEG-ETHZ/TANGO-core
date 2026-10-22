@@ -81,7 +81,7 @@
         <mxCell id="e4" edge="1" parent="1" source="p_pump2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;endArrow=block;endFill=1" target="p_outlet">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e5" edge="1" parent="1" source="p_outlet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#21787A;dashed=1;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=1;html=1;endArrow=block;endFill=1;fontColor=#21787A;fontStyle=1;fontSize=9;align=center;verticalAlign=bottom" target="c_inj" value="surface.outlet → injection_well.inlet (next timestep)">
+        <mxCell id="e5" edge="1" parent="1" source="p_outlet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#C1501F;dashed=1;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=1;html=1;endArrow=block;endFill=1;fontColor=#C1501F;fontStyle=1;fontSize=9;align=center;verticalAlign=bottom" target="c_inj" value="surface.outlet → injection_well.inlet (next timestep)">
           <mxGeometry relative="1" x="0.2857" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
