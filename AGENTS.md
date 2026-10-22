@@ -56,7 +56,7 @@ Read before any change:
 
 ### Things that will bite you
 
-1. `tests/regtest/` takes over an hour. CI runs only `tests/unit/`; the pre-push hook runs the rest.
+1. `tests/regtest/` takes over an hour. CI runs only `tests/unit/`; the pre-push hook runs the fast subset (`not slow and not perf`), and `just test --all` runs everything before a release tag.
 2. A hook regenerates `src/tango.hash` on every `src/tango/` change. The DVC stages in `applications/` depend on it.
 3. Every shipped example sets `sim_config.injection_mode`, so every example runs `SystemBCIteration`. `SystemDirect` runs only when the key is absent.
 4. The docs site must stay private (see `NOTICE`). The deploy job runs only when the repository variable `PAGES_PRIVATE` is `true`. Never set it without confirming Settings → Pages → Visibility: Private.

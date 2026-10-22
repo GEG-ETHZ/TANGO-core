@@ -106,7 +106,7 @@ The documentation is published as a private site for the GEG-ETHZ organization, 
 src/tango/        the package: core, components, orchestrators, workflows, CLI, optimization
 example_configs/  maintained configs, one or more per system type; back the tests and applications
 applications/     sweeps, optimizations and demos, each a DVC pipeline with a SLURM script
-tests/            unit/ (fast, run in CI) and regtest/ (full simulations, run before push)
+tests/            unit/ (fast, run in CI) and regtest/ (full simulations; the fast subset runs before push)
 docs/             the documentation site: guides, architecture, runtime, deep dives, API reference
 tools/            maintenance scripts, the diagram generators and git-hook helpers
 ```
@@ -114,7 +114,7 @@ tools/            maintenance scripts, the diagram generators and git-hook helpe
 ## Development and help
 
 ```bash
-just check          # format, lint, strict type check, tests (as in CI)
+just check          # format, lint, strict type check, fast tests
 just docs           # documentation site on localhost
 just diagrams       # regenerate the banner and the diagrams
 ```

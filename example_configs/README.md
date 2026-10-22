@@ -28,7 +28,7 @@ How a configuration maps onto the code is described in [Config to objects](https
 
 ## Conventions
 
-1. **One system per file.** Each file has a `title`, a `description` block (`summary`, `date`, `description`), and inline comments on every physical parameter with its unit.
+1. **One system per file.** Each file has a `title`, optionally a `description` block (`summary`, `date`, `description`), and inline comments on every physical parameter with its unit.
 2. **SI units throughout** (Pa, K, kg/s, m), unless a comment states otherwise.
 3. **The header comment draws the component circuit**, in `component_idx` order.
 4. **Names follow `<system>_<plant>_<product>[_<variant>].yml`**, for example `hydro_sf_electric_autoflow.yml`.

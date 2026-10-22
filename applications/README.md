@@ -54,7 +54,7 @@ uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py \
 On the ETH Euler cluster, submit the job script instead. See [Running on Euler](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/guides/euler.md).
 
 ```bash
-sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 200
+sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh
 ```
 
 | Flag | Applies to | Effect |
