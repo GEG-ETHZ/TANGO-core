@@ -15,7 +15,7 @@
 [![DVC](https://img.shields.io/badge/pipelines-DVC-0E0E10.svg)](https://dvc.org/)
 [![Version](https://img.shields.io/badge/version-1.0.1-0E0E10.svg)](CHANGELOG.md)
 
-**Techno-economic simulation of geothermal energy systems. TANGO couples reservoir, wells and surface plant in one modular simulator, solves them over the project's lifetime and computes the levelized cost of electricity or heat.**
+**Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 
 ![What will a geothermal project's electricity or heat cost over its life? You describe the surface plant, the wells, the reservoir and the economics; TANGO couples them into one system, solved over the project's lifetime, for hydrothermal, CPG, EGS and AGS systems; you get LCOE or LCOH, net electric and thermal power, temperature, pressure and flow for every part and timestep, and the best designs from sweeps and optimization](docs/diagrams/hero.drawio.svg)
 

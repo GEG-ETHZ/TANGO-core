@@ -11,6 +11,7 @@ The config-key and output tables under `reference/generated/` are generated from
 3. Never copy a fact that has an owner (see the root `AGENTS.md`): link to it. Text that must appear both on GitHub and on the site lives in the README next to the code and is pulled in with a snippet: `--8<-- "src/tango/core/README.md"`.
 4. A new page is added to `nav:` in `mkdocs.yml`, or it is not on the site.
 5. Markdown: fenced blocks carry a language, emphasis uses `*asterisks*`, headings do not skip levels.
+6. Lists in prose take the serial (Oxford) comma: "reservoir, wells, and surface plant".
 
 ## Diagrams
 

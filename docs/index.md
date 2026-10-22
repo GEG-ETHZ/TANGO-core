@@ -5,7 +5,7 @@ hide:
 
 # TANGO
 
-**Techno-economic simulation of geothermal energy systems. TANGO couples reservoir, wells and surface plant in one modular simulator, solves them over the project's lifetime and computes the levelized cost of electricity or heat.**
+**Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 
 ![What will a geothermal project's electricity or heat cost over its life? You describe the parts, TANGO couples them into one system with its four system types, and you get LCOE or LCOH, net power, per-timestep results and the best designs](diagrams/hero.drawio.svg)
 
