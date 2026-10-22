@@ -10,7 +10,7 @@ An orchestrator runs the component circuit through time. Each timestep it solves
 
 **The `auto-*` modes adjust the boundary to stay below the fracking limit.** Injecting too hard fractures the reservoir. Two quantities can cause it: wellhead pressure and mass flow. `auto-pressure` wraps a Newton loop around the temperature loop. It raises the wellhead pressure by the gap between the target reservoir pressure and the pressure at the bottom of the injection well. `auto-flow` wraps a fixed-point loop instead. It sets the mass rate to the fracking flow limit at the current fluid state, capped at `max_mass_rate`. Both stop at a relative change below 1e-3, or raise `ConvergenceError` after 200 iterations. Every mode except plain `manual` then checks both thresholds and raises `FrackingViolationError` if either is exceeded. It never caps the value silently. `auto-both` raises `NotImplementedError`.
 
-**`SystemDirect` is the plain case.** Without `sim_config.injection_mode`, the workflow uses `SystemDirect`: one pass per timestep, no iteration. `SystemBCIteration` subclasses it and replaces only `run_timestep`. Every shipped example config sets `injection_mode`.
+**`SystemDirect` is the plain case.** Without `sim_config.injection_mode`, the workflow uses `SystemDirect`: one pass per timestep, no iteration. `SystemBCIteration` subclasses it and overrides `run_timestep`, where the iteration lives, and `run`. Every shipped example config sets `injection_mode`.
 
 ## Read these first
 

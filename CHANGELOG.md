@@ -23,7 +23,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 - **Component pages** (wells, reservoir, surface plant, economics), an
   **optimization guide**, and a **config reference** and **outputs
   reference** whose tables are generated from the code by
-  `tools/gen_reference.py` (`just docs-gen`; checked in CI). 156 field
+  `tools/gen_reference.py` (`just docs-gen`; checked in CI). 155 field
   docstrings were drafted for them and are marked
   `TODO(docs): drafted, review.` until reviewed.
 - **Glossary** (`docs/guides/glossary.md`) and an **internal docs preview**
@@ -34,8 +34,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 - **Project files** — `SECURITY.md` (private vulnerability reporting on
   GitHub), `CITATION.cff`, `.editorconfig`, and GitHub templates for pull
   requests, bugs, features and tasks.
-- **GitHub Actions CI** (`.github/workflows/ci.yml`) — lint, mypy strict
-  and `tests/unit/` on every pull request and push to `main`.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — format check, lint,
+  mypy strict, the generated-docs check, and `tests/unit/` on every pull
+  request and push to `main`; `.github/workflows/docs.yml` builds the docs
+  site on every pull request.
 
 ### Changed
 
@@ -47,8 +49,8 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   requirements, installation, quickstart, documentation map, help, citation
   and license. Detailed install, run and Euler steps moved to
   `docs/guides/`.
-- **CONTRIBUTING, directory READMEs, deep dives** — restructured with a
-  contents list, consistent titles and verified commands. `tests/README.md`
+- **CONTRIBUTING, directory READMEs, deep dives** — restructured with
+  consistent titles and verified commands. `tests/README.md`
   now states correctly that the pre-push hook skips `slow` and `perf`
   tests.
 - **Historical docs** — progress summaries, refactor notes and the phase

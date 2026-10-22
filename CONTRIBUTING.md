@@ -45,7 +45,7 @@ Binding for every change; each exists because its absence caused a real problem.
 | `dev/<feature>`, `fix/<issue>` | One change | `develop` or `main` | `develop`, as a squash merge; `main` only with the lead developer's sign-off |
 | `exp/<name>` | Experiments | anywhere | usually abandoned |
 
-Every merge into `main` or `develop` is a pull request with one approval and green CI (lint, mypy, `tests/unit/`), on a branch that is up to date with its target. Changes users will notice get a changelog entry. Branch protection and merge strategies are repository settings, set once by an admin.
+Every merge into `main` or `develop` is a pull request with one approval and green CI (format, lint, mypy, generated-docs check, `tests/unit/`, and docs build), on a branch that is up to date with its target. Changes users will notice get a changelog entry. Branch protection and merge strategies are repository settings, set once by an admin.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/), without emoji, `fix(orchestrators): reset Aitken state between timesteps`; the types and rules are in [`.agent/rules/commit-permissions.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.agent/rules/commit-permissions.md).
 

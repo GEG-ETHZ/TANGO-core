@@ -59,6 +59,6 @@ Every iteration of the temperature loop first restores each component from a sna
 |---|---|
 | `ConvergenceError` | 20 temperature or 200 boundary-condition iterations used up |
 | `FrackingViolationError` | `_check_fracking`, in every mode except `manual` |
-| `ConfigError` | an `auto-*` mode without a surface, injection well or reservoir |
+| `ConfigError` | no injection well, in every mode; an `auto-*` mode without a surface or reservoir |
 
 Deep dives: [how injection-temperature convergence works](../tango_t_convergence.md) and [the Aitken speed-up](../aitkens_speedup.md).

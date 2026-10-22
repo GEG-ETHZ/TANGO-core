@@ -59,7 +59,8 @@ flowchart TB
 | `sim_config` | `SimConfig`: `num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`, `max_mass_rate`, `target_extraction_pressure`, `bc_checkpoint_idx` | `src/tango/core/specs.py` |
 | `components.<name>` | `COMPONENT_REGISTRY[(type, variant)].from_dict(...)` | `src/tango/components/registry.py` |
 | `economic` | `COMPONENT_REGISTRY[("economic", type)]`, today `DoubletEconomicComponent` | `src/tango/components/registry.py`, `src/tango/components/economic/doublet.py` |
-| `title`, `description` | `Description` (optional) | `src/tango/core/specs.py` |
+| `title` | A plain string, kept on the `Workflow` | `src/tango/workflows/workflow.py` |
+| `description` | `Description` (optional) | `src/tango/core/specs.py` |
 
 The orchestrator follows from one key: if `sim_config.injection_mode` is set, the run uses `SystemBCIteration`; if it is absent, `SystemDirect` (one pass per timestep). Every config in `example_configs/` sets it.
 

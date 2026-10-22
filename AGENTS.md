@@ -16,7 +16,7 @@ Read before any change:
 | Entry points | `tango_cli` (`run`, `validate`, `init`), `tango.workflows.workflow.Workflow` |
 | Environment | `uv sync`; tasks in `justfile` |
 | Checks | `just check` = ruff format, ruff lint, mypy strict, pytest |
-| Code CI | GitHub Actions (`.github/workflows/ci.yml`): lint, mypy and `tests/unit/` only |
+| Code CI | GitHub Actions (`.github/workflows/ci.yml`): format check, lint, mypy, `tools/gen_reference.py --check`, and `tests/unit/` only |
 | Docs site | Zensical (`mkdocs.yml`); `just docs` serves it at <http://127.0.0.1:8000>, `just docs-build` writes `site/`, `just docs-internal` adds the internal pages; built on GitHub by `.github/workflows/docs.yml` |
 | Issue tracker | GitHub issues on `GEG-ETHZ/TANGO-core` |
 
