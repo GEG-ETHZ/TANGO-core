@@ -235,6 +235,76 @@ slurm *args:
         prev="$job"
     done
 
+# Works on Euler and on a laptop that rsynced the logs back. Never touches the log of a job that
+# squeue still lists. See `just slurm-clean --help`.
+# Delete old SLURM job logs (*.out/*.err), keeping each app's newest (`just slurm-clean --help` for options)
+[unix]
+slurm-clean *args:
+    #!/usr/bin/env sh
+    # -e: stop at the first command that fails. -u: an unset variable is an error.
+    set -eu
+    keep_newest=1
+    dry_run=""
+    partials=""
+    for arg in {{args}}; do
+        case "$arg" in
+            -h|--help)
+                echo "Usage: just slurm-clean [--all] [--partials] [--dry-run]"
+                echo ""
+                echo "Delete SLURM job logs (<app>_<jobid>.out/.err) in applications/<app>/ and"
+                echo "applications/_on_hold/<app>/. By default each app keeps its newest job's logs."
+                echo "Logs of jobs that squeue still lists (pending or running) are never deleted."
+                echo ""
+                echo "  --all       delete every app's logs, including the newest"
+                echo "  --partials  also delete each app's outputs/pareto_results_partial.csv and"
+                echo "              outputs/pareto_configs_partial/ (an interrupted run's progress), except"
+                echo "              for apps with a job still queued or running"
+                echo "  --dry-run   list what would be deleted, delete nothing"
+                exit 0 ;;
+            --all) keep_newest="" ;;
+            --partials) partials=1 ;;
+            -n|--dry-run) dry_run=1 ;;
+            *) echo "unknown option: $arg (see just slurm-clean --help)"; exit 1 ;;
+        esac
+    done
+    # Jobs that are still pending or running, and their apps (job name tango_<app>);
+    # squeue only exists on Euler.
+    active=" "
+    active_apps=" "
+    if command -v squeue >/dev/null 2>&1; then
+        active=" $(squeue -h -u "$USER" -o %i | tr '\n' ' ') "
+        active_apps=" $(squeue -h -u "$USER" -o %j | sed 's/^tango_//' | tr '\n' ' ') "
+    fi
+    n=0
+    for dir in applications/*/ applications/_on_hold/*/; do
+        [ -d "$dir" ] || continue
+        # Job IDs from <app>_<jobid>.out/.err, newest (largest) last.
+        ids=$(ls "$dir" | sed -n -E 's/.*_([0-9]+)\.(out|err)$/\1/p' | sort -un)
+        [ -n "$ids" ] || continue
+        newest=$(printf '%s\n' "$ids" | tail -n 1)
+        for id in $ids; do
+            if [ -n "$keep_newest" ] && [ "$id" = "$newest" ]; then continue; fi
+            case "$active" in *" $id "*) echo "keeping $dir*_$id.* (job $id is still queued or running)"; continue ;; esac
+            for f in "$dir"*_"$id".out "$dir"*_"$id".err; do
+                [ -e "$f" ] || continue
+                if [ -n "$dry_run" ]; then echo "would delete $f"; else rm -- "$f"; fi
+                n=$((n + 1))
+            done
+        done
+    done
+    if [ -n "$partials" ]; then
+        for dir in applications/*/ applications/_on_hold/*/; do
+            app=$(basename "$dir")
+            case "$active_apps" in *" $app "*) echo "keeping $app's partial outputs (it has a job queued or running)"; continue ;; esac
+            for f in "${dir}outputs/pareto_results_partial.csv" "${dir}outputs/pareto_configs_partial"; do
+                [ -e "$f" ] || continue
+                if [ -n "$dry_run" ]; then echo "would delete $f"; else rm -r -- "$f"; fi
+                n=$((n + 1))
+            done
+        done
+    fi
+    if [ -n "$dry_run" ]; then echo "$n files would be deleted"; else echo "deleted $n files"; fi
+
 [windows]
 apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
