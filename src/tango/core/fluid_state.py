@@ -170,6 +170,22 @@ class FluidState:
         return self._state.cpmass()
 
     @property
+    def T_critical(self) -> float:
+        """Critical temperature (K) of the fluid."""
+        return self._state.T_critical()
+
+    def saturation_pressure(self, T: float) -> float:
+        """Saturation (bubble-point) pressure (Pa) at temperature ``T``, below the critical temperature."""
+        sat = CoolProp.AbstractState(self.backend, self.fluid_name)
+        try:
+            sat.update(CoolProp.QT_INPUTS, 0.0, T)
+        except ValueError as exc:
+            raise CoolPropError(
+                f"saturation pressure lookup failed for {self.fluid_name} at T={T} K",
+            ) from exc
+        return sat.p()
+
+    @property
     def is_two_phase(self) -> bool:
         """Whether the state lies inside the vapor-liquid dome (0 < quality < 1)."""
         return self._state.phase() == CoolProp.iphase_twophase

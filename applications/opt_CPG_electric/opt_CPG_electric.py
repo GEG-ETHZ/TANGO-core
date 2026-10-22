@@ -104,10 +104,12 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
     "surface_pipe_diameter_m": (0.2, 0.75),
-    # Lower bound: the pressure at which 1 K subcooled CO2 reaches the site's
-    # cooling limit (lower fails CoolingLimitError). Upper bound stays below
-    # CO2's 7.38 MPa critical pressure.
-    "condensing_pressure_MPa": (6.15, 7.0),
+    # Lower bound: the pressure at which 3 K subcooled CO2 (the config's
+    # subcooling_K, set so the condensate entering the injection well keeps a
+    # 5% margin to saturation) reaches the site's cooling limit (lower fails
+    # CoolingLimitError). Upper bound stays below CO2's 7.38 MPa critical
+    # pressure.
+    "condensing_pressure_MPa": (6.44, 7.0),
 }
 
 

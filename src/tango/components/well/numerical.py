@@ -468,6 +468,41 @@ class NumericalWell(WellComponent):
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
         return relative_roughness, cross_sectional_area, t_scaling_factor, T_r
 
+    def _check_saturation_margin(
+        self,
+        state: FluidState,
+        node: int,
+        n: int,
+        dz: float,
+        P_inlet: float,
+        mdot: float,
+    ) -> None:
+        """Raise ``SaturationError`` if a node's state is two-phase or near saturation.
+
+        "Near" is within ``common.saturation_margin`` (a fraction of the
+        saturation pressure at the node's temperature) on either side.
+        Above the critical temperature there's no saturation pressure, so
+        only the two-phase test applies.
+        """
+        margin = self.common.saturation_margin
+        where = (
+            f"well component_idx={self.component_idx}: {node * dz:.0f} m along the well "
+            f"(node {node} of {n}), P={state.P / 1e5:.2f} bar, T={state.T - 273.15:.1f} degC, "
+            f"from {P_inlet / 1e5:.2f} bar at its inlet, at {mdot:.2f} kg/s"
+        )
+        if state.is_two_phase:
+            raise SaturationError(
+                f"{where}: the fluid is two-phase. The well model assumes single-phase flow.",
+            )
+        if margin <= 0.0 or state.T_critical <= state.T:
+            return
+        p_sat = state.saturation_pressure(state.T)
+        if abs(state.P - p_sat) < margin * p_sat:
+            raise SaturationError(
+                f"{where}: within {margin:.0%} of the saturation pressure ({p_sat / 1e5:.2f} bar at this "
+                "temperature; common.saturation_margin). The well model assumes single-phase flow.",
+            )
+
     def _march(
         self,
         h_in: float,
@@ -510,6 +545,7 @@ class NumericalWell(WellComponent):
         u = np.zeros(n + 1)
 
         inlet_state = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
+        self._check_saturation_margin(inlet_state, 0, n, self.cell_length, inlet_state.P, mdot)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
@@ -553,13 +589,7 @@ class NumericalWell(WellComponent):
                     "pressure than the inlet provides.",
                 )
             cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i], self.common.coolprop_backend)
-            if cell_state.is_two_phase:
-                raise SaturationError(
-                    f"well component_idx={self.component_idx}: fluid boils {i * dz:.0f} m along the well "
-                    f"(cell {i} of {n}): P={P[i] / 1e5:.2f} bar, T={cell_state.T - 273.15:.1f} degC, "
-                    f"from {P[0] / 1e5:.2f} bar at its inlet, at {mdot:.2f} kg/s. The well model "
-                    "assumes single-phase flow.",
-                )
+            self._check_saturation_margin(cell_state, i, n, dz, P[0], mdot)
             rho[i] = cell_state.rho
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T

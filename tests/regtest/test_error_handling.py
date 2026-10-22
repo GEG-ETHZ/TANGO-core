@@ -49,7 +49,7 @@ class SaturationFailure(ErrorCase):
 FAIL_CASES: list[ErrorCase] = [
     SaturationFailure(
         yml="flexible_SF_negativePressure.yml",
-        error_message=re.escape("fluid boils"),
+        error_message=re.escape("the fluid is two-phase"),
         notes=(
             "The production well's pressure falls through the produced fluid's saturation "
             "pressure on the way up; the well march stops there with SaturationError instead "
