@@ -28,7 +28,8 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   `TODO(docs): drafted, review.` until reviewed.
 - **Glossary** (`docs/guides/glossary.md`) and an **internal docs preview**
   (`mkdocs.internal.yml`, `just docs-internal`) that adds the task log,
-  roadmap and archive; the internal build is never deployed.
+  roadmap, and archive; until the public release, the org-private Pages
+  site deploys this build.
 - **`AGENTS.md`** at the root, in `docs/` and in `src/tango/components/`;
   `CLAUDE.md` and `GEMINI.md` point to it.
 - **Project files** — `SECURITY.md` (private vulnerability reporting on

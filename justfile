@@ -188,7 +188,7 @@ docs:
 docs-build:
     uv run --group docs zensical build --clean
 
-# Preview the internal docs (adds the task log, roadmap and archive); never deploy this build
+# Preview the internal docs (adds the task log, roadmap, and archive), the build docs.yml deploys
 docs-internal:
     uv run --group docs zensical serve -f mkdocs.internal.yml
 
