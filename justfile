@@ -274,6 +274,71 @@ slurm *args:
         prev="$job"
     done
 
+# Run on your laptop, from the checkout to sync into. Euler host and repo default to `euler` and
+# ~/tango-core; override with TANGO_EULER_HOST / TANGO_EULER_DIR. See `just slurm-fetch --help`.
+# Copy finished Euler results (outputs, logs, dvc.lock, DVC cache) back here (`just slurm-fetch --help` for options)
+[unix]
+slurm-fetch *args:
+    #!/usr/bin/env sh
+    # -e: stop at the first command that fails. -u: an unset variable is an error.
+    set -eu
+    host="${TANGO_EULER_HOST:-euler}"
+    remote="${TANGO_EULER_DIR:-tango-core}"
+    dry=""
+    push=""
+    apps=""
+    for arg in {{args}}; do
+        case "$arg" in
+            -h|--help)
+                echo "Usage: just slurm-fetch [--dry-run] [--push] [app ...]"
+                echo ""
+                echo "Copy each app's outputs/, job logs (*.out/*.err), and dvc.lock from the Euler checkout"
+                echo "($host:$remote) into this checkout, then Euler's DVC cache, which \`dvc push\` needs."
+                echo "Each app's files are mirrored (--delete), so a file removed on Euler is removed here."
+                echo "The DVC cache is only added to, never pruned."
+                echo ""
+                echo "  app ...     apps to fetch (default: every app under applications/ that has a *_job.sh)"
+                echo "  --dry-run   show what would change, change nothing"
+                echo "  --push      run \`uv run dvc push\` afterwards"
+                echo ""
+                echo "Refuses if any requested app still has a job queued or running on Euler (squeue lists"
+                echo "tango_<app>): its outputs would be half-written. Override the host or repo path with"
+                echo "TANGO_EULER_HOST / TANGO_EULER_DIR."
+                exit 0 ;;
+            -n|--dry-run) dry="-n" ;;
+            --push) push=1 ;;
+            -*) echo "unknown option: $arg (see just slurm-fetch --help)"; exit 1 ;;
+            *) apps="$apps $arg" ;;
+        esac
+    done
+    if command -v sbatch >/dev/null 2>&1; then echo "Run this on your laptop, not on Euler."; exit 1; fi
+    if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        [ -d "applications/$a" ] || { echo "no such app: applications/$a"; exit 1; }
+    done
+    queued=" $(ssh "$host" 'squeue -h -u "$USER" -o %j' | tr '\n' ' ') "
+    busy=""
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        case "$queued" in *" tango_$a "*) busy="$busy $a" ;; esac
+    done
+    if [ -n "$busy" ]; then
+        echo "Still queued or running on $host:$busy"
+        echo "Nothing fetched. Wait for those jobs to finish, or leave those apps out."
+        exit 1
+    fi
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        echo "== $a"
+        rsync -a $dry --itemize-changes --delete \
+            --include='outputs/***' --include='*.out' --include='*.err' --include='dvc.lock' --exclude='*' \
+            "$host:$remote/applications/$a/" "applications/$a/"
+    done
+    echo "== DVC cache"
+    rsync -a $dry "$host:$remote/.dvc/cache/" ".dvc/cache/"
+    if [ -n "$push" ] && [ -z "$dry" ]; then uv run dvc push; fi
+
 # Works on Euler and on a laptop that rsynced the logs back. Never touches the log of a job that
 # squeue still lists. See `just slurm-clean --help`.
 # Delete old SLURM job logs (*.out/*.err), keeping each app's newest (`just slurm-clean --help` for options)
