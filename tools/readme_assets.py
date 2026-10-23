@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "assets"
 FONT = "Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif"
 
-HEADLINE = "Techno-economic simulation of geothermal energy systems"
+HEADLINE = "Techno-economic ANalysis of Geoenergy Operations"
 SUPPORT_1 = "Reservoir, wells and surface plant coupled in one modular simulator, solved"
 SUPPORT_2 = "over the project's lifetime, with the levelized cost of electricity or heat."
 
@@ -102,7 +102,7 @@ BANNER_W, BANNER_H = 1200, 340
 
 def banner(p: Palette) -> str:
     """The wordmark in the cold-to-hot gradient, the headline, and the loop mark."""
-    aria = f"TANGO, Techno-economic ANalysis of Geoenergy Operations. {HEADLINE}. {SUPPORT_1} {SUPPORT_2}"
+    aria = f"TANGO, {HEADLINE}. {SUPPORT_1} {SUPPORT_2}"
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{BANNER_W}" height="{BANNER_H}" viewBox="0 0 {BANNER_W} {BANNER_H}" role="img" aria-label="{escape(aria, {chr(34): "&quot;"})}">
   <title>TANGO</title>
   <defs>
@@ -112,11 +112,10 @@ def banner(p: Palette) -> str:
   <rect width="{BANNER_W}" height="{BANNER_H}" fill="{p.paper}"/>
   <rect y="{BANNER_H - 1}" width="{BANNER_W}" height="1" fill="{p.hair}"/>
   <g font-family="{FONT}">
-    {text(70, 82, "TECHNO-ECONOMIC ANALYSIS OF GEOENERGY OPERATIONS", 14, p.grey, 600, 2.2)}
-    <text x="66" y="176" font-size="96" font-weight="800" letter-spacing="-3.6" fill="url(#word-{p.name})">TANGO</text>
-    {text(72, 226, HEADLINE, 21, p.ink, 600, -0.3)}
-    {text(72, 260, SUPPORT_1, 16.5, p.grey)}
-    {text(72, 285, SUPPORT_2, 16.5, p.grey)}
+    <text x="66" y="151" font-size="96" font-weight="800" letter-spacing="-3.6" fill="url(#word-{p.name})">TANGO</text>
+    {text(72, 201, HEADLINE, 21, p.ink, 600, -0.3)}
+    {text(72, 235, SUPPORT_1, 16.5, p.grey)}
+    {text(72, 260, SUPPORT_2, 16.5, p.grey)}
   </g>
   {mark(p, 900, 48, 1.1)}
 </svg>

@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
-  <img alt="TANGO, Techno-economic ANalysis of Geoenergy Operations. Techno-economic simulation of geothermal energy systems. Reservoir, wells and surface plant coupled in one modular simulator, solved over the project's lifetime, with the levelized cost of electricity or heat." src="docs/assets/banner-light.svg">
+  <img alt="TANGO, Techno-economic ANalysis of Geoenergy Operations. Reservoir, wells and surface plant coupled in one modular simulator, solved over the project's lifetime, with the levelized cost of electricity or heat." src="docs/assets/banner-light.svg">
 </picture>
 
 [![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml)
