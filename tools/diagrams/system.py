@@ -33,7 +33,21 @@ WORDMARK = (
 )
 
 
-def box(d: Doc, x, y, w, h, title, sub, fill, stroke, sw=1.0, mono_sub=True, dashed=False, tab=False):
+def box(
+    d: Doc,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    title: str,
+    sub: str,
+    fill: str,
+    stroke: str,
+    sw: float = 1.0,
+    mono_sub: bool = True,
+    dashed: bool = False,
+    tab: bool = False,
+) -> None:
     """A labelled container; the label sits in its top-left corner, under the gradient tab if it has one."""
     d.rect(x, y, w, h, fill=fill, stroke=stroke, sw=sw, r=16, dashed=dashed)
     if tab:

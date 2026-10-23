@@ -7,6 +7,7 @@ result stays editable in draw.io. Text wider than the box it was given is report
 
 import base64
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
@@ -25,6 +26,8 @@ ROLE = {
     "status": ("#3C4043", "#FFFFFF", "#3C4043"),
     "grey": ("#9AA0A6", "#FFFFFF", "#5F6368"),
 }
+#: A canvas point (x, y) in pixels.
+Point = tuple[float, float]
 
 
 def style(**kw: object) -> str:
@@ -37,9 +40,10 @@ def style(**kw: object) -> str:
 class Doc:
     """One draw.io page of ``w`` x ``h`` pixels; cells are appended in drawing order."""
 
-    def __init__(self, w: int, h: int) -> None:
+    def __init__(self, w: float, h: float) -> None:
         """Start an empty page; set ``crop`` to cut that many pixels from the top at export."""
-        self.w, self.h, self.cells, self.n = w, h, [], 1
+        self.w, self.h, self.n = w, h, 1
+        self.cells: list[str] = []
         self.crop = 0  # pixels cut from the top at export: every y is shifted up by this
         self.warnings: list[str] = []
 
@@ -47,9 +51,22 @@ class Doc:
         self.n += 1
         return f"c{self.n}"
 
-    def rect(self, x, y, w, h, fill=BG, stroke=HAIR, sw=1, r=12, dashed=False, label="", **kw):
+    def rect(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        fill: str = BG,
+        stroke: str = HAIR,
+        sw: float = 1,
+        r: float = 12,
+        dashed: bool = False,
+        label: str = "",
+        **kw: object,
+    ) -> str:
         """A rounded rectangle, optionally dashed and labelled; extra keywords go into the style."""
-        st = {
+        st: dict[str, object] = {
             "rounded": 1 if r else 0,
             "absoluteArcSize": 1,
             "arcSize": r * 2,
@@ -62,25 +79,35 @@ class Doc:
         st.update(kw)
         return self._vertex(x, y, w, h, label, style(**st))
 
-    def tile(self, x, y, w, h, fill=BG, stroke=HAIR, sw=1, r=12):
+    def tile(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        fill: str = BG,
+        stroke: str = HAIR,
+        sw: float = 1,
+        r: float = 12,
+    ) -> str:
         """A card with a soft shadow, the hero's building block."""
         return self.rect(x, y, w, h, fill=fill, stroke=stroke, sw=sw, r=r, shadow=1)
 
     def text(
         self,
-        x,
-        y,
-        s,
-        size=14,
-        color=INK,
-        bold=False,
-        align="left",
-        w=None,
-        h=None,
-        mono=False,
-        valign="middle",
-        **kw,
-    ):
+        x: float,
+        y: float,
+        s: str,
+        size: float = 14,
+        color: str = INK,
+        bold: bool = False,
+        align: str = "left",
+        w: float | None = None,
+        h: float | None = None,
+        mono: bool = False,
+        valign: str = "middle",
+        **kw: object,
+    ) -> str:
         """A text block; width and height default to an estimate from the text.
 
         A given width is checked: text estimated to be wider than it is reported at export.
@@ -94,7 +121,7 @@ class Doc:
                 )
         w = w if w is not None else max(20, len(s.split("\n")[0]) * size * 0.62)
         h = h if h is not None else size * 1.4 * (s.count("\n") + 1)
-        st = {
+        st: dict[str, object] = {
             "strokeColor": "none",
             "fillColor": "none",
             "align": align,
@@ -109,7 +136,19 @@ class Doc:
         st.update(kw)
         return self._vertex(x, y, w, h, s, "text;" + style(**st))
 
-    def chip(self, x, y, s, role="neutral", planned=False, size=12, h=24, pad=11, w=None, dashed=False):
+    def chip(
+        self,
+        x: float,
+        y: float,
+        s: str,
+        role: str = "neutral",
+        planned: bool = False,
+        size: float = 12,
+        h: float = 24,
+        pad: float = 11,
+        w: float | None = None,
+        dashed: bool = False,
+    ) -> float:
         """A pill-shaped chip in a role's colors.
 
         ``dashed`` keeps the role's stroke and text on a white fill with a dashed border: something
@@ -138,7 +177,7 @@ class Doc:
         )
         return w
 
-    def badge(self, x, y, size, label):
+    def badge(self, x: float, y: float, size: float, label: str) -> str:
         """A numbered circle filled with the wordmark's cold-to-hot gradient, the number in white."""
         st = "ellipse;" + style(
             fillColor=GRADIENT[0],
@@ -153,7 +192,7 @@ class Doc:
         )
         return self._vertex(x, y, size, size, label, st)
 
-    def tab(self, x, y, w, r=16, h=14, fill=BG):
+    def tab(self, x: float, y: float, w: float, r: float = 16, h: float = 14, fill: str = BG) -> str:
         """A gradient tab across the top of a box of corner radius ``r``: one shape with rounded top corners
         and a flat bottom ``h`` pixels below the top edge, so it sits flush on the box like a browser tab.
         """
@@ -167,7 +206,16 @@ class Doc:
         )
         return self.svg_image(x, y, w, h, svg)
 
-    def gradient_arrow(self, x, y, length, direction="up", thickness=22, shaft=6, colors=GRADIENT):
+    def gradient_arrow(
+        self,
+        x: float,
+        y: float,
+        length: float,
+        direction: str = "up",
+        thickness: float = 22,
+        shaft: float = 6,
+        colors: tuple[str, str] = GRADIENT,
+    ) -> str:
         """An arrow as one filled shape in a two-stop gradient (the wordmark's by default), since draw.io
         cannot put a gradient on a stroke. ``direction`` is ``up``, ``down`` or ``right``; (x, y) is the
         top-left of its box.
@@ -197,7 +245,7 @@ class Doc:
         )
         return self.svg_image(x, y, w, h, svg)
 
-    def doc(self, x, y, w, h, label):
+    def doc(self, x: float, y: float, w: float, h: float, label: str) -> str:
         """A small file icon with a folded corner, labelled with its extension."""
         st = "shape=note;size=7;" + style(
             fillColor="#FFFFFF",
@@ -210,13 +258,22 @@ class Doc:
         )
         return self._vertex(x, y, w, h, label, st)
 
-    def image(self, x, y, w, h, path: Path, mime="image/jpeg", stroke="none"):
+    def image(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        path: Path,
+        mime: str = "image/jpeg",
+        stroke: str = "none",
+    ) -> str:
         """An embedded raster image."""
         data = base64.b64encode(path.read_bytes()).decode()
         st = f"shape=image;verticalLabelPosition=bottom;aspect=fixed;imageAspect=0;image=data:{mime},{data};imageBorder={stroke};"
         return self._vertex(x, y, w, h, "", st)
 
-    def svg_image(self, x, y, w, h, svg: str):
+    def svg_image(self, x: float, y: float, w: float, h: float, svg: str) -> str:
         """An embedded vector image."""
         data = base64.b64encode(svg.encode()).decode()
         st = f"shape=image;aspect=fixed;imageAspect=0;image=data:image/svg+xml,{data};"
@@ -224,16 +281,16 @@ class Doc:
 
     def edge(
         self,
-        pts,
-        color=MUTED,
-        sw=2,
-        end="block",
-        start="none",
-        dashed=False,
-        label="",
-        rounded=True,
-        size=10,
-    ):
+        pts: Sequence[Point],
+        color: str = MUTED,
+        sw: float = 2,
+        end: str = "block",
+        start: str = "none",
+        dashed: bool = False,
+        label: str = "",
+        rounded: bool = True,
+        size: float = 10,
+    ) -> str:
         """A connector through ``pts``; the first and last point are its ends.
 
         Heads are plain filled triangles, never smaller than 9 px; strokes are never thinner than 2 px.
@@ -242,7 +299,7 @@ class Doc:
         start = "block" if start == "classic" else start
         sw, size = max(sw, 2), max(size, 9)
         cid = self._id()
-        dash = {"dashed": 1, "dashPattern": "4 3"} if dashed else {}
+        dash: dict[str, object] = {"dashed": 1, "dashPattern": "4 3"} if dashed else {}
         st = style(
             endArrow=end,
             startArrow=start,
@@ -258,9 +315,9 @@ class Doc:
             fontColor=MUTED,
             **dash,
         )
-        pts = [(x, y - self.crop) for x, y in pts]
-        (sx, sy), (tx, ty) = pts[0], pts[-1]
-        mids = "".join(f'<mxPoint x="{x}" y="{y}"/>' for x, y in pts[1:-1])
+        shifted = [(x, y - self.crop) for x, y in pts]
+        (sx, sy), (tx, ty) = shifted[0], shifted[-1]
+        mids = "".join(f'<mxPoint x="{x}" y="{y}"/>' for x, y in shifted[1:-1])
         arr = f'<Array as="points">{mids}</Array>' if mids else ""
         self.cells.append(
             f'<mxCell id="{cid}" value={quoteattr(label)} style={quoteattr(st)} edge="1" parent="1">'
@@ -269,7 +326,7 @@ class Doc:
         )
         return cid
 
-    def curve(self, src, dst, color=MUTED, sw=2, size=9):
+    def curve(self, src: Point, dst: Point, color: str = MUTED, sw: float = 2, size: float = 9) -> str:
         """A smooth S-shaped connector from ``src`` to ``dst`` that leaves and enters sideways."""
         cid = self._id()
         st = style(
@@ -291,7 +348,7 @@ class Doc:
         )
         return cid
 
-    def _vertex(self, x, y, w, h, label, st):
+    def _vertex(self, x: float, y: float, w: float, h: float, label: str, st: str) -> str:
         cid = self._id()
         self.cells.append(
             f'<mxCell id="{cid}" value={quoteattr(label)} style={quoteattr(st)} vertex="1" parent="1">'
@@ -311,7 +368,7 @@ class Doc:
             f"</mxGraphModel></diagram></mxfile>"
         )
 
-    def frame(self):
+    def frame(self) -> None:
         """An invisible full-canvas rectangle so the export keeps uniform margins (set ``crop`` first)."""
         self._vertex(
             0,
@@ -323,7 +380,18 @@ class Doc:
         )
 
 
-def note(d: Doc, x, y, w, h, s, size=11, color=MUTED, dashed=True, align="center"):
+def note(
+    d: Doc,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    s: str,
+    size: float = 11,
+    color: str = MUTED,
+    dashed: bool = True,
+    align: str = "center",
+) -> None:
     """A dashed note box with wrapped text: something that is not in this repository."""
     d.rect(
         x,
@@ -344,6 +412,6 @@ def note(d: Doc, x, y, w, h, s, size=11, color=MUTED, dashed=True, align="center
     )
 
 
-def curve(d: Doc, src, dst, color=MUTED, sw=2, size=9):
+def curve(d: Doc, src: Point, dst: Point, color: str = MUTED, sw: float = 2, size: float = 9) -> str:
     """Module-level alias of ``Doc.curve`` for scripts that import it as a function."""
     return d.curve(src, dst, color=color, sw=sw, size=size)

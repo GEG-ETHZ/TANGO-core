@@ -22,8 +22,8 @@ def draw_key(
     s: float = 1.0,
     detail: bool = True,
     econ: bool = True,
-    variants: dict | None = None,
-) -> dict:
+    variants: dict[str, str] | None = None,
+) -> dict[str, float]:
     """Draw the pictogram at (x, y) and scale s; return the parts' y-centers, the stack and the economics frame.
 
     ``variants`` maps a part to the chip drawn inside its tile, for example ``{"well": "numerical"}``.

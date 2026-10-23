@@ -26,21 +26,21 @@ WORDMARK = (
 )
 
 
-def pill(x, y, w, h, name, desc, mono_name=True):
+def pill(x: float, y: float, w: float, h: float, name: str, desc: str, mono_name: bool = True) -> None:
     """A neutral module pill with its name and one description."""
     d.rect(x, y, w, h, fill="#FFFFFF", stroke=HAIR, sw=1, r=12)
     d.text(x + 16, y + 12, name, 15, INK, bold=True, mono=mono_name, w=w - 32, h=20)
     d.text(x + 16, y + 38, desc, 12, INK2, w=w - 32, h=16 * (desc.count("\n") + 1), valign="top")
 
 
-def outside(x, y, w, h, title, desc):
+def outside(x: float, y: float, w: float, h: float, title: str, desc: str) -> None:
     """A dashed box for something that is not part of TANGO."""
     d.rect(x, y, w, h, fill="#FFFFFF", stroke="#9AA0A6", sw=1.5, r=12, dashed=True)
     d.text(x + 16, y + 12, title, 15, INK, bold=True, w=w - 32, h=20)
     d.text(x + 16, y + 38, desc, 12, MUTED, w=w - 32, h=16 * (desc.count("\n") + 1), valign="top")
 
 
-def down(x, y0, y1, label=""):
+def down(x: float, y0: float, y1: float, label: str = "") -> None:
     """A gradient arrow straight down from y0 to y1, centered on x, with an optional label beside it."""
     d.gradient_arrow(x - AT / 2, y0, y1 - y0, direction="down", thickness=AT, shaft=AS)
     if label:
