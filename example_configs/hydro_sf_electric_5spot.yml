@@ -165,11 +165,3 @@ components:
     diameter: 0.410           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     num_cells: 100             # axial discretization resolution
-
-# TODO: migrate addons section
-# The old format had a top-level addons: block (ThermaGraph, Analyzer) that activated
-# optional post-processing tools. The original intent was for these to be separate
-# installable dependencies with a declared interface. That design was never cleanly
-# implemented. In tango, addons should be first-class composable components with
-# a defined ABC — not a stringly-typed activation flag. Needs a design decision before
-# migrating.

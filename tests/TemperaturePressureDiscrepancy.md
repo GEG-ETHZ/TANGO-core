@@ -1,7 +1,12 @@
-## Surface temperature and Pressure can be defined in two different places
+# Surface Temperature and Pressure Discrepancy
+
+Investigation note (2026-07-22): `surface_temperature` and `surface_pressure` can be set both in
+`common:` and in the surface component, and components can end up reading different values. This
+note records how the two sources are merged; follow-up work is tracked in `docs/tango_tasks.md`.
+
+## Surface temperature and pressure can be defined in two places
 In the input .yml files the user can define the surface temperature and pressure in the ``common:`` and ``components: surface: `` section
-```
-yaml
+```yaml
 common:
     surface_temperature: 300
     surface_pressure: 110000
@@ -13,8 +18,7 @@ components:
 ```
 In the code for building component objects
 
-```
-python
+```python
 def _build_components(
     components_block: dict[str, Any],
     common: dict[str, Any],
@@ -35,8 +39,7 @@ def _build_components(
 
 We take "surface_temperature" from the common block, and failing that the surface block. However later in build components we merge the "shared parameters" and the "own parameters" from the component block. The own parameters will take precedence and so the surface will take the surface_temperature defined in the component block but a production well will take the surface temperature defined in common.
 
-```
-python
+```python
 declared = set(cls.model_fields.keys())
 shared = {k: v for k, v in {**common, **layout_extras}.items() if k in declared}
 own = {k: v for k, v in comp_cfg.items() if k not in ("type", "unit")}

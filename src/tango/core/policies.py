@@ -29,13 +29,13 @@ class InjectionPolicy(enum.StrEnum):
     The policy is scoped to *injection control*, not just fracking prevention.
     A per-timestep ``MAX_NET_POWER`` variant fits the same per-timestep Newton-step
     mechanism as ``AUTO_*`` above: iterate mass flow rate and injection pressure
-    jointly to maximise ``gross_power - pump_parasitic_load`` *at this timestep*,
+    jointly to maximize ``gross_power - pump_parasitic_load`` *at this timestep*,
     stopping at the fracking limit only if it would otherwise be exceeded.
 
     A whole-horizon objective like ``MIN_LCOE`` is a different shape of problem and
     likely needs a different solver mechanism: LCOE depends on cumulative energy
     output and cost across every timestep, not on any single timestep in isolation,
-    so minimising it means wrapping the *entire* multi-timestep run in an outer
+    so minimizing it means wrapping the *entire* multi-timestep run in an outer
     constrained optimizer (closer to the whole-run ``pymoo``-based search the
     ``opt_*`` applications already use — see ``applications/opt_hydro_sf_electric/``
     — than to this enum's per-timestep Newton loop) — see vision doc §BC iteration mode
@@ -50,7 +50,7 @@ class InjectionPolicy(enum.StrEnum):
     **Single-pass vs. iterative:** ``MANUAL`` and ``MANUAL_FRACKING_CHECK`` execute
     one circuit pass per timestep and return.  ``AUTO_*`` variants drive an outer
     Newton-step convergence loop.  See ``SystemBCIteration.run_timestep`` and the
-    BC Iteration Solver diagram in ``docs/diagrams/src/``.
+    BC Iteration Solver diagram in ``docs/archive/diagrams/``.
     """
 
     def __new__(cls, value: str, doc: str = "") -> InjectionPolicy:

@@ -1,0 +1,30 @@
+/* Component identity colors, the same as in every diagram (docs/AGENTS.md). */
+:root {
+  --tango-well: #7D4FB0;      --tango-well-bg: #F3EDF9;
+  --tango-reservoir: #D2402C; --tango-reservoir-bg: #FBEAE7;
+  --tango-surface: #2F6FBF;   --tango-surface-bg: #E8F0FA;
+  --tango-economic: #007B83;  --tango-economic-bg: #E0F2F1;
+}
+[data-md-color-scheme="slate"] {
+  --tango-well: #B794E0;      --tango-well-bg: #241D2D;
+  --tango-reservoir: #F08A78; --tango-reservoir-bg: #2D1B18;
+  --tango-surface: #82AEEA;   --tango-surface-bg: #17212E;
+  --tango-economic: #4DB6AC;  --tango-economic-bg: #122725;
+}
+.tango-chip {
+  display: inline-block; padding: 0.1em 0.7em; border-radius: 1em;
+  border: 1.5px solid currentColor; font-family: var(--md-code-font-family);
+  font-size: 0.8em; font-weight: 600; vertical-align: middle;
+}
+.tango-chip.well      { color: var(--tango-well);      background: var(--tango-well-bg); }
+.tango-chip.reservoir { color: var(--tango-reservoir); background: var(--tango-reservoir-bg); }
+.tango-chip.surface   { color: var(--tango-surface);   background: var(--tango-surface-bg); }
+.tango-chip.economic  { color: var(--tango-economic);  background: var(--tango-economic-bg); }
+.md-typeset .tango-lede {
+  border-left: 4px solid var(--tango-accent, var(--md-default-fg-color--lighter));
+  padding-left: 0.8rem;
+}
+.tango-lede.well      { --tango-accent: var(--tango-well); }
+.tango-lede.reservoir { --tango-accent: var(--tango-reservoir); }
+.tango-lede.surface   { --tango-accent: var(--tango-surface); }
+.tango-lede.economic  { --tango-accent: var(--tango-economic); }

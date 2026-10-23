@@ -1,3 +1,6 @@
+"""Small helpers shared by the sweep and optimization scripts in applications/."""
+
+
 def print_datetime() -> None:
     """Print the current datetime (YYYY-MM-DD HH:MM:SS) on its own line."""
     from datetime import datetime

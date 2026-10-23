@@ -138,7 +138,7 @@ class Component(BaseModel, ABC, StateMethods):
     save_interval: int | None = Field(default=1, frozen=True)
     """Timestep interval at which ``record()`` appends state to history.
     ``None`` disables history recording entirely.  Default ``1`` records
-    every timestep (matches the original ``record_history=True`` behaviour).
+    every timestep (matches the original ``record_history=True`` behavior).
     """
 
     # ------------------------------------------------------------------

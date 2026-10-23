@@ -5,20 +5,16 @@ board(s). Read this before doing any "sync TANGO" work.
 
 ## Remotes
 
-- **GitHub** — `GEG-ETHZ/tango-core`
-  (`git@github.com:GEG-ETHZ/tango-core.git`). Formerly `GEG-ETHZ/TANGO`;
-  GitHub redirects the old name, so older clones with a `TANGO.git` remote
-  still work, but use `tango-core` in new references. Reachable via a
+- **GitHub** — `GEG-ETHZ/TANGO-core`
+  (`git@github.com:GEG-ETHZ/TANGO-core.git`) — the canonical repository
+  and the issue tracker: code, issues, pull requests, CI and releases.
+  Access it with `gh` (e.g. `gh issue list -R GEG-ETHZ/TANGO-core`) or a
   GitHub MCP server whose token is scoped to this repo (a token scoped to
-  other `GEG-ETHZ` repos returns 404 here — that's a token-scope problem,
+  other `GEG-ETHZ` repos returns 404 here — that is a token-scope problem,
   not a missing repo).
-- **GitLab** — `geg/tango-projects/tango-core`
-  (`git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`) — the
-  primary/authoritative issue tracker. Access it with `glab` (e.g.
-  `glab issue list -R geg/tango-projects/tango-core`). GitLab's native MCP
-  endpoint is not enabled on `gitlab.ethz.ch` as of 2026-09-23. A planned
-  consolidation of `docs/tango_tasks.md` and GitHub issues into GitLab
-  issues is tracked in GitLab issue #45.
+- **GitLab** — `geg/tango-projects/tango-core` on gitlab.ethz.ch — retired.
+  Do not file new issues there; any still-open GitLab issues are migrated
+  to GitHub issues.
 - A sibling repo, `geg/tango-projects/tango-super`
   (`git@gitlab.ethz.ch:geg/tango-projects/tango-super.git`, no GitHub
   remote), shares the same TANGO board presence — check it too when doing
@@ -44,8 +40,8 @@ board(s). Read this before doing any "sync TANGO" work.
   - Large: ~2000+ widgets across ~80 frames. Always scope reads/writes with
     `canvas_search` first — never attempt an unscoped full-board read.
   - "Start Here" doc (widget id `3458764684563145500`) holds the **Repos**
-    section — keep its GitHub/GitLab links identical to this repo's actual
-    remotes (above).
+    section — keep its repository link identical to this repo's actual
+    remote (above).
   - "Gantt Chart" frame (widget id `3458764585326789646`) — large, ~127
     items.
   - A timeline widget (id `3458764679176539081`) was set up as a
@@ -56,15 +52,14 @@ board(s). Read this before doing any "sync TANGO" work.
 
 ## What "sync" means here
 
-1. Pull open issues from both remotes for this repo (GitLab first/primary,
-   then GitHub).
+1. Pull open issues from GitHub (`GEG-ETHZ/TANGO-core`).
 2. Cross-reference against `docs/tango_tasks.md` and the vision doc's
    Phase 3 list — add anything missing; flag (don't silently drop) anything
    that looks stale or already closed.
 3. Cross-reference the same issues against the Miro board's Gantt/kanban
    content — add or update rows to match; always confirm with a board
    maintainer before deleting or removing rows.
-4. Keep the **Repos** section text (GitHub + GitLab links) identical
+4. Keep the **Repos** section text (the GitHub link) identical
    between the two places it appears: this repo's actual remotes, and the
    TANGO board's "Start Here" doc. These should never drift from each
    other.

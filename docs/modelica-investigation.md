@@ -1,4 +1,8 @@
-# Rumoca / Modelica investigation (2026-07-29)
+# Modelica Investigation (2026-07-29)
+
+**Investigation — not adopted.** A time-boxed spike on Rumoca and the Modelica
+Standard Library as a possible future modeling layer for TANGO.
+
 
 Quick, time-boxed spike to gauge whether [Rumoca](https://github.com/CogniPilot/rumoca)
 (a Rust-native Modelica compiler) is a promising path forward for TANGO, prompted by

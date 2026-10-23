@@ -754,7 +754,7 @@ ambiguity"** for the full history (all sub-items landed).
 
 Started 2026-07-22 out of a deep-dive into where `GraphSurface`'s TESPy
 network states are solved vs. imposed — see
-`docs/diagrams/src/graph_surface_state_provenance.drawio` (node-by-node
+`docs/archive/diagrams/graph_surface_state_provenance.drawio` (node-by-node
 breakdown for `flexible_SF_manual.yml`) and the vision doc's new
 "`GraphSurface`'s fixed `p_out` values" section (justification for why fixed
 flash/condensing pressure is a legitimate modeling choice, not a shortcut).
@@ -849,7 +849,7 @@ Open items, in order, before any build work starts:
 
 - **Open-source packaging — decision made 2026-09-23**, resolving the
   scoping question from this session's open-source packaging investigation
-  (2026-09-16, see `docs/tango_progress_summary_sep_2026.md`). Three
+  (2026-09-16, see `docs/archive/tango_progress_summary_sep_2026.md`). Three
   separate, independently-versioned pieces:
   - **`tango-utilities`** (working name — feedback welcome; risk of
     confusion with the `tango-core`/`tango` naming already used
@@ -1067,7 +1067,7 @@ Open items, in order, before any build work starts:
   reference example used throughout tango's design/porting work —
   simplest well-understood topology); in practice picked up against
   `hydro_df_electric` instead, using
-  `docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`
+  `docs/archive/diagrams/hydro_df_electric_exec_flow.drawio`
   as the map (built/corrected 2026-07-31 — fixed a mislabeled external-call
   node and added the previously-missing `Workflow.__init__` entry node).
   Goal: step through the full execution flow (`Workflow` →
@@ -1427,7 +1427,7 @@ detailed working record, just filed separately.
   else here, landing on the wrong side of this site's tight margin;
   `manual-fracking-check` has no self-correction to absorb it. Also added:
   a draw.io topology diagram
-  (`docs/diagrams/src/tango/hydro_orc_electric_topology.drawio` +
+  (`docs/archive/diagrams/hydro_orc_electric_topology.drawio` +
   rendered PNG). `docs/TANGO_vision_and_roadmap/README.md`'s AGS
   power-generation-sweep port can reuse this pattern directly — no new
   Python needed there either, only YAML composition.
@@ -2659,7 +2659,7 @@ verified, then this fix popped back in and re-checked).
   main-pass/T-loop/Pass-2 structure into one uniform loop with no
   special-casing. See the annotated diagram published this session for
   the full mechanism (linked from the warning box added to
-  `docs/diagrams/src/tango/hydro_df_electric_exec_flow.drawio`,
+  `docs/archive/diagrams/hydro_df_electric_exec_flow.drawio`,
   since that diagram's T-convergence section now describes the old
   mechanism).
 
@@ -2678,7 +2678,7 @@ verified, then this fix popped back in and re-checked).
   Artifact page. Now checked into the repo: `docs/tango_t_convergence.md`
   (renders natively on GitLab, embeds two SVGs via standard markdown image
   syntax), backed by an editable `.drawio` source
-  (`docs/diagrams/src/tango/t_convergence.drawio`, two pages —
+  (`docs/archive/diagrams/t_convergence.drawio`, two pages —
   "Circuit" and "Convergence loop") with matching exported SVGs under
   `docs/diagrams/img/tango/`. The warning box in
   `hydro_df_electric_exec_flow.drawio` now points at the new doc

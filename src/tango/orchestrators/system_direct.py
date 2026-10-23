@@ -36,7 +36,7 @@ class SystemDirect(Orchestrator):
         n_tsteps: int = 1,
         economic: EconomicComponent | None = None,
     ) -> None:
-        """Initialise, sorting components by component_idx for circuit order.
+        """Initialize, sorting components by component_idx for circuit order.
 
         Args:
             components: Named physical components keyed by YAML name.
@@ -150,8 +150,10 @@ class SystemDirect(Orchestrator):
         Called by ``run()`` after the ``for t in range(self.n_tsteps)`` loop
         finishes — not once per timestep like ``run_timestep()``, because
         CAPEX sizing and the LCOE denominator both read the physical
-        components' FINAL solved ``state`` (turbine/pump/HX power, net
-        power/thermal output), not a time-averaged history.
+        components' recorded ``history`` over the whole run (run-averaged
+        turbine/pump/HX duty and net power/thermal output; see
+        ``components/economic/doublet.py``), which is complete only after
+        the last timestep.
 
         The economic component has no ``inlet``/``outlet`` wiring to any
         other component, so it gets the whole ``components`` dict handed to

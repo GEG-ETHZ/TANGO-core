@@ -235,7 +235,7 @@ class SystemBCIteration(SystemDirect):
         max_mass_rate: float | None = None,
         economic: EconomicComponent | None = None,
     ) -> None:
-        """Initialise the base single-pass engine, then store BC-specific state.
+        """Initialize the base single-pass engine, then store BC-specific state.
 
         See the class docstring for the meaning of each argument.
 
