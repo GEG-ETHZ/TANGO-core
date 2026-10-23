@@ -1,8 +1,3 @@
----
-hide:
-  - navigation
----
-
 # TANGO
 
 **Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
