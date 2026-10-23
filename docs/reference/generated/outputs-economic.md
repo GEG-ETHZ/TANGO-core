@@ -2,14 +2,14 @@
 
 | Column | Meaning |
 |---|---|
-| `CAPEX_well` | Capital cost of all wells ($). *draft* |
-| `CAPEX_permitting` | Capital cost of permitting ($). *draft* |
-| `CAPEX_exploration` | Capital cost of exploration ($). *draft* |
-| `CAPEX_surface_pipes` | Capital cost of the surface piping between wells and plant ($). *draft* |
-| `CAPEX_surface_plant` | Capital cost of the surface-plant equipment ($). *draft* |
-| `CAPEX_total` | Sum of all CAPEX categories above ($). *draft* |
-| `net_power_W` | Run-averaged net electric power after parasitic loads (W). *draft* |
-| `net_thermal_W` | Run-averaged net thermal power (W). *draft* |
-| `LCOE` | Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined. *draft* |
+| `CAPEX_well` | Capital cost of the injection, horizontal, and production wells, divided by the drilling success probability ($); only the production well is charged for `BROWN_FIELD`. |
+| `CAPEX_permitting` | Capital cost of permitting ($). |
+| `CAPEX_exploration` | Capital cost of exploration ($). |
+| `CAPEX_surface_pipes` | Capital cost of the surface pipe between the two wellheads, one run of length `well_spacing` ($). |
+| `CAPEX_surface_plant` | Capital cost of the surface-plant equipment ($). |
+| `CAPEX_total` | Sum of all CAPEX categories above ($). |
+| `net_power_W` | Run-averaged net electric power after parasitic loads (W). |
+| `net_thermal_W` | Run-averaged net thermal power (W). |
+| `LCOE` | Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined. |
 | `specific_investment_cost` | CAPEX_total per unit of main-product power ($/kW) -- see `_compute_specific_investment_cost`. |
 | `OPEX` | Net annual O&M cost ($/yr) -- see `_compute_opex`. |

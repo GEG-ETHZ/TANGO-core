@@ -205,23 +205,24 @@ class EconomicState(StateMethods):
     """
 
     CAPEX_well: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Capital cost of all wells ($). TODO(docs): drafted, review."""
+    """Capital cost of the injection, horizontal, and production wells, divided by the drilling
+    success probability ($); only the production well is charged for ``BROWN_FIELD``."""
     CAPEX_permitting: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Capital cost of permitting ($). TODO(docs): drafted, review."""
+    """Capital cost of permitting ($)."""
     CAPEX_exploration: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Capital cost of exploration ($). TODO(docs): drafted, review."""
+    """Capital cost of exploration ($)."""
     CAPEX_surface_pipes: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Capital cost of the surface piping between wells and plant ($). TODO(docs): drafted, review."""
+    """Capital cost of the surface pipe between the two wellheads, one run of length ``well_spacing`` ($)."""
     CAPEX_surface_plant: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Capital cost of the surface-plant equipment ($). TODO(docs): drafted, review."""
+    """Capital cost of the surface-plant equipment ($)."""
     CAPEX_total: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Sum of all CAPEX categories above ($). TODO(docs): drafted, review."""
+    """Sum of all CAPEX categories above ($)."""
     net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Run-averaged net electric power after parasitic loads (W). TODO(docs): drafted, review."""
+    """Run-averaged net electric power after parasitic loads (W)."""
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
-    """Run-averaged net thermal power (W). TODO(docs): drafted, review."""
+    """Run-averaged net thermal power (W)."""
     LCOE: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
-    """Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined. TODO(docs): drafted, review."""
+    """Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined."""
     specific_investment_cost: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
     """CAPEX_total per unit of main-product power ($/kW) -- see ``_compute_specific_investment_cost``."""
     OPEX: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))  # noqa: N815
@@ -253,7 +254,7 @@ class DoubletEconomicComponent(EconomicComponent):
     one section). GenGEO's default cost basis."""
 
     state: EconomicState = Field(default_factory=EconomicState)
-    """Final economic results, computed once after the last timestep. TODO(docs): drafted, review."""
+    """Final economic results, computed once after the last timestep."""
 
     def solve(self, inlet: Stream) -> None:  # noqa: ARG002
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).
@@ -648,7 +649,7 @@ class DoubletEconomicComponent(EconomicComponent):
         """Run-averaged net electric/thermal power (W) — see module docstring.
 
         Net electric power is ``turbine + surface_pump -
-        (cooling_parasitic + condensing_parasitic) +
+        (cooling_parasitic + condensing_parasitic) -
         production_downhole_pump``. The first term is already correctly
         netted in ``GraphSurface.history.net_power_W`` (a per-timestep sum
         of signed node contributions — turbines positive, surface pumps
