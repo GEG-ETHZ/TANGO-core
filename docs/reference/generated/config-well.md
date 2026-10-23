@@ -14,10 +14,10 @@
 | `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
 | `angle_from_vert_deg` | `float` | `0.0` | 0 = straight down (injection), 180 = straight up (production), 90 = horizontal. Values in between describe a deviated well. |
 | `num_cells` | `int` | required | Axial discretization cell count. Left unset in YAML, it is derived from `well_length` by the `_default_num_cells` validator below to match `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring for the rationale. Set explicitly only to override that default, e.g. for a mesh-convergence sweep (`applications/demo_well_mesh_convergence/`). |
-| `wellhead_depth` | `float` | `0.0` | Vertical depth at which the well segment starts (m); 0 for a well that starts at the surface. *draft* |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on gravitational acceleration in the momentum balance (dimensionless). *draft* |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. *draft* |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. *draft* |
+| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
+| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -49,10 +49,10 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
 | `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
 | `num_cells` | `int` | required | Axial discretization cell count. Left unset in YAML, it is derived from `well_length` by the `_default_num_cells` validator below to match `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring for the rationale. Set explicitly only to override that default, e.g. for a mesh-convergence sweep (`applications/demo_well_mesh_convergence/`). |
-| `wellhead_depth` | `float` | `0.0` | Vertical depth at which the well segment starts (m); 0 for a well that starts at the surface. *draft* |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on gravitational acceleration in the momentum balance (dimensionless). *draft* |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. *draft* |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. *draft* |
+| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
+| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -84,10 +84,10 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
 | `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
 | `num_cells` | `int` | required | Axial discretization cell count. Left unset in YAML, it is derived from `well_length` by the `_default_num_cells` validator below to match `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring for the rationale. Set explicitly only to override that default, e.g. for a mesh-convergence sweep (`applications/demo_well_mesh_convergence/`). |
-| `wellhead_depth` | `float` | `0.0` | Vertical depth at which the well segment starts (m); 0 for a well that starts at the surface. *draft* |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on gravitational acceleration in the momentum balance (dimensionless). *draft* |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. *draft* |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. *draft* |
+| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
+| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -120,9 +120,9 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
 | `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
 | `num_cells` | `int` | required | Axial discretization cell count. Left unset in YAML, it is derived from `well_length` by the `_default_num_cells` validator below to match `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring for the rationale. Set explicitly only to override that default, e.g. for a mesh-convergence sweep (`applications/demo_well_mesh_convergence/`). |
-| `wellhead_depth` | `float` | `0.0` | Vertical depth at which the well segment starts (m); 0 for a well that starts at the surface. *draft* |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on gravitational acceleration in the momentum balance (dimensionless). *draft* |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. *draft* |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. *draft* |
+| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
+| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.

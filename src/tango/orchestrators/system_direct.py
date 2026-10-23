@@ -153,7 +153,7 @@ class SystemDirect(Orchestrator):
         components' recorded ``history`` over the whole run (run-averaged
         turbine/pump/HX duty and net power/thermal output; see
         ``components/economic/doublet.py``), which is complete only after
-        the last timestep. TODO(docs): reworded to match doublet.py, review.
+        the last timestep.
 
         The economic component has no ``inlet``/``outlet`` wiring to any
         other component, so it gets the whole ``components`` dict handed to

@@ -4,12 +4,12 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). *draft* |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). *draft* |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). *draft* |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. *draft* |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
+| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
+| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
+| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
+| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
+| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
 
 ### `injection_well` · `lumped` → `LumpedInjectionWell`
@@ -33,12 +33,12 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). *draft* |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). *draft* |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). *draft* |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. *draft* |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
+| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
+| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
+| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
+| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
+| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
 
 ### `production_well` · `lumped` → `LumpedProductionWell`
@@ -62,12 +62,12 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). *draft* |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). *draft* |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). *draft* |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. *draft* |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
+| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
+| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
+| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
+| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
+| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
 
 ### `production_well_with_pump` · `lumped` → `LumpedProductionWellWithPump`
@@ -93,10 +93,10 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). *draft* |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). *draft* |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). *draft* |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. *draft* |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
+| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
+| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
+| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
+| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
+| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
