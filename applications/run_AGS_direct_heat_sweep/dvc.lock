@@ -29,7 +29,7 @@ stages:
       size: 10876
     - path: ../../src/tango.hash
       hash: md5
-      md5: 2724fd81e322b8b07ccf52529198c024
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: common.py
       hash: md5
@@ -111,6 +111,6 @@ stages:
     deps:
     - path: outputs/results
       hash: md5
-      md5: 665d67e5776ce9cf3e3f34bdef87e3ff.dir
-      size: 9909673
-      nfiles: 13320
+      md5: 05840807021dbfc8532a0c73b19fd73e.dir
+      size: 8668252
+      nfiles: 12870

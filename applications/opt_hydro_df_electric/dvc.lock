@@ -5,11 +5,11 @@ stages:
     deps:
     - path: ../../example_configs/hydro_df_electric.yml
       hash: md5
-      md5: ccd03c211d870d7a2953733541f8b092
-      size: 11250
+      md5: 67d2235a7fae58795eb150162e629e22
+      size: 11252
     - path: ../../src/tango.hash
       hash: md5
-      md5: 861fb9903842fcd4080b7e0ed0af99fd
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: opt_hydro_df_electric.py
       hash: md5
@@ -32,14 +32,14 @@ stages:
       nfiles: 45
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 66b4f5237c2ba93af538bf23ac287b6a
-      size: 12341
+      md5: e759e71dc31cf4510935809b69edd00f
+      size: 12339
   plot:
     cmd: python opt_hydro_df_electric.py --plot-only
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 861fb9903842fcd4080b7e0ed0af99fd
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: opt_hydro_df_electric.py
       hash: md5
@@ -47,13 +47,13 @@ stages:
       size: 13422
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 66b4f5237c2ba93af538bf23ac287b6a
-      size: 12341
+      md5: e759e71dc31cf4510935809b69edd00f
+      size: 12339
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: a81744b561ce6de9bd6d4ff5bc3e5d38
-      size: 4580901
+      md5: 81eee91638daeb1299a02894576e376c
+      size: 4580889
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
       md5: dfc54c67b2f8e3ca3999ac22b8c0e55b
