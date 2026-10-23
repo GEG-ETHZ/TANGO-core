@@ -230,6 +230,9 @@ slurm *args:
                 echo ""
                 echo "Refuses to submit if the uv environment is out of date (compute nodes have no"
                 echo "internet, so jobs can't sync it); run \`just setup\` first in that case."
+                echo ""
+                echo "Also refuses if any requested app already has a job queued or running (squeue lists"
+                echo "tango_<app>): two jobs for one app share this checkout and collide on DVC's locks."
                 exit 0 ;;
             --parallel) parallel=1 ;;
             -*) echo "unknown option: $arg (see just slurm --help)"; exit 1 ;;
@@ -246,6 +249,21 @@ slurm *args:
         a="${a%/}"; a="${a##*/}"
         [ -f "applications/$a/${a}_job.sh" ] || { echo "no job script: applications/$a/${a}_job.sh"; exit 1; }
     done
+    # Two jobs for the same app in this one checkout collide on DVC's locks
+    # (each job runs `dvc repro` here), so a second submission while the first
+    # is still queued or running fails both. Job names are tango_<app> (see
+    # each *_job.sh's --job-name).
+    queued=" $(squeue -h -u "$USER" -o %j | tr '\n' ' ') "
+    busy=""
+    for a in "$@"; do
+        a="${a%/}"; a="${a##*/}"
+        case "$queued" in *" tango_$a "*) busy="$busy $a" ;; esac
+    done
+    if [ -n "$busy" ]; then
+        echo "Already queued or running (squeue -u $USER):$busy"
+        echo "Nothing submitted. Wait for those jobs, or scancel them, then resubmit."
+        exit 1
+    fi
     prev=""
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
