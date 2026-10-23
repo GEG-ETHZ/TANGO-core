@@ -57,6 +57,10 @@ systems, so one network can't decide which of the two the plant needs.
 - *[TANGO]* A `PumpOrValve` that runs as a pump is never costed:
   `DoubletEconomicComponent._injection_pump_cost` only counts nodes whose
   config type is `Compressor` (#72).
+- *[TANGO]* A plain `type: Valve` node tagged `role: net_electric` is
+  accepted and silently left out of the net-power sum
+  (`GraphSurface._build_bundle`). A Valve does no work, so the tag can only
+  be a config mistake; it should raise at build time. Guard: none.
 - The longer-term replacement is a custom hybrid TESPy component, which
   needs a newer TESPy (see the version pin below).
 
