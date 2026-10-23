@@ -1040,6 +1040,19 @@ wheels = [
 ]
 
 [[package]]
+name = "geg-raft"
+version = "0.2.1"
+source = { git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.1#2b9c5fed14e7c128911ad8b5acaffc59551bd713" }
+dependencies = [
+    { name = "coolprop" },
+    { name = "matplotlib" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "gitdb"
 version = "4.0.12"
 source = { registry = "https://pypi.org/simple" }
@@ -2611,19 +2624,6 @@ wheels = [
 ]
 
 [[package]]
-name = "raft"
-version = "0.2.0"
-source = { git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.0#777057379a332a4c35a7cf9e2bf0b89eec87da3f" }
-dependencies = [
-    { name = "coolprop" },
-    { name = "matplotlib" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "pyyaml" },
-    { name = "scipy" },
-]
-
-[[package]]
 name = "requests"
 version = "2.34.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3054,7 +3054,7 @@ dev = [
     { name = "types-pyyaml" },
 ]
 raft = [
-    { name = "raft" },
+    { name = "geg-raft" },
 ]
 
 [package.dev-dependencies]
@@ -3071,6 +3071,7 @@ requires-dist = [
     { name = "dvc-gs", specifier = ">=3.0.2" },
     { name = "dvc-webdav", specifier = ">=3.0.1" },
     { name = "fluprodia", specifier = ">=4.1.2,<5" },
+    { name = "geg-raft", marker = "extra == 'raft'", git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.1" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=7.0" },
     { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.37.0,<10" },
     { name = "jinja2", specifier = ">=3.1,<4.0" },
@@ -3094,7 +3095,6 @@ requires-dist = [
     { name = "python-arango" },
     { name = "python-lsp-server", marker = "extra == 'dev'", specifier = "~=1.10" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
-    { name = "raft", marker = "extra == 'raft'", git = "https://github.com/GEG-ETHZ/RAFT.git?tag=v0.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11.9" },
     { name = "scikit-learn", specifier = ">=1.6,<2.0" },
     { name = "scipy", specifier = ">=1.15,<2.0" },

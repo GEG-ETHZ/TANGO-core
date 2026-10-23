@@ -2,7 +2,7 @@
 
 RAFT (GEG-ETHZ/RAFT, the optional ``raft`` extra) solves flow and heat in
 a well embedded in a 3D finite-element model of the surrounding rock. Its
-coupling API (``raft.api.RaftModel``) advances a *trial* state from the
+coupling API (``geg_raft.api.RaftModel``) advances a *trial* state from the
 last accepted state, as often as needed, until the caller accepts it. That
 matches tango's injection-enthalpy iteration, which re-solves each timestep
 until the loop closes and then moves on:
@@ -74,13 +74,13 @@ would show up as far more than this. RAFT's inlet flow is recorded in
 
 
 def _raft_model_class() -> Any:
-    """Return ``raft.api.RaftModel``, importing RAFT only when a RAFT run actually starts.
+    """Return ``geg_raft.api.RaftModel``, importing RAFT only when a RAFT run actually starts.
 
     Raises:
         ConfigError: RAFT is not installed.
     """
     try:
-        from raft.api import RaftModel  # noqa: PLC0415 -- optional dependency
+        from geg_raft.api import RaftModel  # noqa: PLC0415 -- optional dependency
     except ImportError as exc:
         raise ConfigError(
             "grouped_subsurface variant 'raft' needs the optional RAFT dependency: "
@@ -90,8 +90,8 @@ def _raft_model_class() -> Any:
 
 
 def _raft_timestep_error() -> type[Exception]:
-    """Return ``raft.subsurface.TimestepError`` (RAFT failed to converge at its minimum timestep)."""
-    from raft.subsurface import TimestepError  # noqa: PLC0415 -- optional dependency
+    """Return ``geg_raft.subsurface.TimestepError`` (RAFT failed to converge at its minimum timestep)."""
+    from geg_raft.subsurface import TimestepError  # noqa: PLC0415 -- optional dependency
 
     return TimestepError
 

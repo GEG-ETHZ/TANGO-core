@@ -18,7 +18,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   (production length, loop depth, `layout.well_spacing`) are derived the same
   way as for the three-component AGS configs.
 - **Optional `raft` extra** for the RAFT wellbore/rock simulator
-  (`just setup-raft`, or `uv sync --extra raft`), pinned to release tag `v0.2.0`. Plain
+  (`just setup-raft`, or `uv sync --extra raft`), pinned to release tag `v0.2.1`. Plain
   `uv sync` never fetches it; see the README for access to the private repo.
   With direnv, a git-ignored `.envrc.local` can set `TANGO_UV_SYNC_ARGS` so
   the automatic sync keeps extras installed.

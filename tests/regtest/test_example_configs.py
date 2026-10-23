@@ -99,7 +99,7 @@ def test_example_config_full_run(
 ) -> None:
     """Run one example_configs/*.yml at its own full sim_config.num_tsteps and check it."""
     if filename in _NEEDS_RAFT:
-        pytest.importorskip("raft")
+        pytest.importorskip("geg_raft")
     # RAFT's config template is given relative to the repository root.
     monkeypatch.chdir(EXAMPLE_CONFIGS_DIR.parent)
     path = EXAMPLE_CONFIGS_DIR / filename

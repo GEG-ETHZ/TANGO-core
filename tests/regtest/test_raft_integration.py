@@ -17,7 +17,7 @@ import yaml
 from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
 from tango.workflows.workflow import Workflow
 
-pytest.importorskip("raft")
+pytest.importorskip("geg_raft")
 
 _ROOT = Path(__file__).resolve().parents[2]
 

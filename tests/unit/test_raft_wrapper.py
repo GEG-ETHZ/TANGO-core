@@ -1,6 +1,6 @@
 """``RaftWrapper`` and the ``raft`` variant of ``grouped_subsurface``, against a stand-in for RAFT.
 
-``FakeRaftModel`` honors ``raft.api.RaftModel``'s coupling contract (each
+``FakeRaftModel`` honors ``geg_raft.api.RaftModel``'s coupling contract (each
 ``solve`` starts from the last accepted time; ``get_fresh`` accepts the
 pending trial) with a trivial physics stand-in, so these tests need neither
 RAFT nor its mesh (stored with DVC). The real RAFT is exercised in
@@ -180,6 +180,6 @@ def test_missing_mesh_points_at_dvc(config: dict[str, Any], raft_template: Path)
 def test_missing_raft_gives_the_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without the optional extra, starting RAFT says how to install it."""
     monkeypatch.undo()
-    monkeypatch.setitem(sys.modules, "raft.api", None)
+    monkeypatch.setitem(sys.modules, "geg_raft.api", None)
     with pytest.raises(ConfigError, match="setup-raft"):
         raft_wrapper._raft_model_class()  # noqa: SLF001

@@ -1,4 +1,4 @@
-"""A stand-in for RAFT's ``raft.api.RaftModel``, for tests of tango's side of the coupling.
+"""A stand-in for RAFT's ``geg_raft.api.RaftModel``, for tests of tango's side of the coupling.
 
 ``FakeRaftModel`` honors RAFT's coupling contract (each ``solve`` starts
 from the last accepted time; ``get_fresh`` accepts the pending trial) with a
@@ -24,7 +24,7 @@ FAKE_PRESSURE_GAIN_PA = 1.0e6
 
 
 class FakeTimestepError(RuntimeError):
-    """Stands in for ``raft.subsurface.TimestepError``."""
+    """Stands in for ``geg_raft.subsurface.TimestepError``."""
 
 
 class FakeRaftModel:
