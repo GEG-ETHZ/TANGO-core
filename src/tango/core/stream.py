@@ -66,11 +66,11 @@ class Stream(StateMethods):
     """
 
     mass_rate: LockedState[float] = field(default_factory=_ls)
-    """Mass flow rate crossing the component boundary (kg/s). TODO(docs): drafted, review."""
+    """Mass flow rate crossing the component boundary (kg/s)."""
     P: LockedState[float] = field(default_factory=_ls)
-    """Pressure at the component boundary (Pa). TODO(docs): drafted, review."""
+    """Pressure at the component boundary (Pa)."""
     T: LockedState[float] = field(default_factory=_ls)
-    """Temperature at the component boundary (K). TODO(docs): drafted, review."""
+    """Temperature at the component boundary (K)."""
 
     @classmethod
     def fresh(
@@ -110,11 +110,11 @@ class StreamHistory:
     """
 
     mass_rate: list[float] = field(default_factory=list)
-    """Per-timestep mass flow rate (kg/s). TODO(docs): drafted, review."""
+    """Per-timestep mass flow rate (kg/s)."""
     P: list[float] = field(default_factory=list)
-    """Per-timestep pressure (Pa). TODO(docs): drafted, review."""
+    """Per-timestep pressure (Pa)."""
     T: list[float] = field(default_factory=list)
-    """Per-timestep temperature (K). TODO(docs): drafted, review."""
+    """Per-timestep temperature (K)."""
 
     def record(self, stream: Stream) -> None:
         """Append one timestep snapshot."""
