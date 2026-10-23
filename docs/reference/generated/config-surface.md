@@ -15,4 +15,3 @@
 | `record_node_detail` | `bool` | `True` | If True (default), populate state.node_detail / history.node_history with every node's P/Q/T/p/m each solve(). Set False to skip this (e.g. a large network run over many timesteps where the extra bookkeeping/storage isn't worth it). |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `target_extraction_pressure` from `sim_config.target_extraction_pressure`, `well_spacing` from `layout.well_spacing`.
-

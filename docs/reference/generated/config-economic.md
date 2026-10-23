@@ -16,4 +16,3 @@
 | `gengeo_quadratic_length_coeff` | `float` | `0.105` | `_well_section_cost`'s `L^2` coefficient — economies-of-scale term on a well section's own combined depth. GenGEO's default cost basis; override from YAML if a different cost basis is needed. |
 | `gengeo_diameter_length_coeff` | `float` | `1776.0` | `_well_section_cost`'s `d*L` coefficient (diameter- and length-dependent casing/material cost). GenGEO's default cost basis. |
 | `gengeo_mobilization_cost_usd` | `float` | `275300.0` | `_well_section_cost`'s fixed mobilization cost, charged once per well SECTION (see `_compute_well_capex`'s docstring for what counts as one section). GenGEO's default cost basis. |
-

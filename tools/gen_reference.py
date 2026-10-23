@@ -264,7 +264,8 @@ def fragments() -> dict[str, str]:
     for group in GROUPS:
         out[f"config-{group}.md"], out[f"outputs-{group}.md"] = component_fragments(group)
     out["surface-nodes.md"] = surface_nodes_fragment()
-    return out
+    # exactly one trailing newline, as the end-of-file-fixer hook leaves it
+    return {name: content.rstrip("\n") + "\n" for name, content in out.items()}
 
 
 def main() -> int:

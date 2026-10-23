@@ -100,4 +100,3 @@
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
 | `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
-

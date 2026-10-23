@@ -126,4 +126,3 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. *draft* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
-

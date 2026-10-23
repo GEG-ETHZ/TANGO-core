@@ -20,4 +20,3 @@
 | `net_to_gross_ratio` | `float` | `1.0` | Net-to-gross ratio for effective reservoir thickness (dimensionless). |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.
-
