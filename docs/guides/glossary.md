@@ -60,6 +60,5 @@ Terms used across the TANGO documentation and code. Code names are given where a
 |---|---|---|
 | Sweep | Many runs over a grid or sample of parameters | `applications/run_*` |
 | NSGA-II | The multi-objective genetic algorithm used for optimization | `pymoo_api.py` · `Minimization` |
-| Surrogate | A machine-learning model trained on runs, used to optimize faster | `surrogate_api.py` |
 | DVC | Data Version Control: caches each pipeline stage and reruns only stale ones | `applications/*/dvc.yaml` |
 | SLURM | The job scheduler on HPC clusters such as ETH Euler | `applications/*/*_job.sh` |

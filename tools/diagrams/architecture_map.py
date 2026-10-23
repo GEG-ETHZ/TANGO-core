@@ -85,8 +85,8 @@ pill(
     AY,
     A2,
     AH,
-    "pymoo_api · surrogate_api",
-    "optimization: NSGA-II over full runs, surrogates on sampled runs",
+    "pymoo_api",
+    "optimization: NSGA-II over full runs",
 )
 pill(IX, BY, IW, BH, "workflows", "Workflow: reads the config, builds the components, runs them")
 pill(

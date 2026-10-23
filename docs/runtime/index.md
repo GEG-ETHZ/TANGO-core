@@ -40,7 +40,7 @@ flowchart TB
 
 | Level | Loop | Code | Limit |
 |---|---|---|---|
-| 1 | Optimizer generations or sweep rows | `Minimization.run` (`pymoo_api.py`), `run_lhs_sweep` (`surrogate_api.py`), `applications/*/dvc.yaml` | Set by the app |
+| 1 | Optimizer generations or sweep rows | `Minimization.run` (`pymoo_api.py`), `applications/*/dvc.yaml` | Set by the app |
 | 2 | One full run per candidate, in a process pool | `_Problem._evaluate` → `Workflow(cfg).run()` | — |
 | 3 | Timesteps | `SystemDirect.run` | `sim_config.num_tsteps` |
 | 4 | Boundary-condition loop, `auto-pressure` and `auto-flow` only | `_converge_injection_pressure`, `_converge_injection_flow` | 200 iterations, relative tolerance 1e-3 |

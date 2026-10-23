@@ -43,7 +43,7 @@
 
 ## How the code is organized
 
-![The TANGO core package: tango_cli, the optimization modules pymoo_api and surrogate_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
+![The TANGO core package: tango_cli, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
 
 ## Start here
 

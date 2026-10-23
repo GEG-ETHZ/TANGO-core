@@ -152,7 +152,7 @@ x3, w3 = xs[2]
 runs = [
     ("Single run", "tango_cli run config.yml"),
     ("Sweep", "applications/run_* · DVC"),
-    ("Optimization", "pymoo_api · NSGA-II\nsurrogate_api · surrogates"),
+    ("Optimization", "pymoo_api · NSGA-II"),
 ]
 ry = TOP + 92
 for title, code in runs:

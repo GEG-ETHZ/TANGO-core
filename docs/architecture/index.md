@@ -11,7 +11,6 @@ flowchart TB
   subgraph pkg ["src/tango"]
     cli("tango_cli<br/>run · validate")
     pymoo("pymoo_api<br/>NSGA-II")
-    surr("surrogate_api<br/>ML surrogates")
     wf("workflows<br/>Workflow")
     orchs("orchestrators<br/>timestep loop")
     reg("registry<br/>(type, variant)")
@@ -22,7 +21,6 @@ flowchart TB
 
   user --> cli
   user --> pymoo
-  surr --> pymoo
   cli --> wf
   pymoo --> wf
   wf --> orchs
@@ -33,7 +31,7 @@ flowchart TB
   comps --> ext
 
   class cli,wf,orchs code
-  class pymoo,surr code
+  class pymoo code
   class reg,comps code
   class core code
   class ext code
@@ -54,7 +52,6 @@ flowchart TB
 |---|---|---|
 | Entry points | `src/tango/tango_cli.py` | `tango_cli run`, `validate`, `init` |
 | | `src/tango/pymoo_api.py` | NSGA-II optimization over full runs |
-| | `src/tango/surrogate_api.py` | ML surrogate sampling, training and search |
 | | `src/tango/results_export.py` | `write_results`: YAML plus CSV files |
 | Workflow | `src/tango/workflows/` | `Workflow`: config in, orchestrator out |
 | Orchestration | `src/tango/orchestrators/` | `SystemDirect`, `SystemBCIteration` |

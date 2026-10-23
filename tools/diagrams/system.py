@@ -291,15 +291,14 @@ for kind, _, external in PARTS:
         d.edge([(RAIL - 10, cy + 12), (RAIL, cy + 12)], color=color, sw=1.5, end="none", dashed=True)
         d.chip(RAIL - 12 - cw, cy, s_, kind, dashed=True, w=cw, h=PH, size=12)
 
-# ---- the three ways to run many: the cards span the band; gradient arrows tie two of them to one simulation
+# ---- the two ways to run many: the cards span the band; a gradient arrow ties each to one simulation
 RUNS = [
     ("Sweep", "applications/run_* · DVC"),
     ("Optimization", "pymoo_api · NSGA-II"),
-    ("Surrogate optimization", "surrogate_api · GP, RF, MLP"),
 ]
 CARD_Y = BAND_Y + 16
 rx = OX + 18
-rw = (OR - 18 - rx - 2 * 24) / 3
+rw = (OR - 18 - rx - (len(RUNS) - 1) * 24) / len(RUNS)
 centers = []
 for title, code in RUNS:
     d.rect(rx, CARD_Y, rw, 70, fill="#FFFFFF", stroke=HAIR, r=12)
@@ -309,9 +308,9 @@ for title, code in RUNS:
     rx += rw + 24
 AW = 22
 gap = CARD_Y - IB
-d.gradient_arrow(centers[1] - AW / 2, IB, gap, direction="up", thickness=AW)
-d.text(centers[1] + AW / 2 + 10, IB + gap / 2 - 10, "sets the inputs", 13, INK2, bold=True, w=160, h=20)
-d.gradient_arrow(centers[2] - AW / 2, IB, gap, direction="down", thickness=AW)
-d.text(centers[2] + AW / 2 + 10, IB + gap / 2 - 10, "reads the outputs", 13, INK2, bold=True, w=160, h=20)
+d.gradient_arrow(centers[0] - AW / 2, IB, gap, direction="up", thickness=AW)
+d.text(centers[0] + AW / 2 + 10, IB + gap / 2 - 10, "sets the inputs", 13, INK2, bold=True, w=160, h=20)
+d.gradient_arrow(centers[1] - AW / 2, IB, gap, direction="down", thickness=AW)
+d.text(centers[1] + AW / 2 + 10, IB + gap / 2 - 10, "reads the outputs", 13, INK2, bold=True, w=160, h=20)
 
 print(d.xml("tango-couples-every-model"))

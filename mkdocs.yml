@@ -128,7 +128,7 @@ nav:
       - Components: reference/components.md
       - Orchestrators: reference/orchestrators.md
       - Workflow: reference/workflows.md
-      - Optimization and surrogates: reference/optimization.md
+      - Optimization: reference/optimization.md
       - CLI and export: reference/cli.md
   - Project:
       - Contributing: project/contributing.md

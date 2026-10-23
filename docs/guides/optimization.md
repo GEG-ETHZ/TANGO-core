@@ -4,13 +4,9 @@ An optimization searches the design space of one config for the best
 trade-off between objectives, for example the lowest LCOE against the
 highest net power. TANGO runs a full simulation for every candidate design,
 so an optimization is many ordinary runs steered by a genetic algorithm
-(NSGA-II, from [pymoo](https://pymoo.org)). When full runs are too slow,
-a surrogate model trained on runs stands in for the simulator.
-
-| Approach | Module | Use it when | Ready-made apps |
-|---|---|---|---|
-| Direct | `pymoo_api` | Each run takes seconds to minutes | `applications/opt_hydro_sf_electric`, `opt_hydro_df_electric`, `opt_AGS_direct_heat` |
-| Surrogate | `surrogate_api` | Runs are too slow for thousands of evaluations | `applications/opt_hydro_df_electric_surrogate` |
+(NSGA-II, from [pymoo](https://pymoo.org)), implemented in `pymoo_api`.
+Ready-made apps include `applications/opt_hydro_sf_electric`,
+`opt_hydro_df_electric`, and `opt_AGS_direct_heat`.
 
 To start, copy the closest app (`uv run tango_cli init . --app <name>`)
 and change its parameters and objectives. Run it small first: a tiny
@@ -45,17 +41,9 @@ breaks a physical limit counts as infeasible instead of stopping the search.
 
 The examples above are included from `applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py`, so they always match the code.
 
-## How the direct optimization works
+## How the optimization works
 
 ::: tango.pymoo_api
-    options:
-      members: false
-      show_root_heading: false
-      show_root_toc_entry: false
-
-## How the surrogate optimization works
-
-::: tango.surrogate_api
     options:
       members: false
       show_root_heading: false
