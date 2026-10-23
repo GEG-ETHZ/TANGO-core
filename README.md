@@ -1,229 +1,133 @@
-# Techno-economic ANalysis of Geoenergy Operations (TANGO)
-![Tango Logo](./tango-logo.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img alt="TANGO, Techno-economic ANalysis of Geoenergy Operations. Reservoir, wells and surface plant coupled in one modular simulator, solved over the project's lifetime, with the levelized cost of electricity or heat." src="docs/assets/banner-light.svg">
+</picture>
 
-## Prerequisites
+[![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml)
+[![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
+[![License](https://img.shields.io/badge/license-GEG%20internal-0E0E10.svg)](./NOTICE)
+[![Python](https://img.shields.io/badge/python-3.11-0E0E10.svg)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
+[![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
+[![mypy](https://img.shields.io/badge/types-strict-0E0E10.svg)](https://mypy-lang.org/)
+[![prek](https://img.shields.io/badge/hooks-prek-0E0E10.svg)](https://github.com/j178/prek)
+[![gitleaks](https://img.shields.io/badge/secrets-gitleaks-0E0E10.svg)](https://github.com/gitleaks/gitleaks)
+[![DVC](https://img.shields.io/badge/pipelines-DVC-0E0E10.svg)](https://dvc.org/)
+[![Version](https://img.shields.io/badge/version-1.0.1-0E0E10.svg)](CHANGELOG.md)
 
-Before using or developing TANGO, you need to have Python and `uv` installed.
+**Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 
-1.  **Install Python**: You need Python >= 3.11 installed on your system.
-    -   **macOS**: `brew install python@3.11` (or latest available)
-    -   **Linux (Ubuntu/Debian)**: `sudo apt update && sudo apt install python3 python3-pip python3-venv`
-    -   **Windows**: Download the official installer from [python.org](https://www.python.org/downloads/windows/) or install via the Microsoft Store.
-2.  **Install `uv`**: Follow the [official uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
-    -   For macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-    -   For Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+![What will a geothermal project's electricity or heat cost over its life? You describe the surface plant, the wells, the reservoir and the economics; TANGO couples them into one system, solved over the project's lifetime, for hydrothermal, CPG, EGS and AGS systems; you get LCOE or LCOH, net electric and thermal power, temperature, pressure and flow for every part and timestep, and the best designs from sweeps and optimization](docs/diagrams/hero.drawio.svg)
 
-## General users
+> [!NOTE]
+> TANGO is research software of the Geothermal Energy and Geofluids group at ETH Zürich. It is confidential and licensed to GEG members only; see [`NOTICE`](NOTICE).
 
-### Installation
+## Contents
 
-TANGO is a private GitLab repository, so you'll need GitLab git access set
-up first (SSH or HTTPS; see the ["Setup ssh to connect to
-gitlab"](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
-guide). Given that:
+1. [What TANGO models](#what-tango-models)
+2. [How you use TANGO](#how-you-use-tango)
+3. [How the code is organized](#how-the-code-is-organized)
+4. [Start here](#start-here)
+5. [Setup](#setup)
+6. [Documentation and layout](#documentation-and-layout)
+7. [Development and help](#development-and-help)
+8. [License](#license)
 
-1.  **Scaffold a new project** with the GEG cookiecutter template
-    (`gitlab.ethz.ch/geg/templates/python-template`):
-    ```bash
-    uvx --from cookiecutter cookiecutter git@gitlab.ethz.ch:geg/templates/python-template.git
-    ```
-    Follow its prompts (project name, author, etc.) — see that template's own
-    README for details.
-2.  **Add `tango-core` from GitLab, pinned to a release tag**, from inside the
-    new project:
-    ```bash
-    uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.0.1
-    ```
-    (there's no standalone `--git` flag — the git source is part of the
-    package spec itself, as shown; `--tag` alongside it still works to pin
-    the ref.)
+## What TANGO models
 
-    Swap `v1.0.1` for whichever tag you want to pin to (see
-    [`CONTRIBUTING.md`'s release section](./CONTRIBUTING.md#cutting-an-internal-geg-only-release)
-    for how those are cut); `uv add` records the exact tag (and resolved
-    commit) in `pyproject.toml`/`uv.lock`, so builds stay reproducible until
-    you deliberately bump it. The distribution is named `tango-core`
-    (matching the repo), but the importable module is still `tango` —
-    `import tango` / `from tango.workflows.workflow import Workflow` etc.
-    work unchanged.
-3.  To move to a newer release later, re-run the same command with a new
-    `--tag` value (or `uv lock --upgrade-package tango-core` if already
-    pinned to a branch rather than a tag).
+![Many simulations around one simulation; inside it the system: surface plant, wells, reservoir and economics with their models and the four system types, and what each part takes in and gives out. Connectors lead from each part to the external simulators in a box of their own](docs/diagrams/tango-couples-every-model.drawio.svg)
 
-Because this is an internal-only distribution (see [`NOTICE`](./NOTICE) and
-[`LICENSE.txt`](./LICENSE.txt)), only GEG group members with GitLab access
-to `tango-projects/tango-core` can complete step 2 — there is no public
-fallback.
+## How you use TANGO
 
-Once installed, get a starting set of example configs to build your own
-inputs from:
+![How you use TANGO in four steps: pick a model for each part, wire them into a workflow, run once, as a sweep or as an optimization, and read the results](docs/diagrams/user-experience.drawio.svg)
 
-```bash
-uv run tango_cli init .
-```
+## How the code is organized
 
-This copies the `example_configs/` bundled with the installed `tango`
-version into your project directory. Pass `--app` (repeatable) to also
-copy one of `applications/`'s sweep/optimization/demo pipelines, or
-`--list-apps` to see which are available:
+![The TANGO core package: tango_cli, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
 
-```console
-$ uv run tango_cli init --help
-usage: tango_cli init [-h] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
-                      [--app APP] [--list-apps]
-                      [DEST]
+## Start here
 
-Copy tango's bundled example_configs/ into DEST (created if needed) as a
-starting point for your own analysis. Fails if DEST/example_configs already
-exists, to avoid silently overwriting local edits. Pass --app one or more
-times to also copy one of applications/'s sweep/optimization/demo pipelines.
-
-positional arguments:
-  DEST                  Directory to copy example_configs/ into. Default:
-                        current directory.
-
-options:
-  -h, --help            show this help message and exit
-  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
-                        Logging verbosity. Use DEBUG to see per-iteration
-                        convergence output. Default: INFO.
-  --app APP             Also copy DEST/applications/APP. Repeatable. See
-                        --list-apps for the available names, or
-                        applications/README.md in the repository for what each
-                        one does.
-  --list-apps           Print the available --app names and exit, without
-                        copying anything.
-```
-
-### Examples
-
-You can run anything in the `./example_configs/` folder with, e.g. `uv run tango_cli run example_configs/hydro_sf_electric.yml`.
-
-Run `tango_cli --version` any time to see the exact `tango` version
-installed, along with TANGO's confidentiality/distribution notice.
-
-## Project Structure
+To run TANGO, go to [Setup](#setup). To work on it, read the [package tour](src/tango/README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an AI agent? Paste this into it:
 
 ```text
-└── tango-core
-    ├── README.md
-    ├── pyproject.toml
-    ├── .gitignore
-    ├── .python-version
-    ├── applications/     # Multi-run pipelines (sweeps, optimizations, demos) — scripts only
-    ├── CHANGELOG.md
-    ├── CONTRIBUTING.md
-    ├── docs/             # Design docs, architecture notes, task tracker
-    ├── example_configs/  # Actively-maintained configs backing tests/applications
-    ├── justfile          # Task runner (see `just --list`)
-    ├── LICENSE.txt
-    ├── NOTICE
-    ├── src/              # Installable Python package source code
-    │   └── tango
-    │       └── ...
-    ├── tests/            # Unit and regression tests
-    ├── tools/            # Repo maintenance scripts (git hooks, DVC helpers)
-    └── uv.lock
+Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in this repository.
 ```
 
-**Tip:** To regenerate this tree, run:
-`tree -I '__pycache__|.venv|*.egg-info|.git'`
+## Setup
 
-## What's in `tests/`, `example_configs/`, and `applications/`
+TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/) and read access to the private GitHub repository [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is called `tango-core`; the import name is `tango`.
 
-These directories serve different purposes and are easy to mix up:
+Add a pinned release to your own project:
 
-- **`tests/`** — automated, CI-gated correctness checks, run via `uv run pytest`.
-  `tests/unit/` covers individual components/utilities in isolation;
-  `tests/regtest/` is regression/integration coverage that runs full
-  simulations end-to-end, including a fixed historical LCOE reference value
-  (`tests/regtest/test_lcoe_regression.py`). If you break something, one of
-  these should catch it — that's the whole point of running them before every
-  push (see [Running Checks](#running-checks) and the pre-push git hook).
+```bash
+uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.0.1
+uv run tango_cli init .        # copies the example configs into ./example_configs
+```
 
-- **[`example_configs/`](example_configs/README.md)** — the actively-maintained
-  config set: every config here backs either a unit/regression test, an
-  application in `applications/`, or both — treat it as the current source
-  of truth for what a valid `tango` config looks like. Runnable directly via
-  `uv run tango_cli run example_configs/<file>.yml`. See that directory's own
-  README for what each config is.
+Or clone the repository to work on it:
 
-- **[`applications/`](applications/README.md)** — multi-run parameter-sweep
-  pipelines built on top of an `example_configs/` config, not single
-  simulations. Each `run_*_sweep/`
-  directory is a self-contained generate → sweep → summarize (→ plot)
-  pipeline with its own `common.py` (grid/LHS bounds), `dvc.yaml` (DVC-cached
-  stages — see below), `params.yaml` (tunable knobs DVC tracks for
-  staleness), a `--clean` CLI flag (wipes generated outputs), and a SLURM
-  `*_job.sh` script for running on Euler/HPC. Every app also supports
-  `--smoke` for a fast end-to-end pipeline check (tiny sample count, writes
-  to a throwaway tempdir, never touches `outputs/`) — use that before
-  trusting a fresh clone or a code change, without waiting for a full sweep.
+```bash
+git clone git@github.com:GEG-ETHZ/TANGO-core.git tango-core
+cd tango-core
+just setup                     # installs dependencies and all git hooks
+```
 
-  Running a sweep via DVC (from the app's own directory):
-  ```bash
-  cd applications/run_hydro_df_electric_sweep
-  uv run dvc repro    # runs only stale stages, caches the rest
-  ```
-  On Euler/other SLURM clusters, submit the job script instead (see
-  [Running on Euler](#running-on-euler)):
-  ```bash
-  sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 200
-  ```
+Then run the flagship example, a single-flash hydrothermal power plant, and save its results:
 
-## Developers and Internal Users
+```bash
+uv run tango_cli validate example_configs/hydro_sf_electric.yml
+uv run tango_cli run example_configs/hydro_sf_electric.yml --save-dir results/
+```
 
-### Installation
+`results/` then holds the solved config, a per-timestep CSV and an economics CSV. The same from Python:
 
-1.  [install uv](https://docs.astral.sh/uv/getting-started/installation/)
-2.  Clone the repository (`git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`).
-3.  run `uv sync` to install dependencies (including developer dependencies).
+```python
+from tango.workflows.workflow import Workflow
 
-### direnv (optional but recommended)
+wf = Workflow.from_file("example_configs/hydro_sf_electric.yml")
+wf.run()
+```
 
-[direnv](https://direnv.net) automatically activates the project's venv and keeps dependencies in sync whenever you `cd` into the repo — no manual `source .venv/bin/activate` needed.
+The [installation guide](docs/guides/install.md) covers SSH access, release pinning and upgrades; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; sweeps and optimizations live in [`applications/`](applications/README.md).
 
-1. [Install direnv](https://direnv.net/docs/installation.html) and hook it into your shell.
-2. Run `direnv allow .` once in the repo root to approve the `.envrc` file.
+## Documentation and layout
 
-After that, entering the directory runs `uv sync` and activates the venv automatically.
+The documentation is published as a private site for the GEG-ETHZ organization, built from [`docs/`](docs/); `just docs` previews it locally.
 
-### Running Checks
--   **Tests:** `uv run pytest -v` -- to be run from the root directory
--   **Linting:** `uv run ruff check .`
--   **Formatting:** `uv run ruff format .` (use `--check` to verify without modifying)
--   **Type checking:** `uv run mypy src/`
+| Section | What it covers |
+|---|---|
+| [Getting started](docs/guides/install.md) | Installation, first run, example configs, applications, Euler |
+| [Architecture](docs/architecture/index.md) | Package layers, config to objects, the component circuit |
+| [Runtime](docs/runtime/index.md) | The nested loops, boundary-condition iteration, one run end to end |
+| [API reference](docs/reference/index.md) | Generated from the docstrings |
+| [Contributing](CONTRIBUTING.md) | The TANGO commandments, workflow, tests, releases |
 
-### Branching Strategy
-Explained in [CONTRIBUTING.md](./CONTRIBUTING.md#branching-strategy).
+```text
+src/tango/        the package: core, components, orchestrators, workflows, CLI, optimization
+example_configs/  maintained configs, one or more per system type; back the tests and applications
+applications/     sweeps, optimizations and demos, each a DVC pipeline with a SLURM script
+tests/            unit/ (fast, run in CI) and regtest/ (full simulations; the fast subset runs before push)
+docs/             the documentation site: guides, architecture, runtime, deep dives, API reference
+tools/            maintenance scripts, the diagram generators and git-hook helpers
+```
 
-### Running on Euler
-Note that these instructions have been verified to work on Euler.
+## Development and help
 
-1. [Setup ssh to connect to gitlab](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
-1. [Setup ssh to connect to Euler](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/HPC#setting-up-passwordless-ssh-access-to-euler-from-your-laptop)
-1. Get TANGO onto Euler:
-    - Option 1: Clone `tango-core` locally and then use rsync to move it to Euler (Mac or linux only)
-        1. Starting on your own laptop, run `ls ~/git/projects/` to check if this directory exists
-        1. if `ls ~/git/projects/` exists, run `cd ~/git/projects/`, and if not, first run `mkdir -p ~/git/projects/` and then `cd ~/git/projects/`
-        1. Clone this repo: `git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`
-        1. run `rsync -ahPuv --exclude .pixi --exclude .mypy_cache --exclude .venv ~/git/projects/tango-core/ euler:~/tango-core/`
-        1. Log into euler: `ssh euler`
-    - Option 2: (CURRENTLY NOT FULLY WORKING so let's do the rsync approach) Setup git on Euler (this option is a bit more setup but a bit easier long term)
-        1. While logged into Euler, [Setup ssh to connect to gitlab](https://gitlab.ethz.ch/geg/computing-guide/-/wikis/git#setting-up-ssh-for-git)
-        1. Clone this repo: `git clone git@gitlab.ethz.ch:geg/tango-projects/tango-core.git`
-1. You should already be logged into Euler at this point, and run `cd ~/tango-core/`
-1. Run `git checkout develop`
-1. Run `curl -LsSf https://astral.sh/uv/install.sh | sh` to
-    [install `uv`](https://docs.astral.sh/uv/getting-started/installation/) for your Euler
-    user account
-1. Run `curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin`
-    to install [`just`](https://github.com/casey/just) for your Euler user account (no `sudo`
-    needed — installs a prebuilt binary into `~/.local/bin`). Make sure `~/.local/bin` is on your
-    `PATH` (add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` if it isn't already).
-1. Run `rsync -ahPv ~/tango-core/applications/ /cluster/scratch/<username>/tango-applications/` to get the demo files into your working directory
-1. Run `cd /cluster/scratch/<username>/tango-applications/run_hydro_df_electric_sweep`
-1. Run `sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh --n-samples 39` to kick off a slurm job with 16 CPUs, 13 workers, and 39 design evaluations
-    Note: by using fewer than 48 CPUs, we're able to avoid having this count against our Euler quota
-1. Run `myjobs` to check status
-1. When the job is finished, run `uv run --project ~/tango-core run_hydro_df_electric_analysis.py`
+```bash
+just check          # format, lint, strict type check, fast tests
+just docs           # documentation site on localhost
+just diagrams       # regenerate the banner and the diagrams
+```
+
+Code changes follow the [TANGO commandments](CONTRIBUTING.md#tango-commandments); branching, pull requests and releases are in [`CONTRIBUTING.md`](CONTRIBUTING.md) and changes per release in [`CHANGELOG.md`](CHANGELOG.md).
+
+| Need | Where |
+|---|---|
+| A question about using TANGO | Open an issue on [GitHub](https://github.com/GEG-ETHZ/TANGO-core/issues) |
+| A bug | Open an issue with the config and the full traceback; see [Error tracebacks](docs/ERROR_TRACEBACKS.md) |
+| A security problem | Follow [`SECURITY.md`](SECURITY.md); do not open a public issue |
+| A publication | Cite TANGO with [`CITATION.cff`](CITATION.cff); GitHub shows a "Cite this repository" button for it |
+
+## License
+
+Copyright © ETH Zürich, Geothermal Energy and Geofluids (GEG) group, Department of Earth and Planetary Sciences. All rights reserved. TANGO is proprietary and confidential and licensed to current GEG members for internal use only. See [`LICENSE.txt`](LICENSE.txt) and [`NOTICE`](NOTICE).

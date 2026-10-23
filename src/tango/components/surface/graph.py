@@ -198,12 +198,20 @@ class _NetworkBundle:
     """
 
     network: Any
+    """The built TESPy network."""
     conns: list[Connection]
+    """All TESPy connections of the network."""
     nodes: dict[str, Any]
+    """TESPy components keyed by their power_plant node name."""
     net_electric_nodes: list[Any]
+    """Nodes tagged role=net_electric, summed as -P into net_power_W; a PumpOrValve node is left
+    out of the network where it resolves to a Valve, which does no work."""
     net_thermal_nodes: list[Any]
+    """Nodes tagged role=net_thermal, summed into net_thermal_W."""
     inlet_conn: Connection
+    """Connection leaving the network's inlet source."""
     outlet_conn: Connection
+    """Connection entering the network's outlet sink."""
 
 
 # ---------------------------------------------------------------------------
@@ -224,8 +232,11 @@ class GraphSurfaceState(StateMethods):
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet temperature from the production well (K)."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet pressure from the production well, before the surface pipe (Pa)."""
     mass_rate: LockedState[float] = field(default_factory=_ls)
+    """Mass flow rate through the plant (kg/s)."""
 
     dP_pipe: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Friction pressure drop across the surface pipe (Pa)."""
@@ -238,9 +249,13 @@ class GraphSurfaceState(StateMethods):
     """Sum of -Q.val (W) over role=net_thermal nodes. 0 if none tagged."""
 
     T_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet temperature returned to the injection well (K)."""
     P_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet pressure returned to the injection well (Pa)."""
     rho: LockedState[float] = field(default_factory=_ls)
+    """Fluid density at the outlet (kg/m3)."""
     mu: LockedState[float] = field(default_factory=_ls)
+    """Fluid dynamic viscosity at the outlet (Pa s)."""
 
     node_detail: LockedState[dict[str, dict[str, float]]] = field(default_factory=_ls_dict)
     """Per-node diagnostic snapshot, keyed by node name then quantity
@@ -272,16 +287,27 @@ class GraphSurfaceHistory:
     """
 
     T_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet temperature (K)."""
     T_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet temperature (K)."""
     P_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet pressure (Pa)."""
     P_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet pressure (Pa)."""
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate (kg/s)."""
     dP_pipe: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep friction pressure drop across the surface pipe (Pa)."""
     P_tespy_inlet: list[float] = field(default_factory=list)
+    """Per-timestep pressure passed to the TESPy inlet (Pa)."""
     rho: list[float] = field(default_factory=list)
+    """Per-timestep fluid density at the outlet (kg/m3)."""
     mu: list[float] = field(default_factory=list)
+    """Per-timestep fluid dynamic viscosity at the outlet (Pa s)."""
     net_power_W: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep net electric power of the role=net_electric nodes, before economics-level parasitic loads (W)."""
     net_thermal_W: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep net thermal power of the role=net_thermal nodes (W)."""
 
     node_history: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     """``node_history[node_name][quantity]`` -> time series. Populated
@@ -339,7 +365,10 @@ class GraphSurface(SurfaceComponent):
 
     # ---- Runtime state / history ----
     state: GraphSurfaceState = Field(default_factory=GraphSurfaceState)
+    """Plant state of the current solve; an orchestrator that re-solves within a timestep restores
+    it first."""
     history: GraphSurfaceHistory = Field(default_factory=GraphSurfaceHistory)
+    """Per-timestep record of the plant state."""
 
     # ------------------------------------------------------------------
     # Lifecycle: build TESPy network

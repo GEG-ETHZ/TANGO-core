@@ -41,7 +41,7 @@ and generates more revenue for GEG. The consulting/project tier is the **primary
 revenue path** and should be treated as such until TANGO's capabilities are robustly
 demonstrated.
 
-*Diagram: [Four-Tier Access Model](../diagrams/src/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Four-Tier Access Model](../archive/diagrams/four_tier_access_model.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ### Tier 1 — Community / Academic (free or very low cost)
 
@@ -389,7 +389,7 @@ prevention, leaving room for variants that optimise operating objectives:
 These require the Phase 2 Newton-step solver infrastructure and the pump electricity
 accounting fix to be in place before they can be meaningfully implemented.
 
-*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — shows
+*Diagram: [BC Iteration Solver](../archive/diagrams/phase1_bc_iteration_solver.drawio) — shows
 current modes and which trigger the outer convergence loop.*
 
 ### Open Design Questions
@@ -564,7 +564,7 @@ work, same shape as AGS/EGS/CPG above, not a physics gap.
 
 **`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
 shortcut.** Raised 2026-07-22 while tracing where `hydro_sf_electric.yml`'s TESPy plant
-states are solved versus imposed (see `docs/diagrams/src/graph_surface_state_provenance.drawio`
+states are solved versus imposed (see `docs/archive/diagrams/graph_surface_state_provenance.drawio`
 for the full node-by-node breakdown). `GraphSurface` fixes two independent pressures per
 plant — flash pressure (the valve ahead of the droplet separator) and condensing pressure
 (shared by the turbine's and condenser's outlets, i.e. zero ΔP assumed across the condenser)
@@ -1016,7 +1016,7 @@ software-sustainability review).
 
 ### Refactor Phases
 
-*Diagram: [Refactor Phases](../diagrams/src/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
+*Diagram: [Refactor Phases](../archive/diagrams/refactor_phases.drawio) — open in [draw.io](https://app.diagrams.net) or in VS Code with the draw.io extension. When this document is ported to Confluence, the diagram file will be attached to the page and embedded inline.*
 
 ---
 
@@ -1032,10 +1032,10 @@ software-sustainability review).
 - **Diagrams** -- need to build out diagrams to communicate to management how
   things are currently structured
 
-*Diagram: [Input File Structure](../diagrams/src/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [Runtime Code Objects](../diagrams/src/phase0_code_objects.drawio)*
-*Diagram: [Module Structure](../diagrams/src/phase0_module_structure.drawio)*
-*Diagram: [Execution Flow](../diagrams/src/phase0_execution_flow.drawio)*
+*Diagram: [Input File Structure](../archive/diagrams/phase0_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [Runtime Code Objects](../archive/diagrams/phase0_code_objects.drawio)*
+*Diagram: [Module Structure](../archive/diagrams/phase0_module_structure.drawio)*
+*Diagram: [Execution Flow](../archive/diagrams/phase0_execution_flow.drawio)*
 
 **Tasks:**
 - [x] Diagrams
@@ -1251,10 +1251,10 @@ all congruent with each other.
   how things should be structured and why the new structure addresses the
   shortcomings of the old structure
 
-*Diagram: [New Input File Structure](../diagrams/src/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
-*Diagram: [New Module Structure](../diagrams/src/phase1_new_module_structure.drawio)*
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio)*
-*Diagram: [BC Iteration Solver](../diagrams/src/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
+*Diagram: [New Input File Structure](../archive/diagrams/phase1_new_input_file_structure.drawio) — open in [draw.io](https://app.diagrams.net) or VS Code draw.io extension.*
+*Diagram: [New Module Structure](../archive/diagrams/phase1_new_module_structure.drawio)*
+*Diagram: [Execution Flow](../archive/diagrams/phase1_execution_flow.drawio)*
+*Diagram: [BC Iteration Solver](../archive/diagrams/phase1_bc_iteration_solver.drawio) — outer BC convergence loop for `flexible_SF_manual.yml`, with power-plant sub-graph inset.*
 
 **Tasks:**
 - [x] create temporary space for new structure
@@ -1532,7 +1532,7 @@ for the code-level sketch (a top-level exception handler wrapping `tango_cli run
 routed through a stable `TangoError` exception taxonomy modeled on Rust's
 `thiserror`/`anyhow` pattern).
 
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows the
+*Diagram: [Execution Flow](../archive/diagrams/phase1_execution_flow.drawio) — shows the
 AI error agent as a future hook on the right side of the simulation loop.*
 
 ---

@@ -52,7 +52,7 @@ fixed by construction rather than by a one-off patch:
 | Bug | Design concept that enabled discovery/fix |
 | --- | --- |
 | [AGS configs never advance simulated time](#ags-configs-never-advance-simulated-time) | locked state |
-| [`== "yes"` string-comparison trap](#yes-string-comparison-trap) | (de)serialization |
+| [`== "yes"` string-comparison trap](#-yes-string-comparison-trap) | (de)serialization |
 | [`check_fracking` doesn't gate what its name implies](#check_fracking-doesnt-gate-what-its-name-implies) | finite values as `StrEnum` |
 | [`fracking_flow` mixes a wellbore diameter into a term that should be a radius](#fracking_flow-mixes-a-wellbore-diameter-into-a-term-that-should-be-a-radius) | descriptive variable names |
 | [Non-convergence silently swallowed instead of raised](#non-convergence-silently-swallowed-instead-of-raised) | explicit failure signaling |
@@ -60,7 +60,7 @@ fixed by construction rather than by a one-off patch:
 | [Old tango's downhole production pump is modeled as perfectly isothermal](#old-tangos-downhole-production-pump-is-modeled-as-perfectly-isothermal) | standalone simulation |
 | [`NativeEconomicComponent` double-counted well mobilization cost across split physics sub-components](#nativeeconomiccomponent-double-counted-well-mobilization-cost-across-split-physics-sub-components) | object == config |
 | [Auto mass flow rate convergence never re-solves temperature](#auto-mass-flow-rate-convergence-never-re-solves-temperature) | locked state |
-| [AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone](#ags-closed-loop-has-no-pump-anywhere-circulation-runs-on-thermosiphon-effect-alone) | - |
+| [AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone](#ags-closed-loop-has-no-pump-anywhere--circulation-runs-on-thermosiphon-effect-alone) | - |
 | [Numerically-marched wells fall one cell short of their declared well_length](#numerically-marched-wells-fall-one-cell-short-of-their-declared-well_length) | - |
 
 ## AGS configs never advance simulated time
@@ -215,7 +215,7 @@ MANUAL_FRACKING_CHECK`, 2026-08-11 (uncommitted as of 2026-08-12 — update
 this hash once committed).
 
 **New TANGO Commandment added** (`CONTRIBUTING.md`): [rule: No opaque short
-names for physical quantities](../CONTRIBUTING.md#rule-descriptive-variable-names) — a bare
+names for physical quantities](project/contributing.md#rule-descriptive-variable-names) — a bare
 `rw`/`re` is exactly what let a diameter and a radius get silently mixed
 into the same formula unnoticed; a full name like `wellbore_diameter_m`
 vs. `wellbore_radius_m` would have made the mismatch visible at the call
@@ -317,7 +317,7 @@ final iteration's `(T_inj, P_inj, mass_rate)`, reproduces old tango's
 committed `T_out` **and** `P_out` to displayed precision at every one of
 8 timesteps:
 
-```
+```text
  t      old_T_out       tn_T_out      diffT        old_P_out       tn_P_out      diffP
  1     463.000000     463.000000   0.000000     47969025.083   47969025.083      0.000
  2     462.999953     462.999953   0.000000     47966319.165   47966319.165      0.000
@@ -354,7 +354,7 @@ then flattens onto a lower plateau. Computing `dγ/dψ` directly from
 `tango`'s own reservoir at the actual `ψ` this run traces through
 shows exactly why the divergence appears where it does and nowhere else:
 
-```
+```text
  t      psi      gamma    dgamma/dpsi   diff(T_out, tango vs old tango)
  1    0.0366    1.0000      -0.0000        -0.000000
  2    0.0732    1.0000      -0.0001        -0.000000
@@ -460,7 +460,7 @@ surface/injection-well/reservoir code) and re-running
 isolated effect on reservoir temperature is tiny (≲0.02 K, plateauing)
 and runs in the *opposite* direction from the naive story:
 
-```
+```text
      pump_T isen   pump_T isot   T_inj isen   T_inj isot   Eext isen   Eext isot
 t=6    411.5857      411.1535     353.5208     353.5575    4.284e15    4.283e15
 ```
@@ -507,7 +507,7 @@ ONE well for costing purposes. Old tango's own reference files reflect
 this correctly: `flexible_SF_manual.yml`/`flexible_DF_manual.yml`'s
 `production_well.well_length_seq: [5000.]` is the COMBINED total depth
 (4000 + 1000), applied through the gengeo formula as a single section —
-confirmed with Chad directly (undocumented anywhere in `src/tango` itself;
+confirmed by the maintainers (undocumented anywhere in `src/tango` itself;
 the field's actual intent — letting cost vary by OUTER/casing diameter
 per depth segment, independent of the inner flow diameter physics uses —
 is verbal-knowledge-only, not written down anywhere in the repo).
@@ -615,8 +615,7 @@ not to bite.
 correct hasn't been independently confirmed — `tango`'s slower
 answer is consistent with genuinely finding the self-consistent solution,
 but that hasn't been verified beyond "old tango never checks, so its
-speed isn't evidence of correctness." An intern is implementing Aitken's
-process to accelerate `tango`'s T-convergence loop
+speed isn't evidence of correctness." Aitken's process was added to accelerate `tango`'s T-convergence loop
 (`docs/tango_tasks.md`'s injection-T-guess-robustness section); once
 that lands, it becomes cheap to confirm the slow crawl has actually
 reached its true fixed point rather than just satisfying `self.tolerance`

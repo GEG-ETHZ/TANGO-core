@@ -66,17 +66,29 @@ class WellboreState(StateMethods):
     """
 
     T_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet temperature (K)."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet pressure (Pa)."""
     mass_rate: LockedState[float] = field(default_factory=_ls)
+    """Mass flow rate through the well (kg/s)."""
     rho: LockedState[float] = field(default_factory=_ls)
+    """Fluid density used for the wellbore losses (kg/m3)."""
     mu: LockedState[float] = field(default_factory=_ls)
+    """Fluid dynamic viscosity used for the wellbore losses (Pa s)."""
     velocity: LockedState[float] = field(default_factory=_ls)
+    """Mean flow velocity in the well (m/s)."""
     Re: LockedState[float] = field(default_factory=_ls)
+    """Reynolds number (dimensionless)."""
     friction_factor: LockedState[float] = field(default_factory=_ls)
+    """Darcy friction factor (dimensionless)."""
     delta_p_friction: LockedState[float] = field(default_factory=_ls)
+    """Frictional pressure loss along the well, a positive magnitude (Pa)."""
     delta_p_hydrostatic: LockedState[float] = field(default_factory=_ls)
+    """Hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa)."""
     T_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet temperature (K)."""
     P_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet pressure (Pa)."""
 
 
 @dataclass(frozen=True)
@@ -84,7 +96,9 @@ class ProductionWellWithPumpState(WellboreState):
     """Wellbore state extended with pump data for LumpedProductionWellWithPump."""
 
     pump_delta_p: LockedState[float] = field(default_factory=_ls)
+    """Pressure rise across the downhole pump (Pa); 0 when no boost is needed."""
     pump_power_watts: LockedState[float] = field(default_factory=_ls)
+    """Power the pump delivers to the fluid, mass_rate times enthalpy rise including pump efficiency (W); never negative."""
 
 
 # ---------------------------------------------------------------------------
@@ -102,17 +116,29 @@ class WellboreHistory:
     """
 
     T_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet temperature (K)."""
     T_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet temperature (K)."""
     P_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet pressure (Pa)."""
     P_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet pressure (Pa)."""
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate through the well (kg/s)."""
     rho: list[float] = field(default_factory=list)
+    """Per-timestep fluid density used for the wellbore losses (kg/m3)."""
     mu: list[float] = field(default_factory=list)
+    """Per-timestep fluid dynamic viscosity used for the wellbore losses (Pa s)."""
     velocity: list[float] = field(default_factory=list)
+    """Per-timestep mean flow velocity in the well (m/s)."""
     Re: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep Reynolds number (dimensionless)."""
     friction_factor: list[float] = field(default_factory=list)
+    """Per-timestep Darcy friction factor (dimensionless)."""
     delta_p_friction: list[float] = field(default_factory=list)
+    """Per-timestep frictional pressure loss along the well, a positive magnitude (Pa)."""
     delta_p_hydrostatic: list[float] = field(default_factory=list)
+    """Per-timestep hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa)."""
 
     def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot."""
@@ -135,7 +161,9 @@ class ProductionWellWithPumpHistory(WellboreHistory):
     """Extends WellboreHistory with pump data for LumpedProductionWellWithPump."""
 
     pump_delta_p: list[float] = field(default_factory=list)
+    """Per-timestep pressure rise across the downhole pump (Pa); 0 when no boost is needed."""
     pump_power_watts: list[float] = field(default_factory=list)
+    """Per-timestep power the pump delivers to the fluid, mass_rate times enthalpy rise including pump efficiency (W); never negative."""
 
     def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot, including pump data."""
@@ -167,7 +195,10 @@ class LumpedInjectionWell(WellComponent):
     independent copy. See core/specs.py."""
 
     state: WellboreState = Field(default_factory=WellboreState)
+    """Well state of the current solve; an orchestrator that re-solves within a timestep restores
+    it first."""
     history: WellboreHistory = Field(default_factory=WellboreHistory)
+    """Per-timestep record of the well state."""
 
     def solve(self, inlet: Stream) -> None:
         """Compute bottom-hole T and P from surface injection conditions."""
@@ -233,7 +264,10 @@ class LumpedProductionWell(WellComponent):
     independent copy. See core/specs.py."""
 
     state: WellboreState = Field(default_factory=WellboreState)
+    """Well state of the current solve; an orchestrator that re-solves within a timestep restores
+    it first."""
     history: WellboreHistory = Field(default_factory=WellboreHistory)
+    """Per-timestep record of the well state."""
 
     def solve(self, inlet: Stream) -> None:
         """Compute wellhead T and P from reservoir outlet conditions."""
@@ -307,7 +341,10 @@ class LumpedProductionWellWithPump(WellComponent):
     for the duplicated-value bug this replaced)."""
 
     state: ProductionWellWithPumpState = Field(default_factory=ProductionWellWithPumpState)
+    """Well state of the current solve; an orchestrator that re-solves within a timestep restores
+    it first."""
     history: ProductionWellWithPumpHistory = Field(default_factory=ProductionWellWithPumpHistory)
+    """Per-timestep record of the well state."""
 
     def _wellbore_losses(self, mdot: float, P_start: float, T_start: float) -> tuple[float, ...]:
         """Pure calc: friction + hydrostatic loss over this segment from a given starting state.

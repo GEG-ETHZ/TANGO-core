@@ -1,0 +1,44 @@
+# Code CI: lint, strict type check and unit tests on every pull request and
+# on every push to main.
+#
+# Only tests/unit/ runs here. tests/regtest/ takes over an hour in full; the
+# pre-push hook runs its fast subset, and `just test --all` runs everything
+# before a release tag is pushed (see CONTRIBUTING.md § Testing).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src/
+      - name: Generated reference pages are up to date
+        run: uv run python tools/gen_reference.py --check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked
+      - run: uv run pytest tests/unit -v

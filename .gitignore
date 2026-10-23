@@ -58,13 +58,13 @@ memory/
 .claude/
 
 # draw.io autosave/crash-recovery files
-docs/diagrams/src/.$*.bkp
+docs/archive/diagrams/.$*.bkp
 
 # Configuration and secrets
 *.env
 secrets/
 
-# gitlab runner artefacts
+# CI runner artifacts
 cache
 builds
 
@@ -72,6 +72,9 @@ builds
 *.png
 *.svg
 !docs/diagrams/img/**/*.svg
+# README banner and hero (tools/readme_assets.py) and editable hero diagrams
+!/docs/assets/*.svg
+!/docs/diagrams/*.drawio.svg
 !docs/diagrams/img/**/*.png
 .aider*
 .claude/
@@ -84,3 +87,13 @@ builds
 !/CHANGELOG.md
 !/CONTRIBUTING.md
 !/README.md
+!/AGENTS.md
+!/CLAUDE.md
+!/GEMINI.md
+!/SECURITY.md
+
+# docs site build output (zensical build)
+/site/
+
+# Docs site build output, internal preview (mkdocs.internal.yml)
+/site-internal/

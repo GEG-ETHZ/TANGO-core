@@ -1,4 +1,8 @@
-# AI-Assisted Error Interpretation — Implementation Sketch
+# AI-Assisted Error Interpretation
+
+**Exploration — not implemented.** A sketch of how a failed run's error could
+be passed to a language model for a plain-language explanation.
+
 
 *Supporting detail for the "Future Direction — AI-Assisted Error Interpretation" section
 of `docs/TANGO_vision_and_roadmap/README.md`. Split out here because it's implementation-level
@@ -45,5 +49,5 @@ and a stable set of error types (`ConvergenceError`,
 `FrackingError`, `SaturationError`, `CoolPropError`, `TESPyError`, etc.) with enough
 context attached to be useful.
 
-*Diagram: [Execution Flow](../diagrams/src/phase1_execution_flow.drawio) — shows
+*Diagram: [Execution Flow](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/archive/diagrams/phase1_execution_flow.drawio) — shows
 the AI error agent as a future hook on the right side of the simulation loop.*

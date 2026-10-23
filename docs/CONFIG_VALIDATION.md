@@ -1,19 +1,29 @@
-## Config Validation
-This document is meant as a quick overview of how I have changed tango for configuration file validation.
-The general idea of these changes is expressed in this diagram:
+# Config Validation
+
+How TANGO validates a configuration file before any simulation runs: which
+errors are raised for missing keys, wrong types and unsupported values, and
+where each check lives. Status: available; open questions are listed at the end.
+
+## Principle
+
+Every setting a simulation needs must raise an error if it is missing or
+mis-entered in the config file. Settings that are optional, or valid but
+unusual, produce a warning instead. Validation finishes before the first
+timestep, so a bad config never fails halfway through a run.
+
 ```mermaid
 graph TD
-    File[Config File .yml] --> ReadFile(Workflow.from_file)
-    File --> NoFile[File Does Not Exist]
+    File[Config file .yml] --> ReadFile(Workflow.from_file)
+    File --> NoFile[File does not exist]
     ReadFile --> ConfigError[
     Error:
-    - KeysError; missing keys, extra keys
-    - ValueErrors; type, negative float
-    - ConfigError; non-existant parameter values e.g 9SPOT
-    - NotImplementedError, existing parameter not implementd e.g. AGS_DOUBLET
+    - missing or extra keys
+    - wrong type, out-of-range value
+    - non-existent option, e.g. 9SPOT
+    - NotImplementedError for an option not yet supported, e.g. AGS_DOUBLET
     ]
     ReadFile --> ConfigWarning[Warning:
-    - optional blocks missing
+    - optional block missing
     ]
 
    ConfigWarning --> Workflow_init[Workflow.__init__]
@@ -25,92 +35,116 @@ graph TD
 
    InitWarning --> Workflow_run[Workflow.run]
 ```
-I think everything essential to running a Tango simulation should raise an error if it is not present or mis-enterred in the config file.
 
-``src/tango/core/specs.py`` Handles most of the config errors. This is done using pydantic's ``@field_validator`` and ``@model_validator`` to raise ``ValueErrors`` or give warnings. For example a typical case is to raise a ``ValueError`` if a float is outside a physically plausible range, or just warn the user if the float seems very high. Consider the case of surface temperature: the plausible limits of temperature on earth are between around -70 and 60 degrees celsius, so outside of this range we raise a ValueError, but outside of the range -30 to 41 degrees celsius we just warn the user that their inputted surface temperature is very low/high. If you think these temperature ranges or error messages are a bit random we can choose something a bit more practical.
+## Where the checks live
+
+Most checks are pydantic validators in `src/tango/core/specs.py`.
+`@field_validator` checks one field; `@model_validator` checks rules that
+span several fields. A validator raises `ValueError` for a value that cannot
+be right and logs a warning for a value that is plausible but unusual.
+
+Every pydantic `ValidationError` is caught in `Workflow.__init__`
+(`src/tango/workflows/workflow.py`) and re-raised as `ConfigError`, so
+`ConfigError` is the single error type for a bad config file. `tango_cli`
+maps it to exit code 1.
+
+### Example: a single field
+
+`surface_temperature` is in kelvin.
+
+| Range | Result |
+|---|---|
+| Outside 204–330 K (−69.15 to 56.85 °C) | `ValueError`; almost certainly a unit mistake (°C entered as K) or a typo |
+| Above 315 K (41.85 °C) or below 278 K (4.85 °C) | Warning; plausible but unusual for a geothermal site |
+| Otherwise | Accepted |
 
 ```python
 class Common(BaseModel):
-...
-surface_temperature: float
-...
+    ...
+    surface_temperature: float
+    ...
     @field_validator("surface_temperature")
     @classmethod
-    def check_surface_temperature(cls, v: float) -> float:
-        """Checks the surface temperature is in plausible range if not raises ValueError
-        Checks the surface temperature is in a resonable range if not logs warning"""
-
-        if not (204 <= v <= 330):
-            raise ValueError(
-                f"""Surface temperature={v} K or {v - 273.5} degrees C this is outside of the current plausible range on earth of 184K to 330K (-89 to 60 degrees Celcius)
-                    Please set the surface_temperature (K) to a value within this range in input YAML file"""
-            )
-
-        elif v > 315:
-            logger.warning(
-                f"""Surface temperature={v} K or {v - 273.15} degrees Celsius, this is quite high! Please double check your value"""
-            )
-
-        elif v < 223:
-            logger.warning(
-                f"""Surface temperature={v} K or {v - 273.15} degrees Celsius, this is quite low! Please double check your value"""
-            )
-
-        return v
+    def check_surface_temperature(cls, te: float) -> float:
+        if not (204 <= te <= 330):
+            raise ValueError(...)  # outside the plausible range
+        elif te > 315:
+            logger.warning(...)  # quite high
+        elif te < 278:
+            logger.warning(...)  # quite low
+        return te
 ```
 
-When things become conditional in the case of ``injection_mode`` I have used pydantics ``model_validator(BaseModel)`` which takes a ``BaseModel`` class as an argument (in this case ``SimConfig``).  If ``injection_mode`` is set, then the user also needs to set a ``bc_checkpoint_index`` and if ``injection_mode`` is a manual type i.e. not ``AUTO_FLOW`` or ``AUTO_BOTH`` then the user must enter a ``mass_rate`` too. ``pydantic.model_validator()`` allows us to validate these logical requirements by treating the whole class, whereas ``pydantic.field_validator()`` only allows validating one field.
+### Example: rules across fields
+
+`SimConfig.check_injection_mode_requirements` is a `@model_validator`,
+because `injection_mode` decides which other fields are required:
+
+| `injection_mode` | `bc_checkpoint_idx` | `mass_rate` | `max_mass_rate` |
+|---|---|---|---|
+| absent (`SystemDirect`) | not used | as given | must be absent |
+| `manual`, `manual-fracking-check`, `auto-pressure` | required | required | must be absent |
+| `auto-flow`, `auto-both` | required | computed by the solver | optional cap; a warning if absent |
+
 ```python
 class SimConfig(BaseModel):
     ...
     injection_mode: InjectionPolicy | None = None
-    """Absent selects SystemDirect (no BC iteration); present selects
-    SystemBCIteration."""
     mass_rate: float | None = None
-    """Required unless injection_mode is absent, or is AUTO_FLOW/AUTO_BOTH
-    (mass rate computed from fracing_flow() instead)."""
+    max_mass_rate: float | None = None
     bc_checkpoint_idx: int | None = None
-    """Required when injection_mode is present."""
     ...
     @model_validator(mode="after")
     def check_injection_mode_requirements(self) -> SimConfig:
         if self.injection_mode is None:
+            if self.max_mass_rate is not None:
+                raise ValueError(...)  # nothing to cap without BC iteration
             return self
-
         elif self.bc_checkpoint_idx is None:
-            raise ValueError(
-                f"""bc_checkpoint is required when injection mode is set
-                got injection_mode={self.injection_mode}"""
-            )
-
-        auto_computed = {
-            InjectionPolicy.AUTO_FLOW,
-            InjectionPolicy.AUTO_BOTH,
-        }  # NOTE: Update this if there are other ``auto`` modes created
-        if self.injection_mode not in auto_computed and self.mass_rate is None:
-            raise ValueError(
-                f"""mass_rate is required when injection_mode={self.injection_mode}
-                (only AUTO_FLOW/AUTO_BOTH compute the mass rate)"""
-            )
-
+            raise ValueError(...)
+        auto_computed = {InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH}
+        if self.injection_mode not in auto_computed:
+            if self.mass_rate is None:
+                raise ValueError(...)
+            if self.max_mass_rate is not None:
+                raise ValueError(...)
+        elif self.max_mass_rate is None:
+            logger.warning(...)  # uncapped mass rate
         return self
 ```
-Warning the user that there is no optional economic block is directly implemented in ``src/tango/workflows/workflow.py``. I changed this code from using ``self._economic_raw: dict[str, Any] = config.get("economic",{})`` to
-```python
-self._economic_raw: dict[str, Any]
 
+### Example: an optional block
+
+The `economic` block is optional. `Workflow.__init__` builds it with
+`_build_economic_component` and, if the block is absent, logs a warning and
+runs without economic outputs:
+
+```python
 try:
-    self._economic_raw = config["economic"]
+    self._economic = _build_economic_component(config["economic"])
 except KeyError:
     logger.warning("No economic component found, this simulation will run without economic outputs")
-    self._economic_raw = {}
+    self._economic = None
 ```
-Which assumes the ``KeyError`` will be raised if the economic block does not exist or was somehow named incorrectly and not caught somewhere else, and then warns the user that there will be no economic component to the simulation.
-This is presumably a temporary solution as like all other config blocks I assume there will be an ``Economic(BaseModel)`` where there will be more sophisticated validation.
 
-I created tests for the error handling behaviour ``tests/regtest/test_config_errors/py``. These tests check that the right error type is raised from runnning ``Workflow.from_yaml()`` on a given incorrect config file. Note that all the errors in pydantic ``BaseModel``s get raised as a ``ValidationError`` which gets excepted in ``workflow.py`` and then raised as a ``ConfigError`` i.e. ``ConfigError`` is the only error type for a bad config file. The test script also tests that warning are raised for a missing optional block or a parameter outside a likely physical range.
+## Tests
 
-## My questions/concerns:
-1. Is storing the validation in the same ``.py`` file as each component class messy programming?
-2. Is returning only ``ConfigError`` (rather than ``KeyError``, ``ValueError``) a bit ambiguous (although with a good message the user should know what to do)?
-3. Is maintaining custom validations for each field component more effort than it is worth?
+`tests/regtest/test_config_validation.py` loads deliberately broken configs
+with `Workflow.from_file()` and checks that each raises the expected error:
+`ConfigError` for a missing block or a wrong value, `NotImplementedError`
+for an option that is recognized but not implemented. It also checks that
+a missing optional block or an unusual value logs a warning while the
+`Workflow` is still built. Problems that only appear once `Workflow.run()`
+starts are out of scope for that file.
+
+## Open questions
+
+1. Validators live in the same module as the schema they validate. Whether
+   larger components should move their validators into separate modules is
+   undecided.
+2. Every config problem surfaces as `ConfigError` rather than `KeyError` or
+   `ValueError`. The message names the field, but callers cannot branch on
+   the kind of problem.
+3. Each custom field validator is code to maintain. Where a pydantic
+   constraint (`gt=0`, `Literal[...]`) expresses the same rule, it is the
+   cheaper option.

@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 name = "tango-core"
 version = "1.0.1"
 authors = [{name = "ETHZ/EAPS/GEG Group"}]
-description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
+description = "Techno-economic ANalysis of Geoenergy Operations (TANGO)"
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 requires-python = ">=3.11,<3.12"
@@ -83,6 +83,10 @@ dev = [
     "prek>=0.3.13", # git hook management
     "pytest-xdist>=3.8.0",
     "tango-core[dev]",
+]
+docs = [
+    "zensical==0.0.68", # docs site generator (reads mkdocs.yml); `uv run --group docs zensical serve`
+    "mkdocstrings-python==2.0.9", # API reference pages from the Google-style docstrings
 ]
 
 [tool.hatch.build.targets.wheel]
