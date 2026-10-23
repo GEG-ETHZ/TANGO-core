@@ -2,11 +2,11 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `fluid_name` | `str` | required | Working fluid as a CoolProp fluid name, e.g. H2O or CO2. *draft* |
-| `rock_density` | `float` | required | Rock density (kg/m3). *draft* |
-| `rock_cp` | `float` | required | Rock specific heat capacity (J/(kg K)). *draft* |
-| `rock_k` | `float` | required | Rock thermal conductivity (W/(m K)). *draft* |
-| `thermal_gradient` | `float` | required | Geothermal gradient (K/m). *draft* |
-| `surface_temperature` | `float` | required | Ambient surface temperature (K). *draft* |
-| `surface_pressure` | `float` | required | Ambient surface pressure (Pa). *draft* |
+| `fluid_name` | `str` | required | Working fluid as a CoolProp fluid name, e.g. H2O or CO2. |
+| `rock_density` | `float` | required | Rock density (kg/m3). |
+| `rock_cp` | `float` | required | Rock specific heat capacity (J/(kg K)). |
+| `rock_k` | `float` | required | Rock thermal conductivity (W/(m K)). |
+| `thermal_gradient` | `float` | required | Geothermal gradient (K/m). |
+| `surface_temperature` | `float` | required | Surface temperature (K): the ambient air temperature for cooling, and the top of the linear geotherm. |
+| `surface_pressure` | `float` | required | Ambient surface pressure (Pa). |
 | `coolprop_backend` | `CoolPropBackend` | `<CoolPropBackend.BICUBIC_HEOS: 'BICUBIC&HEOS'>` | CoolProp equation-of-state backend for all fluid-property lookups (`core/fluid_state.py`'s `CoolPropBackend`). Defaults to the tabulated, faster backend; switch to `HEOS` for a system that deliberately operates near a phase boundary/critical point — see TANGO Commandments (CONTRIBUTING.md). |

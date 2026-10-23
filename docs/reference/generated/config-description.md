@@ -2,7 +2,7 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `summary` | `str` | required | One-line purpose of the config. *draft* |
-| `author` | `str \| None` | `None` | Who wrote the config. *draft* |
-| `date` | `str \| None` | `None` | When the config was written, as free text. *draft* |
-| `description` | `str` | `''` | Free text: what is modeled, why the config exists and how. *draft* |
+| `summary` | `str` | required | One-line purpose of the config. |
+| `author` | `str \| None` | `None` | Who wrote the config. |
+| `date` | `str \| None` | `None` | When the config was written, as free text. |
+| `description` | `str` | `''` | Free text: what is modeled, why the config exists and how. |
