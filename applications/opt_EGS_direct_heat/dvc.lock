@@ -9,7 +9,7 @@ stages:
       size: 6549
     - path: ../../src/tango.hash
       hash: md5
-      md5: 861fb9903842fcd4080b7e0ed0af99fd
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: opt_EGS_direct_heat.py
       hash: md5
@@ -32,14 +32,14 @@ stages:
       nfiles: 45
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 65e5f9b78f333f86323b263872fdd7b9
-      size: 10525
+      md5: 4be8dab60e3a0c9a4e7b45bf1ab35eb9
+      size: 10526
   plot:
     cmd: python opt_EGS_direct_heat.py --plot-only
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 861fb9903842fcd4080b7e0ed0af99fd
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: opt_EGS_direct_heat.py
       hash: md5
@@ -47,13 +47,13 @@ stages:
       size: 9641
     - path: outputs/pareto_results.csv
       hash: md5
-      md5: 65e5f9b78f333f86323b263872fdd7b9
-      size: 10525
+      md5: 4be8dab60e3a0c9a4e7b45bf1ab35eb9
+      size: 10526
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 1b8b86c90d3fdcb72b98e05812e05964
-      size: 4578962
+      md5: fd8c3944779a267cd4d8477aaffe5b8d
+      size: 4578963
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
       md5: aade78222f09cb6c18bc12cdee1cedc2

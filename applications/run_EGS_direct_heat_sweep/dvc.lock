@@ -29,7 +29,7 @@ stages:
       size: 6549
     - path: ../../src/tango.hash
       hash: md5
-      md5: 2724fd81e322b8b07ccf52529198c024
+      md5: 58c4da4a6e27bc1313c15d2030432e54
       size: 41
     - path: common.py
       hash: md5
@@ -49,8 +49,8 @@ stages:
     outs:
     - path: outputs/results
       hash: md5
-      md5: 039a14d12d970f4f7706fcca01aa387c.dir
-      size: 222737
+      md5: 53bdb9c37021ad1b7703fa9c0c1a95a8.dir
+      size: 86835
       nfiles: 100
   summarize:
     cmd: python summarize.py
@@ -61,8 +61,8 @@ stages:
       size: 3398
     - path: outputs/results
       hash: md5
-      md5: 3ce21cb84f51aa6a4babf10dfe41d808.dir
-      size: 228591
+      md5: fbe3be5d1b370686a0f46d2c25194b97.dir
+      size: 94288
       nfiles: 105
     - path: summarize.py
       hash: md5
@@ -71,8 +71,8 @@ stages:
     outs:
     - path: outputs/results.parquet
       hash: md5
-      md5: fbf612a0421aebf772585045f6acb058
-      size: 11587
+      md5: 676ae7d6497f698a8e766bcbffd51800
+      size: 11238
   plot:
     cmd: python plot.py
     deps:
@@ -82,8 +82,8 @@ stages:
       size: 3398
     - path: outputs/results.parquet
       hash: md5
-      md5: fbf612a0421aebf772585045f6acb058
-      size: 11587
+      md5: 676ae7d6497f698a8e766bcbffd51800
+      size: 11238
     - path: plot.py
       hash: md5
       md5: f37ac060148b0602aa472c304e68df19
@@ -91,26 +91,26 @@ stages:
     outs:
     - path: outputs/parallel_coordinates.html
       hash: md5
-      md5: 2fe88a949aef79f0db52ba55ee9fe6f1
-      size: 4571330
+      md5: f8621eaa3ce784e734c0da28116f2233
+      size: 4572444
     - path: outputs/parallel_coordinates.png
       hash: md5
-      md5: 25a9d3c4dc451c18439042b0e1710559
-      size: 522700
+      md5: 8b6e99b1a6badbf6054832626eb5f73d
+      size: 595262
     - path: outputs/parallel_coordinates_qualified.html
       hash: md5
-      md5: 1cc461fdf86a6f55e7f6f085ded117b3
+      md5: 2311748c38778de96bb0a88d17791445
       size: 4569712
     - path: outputs/success_scatter.png
       hash: md5
-      md5: 194f64cbe25e707ca4ea3396b95962fb
-      size: 52118
+      md5: 4549009807cda5ba3e062b8921d9b5a4
+      size: 53311
   clean:
     cmd: python -c "import pathlib; [f.unlink() for f in 
       pathlib.Path('outputs/results').glob('*.tmp')]"
     deps:
     - path: outputs/results
       hash: md5
-      md5: 039a14d12d970f4f7706fcca01aa387c.dir
-      size: 222737
-      nfiles: 100
+      md5: fbe3be5d1b370686a0f46d2c25194b97.dir
+      size: 94288
+      nfiles: 105
