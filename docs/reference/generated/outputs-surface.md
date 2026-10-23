@@ -4,15 +4,14 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). *draft* |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). *draft* |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). *draft* |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). *draft* |
-| `<name>_mass_rate` | Per-timestep mass flow rate (kg/s). *draft* |
-| `<name>_dP_pipe` | Per-timestep friction pressure drop across the surface pipe (Pa). *draft* |
-| `<name>_P_tespy_inlet` | Per-timestep pressure passed to the TESPy inlet (Pa). *draft* |
-| `<name>_rho` | Per-timestep fluid density at the outlet (kg/m3). *draft* |
-| `<name>_mu` | Per-timestep fluid dynamic viscosity at the outlet (Pa s). *draft* |
-| `<name>_net_power_W` | Per-timestep net electric power of the role=net_electric nodes, before economics-level parasitic loads (W). *draft* |
-| `<name>_net_thermal_W` | Per-timestep net thermal power of the role=net_thermal nodes (W). *draft* |
-
+| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
+| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
+| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
+| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
+| `<name>_mass_rate` | Per-timestep mass flow rate (kg/s). |
+| `<name>_dP_pipe` | Per-timestep friction pressure drop across the surface pipe (Pa). |
+| `<name>_P_tespy_inlet` | Per-timestep pressure passed to the TESPy inlet (Pa). |
+| `<name>_rho` | Per-timestep fluid density at the outlet (kg/m3). |
+| `<name>_mu` | Per-timestep fluid dynamic viscosity at the outlet (Pa s). |
+| `<name>_net_power_W` | Per-timestep net electric power of the role=net_electric nodes, before economics-level parasitic loads (W). |
+| `<name>_net_thermal_W` | Per-timestep net thermal power of the role=net_thermal nodes (W). |
