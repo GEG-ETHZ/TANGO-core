@@ -105,6 +105,8 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "mass_rate_kg_per_s": (20.0, 200.0),
     "injection_pressure_Pa": (5000000.0, 12000000.0),
     # 6-24 inch wellbores.
+    # The front sits on the 0.6 m cap; a wider injection well has less friction,
+    # so its bottom-hole pressure rises, and 0.7 m fractures the reservoir.
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
     "surface_pipe_diameter_m": (0.2, 0.75),

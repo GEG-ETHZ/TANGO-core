@@ -105,8 +105,14 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # run_hydro_df_electric_sweep uses.
     "target_extraction_pressure_Pa": (4900000.0, 10500000.0),
     # 6-24 inch wellbores.
+    # Both well diameters sit on the 0.15 m (6 inch) floor: at 0.12 m the
+    # production well can no longer lift the flow (WellPressureCollapseError).
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
+    # The front sits on the 0.2 m floor: pipe friction is free while the
+    # surface plant throttles the fluid anyway (flash valve or
+    # circulation_control), so a smaller pipe is only cheaper. The real limit,
+    # flow velocity, isn't modeled; 0.2 m stands in for it (#120).
     "surface_pipe_diameter_m": (0.2, 0.75),
 }
 

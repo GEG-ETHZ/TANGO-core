@@ -133,6 +133,8 @@ class _OrcFeedPumpPressureApply:
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "mass_rate_kg_per_s": (15.0, 150.0),
+    # The front reaches the 9 MPa cap; 10 MPa fractures the reservoir
+    # (injection well outlet above the fracking threshold).
     "injection_pressure_Pa": (5000000.0, 9000000.0),
     # 6-24 inch wellbores.
     "injection_well_diameter_m": (0.15, 0.6),

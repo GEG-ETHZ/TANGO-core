@@ -104,10 +104,16 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "injection_pressure_Pa": (500000.0, 8000000.0),
     # (0.7, 1.5)x the config's own value, the same scale factor
     # run_hydro_df_electric_sweep uses.
+    # The front sits on the 1.05 MPa floor, but the production pump is already
+    # off there, so going lower changes nothing.
     "target_extraction_pressure_Pa": (1050000.0, 2250000.0),
     # 6-24 inch wellbores.
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
+    # The front sits on the 0.2 m floor: pipe friction is free while the
+    # surface plant throttles the fluid anyway (flash valve or
+    # circulation_control), so a smaller pipe is only cheaper. The real limit,
+    # flow velocity, isn't modeled; 0.2 m stands in for it (#120).
     "surface_pipe_diameter_m": (0.2, 0.75),
     # Above the 0.005 MPa condenser, and up to where the produced brine barely
     # flashes; a valve set above the arriving fluid's saturation pressure makes

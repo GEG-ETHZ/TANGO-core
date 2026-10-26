@@ -97,9 +97,10 @@ class _WellDiameterApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
-    # Up to 150 kg/s: with the old 100 kg/s cap the whole front sat on it; the
-    # optimum lies near 120 kg/s (~1% lower LCOE than at 100 kg/s for the
-    # front's ideal-corner design), and LCOE rises again by 150 kg/s.
+    # Up to 150 kg/s: with the old 100 kg/s cap the whole front sat on it.
+    # The front's high-power end now reaches 150 kg/s, but more flow doesn't
+    # pay: LCOE rises again by 175 kg/s, and by 200 kg/s the fluid boils in
+    # the production well below the pump (SaturationError).
     "mass_rate_kg_per_s": (10.0, 150.0),
     "injection_pressure_Pa": (1.0e6, 8.0e6),
     # Floor: just above water's saturation pressure (1.25 MPa) at the
@@ -113,6 +114,10 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # 6-24 inch wellbores, bracketing the base YAML's 0.41 m.
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
+    # The front sits on the 0.2 m floor: pipe friction is free while the
+    # surface plant throttles the fluid anyway (flash valve or
+    # circulation_control), so a smaller pipe is only cheaper. The real limit,
+    # flow velocity, isn't modeled; 0.2 m stands in for it (#120).
     "surface_pipe_diameter_m": (0.2, 0.75),
     # Above the 0.005 MPa condenser, and up to where ~177 degC brine barely
     # flashes; a valve set above the arriving fluid's saturation pressure

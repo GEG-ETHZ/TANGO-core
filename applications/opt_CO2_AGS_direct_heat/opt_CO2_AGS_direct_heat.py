@@ -124,11 +124,22 @@ class _LoopLengthApply:
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # Brackets the config's own depth.
+    # The front sits on the deep cap: deeper rock is hotter and nothing in the
+    # model pushes back (1 km deeper is ~9-12% cheaper). Whether the cap is a
+    # real drilling limit, and whether well cost holds beyond ~8 km, is open
+    # (#120).
     "depth_m": (4000.0, 9000.0),
     # Loop geometry and diameters: the same ranges as opt_AGS_direct_heat.
+    # Loop length and diameter sit at their caps but are near their optima:
+    # 9 km or 0.85 m changes LCOE by at most ~2%, sometimes for the worse.
     "loop_length_m": (500.0, 8000.0),
     "loop_diameter_m": (0.15, 0.75),
     "vertical_well_diameter_m": (0.2, 0.75),
+    # The front sits on the 70 kg/s cap, together with
+    # district_heating_outlet_pressure_MPa on its 12 MPa cap: the exchanger's
+    # outlet already equals its inlet pressure (no pressure drop), and more
+    # flow or a higher outlet would mean a pressure rise across a component
+    # that does no work (PassivePressureRiseError).
     "mass_rate_kg_per_s": (5.0, 70.0),
     "injection_pressure_Pa": (5000000.0, 12000000.0),
     "surface_pipe_diameter_m": (0.2, 0.75),

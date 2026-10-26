@@ -129,7 +129,13 @@ class _LoopLengthApply:
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # Depth, loop length, loop diameter, and mass flow cover the AGS
     # direct-heat sweep's own axes (run_AGS_direct_heat_sweep/common.py).
+    # The front sits on the deep cap: deeper rock is hotter and nothing in the
+    # model pushes back (1 km deeper is ~9-12% cheaper). Whether the cap is a
+    # real drilling limit, and whether well cost holds beyond ~8 km, is open
+    # (#120).
     "depth_m": (2_000.0, 4_500.0),
+    # Loop length and diameter sit at their caps but are near their optima:
+    # 9 km or 0.85 m changes LCOE by at most ~2%, sometimes for the worse.
     "loop_length_m": (500.0, 8_000.0),
     "loop_diameter_m": (0.15, 0.75),
     # From 6 inch (0.15 m), as in the other apps. Smaller vertical wells are
@@ -138,7 +144,13 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # until ~0.08-0.10 m, where the production well can no longer lift the
     # fluid (it boils or its pressure collapses), so 0.15 m stays well clear.
     "vertical_well_diameter_m": (0.15, 0.75),
+    # The front sits on the 0.2 m floor: pipe friction is free while the
+    # thermosiphon has spare pressure for circulation_control to throttle, so
+    # a smaller pipe is only cheaper. The real limit, flow velocity, isn't
+    # modeled; 0.2 m stands in for it (#120).
     "surface_pipe_diameter_m": (0.2, 0.75),
+    # The front sits on the 0.5 MPa floor, but the thermosiphon sets the
+    # loop's pressure: 0.3 MPa gives the same LCOE.
     "injection_pressure_Pa": (0.5e6, 3.0e6),
     "mass_rate_kg_per_s": (3.5, 50.0),
 }
