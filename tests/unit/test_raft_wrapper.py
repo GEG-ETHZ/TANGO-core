@@ -97,6 +97,16 @@ def test_state_records_raft_values_and_loop_outlet_follows_them(config: dict[str
     assert all(seconds >= 0 for seconds in raft_history.solve_seconds)
 
 
+def test_state_records_raft_step_stats_of_the_accepted_trial(config: dict[str, Any]) -> None:
+    """RAFT's ``solve_stats`` for each timestep's accepted trial are recorded."""
+    loop = _run(config, num_tsteps=2)
+    raft_history = loop.raft.history
+    assert raft_history.accepted_steps == [1.0, 1.0]
+    assert raft_history.attempts == [1.0, 1.0]
+    assert raft_history.dt_min_proceeds == [0.0, 0.0]
+    assert raft_history.dt_accepted == [[_YEAR_SECONDS], [_YEAR_SECONDS]]
+
+
 def test_config_round_trips(config: dict[str, Any], raft_template: Path) -> None:
     """``to_dict()`` keeps the ``raft:`` block and loads back."""
     wf = Workflow(config)

@@ -31,8 +31,9 @@ sets what tango owns: the well diameter and roughness, the coupling
 boundary conditions and the output location.
 
 ``state``/``history`` record, per timestep, RAFT's raw values at the well
-inlet and outlet and how much work the timestep took (trial solves, wall
-time).
+inlet and outlet, how much work the timestep took (trial solves, wall
+time), and RAFT's own timestepping statistics for the accepted trial
+(``RaftModel.solve_stats``).
 """
 
 from __future__ import annotations
@@ -102,6 +103,12 @@ def _ls_nan() -> LockedState[float]:
     return ls
 
 
+def _ls_list() -> LockedState[list[float]]:
+    ls: LockedState[list[float]] = LockedState([])
+    ls.mark_stale()
+    return ls
+
+
 @dataclass(frozen=True)
 class RaftWrapperState(StateMethods):
     """RAFT's values for one tango timestep, as RAFT reports them."""
@@ -122,6 +129,22 @@ class RaftWrapperState(StateMethods):
     """RAFT solves this timestep took, one per tango injection-enthalpy iteration."""
     solve_seconds: LockedState[float] = field(default_factory=_ls_nan)
     """Wall time (s) of all of this timestep's RAFT solves."""
+    accepted_steps: LockedState[float] = field(default_factory=_ls_nan)
+    """Internal timesteps RAFT took in the accepted trial."""
+    attempts: LockedState[float] = field(default_factory=_ls_nan)
+    """Internal timestep solves in the accepted trial, rejected ones included."""
+    cut_extrapolation: LockedState[float] = field(default_factory=_ls_nan)
+    """Internal timesteps in the accepted trial that RAFT rejected for temperature extrapolation error."""
+    cut_newton: LockedState[float] = field(default_factory=_ls_nan)
+    """Internal timesteps in the accepted trial that RAFT rejected because Newton-Raphson failed."""
+    constraint_switches: LockedState[float] = field(default_factory=_ls_nan)
+    """Extra solves in the accepted trial after a wellbore constraint switched."""
+    dt_min_proceeds: LockedState[float] = field(default_factory=_ls_nan)
+    """Internal timesteps in the accepted trial that RAFT accepted at ``timestep_min`` with an error above
+    its tolerance."""
+    dt_accepted: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Size (s) of each internal timestep RAFT took in the accepted trial, in order; they add up to the
+    tango timestep."""
 
 
 @dataclass
@@ -136,6 +159,13 @@ class RaftWrapperHistory:
     mass_rate_outlet: list[float] = field(default_factory=list)
     trial_solves: list[float] = field(default_factory=list)
     solve_seconds: list[float] = field(default_factory=list)
+    accepted_steps: list[float] = field(default_factory=list)
+    attempts: list[float] = field(default_factory=list)
+    cut_extrapolation: list[float] = field(default_factory=list)
+    cut_newton: list[float] = field(default_factory=list)
+    constraint_switches: list[float] = field(default_factory=list)
+    dt_min_proceeds: list[float] = field(default_factory=list)
+    dt_accepted: list[list[float]] = field(default_factory=list)
 
     def record(self, state: RaftWrapperState) -> None:
         """Append ``state`` as one timestep entry."""
@@ -147,6 +177,13 @@ class RaftWrapperHistory:
         self.mass_rate_outlet.append(state.mass_rate_outlet.get_fresh())
         self.trial_solves.append(state.trial_solves.get_fresh())
         self.solve_seconds.append(state.solve_seconds.get_fresh())
+        self.accepted_steps.append(state.accepted_steps.get_fresh())
+        self.attempts.append(state.attempts.get_fresh())
+        self.cut_extrapolation.append(state.cut_extrapolation.get_fresh())
+        self.cut_newton.append(state.cut_newton.get_fresh())
+        self.constraint_switches.append(state.constraint_switches.get_fresh())
+        self.dt_min_proceeds.append(state.dt_min_proceeds.get_fresh())
+        self.dt_accepted.append(list(state.dt_accepted.get_fresh()))
 
 
 @dataclass(frozen=True)
@@ -333,6 +370,14 @@ class RaftWrapper(BaseModel, StateMethods):
         s.P_outlet.update(P_outlet)
         s.T_outlet.update(T_outlet)
         s.mass_rate_outlet.update(-float(outlet_result["q"]))
+        stats = self._model.solve_stats
+        s.accepted_steps.update(float(stats.accepted_steps))
+        s.attempts.update(float(stats.attempts))
+        s.cut_extrapolation.update(float(stats.cut_extrapolation))
+        s.cut_newton.update(float(stats.cut_newton))
+        s.constraint_switches.update(float(stats.constraint_switches))
+        s.dt_min_proceeds.update(float(stats.dt_min_proceeds))
+        s.dt_accepted.update([float(dt) for dt in stats.dt_accepted])
         return RaftLoopResult(T_inlet=T_inlet, P_outlet=P_outlet, T_outlet=T_outlet, h_outlet=outlet_state.H)
 
     def accept(self) -> None:

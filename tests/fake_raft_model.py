@@ -8,6 +8,7 @@ Installed by the ``fake_raft`` fixture in ``tests/conftest.py``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -23,6 +24,24 @@ FAKE_PRESSURE_GAIN_PA = 1.0e6
 """Pressure rise (Pa) ``FakeRaftModel`` gives the fluid."""
 
 
+@dataclass
+class FakeStepStats:
+    """Stands in for ``geg_raft.subsurface.StepStats``: one internal timestep spanning the whole trial."""
+
+    attempts: int = 1
+    cut_extrapolation: int = 0
+    cut_newton: int = 0
+    constraint_switches: int = 0
+    dt_min_proceeds: int = 0
+    dt_accepted: list[float] = field(default_factory=list)
+    wall_time: float = 0.0
+
+    @property
+    def accepted_steps(self) -> int:
+        """Number of internal timesteps taken."""
+        return len(self.dt_accepted)
+
+
 class FakeTimestepError(RuntimeError):
     """Stands in for ``geg_raft.subsurface.TimestepError``."""
 
@@ -34,6 +53,7 @@ class FakeRaftModel:
     flow_factor: ClassVar[float] = 1.0
     outlet_temperature_k: ClassVar[float | None] = None
     fail: ClassVar[bool] = False
+    dt_min_proceeds: ClassVar[int] = 0
 
     def __init__(self, config_name: str, t_start: float, config_dir: Path, verbosity: str) -> None:
         """Read the config tango wrote, as RAFT would."""
@@ -46,6 +66,7 @@ class FakeRaftModel:
         self.pending_time: float | None = None
         self.solves: list[tuple[float, float]] = []
         self.accepted_times: list[float] = []
+        self.solve_stats = FakeStepStats()
         FakeRaftModel.instances.append(self)
 
     def solve(
@@ -60,6 +81,10 @@ class FakeRaftModel:
             raise FakeTimestepError("forced")
         self.solves.append((t_start, t_end))
         self.pending_time = t_end
+        self.solve_stats = FakeStepStats(
+            dt_min_proceeds=FakeRaftModel.dt_min_proceeds,
+            dt_accepted=[t_end - t_start],
+        )
         inlet = bcs[self.inlet_label]
         q = bcs[self.outlet_label]["q"]
         T_out = FakeRaftModel.outlet_temperature_k or inlet["T"] + FAKE_HEATING_K

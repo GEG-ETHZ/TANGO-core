@@ -76,6 +76,12 @@ FIELD_UNITS: dict[str, str] = {
     "mass_rate_outlet": "kg/s",
     "trial_solves": "-",
     "solve_seconds": "s",
+    "accepted_steps": "-",
+    "attempts": "-",
+    "cut_extrapolation": "-",
+    "cut_newton": "-",
+    "constraint_switches": "-",
+    "dt_min_proceeds": "-",
     "ever_solved": "bool",
     # Power
     "pump_power_watts": "W",

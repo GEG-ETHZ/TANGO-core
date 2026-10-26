@@ -15,6 +15,7 @@ import pytest
 import yaml
 
 from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
+from tango.core.constants import YEAR_TO_SECOND
 from tango.workflows.workflow import Workflow
 
 pytest.importorskip("geg_raft")
@@ -39,6 +40,8 @@ def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> 
     assert raft.mass_rate_outlet == [30.0]
     assert math.isclose(raft.mass_rate_inlet[0], 30.0, rel_tol=1e-3)
     assert raft.trial_solves[0] >= 1
+    assert math.isclose(sum(raft.dt_accepted[0]), YEAR_TO_SECOND, rel_tol=1e-9)
+    assert raft.accepted_steps[0] == len(raft.dt_accepted[0])
     assert raft.T_outlet[0] > raft.T_inlet[0] + 50.0, (
         "8 km of hot rock should heat the loop by far more than 50 K"
     )
