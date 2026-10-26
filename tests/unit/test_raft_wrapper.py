@@ -107,6 +107,13 @@ def test_state_records_raft_step_stats_of_the_accepted_trial(config: dict[str, A
     assert raft_history.dt_accepted == [[_YEAR_SECONDS], [_YEAR_SECONDS]]
 
 
+def test_step_accepted_at_timestep_min_above_tolerance_raises(config: dict[str, Any]) -> None:
+    """A step RAFT accepted at ``timestep_min`` despite its error is a ConvergenceError, not a silent pass."""
+    FakeRaftModel.dt_min_proceeds = 1
+    with pytest.raises(ConvergenceError, match="timestep_min"):
+        _run(config, num_tsteps=1)
+
+
 def test_config_round_trips(config: dict[str, Any], raft_template: Path) -> None:
     """``to_dict()`` keeps the ``raft:`` block and loads back."""
     wf = Workflow(config)

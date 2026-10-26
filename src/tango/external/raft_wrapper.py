@@ -324,7 +324,9 @@ class RaftWrapper(BaseModel, StateMethods):
         """Run one RAFT trial over the next ``dt_seconds`` from RAFT's accepted state; fill ``state``.
 
         Raises:
-            ConvergenceError: RAFT failed to converge at its minimum timestep.
+            ConvergenceError: RAFT failed to converge at its minimum timestep,
+                or accepted a step at its minimum timestep whose temperature
+                extrapolation error was above its tolerance.
             ConfigError: RAFT's result breaks the loop's assumptions (the
                 mass flow differs between inlet and outlet, or a boundary
                 condition switched mode).
@@ -356,6 +358,7 @@ class RaftWrapper(BaseModel, StateMethods):
         self._solve_seconds += time.perf_counter() - started
         self._trial_solves += 1
         self._trial_end_seconds = t_end
+        _check_dt_min_proceeds(self._model.solve_stats, self._raft_config, t_start, t_end)
 
         inlet_result, outlet_result = result[self._inlet_label], result[self._outlet_label]
         _check_flow(inlet_result, outlet_result, mass_rate, t_start, t_end)
@@ -508,6 +511,31 @@ def _check_flow(
                 f"loop's mass rate is {mass_rate!r} kg/s: "
                 "mass flow must be constant around the loop (a sealed well, perforation_conductance 0).",
             )
+
+
+def _check_dt_min_proceeds(
+    stats: Any,
+    raft_config: dict[str, Any] | None,
+    t_start: float,
+    t_end: float,
+) -> None:
+    """Raise if RAFT accepted any step at ``timestep_min`` with an extrapolation error above ``rel_error_T``.
+
+    RAFT's linearized solver cuts a step whose temperature extrapolation error
+    exceeds ``rel_error_T``, but at ``timestep_min`` it can't cut further and
+    accepts the step anyway, printing a note only at ``verbosity: full``. Such
+    a step was solved with fluid properties at a temperature off by more than
+    the tolerance.
+    """
+    if stats.dt_min_proceeds == 0:
+        return
+    controls = raft_config["simulation"] if raft_config is not None else {}
+    raise ConvergenceError(
+        f"Between t = {t_start:.6g} s and {t_end:.6g} s, RAFT accepted {stats.dt_min_proceeds} internal "
+        f"timestep(s) at timestep_min = {controls.get('timestep_min')!r} s whose temperature extrapolation "
+        f"error was above rel_error_T = {controls.get('rel_error_T')!r}. Set raft.verbosity to 'full' to "
+        "see the errors; a smaller timestep_min in the RAFT template lets RAFT cut further.",
+    )
 
 
 def _check_liquid(fluid: str, P: float, T: float, backend: str) -> None:
