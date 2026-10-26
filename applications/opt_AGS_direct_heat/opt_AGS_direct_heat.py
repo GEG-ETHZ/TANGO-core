@@ -132,7 +132,12 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "depth_m": (2_000.0, 4_500.0),
     "loop_length_m": (500.0, 8_000.0),
     "loop_diameter_m": (0.15, 0.75),
-    "vertical_well_diameter_m": (0.2, 0.75),
+    # From 6 inch (0.15 m), as in the other apps. Smaller vertical wells are
+    # cheaper and lose less heat on the way up, so the front sat on the old
+    # 0.2 m floor. At this app's low flow (~8 kg/s) friction barely matters
+    # until ~0.08-0.10 m, where the production well can no longer lift the
+    # fluid (it boils or its pressure collapses), so 0.15 m stays well clear.
+    "vertical_well_diameter_m": (0.15, 0.75),
     "surface_pipe_diameter_m": (0.2, 0.75),
     "injection_pressure_Pa": (0.5e6, 3.0e6),
     "mass_rate_kg_per_s": (3.5, 50.0),

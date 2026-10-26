@@ -138,12 +138,14 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     "injection_well_diameter_m": (0.15, 0.6),
     "production_well_diameter_m": (0.15, 0.6),
     "surface_pipe_diameter_m": (0.2, 0.75),
-    # Lower bound stays well above the ORC condensing pressure, so the feed
-    # pump always raises pressure. Upper bound saturates R245fa at ~110 degC:
+    # Lower bound stays well above the 0.125 MPa ORC condensing pressure, so
+    # the feed pump always raises pressure. The optimum sits near 0.30 MPa,
+    # just below the old 0.35 MPa floor; below ~0.25 MPa LCOE rises steeply
+    # (too little turbine pressure ratio). Upper bound saturates R245fa at ~110 degC:
     # the produced CO2 arrives at roughly 90-120 degC, and evaporating closer
     # to that leaves too little heat transfer for the ORC to cover the plant's
     # pumps (random samples above ~1 MPa were almost all net power consumers).
-    "orc_feed_pump_pressure_MPa": (0.35, 1.5),
+    "orc_feed_pump_pressure_MPa": (0.25, 1.5),
 }
 
 
