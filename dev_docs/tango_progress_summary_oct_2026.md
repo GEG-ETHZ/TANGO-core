@@ -1,9 +1,9 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
-*Prepared 2026-10-02, updated 2026-10-05 and 2026-10-15. Covers October 1–5,
-plus the parallel-optimization fix of 2026-10-13; extend as the month goes
-on. Managerial-level summary — for engineering detail, see the GitLab
-issues linked below and `dev_docs/tango_tasks.md`. Continues from
+*Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, and 2026-10-26.
+Covers October 1–26. Managerial-level summary — for engineering detail,
+see the issues linked below (GitLab numbers up to #75, GitHub from #94 on)
+and `dev_docs/tango_tasks.md`. Continues from
 `dev_docs/tango_progress_summary_sep_2026.md`.*
 
 ## Found and fixed an energy leak at every component boundary: components now hand each other enthalpy, not temperature (2026-10-01)
@@ -162,6 +162,145 @@ config dictionary is the single source of truth and a model can always
 be rebuilt from it. A test now pickles a TESPy-plant problem, checks that it
 carries no live model, and checks that it still evaluates a design.
 
+## Shared config values now have one source (2026-10-14)
+
+**In plain terms:** several components need the same physical quantity
+(the reservoir depth sets the well lengths; the depth also sets the
+reservoir's starting pressure). Each config used to repeat these values by
+hand, so an edit to one copy could leave another stale and the model ran
+with both. Each such value is now written once and the rest derived from
+it; a config that repeats a value and disagrees with it is rejected.
+
+**Bugs it exposed:** the optimizer and the sweeps had fixed each well's cell
+count at the starting design's value, so AGS designs with longer wells ran
+on cells up to 4x coarser (up to 1.3% LCOE). Two sweeps moved depth and well
+lengths independently, producing physically inconsistent designs. ORC
+starting guesses were read in the wrong unit (10x too low). All fixed.
+The reservoir's starting pressure is now computed from depth (2% lower than
+the old hand-entered value in the hydrothermal configs).
+
+The auto-pressure and auto-flow modes were removed: operating points now
+come from the optimization apps instead.
+
+## How a design is picked from each Pareto front, and how long the optimizer needs (2026-10-16–20)
+
+Each optimization returns a Pareto front: designs trading cost against
+output, none better than another on both. The recommended design is now
+the one closest to the ideal corner (best cost and best output, each scaled
+0–1 over the front). It replaces the old pick (closest to the front's
+average), which moved whenever the optimizer happened to crowd designs into
+one part of the front.
+
+A study on Euler compared 200 and 600 generations over several random
+seeds: 200 generations reach 99.2–99.8% of the 600-generation result, and
+the pick moves less between generations 200 and 600 than between seeds,
+so 200 stays the default. The optimizer can also optionally report every
+good design it found, not just its final population's (off by default).
+
+## The production pump was never tried on flows the well couldn't lift alone (2026-10-20)
+
+**In plain terms:** a pumped production well first checks whether it can
+lift the flow without its pump. When it couldn't, that check crashed inside
+the fluid-property library before the pump was tried, and the optimizer
+scored the design infeasible. In a sample of 40 rejected designs from the
+hydrothermal heat optimization, 25 were this and run fine with the pump,
+so every optimization with a pumped production well had been missing its
+high-flow designs. All of them were rerun.
+
+Two failure modes inside a well now raise named errors instead of a
+fluid-library crash: the fluid starting to boil (`SaturationError`) and the
+pressure falling to zero (`WellPressureCollapseError`), each naming the
+well, depth, pressure, temperature, and flow.
+
+## Every well now stays 5% away from boiling or condensing (2026-10-22)
+
+The well models assume the fluid is a single phase, but some designs ran
+right at the phase boundary: CO2 condensate entered the injection well
+barely subcooled (a 2.4% pressure margin), and near-critical CO2 was
+reinjected 4.9% from saturation. Every point in every well must now be at
+least 5% (configurable) in pressure away from saturation, or the design is
+rejected. The 5% is engineering judgment, documented with the practice that
+motivated it. Three CO2 power configs now subcool their condensate by 3 K
+instead of 1 K, and the CO2 EGS heat config reinjects at 8.0 MPa instead
+of 7.5 MPa.
+
+## Why the optimal designs sat on their search bounds (2026-10-19–26)
+
+**In plain terms:** after the October reruns, most fronts had at least one
+design variable pressed against the edge of the range the optimizer was
+allowed to search. That means either the edge is a real physical limit, or
+it's arbitrary and costing money. Each one was checked by rerunning the
+picked design with that variable pushed past the edge:
+
+- **Explain:** the bound is physical, or it costs nothing.
+- **Hand off:** the bound is an engineering limit for domain experts to judge.
+- **Widen:** the bound is arbitrary and costs LCOE; widen it and rerun.
+
+| Variable at its bound | Apps | Finding | Action |
+|---|---|---|---|
+| Surface pipe diameter at 0.2 m | most | Pipe friction is free where the plant throttles the fluid anyway; the real limit (flow velocity) isn't modeled | Explain; hand off a velocity limit |
+| Wellhead pressure target at 1.3 MPa | hydrothermal flash and ORC | Floor sits just above boiling; extra pressure is thrown away at the flash valve | Floor lowered from 4.9 MPa (12–17% cheaper); #108 |
+| Condensing pressure at its floor | CO2 power apps | Floor = cooling limit plus 3 K subcooling | Explain |
+| Mass rate at its cap | hydrothermal ORC and heat, EGS heat | More flow fractures the reservoir | Explain |
+| Mass rate at its cap | EGS, hydrothermal flash power | Cap was arbitrary (EGS optimum ~150 kg/s, 11% cheaper) | Widened |
+| Mass rate at 70 kg/s | CO2 AGS power | Near the optimum (80 kg/s is slightly worse) | Explain |
+| Depth at its cap | all AGS | Binding: 9–12% cheaper per extra kilometer | Hand off (drilling cost beyond ~8 km, #120) |
+| Loop length 8 km, loop diameter 0.75 m | all AGS | Near their optima | Explain |
+| Vertical well diameter at 0.2 m | AGS heat | 0.15 m is 3.5% cheaper; the well can't lift the flow below ~0.08–0.10 m | Floor lowered to 0.15 m |
+| ORC feed pump pressure at 0.35 MPa | CO2 EGS ORC | Optimum ~0.30 MPa (1.6% cheaper); falls apart below 0.25 MPa | Floor lowered to 0.25 MPa |
+| Injection pressure, well diameter | CO2 EGS ORC, CPG heat | One step past the bound fractures the reservoir | Explain |
+| Injection well diameter at 0.6 m | CPG power | 0.7 m is 0.4% cheaper; 0.6 m (24 inch) is already large | Explain; hand off well size |
+| Well diameters at 0.15 m | EGS and hydrothermal heat | Below it the production well can't lift the flow | Explain |
+
+Every opt app's bounds now carry a comment saying which of these applies.
+The open engineering questions (AGS depth and drilling cost beyond ~8 km,
+a surface-pipe velocity limit, well sizes, pump depth) are collected in
+GitHub #120 for domain experts. Two related model gaps are tracked
+separately: solving the wellhead pressure target from a saturation margin
+(#108), and five-spot well patterns, which are costed as a single doublet
+and carry the full flow in one injection well (#109); the five-spot
+config and its optimization are marked invalid until that is fixed.
+
+## Every example config now runs its optimized design (2026-10-26)
+
+Each example config now holds its optimization's recommended design,
+rounded to 3 significant figures, with a header recording where it came
+from. Every pick beats the old hand-set design on both cost and output.
+Three values sat exactly on a physical edge and were rounded toward the
+safe side instead.
+
+| Config | LCOE before → after ($/kWh) |
+|---|---|
+| CO2 AGS heat | 3.13 → 0.388 (−88%) |
+| CO2 AGS ORC power | 14.0 → 4.16 (−70%) |
+| Hydrothermal single-flash power | 1.46 → 0.472 (−68%) |
+| Hydrothermal double-flash power | 0.980 → 0.424 (−57%) |
+| Hydrothermal ORC power | 0.641 → 0.327 (−49%) |
+| AGS heat | 1.35 → 0.719 (−47%) |
+| AGS ORC power | 3.62 → 2.06 (−43%) |
+| CO2 AGS power | 2.89 → 1.66 (−43%) |
+| EGS power | 1.55 → 1.02 (−34%) |
+| Hydrothermal heat | 0.0539 → 0.0360 (−33%) |
+| CO2 EGS ORC power | 1.86 → 1.30 (−30%) |
+| CO2 EGS heat | 0.333 → 0.284 (−15%) |
+| CPG power | 0.335 → 0.304 (−9%) |
+| CO2 EGS power | 0.395 → 0.365 (−8%) |
+| EGS heat | 0.0983 → 0.0922 (−6%) |
+
+The CPG heat config keeps its old design for now; see the next section.
+
+## Heat plants that deliver negative heat are now rejected (2026-10-26)
+
+**In plain terms:** the optimizer's pick for the CPG heat example looked
+cheapest, but by year 20 its reservoir had cooled so far that the produced
+CO2 was colder than the district-heating return water: the plant would
+have had to heat the fluid instead of taking heat from it. Nothing
+rejected this, so 25 of the 45 designs on that front had it. The model now
+rejects any heat plant whose net heat output goes negative in any year,
+and the CPG heat optimization is being rerun with that check. (The first
+iteration of each year legitimately starts a closed loop from cold fluid,
+so the check applies only once each year's iteration has converged.)
+
 ## Smaller items worth noting
 
 - Documentation split: developer docs moved to `dev_docs/`; `docs/` now
@@ -170,19 +309,32 @@ carries no live model, and checks that it still evaluates a design.
 - New GitLab issues: EGS stimulation cost (#66), the per-config review
   checklist (#67), cogeneration and seasonal heat demand (#69). Chad is
   now assigned on all of his issues.
+- Euler workflow: `just slurm` submits apps as one sequential chain (one
+  node, which is billed far less than several) and refuses an app that
+  already has a job queued, after a duplicate submission collided with
+  itself; `just slurm-fetch` copies finished results back and pushes them
+  to the DVC remote; `just slurm-clean` deletes old logs and partial
+  results.
+- Topology diagrams for 16 configs, exported to committed SVGs by
+  `just diagrams` and checked by a test.
+- CI: GitHub Actions now run the license check and release-tag checks
+  that GitLab ran. The issue tracker is moving to GitHub by 2026-11-16.
+- The surrogate-model optimization app is on hold (GitHub #106).
 
 ## Where things stand
 
-The model is now energy-consistent across component boundaries, and the
-example set is complete and regression-tested. Every example now uses
-realistic, cited component efficiencies. The next phase is quality:
-reviewing each example systematically.
+The model is energy-consistent across component boundaries, every example
+uses realistic, cited component efficiencies, and every example except CPG
+heat now runs the design its optimization recommends. The optimizer's
+search bounds are each either explained or handed off, and designs that
+boil a well, collapse its pressure, or deliver negative heat are rejected
+by name.
 
 ## Immediate next steps
 
-1. Review every example's phase diagram and physics against the checklist
-   in GitLab #67, and roll the CO2 EGS example's cleanup (no throttling
-   inside heat exchangers, flow-ordered descriptive node names, component
-   diagrams) out to all examples.
-2. Reservoir mass imbalance (#63, high priority), which builds on this
-   month's enthalpy change.
+1. Apply the rerun CPG heat optimization's pick to its config.
+2. Domain-expert review of the engineering limits in GitHub #120.
+3. Release 1.3.0 with the optimized example designs.
+4. Review every example's phase diagram and physics against the checklist
+   in GitLab #67.
+5. Reservoir mass imbalance (#63, high priority).
