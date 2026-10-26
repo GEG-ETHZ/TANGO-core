@@ -27,6 +27,7 @@ from tango.core.errors import (
     FrackingViolationError,
     InvalidPowerStateError,
     NegativeNetPowerError,
+    NegativeNetThermalError,
     PassivePressureRiseError,
     TangoError,
     TESPyConvergenceError,
@@ -997,6 +998,19 @@ def test_negative_net_power_is_reported_as_itself() -> None:
     config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CO2_EGS_ORC_electric.yml").read_text())
     config["sim_config"]["mass_rate"] = 80
     with pytest.raises(NegativeNetPowerError, match="net_power_W"):
+        Workflow(config).run()
+
+
+def test_negative_net_thermal_is_infeasible() -> None:
+    """A depleted heat plant fails with NegativeNetThermalError instead of reporting negative heat.
+
+    CPG_direct_heat.yml at 110 kg/s cools its reservoir until, late in the
+    run, the produced CO2 is too cool for the district-heating exchanger to
+    take any heat from it.
+    """
+    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CPG_direct_heat.yml").read_text())
+    config["sim_config"]["mass_rate"] = 110
+    with pytest.raises(NegativeNetThermalError, match="net_thermal_W"):
         Workflow(config).run()
 
 
