@@ -216,13 +216,14 @@ slurm *args:
     for arg in {{args}}; do
         case "$arg" in
             -h|--help)
-                echo "Usage: just slurm [--parallel] [app ...]"
+                echo "Usage: just slurm [--parallel] [--list] [app ...]"
                 echo ""
                 echo "Submit full-size Euler (SLURM) runs: sbatch each app's applications/<app>/<app>_job.sh"
                 echo "from its own directory. Every name is checked before anything is submitted."
                 echo ""
                 echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric run_AGS_direct_heat_sweep"
                 echo "              (default: every app under applications/ that has a *_job.sh)"
+                echo "  --list      print the apps that have a job script (the default set), then exit"
                 echo "  --parallel  submit all jobs to run at the same time. Default: one at a time, each"
                 echo "              starting when the previous one ends, whether it succeeded or not"
                 echo "              (--dependency=afterany), since each job already uses its whole"
@@ -234,6 +235,7 @@ slurm *args:
                 echo "Also refuses if any requested app already has a job queued or running (squeue lists"
                 echo "tango_<app>): two jobs for one app share this checkout and collide on DVC's locks."
                 exit 0 ;;
+            --list) for f in applications/*/*_job.sh; do basename "$(dirname "$f")"; done; exit 0 ;;
             --parallel) parallel=1 ;;
             -*) echo "unknown option: $arg (see just slurm --help)"; exit 1 ;;
             *) apps="$apps $arg" ;;
@@ -290,7 +292,7 @@ slurm-fetch *args:
     for arg in {{args}}; do
         case "$arg" in
             -h|--help)
-                echo "Usage: just slurm-fetch [--dry-run] [--push] [app ...]"
+                echo "Usage: just slurm-fetch [--dry-run] [--push] [--list] [app ...]"
                 echo ""
                 echo "Copy each app's outputs/, job logs (*.out/*.err), and dvc.lock from the Euler checkout"
                 echo "($host:$remote) into this checkout, then Euler's DVC cache, which \`dvc push\` needs."
@@ -300,12 +302,14 @@ slurm-fetch *args:
                 echo "  app ...     apps to fetch (default: every app under applications/ that has a *_job.sh)"
                 echo "  --dry-run   show what would change, change nothing"
                 echo "  --push      run \`uv run dvc push\` afterwards"
+                echo "  --list      print the apps that have a job script (the default set), then exit"
                 echo ""
                 echo "Refuses if any requested app still has a job queued or running on Euler (squeue lists"
                 echo "tango_<app>): its outputs would be half-written. Override the host or repo path with"
                 echo "TANGO_EULER_HOST / TANGO_EULER_DIR."
                 exit 0 ;;
             -n|--dry-run) dry="-n" ;;
+            --list) for f in applications/*/*_job.sh; do basename "$(dirname "$f")"; done; exit 0 ;;
             --push) push=1 ;;
             -*) echo "unknown option: $arg (see just slurm-fetch --help)"; exit 1 ;;
             *) apps="$apps $arg" ;;
