@@ -32,7 +32,10 @@ from tango.pymoo_api import (
 )
 from tango.workflows.workflow import Workflow
 
-_EXAMPLE_CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
+# Frozen scenarios, not example_configs/: these tests force mass rates and
+# bounds that only make sense for a specific design, and the example
+# configs' designs change whenever they're re-optimized.
+_SCENARIOS = Path(__file__).resolve().parents[1] / "regtest" / "fixtures" / "scenarios"
 
 
 def test_pymoo_config_termination_period_default_matches_pymoo_default() -> None:
@@ -108,7 +111,7 @@ class _Lcoe:
 
 def _minimization(config: str, params: list[ParamSpec], tmp_path: Path, **overrides: Any) -> Minimization:
     """A 1-generation, population-2 search on a 2-timestep run of an example config."""
-    cfg = yaml.safe_load((_EXAMPLE_CONFIGS / config).read_text())
+    cfg = yaml.safe_load((_SCENARIOS / config).read_text())
     cfg["sim_config"]["num_tsteps"] = 2
     for path, value in overrides.pop("set", {}).items():
         _SetPath(tuple(path.split(".")))(cfg, value)
@@ -184,7 +187,7 @@ def test_non_finite_objective_counts_as_infeasible(tmp_path: Path) -> None:
 
 def test_param_check_skips_param_with_no_room(tmp_path: Path) -> None:
     """A param whose bounds leave no room on either side is skipped, not reported as inert."""
-    diameter = yaml.safe_load((_EXAMPLE_CONFIGS / "AGS_direct_heat.yml").read_text())["components"][
+    diameter = yaml.safe_load((_SCENARIOS / "AGS_direct_heat.yml").read_text())["components"][
         "injection_well"
     ]["diameter"]
     pinned = _param("pinned_diameter_m", "components.injection_well.diameter", (diameter, diameter))
