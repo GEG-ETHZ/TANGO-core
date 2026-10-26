@@ -13,8 +13,8 @@ stages:
       size: 41
     - path: opt_EGS_electric.py
       hash: md5
-      md5: 3aab29d33e310f66c01e75fbef8f688d
-      size: 10414
+      md5: 5ce7dd34b91a9f4c604fca4f9194bf0c
+      size: 10824
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -43,8 +43,8 @@ stages:
       size: 41
     - path: opt_EGS_electric.py
       hash: md5
-      md5: 3aab29d33e310f66c01e75fbef8f688d
-      size: 10414
+      md5: 5ce7dd34b91a9f4c604fca4f9194bf0c
+      size: 10824
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 64e1b8ed6dcd0e34f99efd5eb114f60f
