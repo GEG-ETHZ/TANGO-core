@@ -235,6 +235,12 @@ SKIP=pytest git push
 ```
 This skips the "Run test suite" hook while still running Mypy. Use sparingly — bypassing tests before sharing code is rarely a good idea.
 
+## Large Files
+
+Store meshes and other large binary inputs with DVC, not git: `dvc add <file>`, commit the `.dvc` file, and run `dvc push`. The `check-added-large-files` hook rejects files over 500 KB.
+
+The one exception is `example_configs/raft/AGS_single.msh` (1.1 MB), the mesh of the RAFT example. It's committed to git, and excluded from `check-added-large-files`, so CI can run RAFT without DVC credentials.
+
 ## Changelog
 
 [`CHANGELOG.md`](CHANGELOG.md) follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)

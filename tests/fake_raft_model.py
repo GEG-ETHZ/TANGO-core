@@ -2,8 +2,8 @@
 
 ``FakeRaftModel`` honors RAFT's coupling contract (each ``solve`` starts
 from the last accepted time; ``get_fresh`` accepts the pending trial) with a
-trivial physics stand-in, so tests need neither RAFT nor its mesh (stored
-with DVC). Installed by the ``fake_raft`` fixture in ``tests/conftest.py``.
+trivial physics stand-in, so tests need neither RAFT nor its mesh.
+Installed by the ``fake_raft`` fixture in ``tests/conftest.py``.
 """
 
 from __future__ import annotations

@@ -187,7 +187,7 @@ class RaftWrapper(BaseModel, StateMethods):
     template: str = Field(frozen=True)
     """Path to the RAFT config template (absolute, or relative to the working
     directory). Its ``mesh.file`` is resolved relative to the template's own
-    directory; meshes are stored with DVC, so run ``dvc pull`` first."""
+    directory; a mesh stored with DVC needs ``dvc pull`` first."""
     verbosity: Literal["quiet", "lite", "full"] = Field(default="quiet", frozen=True)
     """RAFT's own console output."""
 
@@ -261,14 +261,14 @@ class RaftWrapper(BaseModel, StateMethods):
         Python process exits.
 
         Raises:
-            ConfigError: The template's mesh file is missing (meshes are
-                stored with DVC: run ``dvc pull``).
+            ConfigError: The template's mesh file is missing (a mesh stored
+                with DVC needs ``dvc pull``).
         """
         assert self._raft_config is not None and self._mesh_path is not None  # noqa: S101 -- prepare() ran
         if not self._mesh_path.is_file():
             raise ConfigError(
-                f"RAFT mesh {self._mesh_path} (from raft.template {self.template!r}) not found. Meshes are "
-                "stored with DVC: run `dvc pull` (or `dvc pull <mesh>.dvc`).",
+                f"RAFT mesh {self._mesh_path} (from raft.template {self.template!r}) not found. If it's "
+                "stored with DVC, run `dvc pull <mesh>.dvc`.",
             )
         run_dir = Path(tempfile.mkdtemp(prefix="tango_raft_"))
         atexit.register(shutil.rmtree, run_dir, ignore_errors=True)

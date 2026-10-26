@@ -14,8 +14,7 @@
 # RAFT models the fluid in the wells with constant (Boussinesq) properties.
 # The 25 years take about 5 minutes: each injection-enthalpy iteration is
 # one RAFT solve over the year (~40 s in year 0, ~4 s by year 10), and only
-# the first few years need more than one. RAFT's mesh is stored with DVC:
-# `dvc pull example_configs/raft/AGS_single.msh.dvc` first.
+# the first few years need more than one.
 #
 # Site parameters:
 #   surface temperature : 290 K (16.85 degC) — ambient

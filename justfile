@@ -1,7 +1,7 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 # One-time (idempotent) setup after cloning: install deps, approve .envrc (macOS/Linux), and install git hooks
-setup: _setup-direnv
+setup: _setup-direnv && _setup-raft-hint
     uv sync
     uv run prek install --hook-type pre-commit --hook-type pre-push --hook-type post-checkout --overwrite
 
@@ -17,6 +17,14 @@ setup-raft:
 [windows]
 setup-raft:
     uv sync --extra raft
+
+[unix]
+_setup-raft-hint:
+    @grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo "For the optional RAFT simulator, also run 'just setup-raft' (once per clone or worktree)."
+
+[windows]
+_setup-raft-hint:
+    @echo "For the optional RAFT simulator, also run 'just setup-raft'."
 
 [unix]
 _setup-direnv:

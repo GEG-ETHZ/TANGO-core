@@ -53,7 +53,10 @@ jobs:
     # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
     # and the insteadOf rewrite routes the fetch over SSH. Every step is
     # skipped while the secret is absent (e.g. PRs from forks). Drop the key
-    # and the rewrite once RAFT is public.
+    # and the rewrite once RAFT is public. Besides the unit tests (which use a
+    # stand-in for RAFT), one simulated year runs on the real RAFT, using the
+    # example's mesh committed in example_configs/raft/, so a change in RAFT's
+    # coupling API fails here.
     name: unit tests with RAFT (ubuntu-latest)
     runs-on: ubuntu-latest
     env:
@@ -75,3 +78,5 @@ jobs:
         run: uv sync --locked --extra raft
       - if: env.RAFT_DEPLOY_KEY != ''
         run: uv run pytest tests/unit -v
+      - if: env.RAFT_DEPLOY_KEY != ''
+        run: uv run pytest tests/regtest/test_raft_integration.py -v
