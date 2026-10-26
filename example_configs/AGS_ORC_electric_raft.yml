@@ -70,6 +70,9 @@ components:
     variant: raft
     raft:
       template: example_configs/raft/config_example_AGS_coupled_single.yaml  # relative to the working directory
+      # verbosity: lite  # RAFT's own console output: quiet (default), lite (one line
+      #                  # per internal RAFT timestep), or full (everything RAFT
+      #                  # prints, including each timestep's extrapolation error)
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
     prev: 1
     next: 1

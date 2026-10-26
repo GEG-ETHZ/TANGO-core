@@ -200,6 +200,8 @@ The `grouped_subsurface` component's `raft` variant delegates the wells and surr
 
 Install it through uv, not plain `pip install tango-core[raft]`: RAFT (`geg-raft`) isn't published on PyPI.
 
+RAFT's console output is set separately from tango's `--log-level`, by `verbosity` in the component's `raft:` block: `quiet` (the default), `lite` (one line per internal RAFT timestep), or `full` (everything RAFT prints, including each timestep's extrapolation error). RAFT prints this output directly rather than through Python's `logging`, so it can't be filtered or redirected with tango's logging settings (GEG-ETHZ/RAFT#10).
+
 ### Running Checks
 -   **Tests:** `uv run pytest -v` -- to be run from the root directory
 -   **Linting:** `uv run ruff check .`
