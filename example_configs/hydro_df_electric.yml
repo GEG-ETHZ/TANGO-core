@@ -1,10 +1,15 @@
+# Design point: opt_hydro_df_electric's Pareto pick (the design closest to the ideal corner),
+# design 2 of its outputs/pareto_results.csv (md5 e759e71dc31cf4510935809b69edd00f),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — conventional Hydrothermal system, double-flash electric
 # power plant.
 #
 # Ported from old tango's flexible_DF_manual.yml (removed along with old
 # tango; preserved at git tag pre-tango-core-rename-2026-09-18). The
-# subsurface (doublet reservoir + pumped production) is identical to
-# hydro_sf_electric.yml's —
+# subsurface (doublet reservoir + pumped production) has the same topology
+# as hydro_sf_electric.yml's —
 # same site numbers, reused verbatim — only the surface plant differs: two
 # flash stages (high_pressure_separator, then low_pressure_separator at a
 # lower pressure, per standard double-flash design) each driving their
@@ -42,11 +47,11 @@ layout:
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
-  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+  target_extraction_pressure: 1_300_000    # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 50              # kg/s
+  mass_rate: 150.0           # kg/s
   bc_checkpoint_idx: 4       # component_idx of the surface (below)
 
 economic:
@@ -64,8 +69,8 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
-    pipe_diameter: 0.41        # m
+    injection_pressure: 3_190_000     # Pa — initial guess for bc_iteration solver
+    pipe_diameter: 0.2         # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
     # well_spacing is NOT set here — it's sourced from layout.well_spacing
@@ -90,7 +95,7 @@ components:
 
         high_pressure_flash_valve:
           type: Valve
-          p_out_megapascals: 0.1    # MPa (= 1 bar)
+          p_out_megapascals: 0.204  # MPa (= 2.04 bar)
 
         high_pressure_separator:
           type: DropletSeparator
@@ -119,7 +124,7 @@ components:
 
         low_pressure_flash_valve:
           type: Valve
-          p_out_megapascals: 0.05    # MPa (= 0.5 bar)
+          p_out_megapascals: 0.111   # MPa (= 1.11 bar)
 
         low_pressure_separator:
           type: DropletSeparator
@@ -190,7 +195,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.387           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
   reservoir:
@@ -214,7 +219,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.405           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -225,7 +230,7 @@ components:
     prev: 2
     next: 4
     well_length: 1000.0       # m
-    diameter: 0.410           # m
+    diameter: 0.405           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from

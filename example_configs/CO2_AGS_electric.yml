@@ -1,18 +1,23 @@
+# Design point: opt_CO2_AGS_electric's Pareto pick (the design closest to the ideal corner),
+# design 44 of its outputs/pareto_results.csv (md5 081e857746d905d6739d868d5176f70e),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Advanced Geothermal System (AGS, sealed closed loop) with
 # CO2 as the working fluid, direct CO2 power extraction (no secondary loop).
 #
 # Same subsurface as CO2_AGS_ORC_electric.yml (hypothetically deepened
 # closed loop -- see that file's header), with CPG_electric.yml's direct
 # surface plant instead of a binary (ORC) cycle: the CO2 expands through the
-# turbine itself, condenses at an ambient-driven 6.0 MPa, and is pumped back
-# to injection_pressure. On this subsurface it cuts LCOE roughly 5x versus
-# the ORC version.
+# turbine itself, condenses at an ambient-driven 5.87 MPa, and is brought
+# back to injection_pressure by circulation_control.
 #
-# injection_pressure is 7.5 MPa (just above CO2's 7.38 MPa critical
-# pressure, like the CO2 EGS configs) rather than the ORC version's 9.6 MPa:
-# the condensed CO2 is already dense liquid, and the lower pressure needs
-# less pump work. mass_rate is 25 kg/s, the LCOE minimum in a 20-40 kg/s
-# sweep (the result is flat across that range).
+# injection_pressure is 5.87 MPa, the condensing pressure itself and below
+# CO2's 7.38 MPa critical pressure: the CO2 is reinjected as subcooled
+# liquid at the condensing pressure. The ORC version reinjects
+# supercritical CO2 at a much higher pressure. mass_rate (70 kg/s) and the
+# other design values are set by the opt_CO2_AGS_electric Pareto pick (see
+# the Design point header).
 #
 # Site parameters (Triemli, Zurich) — rock properties/gradient as
 # CO2_AGS_ORC_electric.yml:
@@ -44,7 +49,7 @@ sim_config:
                                           # other CO2 config.
   injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
                                 # even without a reservoir
-  mass_rate: 25                 # kg/s — see header comment
+  mass_rate: 70.0               # kg/s — see header comment
   bc_checkpoint_idx: 3           # component_idx of the surface (below)
 
 economic:
@@ -62,8 +67,8 @@ components:
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
     prev: 3
     next: 1
-    well_length: 9000.0        # m — vertical well depth (hypothetically deepened, see header comment)
-    diameter: 0.311             # m  (~12-inch casing)
+    well_length: 10_000         # m — vertical well depth (hypothetically deepened, see header comment)
+    diameter: 0.405             # m  (~16-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   horizontal_well:
@@ -72,8 +77,8 @@ components:
     component_idx: 1
     prev: 0
     next: 2
-    well_length: 707.0          # m — horizontal loop flow-path length
-    diameter: 0.311              # m
+    well_length: 8000           # m — horizontal loop flow-path length
+    diameter: 0.75               # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
@@ -85,7 +90,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.405              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -94,8 +99,8 @@ components:
     component_idx: 3            # solved last, loops back to injection_well (next: 0)
     prev: 2
     next: 0
-    injection_pressure: 7_500_000  # Pa — just above CO2's 7.38 MPa critical pressure; see header
-    pipe_diameter: 0.41               # m
+    injection_pressure: 5_870_000    # Pa — the condensing pressure, below CO2's 7.38 MPa critical pressure; see header
+    pipe_diameter: 0.345              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
 
@@ -110,14 +115,15 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 6.0       # MPa -- expands into the two-phase dome, down to the
-                                         # condensing pressure. CO2 saturates at ~295 K at 6.0 MPa,
-                                         # above what the cooling tower can reach here
+          p_out_megapascals: 5.87      # MPa -- expands into the two-phase dome, down to the
+                                         # condensing pressure. CO2 saturates at ~294 K at 5.87 MPa,
+                                         # so the condenser's 3 K subcooled outlet sits at what the
+                                         # cooling tower can reach here
                                          # (surface_temperature 284.15 K + approach_temperature 7 K)
 
         condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 6.0       # MPa -- same pressure as the turbine exhaust
+          p_out_megapascals: 5.87      # MPa -- same pressure as the turbine exhaust
           subcooling_K: 3.0              # K below saturation. The condensate flows straight into the injection
                                          # well, which must stay common.saturation_margin (5%) clear of the
                                          # saturation pressure; 3 K gives ~7% (2 K would give ~5%, too tight).
@@ -128,8 +134,9 @@ components:
           cooling_tower_mode: WET
 
         circulation_control:
-          type: PumpOrValve            # restores injection_pressure; with the condenser below
-                                         # injection_pressure this resolves to a real pump
+          type: PumpOrValve            # restores injection_pressure; here the condenser outlet
+                                         # is already at about injection_pressure, so it resolves
+                                         # to a small pump or throttle
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 

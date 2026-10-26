@@ -1,3 +1,8 @@
+# Design point: opt_CO2_EGS_ORC_electric's Pareto pick (the design closest to the ideal corner),
+# design 41 of its outputs/pareto_results.csv (md5 d55bdea3bc5101dcb537ed66083e7a40),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Enhanced Geothermal System (EGS) with CO2 as the working
 # fluid, binary (ORC) power extraction.
 #
@@ -13,9 +18,8 @@
 # nowhere near enough enthalpy to drive the binary-cycle design below
 # profitably, same class of problem AGS_ORC_electric.yml hit at its own real
 # Triemli depth. This file deepens to 5000 m instead (a much more modest
-# deepening than AGS_ORC_electric.yml's 8000 m needed) -- same rock
-# properties/gradient -- which delivers ~393 K (~119 degC) to the surface in
-# year 1, falling to ~349 K by year 25 as the reservoir depletes. Not claimed as a realistic drilling target for the
+# deepening than AGS_ORC_electric.yml's 10,000 m) -- same rock
+# properties/gradient. Not claimed as a realistic drilling target for the
 # real Triemli EGS site -- illustrative only, same spirit as
 # AGS_ORC_electric.yml's own disclaimer.
 #
@@ -28,8 +32,8 @@
 #   what makes the thermosiphon (natural circulation driven by the density
 #   difference between the cold injection and hot production columns)
 #   robust. Without it the CO2 left the preheater lukewarm (~55 degC) and,
-#   once throttled to injection_pressure, landed right on CO2's
-#   pseudo-critical "density cliff" at 75 bar. As the reservoir slowly
+#   once throttled to a 7.5 MPa injection_pressure, landed right on CO2's
+#   pseudo-critical "density cliff" at that pressure. As the reservoir slowly
 #   depleted, the injected CO2 warmed slightly, its density fell from ~570
 #   to ~460 kg/m3, the weaker injection column cut bottom-hole pressure, and
 #   the thermosiphon weakened further -- a runaway that drove net power
@@ -41,11 +45,10 @@
 #   (pressure_ratio 1.0); this valve is the only node that should drop
 #   pressure without doing work.
 #
-# mass_rate is 60 kg/s: the highest flow whose heat extraction the
-# reservoir sustains for the full 25 years. More flow cools the reservoir
-# faster, until the turbine's output no longer covers the plant's own pumps
-# (at 80 kg/s, net power turns negative in year 16). The limit is thermal
-# depletion, not hydraulics.
+# mass_rate (99.8 kg/s) and the other design values are set by the
+# opt_CO2_EGS_ORC_electric Pareto pick (see the Design point header). More
+# flow cools the reservoir faster, until the turbine's output no longer
+# covers the plant's own pumps.
 #
 # Site parameters (Triemli, Zurich) — rock properties/gradient identical to
 # EGS_direct_heat.yml/CO2_EGS_direct_heat.yml, depth deepened (see above):
@@ -78,8 +81,8 @@ sim_config:
                                           # anything here (plain
                                           # production_well, no pump).
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 60                 # kg/s -- highest flow before reservoir cooling drives net
-                                  # power negative within 25 years; see header comment
+  mass_rate: 99.8               # kg/s -- set by the opt_CO2_EGS_ORC_electric Pareto pick;
+                                  # see header comment
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -102,7 +105,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.311             # m  (~12-inch casing, typical for EGS)
+    diameter: 0.238             # m  (~9-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   reservoir:
@@ -126,7 +129,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.355              # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -137,7 +140,7 @@ components:
     prev: 2
     next: 4
     well_length: 1000.0          # m = 0.2 x reservoir_depth
-    diameter: 0.311              # m
+    diameter: 0.355              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -146,9 +149,9 @@ components:
     component_idx: 4            # solved last, loops back to injection_well (next: 0)
     prev: 3
     next: 0
-    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
+    injection_pressure: 9_000_000     # Pa — ABOVE CO2's 7.38 MPa critical pressure,
                                      # matching CO2_EGS_direct_heat.yml's own reasoning.
-    pipe_diameter: 0.41               # m
+    pipe_diameter: 0.362              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
 
@@ -168,7 +171,7 @@ components:
           pressure_ratio2: 1.0         # R245fa side — no pressure drop
           h0_out1: 340                 # kJ/kg — TESPy starting guess for the CO2 outlet enthalpy
           p0_megapascals_out1: 22.5    # MPa — TESPy starting guess for the CO2 outlet pressure
-          p0_megapascals_out2: 0.5                   # MPa — TESPy starting guess for the R245fa outlet pressure
+          p0_megapascals_out2: 0.304                 # MPa — TESPy starting guess for the R245fa outlet pressure
           vapor_mass_fraction_out2: 1  # R245fa leaves as saturated vapor
 
         preheater:
@@ -177,7 +180,7 @@ components:
                                          # surplus is throttled by circulation_control, not here
           pressure_ratio2: 1.0         # R245fa side — no pressure drop
           vapor_mass_fraction_out2: 0  # R245fa leaves as saturated liquid, ready to boil
-          p0_megapascals_out2: 0.5                   # MPa — TESPy starting guess for the R245fa outlet pressure
+          p0_megapascals_out2: 0.304                 # MPa — TESPy starting guess for the R245fa outlet pressure
           fluid_out2: R245fa           # the ORC working fluid; never mixes with the CO2
 
         injection_cooler:
@@ -192,13 +195,12 @@ components:
           cooling_tower_mode: WET
 
         circulation_control:
-          type: PumpOrValve            # resolves to a passive Valve: throttles the CO2's natural
-                                         # pressure surplus (230 bar arriving in year 0, 174 bar by
-                                         # year 24, vs injection_pressure's 75 bar) -- the only node
-                                         # in the loop that should drop pressure without doing work.
-                                         # This throws away 840 kW (year 0) to 558 kW (year 24) that a
-                                         # power-recovery turbine could make, about as much as the
-                                         # whole plant's net output. Kept as a valve on purpose: this
+          type: PumpOrValve            # resolves to a passive Valve when the CO2 arrives with a
+                                         # natural pressure surplus over injection_pressure: it
+                                         # throttles that surplus -- the only node in the loop that
+                                         # should drop pressure without doing work. The throttled
+                                         # surplus is power a power-recovery turbine could make.
+                                         # Kept as a valve on purpose: this
                                          # config is the pure-binary reference case. A hybrid version
                                          # is GitLab #72.
           role: net_electric
@@ -234,7 +236,7 @@ components:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.5       # MPa (= 5 bar) — the R245fa boiling pressure
+          p_out_megapascals: 0.304     # MPa (= 3.04 bar) — the R245fa boiling pressure, set by the opt_CO2_EGS_ORC_electric Pareto pick
 
         orc_cycle_closer:
           type: CycleCloser

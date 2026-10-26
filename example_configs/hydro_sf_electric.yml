@@ -1,3 +1,8 @@
+# Design point: opt_hydro_sf_electric's Pareto pick (the design closest to the ideal corner),
+# design 34 of its outputs/pareto_results.csv (md5 e2b63a2ef8142f04f72dd6fcbd4d7abf),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — flexible Single-Flash system, manual mass flow rate
 #
 # Structural changes from the old format:
@@ -47,11 +52,11 @@ layout:  # well-field geometry
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
-  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+  target_extraction_pressure: 1_300_000    # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 50              # kg/s
+  mass_rate: 149.0           # kg/s
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
 
 economic:
@@ -68,8 +73,8 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 2_000_000   # Pa — initial guess for bc_iteration solver
-    pipe_diameter: 0.41        # m
+    injection_pressure: 3_160_000     # Pa — initial guess for bc_iteration solver
+    pipe_diameter: 0.201       # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
 
@@ -86,7 +91,7 @@ components:
 
         flash_valve:
           type: Valve
-          p_out_megapascals: 0.05          # MPa (= 0.5 bar)
+          p_out_megapascals: 0.143         # MPa (= 1.43 bar)
 
         separator:
           type: DropletSeparator
@@ -144,7 +149,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.4             # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
   reservoir:
@@ -170,7 +175,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.426           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -181,7 +186,7 @@ components:
     prev: 2
     next: 4
     well_length: 1000.0       # m
-    diameter: 0.410           # m
+    diameter: 0.426           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
