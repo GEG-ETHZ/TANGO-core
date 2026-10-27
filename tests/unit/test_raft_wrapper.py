@@ -16,7 +16,14 @@ from typing import Any
 
 import pytest
 import yaml
-from fake_raft_model import FAKE_HEATING_K, FAKE_PRESSURE_GAIN_PA, RAFT_TEMPLATE, FakeRaftModel
+from fake_raft_model import (
+    FAKE_HEAT_TRANSFER_COEFFICIENT,
+    FAKE_HEATING_K,
+    FAKE_PRESSURE_GAIN_PA,
+    FAKE_REYNOLDS,
+    RAFT_TEMPLATE,
+    FakeRaftModel,
+)
 
 import tango.external.raft_wrapper as raft_wrapper
 from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
@@ -105,6 +112,28 @@ def test_state_records_raft_step_stats_of_the_accepted_trial(config: dict[str, A
     assert raft_history.attempts == [1.0, 1.0]
     assert raft_history.dt_min_proceeds == [0.0, 0.0]
     assert raft_history.dt_accepted == [[_YEAR_SECONDS], [_YEAR_SECONDS]]
+
+
+def test_state_records_the_accepted_well_profile(config: dict[str, Any]) -> None:
+    """Each timestep records RAFT's profile along the well, enthalpy included, from inlet to outlet."""
+    loop = _run(config, num_tsteps=2)
+    raft_history = loop.raft.history
+    lengths = [segment.well_length for segment in loop.segments()]
+    s_corners = [0.0, lengths[0], lengths[0] + lengths[1], sum(lengths)]
+    for t in range(2):
+        assert raft_history.s_nodes[t] == pytest.approx(s_corners)
+        assert raft_history.P_nodes[t][0] == raft_history.P_inlet[t]
+        assert raft_history.P_nodes[t][-1] == raft_history.P_outlet[t]
+        assert raft_history.T_nodes[t][0] == raft_history.T_inlet[t]
+        assert raft_history.T_nodes[t][-1] == raft_history.T_outlet[t]
+        assert raft_history.h_nodes[t][-1] == pytest.approx(loop.history.h_outlet[t])
+        assert raft_history.h_nodes[t] == sorted(raft_history.h_nodes[t])
+        assert raft_history.s_elements[t] == pytest.approx(
+            [(a + b) / 2 for a, b in zip(s_corners, s_corners[1:])],
+        )
+        assert raft_history.mass_rate_elements[t] == [30.0] * 3
+        assert raft_history.reynolds_elements[t] == [FAKE_REYNOLDS] * 3
+        assert raft_history.heat_transfer_coefficient_elements[t] == [FAKE_HEAT_TRANSFER_COEFFICIENT] * 3
 
 
 def test_step_accepted_at_timestep_min_above_tolerance_raises(config: dict[str, Any]) -> None:
@@ -200,3 +229,21 @@ def test_missing_raft_gives_the_install_hint(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setitem(sys.modules, "geg_raft.api", None)
     with pytest.raises(ConfigError, match="setup-raft"):
         raft_wrapper._raft_model_class()  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    ("P", "T", "is_liquid"),
+    [
+        (1.0e6, 400.0, True),  # compressed liquid below the critical pressure
+        (1.0e6, 500.0, False),  # boiling at 1 MPa (saturation ~453 K)
+        (3.0e7, 500.0, True),  # above the critical pressure, below the critical temperature: can't boil
+        (3.0e7, 700.0, False),  # supercritical
+    ],
+)
+def test_liquid_check_handles_pressures_above_critical(P: float, T: float, is_liquid: bool) -> None:
+    """Deep well nodes sit above water's critical pressure, where there is no saturation temperature."""
+    if is_liquid:
+        raft_wrapper._check_liquid("H2O", P, T, "HEOS")  # noqa: SLF001
+    else:
+        with pytest.raises(SaturationError):
+            raft_wrapper._check_liquid("H2O", P, T, "HEOS")  # noqa: SLF001

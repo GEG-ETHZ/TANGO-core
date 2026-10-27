@@ -16,7 +16,15 @@ until the loop closes and then moves on:
 
 RAFT works in pressure, temperature and mass flow; tango's streams carry
 enthalpy. The wrapper converts with tango's own fluid properties
-(``FluidState``, ``common.fluid_name``/``coolprop_backend``). The loop's
+(``FluidState``, ``common.fluid_name``/``coolprop_backend``), not with the
+equation of state RAFT itself uses, which the template selects (RAFT's
+theory.md, "Fluid Equation of State"). With the example template's
+Boussinesq EOS (``density: 1000``: density and internal energy linearized
+about a reference state, ``specific_heat: 4250``), the loop's enthalpy
+gain tango computes from RAFT's inlet and outlet states is 0.6-1.2% lower
+than under RAFT's own EOS, and the heat extracted inherits that
+difference. A template with RAFT's real-fluid EOS (``density: 0``) would
+make the two agree. The loop's
 pressure is set at its inlet, as everywhere in tango: RAFT gets the inlet
 pressure and temperature and the outlet mass flow, and returns the outlet
 pressure and temperature. Mass flow is assumed constant around the loop
@@ -32,14 +40,18 @@ boundary conditions and the output location.
 
 ``state``/``history`` record, per timestep, RAFT's raw values at the well
 inlet and outlet, how much work the timestep took (trial solves, wall
-time), and RAFT's own timestepping statistics for the accepted trial
-(``RaftModel.solve_stats``).
+time), RAFT's own timestepping statistics for the accepted trial
+(``RaftModel.solve_stats``), and the accepted trial's profile along the
+well (``RaftModel.well_profiles()``): pressure, temperature and enthalpy at
+each node, and mass flow, Reynolds number and well-to-rock heat transfer
+coefficient for each element.
 """
 
 from __future__ import annotations
 
 import atexit
 import copy
+import functools
 import math
 import shutil
 import tempfile
@@ -49,6 +61,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from CoolProp import CoolProp as CP
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from tango.core.errors import ConfigError, ConvergenceError, SaturationError
@@ -145,6 +158,24 @@ class RaftWrapperState(StateMethods):
     dt_accepted: LockedState[list[float]] = field(default_factory=_ls_list)
     """Size (s) of each internal timestep RAFT took in the accepted trial, in order; they add up to the
     tango timestep."""
+    s_nodes: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Distance (m) along the well of each node, from the inlet (injection wellhead) to the outlet
+    (production wellhead)."""
+    P_nodes: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Pressure (Pa) at each node."""
+    T_nodes: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Temperature (K) at each node."""
+    h_nodes: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Specific enthalpy (J/kg) at each node, from (``P_nodes``, ``T_nodes``) with tango's fluid properties,
+    not RAFT's own equation of state (see the module docstring)."""
+    s_elements: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Distance (m) along the well of each element's midpoint."""
+    mass_rate_elements: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Mass flow (kg/s) through each element, positive from inlet to outlet."""
+    reynolds_elements: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Reynolds number of the flow in each element."""
+    heat_transfer_coefficient_elements: LockedState[list[float]] = field(default_factory=_ls_list)
+    """Well-to-rock heat transfer coefficient (W/(m^2 K)) of each element."""
 
 
 @dataclass
@@ -166,6 +197,14 @@ class RaftWrapperHistory:
     constraint_switches: list[float] = field(default_factory=list)
     dt_min_proceeds: list[float] = field(default_factory=list)
     dt_accepted: list[list[float]] = field(default_factory=list)
+    s_nodes: list[list[float]] = field(default_factory=list)
+    P_nodes: list[list[float]] = field(default_factory=list)
+    T_nodes: list[list[float]] = field(default_factory=list)
+    h_nodes: list[list[float]] = field(default_factory=list)
+    s_elements: list[list[float]] = field(default_factory=list)
+    mass_rate_elements: list[list[float]] = field(default_factory=list)
+    reynolds_elements: list[list[float]] = field(default_factory=list)
+    heat_transfer_coefficient_elements: list[list[float]] = field(default_factory=list)
 
     def record(self, state: RaftWrapperState) -> None:
         """Append ``state`` as one timestep entry."""
@@ -184,6 +223,16 @@ class RaftWrapperHistory:
         self.constraint_switches.append(state.constraint_switches.get_fresh())
         self.dt_min_proceeds.append(state.dt_min_proceeds.get_fresh())
         self.dt_accepted.append(list(state.dt_accepted.get_fresh()))
+        self.s_nodes.append(list(state.s_nodes.get_fresh()))
+        self.P_nodes.append(list(state.P_nodes.get_fresh()))
+        self.T_nodes.append(list(state.T_nodes.get_fresh()))
+        self.h_nodes.append(list(state.h_nodes.get_fresh()))
+        self.s_elements.append(list(state.s_elements.get_fresh()))
+        self.mass_rate_elements.append(list(state.mass_rate_elements.get_fresh()))
+        self.reynolds_elements.append(list(state.reynolds_elements.get_fresh()))
+        self.heat_transfer_coefficient_elements.append(
+            list(state.heat_transfer_coefficient_elements.get_fresh()),
+        )
 
 
 @dataclass(frozen=True)
@@ -384,9 +433,15 @@ class RaftWrapper(BaseModel, StateMethods):
         return RaftLoopResult(T_inlet=T_inlet, P_outlet=P_outlet, T_outlet=T_outlet, h_outlet=outlet_state.H)
 
     def accept(self) -> None:
-        """Keep RAFT's last trial as its accepted state, and record this timestep's work in ``state``."""
+        """Keep RAFT's last trial as its accepted state, and record this timestep's work and well profile in ``state``.
+
+        Raises:
+            SaturationError: A node along the well is not liquid, which
+                RAFT's single-phase model can't represent.
+        """
         if self._model is None or self._trial_end_seconds is None:
             raise RuntimeError("RaftWrapper.accept() called with no RAFT trial to accept.")
+        self._record_well_profile()
         self._model.get_fresh()
         self._accepted_time_seconds = self._trial_end_seconds
         self._trial_end_seconds = None
@@ -394,6 +449,28 @@ class RaftWrapper(BaseModel, StateMethods):
         self.state.solve_seconds.update(self._solve_seconds)
         self._trial_solves = 0
         self._solve_seconds = 0.0
+
+    def _record_well_profile(self) -> None:
+        """Write the pending trial's profile along the well into ``state`` (call before ``get_fresh``)."""
+        assert self._common is not None  # noqa: S101 -- prepare() ran
+        fluid, backend = self._common.fluid_name, self._common.coolprop_backend
+        (profile,) = self._model.well_profiles()  # prepare() checked the template has one well
+        s_nodes = [float(x) for x in profile.s]
+        P_nodes = [float(P) for P in profile.p]
+        T_nodes = [float(T) for T in profile.T]
+        for x, P, T in zip(s_nodes, P_nodes, T_nodes, strict=True):
+            _check_liquid(fluid, P, T, backend, where=f"well node at s = {x:.6g} m")
+        s = self.state
+        s.s_nodes.update(s_nodes)
+        s.P_nodes.update(P_nodes)
+        s.T_nodes.update(T_nodes)
+        s.h_nodes.update(
+            [FluidState.with_PT(fluid, P, T, backend).H for P, T in zip(P_nodes, T_nodes, strict=True)],
+        )
+        s.s_elements.update([float(x) for x in profile.s_mid])
+        s.mass_rate_elements.update([float(q) for q in profile.q])
+        s.reynolds_elements.update([float(re) for re in profile.reynolds])
+        s.heat_transfer_coefficient_elements.update([float(hc) for hc in profile.heat_transfer_coefficient])
 
 
 # ----------------------------------------------------------------------
@@ -538,11 +615,31 @@ def _check_dt_min_proceeds(
     )
 
 
-def _check_liquid(fluid: str, P: float, T: float, backend: str) -> None:
-    """Raise ``SaturationError`` if (``P``, ``T``) is not a compressed liquid (RAFT models single-phase liquid)."""
+@functools.cache
+def _critical_point(fluid: str, backend: str) -> tuple[float, float]:
+    """``fluid``'s critical pressure (Pa) and temperature (K)."""
+    state = CP.AbstractState(backend, fluid)
+    return state.trivial_keyed_output(CP.iP_critical), state.trivial_keyed_output(CP.iT_critical)
+
+
+def _check_liquid(fluid: str, P: float, T: float, backend: str, where: str = "well outlet") -> None:
+    """Raise ``SaturationError`` if (``P``, ``T``) is not a compressed liquid.
+
+    RAFT's model is single-phase, and the wrapper supports it for liquid
+    water only. Above the critical pressure the fluid can't boil, so it
+    counts as liquid while ``T`` is below the critical temperature.
+    """
+    P_critical, T_critical = _critical_point(fluid, backend)
+    if P_critical <= P:
+        if T_critical <= T:
+            raise SaturationError(
+                f"RAFT's {where} at {P:.6g} Pa and {T:.6g} K is supercritical; the RAFT coupling "
+                "supports liquid water only.",
+            )
+        return
     saturation_temperature = FluidState.with_PQ(fluid, P, 0.0, backend).T
     if saturation_temperature <= T:
         raise SaturationError(
-            f"RAFT's well outlet at {P:.6g} Pa and {T:.6g} K is at or above saturation "
+            f"RAFT's {where} at {P:.6g} Pa and {T:.6g} K is at or above saturation "
             f"({saturation_temperature:.6g} K); RAFT's single-phase model can't represent boiling.",
         )

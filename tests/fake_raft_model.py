@@ -8,6 +8,7 @@ Installed by the ``fake_raft`` fixture in ``tests/conftest.py``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -42,6 +43,25 @@ class FakeStepStats:
         return len(self.dt_accepted)
 
 
+FAKE_REYNOLDS = 1.0e5
+"""Reynolds number ``FakeRaftModel`` reports in every well element."""
+FAKE_HEAT_TRANSFER_COEFFICIENT = 100.0
+"""Well-to-rock heat transfer coefficient (W/(m^2 K)) ``FakeRaftModel`` reports in every well element."""
+
+
+@dataclass
+class FakeWellProfile:
+    """Stands in for ``geg_raft.postprocessing.WellProfile``: a node at each alignment point, an element between."""
+
+    s: list[float]
+    p: list[float]
+    T: list[float]
+    s_mid: list[float]
+    q: list[float]
+    reynolds: list[float]
+    heat_transfer_coefficient: list[float]
+
+
 class FakeTimestepError(RuntimeError):
     """Stands in for ``geg_raft.subsurface.TimestepError``."""
 
@@ -67,6 +87,13 @@ class FakeRaftModel:
         self.solves: list[tuple[float, float]] = []
         self.accepted_times: list[float] = []
         self.solve_stats = FakeStepStats()
+        alignment = self.config["mesh"]["wells"][0]["alignment"]
+        segment_lengths = [math.dist(start, end) for start, end in alignment]
+        self.s_nodes = [0.0]
+        for length in segment_lengths:
+            self.s_nodes.append(self.s_nodes[-1] + length)
+        self.pending_profile: FakeWellProfile | None = None
+        self.accepted_profile: FakeWellProfile | None = None
         FakeRaftModel.instances.append(self)
 
     def solve(
@@ -88,6 +115,19 @@ class FakeRaftModel:
         inlet = bcs[self.inlet_label]
         q = bcs[self.outlet_label]["q"]
         T_out = FakeRaftModel.outlet_temperature_k or inlet["T"] + FAKE_HEATING_K
+        P_out = inlet["p"] + FAKE_PRESSURE_GAIN_PA
+        s_nodes = self.s_nodes
+        fractions = [x / s_nodes[-1] for x in s_nodes]
+        n_elements = len(s_nodes) - 1
+        self.pending_profile = FakeWellProfile(
+            s=list(s_nodes),
+            p=[inlet["p"] + f * (P_out - inlet["p"]) for f in fractions],
+            T=[inlet["T"] + f * (T_out - inlet["T"]) for f in fractions],
+            s_mid=[(a + b) / 2 for a, b in zip(s_nodes, s_nodes[1:], strict=False)],
+            q=[-q] * n_elements,
+            reynolds=[FAKE_REYNOLDS] * n_elements,
+            heat_transfer_coefficient=[FAKE_HEAT_TRANSFER_COEFFICIENT] * n_elements,
+        )
         return {
             self.inlet_label: {
                 "p": inlet["p"],
@@ -95,7 +135,7 @@ class FakeRaftModel:
                 "q": -q * FakeRaftModel.flow_factor,
                 "mode": "pressure",
             },
-            self.outlet_label: {"p": inlet["p"] + FAKE_PRESSURE_GAIN_PA, "T": T_out, "q": q, "mode": "flux"},
+            self.outlet_label: {"p": P_out, "T": T_out, "q": q, "mode": "flux"},
         }
 
     def get_fresh(self) -> None:
@@ -104,3 +144,10 @@ class FakeRaftModel:
         self.accepted_time = self.pending_time
         self.accepted_times.append(self.accepted_time)
         self.pending_time = None
+        self.accepted_profile = self.pending_profile
+
+    def well_profiles(self) -> list[FakeWellProfile]:
+        """The pending trial's profile, else the last accepted one: linear in distance from inlet to outlet."""
+        profile = self.pending_profile if self.pending_time is not None else self.accepted_profile
+        assert profile is not None, "no solve yet"
+        return [profile]
