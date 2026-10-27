@@ -87,6 +87,7 @@ from tango.core.errors import (
     CoolingLimitError,
     InvalidPowerStateError,
     NegativeNetPowerError,
+    NegativeNetThermalError,
     PassivePressureRiseError,
     TESPyConvergenceError,
     TESPyCoolPropError,
@@ -420,6 +421,29 @@ class GraphSurface(SurfaceComponent):
     # ---- Runtime state / history ----
     state: GraphSurfaceState = Field(default_factory=GraphSurfaceState)
     history: GraphSurfaceHistory = Field(default_factory=GraphSurfaceHistory)
+
+    def record(self, timestep: int) -> None:
+        """Raise if the converged timestep delivers negative heat, then record it.
+
+        A plant with ``role: net_thermal`` exchangers delivers negative heat
+        when the produced fluid has cooled so far (e.g. once the reservoir is
+        depleted) that those exchangers would heat it instead. This is checked
+        here, once per timestep on the converged state, rather than in
+        ``solve()``: the injection-enthalpy iteration's first pass starts a
+        closed loop from the cold seed, whose produced fluid is legitimately
+        too cool for a solve or two before the loop converges.
+
+        Raises:
+            NegativeNetThermalError: with the net thermal output.
+        """
+        net_thermal_W = self.state.net_thermal_W.get_fresh()  # noqa: N806
+        if self._net_thermal_nodes and net_thermal_W < 0:
+            raise NegativeNetThermalError(
+                f"surface plant net_thermal_W={net_thermal_W:.1f} W is negative at timestep {timestep} -- "
+                "the produced fluid is too cool for the plant to deliver any heat (its net_thermal "
+                "exchangers would heat the fluid instead).",
+            )
+        super().record(timestep)
 
     # ------------------------------------------------------------------
     # Lifecycle: build TESPy network
@@ -1089,7 +1113,11 @@ class GraphSurface(SurfaceComponent):
                     h_in,
                     P_tespy_in,
                 )
-            except (PassivePressureRiseError, NegativeNetPowerError, CoolingLimitError):
+            except (
+                PassivePressureRiseError,
+                NegativeNetPowerError,
+                CoolingLimitError,
+            ):
                 # None of these depends on circulation_control resolving to a
                 # valve: an upstream passive node raising pressure, or a
                 # cooler below the site's cooling limit, is identical in both

@@ -1,3 +1,8 @@
+# Design point: opt_CO2_EGS_direct_heat's Pareto pick (the design closest to the ideal corner),
+# design 39 of its outputs/pareto_results.csv (md5 a8311c707cee660c493e957650ffc22a),
+# recorded in dvc.lock at commit 6aa52991. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Enhanced Geothermal System (EGS) with CO2 as the working
 # fluid, direct-heat (district heating) extraction.
 #
@@ -23,7 +28,7 @@
 #    sidesteps a known, not-yet-fixed approximation gap rather than
 #    exercising it.
 # 2. target_extraction_pressure/injection_pressure are both kept ABOVE
-#    CO2's 7.38 MPa critical pressure (unlike EGS_direct_heat.yml's 7.0/1.5
+#    CO2's 7.38 MPa critical pressure (unlike EGS_direct_heat.yml's 5.06/2.63
 #    MPa), matching CPG_electric.yml/CPG_direct_heat.yml's own reasoning --
 #    the reservoir here is far hotter relative to CO2's ~31 degC critical
 #    temperature than CPG's is (3000 m / ~116 degC vs. CPG's 2500 m /
@@ -37,7 +42,7 @@
 #    run: this resolves to a passive Valve across the entire run, not a
 #    running pump -- CO2's thermosiphon effect here is genuinely strong
 #    enough on its own once the CO2 is reinjected dense (production
-#    wellhead delivers ~12-14 MPa, well above the 8 MPa needed at
+#    wellhead delivers ~12.5-14.3 MPa, well above the 8.64 MPa needed at
 #    injection; see injection_cooler below); the device only
 #    throttles the natural surplus down, it doesn't add to it. See
 #    GitLab issue #57 for the real gap this surfaces: a system that
@@ -75,7 +80,7 @@ sim_config:
                                           # critical pressure, matching
                                           # CPG_electric.yml/CPG_direct_heat.yml
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 30                 # kg/s — matches EGS_direct_heat.yml's subsurface loop
+  mass_rate: 32.8               # kg/s — set by the opt_CO2_EGS_direct_heat Pareto pick; see header
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -98,7 +103,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.311             # m  (~12-inch casing, typical for EGS)
+    diameter: 0.151             # m  (~6-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   reservoir:
@@ -122,7 +127,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.261              # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -133,7 +138,7 @@ components:
     prev: 2
     next: 4
     well_length: 600.0          # m = 0.2 x reservoir_depth
-    diameter: 0.311              # m
+    diameter: 0.261              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -142,13 +147,13 @@ components:
     component_idx: 4            # solved last, loops back to injection_well (next: 0)
     prev: 3
     next: 0
-    injection_pressure: 8_000_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
+    injection_pressure: 8_640_000       # Pa — ABOVE CO2's 7.38 MPa critical pressure,
                                      # matching CPG_direct_heat.yml's own reasoning
-                                     # (see this file's header comment). 8 MPa, not
-                                     # 7.5 MPa: the ~30 degC reinjected CO2 must stay
-                                     # common.saturation_margin (5%) clear of its
-                                     # saturation pressure (7.15 MPa at 29.6 degC).
-    pipe_diameter: 0.41               # m
+                                     # (see this file's header comment). Set by the
+                                     # opt_CO2_EGS_direct_heat Pareto pick; it also keeps the
+                                     # ~31-32 degC reinjected CO2 common.saturation_margin (5%)
+                                     # clear of saturation, which 7.5 MPa would not.
+    pipe_diameter: 0.324              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
     # well_spacing is NOT set here — it's sourced from layout.well_spacing
@@ -169,27 +174,27 @@ components:
       # circulation device anywhere failed exactly that check.
       #
       # district_heating_hx takes a pressure_ratio (a 2.5% loss), not an
-      # absolute p_out: the production wellhead pressure falls over the run
-      # (from ~104 bar in year 0 to ~89 bar by year 24), so any fixed outlet
-      # pressure ends up above the inlet in some years, and TESPy would solve
+      # absolute p_out: the production wellhead pressure falls over the run,
+      # so any fixed outlet pressure ends up above the inlet in some years,
+      # and TESPy would solve
       # that as free compression. p0_megapascals_out1 is only TESPy's starting
       # guess (MPa): without it, TESPy's default guess is below CO2's triple-point
       # pressure and the solve fails outright.
       #
       # injection_cooler then cools the CO2 from the 50 degC district-heating
-      # return to 38 degC so it is reinjected dense (~670-690 kg/m3). The
-      # window is narrow:
-      # - Without the cooler the CO2 leaves at ~76 bar and 50 degC
-      #   (~220 kg/m3): the injection column is light, the thermosiphon
-      #   weakens, the wellhead pressure falls with it, and the loop settles
-      #   at about a fifth of the heat output.
-      # - Colder than ~35 degC, the dense column pushes the injection well's
+      # return to 38 degC so it is reinjected dense (~700-720 kg/m3 after
+      # circulation_control). The window is narrow:
+      # - Without cooling (T_out at 50 degC) the injection column is light,
+      #   the thermosiphon weakens, and the production well fails in its
+      #   first year (a CoolProp error).
+      # - At 37 degC or colder, the dense column pushes the injection well's
       #   bottom-hole pressure past the 30.9 MPa fracking threshold
-      #   (34 degC: 31.0 MPa).
-      # - Warmer than ~42 degC, the injected CO2 nears its pseudo-critical
-      #   density drop and the loop stops converging.
-      # At 38 degC the bottom-hole pressure peaks at 30.0 MPa. The heat
-      # rejected below 50 degC is too cold for the district-heating network.
+      #   (37 degC: 31.15 MPa).
+      # - Warmer, the column lightens and the heat output falls (42 degC:
+      #   ~16% less); by 44 degC the loop no longer converges.
+      # At 38 degC the bottom-hole pressure peaks at 30.88 MPa, right at the
+      # threshold. The heat rejected below 50 degC is too cold for the
+      # district-heating network.
       # circulation_control resolves to its passive Valve leg and throttles
       # the natural surplus down to injection_pressure.
       nodes:

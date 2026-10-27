@@ -1,3 +1,8 @@
+# Design point: opt_EGS_electric's Pareto pick (the design closest to the ideal corner),
+# design 7 of its outputs/pareto_results.csv (md5 64e1b8ed6dcd0e34f99efd5eb114f60f),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Enhanced Geothermal System (EGS), power extraction.
 #
 # EGS doublet with hydro_sf_electric.yml's Single-Flash surface plant
@@ -12,7 +17,12 @@
 # brine reaches the surface at only ~115 degC -- too cold for a flash
 # plant, which works by boiling the brine at reduced pressure; with
 # realistic turbine/pump efficiencies the plant there barely stayed
-# net-positive (LCOE ~31). At 5000 m it delivers ~174 degC.
+# net-positive (LCOE ~31). At 5000 m the brine arrives at ~178 degC in the
+# first year. At this config's 147 kg/s the reservoir cools quickly: ~125 degC
+# by year 4 and ~111 degC by year 19, when net power has fallen from 7.5 MW
+# to almost zero. This design is kept anyway: the optimizer scores LCOE
+# averaged over the run and only rejects negative output, so a plant that
+# idles for its last ~10 years can still be the pick. See GitHub #121.
 #
 # Site parameters (Triemli-like, deepened):
 #   surface temperature : 11 degC (284.15 K)
@@ -21,9 +31,9 @@
 #   reservoir depth      : 5000 m (hypothetical)
 #   application          : power (single-flash), not direct heat
 #
-# target_extraction_pressure is 1.5 MPa here, much lower than
-# hydro_sf_electric.yml/EGS_direct_heat.yml's 7 MPa: this system's modest
-# turbine output (~100-900 kW, vs. hydro_sf_electric.yml's multi-MW) is
+# target_extraction_pressure is low here (1.05 MPa, set by the
+# opt_EGS_electric Pareto pick; see the Design point header): this
+# system's turbine output is
 # easily swamped by production_well_with_pump's OWN downhole parasitic
 # power draw, which scales with how much lift pressure the well pump has
 # to add to reach the target -- confirmed empirically (the per-timestep
@@ -63,11 +73,11 @@ layout:
 sim_config:
   num_tsteps: 20              # years of operation
   dt_years: 1.0                # years
-  target_extraction_pressure: 1_500_000  # Pa — SINGLE shared source; threaded to
+  target_extraction_pressure: 1_050_000    # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 50                 # kg/s
+  mass_rate: 147.0              # kg/s
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -85,7 +95,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.410             # m — widened from 0.311 to keep friction losses manageable at the mass rate this design needs for positive net power once the downhole pump's own draw is included
+    diameter: 0.488             # m — set by the opt_EGS_electric Pareto pick; see header
     pipe_roughness: 5.5e-5      # m
 
   reservoir:
@@ -109,7 +119,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.410              # m
+    diameter: 0.458              # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -120,7 +130,7 @@ components:
     prev: 2
     next: 4
     well_length: 1000.0         # m = 0.2 x reservoir_depth
-    diameter: 0.410              # m
+    diameter: 0.458              # m
     pipe_roughness: 5.5e-5       # m
     pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
     # target_extraction_pressure is NOT set here — it's sourced from
@@ -132,8 +142,8 @@ components:
     component_idx: 4            # solved last, loops back to injection_well (next: 0)
     prev: 3
     next: 0
-    injection_pressure: 1_500_000  # Pa — initial guess for the BC-iteration solver
-    pipe_diameter: 0.41               # m
+    injection_pressure: 2_370_000    # Pa — initial guess for the BC-iteration solver
+    pipe_diameter: 0.202              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
     # well_spacing is NOT set here — it's sourced from layout.well_spacing above.
@@ -151,7 +161,7 @@ components:
 
         flash_valve:
           type: Valve
-          p_out_megapascals: 0.05          # MPa (= 0.5 bar) — kept low enough (well below H2O's ~0.175 MPa saturation pressure at this resource's ~116 degC) to actually flash a meaningful vapor fraction; a higher flash pressure left almost everything liquid, starving the turbine
+          p_out_megapascals: 0.130         # MPa (= 1.30 bar) — set by the opt_EGS_electric Pareto pick; must stay below H2O's saturation pressure at the produced brine's temperature to actually flash a meaningful vapor fraction, or the turbine starves
 
         separator:
           type: DropletSeparator

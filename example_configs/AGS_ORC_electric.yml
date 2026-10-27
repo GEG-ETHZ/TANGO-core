@@ -1,3 +1,8 @@
+# Design point: opt_AGS_ORC_electric's Pareto pick (the design closest to the ideal corner),
+# design 12 of its outputs/pareto_results.csv (md5 dac6f635ef16ee1360d78566613ed26f),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Advanced Geothermal System (AGS), binary (ORC) power
 # extraction, hypothetical deepened variant of the Triemli site.
 #
@@ -10,22 +15,18 @@
 # horizontal_well -> production_well -> surface -> back to injection_well,
 # no reservoir, SystemBCIteration/injection_mode: manual) — see that file's
 # module docstring for the full subsurface rationale. The well DEPTHS are
-# NOT copied verbatim, though: AGS_direct_heat.yml's real Triemli district-
-# heating design (3000 m vertical + 707 m horizontal) only delivers ~53 degC
-# to the surface -- confirmed by running that file directly -- nowhere near
-# enough enthalpy to drive the binary-cycle design below profitably (net
-# power came back strongly negative, turbine output not covering the
-# circulation/ORC pump parasitic loads). Real AGS-for-power concepts (e.g.
-# deep closed-loop designs like Eavor-Loop) deliberately go much deeper than
-# a district-heating design for exactly this reason. This file uses 8000 m
-# vertical + 3000 m horizontal instead -- same rock properties/gradient,
-# same mass_rate -- which delivers ~95-100 degC to the surface and gives
-# solidly positive net power (~520 kW in the first year, declining to
-# ~390 kW by year 25, verified by direct run, not just a temperature
-# guess). Not claimed as a realistic drilling target for the real Triemli
-# site -- illustrative only, same spirit as AGS_direct_heat.yml's own note
-# that its depth is "one point from the original sweep's range," not a
-# site-specific commitment.
+# NOT copied, though: a district-heating-depth loop at this site (3000 m
+# vertical + 707 m horizontal) only delivers ~53 degC to the surface --
+# nowhere near enough enthalpy to drive the binary-cycle design below
+# profitably (net power came back strongly negative, turbine output not
+# covering the circulation/ORC pump parasitic loads). Real AGS-for-power
+# concepts (e.g. deep closed-loop designs like Eavor-Loop) deliberately go
+# much deeper than a district-heating design for exactly this reason. This
+# file uses 10,000 m vertical + 8000 m horizontal instead (the
+# opt_AGS_ORC_electric Pareto pick; see the Design point header) -- same
+# rock properties/gradient. Not claimed as a realistic drilling target for
+# the real Triemli site -- illustrative only, not a site-specific
+# commitment.
 #
 # The surface plant itself: instead of a district-heating SimpleHeatExchanger
 # (dh_hx), the produced geofluid here transfers heat to a closed secondary
@@ -38,12 +39,13 @@
 # its geofluid loop.
 #
 # The secondary-loop setpoints (ttd_l, pressure ratios, R245fa working
-# fluid, feed-pump pressure) are copied as-is from hydro_ORC_electric.yml
-# — a generic, reasonable binary-cycle design, NOT independently
-# re-optimized for this site's specific produced-fluid temperature. Revisit
-# if these numbers ever need to be realistic rather than illustrative. The
-# condensing pressure is the exception: it is set from this site's cooling
-# limit (see orc_condenser).
+# fluid) are copied as-is from hydro_ORC_electric.yml — a generic,
+# reasonable binary-cycle design, NOT independently re-optimized for this
+# site's specific produced-fluid temperature. Revisit if these numbers ever
+# need to be realistic rather than illustrative. Two exceptions: the
+# condensing pressure is set from this site's cooling limit (see
+# orc_condenser), and the feed-pump pressure is set by the
+# opt_AGS_ORC_electric Pareto pick (see orc_feed_pump).
 #
 # Site parameters — rock properties/gradient identical to AGS_direct_heat.yml's
 # real Triemli values, well depths hypothetically deepened (see above):
@@ -74,7 +76,7 @@ sim_config:
                                           # (surface, pump-bearing production wells)
   injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
                                 # even without a reservoir
-  mass_rate: 30                 # kg/s — matches AGS_direct_heat.yml's subsurface loop
+  mass_rate: 42.7               # kg/s — set by the opt_AGS_ORC_electric Pareto pick; see header
   bc_checkpoint_idx: 3           # component_idx of the surface (below)
 
 economic:
@@ -97,8 +99,8 @@ components:
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
     prev: 3
     next: 1
-    well_length: 8000.0        # m — vertical well depth (hypothetically deepened, see module docstring)
-    diameter: 0.311             # m  (~12-inch casing)
+    well_length: 10_000         # m — vertical well depth (hypothetically deepened, see module docstring)
+    diameter: 0.328             # m  (~13-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   horizontal_well:
@@ -107,9 +109,9 @@ components:
     component_idx: 1
     prev: 0
     next: 2
-    well_length: 3000.0          # m — horizontal loop flow-path length (hypothetically
+    well_length: 8000            # m — horizontal loop flow-path length (hypothetically
                                    # lengthened alongside the vertical depth, see module docstring)
-    diameter: 0.311              # m
+    diameter: 0.75               # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
@@ -121,7 +123,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.328              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -130,9 +132,9 @@ components:
     component_idx: 3            # solved last, loops back to injection_well (next: 0)
     prev: 2
     next: 0
-    injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
-                                     # sim_config above), matching AGS_direct_heat.yml.
-    pipe_diameter: 0.41               # m
+    injection_pressure: 5_010_000    # Pa — fixed value under injection_mode: manual (see
+                                     # sim_config above).
+    pipe_diameter: 0.2                # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
     # well_spacing is NOT set here — it's sourced from layout.well_spacing
@@ -167,8 +169,8 @@ components:
           ttd_l: 7                     # K — terminal temperature difference (boiler)
           pressure_ratio1: 1.0         # geofluid side — dimensionless
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
-          h0_out1: 250                 # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
-          p0_megapascals_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          h0_out1: 463.0               # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
+          p0_megapascals_out2: 1.36                # MPa (= 13.6 bar) — TESPy guess value (secondary-fluid outlet pressure)
           vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
 
         preheater:
@@ -176,7 +178,7 @@ components:
           pressure_ratio1: 1.0         # geofluid side — dimensionless
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
           vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
-          p0_megapascals_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 1.36                # MPa (= 13.6 bar) — TESPy guess value (secondary-fluid outlet pressure)
           fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
 
         circulation_control:
@@ -216,7 +218,7 @@ components:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.5        # MPa (= 5 bar)
+          p_out_megapascals: 1.36       # MPa (= 13.6 bar) — set by the opt_AGS_ORC_electric Pareto pick
 
         orc_cycle_closer:
           type: CycleCloser

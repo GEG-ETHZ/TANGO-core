@@ -102,6 +102,17 @@ class NegativeNetPowerError(InvalidPowerStateError):
     """
 
 
+class NegativeNetThermalError(InvalidPowerStateError):
+    """Raised when a heat plant delivers no heat: its net thermal output is negative.
+
+    The produced fluid has cooled so far (e.g. once the reservoir is
+    depleted) that the heat exchangers tagged ``role: net_thermal`` would
+    have to heat it instead of taking heat from it. Such a plant has
+    nothing to sell, so the design is infeasible. ``GraphSurface`` checks it
+    once per timestep, on the converged state.
+    """
+
+
 class PassivePressureRiseError(InvalidPowerStateError):
     """Raised when a passive surface-plant component raises its fluid's pressure.
 

@@ -1,3 +1,8 @@
+# Design point: opt_CPG_electric's Pareto pick (the design closest to the ideal corner),
+# design 11 of its outputs/pareto_results.csv (md5 6bb64d3d96b9860924cf9c05f27cbe1b),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — CO2 Plume Geothermal (CPG), power extraction.
 #
 # Ported from old tango's examples/CPG_num_pp.yml (preserved at git tag
@@ -26,10 +31,11 @@
 # Depth matches the old-tango reference exactly (2500 m). No downhole
 # pump on the production side (thermosiphon is strong enough with CO2
 # that a plain production_well suffices, matching old tango).
-# injection_pressure below is old tango's own converged value for this
-# depth, confirmed (by actually running old tango's CPG_num_pp.yml) to
-# settle at ~7.13 MPa wellhead / ~26.8 MPa injection-well-outlet, about
-# 3.2 MPa under this reservoir's 30 MPa fracking threshold.
+# injection_pressure below (6.44 MPa, equal to the condensing pressure) is
+# set by the opt_CPG_electric Pareto pick (see the Design point header).
+# For comparison, old tango's CPG_num_pp.yml, run at this depth, settles
+# at ~7.13 MPa wellhead / ~26.8 MPa injection-well-outlet, about 3.2 MPa
+# under this reservoir's 30 MPa fracking threshold.
 
 title: CO2 Plume Geothermal (CPG), doublet, power extraction
 
@@ -66,7 +72,7 @@ sim_config:
                                           # production wellhead stays
                                           # single-phase supercritical
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 125              # kg/s — LCOE minimum in a 100-200 kg/s sweep at realistic component efficiencies; 200 kg/s depleted this reservoir to net-negative output in year 19
+  mass_rate: 143.0            # kg/s — set by the opt_CPG_electric Pareto pick; see header
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -84,7 +90,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.6             # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
   reservoir:
@@ -112,7 +118,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.403           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -123,7 +129,7 @@ components:
     prev: 2
     next: 4
     well_length: 500.0        # m
-    diameter: 0.410           # m
+    diameter: 0.403           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above.
@@ -134,14 +140,14 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 7_131_030   # Pa — fixed value (injection_mode: manual-fracking-check); matches
-                                     # old tango's CPG_num_pp.yml's own converged wellhead pressure
-                                     # at this same depth (confirmed by running it directly). This
+    injection_pressure: 6_440_000     # Pa — fixed value (injection_mode: manual-fracking-check),
+                                     # set by the opt_CPG_electric Pareto pick and equal to the
+                                     # condensing pressure (see header comment). This
                                      # is below CO2's 7.38 MPa critical pressure by design -- CO2 is
                                      # condensed liquid by the time it's reinjected, not
                                      # supercritical, unlike the production side (see
                                      # target_extraction_pressure above).
-    pipe_diameter: 0.41        # m
+    pipe_diameter: 0.441       # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
 
@@ -153,11 +159,12 @@ components:
       # it at an ambient-driven condensing pressure -- same mechanism as
       # hydro_sf_electric.yml's water condenser and old tango's CPG model
       # (see this file's header comment). PumpOrValve then restores
-      # whatever pressure is needed to reach injection_pressure -- given
-      # the condensing pressure below is well under injection_pressure,
-      # this will in practice almost always resolve to a real Compressor,
-      # same as any Rankine-like cycle needing a feed pump after its
-      # condenser; that's expected physics, not a design defect.
+      # whatever pressure is needed to reach injection_pressure. With a
+      # condensing pressure under injection_pressure it resolves to a real
+      # Compressor, same as any Rankine-like cycle needing a feed pump
+      # after its condenser; that's expected physics, not a design defect.
+      # Here the two pressures are equal (6.44 MPa), so it resolves to a
+      # small pump or throttle.
       #
       # Source("inlet") -> Turbine -> SimpleHeatExchanger(condenser) -> PumpOrValve(circulation_control) -> Sink("outlet")
       nodes:
@@ -168,7 +175,7 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 6.55             # MPa -- expands down to the condenser's own pressure
+          p_out_megapascals: 6.44             # MPa -- expands down to the condenser's own pressure
                                                # (no pressure drop between turbine outlet and condenser
                                                # exit, same pattern as hydro_sf_electric.yml's turbine/
                                                # condenser pair). See the condenser's comment for where
@@ -176,13 +183,12 @@ components:
 
         condenser:
           type: SimpleHeatExchanger
-          # Condensing pressure, set by the site rather than chosen: CO2
-          # saturates at 25.8 degC at 6.55 MPa, so the 3 K subcooled outlet
-          # (22.8 degC) stays above the cooling limit of surface_temperature +
-          # approach_temperature = 14.85 + 7 = 21.85 degC, with room for
-          # opt_CPG_electric's +-1% smoke-test window. Well below CO2's
+          # Condensing pressure, at the lowest value the site allows: CO2
+          # saturates at 25.0 degC at 6.44 MPa, so the 3 K subcooled outlet
+          # (22.0 degC) stays just above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC. Well below CO2's
           # 7.38 MPa / 31 degC critical point.
-          p_out_megapascals: 6.55             # MPa
+          p_out_megapascals: 6.44             # MPa
           subcooling_K: 3.0                   # K below saturation. The condensate flows straight into the injection
                                                # well, which must stay common.saturation_margin (5%) clear of the
                                                # saturation pressure; 3 K gives ~7% (2 K would give ~5%, too tight).

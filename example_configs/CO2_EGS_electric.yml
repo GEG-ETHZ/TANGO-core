@@ -1,3 +1,8 @@
+# Design point: opt_CO2_EGS_electric's Pareto pick (the design closest to the ideal corner),
+# design 17 of its outputs/pareto_results.csv (md5 bf46cdd2a3629d60e3a72aed70c70c95),
+# recorded in dvc.lock at commit 45353ac7. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Enhanced Geothermal System (EGS) with CO2 as the working
 # fluid, direct CO2 power extraction (no secondary loop).
 #
@@ -5,19 +10,21 @@
 # deepened Triemli-like site -- see that file's header for why the depth
 # differs from EGS_direct_heat.yml's real 3000 m), with CPG_electric.yml's
 # direct surface plant instead of a binary (ORC) cycle: the CO2 expands
-# through the turbine itself, condenses at an ambient-driven 6.0 MPa, and
-# is pumped back to injection_pressure. Using the geofluid as the turbine
-# fluid removes the ORC's heat-exchange step and its losses -- the main
-# point of a CO2 geothermal system. On this subsurface it makes about 1.8x
-# the ORC version's power.
+# through the turbine itself, condenses at an ambient-driven 5.87 MPa, and
+# is brought back to injection_pressure by circulation_control. Using the
+# geofluid as the turbine fluid removes the ORC's heat-exchange step and
+# its losses -- the main point of a CO2 geothermal system.
 #
-# Reinjecting condensed, cold liquid CO2 (~760 kg/m3) also keeps the
+# Reinjecting condensed, cold liquid CO2 (~800 kg/m3 at the condenser
+# outlet) also keeps the
 # thermosiphon strong and far from CO2's pseudo-critical density cliff --
 # the failure mode the ORC version needs its injection_cooler to avoid.
 #
-# mass_rate is 100 kg/s: close to the LCOE minimum (125-150 kg/s is ~6%
-# cheaper) while leaving the reservoir much less depleted at year 25
-# (wellhead ~327 K vs ~313-319 K), and still producing ~0.9 MW then.
+# injection_pressure is 5.87 MPa, the condensing pressure itself and below
+# CO2's 7.38 MPa critical pressure: the CO2 is reinjected as subcooled
+# liquid at the condensing pressure. mass_rate (171 kg/s) and the other
+# design values are set by the opt_CO2_EGS_electric Pareto pick (see the
+# Design point header).
 #
 # Site parameters (Triemli, Zurich) — rock properties/gradient identical to
 # EGS_direct_heat.yml/CO2_EGS_direct_heat.yml, depth deepened (see above):
@@ -50,7 +57,7 @@ sim_config:
                                           # anything here (plain
                                           # production_well, no pump).
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 100                # kg/s — see header comment
+  mass_rate: 171.0              # kg/s — see header comment
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -70,7 +77,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.311             # m  (~12-inch casing, typical for EGS)
+    diameter: 0.409             # m  (~16-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   reservoir:
@@ -94,7 +101,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.427              # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -105,7 +112,7 @@ components:
     prev: 2
     next: 4
     well_length: 1000.0          # m = 0.2 x reservoir_depth
-    diameter: 0.311              # m
+    diameter: 0.427              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -114,9 +121,10 @@ components:
     component_idx: 4            # solved last, loops back to injection_well (next: 0)
     prev: 3
     next: 0
-    injection_pressure: 7_500_000   # Pa — ABOVE CO2's 7.38 MPa critical pressure,
-                                     # matching CO2_EGS_direct_heat.yml's own reasoning.
-    pipe_diameter: 0.41               # m
+    injection_pressure: 5_870_000     # Pa — the condensing pressure, below CO2's 7.38 MPa
+                                     # critical pressure: CO2 is reinjected as subcooled
+                                     # liquid (see header comment).
+    pipe_diameter: 0.476              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
 
@@ -131,14 +139,15 @@ components:
           type: Turbine
           role: net_electric
           efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 6.0       # MPa -- expands into the two-phase dome, down to the
-                                         # condensing pressure. CO2 saturates at ~295 K at 6.0 MPa,
-                                         # above what the cooling tower can reach here
+          p_out_megapascals: 5.87      # MPa -- expands into the two-phase dome, down to the
+                                         # condensing pressure. CO2 saturates at ~294 K at 5.87 MPa,
+                                         # so the condenser's 3 K subcooled outlet sits at what the
+                                         # cooling tower can reach here
                                          # (surface_temperature 284.15 K + approach_temperature 7 K)
 
         condenser:
           type: SimpleHeatExchanger
-          p_out_megapascals: 6.0       # MPa -- same pressure as the turbine exhaust
+          p_out_megapascals: 5.87      # MPa -- same pressure as the turbine exhaust
           subcooling_K: 3.0              # K below saturation. The condensate flows straight into the injection
                                          # well, which must stay common.saturation_margin (5%) clear of the
                                          # saturation pressure; 3 K gives ~7% (2 K would give ~5%, too tight).
@@ -149,8 +158,9 @@ components:
           cooling_tower_mode: WET
 
         circulation_control:
-          type: PumpOrValve            # restores injection_pressure; with the condenser below
-                                         # injection_pressure this resolves to a real pump
+          type: PumpOrValve            # restores injection_pressure; here the condenser outlet
+                                         # is already at about injection_pressure, so it resolves
+                                         # to a small pump or throttle
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
 

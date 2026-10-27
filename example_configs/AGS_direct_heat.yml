@@ -1,3 +1,8 @@
+# Design point: opt_AGS_direct_heat's Pareto pick (the design closest to the ideal corner),
+# design 8 of its outputs/pareto_results.csv (md5 1276869c62b99d96464b369a919454ce),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
 # tango format — Advanced Geothermal System (AGS), direct-heat only.
 #
 # Ported from applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml (the
@@ -28,10 +33,11 @@
 #   application          : direct heat only (district heating, no electricity)
 #   DH return temp       : 50 degC (re-injection temperature)
 #
-# Depth/loop-length values below are one point from the original sweep's
-# range (well_depth 2000-6500 m, loop_length 707-2500 m) — 707 m is the
-# range's validated reference point (see triemli_dh_base.yml's assumption
-# note), used here as-is rather than swept.
+# Depth/loop-length values below are set by the opt_AGS_direct_heat Pareto
+# pick (see the Design point header), not taken from the original sweep's
+# range (well_depth 2000-6500 m, loop_length 707-2500 m, with 707 m as the
+# range's validated reference point -- see triemli_dh_base.yml's assumption
+# note). The 8000 m loop length lies outside that range.
 
 title: Advanced Geothermal System (AGS), direct-heat, Triemli site
 
@@ -54,13 +60,10 @@ sim_config:
                                           # any component declaring this field
                                           # (surface, pump-bearing production wells)
   injection_mode: manual       # see module docstring: required even without a reservoir
-  mass_rate: 30                 # kg/s -- at this value, circulation_control's (see power_plant.nodes
-                                  # below) natural driving pressure falls slightly short of
-                                  # injection_pressure at some point over the 25-year run, so this
-                                  # baseline exercises circulation_control's Compressor leg
-                                  # (type: PumpOrValve resolves each solve() to whichever of Valve/
-                                  # Compressor is physically valid), giving this file's own default
-                                  # run live coverage of both resolution paths, not just one.
+  mass_rate: 7.8                # kg/s -- set by the opt_AGS_direct_heat Pareto pick; see header.
+                                  # circulation_control (see power_plant.nodes below; type:
+                                  # PumpOrValve) resolves each solve() to whichever of Valve/
+                                  # Compressor is physically valid at this flow.
   bc_checkpoint_idx: 3           # component_idx of the surface (below)
 
 economic:
@@ -86,8 +89,8 @@ components:
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
     prev: 3
     next: 1
-    well_length: 3000.0        # m — vertical well depth
-    diameter: 0.311             # m  (~12-inch casing)
+    well_length: 4500          # m — vertical well depth
+    diameter: 0.15              # m  (~6-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   horizontal_well:
@@ -96,8 +99,8 @@ components:
     component_idx: 1
     prev: 0
     next: 2
-    well_length: 707.0          # m — horizontal loop flow-path length
-    diameter: 0.311              # m
+    well_length: 8000           # m — horizontal loop flow-path length
+    diameter: 0.597              # m
     pipe_roughness: 5.5e-5       # m
     # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
@@ -109,7 +112,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.311              # m
+    diameter: 0.15               # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -118,11 +121,11 @@ components:
     component_idx: 3            # solved last, loops back to injection_well (next: 0)
     prev: 2
     next: 0
-    injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
+    injection_pressure: 517_000     # Pa — fixed value under injection_mode: manual (see
                                      # sim_config above); kept below the production
                                      # wellhead pressure so TESPy's pr<=1 constraint on
                                      # district_heating_hx isn't violated.
-    pipe_diameter: 0.41               # m
+    pipe_diameter: 0.2                # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
     # well_spacing is NOT set here — it's sourced from layout.well_spacing

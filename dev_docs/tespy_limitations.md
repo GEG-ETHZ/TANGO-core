@@ -204,7 +204,8 @@ caused a silent 1000x power error during development.
 
 **TANGO workaround:** net totals are summed as `-P.val` / `-Q.val` over
 role-tagged nodes; negative net power raises `NegativeNetPowerError` only
-when the plant has a `Turbine`.
+when the plant has a `Turbine`, and negative net thermal power raises
+`NegativeNetThermalError` when the plant has `net_thermal` nodes.
 
 ## TESPy's own warnings are suppressed *[TANGO]*
 

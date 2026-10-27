@@ -156,14 +156,24 @@ class _OrcFeedPumpPressureApply:
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # Brackets the config's own depth.
+    # The front sits on the deep cap: deeper rock is hotter and nothing in the
+    # model pushes back (1 km deeper is ~9-12% cheaper). Whether the cap is a
+    # real drilling limit, and whether well cost holds beyond ~8 km, is open
+    # (#120).
     "depth_m": (6000.0, 10000.0),
     # Loop geometry and diameters: the same ranges as opt_AGS_direct_heat.
+    # Loop length and diameter sit at their caps but are near their optima:
+    # 9 km or 0.85 m changes LCOE by at most ~2%, sometimes for the worse.
     "loop_length_m": (500.0, 8000.0),
     "loop_diameter_m": (0.15, 0.75),
     "vertical_well_diameter_m": (0.2, 0.75),
+    # The front sits on the 70 kg/s cap, but near its optimum: 80 kg/s is
+    # slightly more expensive.
     "mass_rate_kg_per_s": (5.0, 70.0),
     "injection_pressure_Pa": (5000000.0, 12000000.0),
     "surface_pipe_diameter_m": (0.2, 0.75),
+    # The front sits on the 11 MPa cap, but at its ideal-corner design 12 MPa
+    # gives the same result.
     "preheater_outlet_pressure_MPa": (7.5, 11.0),
     # Lower bound stays well above the ORC condensing pressure, so the feed
     # pump always raises pressure. Upper bound saturates R245fa at ~110 degC:
