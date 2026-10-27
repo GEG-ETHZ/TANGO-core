@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../example_configs/CPG_direct_heat.yml
       hash: md5
-      md5: 22034a2383f4fea51861de47d3787a74
-      size: 9378
+      md5: 9ead797b25bd3b5c67c0f78c186bf4d5
+      size: 9933
     - path: ../../src/tango.hash
       hash: md5
       md5: 153be39fd17fe55b142a67f56711473d

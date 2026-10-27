@@ -1,10 +1,26 @@
+# Design point: design 8 of opt_CPG_direct_heat's outputs/pareto_results.csv
+# (md5 9ce9d4857f1702f06cc6e4cfe1d3dc0f), recorded in dvc.lock at commit
+# 6aa52991, picked by hand rather than taking the design closest to the ideal
+# corner. Decision variables rounded to 3 significant figures.
+#
+# Why not the ideal-corner design: this front is a reservoir-depletion
+# trade-off. The design closest to the ideal corner (design 21, 101 kg/s)
+# delivers 8% more mean heat than design 8 for 7% higher LCOE, and it gets
+# there by depleting the reservoir: in its last year it delivers 0.6% of its
+# first-year heat. Design 8 (90.4 kg/s) costs within 0.2% of the cheapest
+# design on the front, delivers 2% more mean heat than it, and still delivers
+# 15% of its first-year heat in its last year. The ideal-corner rule sees only
+# the run-averaged objectives, not how the heat is spread over the run, so it
+# can't weigh that trade-off; choosing design 8 is an engineering judgment
+# the algorithm alone wouldn't make. See GitHub #121.
+#
 # tango format — CO2 Plume Geothermal (CPG), direct-heat (district heating)
 # extraction.
 #
 # Same doublet subsurface as CPG_electric.yml (injection_well -> reservoir
 # -> production_well_lower -> production_well_upper -> surface -> back to
-# injection_well), same CO2 fluid, same depth/mass_rate/target_extraction_pressure
-# -- copied verbatim, see that file's header comment for the full subsurface
+# injection_well), same CO2 fluid, same depth and target_extraction_pressure
+# -- see that file's header comment for the full subsurface
 # rationale (why CO2 stays supercritical/dense-phase through the subsurface,
 # depth/injection-pressure provenance from old tango's CPG_num_pp.yml).
 #
@@ -12,24 +28,16 @@
 # (district_heating_hx) takes the CO2 down to a realistic DH return
 # temperature (50 degC), circulation_control throttles it to
 # injection_pressure, and injection_cooler then cools it to 25 degC so it is
-# reinjected cold and dense (~750 kg/m3). The cooler is what makes the loop
-# work:
-# - It drives the thermosiphon. Without it the CO2 leaves the plant as a
-#   light gas at 50 degC (district_heating_hx's inlet is only ~32-44 bar on
-#   that branch), the injection column is light, and the wellhead pressure
-#   collapses with it.
-# - It lets the reservoir supply the heat. Without it, compressing that gas
-#   back up to injection_pressure heats it so much that it reaches the
-#   bottom of the injection well at ~122 degC, hotter than the ~102 degC
-#   reservoir: the reservoir is heated rather than mined, and all the
-#   "delivered" heat is pump work.
-# With it, the wellhead delivers ~120-130 bar, circulation_control resolves
+# reinjected cold and dense (~800 kg/m3). The cooler drives the thermosiphon:
+# without it (T_out at 50 degC) the injection column is light and the plant
+# delivers negative heat from the first year.
+# With it, the wellhead delivers ~12.3-13.9 MPa, circulation_control resolves
 # to a passive Valve, and the injection well's bottom-hole pressure peaks at
-# ~27.9 MPa, under the 30 MPa fracking threshold. The heat rejected below
-# 50 degC is too cold for the district-heating network. mass_rate is 75
-# kg/s (not CPG_electric.yml's 125): at 100 kg/s and above the reservoir
-# depletes until the CO2 reaches the plant colder than the 50 degC return
-# within the 20-year run.
+# 29.42 MPa, right at the 29.43 MPa fracking threshold. Heat output holds at
+# ~4.6 MW for about ten years, then falls to ~0.7 MW by year 19 as the
+# reservoir cools (the CO2 reaches the plant at 64 degC in year 1, 53 degC by
+# year 19). The heat rejected below 50 degC is too cold for the
+# district-heating network.
 
 title: CO2 Plume Geothermal (CPG), doublet, direct-heat extraction
 
@@ -68,7 +76,7 @@ sim_config:
                                           # for consistency, not because it does
                                           # anything here.
   injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
-  mass_rate: 75                 # kg/s -- lowest LCOE that keeps heat output positive for 20 years (see header)
+  mass_rate: 90.4               # kg/s -- design 8 of the opt_CPG_direct_heat front, picked by hand (see header)
   bc_checkpoint_idx: 4           # component_idx of the surface (below)
 
 economic:
@@ -90,7 +98,7 @@ components:
     prev: 4
     next: 1
     # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.6             # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
   reservoir:
@@ -118,7 +126,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
-    diameter: 0.410           # m
+    diameter: 0.268           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
 
@@ -129,7 +137,7 @@ components:
     prev: 2
     next: 4
     well_length: 500.0        # m
-    diameter: 0.410           # m
+    diameter: 0.268           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above.
@@ -140,12 +148,12 @@ components:
     component_idx: 4          # solved last (surface consumes production well output)
     prev: 3
     next: 0
-    injection_pressure: 7_500_000   # Pa — chosen ABOVE CO2's 7.38 MPa critical
+    injection_pressure: 8_880_000     # Pa — chosen ABOVE CO2's 7.38 MPa critical
                                      # pressure (unlike CPG_electric.yml's
                                      # 7_131_030 Pa condensed-liquid case), keeping
                                      # this reinjection point single-phase after
                                      # injection_cooler.
-    pipe_diameter: 0.41        # m
+    pipe_diameter: 0.298       # m
     approach_temperature: 7.0  # K
     pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
 

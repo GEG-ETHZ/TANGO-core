@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../example_configs/CO2_EGS_direct_heat.yml
       hash: md5
-      md5: faa566be8b913d3f9d341968bfa251cb
-      size: 11912
+      md5: dc13663de28ce700415053b25c9b65be
+      size: 11832
     - path: ../../src/tango.hash
       hash: md5
       md5: 153be39fd17fe55b142a67f56711473d
