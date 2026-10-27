@@ -458,3 +458,33 @@ def test_state_points_are_numbered_in_flow_order() -> None:
         assert labels.mode == "text"
         numbers = sorted(int(n) for text in labels.text for n in text.split(", "))
         assert numbers == list(range(1, len(key) + 1))
+
+
+def test_well_profile_changes_color_where_it_crosses_the_critical_pressure() -> None:
+    """Each stretch of a profile has its own phase's color, not one color for the whole well.
+
+    A cold-water well from 50 to 400 bar is liquid below water's critical
+    pressure (220.6 bar) and "supercritical" (CoolProp's supercritical
+    liquid) above it; the line must switch color at the crossing, joined at
+    the shared node.
+    """
+    p_bar = [50.0, 150.0, 200.0, 250.0, 400.0]
+    h_kj = [CP.PropsSI("H", "P", p / phase_diagrams.PA_TO_BAR, "T", 330.0, "Water") / 1000 for p in p_bar]
+    colors = phase_diagrams._segment_colors("H2O", "HEOS", h_kj, p_bar)  # noqa: SLF001
+    assert colors == ["blue", "blue", "green", "green"]
+    traces = phase_diagrams._profile_traces("a", "b", h_kj, p_bar, colors)  # noqa: SLF001
+    points, *lines = traces
+    assert list(points.x) == h_kj
+    by_color = {trace.line.color: trace for trace in lines}
+    assert list(by_color["blue"].y) == [50.0, 150.0, 200.0]
+    assert list(by_color["green"].y) == [200.0, 250.0, 400.0]
+    assert all(len(by_color[color].x) == 0 for color in ("orange", "red", "gray"))
+
+
+def test_separate_runs_of_one_color_are_not_joined() -> None:
+    """Two runs of one phase separated by another get a gap, not a line drawn across the other phase."""
+    p_bar = [1.0, 2.0, 3.0, 4.0, 5.0]
+    h_kj = [100.0, 200.0, 300.0, 400.0, 500.0]
+    traces = phase_diagrams._profile_traces("a", "b", h_kj, p_bar, ["blue", "green", "green", "blue"])  # noqa: SLF001
+    blue = next(trace for trace in traces[1:] if trace.line.color == "blue")
+    assert list(blue.x) == [100.0, 200.0, None, 400.0, 500.0]
