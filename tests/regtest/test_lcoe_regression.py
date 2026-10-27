@@ -1,12 +1,12 @@
 """Regression tests for tango's economic-component behavior.
 
 ``hydro_sf_electric.yml``'s own golden-LCOE regression check lives in
-``test_example_configs.py`` alongside every other ``templates/``
+``test_templates.py`` alongside every other ``templates/``
 YAML's, not here -- this file owns the rest of its coverage instead:
 detailed injection-well/reservoir/surface physics invariants
 (spatial history shape, per-cell monotonicity, ``t_d`` advancement, ...)
 that are specific to this config's own topology and go well beyond the
-generic checks ``test_example_configs.py`` applies to every config.
+generic checks ``test_templates.py`` applies to every config.
 """
 
 from __future__ import annotations
@@ -38,12 +38,12 @@ from tango.workflows.workflow import Workflow
 # Paths and reference values
 # ---------------------------------------------------------------------------
 
-# Frozen scenario copies of example configs (see that directory's file
-# headers): these tests need specific designs, which the example configs
+# Frozen scenario copies of templates (see that directory's file
+# headers): these tests need specific designs, which the templates
 # don't keep once they're re-optimized.
-EXAMPLE_CONFIGS_DIR = Path(__file__).parent / "fixtures" / "scenarios"
-HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
-AGS_DIRECT_HEAT = EXAMPLE_CONFIGS_DIR / "AGS_direct_heat.yml"
+TEMPLATES_DIR = Path(__file__).parent / "fixtures" / "scenarios"
+HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"
+AGS_DIRECT_HEAT = TEMPLATES_DIR / "AGS_direct_heat.yml"
 
 N_TSTEPS = 20  # sim_config.time.num_tsteps in the tango YAML
 
@@ -863,7 +863,7 @@ def test_injection_loop_closes_within_tolerance_every_year() -> None:
     """
     from tango.orchestrators.system_bc_iteration import _DH_SURFACE_TOL
 
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "AGS_ORC_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "AGS_ORC_electric.yml").read_text())
     config["sim_config"]["num_tsteps"] = 5
     wf = Workflow(config)
     wf.run()
@@ -895,7 +895,7 @@ def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
     from tango.components.well.numerical import NumericalWell
     from tango.core.fluid_state import FluidState
 
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / filename).read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text())
     config["sim_config"]["num_tsteps"] = 2
     wf = Workflow(config)
     wf.run()
@@ -936,7 +936,7 @@ def test_heat_exchanger_raising_pressure_is_rejected() -> None:
     ~10.4 MPa. The error names the heat exchanger; the PumpOrValve fallback
     must not swallow it and report a negative pump power instead.
     """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CO2_EGS_direct_heat.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_direct_heat.yml").read_text())
     config["sim_config"]["num_tsteps"] = 2
     plant = config["components"]["surface"]["power_plant"]
     hx = plant["nodes"]["district_heating_hx"]
@@ -978,7 +978,7 @@ def test_condensing_below_cooling_limit_is_rejected(
     CPG_electric.yml's 21.85 degC limit, so only the 1 K subcooled condenser
     outlet (21.0 degC) falls below it.
     """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / filename).read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text())
     config["sim_config"]["num_tsteps"] = 1
     nodes = config["components"]["surface"]["power_plant"]["nodes"]
     for name in condensing_nodes:
@@ -995,7 +995,7 @@ def test_negative_net_power_is_reported_as_itself() -> None:
     PumpOrValve fallback must not retry with circulation_control as a pump,
     which used to surface as "circulation_control reports P=... (negative)".
     """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CO2_EGS_ORC_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_ORC_electric.yml").read_text())
     config["sim_config"]["mass_rate"] = 80
     with pytest.raises(NegativeNetPowerError, match="net_power_W"):
         Workflow(config).run()
@@ -1008,7 +1008,7 @@ def test_negative_net_thermal_is_infeasible() -> None:
     run, the produced CO2 is too cool for the district-heating exchanger to
     take any heat from it.
     """
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "CPG_direct_heat.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CPG_direct_heat.yml").read_text())
     config["sim_config"]["mass_rate"] = 110
     with pytest.raises(NegativeNetThermalError, match="net_thermal_W"):
         Workflow(config).run()
@@ -1030,7 +1030,7 @@ def test_unconverged_tespy_solve_raises(monkeypatch: pytest.MonkeyPatch) -> None
         original_solve(self, mode, **kwargs)
 
     monkeypatch.setattr(Network, "solve", solve_one_iteration)
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text())
     config["sim_config"]["num_tsteps"] = 1
     with pytest.raises(TESPyConvergenceError, match="did not converge"):
         Workflow(config).run()
@@ -1038,7 +1038,7 @@ def test_unconverged_tespy_solve_raises(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_subcooling_must_be_positive() -> None:
     """subcooling_K is kelvin below saturation, so zero or a negative value is a config error."""
-    config = yaml.safe_load((EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text())
     config["components"]["surface"]["power_plant"]["nodes"]["condenser"]["subcooling_K"] = 0.0
     with pytest.raises(ConfigError, match="subcooling_K"):
         Workflow(config).run()

@@ -55,7 +55,7 @@ Because this is an internal-only distribution (see [`NOTICE`](./NOTICE) and
 to `tango-projects/tango-core` can complete step 2 — there is no public
 fallback.
 
-Once installed, get a starting set of example configs to build your own
+Once installed, get a starting set of templates to build your own
 inputs from:
 
 ```bash

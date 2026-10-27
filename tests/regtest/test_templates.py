@@ -22,7 +22,7 @@ own real ``sim_config.num_tsteps`` (never a reduced smoke count):
   implementation.
 
 Marked ``@pytest.mark.slow`` (full-length runs) -- run explicitly with
-``just test --example-configs`` or ``just test --all``.
+``just test --templates`` or ``just test --all``.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ import pytest
 
 from tango.workflows.workflow import Workflow
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "templates"
+TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 
 # (filename, golden LCOE)
 # Values captured by actually running each config at its own
@@ -60,14 +60,14 @@ _CONFIGS: list[tuple[str, float]] = [
 ]
 
 
-def test_every_example_config_is_covered() -> None:
+def test_every_template_is_covered() -> None:
     """Every templates/*.yml is in _CONFIGS above."""
-    on_disk = {p.name for p in EXAMPLE_CONFIGS_DIR.glob("*.yml")}
+    on_disk = {p.name for p in TEMPLATES_DIR.glob("*.yml")}
     covered = {name for name, _ in _CONFIGS}
     missing = on_disk - covered
     assert not missing, (
         f"templates/ has file(s) with no regression coverage: {sorted(missing)} -- "
-        "add each to test_example_configs.py's _CONFIGS."
+        "add each to test_templates.py's _CONFIGS."
     )
 
 
@@ -77,9 +77,9 @@ def _components(wf: Workflow) -> dict[str, Any]:
 
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
-def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
+def test_template_full_run(filename: str, reference_lcoe: float) -> None:
     """Run one templates/*.yml at its own full sim_config.num_tsteps and check it."""
-    path = EXAMPLE_CONFIGS_DIR / filename
+    path = TEMPLATES_DIR / filename
     wf = Workflow.from_file(path)
     wf.run()
 

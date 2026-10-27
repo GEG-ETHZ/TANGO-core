@@ -90,7 +90,7 @@ with.
   treats `yes`/`no`/`on`/`off` as booleans while YAML 1.2 (ruamel.yaml and
   newer parsers) does not — those become plain strings, a silent mismatch
   if the parser is ever switched.
-1. <a id="rule-example-configs-regression-covered"></a>**Every `templates/` YAML is regression-tested**: Every file in
+1. <a id="rule-templates-regression-covered"></a>**Every `templates/` YAML is regression-tested**: Every file in
   `templates/` must be covered by `just test --all` (`pytest`), not
   just `just apps`'s crash/no-crash smoke pass — a new example YAML is not
   done until it has real test coverage, whether that's a full-length run

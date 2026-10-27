@@ -81,8 +81,8 @@ from tango.core.locked_state import LockedState
 from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "templates"
-HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
+TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
+HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"
 
 _COMMON_FIELDS: dict[str, float | str] = {
     "fluid_name": "water",

@@ -18,7 +18,7 @@ Print version::
 
     tango_cli --version
 
-Copy the bundled example configs into a local directory to start from::
+Copy the bundled templates into a local directory to start from::
 
     tango_cli init my_project
 """
@@ -217,7 +217,7 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p = sub.add_parser(
         "init",
         allow_abbrev=False,
-        help="Copy the bundled example configs and applications into a local directory.",
+        help="Copy the bundled templates and applications into a local directory.",
         description=(
             "Copy tango's bundled templates/ and every applications/ "
             "pipeline into DEST (created if needed) as a starting point for "
@@ -368,7 +368,7 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
     explicit_apps = args.apps is not None
     apps: list[str] = [] if args.no_apps else (args.apps if explicit_apps else sorted(_AVAILABLE_APPS))
 
-    example_dest = args.dest / "templates"
+    templates_dest = args.dest / "templates"
     app_targets = [args.dest / "applications" / app for app in apps]
 
     # Only abort on an existing target when the user named that app
@@ -389,13 +389,13 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
     # file's bytes, raising FileNotFoundError). Resolving it as a subdirectory
     # of the real tango package (which has __init__.py) avoids that path --
     # same reasoning applies to each applications/<app> copy below.
-    if example_dest.exists():
-        logger.info("%s already exists -- leaving it as-is.", example_dest)
+    if templates_dest.exists():
+        logger.info("%s already exists -- leaving it as-is.", templates_dest)
     else:
         src = importlib.resources.files("tango") / "templates"
         with importlib.resources.as_file(src) as src_path:
-            shutil.copytree(src_path, example_dest)
-        logger.info("Copied example configs to %s", example_dest)
+            shutil.copytree(src_path, templates_dest)
+        logger.info("Copied templates to %s", templates_dest)
 
     for app, app_dest in zip(apps, app_targets, strict=True):
         if app_dest.exists():
@@ -406,7 +406,7 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
             shutil.copytree(src_path, app_dest)
         logger.info("Copied applications/%s to %s", app, app_dest)
 
-    print(f"tango_cli run {example_dest / 'hydro_sf_electric.yml'}")
+    print(f"tango_cli run {templates_dest / 'hydro_sf_electric.yml'}")
     return 0
 
 

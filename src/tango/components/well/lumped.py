@@ -334,7 +334,7 @@ class LumpedProductionWellWithPump(WellComponent):
     pump_efficiency: float = Field(default=1.0, frozen=True)
     """Pump efficiency (dimensionless): the isentropic enthalpy rise divided by
     the actual one, which is also the electricity drawn per unit mass. Defaults
-    to 1.0 (ideal pump). The example configs use **0.55**, the overall
+    to 1.0 (ideal pump). The templates use **0.55**, the overall
     electric submersible pump (ESP) string efficiency of van 't Spijker &
     Ungemach (2016) (see ``docs/SOURCES.md#vantspijker2016``): pump 70% ×
     motor 90% × cable 97% × transformer 99% × frequency converter 94%. The

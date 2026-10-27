@@ -93,7 +93,7 @@ def main() -> None:
         print(
             f"FAIL: num_cells={CHOSEN_NUM_CELLS} drifted past the {TOL_REL:.2%} target "
             f"(now {err:.4%}) — re-run this study's exploratory sweep and update "
-            "NumericalWell.num_cells's default plus every tango example config.",
+            "NumericalWell.num_cells's default plus every tango template.",
             file=sys.stderr,
         )
         sys.exit(1)

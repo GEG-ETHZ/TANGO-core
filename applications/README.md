@@ -21,7 +21,7 @@ uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
 ## Optimizations — `opt_*`
 
-One app per example config: multi-objective optimization (NSGA2 via
+One app per template: multi-objective optimization (NSGA2 via
 `tango.pymoo_api.Minimization`) minimizing LCOE and maximizing mean net
 power (electric, or thermal for the direct-heat configs), each with its own
 DVC pipeline and SLURM job script. Every app script defines its own decision

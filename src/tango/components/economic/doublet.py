@@ -11,7 +11,7 @@ coefficients are overridable ``Field``s, but the formula's SHAPE is not
 configurable, and no alternative well-cost model is supported. Only H2O
 is supported (no CO2-specific cost terms). This is not a general-purpose
 economic engine — it covers exactly the well/surface-plant shapes tango's
-own example configs use today, nothing broader.
+own templates use today, nothing broader.
 
 Runs exactly once, after every physical timestep completes — see
 ``EconomicComponent``'s (``base.py``) and ``SystemDirect.finalize()``'s

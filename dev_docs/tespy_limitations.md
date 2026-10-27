@@ -178,7 +178,7 @@ short on the efficiency equation of a pump drawing exactly saturated liquid
 (`hydro_df_electric.yml`'s `condensate_pump`, `EGS_electric.yml`'s
 `brine_pump`) with every other equation satisfied. TANGO used to accept that
 case with a warning. Under exact `HEOS`, the default since 2026-10-07, no
-example config stalls, and under `BICUBIC&HEOS` the stall came and went with
+template stalls, and under `BICUBIC&HEOS` the stall came and went with
 the run length and even between identical runs, so it was table noise.
 The acceptance path was removed: an unconverged solve always raises.
 

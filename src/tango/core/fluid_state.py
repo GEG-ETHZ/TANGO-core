@@ -53,7 +53,7 @@ class CoolPropBackend(enum.StrEnum):
     HEOS = "HEOS"
     """Raw (non-tabulated) HEOS — solves the actual equation of state
     directly, no interpolation-table error, at roughly 1.4-2.2x the runtime
-    of ``BICUBIC_HEOS`` for the example configs. Default."""
+    of ``BICUBIC_HEOS`` for the templates. Default."""
 
 
 COOLPROP_BACKEND = CoolPropBackend.HEOS

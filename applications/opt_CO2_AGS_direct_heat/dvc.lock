@@ -5,7 +5,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: e25c53f69fec84c7d45f1023beb95752
+      md5: 92e8b429720629cfcbdb17c73781e303
       size: 41
     - path: ../../templates/CO2_AGS_direct_heat.yml
       hash: md5
@@ -39,7 +39,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: e25c53f69fec84c7d45f1023beb95752
+      md5: 92e8b429720629cfcbdb17c73781e303
       size: 41
     - path: opt_CO2_AGS_direct_heat.py
       hash: md5

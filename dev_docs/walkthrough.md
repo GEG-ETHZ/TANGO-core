@@ -21,7 +21,7 @@ section directly:
 This is a private GitLab-only distribution (see [NOTICE](../NOTICE)), version-pinned via
 the tag.
 
-### 1.2 Run an example config
+### 1.2 Run a template
 
 ```bash
 tango_cli run --save-dir results templates/hydro_sf_electric.yml
@@ -119,7 +119,7 @@ just apps
 Smoke-tests every script in `applications/` (demos, and optimizers at a
 tiny population/generation count) — checks the pipeline code runs end to end, not that every design
 converges. `templates/` regression coverage does **not** live here
-anymore — that moved to `just test --example-configs` (see below), so
+anymore — that moved to `just test --templates` (see below), so
 `apps`'s job is purely `applications/` scripts now.
 
 ### 2.3 `just test --all`
@@ -129,7 +129,7 @@ just test --all
 ```
 
 Runs the full pytest suite, including
-`tests/regtest/test_example_configs.py`'s full-length (real
+`tests/regtest/test_templates.py`'s full-length (real
 `sim_config.num_tsteps`, not a reduced smoke count) regression coverage
 for every `templates/*.yml` — golden LCOE values, injection-well
 physics invariants, surface net-power/thermal sanity checks. Locally this

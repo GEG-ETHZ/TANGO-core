@@ -62,15 +62,15 @@ test *args:
     if [[ "$args" == *"--all"* ]]; then
         args="${args/--all/}"
         uv run pytest -v $args
-    elif [[ "$args" == *"--example-configs"* ]]; then
+    elif [[ "$args" == *"--templates"* ]]; then
         # Full-length regression coverage for every templates/*.yml
-        # (see tests/regtest/test_example_configs.py's own module docstring
+        # (see tests/regtest/test_templates.py's own module docstring
         # and CONTRIBUTING.md's "Every templates/ YAML is
         # regression-tested" Commandment) -- already included in --all
         # above (no -m filter there), this is just a fast, direct way to
         # run only this slice without the rest of the suite.
-        args="${args/--example-configs/}"
-        uv run pytest -v tests/regtest/test_example_configs.py tests/regtest/test_lcoe_regression.py $args
+        args="${args/--templates/}"
+        uv run pytest -v tests/regtest/test_templates.py tests/regtest/test_lcoe_regression.py $args
     elif [[ "$args" == *"--perf"* ]]; then
         args="${args/--perf/}"
         uv run pytest -v -m "perf" $args
@@ -86,7 +86,7 @@ test *args:
     # `just test`, not every failure.
     if [ "$status" -eq 4 ]; then
         echo "" >&2
-        echo "just test: pytest rejected an argument above (usage error) — check for a typo of --all/--example-configs/--perf/--fast, or an invalid pytest flag." >&2
+        echo "just test: pytest rejected an argument above (usage error) — check for a typo of --all/--templates/--perf/--fast, or an invalid pytest flag." >&2
     fi
     exit "$status"
 
@@ -98,7 +98,7 @@ hash-src:
 check: fmt lint typecheck test
 
 # Runs configs one at a time; pass names to run only those: `just phase-diagrams CO2_EGS_electric hydro_sf_electric`.
-# Write each example config's P-h phase diagrams (plus full results) to scratch_output/<config>/
+# Write each template's P-h phase diagrams (plus full results) to scratch_output/<config>/
 [unix]
 phase-diagrams *configs:
     #!/usr/bin/env sh

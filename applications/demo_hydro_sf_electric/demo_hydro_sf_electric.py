@@ -60,7 +60,7 @@ from tango.workflows.workflow import Workflow  # noqa: E402
 
 # hydro_sf_electric.yml lives in templates/ (configs only, shared
 # with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run
-# via `just test --example-configs`/`--all`) — not colocated with this
+# via `just test --templates`/`--all`) — not colocated with this
 # script, unlike the old templates/ layout.
 YAML_PATH = _REPO_ROOT / "templates" / "hydro_sf_electric.yml"
 SAVE_DIR = HERE / "outputs"
