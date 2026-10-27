@@ -99,7 +99,7 @@ of the Institution of Civil Engineers*, 11(4), 133–156.
 DiPippo, R. (2016). *Geothermal Power Plants: Principles, Applications,
 Case Studies and Environmental Impact*, 4th ed.
 
-- **Used for:** standard component efficiencies in the example configs —
+- **Used for:** standard component efficiencies in the templates —
   turbine isentropic efficiency **0.85**; surface pump (feed, circulation)
   efficiency **0.75**.
 - **Verified:** as cited in [Ahmad2023](#ahmad2023); the book itself was not

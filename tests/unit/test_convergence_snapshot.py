@@ -22,7 +22,7 @@ it neither rewinds it nor duplicates entries.
 ``test_history_restored`` checks this in isolation, against a single
 ``LumpedReservoir`` built by hand. ``test_history_restored_across_full_workflow``
 checks the same invariant end-to-end, for every component wired into a real
-circuit (``example_configs/hydro_sf_electric.yml``, driven through its
+circuit (``templates/hydro_sf_electric.yml``, driven through its
 actual orchestrator) — the surface/well/reservoir component types differ
 enough (a TESPy graph, spatially-discretized numerical wells, a lumped
 reservoir) that the isolated check alone doesn't prove the invariant holds
@@ -81,8 +81,8 @@ from tango.core.locked_state import LockedState
 from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
-HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
+TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
+HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"
 
 _COMMON_FIELDS: dict[str, float | str] = {
     "fluid_name": "water",

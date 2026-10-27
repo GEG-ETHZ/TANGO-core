@@ -16,7 +16,7 @@ from typing import Any, ClassVar
 import yaml
 
 _ROOT = Path(__file__).resolve().parents[1]
-RAFT_TEMPLATE = _ROOT / "example_configs" / "raft" / "config_example_AGS_coupled_single.yaml"
+RAFT_TEMPLATE = _ROOT / "templates" / "raft" / "config_example_AGS_coupled_single.yaml"
 """The RAFT example's config template."""
 
 FAKE_HEATING_K = 60.0

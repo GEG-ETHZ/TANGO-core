@@ -1,4 +1,4 @@
-# Frozen copy of example_configs/CPG_electric.yml as of 2026-10-13, used as a fixed
+# Frozen copy of templates/CPG_electric.yml as of 2026-10-13, used as a fixed
 # scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
 # configs change when their design point is re-optimized; these tests check
 # behavior that needs a specific design (e.g. which regime a pump runs in), so
@@ -203,7 +203,7 @@ components:
           # flash-split vapor fraction, so this parasitic term matters far
           # more here), driving LCOE to NaN. WET's parasitic power is
           # smaller and keeps net power positive -- see
-          # dev_docs/tango_tasks.md's (resolved) entry for the full
+          # docs/tango_tasks.md's (resolved) entry for the full
           # investigation.
           Subtype: condenser
           set_number: 1

@@ -10,7 +10,7 @@
 # ---------------------------------------------------------------------------
 # Runs the tango opt_EGS_electric pymoo optimization via `dvc repro`
 # (see opt_EGS_electric.py's docstring for its decision variables and
-# objectives). Like the sibling run_*_sweep_job.sh scripts, this job does
+# objectives). This job does
 # NOT write anything into params.yaml and does NOT accept CLI overrides --
 # params.yaml is the
 # single source of truth for every hyperparameter (n_max_gen, pop_size,

@@ -1,7 +1,7 @@
 # claude_tests fixture: injection_policy_not_implemented
 # sim_config.injection_mode names a real, recognized InjectionPolicy member
 # that the orchestrator does not implement yet.
-# Derived from example_configs/hydro_sf_electric.yml
+# Derived from templates/hydro_sf_electric.yml
 # (injection_mode: manual -> manual-fracing-check).
 #
 # NOTE (current behavior): InjectionPolicy.MANUAL_FRACING_CHECK is a real

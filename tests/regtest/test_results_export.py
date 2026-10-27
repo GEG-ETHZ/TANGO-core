@@ -1,6 +1,6 @@
 """Regression tests for ``results_export.write_results``.
 
-Uses a reduced timestep count (fast) rather than any example config's own
+Uses a reduced timestep count (fast) rather than any template's own
 full length -- this is about the file-writing mechanism, not physics, so
 there's no reason to pay for a full-length run.
 """
@@ -17,13 +17,13 @@ import pytest
 from tango import results_export
 from tango.workflows.workflow import Workflow
 
-_EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
+_TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _N_TSTEPS_FAST = 3
 
 
 def _run_fast(filename: str, request: pytest.FixtureRequest | None = None) -> Workflow:
     """Run ``filename`` for ``_N_TSTEPS_FAST`` timesteps; a RAFT subsurface runs against the fake RAFT."""
-    cfg = Workflow.from_file(_EXAMPLE_CONFIGS_DIR / filename).to_dict()
+    cfg = Workflow.from_file(_TEMPLATES_DIR / filename).to_dict()
     cfg["sim_config"]["num_tsteps"] = _N_TSTEPS_FAST
     for component in cfg["components"].values():
         if component.get("variant") == "raft":
@@ -101,7 +101,7 @@ def test_econ_csv_matches_economic_state(tmp_path: Path) -> None:
 
 def test_econ_csv_omitted_without_economic_block(tmp_path: Path) -> None:
     """No economic: block -> no .econ.csv, but the other two files still land."""
-    cfg = Workflow.from_file(_EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml").to_dict()
+    cfg = Workflow.from_file(_TEMPLATES_DIR / "hydro_sf_electric.yml").to_dict()
     cfg["sim_config"]["num_tsteps"] = _N_TSTEPS_FAST
     del cfg["economic"]
     wf = Workflow(cfg)
@@ -116,9 +116,9 @@ def test_econ_csv_omitted_without_economic_block(tmp_path: Path) -> None:
     assert not (tmp_path / "no_economic.econ.csv").exists()
 
 
-@pytest.mark.parametrize("filename", sorted(p.name for p in _EXAMPLE_CONFIGS_DIR.glob("*.yml")))
+@pytest.mark.parametrize("filename", sorted(p.name for p in _TEMPLATES_DIR.glob("*.yml")))
 def test_every_csv_column_has_a_unit(filename: str, tmp_path: Path, request: pytest.FixtureRequest) -> None:
-    """Every example config's CSV headers all end in ``[unit]``; a field missing from FIELD_UNITS raises."""
+    """Every template's CSV headers all end in ``[unit]``; a field missing from FIELD_UNITS raises."""
     wf = _run_fast(filename, request)
     for path in results_export.write_results(wf, tmp_path, "out"):
         if path.suffix != ".csv":

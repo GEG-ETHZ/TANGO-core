@@ -1,4 +1,4 @@
-# Frozen copy of example_configs/hydro_ORC_electric.yml as of 2026-10-13, used as a fixed
+# Frozen copy of templates/hydro_ORC_electric.yml as of 2026-10-13, used as a fixed
 # scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
 # configs change when their design point is re-optimized; these tests check
 # behavior that needs a specific design (e.g. which regime a pump runs in), so

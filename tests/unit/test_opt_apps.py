@@ -3,7 +3,7 @@
 Each app's real ``APP`` runs a full optimization with its own ``--smoke``
 settings (tiny population, any relaxed constraints), a single process, a fixed
 seed, and every decision variable narrowed to ±1%
-around its value in the app's own example config, so every evaluation
+around its value in the app's own template, so every evaluation
 converges and the test checks the wiring (param application, objectives,
 reports, CSV output, plots), not the physics. The optimization runs take
 several minutes together, so they're marked slow; the bounds and round-trip
@@ -49,7 +49,7 @@ def _load(name: str) -> OptApp:
 def _narrow_bounds(app: OptApp) -> dict[str, tuple[float, float]]:
     """±1% around each decision variable's value in the app's base config, within the app's own bounds.
 
-    The example configs are the apps' Pareto picks, which often sit on a
+    The templates are the apps' Pareto picks, which often sit on a
     bound that is a physical edge (a fracturing or cooling limit, or the
     saturation margin). A window reaching past such a bound would sample
     designs the app itself never searches, and that are infeasible by
@@ -67,7 +67,7 @@ def _narrow_bounds(app: OptApp) -> dict[str, tuple[float, float]]:
 
 @pytest.mark.parametrize("name", _APP_NAMES)
 def test_default_bounds_contain_base_design(name: str) -> None:
-    """Each app's example-config design point lies inside its production bounds."""
+    """Each app's template design point lies inside its production bounds."""
     app = _load(name)
     cfg = Workflow(app.base_config()).to_dict()
     for spec in app.param_specs():

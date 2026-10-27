@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_hydro_direct_heat.py --clean --no-plot
     deps:
-    - path: ../../example_configs/hydro_direct_heat.yml
-      hash: md5
-      md5: 605637377e2b98e23a44adc40964dd70
-      size: 7816
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
+    - path: ../../templates/hydro_direct_heat.yml
+      hash: md5
+      md5: 7e382b223b7dfb0bc9bb014e21085701
+      size: 8189
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: f542ce8a395b196f07b1323c4a5552f3
-      size: 10257
+      md5: 2fa82b6743766ed56f6f5f7a69278ac2
+      size: 10189
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: f542ce8a395b196f07b1323c4a5552f3
-      size: 10257
+      md5: 2fa82b6743766ed56f6f5f7a69278ac2
+      size: 10189
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 86165562eb3b7617385c7117097d40cf
@@ -52,7 +52,7 @@ stages:
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 0450d390175808b3b7b02573f527b0ef
+      md5: 8b7f0db2be683f9f96b8e689ef37107a
       size: 4578900
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5

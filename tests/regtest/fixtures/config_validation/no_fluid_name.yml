@@ -1,6 +1,6 @@
 # claude_tests fixture: no_fluid_name
 # common.fluid_name is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (fluid_name line removed).
+# Derived from templates/hydro_sf_electric.yml (fluid_name line removed).
 #
 # Expected contract: default to water and log a warning telling the user,
 # without stopping construction.

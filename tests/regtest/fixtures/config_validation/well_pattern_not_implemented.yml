@@ -1,7 +1,7 @@
 # claude_tests fixture: well_pattern_not_implemented
 # layout.well_pattern names a pattern conceptually recognized by the domain
 # but with no impedance formula wired up in WellPattern.impedance().
-# Derived from example_configs/hydro_sf_electric.yml (well_pattern: DOUBLET -> NINE_SPOT).
+# Derived from templates/hydro_sf_electric.yml (well_pattern: DOUBLET -> NINE_SPOT).
 #
 # NOTE (current behavior): every WellPattern enum member today (Doublet,
 # FiveSpot, InvertedFiveSpot) already has an impedance formula, so the

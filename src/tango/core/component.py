@@ -65,8 +65,7 @@ physics-model selections, etc. in each subclass). This mirrors ``Common``
 (``core/specs.py``): the only supported way to change one of these values
 is the dict-modify-then-reinstantiate pattern (``Workflow.to_dict()`` →
 mutate the copy → ``Workflow(cfg)``), never live attribute assignment —
-see ``applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py`` for a worked
-example.
+see ``Workflow``'s class docstring for a worked example.
 
 This is deliberately NOT applied to every field. Some fields are plain
 Pydantic fields (not ``LockedState``-wrapped) that are legitimately
@@ -149,7 +148,7 @@ class Component(BaseModel, ABC, StateMethods):
     save_interval: int | None = Field(default=1, frozen=True)
     """Timestep interval at which ``record()`` appends state to history.
     ``None`` disables history recording entirely.  Default ``1`` records
-    every timestep (matches the original ``record_history=True`` behaviour).
+    every timestep (matches the original ``record_history=True`` behavior).
     """
 
     # ------------------------------------------------------------------

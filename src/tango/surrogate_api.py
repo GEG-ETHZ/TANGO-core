@@ -13,9 +13,9 @@ workflow this enables:
    ``ParamSpec`` bounds (this module's own LHS, not ``pymoo_api``'s ``LHS``
    import, which only pads a partially-seeded GA population).
 2. ``run_lhs_sweep`` — evaluate every sampled point with the REAL simulation,
-   in parallel, mirroring ``run_hydro_df_electric_sweep/sweep.py``'s
-   spawn-context/``imap_unordered``/atomic-per-row-JSON pattern (this is a
-   real, possibly-long, Euler-scale job — resumability matters here).
+   in parallel: a spawn-context pool, ``imap_unordered``, and one atomic JSON
+   file per row (this is a real, possibly-long, Euler-scale job —
+   resumability matters here).
 3. ``train_surrogate`` — one regressor per objective (default:
    ``MLPRegressor``, swappable via ``regressor_factory`` -- see
    ``REGRESSOR_FACTORIES``), fit on the successful rows from step 2.
@@ -215,8 +215,7 @@ def _evaluate_and_write(
     """Worker: evaluate one row and atomically write its JSON result file.
 
     Module-level (not a closure) and takes only picklable arguments — required
-    for the ``spawn`` multiprocessing context (see ``run_hydro_df_electric_sweep/
-    sweep.py``'s ``run_single_simulation`` for the same constraint).
+    for the ``spawn`` multiprocessing context.
     """
     row_idx, x, base_cfg, params, objectives, results_dir = args
     result_file = results_dir / f"{row_idx:06d}.json"
@@ -242,8 +241,7 @@ def run_lhs_sweep(
 ) -> pd.DataFrame:
     """Evaluate every row of ``x`` with the REAL simulation, in parallel.
 
-    Mirrors ``run_hydro_df_electric_sweep/sweep.py``'s ``run_sweep()``: a
-    spawn-context ``multiprocessing.Pool``, ``imap_unordered``, one atomic
+    A spawn-context ``multiprocessing.Pool``, ``imap_unordered``, one atomic
     JSON file per design point under ``results_dir`` (resumable — an
     already-written row whose cached design matches ``x`` is skipped, so a
     killed run just needs to be restarted with the same ``results_dir`` --

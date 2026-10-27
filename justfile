@@ -83,15 +83,15 @@ test *args:
     if [[ "$args" == *"--all"* ]]; then
         args="${args/--all/}"
         uv run pytest -v $args
-    elif [[ "$args" == *"--example-configs"* ]]; then
-        # Full-length regression coverage for every example_configs/*.yml
-        # (see tests/regtest/test_example_configs.py's own module docstring
-        # and CONTRIBUTING.md's "Every example_configs/ YAML is
+    elif [[ "$args" == *"--templates"* ]]; then
+        # Full-length regression coverage for every templates/*.yml
+        # (see tests/regtest/test_templates.py's own module docstring
+        # and CONTRIBUTING.md's "Every templates/ YAML is
         # regression-tested" Commandment) -- already included in --all
         # above (no -m filter there), this is just a fast, direct way to
         # run only this slice without the rest of the suite.
-        args="${args/--example-configs/}"
-        uv run pytest -v tests/regtest/test_example_configs.py tests/regtest/test_lcoe_regression.py $args
+        args="${args/--templates/}"
+        uv run pytest -v tests/regtest/test_templates.py tests/regtest/test_lcoe_regression.py $args
     elif [[ "$args" == *"--perf"* ]]; then
         args="${args/--perf/}"
         uv run pytest -v -m "perf" $args
@@ -107,7 +107,7 @@ test *args:
     # `just test`, not every failure.
     if [ "$status" -eq 4 ]; then
         echo "" >&2
-        echo "just test: pytest rejected an argument above (usage error) — check for a typo of --all/--example-configs/--perf/--fast, or an invalid pytest flag." >&2
+        echo "just test: pytest rejected an argument above (usage error) — check for a typo of --all/--templates/--perf/--fast, or an invalid pytest flag." >&2
     fi
     exit "$status"
 
@@ -119,7 +119,7 @@ hash-src:
 check: fmt lint typecheck test
 
 # Runs configs one at a time; pass names to run only those: `just phase-diagrams CO2_EGS_electric hydro_sf_electric`.
-# Write each example config's P-h phase diagrams (plus full results) to scratch_output/<config>/
+# Write each template's P-h phase diagrams (plus full results) to scratch_output/<config>/
 [unix]
 phase-diagrams *configs:
     #!/usr/bin/env sh
@@ -127,13 +127,13 @@ phase-diagrams *configs:
     # No -e: a config that fails is recorded and the loop moves on; failures
     # are reported together at the end.
     set -u
-    if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls example_configs/*.yml | xargs -n1 basename); fi
+    if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls templates/*.yml | xargs -n1 basename); fi
     failed=""
     for c in "$@"; do
         c="${c%.yml}"; out="scratch_output/$c"
         rm -rf "$out"; mkdir -p "$out"
         echo "== $c"
-        if uv run tango_cli run --save-dir "$out" "example_configs/$c.yml" > "$out/run.log" 2>&1; then
+        if uv run tango_cli run --save-dir "$out" "templates/$c.yml" > "$out/run.log" 2>&1; then
             ls "$out"/*.phase_*.html 2>/dev/null | sed 's/^/   /'
         else
             echo "   FAILED -- see $out/run.log"; failed="$failed $c"
@@ -143,16 +143,20 @@ phase-diagrams *configs:
 
 [windows]
 phase-diagrams *configs:
-    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
+    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem templates/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "templates/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
 # Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
 # `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
 # each SVG ~40 KB instead of ~500 KB; viewers fall back to their default sans-serif.
-# Export every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg
+# Writes the README banner (docs/assets/) and the editable diagrams (docs/diagrams/*.drawio.svg), then
+# exports every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg.
+# Regenerate the README banner and every diagram under docs/diagrams/; needs the drawio CLI
 [unix]
 diagrams:
     #!/usr/bin/env sh
     set -eu
+    uv run python tools/readme_assets.py
+    uv run python tools/diagrams/build.py
     if [ -x /Applications/draw.io.app/Contents/MacOS/draw.io ]; then
         drawio=/Applications/draw.io.app/Contents/MacOS/draw.io
     elif command -v drawio >/dev/null 2>&1; then
@@ -166,49 +170,17 @@ diagrams:
         echo "$src -> $out"
     done
 
-# example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
-# "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
-# Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
+# templates/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
+# "Every templates/ YAML is regression-tested" Commandment), not duplicated here.
+# Smoke-test every script in applications/
 [unix]
-apps *args:
+apps:
     #!/usr/bin/env sh
     # -e: stop at the first command that fails.
     # -u: an unset variable is an error instead of an empty string.
     set -eu
-    # applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
-    # matrix, written to a fresh OS tempdir every run — never outputs/) instead
-    # of their real multi-thousand-design grids — this checks the pipeline code
-    # still runs end to end, not that every design converges (some corner
-    # designs are expected to fail physically/numerically, same as in a real
-    # sweep — that's fine, a non-zero *script* exit code is the failure signal
-    # this target cares about). --slow drops --smoke to run the real grids
-    # instead — much longer, and DOES write to outputs/.
-    smoke_flag="--smoke"
-    set -- {{args}}
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            -h|--help)
-                echo "just apps [--slow]"
-                echo ""
-                echo "Smoke-test every applications/ script."
-                echo ""
-                echo "  --slow    Run the real run_*_sweep design grids instead of their tiny --smoke corner-case grids"
-                echo "            (much longer, and DOES write to outputs/, unlike the default --smoke runs)."
-                exit 0
-                ;;
-            --slow) smoke_flag=""; shift ;;
-            *) echo "just apps: unrecognized argument: $1 (accepts only --slow / --help)" >&2; exit 1 ;;
-        esac
-    done
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
-    uv run python applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
-    # run_*_sweep apps' own --smoke (tiny corner-of-hypercube grid, never
-    # touches outputs/) — same $smoke_flag/--slow split as everything else
-    # in this recipe.
-    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
-    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
-    uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py $smoke_flag --n-workers 2 --quiet
     # Every opt_* app: --smoke runs a 2-generation, population-6 search plus
     # the app's own relaxations (see tango.pymoo_api.OptApp.smoke_args), into
     # a throwaway --save-dir, never outputs/. --no-plot then --plot-only
@@ -242,7 +214,7 @@ slurm *args:
                 echo "Submit full-size Euler (SLURM) runs: sbatch each app's applications/<app>/<app>_job.sh"
                 echo "from its own directory. Every name is checked before anything is submitted."
                 echo ""
-                echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric run_AGS_direct_heat_sweep"
+                echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric opt_hydro_sf_electric"
                 echo "              (default: every app under applications/ that has a *_job.sh)"
                 echo "  --list      print the apps that have a job script (the default set), then exit"
                 echo "  --parallel  submit all jobs to run at the same time. Default: one at a time, each"
@@ -449,12 +421,30 @@ slurm-clean *args:
 [windows]
 apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
-    uv run python applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
-    # No --slow support on Windows yet (see [unix] apps above) -- always --smoke.
-    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py --smoke --n-workers 2 --quiet
     # See the [unix] demos recipe's comment above the equivalent loop for what
     # each opt_* app's --smoke does.
     Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }
+
+# Preview the docs site on localhost with live reload
+docs:
+    uv run --group docs zensical serve
+
+# Build the docs site into site/ (what CI runs on every pull request)
+docs-build:
+    uv run --group docs zensical build --clean
+
+# Preview the internal docs (adds the task log, roadmap, and archive), the build docs.yml deploys
+docs-internal:
+    uv run --group docs zensical serve -f mkdocs.internal.yml
+
+# Regenerate the README banner (docs/assets/) and the editable diagrams (docs/diagrams/); needs the drawio CLI.
+# The [unix] recipe above also exports the topology diagrams.
+[windows]
+diagrams:
+    uv run python tools/readme_assets.py
+    uv run python tools/diagrams/build.py
+
+# Regenerate the config-key and output tables of the docs from the code
+docs-gen:
+    uv run python tools/gen_reference.py

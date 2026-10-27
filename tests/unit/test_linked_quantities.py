@@ -16,7 +16,7 @@ from tango.core.errors import ConfigError
 from tango.workflows.linked_quantities import expunge_linked_quantities, resolve_linked_quantities
 from tango.workflows.workflow import Workflow
 
-_CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
+_CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 
 
 def _load(name: str) -> dict[str, Any]:

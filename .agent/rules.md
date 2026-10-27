@@ -38,11 +38,6 @@ guess the format; read the file.
   the syntax rules in `./.agent/rules/gitignore.md`
 - **Code Quality & Linting:** For standards on markdown and code linting, see `./.agent/rules/code-quality.md`
 - **Date Handling:** Before writing dates in documents or PDFs, read `./.agent/rules/dates.md`
-- **Capability Scopes & Permissions:** For rules regarding Browser, Terminal,
-  and Host vs VM execution, reference `./.agent/rules/permissions.md`
-- **Issue, Task & Miro Sync:** Before syncing GitHub/GitLab issues, `dev_docs/`
-  task files, or the Miro board(s) for this project, read
-  `./.agent/rules/miro-sync.md`
-- **Debugging & Numerical Discrepancies:** Before changing a test tolerance or
-  explaining a wrong result or benchmark mismatch, read
-  `./.agent/rules/debugging.md`
+- **Capability Scopes & Permissions:** For rules regarding Browser, Terminal, and Host vs VM execution, reference `./.agent/rules/permissions.md`
+- **Issue, Task & Miro Sync:** Before syncing GitHub issues, `docs/` task files, or the Miro board(s) for this project, read `./.agent/rules/miro-sync.md`
+- **Debugging & Numerical Discrepancies:** Before changing a test tolerance or explaining a wrong result or benchmark mismatch, read `./.agent/rules/debugging.md`

@@ -14,8 +14,10 @@ from tango.core.stream import Stream
 class ReservoirComponent(FlowComponent):
     """Abstract base for all reservoir components.
 
-    External simulators (CMG, MOOSE) implement this interface as adapters.
-    The native implementation assumes incompressible 1D Darcy flow;
+    External simulators (CMG, MOOSE) are meant to implement this interface
+    as adapters; none exists yet, so ``LumpedReservoir`` is the only
+    implementation. The native implementation assumes incompressible 1D
+    Darcy flow;
     external simulators may relax this assumption during transients.
     """
 
@@ -45,7 +47,7 @@ class ReservoirComponent(FlowComponent):
     Deliberately a physically-derived value, distinct from
     ``hydro_static_pressure`` (a user-supplied nominal value used only for
     the fracking ceiling) — conflating the two was a real bug, see
-    ``dev_docs/tango_tasks.md``."""
+    ``docs/tango_tasks.md``."""
     gravity: PositiveFloat = Field(default=GRAVITY, frozen=True)
     """Gravitational acceleration (m/s²) — defaults to core/constants.py's
     GRAVITY, overridable per reservoir since gravity varies regionally."""

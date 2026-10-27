@@ -1,4 +1,4 @@
-# Frozen copy of example_configs/CO2_EGS_direct_heat.yml as of 2026-10-13, used as a fixed
+# Frozen copy of templates/CO2_EGS_direct_heat.yml as of 2026-10-13, used as a fixed
 # scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
 # configs change when their design point is re-optimized; these tests check
 # behavior that needs a specific design (e.g. which regime a pump runs in), so
@@ -20,7 +20,7 @@
 #    production_well_with_pump. CPG_electric.yml's own header comment
 #    explains why: "No downhole pump on the production side (thermosiphon
 #    is strong enough with CO2 that a plain production_well suffices,
-#    matching old tango)." Separately, dev_docs/tango_tasks.md flags that the
+#    matching old tango)." Separately, docs/tango_tasks.md flags that the
 #    current pump-boost implementation treats the fluid as
 #    constant-density through the pump -- a reasonable approximation for
 #    water, but NOT for supercritical CO2's strongly nonlinear

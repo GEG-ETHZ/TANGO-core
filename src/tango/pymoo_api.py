@@ -908,7 +908,7 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        cfg = yaml.safe_load(Path("example_configs/hydro_df_electric.yml").read_text())
+        cfg = yaml.safe_load(Path("templates/hydro_df_electric.yml").read_text())
         m = Minimization(
             base_cfg=cfg,
             params=[
@@ -1750,7 +1750,7 @@ class OptApp:
     Args:
         title: Short name used in plot titles, e.g. ``"AGS_ORC_electric"``.
         description: One-line ``--help`` description.
-        config_path: The example config this app optimizes.
+        config_path: The template this app optimizes.
         app_dir: The app's directory (holds ``params.yaml`` and ``outputs/``).
         injection_mode: Injection policy forced onto the base workflow,
             whatever the config says (``manual`` or ``manual-fracking-check``;
@@ -1861,7 +1861,7 @@ class OptApp:
         return args
 
     def base_config(self) -> dict[str, Any]:
-        """The example config with ``injection_mode`` forced to this app's policy."""
+        """The template with ``injection_mode`` forced to this app's policy."""
         cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text())
         cfg["sim_config"]["injection_mode"] = self.injection_mode.value
         return cfg
@@ -1883,6 +1883,7 @@ class OptApp:
             ``(res, df, m)``.
 
         """
+        # --8<-- [start:minimization]
         m = Minimization(
             base_cfg=self.base_config(),
             params=self.param_specs() if param_specs is None else param_specs,
@@ -1908,6 +1909,7 @@ class OptApp:
             capture_trajectory_path=args.capture_trajectory,
         )
         res, df = m.run()
+        # --8<-- [end:minimization]
         return res, df, m
 
     def pretty_label(self, column: str) -> str:

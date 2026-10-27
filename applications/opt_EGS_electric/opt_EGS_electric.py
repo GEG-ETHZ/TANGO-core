@@ -102,8 +102,7 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # front's ideal-corner design); by 200 kg/s LCOE is rising steeply again.
     "mass_rate_kg_per_s": (10.0, 200.0),
     "injection_pressure_Pa": (500000.0, 8000000.0),
-    # (0.7, 1.5)x the config's own value, the same scale factor
-    # run_hydro_df_electric_sweep uses.
+    # (0.7, 1.5)x the config's own value.
     # The front sits on the 1.05 MPa floor, but the production pump is already
     # off there, so going lower changes nothing.
     "target_extraction_pressure_Pa": (1050000.0, 2250000.0),
@@ -234,7 +233,7 @@ REPORTS = [
 APP = OptApp(
     title="EGS_electric",
     description="Multi-objective optimization of the EGS single-flash electric example.",
-    config_path=HERE.parents[1] / "example_configs" / "EGS_electric.yml",
+    config_path=HERE.parents[1] / "templates" / "EGS_electric.yml",
     app_dir=HERE,
     injection_mode=InjectionPolicy.MANUAL_FRACKING_CHECK,
     default_bounds=DEFAULT_BOUNDS,

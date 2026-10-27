@@ -48,6 +48,12 @@ repos:
         stages: [pre-push]
 
   # Built-in hooks
+  # Secrets never reach a commit: gitleaks scans the staged diff.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -58,7 +64,7 @@ repos:
       - id: check-added-large-files
         # The RAFT example's mesh is committed on purpose so CI can run RAFT
         # without DVC credentials; other meshes go in DVC (see CONTRIBUTING.md).
-        exclude: "example_configs/raft/AGS_single\\.msh"
+        exclude: "templates/raft/AGS_single\\.msh"
       - id: no-commit-to-branch # This perfectly replaces the custom bash script by blocking commits AND pushes to main/develop
         args: [--branch, main, --branch, develop]
         stages: [pre-commit, pre-push]
@@ -79,7 +85,7 @@ repos:
         stages: [pre-push]
 
   # Release-tag gate (run ONLY on push, LAST -- see check_full_tests_before_tag_push.py's
-  # own docstring for why this can't live in GitLab CI instead). Only actually
+  # own docstring for why this can't live in CI instead). Only actually
   # runs `just test --all` when the ref being pushed is a vX.Y.Z tag; a no-op
   # for every other push, so it stays fast for normal branch pushes.
   - repo: local

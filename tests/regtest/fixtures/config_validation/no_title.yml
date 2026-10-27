@@ -1,6 +1,6 @@
 # claude_tests fixture: no_title
 # Top-level 'title' key is absent entirely.
-# Derived from example_configs/hydro_sf_electric.yml (title line removed).
+# Derived from templates/hydro_sf_electric.yml (title line removed).
 #
 # NOTE (current behavior): 'title' is never read by Workflow.from_file or
 # Workflow.__init__ today -- nothing validates its presence, so this case

@@ -13,7 +13,7 @@ stages:
     cmd: python opt_CO2_EGS_electric.py --clean --no-plot
     deps:
       - opt_CO2_EGS_electric.py
-      - ../../example_configs/CO2_EGS_electric.yml
+      - ../../templates/CO2_EGS_electric.yml
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py). Tracking this one small
       # file instead of the whole src/tango/ tree directly means DVC

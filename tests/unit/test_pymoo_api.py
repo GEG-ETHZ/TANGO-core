@@ -4,7 +4,7 @@
 ``opt_*`` app's smoke test (``test_opt_apps.py``). This file covers the
 ``termination_period`` CLI <-> ``PymooConfig`` wiring and
 ``Minimization``'s check that every parameter moves an objective or
-constraint, on short (2-timestep) runs of real example configs.
+constraint, on short (2-timestep) runs of real templates.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from tango.pymoo_api import (
 )
 from tango.workflows.workflow import Workflow
 
-# Frozen scenarios, not example_configs/: these tests force mass rates and
+# Frozen scenarios, not templates/: these tests force mass rates and
 # bounds that only make sense for a specific design, and the example
 # configs' designs change whenever they're re-optimized.
 _SCENARIOS = Path(__file__).resolve().parents[1] / "regtest" / "fixtures" / "scenarios"
@@ -110,7 +110,7 @@ class _Lcoe:
 
 
 def _minimization(config: str, params: list[ParamSpec], tmp_path: Path, **overrides: Any) -> Minimization:
-    """A 1-generation, population-2 search on a 2-timestep run of an example config."""
+    """A 1-generation, population-2 search on a 2-timestep run of a template."""
     cfg = yaml.safe_load((_SCENARIOS / config).read_text())
     cfg["sim_config"]["num_tsteps"] = 2
     for path, value in overrides.pop("set", {}).items():

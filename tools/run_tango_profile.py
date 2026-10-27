@@ -16,9 +16,9 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.workflows.workflow import Workflow  # noqa: E402
 
-# Configs live in example_configs/ (YAML only — shared with the regtests
+# Configs live in templates/ (YAML only — shared with the regtests
 # and `just apps`), not alongside application scripts.
-DEFAULT_CONFIG = _REPO_ROOT / "example_configs" / "hydro_sf_electric_5spot.yml"
+DEFAULT_CONFIG = _REPO_ROOT / "templates" / "hydro_sf_electric_5spot.yml"
 _RESULTS_DIR = _REPO_ROOT / "results"
 
 
@@ -30,7 +30,7 @@ if args.profile:
     print("Running and Profiling ...")
     profiler = cProfile.Profile()
 
-    # create a results folder for saving profiling data for visualisation/analysis
+    # create a results folder for saving profiling data for visualization/analysis
     Path(_RESULTS_DIR).mkdir(exist_ok=True)
 
     profiler.enable()

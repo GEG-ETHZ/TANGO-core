@@ -39,7 +39,7 @@ design-point conditions rather than being knowable up front -- see
 builds and holds TWO full networks, tries the Valve-resolved one first
 each ``solve()``, and falls back to the Compressor-resolved one if that's
 physically invalid for the current timestep -- see
-``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
 anywhere" entry for the physical motivation.
 
 Example YAML (AGS direct-heat — the topology that motivated this class):
@@ -265,17 +265,25 @@ class _NetworkBundle:
     networks, one per resolution, is the cost of getting that decision
     right automatically per design point rather than requiring a manual,
     per-config component choice -- see
-    ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry for the physical motivation.
     """
 
     network: Any
+    """The built TESPy network."""
     conns: list[Connection]
+    """All TESPy connections of the network."""
     nodes: dict[str, Any]
+    """TESPy components keyed by their power_plant node name."""
     net_electric_nodes: list[Any]
+    """Nodes tagged role=net_electric, summed as -P into net_power_W; a PumpOrValve node is left
+    out of the network where it resolves to a Valve, which does no work."""
     net_thermal_nodes: list[Any]
+    """Nodes tagged role=net_thermal, summed into net_thermal_W."""
     inlet_conn: Connection
+    """Connection leaving the network's inlet source."""
     outlet_conn: Connection
+    """Connection entering the network's outlet sink."""
 
 
 # ---------------------------------------------------------------------------
@@ -298,9 +306,11 @@ class GraphSurfaceState(StateMethods):
     h_inlet: LockedState[float] = field(default_factory=_ls)
     """Specific enthalpy (J/kg) arriving on ``inlet``; set on TESPy's inlet connection as-is."""
     T_inlet: LockedState[float] = field(default_factory=_ls)
-    """Derived from (``h_inlet``, ``P_inlet``)."""
+    """Inlet temperature from the production well (K), derived from (``h_inlet``, ``P_inlet``)."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet pressure from the production well, before the surface pipe (Pa)."""
     mass_rate: LockedState[float] = field(default_factory=_ls)
+    """Mass flow rate through the plant (kg/s)."""
 
     dP_pipe: LockedState[float] = field(default_factory=_ls)  # noqa: N815
     """Friction pressure drop across the surface pipe (Pa)."""
@@ -315,9 +325,13 @@ class GraphSurfaceState(StateMethods):
     h_outlet: LockedState[float] = field(default_factory=_ls)
     """Specific enthalpy (J/kg) on TESPy's outlet connection -- what ``outlet`` carries."""
     T_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet temperature returned to the injection well (K)."""
     P_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet pressure returned to the injection well (Pa)."""
     rho: LockedState[float] = field(default_factory=_ls)
+    """Fluid density at the outlet (kg/m3)."""
     mu: LockedState[float] = field(default_factory=_ls)
+    """Fluid dynamic viscosity at the outlet (Pa s)."""
 
     node_detail: LockedState[dict[str, dict[str, float]]] = field(default_factory=_ls_dict)
     """Per-node diagnostic snapshot, keyed by node name then quantity
@@ -351,16 +365,27 @@ class GraphSurfaceHistory:
     h_inlet: list[float] = field(default_factory=list)
     h_outlet: list[float] = field(default_factory=list)
     T_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet temperature (K)."""
     T_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet temperature (K)."""
     P_inlet: list[float] = field(default_factory=list)
+    """Per-timestep inlet pressure (Pa)."""
     P_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet pressure (Pa)."""
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate (kg/s)."""
     dP_pipe: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep friction pressure drop across the surface pipe (Pa)."""
     P_tespy_inlet: list[float] = field(default_factory=list)
+    """Per-timestep pressure passed to the TESPy inlet (Pa)."""
     rho: list[float] = field(default_factory=list)
+    """Per-timestep fluid density at the outlet (kg/m3)."""
     mu: list[float] = field(default_factory=list)
+    """Per-timestep fluid dynamic viscosity at the outlet (Pa s)."""
     net_power_W: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep net electric power of the role=net_electric nodes, before economics-level parasitic loads (W)."""
     net_thermal_W: list[float] = field(default_factory=list)  # noqa: N815
+    """Per-timestep net thermal power of the role=net_thermal nodes (W)."""
 
     node_history: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     """``node_history[node_name][quantity]`` -> time series. Populated
@@ -420,7 +445,10 @@ class GraphSurface(SurfaceComponent):
 
     # ---- Runtime state / history ----
     state: GraphSurfaceState = Field(default_factory=GraphSurfaceState)
+    """Plant state of the current solve; an orchestrator that re-solves within a timestep restores
+    it first."""
     history: GraphSurfaceHistory = Field(default_factory=GraphSurfaceHistory)
+    """Per-timestep record of the plant state."""
 
     def record(self, timestep: int) -> None:
         """Raise if the converged timestep delivers negative heat, then record it.
@@ -631,7 +659,7 @@ class GraphSurface(SurfaceComponent):
         stopping at pressure-increasing ``Compressor`` nodes, flag any
         downstream p_out that exceeds an upstream one.
 
-        Known gap, not covered by this check (see dev_docs/tango_tasks.md):
+        Known gap, not covered by this check (see docs/tango_tasks.md):
         nodes whose pressure is solved via ``Merge``'s pressure-equality
         constraint rather than an explicit ``p_out_megapascals`` (e.g.
         ``condensate_pump``/``brine_pump`` in the single-flash examples), and components with

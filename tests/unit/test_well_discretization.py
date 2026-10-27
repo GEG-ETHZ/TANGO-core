@@ -25,7 +25,7 @@ from tango.core.errors import ConfigError
 from tango.workflows.linked_quantities import expunge_linked_quantities
 from tango.workflows.workflow import Workflow
 
-_AGS = Path(__file__).resolve().parents[2] / "example_configs" / "AGS_direct_heat.yml"
+_AGS = Path(__file__).resolve().parents[2] / "templates" / "AGS_direct_heat.yml"
 
 
 def _config(**loop: Any) -> dict[str, Any]:

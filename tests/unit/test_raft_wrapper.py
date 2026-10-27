@@ -31,7 +31,7 @@ from tango.core.errors import ConfigError, ConvergenceError, SaturationError
 from tango.workflows.workflow import Workflow
 
 _ROOT = Path(__file__).resolve().parents[2]
-_RAFT_CONFIG = _ROOT / "example_configs" / "AGS_ORC_electric_raft.yml"
+_RAFT_CONFIG = _ROOT / "templates" / "AGS_ORC_electric_raft.yml"
 _YEAR_SECONDS = 31_536_000.0
 
 
@@ -42,7 +42,7 @@ def _use_fake_raft(fake_raft: type[FakeRaftModel]) -> None:
 
 @pytest.fixture
 def config(raft_template: Path) -> dict[str, Any]:
-    """The RAFT example config (3 timesteps), using ``raft_template``."""
+    """The RAFT template (3 timesteps), using ``raft_template``."""
     cfg: dict[str, Any] = yaml.safe_load(_RAFT_CONFIG.read_text())
     cfg["sim_config"]["num_tsteps"] = 3
     cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)

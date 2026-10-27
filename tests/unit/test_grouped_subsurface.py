@@ -24,7 +24,7 @@ from tango.core.errors import ConfigError
 from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow
 
-_CONFIGS = Path(__file__).resolve().parents[2] / "example_configs"
+_CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 _GROUPED = "AGS_ORC_electric_grouped_subsurface.yml"
 
 

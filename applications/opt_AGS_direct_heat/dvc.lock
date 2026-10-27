@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_AGS_direct_heat.py --clean --no-plot
     deps:
-    - path: ../../example_configs/AGS_direct_heat.yml
-      hash: md5
-      md5: a885418ed783476bbe19c93e5e1ce6d9
-      size: 10876
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
+    - path: ../../templates/AGS_direct_heat.yml
+      hash: md5
+      md5: 174db6f87c61b4ff73655e2e9393b592
+      size: 10852
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: 268fcc9ae526e905112a91ef14e54a3f
-      size: 13829
+      md5: 83d308c52df493a0cf171cf173352ba0
+      size: 13650
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: 268fcc9ae526e905112a91ef14e54a3f
-      size: 13829
+      md5: 83d308c52df493a0cf171cf173352ba0
+      size: 13650
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 1276869c62b99d96464b369a919454ce
@@ -52,7 +52,7 @@ stages:
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 04f15ccbc3a833e4b6b946174c08daff
+      md5: 80b2ae73b3234bdd9729d72c0dbef384
       size: 4579797
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5

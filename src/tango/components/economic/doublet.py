@@ -11,7 +11,7 @@ coefficients are overridable ``Field``s, but the formula's SHAPE is not
 configurable, and no alternative well-cost model is supported. Only H2O
 is supported (no CO2-specific cost terms). This is not a general-purpose
 economic engine — it covers exactly the well/surface-plant shapes tango's
-own example configs use today, nothing broader.
+own templates use today, nothing broader.
 
 Runs exactly once, after every physical timestep completes — see
 ``EconomicComponent``'s (``base.py``) and ``SystemDirect.finalize()``'s
@@ -186,14 +186,24 @@ class EconomicState(StateMethods):
     """
 
     CAPEX_well: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of the injection, horizontal, and production wells, divided by the drilling
+    success probability ($); only the production well is charged for ``BROWN_FIELD``."""
     CAPEX_permitting: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of permitting ($)."""
     CAPEX_exploration: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of exploration ($)."""
     CAPEX_surface_pipes: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of the surface pipe between the two wellheads, one run of length ``well_spacing`` ($)."""
     CAPEX_surface_plant: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Capital cost of the surface-plant equipment ($)."""
     CAPEX_total: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Sum of all CAPEX categories above ($)."""
     net_power_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Run-averaged net electric power after parasitic loads (W)."""
     net_thermal_W: LockedState[float] = field(default_factory=_ls)  # noqa: N815
+    """Run-averaged net thermal power (W)."""
     LCOE: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
+    """Levelized cost of the main product, electricity or heat ($/kWh); NaN when undefined."""
     specific_investment_cost: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))
     """CAPEX_total per unit of main-product power ($/kW) -- see ``_compute_specific_investment_cost``."""
     OPEX: LockedState[float] = field(default_factory=lambda: _ls(float("nan")))  # noqa: N815
@@ -225,6 +235,7 @@ class DoubletEconomicComponent(EconomicComponent):
     one section). GenGEO's default cost basis."""
 
     state: EconomicState = Field(default_factory=EconomicState)
+    """Final economic results, computed once after the last timestep."""
 
     def solve(self) -> None:
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).
@@ -355,7 +366,7 @@ class DoubletEconomicComponent(EconomicComponent):
         so far. Raises rather than silently picking one if that's ever not
         true: real multi-segment costing (varying outer/casing diameter by
         depth) is a planned tango feature, not built yet (see
-        ``dev_docs/tango_tasks.md``'s open items) — silently ignoring a
+        ``docs/tango_tasks.md``'s open items) — silently ignoring a
         real diameter difference here would misrepresent cost rather than
         just being an approximation.
         """
@@ -368,7 +379,7 @@ class DoubletEconomicComponent(EconomicComponent):
                 f"Production-side wells have differing diameters {sorted(diameters)!r} — "
                 "DoubletEconomicComponent's well-cost model assumes one uniform diameter "
                 "for the combined well until real multi-segment costing is built "
-                "(see dev_docs/tango_tasks.md's open items).",
+                "(see docs/tango_tasks.md's open items).",
             )
         return total_length, next(iter(diameters))
 
@@ -618,7 +629,7 @@ class DoubletEconomicComponent(EconomicComponent):
         """Run-averaged net electric/thermal power (W) — see module docstring.
 
         Net electric power is ``turbine + surface_pump -
-        (cooling_parasitic + condensing_parasitic) +
+        (cooling_parasitic + condensing_parasitic) -
         production_downhole_pump``. The first term is already correctly
         netted in ``GraphSurface.history.net_power_W`` (a per-timestep sum
         of signed node contributions — turbines positive, surface pumps
@@ -661,7 +672,7 @@ class DoubletEconomicComponent(EconomicComponent):
 
         Guards ``CAPEX <= 0`` and also ``main_power_w <= 0`` → NaN, since a
         negative net power (a real, observed case, ~53/500 designs in the
-        Triemli AGS sweep per ``dev_docs/TANGO_vision_and_roadmap/README.md``'s
+        Triemli AGS sweep per ``docs/TANGO_vision_and_roadmap/README.md``'s
         "Pump electricity accounting" section) would otherwise silently
         produce a deeply negative "cost" rather than an explicit
         not-a-number, and a negative LCOE doesn't mean anything physically.

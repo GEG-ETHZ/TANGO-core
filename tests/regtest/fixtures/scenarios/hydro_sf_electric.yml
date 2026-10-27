@@ -1,4 +1,4 @@
-# Frozen copy of example_configs/hydro_sf_electric.yml as of 2026-10-13, used as a fixed
+# Frozen copy of templates/hydro_sf_electric.yml as of 2026-10-13, used as a fixed
 # scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
 # configs change when their design point is re-optimized; these tests check
 # behavior that needs a specific design (e.g. which regime a pump runs in), so
@@ -192,11 +192,3 @@ components:
     # target_extraction_pressure is NOT set here — it's sourced from
     # sim_config.target_extraction_pressure above (see that field's
     # docstring in core/specs.py for the duplicated-value bug this fixed).
-
-# TODO: migrate addons section
-# The old format had a top-level addons: block (ThermaGraph, Analyzer) that activated
-# optional post-processing tools. The original intent was for these to be separate
-# installable dependencies with a declared interface. That design was never cleanly
-# implemented. In tango, addons should be first-class composable components with
-# a defined ABC — not a stringly-typed activation flag. Needs a design decision before
-# migrating.

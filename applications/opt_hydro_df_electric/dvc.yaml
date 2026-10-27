@@ -13,7 +13,7 @@ stages:
     cmd: python opt_hydro_df_electric.py --clean --no-plot
     deps:
       - opt_hydro_df_electric.py
-      - ../../example_configs/hydro_df_electric.yml
+      - ../../templates/hydro_df_electric.yml
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py). Tracking this one small
       # file instead of the whole src/tango/ tree directly means DVC

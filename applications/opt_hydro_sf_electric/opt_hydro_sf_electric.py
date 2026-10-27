@@ -43,6 +43,7 @@ HERE = Path(__file__).parent
 # ---------------------------------------------------------------------------
 
 
+# --8<-- [start:param]
 @dataclass
 class _PathsApply:
     """Picklable ``ParamSpec.apply`` that sets one value at several config paths.
@@ -73,6 +74,9 @@ class _PathsApply:
 def _param(name: str, bounds: tuple[float, float], *paths: str) -> ParamSpec:
     """``ParamSpec`` setting ``name`` at each dotted config path in ``paths``."""
     return ParamSpec(name=name, apply=_PathsApply(tuple(tuple(p.split(".")) for p in paths)), bounds=bounds)
+
+
+# --8<-- [end:param]
 
 
 @dataclass
@@ -177,6 +181,7 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
 # ---------------------------------------------------------------------------
 
 
+# --8<-- [start:objective]
 @dataclass
 class _EconomicStateEvaluate:
     """Picklable ``ObjectiveSpec.evaluate`` reading one ``economic.state`` value."""
@@ -185,6 +190,9 @@ class _EconomicStateEvaluate:
 
     def __call__(self, wf: Workflow) -> float:
         return float(wf.to_dict()["economic"]["state"][self.key])
+
+
+# --8<-- [end:objective]
 
 
 @dataclass
@@ -237,7 +245,7 @@ REPORTS = [
 APP = OptApp(
     title="hydro_sf_electric",
     description="Multi-objective optimization of the single-flash hydrothermal electric example.",
-    config_path=HERE.parents[1] / "example_configs" / "hydro_sf_electric.yml",
+    config_path=HERE.parents[1] / "templates" / "hydro_sf_electric.yml",
     app_dir=HERE,
     injection_mode=InjectionPolicy.MANUAL_FRACKING_CHECK,
     default_bounds=DEFAULT_BOUNDS,

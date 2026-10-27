@@ -138,7 +138,7 @@ class SystemBCIteration(SystemDirect):
         max_inner_iterations: int = DEFAULT_MAX_INNER_ITER,
         economic: EconomicComponent | None = None,
     ) -> None:
-        """Initialise the base single-pass engine, then store BC-specific state.
+        """Initialize the base single-pass engine, then store BC-specific state.
 
         See the class docstring for the meaning of each argument.
 

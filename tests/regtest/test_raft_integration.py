@@ -2,7 +2,7 @@
 
 Skipped when RAFT isn't installed. One simulated year on RAFT's AGS mesh
 takes about two minutes, so this is marked ``slow``; the full 25-year
-example is covered by ``test_example_configs.py``.
+example is covered by ``test_templates.py``.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> 
     """A year runs, RAFT keeps the loop's mass rate, heats the fluid, and records its work."""
     monkeypatch.chdir(_ROOT)
     cfg: dict[str, Any] = yaml.safe_load(
-        (_ROOT / "example_configs" / "AGS_ORC_electric_raft.yml").read_text(),
+        (_ROOT / "templates" / "AGS_ORC_electric_raft.yml").read_text(),
     )
     cfg["sim_config"]["num_tsteps"] = 1
     wf = Workflow(cfg)

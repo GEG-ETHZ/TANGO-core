@@ -1,6 +1,6 @@
 """Regression tests for ``phase_diagrams.write_phase_diagrams``.
 
-Uses a reduced timestep count (fast) rather than any example config's own
+Uses a reduced timestep count (fast) rather than any template's own
 full length -- this is about the file-writing/data-correctness mechanism,
 not physics, so there's no reason to pay for a full-length run.
 """
@@ -21,13 +21,13 @@ from tango.components.surface.graph import GraphSurface
 from tango.core.errors import ConfigError
 from tango.workflows.workflow import Workflow
 
-# Frozen scenario copies of example configs; see test_lcoe_regression.py.
-_EXAMPLE_CONFIGS_DIR = Path(__file__).parent / "fixtures" / "scenarios"
+# Frozen scenario copies of templates; see test_lcoe_regression.py.
+_TEMPLATES_DIR = Path(__file__).parent / "fixtures" / "scenarios"
 _N_TSTEPS_FAST = 3
 
 
 def _run_fast(filename: str) -> Workflow:
-    cfg = Workflow.from_file(_EXAMPLE_CONFIGS_DIR / filename).to_dict()
+    cfg = Workflow.from_file(_TEMPLATES_DIR / filename).to_dict()
     cfg["sim_config"]["num_tsteps"] = _N_TSTEPS_FAST
     wf = Workflow(cfg)
     wf.run()
@@ -357,7 +357,7 @@ def test_raft_loop_is_drawn_as_its_three_segments(
     raft_template: Path,
 ) -> None:
     """The raft variant's recorded profile is split at the segment boundaries into three joined lines."""
-    cfg: dict[str, Any] = yaml.safe_load(Path("example_configs/AGS_ORC_electric_raft.yml").read_text())
+    cfg: dict[str, Any] = yaml.safe_load(Path("templates/AGS_ORC_electric_raft.yml").read_text())
     cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)
     cfg["sim_config"]["num_tsteps"] = 2
     wf = Workflow(cfg)

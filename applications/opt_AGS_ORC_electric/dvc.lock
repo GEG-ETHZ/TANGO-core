@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_AGS_ORC_electric.py --clean --no-plot
     deps:
-    - path: ../../example_configs/AGS_ORC_electric.yml
-      hash: md5
-      md5: afa04e9e2dc623292ef7d2196fa8f80c
-      size: 12574
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
+    - path: ../../templates/AGS_ORC_electric.yml
+      hash: md5
+      md5: b2e0c1951625a4add74e9c8843f169fa
+      size: 12632
     - path: opt_AGS_ORC_electric.py
       hash: md5
-      md5: a556b1e18df72ce111fc88c5f29874f9
-      size: 14541
+      md5: c63aeacb2e24a176e910c7dac228d3b1
+      size: 14535
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: opt_AGS_ORC_electric.py
       hash: md5
-      md5: a556b1e18df72ce111fc88c5f29874f9
-      size: 14541
+      md5: c63aeacb2e24a176e910c7dac228d3b1
+      size: 14535
     - path: outputs/pareto_results.csv
       hash: md5
       md5: dac6f635ef16ee1360d78566613ed26f
@@ -52,7 +52,7 @@ stages:
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 2e9d8d7d37481344e63ccd42041b89ad
+      md5: 6554ab0c0ce235493cb7c02b922f26b9
       size: 4580716
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
