@@ -5,11 +5,11 @@ stages:
     deps:
     - path: ../../example_configs/CO2_AGS_electric.yml
       hash: md5
-      md5: 7d58933103d5f816f55a5e4f90b1822f
-      size: 6447
+      md5: 8c87facbff921d11773ba9952f063d43
+      size: 6917
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: 153be39fd17fe55b142a67f56711473d
       size: 41
     - path: opt_CO2_AGS_electric.py
       hash: md5
@@ -39,7 +39,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 58c4da4a6e27bc1313c15d2030432e54
+      md5: 153be39fd17fe55b142a67f56711473d
       size: 41
     - path: opt_CO2_AGS_electric.py
       hash: md5
