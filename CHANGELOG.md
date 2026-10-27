@@ -28,8 +28,8 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   (the config's `raft:` block) drives RAFT one trial per injection-enthalpy
   iteration and accepts the last one per timestep, converting between
   tango's enthalpy and RAFT's temperature. RAFT's config template and mesh
-  (`example_configs/raft/`, made by hand; the mesh is stored with DVC, so
-  `dvc pull` it first) are checked against the tango config rather than
+  (`example_configs/raft/`, made by hand; the example's mesh is committed
+  to git) are checked against the tango config rather than
   overridden. Its `state`/`history` record RAFT's inlet
   and outlet values and the solves and wall time each timestep took.
 - `FluidState.with_PQ()`/`update_PQ()`: saturation states.

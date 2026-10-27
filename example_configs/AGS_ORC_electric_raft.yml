@@ -11,7 +11,13 @@
 # RAFT's developer); the wrapper checks that the template's rock
 # properties, initial temperatures and well alignment agree with this file.
 #
-# RAFT models the fluid in the wells with constant (Boussinesq) properties.
+# RAFT's well fluid (water) follows the template's equation of state and
+# viscosity model (RAFT's theory.md, "Fluid Equation of State"): with
+# `density: 1000`, the Boussinesq EOS, i.e. density and internal energy
+# linearized in temperature and pressure about `reference_temperature` and
+# `reference_pressure` (`therm_expansion`, `bulk_mod`, `specific_heat`); with
+# `viscosity: -1`, a temperature-dependent viscosity calibrated for water.
+#
 # The 25 years take about 5 minutes: each injection-enthalpy iteration is
 # one RAFT solve over the year (~40 s in year 0, ~4 s by year 10), and only
 # the first few years need more than one.
