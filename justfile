@@ -335,13 +335,25 @@ slurm-fetch *args:
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
         echo "== $a"
-        rsync -a $dry --itemize-changes --delete \
+        # Captured rather than piped, so a failing rsync still stops the recipe.
+        changes=$(rsync -a $dry --itemize-changes --delete \
             --include='outputs/***' --include='*.out' --include='*.err' --include='dvc.lock' --exclude='*' \
-            "$host:$remote/applications/$a/" "applications/$a/"
+            "$host:$remote/applications/$a/" "applications/$a/")
+        # Spell out rsync's change codes; skip directories whose only change is a timestamp.
+        printf '%s\n' "$changes" | awk '
+            { code = $1; name = substr($0, length(code) + 1); sub(/^ +/, "", name) }
+            code ~ /^\*deleting/ { print "  deleted  " name; n++; next }
+            code ~ /^>f\+/       { print "  new      " name; n++; next }
+            code ~ /^>f/         { print "  updated  " name; n++; next }
+            code ~ /^cd\+/       { print "  new dir  " name; n++; next }
+            END { if (!n) print "  no changes" }'
     done
     echo "== DVC cache"
     rsync -a $dry "$host:$remote/.dvc/cache/" ".dvc/cache/"
-    if [ -n "$push" ] && [ -z "$dry" ]; then uv run dvc push; fi
+    # Silence google-api-core's Python-version FutureWarning and gRPC's fork-handler INFO lines.
+    if [ -n "$push" ] && [ -z "$dry" ]; then
+        PYTHONWARNINGS='ignore::FutureWarning' GRPC_VERBOSITY=ERROR uv run dvc push
+    fi
 
 # Works on Euler and on a laptop that rsynced the logs back. Never touches the log of a job that
 # squeue still lists. See `just slurm-clean --help`.
