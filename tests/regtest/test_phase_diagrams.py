@@ -8,10 +8,13 @@ not physics, so there's no reason to pay for a full-length run.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
+import yaml
 from CoolProp import CoolProp as CP
+from fake_raft_model import FakeRaftModel
 
 from tango import phase_diagrams
 from tango.components.surface.graph import GraphSurface
@@ -347,6 +350,36 @@ def test_wells_are_drawn_as_their_marched_profiles() -> None:
         trace = next(tr for tr in frame.data if tr.name == "outlet -> injection_well")
         assert list(trace.x) == pytest.approx([h / 1000 for h in well.history.h_cells[t]])
         assert list(trace.y) == pytest.approx([p * phase_diagrams.PA_TO_BAR for p in well.history.P_cells[t]])
+
+
+def test_raft_loop_is_drawn_as_its_three_segments(
+    fake_raft: type[FakeRaftModel],
+    raft_template: Path,
+) -> None:
+    """The raft variant's recorded profile is split at the segment boundaries into three joined lines."""
+    cfg: dict[str, Any] = yaml.safe_load(Path("example_configs/AGS_ORC_electric_raft.yml").read_text())
+    cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)
+    cfg["sim_config"]["num_tsteps"] = 2
+    wf = Workflow(cfg)
+    wf.run()
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    raft = wf._orchestrator.components["grouped_subsurface"].raft.history  # type: ignore[attr-defined]  # noqa: SLF001
+    fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    edges = [
+        ("outlet", "injection_well"),
+        ("injection_well", "horizontal_well"),
+        ("horizontal_well", "production_well"),
+    ]
+    for t, frame in enumerate(fig.frames):
+        # FakeRaftModel puts one node at each segment boundary: segment k runs from node k to node k + 1.
+        for k, (source, target) in enumerate(edges):
+            trace = next(tr for tr in frame.data if tr.name == f"{source} -> {target}")
+            assert list(trace.x) == pytest.approx([h / 1000 for h in raft.h_nodes[t][k : k + 2]])
+            assert list(trace.y) == pytest.approx(
+                [p * phase_diagrams.PA_TO_BAR for p in raft.P_nodes[t][k : k + 2]],
+            )
 
 
 def test_pumped_well_line_starts_at_the_pump_suction() -> None:

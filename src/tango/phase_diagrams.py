@@ -47,7 +47,11 @@ import yaml
 from CoolProp import CoolProp as CP
 
 from tango.components.surface.graph import GraphSurface
-from tango.components.well.grouped_subsurface import SEGMENT_NAMES, NumericalGroupedSubsurface
+from tango.components.well.grouped_subsurface import (
+    SEGMENT_NAMES,
+    NumericalGroupedSubsurface,
+    RaftGroupedSubsurface,
+)
 from tango.core.constants import J_PER_KG_TO_KJ_PER_KG, PA_TO_BAR
 from tango.core.errors import ConfigError
 from tango.core.fluid_state import FluidState
@@ -374,8 +378,12 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     (``component_idx``/``prev``/``next``, a single cycle across every
     component including the surface plant) -- see ``Workflow``'s own class
     docstring. A ``grouped_subsurface`` component is listed as its three well
-    segments (``"<name>.injection_well"`` etc.), so each gets its own
-    profile.
+    segments, under their own names (``"injection_well"`` etc., as in a
+    config with three separate well components), so each gets its own
+    profile and label. For the ``raft`` variant, whose segments have no
+    state of their own, each entry is the component itself;
+    ``_raft_segment_profiles`` splits RAFT's profile along the loop into
+    the three.
     """
     components = wf._orchestrator.components  # noqa: SLF001
     by_idx = {c.component_idx: (name, c) for name, c in components.items()}
@@ -387,9 +395,11 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
         name, comp = by_idx[idx]
         if isinstance(comp, NumericalGroupedSubsurface):
             order += [
-                (f"{name}.{segment_name}", segment)
+                (segment_name, segment)
                 for segment_name, segment in zip(SEGMENT_NAMES, comp.segments(), strict=True)
             ]
+        elif isinstance(comp, RaftGroupedSubsurface):
+            order += [(segment_name, comp) for segment_name in SEGMENT_NAMES]
         else:
             order.append((name, comp))
         idx = comp.next  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
@@ -465,6 +475,13 @@ def _add_subsurface_points(
     for name, comp in outer_order:
         if comp is component:
             continue
+        if isinstance(comp, RaftGroupedSubsurface):
+            profiles[name] = [
+                _raft_segment_profiles(comp, t)[SEGMENT_NAMES.index(name)] for t in range(n_tsteps)
+            ]
+            h_kj[name] = [profile_h[-1] for profile_h, _ in profiles[name]]
+            p_bar[name] = [profile_p[-1] for _, profile_p in profiles[name]]
+            continue
         history = comp.history  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
         h_cells = getattr(history, "h_cells", None)
         p_cells = getattr(history, "P_cells", None)
@@ -513,6 +530,34 @@ def _add_subsurface_points(
     # sub-network, not a single point).
     keyed_order = [("inlet", "outlet") if comp is component else (name, name) for name, comp in outer_order]
     return [(keyed_order[i][1], keyed_order[(i + 1) % len(keyed_order)][0]) for i in range(len(keyed_order))]
+
+
+def _raft_segment_profiles(
+    loop: RaftGroupedSubsurface,
+    t: int,
+) -> list[tuple[list[float], list[float]]]:
+    """RAFT's recorded ``(h [kJ/kg], P [bar])`` profile in year ``t``, split into the loop's three segments.
+
+    RAFT's well runs from the injection wellhead to the production wellhead;
+    it is split at the nodes nearest the segment boundaries (the alignment
+    corners, which the mesh has nodes at), and each boundary node ends one
+    segment and starts the next, so the three lines join.
+    """
+    history = loop.raft.history
+    s_nodes = history.s_nodes[t]
+    h = [value * J_PER_KG_TO_KJ_PER_KG for value in history.h_nodes[t]]
+    p = [value * PA_TO_BAR for value in history.P_nodes[t]]
+    lengths = [segment.well_length for segment in loop.segments()]
+    boundaries = [0.0, lengths[0], lengths[0] + lengths[1], sum(lengths)]
+    indices = [_nearest_index(s_nodes, boundary) for boundary in boundaries]
+    return [
+        (h[start : end + 1], p[start : end + 1]) for start, end in zip(indices, indices[1:], strict=False)
+    ]
+
+
+def _nearest_index(values: list[float], target: float) -> int:
+    """Index of the entry of ``values`` closest to ``target``."""
+    return min(range(len(values)), key=lambda i: abs(values[i] - target))
 
 
 def _build_figure(
