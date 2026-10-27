@@ -171,7 +171,7 @@ def test_workflow_to_dict_roundtrips_ags_power_plant_graph_structure() -> None:
     Specifically exercises ``AGS_direct_heat.yml``'s ``circulation_control``
     (``PumpOrValve``, no ``p_out`` of its own, giving the AGS closed loop
     its real circulation device -- see
-    ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry) and ``district_heating_hx``'s ``pressure_ratio``. Not just a smoke
     check that the values are present: rebuilds a second ``Workflow``
     from the dumped dict and confirms its own re-dump is byte-for-byte
@@ -306,7 +306,7 @@ def test_bare_valve_circulation_control_rejected_at_construction(
     pressure-adding device AND no active per-solve() check backing it up
     -- exactly this pattern: a passive Valve with nothing to fall back on
     if the loop's thermosiphon margin runs out (see
-    ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry for the physical risk this prevents). ``type:
     PumpOrValve`` (this file's actual default -- see the auto-resolving
     tests below) is the sanctioned way to use a Valve here at all,
@@ -330,7 +330,7 @@ def test_compressor_circulation_control_rejects_design_that_only_needs_a_valve(
     available than it needs to hit ``injection_pressure``, so TESPy's
     fixed-``p_out`` compressor equation solves to a negative ``P.val`` —
     "generating" power, which a real passive pump never does (see
-    ``dev_docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry for why this matters).
     """
     nodes = ags_direct_heat_config["components"]["surface"]["power_plant"]["nodes"]
@@ -377,7 +377,7 @@ def test_pump_or_valve_auto_resolves_to_compressor_when_needed(
     retries with the Compressor-resolved network -- transparently, with
     no exception escaping to the caller and no config change needed by
     the user. This is exactly the case
-    ``dev_docs/bugs-fixed-in-tango.md``'s AGS_direct_heat.yml default
+    ``docs/bugs-fixed-in-tango.md``'s AGS_direct_heat.yml default
     (``mass_rate: 30``) is deliberately left exercising.
     """
     ags_direct_heat_config["sim_config"]["mass_rate"] = 30.0  # needs a real pump -- see YAML comment
@@ -763,7 +763,7 @@ def test_manual_fracking_check_raises_on_flow_induced_violation(
     CoolProp state solve goes negative-pressure — confirmed across 18
     mass-rate/injection-pressure combinations, unrelated to fracking and
     not rescuable by raising injection pressure). See
-    ``dev_docs/tango_tasks.md``'s "Open items" entry "Production-side
+    ``docs/tango_tasks.md``'s "Open items" entry "Production-side
     circuit numerically unstable near/above ~166 kg/s for
     `hydro_sf_electric.yml`" for the full investigation. Instead, this
     solves the circuit once at the nominal (safe) mass rate,

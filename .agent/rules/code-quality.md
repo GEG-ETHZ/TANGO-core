@@ -29,7 +29,7 @@
   collision is a real concern.** Inside a class, `__name` is rewritten by the
   interpreter to `_ClassName__name`, preventing accidental override in
   subclasses. This is a real mechanical effect. Outside a class (module level),
-  `__name` has no special behaviour — it is just a name with underscores. When
+  `__name` has no special behavior — it is just a name with underscores. When
   name mangling is intentionally used, explain why in the docstring so the
   reason is not lost.
 

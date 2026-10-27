@@ -1,0 +1,92 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Code Objects" id="phase0-code-objects">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="900" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Phase 0 — Runtime Object Structure: flexible_SF_manual.yml" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="15" width="840" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Execution path banner -->
+        <mxCell id="execpath" value="tango_cli.py  →  Runner  →  NativeWorkflow  →  SystemExternal.execute()  →  unit.stream_interface() per node (topological order)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="30" y="52" width="840" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- NativeWorkflow swimlane -->
+        <mxCell id="wf" value="NativeWorkflow  (workflows/native_workflow.py)" style="swimlane;fontStyle=1;align=center;startSize=28;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="30" y="95" width="840" height="850" as="geometry" />
+        </mxCell>
+        <mxCell id="wf_attrs" value="specs: dict  (full YAML — 230 lines, all sections)        results: dict  (time-series outputs)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="wf">
+          <mxGeometry x="10" y="34" width="600" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- SystemExternal (orchestrator) swimlane -->
+        <mxCell id="orch" value="orchestrator: SystemExternal  (orchestrators/external.py  —  extends UnitManager via nx.DiGraph)" style="swimlane;fontStyle=1;align=center;startSize=28;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="wf">
+          <mxGeometry x="15" y="62" width="810" height="570" as="geometry" />
+        </mxCell>
+        <mxCell id="orch_attr" value="specs: dict  (same full YAML dict — passed by reference to every unit)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="33" width="500" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="graph_lbl" value="graph: nx.DiGraph  —  5 nodes, 5 edges (StreamState objects)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="55" width="500" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 5 unit node boxes -->
+        <mxCell id="u_s" value="&lt;b&gt;SurfaceUnitFlexiblePP&lt;/b&gt;&lt;br&gt;id: &quot;surface&quot;&lt;br&gt;specs: dict  (full YAML)&lt;br&gt;inlet_fluid: FluidState&lt;br&gt;outlet_fluid: FluidState&lt;br&gt;mass_rate: float&lt;br&gt;inlet_streams, outlet_streams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="82" width="175" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="u_iw" value="&lt;b&gt;InjectionWellUnitNative&lt;/b&gt;&lt;br&gt;id: &quot;injection_well&quot;&lt;br&gt;specs: dict  (full YAML)&lt;br&gt;inlet_fluid: FluidState&lt;br&gt;outlet_fluid: FluidState&lt;br&gt;mass_rate: float&lt;br&gt;inlet_streams, outlet_streams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="195" y="82" width="175" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="u_r" value="&lt;b&gt;ReservoirUnitNative&lt;/b&gt;&lt;br&gt;id: &quot;reservoir&quot;&lt;br&gt;specs: dict  (full YAML)&lt;br&gt;inlet_fluid: FluidState&lt;br&gt;outlet_fluid: FluidState&lt;br&gt;mass_rate: float&lt;br&gt;inlet_streams, outlet_streams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="380" y="82" width="175" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="u_pwl" value="&lt;b&gt;ProductionWellUnitNative&lt;/b&gt;&lt;br&gt;id: &quot;production_well_lower&quot;&lt;br&gt;specs: dict  (full YAML)&lt;br&gt;inlet_fluid: FluidState&lt;br&gt;outlet_fluid: FluidState&lt;br&gt;mass_rate: float&lt;br&gt;inlet_streams, outlet_streams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="205" width="175" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="u_pwu" value="&lt;b&gt;ProductionWellPumpUnitNative&lt;/b&gt;&lt;br&gt;id: &quot;production_well_upper&quot;&lt;br&gt;specs: dict  (full YAML)&lt;br&gt;inlet_fluid: FluidState&lt;br&gt;outlet_fluid: FluidState&lt;br&gt;mass_rate: float&lt;br&gt;inlet_streams, outlet_streams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="195" y="205" width="175" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- StreamState representation -->
+        <mxCell id="ss_box" value="&lt;b&gt;StreamState&lt;/b&gt;  (5× on graph edges)&lt;br&gt;mass_rate: float&lt;br&gt;fluid_state: FluidState" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="orch">
+          <mxGeometry x="380" y="205" width="195" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- unit attribute container -->
+        <mxCell id="ucont" value="unit: Unit  (attribute container — dynamic setattr)&lt;br&gt;.injection_well  →  InjectionWellUnitNative&lt;br&gt;.reservoir  →  ReservoirUnitNative&lt;br&gt;.surface  →  SurfaceUnitFlexiblePP&lt;br&gt;.production_well  →  ProductionWellUnitNative" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;align=left;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="335" width="380" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- BC_calculator note -->
+        <mxCell id="bc_note" value="BC iteration: SystemExternal wraps SystemNative and adds&lt;br&gt;boundary-condition convergence loop via BC_calculator.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;align=left;" vertex="1" parent="orch">
+          <mxGeometry x="400" y="335" width="395" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Problem annotation in orch -->
+        <mxCell id="prob" value="⚠  specs = entire YAML dict passed to every unit (no encapsulation). Each unit reaches into the dict for its own slice using string keys — structure is implicit and only knowable at runtime." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" vertex="1" parent="orch">
+          <mxGeometry x="10" y="445" width="785" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- EconomicUnitNative -->
+        <mxCell id="econ" value="economic: EconomicUnitNative  (units/native/economic/economic.py)&lt;br&gt;specs: dict  (full YAML),   nodes: graph.nodes,   _results: dict" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="wf">
+          <mxGeometry x="15" y="655" width="450" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- FluidState description -->
+        <mxCell id="fsbox" value="FluidState  (core/fluidstate.py  — wraps CoolProp)&lt;br&gt;T: float  [K],   P: float  [Pa],   H: float  [J/kg],   S: float  [J/kg·K]&lt;br&gt;fluid_name: str  —  updated via updateHP() / updatePT()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="wf">
+          <mxGeometry x="480" y="655" width="345" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Addons note -->
+        <mxCell id="addons" value="addons: dict  —  ThermaGraph_addon, Analyzer_addon (both inactive in this config)&lt;br&gt;function_evaluator: FunctionEvaluator  —  dynamic expressions for optimization" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="wf">
+          <mxGeometry x="15" y="730" width="810" height="45" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

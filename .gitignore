@@ -58,30 +58,29 @@ memory/
 .claude/
 
 # draw.io autosave/crash-recovery files
-dev_docs/diagrams/src/.$*.bkp
 docs/diagrams/src/.$*.bkp
+docs/archive/diagrams/.$*.bkp
 
 # Configuration and secrets
 *.env
 secrets/
 
-# gitlab runner artefacts
+# CI runner artifacts
 cache
 builds
 
 # Images
 *.png
 *.svg
-# Only images that a markdown doc embeds are tracked. Diagram exports are
-# regenerated from dev_docs/diagrams/src/ and docs/diagrams/src/ *.drawio, so
-# anything not embedded stays local -- except docs/diagrams/*.svg, the
-# user-facing topology diagrams written by `just diagrams` (GitHub and Sphinx
-# both render SVG).
+# Only images that a markdown doc embeds are tracked; other diagram exports
+# stay local. docs/diagrams/*.svg are the topology diagrams that
+# `just diagrams` exports from docs/diagrams/src/*.drawio.
 !docs/diagrams/*.svg
-!dev_docs/diagrams/img/t_convergence_circuit.png
-!dev_docs/diagrams/img/t_convergence_loop.png
-!dev_docs/diagrams/img/cos_converge_example.png
-!dev_docs/diagrams/img/mass_rate_profiles.png
+!docs/diagrams/img/**/*.svg
+# README banner and hero (tools/readme_assets.py) and editable hero diagrams
+!/docs/assets/*.svg
+!/docs/diagrams/*.drawio.svg
+!docs/diagrams/img/**/*.png
 .aider*
 .claude/
 *.drawio.bkp
@@ -96,6 +95,16 @@ scratch_output/
 !/CHANGELOG.md
 !/CONTRIBUTING.md
 !/README.md
+!/AGENTS.md
+!/CLAUDE.md
+!/GEMINI.md
+!/SECURITY.md
+
+# docs site build output (zensical build)
+/site/
+
+# Docs site build output, internal preview (mkdocs.internal.yml)
+/site-internal/
 
 # Study runs that never go through DVC, e.g. tools/n_max_gen_study_job.sh
 studies/

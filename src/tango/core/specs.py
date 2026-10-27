@@ -41,12 +41,20 @@ class Common(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     fluid_name: str
+    """Working fluid as a CoolProp fluid name, e.g. H2O or CO2."""
     rock_density: float
+    """Rock density (kg/m3)."""
     rock_cp: float
+    """Rock specific heat capacity (J/(kg K))."""
     rock_k: float
+    """Rock thermal conductivity (W/(m K))."""
     thermal_gradient: float
+    """Geothermal gradient (K/m)."""
     surface_temperature: float
+    """Surface temperature (K): the ambient air temperature for cooling, and the top of the
+    linear geotherm."""
     surface_pressure: float
+    """Ambient surface pressure (Pa)."""
     coolprop_backend: CoolPropBackend = COOLPROP_BACKEND
     """CoolProp equation-of-state backend for all fluid-property lookups
     (``core/fluid_state.py``'s ``CoolPropBackend``). Defaults to exact
@@ -300,6 +308,8 @@ class Layout(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     well_spacing: float
+    """Distance between the injection and production wells (m); for closed-loop AGS configs,
+    the horizontal loop length."""
     well_pattern: WellPattern | None = None
     """Consumed by ``LumpedReservoir``. Typed as ``WellPattern`` itself
     (not ``str``) so Pydantic's own enum coercion — via ``WellPattern``'s
@@ -398,7 +408,9 @@ class SimConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     num_tsteps: int
+    """Number of timesteps in the run."""
     dt_years: float
+    """Length of one timestep (years)."""
     target_extraction_pressure: float
     """Minimum required extraction pressure at the surface inlet (Pa) — the
     SINGLE shared source of this value. Threaded to any component
@@ -410,7 +422,7 @@ class SimConfig(BaseModel):
     each pump-bearing well's own ``pump_target_pressure_megapascals``) with
     nothing enforcing they matched — a real Rule 5 ("shared via reference,
     not separate copies that can drift") violation. See
-    ``dev_docs/bugs-fixed-in-tango.md``."""
+    ``docs/bugs-fixed-in-tango.md``."""
     injection_mode: InjectionPolicy | None = None
     """Absent selects SystemDirect (no BC iteration); present selects
     SystemBCIteration."""
@@ -535,6 +547,10 @@ class Description(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     summary: Annotated[str, StringConstraints(max_length=200, strip_whitespace=True)]
+    """One-line purpose of the config."""
     author: str | None = None
+    """Who wrote the config."""
     date: str | None = None
+    """When the config was written, as free text."""
     description: Annotated[str, StringConstraints(max_length=2000, strip_whitespace=True)] = ""
+    """Free text: what is modeled, why the config exists and how."""

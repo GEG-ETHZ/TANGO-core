@@ -1,0 +1,148 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="New Input File Structure" id="phase1-input-file-new">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Phase 1 — New Input File Structure" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="10" width="1340" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Each component owns its type, component_idx, and all its parameters — no scattered root-level data" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="30" y="34" width="1340" height="17" as="geometry" />
+        </mxCell>
+
+        <!-- SURFACE (top center, simplified — power_plant expanded below) -->
+        <mxCell id="surface" value="surface" style="swimlane;startSize=28;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="550" y="60" width="300" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="surf_params" value="type: surface · unit: graph&lt;br&gt;component_idx: 4  prev: 3  next: 0&lt;br&gt;surface_temperature: 288 K&lt;br&gt;pipe_roughness: 55e-6 m  ...&lt;br&gt;&lt;i&gt;power_plant: ↓ expanded below&lt;/i&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="surface">
+          <mxGeometry x="8" y="30" width="284" height="87" as="geometry" />
+        </mxCell>
+
+        <!-- INJECTION WELL (right, upper) -->
+        <mxCell id="inj" value="injection_well" style="swimlane;startSize=28;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="920" y="175" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="inj_params" value="type: injection_well · unit: numerical&lt;br&gt;component_idx: 0  prev: 4  next: 1&lt;br&gt;well_length: 5000 m&lt;br&gt;diameter: 0.41 m  pipe_roughness: 55e-6 m" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="inj">
+          <mxGeometry x="8" y="30" width="234" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- RESERVOIR (right, lower) -->
+        <mxCell id="res" value="reservoir" style="swimlane;startSize=28;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="920" y="390" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="res_params" value="type: reservoir · unit: native&lt;br&gt;component_idx: 1  prev: 0  next: 2&lt;br&gt;reservoir_depth: 5000 m&lt;br&gt;permeability: 5e-14  porosity: 0.1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="res">
+          <mxGeometry x="8" y="30" width="234" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- PRODUCTION WELL LOWER (left, lower) -->
+        <mxCell id="pwl" value="production_well_lower" style="swimlane;startSize=28;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="230" y="390" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="pwl_params" value="type: production_well · unit: numerical&lt;br&gt;component_idx: 2  prev: 1  next: 3&lt;br&gt;well_length: 4000 m&lt;br&gt;diameter: 0.41 m  pipe_roughness: 55e-6 m" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pwl">
+          <mxGeometry x="8" y="30" width="234" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- PRODUCTION WELL UPPER (left, upper) -->
+        <mxCell id="pwu" value="production_well_upper" style="swimlane;startSize=28;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="230" y="175" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="pwu_params" value="type: production_well_pump · unit: numerical&lt;br&gt;component_idx: 3  prev: 2  next: 4&lt;br&gt;well_length: 1000 m&lt;br&gt;diameter: 0.41 m  pipe_roughness: 55e-6 m" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pwu">
+          <mxGeometry x="8" y="30" width="234" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- GLOBAL CONFIG (center gap) -->
+        <mxCell id="gcfg" value="&lt;b&gt;global config (non-component):&lt;/b&gt;&lt;br&gt;title:  &quot;...&quot;&lt;br&gt;common:  { fluid_name, brine_density, ... }  (physical parameters)&lt;br&gt;layout:  { well_spacing, well_pattern, ... }&lt;br&gt;sim_config:  { time, bc_iteration, mass_rate, ... }&lt;br&gt;economic:  { type: native, discount_rate, ... }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="520" y="238" width="340" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- MAIN CIRCUIT FLOW EDGES -->
+        <mxCell id="e1" value="1" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=11;fontStyle=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="surface" target="inj" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="2" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=11;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="inj" target="res" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="3" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=11;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="res" target="pwl" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="4" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=11;fontStyle=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="pwl" target="pwu" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="5" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=11;fontStyle=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="pwu" target="surface" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Dashed link: surface node → power plant section -->
+        <mxCell id="surf_pp_link" value="power_plant" style="dashed=1;endArrow=open;endFill=0;html=1;strokeColor=#6c8ebf;fontSize=10;fontStyle=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" edge="1" source="surface" target="pp_layer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- POWER PLANT EXPANDED (bottom section) -->
+        <mxCell id="pp_layer" value="surface → power_plant   (GraphSurface: nodes are named, not indexed — connectivity&#xa;lives in a separate edges: {source, target} block, shown as arrows here)" style="swimlane;startSize=22;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="40" y="575" width="1320" height="295" as="geometry" />
+        </mxCell>
+
+        <!-- PP component cards (geometry relative to pp_layer) -->
+        <mxCell id="pp_inlet" value="&lt;b&gt;inlet&lt;/b&gt;&lt;br&gt;type: Source&lt;br&gt;(name is the contract — must be &quot;inlet&quot;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="10" y="32" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_valve" value="&lt;b&gt;valve&lt;/b&gt;&lt;br&gt;type: Valve&lt;br&gt;p_out_megapascals: 0.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="155" y="32" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_ds" value="&lt;b&gt;droplet_separator&lt;/b&gt;&lt;br&gt;type: DropletSeparator&lt;br&gt;(vapor/liquid ports: out1/out2,&lt;br&gt;routed via edges: source_port)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="300" y="32" width="165" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_turbine" value="&lt;b&gt;turbine&lt;/b&gt;&lt;br&gt;type: Turbine  role: net_electric&lt;br&gt;p_out_megapascals: 0.05" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="500" y="15" width="130" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_cond" value="&lt;b&gt;condenser&lt;/b&gt;&lt;br&gt;type: SimpleHeatExchanger&lt;br&gt;p_out_megapascals: 0.05" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="665" y="15" width="155" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_pump" value="&lt;b&gt;pump&lt;/b&gt;&lt;br&gt;type: Compressor  role: net_electric&lt;br&gt;efficiency: 1.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="855" y="15" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_pump2" value="&lt;b&gt;pump2&lt;/b&gt;&lt;br&gt;type: Compressor  role: net_electric&lt;br&gt;efficiency: 1.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="500" y="175" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_mixer" value="&lt;b&gt;mixer&lt;/b&gt;&lt;br&gt;type: Merge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="1010" y="80" width="130" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="pp_outlet" value="&lt;b&gt;outlet&lt;/b&gt;&lt;br&gt;type: Sink&lt;br&gt;(name is the contract — must be &quot;outlet&quot;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="pp_layer">
+          <mxGeometry x="1170" y="80" width="135" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- PP FLOW EDGES (parent=1 so draw.io resolves absolute positions) -->
+        <mxCell id="ppe1" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="pp_inlet" target="pp_valve" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe2" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="pp_valve" target="pp_ds" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe3" value="vapor" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="pp_ds" target="pp_turbine" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe4" value="liquid" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="pp_ds" target="pp_pump2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe5" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="pp_turbine" target="pp_cond" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe6" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="pp_cond" target="pp_pump" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe7" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" edge="1" source="pp_pump" target="pp_mixer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe8" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" edge="1" source="pp_pump2" target="pp_mixer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ppe9" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="pp_mixer" target="pp_outlet" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

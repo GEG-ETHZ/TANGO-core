@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=500M
 
 # ---------------------------------------------------------------------------
-# One run of the n_max_gen study (dev_docs/pymoo_generation_budget.md): an
+# One run of the n_max_gen study (docs/pymoo_generation_budget.md): an
 # opt_* app run far past its usual generation cap, recording every evaluated
 # design and the generation it was evaluated in, so the front's improvement
 # can be measured generation by generation afterwards.

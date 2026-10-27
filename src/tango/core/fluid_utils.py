@@ -223,7 +223,7 @@ def heat_loss_zhang_2011(dL: float, rock_k: float, t_d: float, delta_T: float) -
 # uses — rather than assuming water. These four used to be hardcoded against
 # a single module-level "Water" AbstractState regardless of what fluid a
 # component's Common.fluid_name actually declared; that silently computed
-# wrong properties for any non-water fluid (see dev_docs/tango_tasks.md's
+# wrong properties for any non-water fluid (see docs/tango_tasks.md's
 # fluid-identity review). Callers must pass ``common.fluid_name``, not a
 # literal fluid string, so every component using a shared Common instance
 # stays consistent by construction.

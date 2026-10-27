@@ -70,15 +70,18 @@ class Stream(StateMethods):
     is where ``fluid_name`` lives. Duplicating it here as per-timestep,
     per-stream state would just be a second, unvalidated copy that could
     drift from ``Common`` — exactly the risk this design avoids (see
-    dev_docs/tango_tasks.md's fluid-identity review). If a future component
+    docs/tango_tasks.md's fluid-identity review). If a future component
     needs to represent a genuine fluid *boundary* (e.g. a secondary/ORC loop
     physically separate from the geofluid loop), that calls for an explicit
     typed marker on the boundary component, not a field here.
     """
 
     mass_rate: LockedState[float] = field(default_factory=_ls)
+    """Mass flow rate crossing the component boundary (kg/s)."""
     P: LockedState[float] = field(default_factory=_ls)
+    """Pressure at the component boundary (Pa)."""
     h: LockedState[float] = field(default_factory=_ls)
+    """Specific enthalpy at the component boundary (J/kg)."""
 
     @classmethod
     def fresh(
@@ -118,8 +121,11 @@ class StreamHistory:
     """
 
     mass_rate: list[float] = field(default_factory=list)
+    """Per-timestep mass flow rate (kg/s)."""
     P: list[float] = field(default_factory=list)
+    """Per-timestep pressure (Pa)."""
     h: list[float] = field(default_factory=list)
+    """Per-timestep specific enthalpy (J/kg)."""
 
     def record(self, stream: Stream) -> None:
         """Append one timestep snapshot."""

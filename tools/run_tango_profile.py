@@ -30,7 +30,7 @@ if args.profile:
     print("Running and Profiling ...")
     profiler = cProfile.Profile()
 
-    # create a results folder for saving profiling data for visualisation/analysis
+    # create a results folder for saving profiling data for visualization/analysis
     Path(_RESULTS_DIR).mkdir(exist_ok=True)
 
     profiler.enable()

@@ -127,11 +127,15 @@ phase-diagrams *configs:
 # Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
 # `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
 # each SVG ~40 KB instead of ~500 KB; viewers fall back to their default sans-serif.
-# Export every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg
+# Writes the README banner (docs/assets/) and the editable diagrams (docs/diagrams/*.drawio.svg), then
+# exports every docs/diagrams/src/*.drawio to docs/diagrams/<name>.svg.
+# Regenerate the README banner and every diagram under docs/diagrams/; needs the drawio CLI
 [unix]
 diagrams:
     #!/usr/bin/env sh
     set -eu
+    uv run python tools/readme_assets.py
+    uv run python tools/diagrams/build.py
     if [ -x /Applications/draw.io.app/Contents/MacOS/draw.io ]; then
         drawio=/Applications/draw.io.app/Contents/MacOS/draw.io
     elif command -v drawio >/dev/null 2>&1; then
@@ -437,3 +441,26 @@ apps:
     # See the [unix] demos recipe's comment above the equivalent loop for what
     # each opt_* app's --smoke does.
     Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }
+
+# Preview the docs site on localhost with live reload
+docs:
+    uv run --group docs zensical serve
+
+# Build the docs site into site/ (what CI runs on every pull request)
+docs-build:
+    uv run --group docs zensical build --clean
+
+# Preview the internal docs (adds the task log, roadmap, and archive), the build docs.yml deploys
+docs-internal:
+    uv run --group docs zensical serve -f mkdocs.internal.yml
+
+# Regenerate the README banner (docs/assets/) and the editable diagrams (docs/diagrams/); needs the drawio CLI.
+# The [unix] recipe above also exports the topology diagrams.
+[windows]
+diagrams:
+    uv run python tools/readme_assets.py
+    uv run python tools/diagrams/build.py
+
+# Regenerate the config-key and output tables of the docs from the code
+docs-gen:
+    uv run python tools/gen_reference.py

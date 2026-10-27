@@ -52,7 +52,7 @@ TODO: pinned to this rounded value rather than the more precise NIST/ISO
 80000-3 standard value (9.80665) to keep existing golden/reference values
 (e.g. test_example_configs.py's golden LCOE values) stable — switching to
 9.80665 is a one-line change (component-level overrides already exist)
-whenever Chad decides to make it, flagged in dev_docs/tango_tasks.md rather
+whenever Chad decides to make it, flagged in docs/tango_tasks.md rather
 than changed here since it would shift those reference values by a tiny
 amount."""
 

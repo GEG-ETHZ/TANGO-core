@@ -1,43 +1,73 @@
-# `applications/`
+# Applications
 
-Multi-run pipelines (demos, sweeps, optimizations) built on top of one
-[`../example_configs/`](../example_configs/README.md) config — as opposed to
-[`../example_configs/`](../example_configs/README.md) itself, which is
-single-simulation configs only. Each app is its own directory; nothing here
-is a library import target for anything outside its own directory.
+`applications/` holds studies that run many TANGO simulations: parameter sweeps, design optimizations, surrogate-model pipelines and demonstrations. Each application starts from one configuration in [`example_configs/`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/example_configs/README.md), varies it, and runs `Workflow(cfg).run()` once per design point, in parallel. Every application is a self-contained directory. Nothing outside the directory imports from it, and `tango_cli init --app <name>` copies one into your own project.
 
-## Demos — `demo_*` / `sweep_demo_*`
+## Catalog
 
-Standalone scripts, no DVC pipeline, no job script. Run directly:
+| Application | Kind | Base configuration | What it answers |
+|---|---|---|---|
+| `demo_hydro_sf_electric` | Demo | `hydro_sf_electric.yml` | One run, plotted: well temperature profiles, reservoir temperature, power over time |
+| `demo_well_mesh_convergence` | Demo | `hydro_sf_electric.yml` | How fine the `NumericalWell` cell mesh must be; documents the default cell length |
+| `sweep_demo_AGS_direct_heat` | Demo | `AGS_direct_heat.yml` | Minimal example of the edit-the-config-then-rerun sweep pattern |
+| `run_AGS_direct_heat_sweep` | Sweep | `AGS_direct_heat.yml` | Well depth × mass flow × loop length × loop diameter (12,870 designs), Triemli site |
+| `run_EGS_direct_heat_sweep` | Sweep | `EGS_direct_heat.yml` | Well depth × mass flow (100 designs), Triemli site |
+| `run_hydro_df_electric_sweep` | Sweep | `hydro_df_electric.yml` | One-at-a-time sensitivity of LCOE to reservoir, well and plant parameters |
+| `opt_*` (one per example configuration, 16 in all) | Optimization | The configuration of the same name | Designs that minimize LCOE and maximize mean net power (electric, or thermal for direct heat); see [Optimizations](#optimizations) |
+
+On hold, under `_on_hold/`: `opt_hydro_df_electric_surrogate`, the `opt_hydro_df_electric` search on a trained surrogate model; see [On hold](#on-hold).
+
+## Structure of an application
+
+| Kind | Entry point | Pipeline | Also contains |
+|---|---|---|---|
+| Demo (`demo_*`, `sweep_demo_*`) | `<name>.py` | none | — |
+| Sweep (`run_*_sweep`) | `<name>.py` (generate → sweep → summarize → plot) | `dvc.yaml` | `common.py` (design bounds), `params.yaml`, `generate.py`, `sweep.py`, `summarize.py`, `plot.py`, SLURM `<name>_job.sh` |
+| Optimization (`opt_*`) | `<name>.py` | `dvc.yaml` | `params.yaml`, SLURM `<name>_job.sh` |
+
+Results go to the application's `outputs/` directory, or to `--save-dir` where the script supports it. DVC stages depend on `src/tango.hash`, so a change to the package invalidates them automatically.
+
+## Running
+
+Smoke-test every application end to end (tiny designs, temporary directories, nothing written to `outputs/`):
 
 ```bash
-uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
+just apps            # add --slow for the real sweep grids
 ```
 
-| App | What it shows |
-|---|---|
-| `demo_hydro_sf_electric` | Runs `hydro_sf_electric.yml` and plots four figures (axial T profile, reservoir T, etc.). |
-| `demo_well_mesh_convergence` | Mesh-convergence check for `NumericalWell`'s cell resolution — documents *why* the default cell length is what it is. |
-| `sweep_demo_AGS_direct_heat` | Minimal parameter-sweep demo: the dict-modify-then-reinstantiate `Workflow` pattern, not a real sweep pipeline. |
+Run one application:
 
-## Optimizations — `opt_*`
+```bash
+# Demo
+uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
-One app per example config: multi-objective optimization (NSGA2 via
-`tango.pymoo_api.Minimization`) minimizing LCOE and maximizing mean net
-power (electric, or thermal for the direct-heat configs), each with its own
-DVC pipeline and SLURM job script. Every app script defines its own decision
-variables, bounds, and objectives and hands them to `tango.pymoo_api.OptApp`,
-which supplies the CLI, the baseline run, the search, and the plots.
+# Sweep, quick check first, then the cached DVC pipeline
+uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke
+cd applications/run_EGS_direct_heat_sweep && uv run dvc repro
 
-Every app searches mass flow rate, injection pressure, and the surface pipe
-diameter. Doublets also search the injection and production well diameters,
-plus the target extraction pressure where the production well has a pump; AGS
-apps also search well depth, horizontal loop length and diameter, and
-vertical well diameter. Condensing pressures for water and ORC cycles are
-site conditions and are not searched. Each app also reports production
-temperature, specific investment cost, and OPEX for its Pareto front.
+# Optimization, tiny check into a throwaway directory
+uv run python applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py \
+    --smoke --save-dir /tmp/opt-check --no-plot
+```
 
-| App | Plant-specific variables |
+On the ETH Euler cluster, submit full-size runs with `just slurm <app> ...` from anywhere in the checkout. See [Running on Euler](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/guides/euler.md).
+
+| Flag | Applies to | Effect |
+|---|---|---|
+| `--smoke` | sweeps, optimizations | Sweeps: tiny corner-of-hypercube design set in a temporary directory. Optimizations: a 2-generation, population-6 search with any constraint relaxed |
+| `--clean` | sweeps, optimizations | Delete generated outputs before running |
+| `--n-workers` / `--n-processes` | sweeps / optimizations | Parallel worker count |
+| `--n-max-gen`, `--pop-size` | optimizations | NSGA-II generations and population size |
+| `--no-plot`, `--plot-only` | optimizations | Split the search from the plotting, as the DVC stages do |
+| `--save-dir` | optimizations | Where results and checkpoints go |
+| `--skip-param-check` | optimizations | Skip the check that every decision variable matters |
+
+## Optimizations
+
+Each `opt_*` script defines its decision variables, bounds and objectives and hands them to `tango.pymoo_api.OptApp`, which supplies the command line, the baseline run, the NSGA-II search (`tango.pymoo_api.Minimization`) and the plots. Each has its own DVC pipeline and SLURM job script.
+
+Every application searches mass flow rate, injection pressure and the surface pipe diameter. Doublets also search the injection and production well diameters, plus the target extraction pressure where the production well has a pump. AGS applications also search well depth, horizontal loop length and diameter, and vertical well diameter. Condensing pressures for water and ORC cycles are site conditions and are not searched. Each application also reports production temperature, specific investment cost and OPEX for its Pareto front.
+
+| Application | Plant-specific variables |
 |---|---|
 | `opt_hydro_sf_electric`, `opt_hydro_sf_electric_5spot`, `opt_EGS_electric` | Flash (separator) pressure |
 | `opt_hydro_df_electric` | High-pressure flash pressure, low-pressure flash as a fraction of it |
@@ -48,54 +78,18 @@ temperature, specific investment cost, and OPEX for its Pareto front.
 | `opt_hydro_direct_heat`, `opt_EGS_direct_heat`, `opt_CO2_EGS_direct_heat`, `opt_CPG_direct_heat` | None |
 | `opt_AGS_direct_heat` | None; also constrains production temperature to at least 105 °C |
 
-Before searching, every app checks that each decision variable actually
-matters: moving it up and down from the config's own value must change at
-least one objective or constraint, or the run stops with
-`InertParameterError` naming it. This costs `1 + 2 × (number of variables)`
-extra simulations; skip it with `--skip-param-check` once an app is known to
-be good.
+Before searching, every application checks that each decision variable matters: moving it up and down from the configuration's own value must change at least one objective or constraint, or the run stops with `InertParameterError` naming it. This costs `1 + 2 × (number of variables)` extra simulations; skip it with `--skip-param-check` once an application is known to be good.
 
-For a fast end-to-end check, run an app with `--smoke` (a 2-generation,
-population-6 search plus any relaxed constraint) and a throwaway `--save-dir`.
-The top-level `justfile`'s `apps` recipe does this for every app, running
-`--no-plot` then `--plot-only` against the same `--save-dir` to exercise the
-two-stage optimize/plot split in each app's `dvc.yaml`.
+## On hold
 
-## On hold — `_on_hold/`
+Applications in `_on_hold/` are kept but no longer run: `just slurm`, `just apps`, the wheel and `tango_cli init` all skip them.
 
-Apps that are kept but no longer run: `just slurm`, `just apps`, the wheel
-and `tango apps` all skip them.
+- `opt_hydro_df_electric_surrogate`: `opt_hydro_df_electric`'s search against a trained surrogate model instead of the real simulation. Its LCOE predictions near the Pareto front never got within the 1% needed to trust the result. Whether to bring it back or delete it is tracked in [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106).
 
-- `opt_hydro_df_electric_surrogate`: `opt_hydro_df_electric`'s search against
-  a trained surrogate model instead of the real simulation. Its LCOE
-  predictions near the Pareto front never got within the 1% needed to trust
-  the result. Whether to bring it back or delete it is tracked in
-  [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106).
+## Adding an application
 
-## Sweeps — `run_*_sweep`
-
-Full generate → sweep → summarize → plot DVC pipelines, one directory per
-sweep. Each has a `common.py` (grid/LHS bounds), `dvc.yaml`, `params.yaml`
-(tunable knobs DVC tracks for staleness), a `--clean` flag, a `--smoke` flag
-(tiny corner-of-hypercube design matrix, written to a throwaway tempdir —
-never touches `outputs/`), and a SLURM `*_job.sh` script for Euler.
-
-| App | Sweeps |
-|---|---|
-| `run_AGS_direct_heat_sweep` | Well depth × mass flow rate × horizontal loop length × loop diameter (12,870 designs) for the Triemli AGS site. |
-| `run_EGS_direct_heat_sweep` | Well depth × mass flow rate (100 designs) for the Triemli EGS site. |
-| `run_hydro_df_electric_sweep` | One-at-a-time (OFAT) sweep across the double-flash topology's material/reservoir/well/surface-plant parameters. |
-
-Run one via DVC (from the app's own directory):
-
-```bash
-cd applications/run_hydro_df_electric_sweep
-uv run dvc repro    # runs only stale stages, caches the rest
-```
-
-Or submit it on Euler/other SLURM clusters (see the top-level `README.md`'s
-"Running on Euler" section):
-
-```bash
-just slurm run_hydro_df_electric_sweep
-```
+1. Copy the closest existing application directory and rename every file prefix to the new name.
+2. Point it at a configuration in `example_configs/`. Add a new configuration there first if none fits.
+3. Give it a fast end-to-end mode with `--smoke`. The `apps` recipe in the `justfile` finds every `opt_*` application and runs it with `--smoke`; add a sweep's invocation there by hand.
+4. List every file in `pyproject.toml`'s `[tool.hatch.build.targets.wheel.force-include]`, so that `tango_cli init --app` ships it.
+5. Add a row to the catalog above.

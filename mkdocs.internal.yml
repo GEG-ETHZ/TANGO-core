@@ -1,0 +1,38 @@
+# Internal preview of the docs site: everything in docs/, including the
+# internal pages the public build excludes (task log, roadmap, archive,
+# long-term exploration). docs.yml deploys this build to the org-private
+# Pages site until the public release; then it deploys the public build.
+#   just docs-internal   → http://127.0.0.1:8000
+INHERIT: mkdocs.yml
+site_name: TANGO (internal)
+site_dir: site-internal
+nav:
+  - Internal:
+      - Task log: tango_tasks.md
+      - Vision and roadmap: TANGO_vision_and_roadmap/README.md
+      - Long-term architecture: long_term_architecture_exploration.md
+      - Bugs found and fixed: bugs-fixed-in-tango.md
+      - Aitken speed-up: aitkens_speedup.md
+      - TESPy limitations: tespy_limitations.md
+      - pymoo generation budget: pymoo_generation_budget.md
+      - Walkthrough: walkthrough.md
+      - Archive: archive/README.md
+plugins:
+  - search
+  - exclude:
+      glob:
+        - AGENTS.md
+        # rates named colleagues; kept off every build until it is deleted or rewritten
+        - archive/code-quality-report.md
+        # fragments written by tools/gen_reference.py, included by snippets
+        - "reference/generated/*"
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            merge_init_into_class: true
