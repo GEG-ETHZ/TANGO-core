@@ -19,6 +19,10 @@ well) and the per-node detail of the surface plant are kept in
 
 --8<-- "docs/reference/generated/outputs-well.md"
 
+## <span class="tango-chip well">well</span> Grouped subsurface
+
+--8<-- "docs/reference/generated/outputs-grouped_subsurface.md"
+
 ## <span class="tango-chip reservoir">reservoir</span> Reservoir
 
 --8<-- "docs/reference/generated/outputs-reservoir.md"

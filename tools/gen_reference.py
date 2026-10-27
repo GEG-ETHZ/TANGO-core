@@ -6,10 +6,14 @@ site includes with snippets. Every table is derived from the code itself:
 - Config keys: the ``Field(frozen=True)`` fields of each registered
   component class (``components/registry.py``) and the top-level schemas in
   ``core/specs.py``, with each field's attribute docstring as description.
+  A component field whose type is itself a pydantic model (the segment and
+  ``raft:`` blocks of a ``grouped_subsurface``) is a nested block, with its
+  own key table, or a pointer to the component whose keys it takes.
   Keys a component receives from ``common``, ``layout`` or ``sim_config``
   (``workflows/workflow.py::_PROTECTED_COMPONENT_KEYS``) are listed separately.
 - Outputs: the scalar per-timestep fields of each component's ``*History``
-  dataclass (the ``<stem>.smry.csv`` columns) and the economic state
+  dataclass (the ``<stem>.smry.csv`` columns), including a nested block's
+  own history (columns ``<name>.<block>_<value>``), and the economic state
   (the ``<stem>.econ.csv`` columns).
 - Surface plant: the TESPy node types and node roles a ``power_plant`` graph
   accepts.
@@ -53,6 +57,7 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "reservoir": ("reservoir",),
     "well": ("injection_well", "production_well", "production_well_with_pump", "horizontal_well"),
     "surface": ("surface",),
+    "grouped_subsurface": ("grouped_subsurface",),
     "economic": ("economic",),
 }
 #: Where a protected key comes from in the config.
@@ -187,6 +192,95 @@ def history_rows(history_cls: type, prefix: str, state_cls: type | None = None) 
     return rows
 
 
+def block_fields(cls: type[BaseModel]) -> dict[str, type[BaseModel]]:
+    """Return a component's nested config blocks: its non-frozen fields typed as a pydantic model.
+
+    Args:
+        cls: A registered component class.
+
+    Returns:
+        Mapping of block (field) name to the block's model class.
+    """
+    return {
+        name: field.annotation
+        for name, field in cls.model_fields.items()
+        if not field.frozen and isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
+    }
+
+
+def registry_key(cls: type) -> tuple[str, str] | None:
+    """Return the ``(type, variant)`` a class is registered under, if it is a component.
+
+    Args:
+        cls: Any class.
+
+    Returns:
+        The registry key, or None.
+    """
+    return next((key for key, registered in COMPONENT_REGISTRY.items() if registered is cls), None)
+
+
+def blocks_text(cls: type[BaseModel]) -> str:
+    """Return the key tables of a component's nested config blocks.
+
+    A block that is itself a registered component takes that component's
+    keys, documented with it, so it gets a pointer instead of a table.
+
+    Args:
+        cls: A registered component class.
+
+    Returns:
+        Markdown: a table of the blocks, then one key table per block model.
+    """
+    blocks = block_fields(cls)
+    if not blocks:
+        return ""
+    docs = attribute_docstrings(cls)
+    rows = []
+    for name, model in blocks.items():
+        key = registry_key(model)
+        takes = f"the keys of `{key[0]}` · `{key[1]}`" if key else f"`{model.__name__}` keys, below"
+        rows.append(f"| `{name}:` | {takes} | {describe(docs.get(name))} |")
+    text = "Nested blocks:\n\n| Block | Keys | Meaning |\n|---|---|---|\n" + "\n".join(rows) + "\n\n"
+    for model in dict.fromkeys(m for m in blocks.values() if registry_key(m) is None):
+        names = ", ".join(f"`{name}:`" for name, m in blocks.items() if m is model)
+        text += f"`{model.__name__}` ({names}):\n\n" + keys_table(model, frozen_only=True) + "\n"
+    return text
+
+
+def block_outputs_text(cls: type[BaseModel]) -> str:
+    """Return the output columns of a component's nested blocks that keep their own history.
+
+    Args:
+        cls: A registered component class.
+
+    Returns:
+        Markdown: a table per block history, or a pointer for a block that
+        is itself a registered component.
+    """
+    text = ""
+    for name, model in block_fields(cls).items():
+        if "history" not in model.model_fields:
+            continue
+        key = registry_key(model)
+        if key:
+            text += f"Columns `<name>.{name}_<value>`: the outputs of `{key[0]}` · `{key[1]}`.\n\n"
+            continue
+        history_cls = model.model_fields["history"].annotation
+        state_cls = model.model_fields["state"].annotation if "state" in model.model_fields else None
+        state_cls = state_cls if isinstance(state_cls, type) else None
+        rows = (
+            history_rows(history_cls, f"<name>.{name}_", state_cls) if isinstance(history_cls, type) else []
+        )
+        if rows:
+            text += (
+                f"`{name}:` block (`{model.__name__}`):\n\n| Column | Meaning |\n|---|---|\n"
+                + "\n".join(rows)
+                + "\n\n"
+            )
+    return text
+
+
 def component_fragments(group: str) -> tuple[str, str]:
     """Return the config and output fragments for one component group.
 
@@ -201,7 +295,7 @@ def component_fragments(group: str) -> tuple[str, str]:
         if comp_type not in GROUPS[group]:
             continue
         title = f"### `{comp_type}` · `{variant}` → `{cls.__name__}`\n\n"
-        config.append(title + keys_table(cls, frozen_only=True) + "\n")
+        config.append(title + keys_table(cls, frozen_only=True) + "\n" + blocks_text(cls))
         if group == "economic":
             continue
         history_cls = cls.model_fields["history"].annotation
@@ -209,7 +303,13 @@ def component_fragments(group: str) -> tuple[str, str]:
         state_cls = state_cls if isinstance(state_cls, type) else None
         rows = history_rows(history_cls, "<name>_", state_cls) if isinstance(history_cls, type) else []
         if rows:
-            outputs.append(title + "| Column | Meaning |\n|---|---|\n" + "\n".join(rows) + "\n\n")
+            outputs.append(
+                title
+                + "| Column | Meaning |\n|---|---|\n"
+                + "\n".join(rows)
+                + "\n\n"
+                + block_outputs_text(cls),
+            )
     if group == "economic":
         rows = history_rows_state(EconomicState)
         outputs.append("| Column | Meaning |\n|---|---|\n" + "\n".join(rows) + "\n")

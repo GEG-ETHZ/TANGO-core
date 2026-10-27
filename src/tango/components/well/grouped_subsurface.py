@@ -197,8 +197,11 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
     """
 
     injection_well: NumericalInjectionWell
+    """The injection segment: a numerical injection well's config block."""
     horizontal_well: NumericalWell
+    """The horizontal segment: a numerical horizontal well's config block."""
     production_well: NumericalProductionWell
+    """The production segment: a numerical production well's config block."""
 
     @model_validator(mode="before")
     @classmethod
@@ -329,8 +332,11 @@ class RaftGroupedSubsurface(GroupedSubsurfaceComponent):
     """
 
     injection_well: WellSegment
+    """The injection segment's geometry."""
     horizontal_well: WellSegment
+    """The horizontal segment's geometry."""
     production_well: WellSegment
+    """The production segment's geometry."""
     raft: RaftWrapper
     """RAFT's config template and the RAFT model run from it, with RAFT's own
     per-timestep ``state``/``history``."""

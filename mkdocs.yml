@@ -110,6 +110,7 @@ nav:
   - Components:
       - components/index.md
       - Wells: components/wells.md
+      - Grouped subsurface: components/grouped-subsurface.md
       - Reservoir: components/reservoir.md
       - Surface plant: components/surface-plant.md
       - Economics: components/economics.md
