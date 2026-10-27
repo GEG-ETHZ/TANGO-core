@@ -53,19 +53,9 @@ sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
   target_extraction_pressure: 1_300_000    # Pa — set by the opt_hydro_ORC_electric Pareto pick; see header
-  # manual (not manual-fracking-check): this config's injection well outlet
-  # sits right at the fracking-safety margin -- ~54.48 MPa by old tango's
-  # numerical wellbore model (measured before old tango was removed; see
-  # git tag pre-tango-core-rename-2026-09-18), just under the 55 MPa
-  # fracking-safety threshold, vs. ~55.44 MPa by tango's own numerical
-  # wellbore model, just OVER it. A <2% well-model discrepancy (consistent
-  # with other known small numerical differences between the two
-  # implementations) that happens to straddle this site's unusually tight
-  # margin. manual-fracking-check has no self-correction by design (see
-  # SystemBCIteration's module docstring) so it would hard-fail here; skip
-  # the check for this benchmarking port rather than tune the input values
-  # to dodge it.
-  injection_mode: manual  # InjectionPolicy: manual | manual-fracking-check
+  # The injection well outlet peaks at 53.90 MPa, just under the 53.96 MPa
+  # fracking threshold: opt_hydro_ORC_electric's pick sits at that edge.
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
   mass_rate: 100.0           # kg/s — set by the opt_hydro_ORC_electric Pareto pick; see header
   bc_checkpoint_idx: 4       # component_idx of the surface (below)
 

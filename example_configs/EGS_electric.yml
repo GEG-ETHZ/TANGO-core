@@ -17,7 +17,12 @@
 # brine reaches the surface at only ~115 degC -- too cold for a flash
 # plant, which works by boiling the brine at reduced pressure; with
 # realistic turbine/pump efficiencies the plant there barely stayed
-# net-positive (LCOE ~31). At 5000 m it delivers ~174 degC.
+# net-positive (LCOE ~31). At 5000 m the brine arrives at ~178 degC in the
+# first year. At this config's 147 kg/s the reservoir cools quickly: ~125 degC
+# by year 4 and ~111 degC by year 19, when net power has fallen from 7.5 MW
+# to almost zero. This design is kept anyway: the optimizer scores LCOE
+# averaged over the run and only rejects negative output, so a plant that
+# idles for its last ~10 years can still be the pick. See GitHub #121.
 #
 # Site parameters (Triemli-like, deepened):
 #   surface temperature : 11 degC (284.15 K)

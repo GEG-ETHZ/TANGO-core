@@ -42,7 +42,7 @@
 #    run: this resolves to a passive Valve across the entire run, not a
 #    running pump -- CO2's thermosiphon effect here is genuinely strong
 #    enough on its own once the CO2 is reinjected dense (production
-#    wellhead delivers ~12-14 MPa, well above the 8.33 MPa needed at
+#    wellhead delivers ~12.5-14.3 MPa, well above the 8.33 MPa needed at
 #    injection; see injection_cooler below); the device only
 #    throttles the natural surplus down, it doesn't add to it. See
 #    GitLab issue #57 for the real gap this surfaces: a system that
@@ -182,19 +182,20 @@ components:
       # pressure and the solve fails outright.
       #
       # injection_cooler then cools the CO2 from the 50 degC district-heating
-      # return to 38 degC so it is reinjected dense (~670-690 kg/m3). The
-      # window is narrow:
-      # - Without the cooler the CO2 leaves at ~76 bar and 50 degC
-      #   (~220 kg/m3): the injection column is light, the thermosiphon
-      #   weakens, the wellhead pressure falls with it, and the loop settles
-      #   at about a fifth of the heat output.
-      # - Colder than ~35 degC, the dense column pushes the injection well's
+      # return to 38 degC so it is reinjected dense (~690-710 kg/m3 after
+      # circulation_control). The window is narrow:
+      # - Without cooling (T_out at 50 degC) the CO2 is reinjected at
+      #   ~7.6 MPa and ~205 kg/m3: the injection column is light, the
+      #   thermosiphon weakens, the wellhead pressure falls with it, and the
+      #   loop settles at about a third of the heat output.
+      # - At 37 degC or colder, the dense column pushes the injection well's
       #   bottom-hole pressure past the 30.9 MPa fracking threshold
-      #   (34 degC: 31.0 MPa).
-      # - Warmer than ~42 degC, the injected CO2 nears its pseudo-critical
-      #   density drop and the loop stops converging.
-      # At 38 degC the bottom-hole pressure peaks at 30.0 MPa. The heat
-      # rejected below 50 degC is too cold for the district-heating network.
+      #   (37 degC: 31.15 MPa).
+      # - Warmer, the column lightens and the heat output falls (42 degC:
+      #   ~16% less); by 44 degC the plant delivers negative heat by year 10.
+      # At 38 degC the bottom-hole pressure peaks at 30.89 MPa, right at the
+      # threshold. The heat rejected below 50 degC is too cold for the
+      # district-heating network.
       # circulation_control resolves to its passive Valve leg and throttles
       # the natural surplus down to injection_pressure.
       nodes:
