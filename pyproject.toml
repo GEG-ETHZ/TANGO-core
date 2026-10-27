@@ -90,11 +90,11 @@ dev = [
 packages = ["src/tango"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# example_configs/ lives at the repo root (used directly by tests/dvc/justfile
+# templates/ lives at the repo root (used directly by tests/dvc/justfile
 # via that path) rather than under src/tango/ -- force-include ships it in
-# the wheel at tango/example_configs/ (see tango_cli init) without moving or
+# the wheel at tango/templates/ (see tango_cli init) without moving or
 # duplicating it, so nothing referencing the top-level path needs to change.
-"example_configs" = "tango/example_configs"
+"templates" = "tango/templates"
 
 # User-facing docs (docs/; developer docs live in dev_docs/ and are not
 # shipped). Files are listed individually, not the whole directory, for the

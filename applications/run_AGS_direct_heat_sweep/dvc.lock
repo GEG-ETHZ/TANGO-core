@@ -3,7 +3,7 @@ stages:
   generate:
     cmd: python generate.py
     deps:
-    - path: ../../example_configs/AGS_direct_heat.yml
+    - path: ../../templates/AGS_direct_heat.yml
       hash: md5
       md5: a885418ed783476bbe19c93e5e1ce6d9
       size: 10876
@@ -23,7 +23,7 @@ stages:
   sweep:
     cmd: python sweep.py
     deps:
-    - path: ../../example_configs/AGS_direct_heat.yml
+    - path: ../../templates/AGS_direct_heat.yml
       hash: md5
       md5: a885418ed783476bbe19c93e5e1ce6d9
       size: 10876

@@ -1,6 +1,6 @@
 # claude_tests fixture: undefined_well_pattern
 # layout.well_pattern names a string that matches no known WellPattern alias.
-# Derived from example_configs/hydro_sf_electric.yml (well_pattern: DOUBLET -> HEXAGON).
+# Derived from templates/hydro_sf_electric.yml (well_pattern: DOUBLET -> HEXAGON).
 #
 # NOTE (current behavior): well_pattern is stored as a plain `str` field and
 # is only resolved into a WellPattern enum member lazily, inside the

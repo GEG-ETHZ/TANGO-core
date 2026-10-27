@@ -11,7 +11,7 @@ dict, rather than mutating a live object in place::
 
 Sweeps ``common.rock_k`` (deliberately a ``common:`` field, not a
 component-local one) across a small set of values for
-``example_configs/AGS_direct_heat.yml``, and reports final-timestep
+``templates/AGS_direct_heat.yml``, and reports final-timestep
 net thermal power for each. This is a minimal demo, not the full
 generate/sweep/summarize/plot pipeline — see dev_docs/tango_tasks.md
 "IMMEDIATE NEXT" for the scope decision.
@@ -47,9 +47,9 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.workflows.workflow import Workflow  # noqa: E402
 
-# AGS_direct_heat.yml lives in example_configs/ (configs only) — not
-# colocated with this script, unlike the old example_configs/ layout.
-YAML_PATH = _REPO_ROOT / "example_configs" / "AGS_direct_heat.yml"
+# AGS_direct_heat.yml lives in templates/ (configs only) — not
+# colocated with this script, unlike the old templates/ layout.
+YAML_PATH = _REPO_ROOT / "templates" / "AGS_direct_heat.yml"
 
 ROCK_K_SWEEP_W_PER_MK = [1.5, 2.1, 3.0, 4.0]
 

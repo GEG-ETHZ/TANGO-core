@@ -54,7 +54,7 @@ class Workflow:
 
     Usage::
 
-        wf = Workflow.from_file("example_configs/hydro_sf_electric.yml")
+        wf = Workflow.from_file("templates/hydro_sf_electric.yml")
         wf.run()
 
     ``from_file``/``from_str``/``to_file``/``to_str``/``to_dict`` are the

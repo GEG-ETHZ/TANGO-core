@@ -17,7 +17,7 @@ import pytest
 from tango import results_export
 from tango.workflows.workflow import Workflow
 
-_EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
+_EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "templates"
 _N_TSTEPS_FAST = 3
 
 

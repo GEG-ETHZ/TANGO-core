@@ -7,7 +7,7 @@
         <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=16;fontStyle=1;" value="hydro_df_electric — tango Control-Flow Graph" vertex="1">
           <mxGeometry height="26" width="700" x="1400" y="-260" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" value="example_configs/hydro_df_electric.yml — basic blocks connected by real control-flow edges; diamonds are actual branches/loop conditions from the source." vertex="1">
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" value="templates/hydro_df_electric.yml — basic blocks connected by real control-flow edges; diamonds are actual branches/loop conditions from the source." vertex="1">
           <mxGeometry height="18" width="700" x="1400" y="-234" as="geometry" />
         </mxCell>
         <mxCell id="n1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=12;fontStyle=1;" value="&lt;b&gt;START&lt;/b&gt;" vertex="1">

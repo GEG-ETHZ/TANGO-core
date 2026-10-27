@@ -1,6 +1,6 @@
 # claude_tests fixture: no_timestep
 # sim_config.dt_years is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (dt_years line removed).
+# Derived from templates/hydro_sf_electric.yml (dt_years line removed).
 #
 # NOTE (current behavior): dt_years is read via a plain dict index
 # (sim_config["dt_years"]) in Workflow.__init__, so today this raises a bare

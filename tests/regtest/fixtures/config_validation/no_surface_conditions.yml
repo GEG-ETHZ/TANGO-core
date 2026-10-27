@@ -1,6 +1,6 @@
 # claude_tests fixture: no_surface_conditions
 # surface.surface_temperature and surface.surface_pressure are both omitted.
-# Derived from example_configs/hydro_sf_electric.yml (both lines removed).
+# Derived from templates/hydro_sf_electric.yml (both lines removed).
 #
 # NOTE (current behavior): both fields are required Pydantic `float` fields
 # on the surface component base class with no default, so omitting them

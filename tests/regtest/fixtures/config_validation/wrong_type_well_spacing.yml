@@ -1,6 +1,6 @@
 # claude_tests fixture: wrong_type_well_spacing
 # layout.well_spacing is a non-numeric string instead of a float.
-# Derived from example_configs/hydro_sf_electric.yml (well_spacing: 707.0 -> a string).
+# Derived from templates/hydro_sf_electric.yml (well_spacing: 707.0 -> a string).
 #
 # NOTE (current behavior): well_spacing is a Pydantic `float` field on
 # LumpedReservoir / SingleFlashSurface, so a non-coercible string DOES

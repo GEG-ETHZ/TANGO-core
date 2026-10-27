@@ -1,6 +1,6 @@
 # claude_tests fixture: optional_block_missing
 # The optional top-level 'economic:' block is absent entirely.
-# Derived from example_configs/hydro_sf_electric.yml (economic: block removed).
+# Derived from templates/hydro_sf_electric.yml (economic: block removed).
 #
 # NOTE (current behavior): the economic block isn't read anywhere in
 # Workflow.__init__ today -- there's no economic component wiring yet, so

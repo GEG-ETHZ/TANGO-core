@@ -1,4 +1,4 @@
-# `example_configs/`
+# `templates/`
 
 The actively-maintained set of `tango` YAML configs. Every file here backs
 either a unit/regression test, an application in [`../applications/`](../applications/README.md),
@@ -8,13 +8,13 @@ or both — treat this as the current source of truth for what a valid
 Run any of them directly:
 
 ```bash
-uv run tango_cli run example_configs/hydro_sf_electric.yml
+uv run tango_cli run templates/hydro_sf_electric.yml
 ```
 
 Or just validate one without running it:
 
 ```bash
-uv run tango_cli validate example_configs/hydro_sf_electric.yml
+uv run tango_cli validate templates/hydro_sf_electric.yml
 ```
 
 ## Configs

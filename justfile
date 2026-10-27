@@ -63,9 +63,9 @@ test *args:
         args="${args/--all/}"
         uv run pytest -v $args
     elif [[ "$args" == *"--example-configs"* ]]; then
-        # Full-length regression coverage for every example_configs/*.yml
+        # Full-length regression coverage for every templates/*.yml
         # (see tests/regtest/test_example_configs.py's own module docstring
-        # and CONTRIBUTING.md's "Every example_configs/ YAML is
+        # and CONTRIBUTING.md's "Every templates/ YAML is
         # regression-tested" Commandment) -- already included in --all
         # above (no -m filter there), this is just a fast, direct way to
         # run only this slice without the rest of the suite.
@@ -106,13 +106,13 @@ phase-diagrams *configs:
     # No -e: a config that fails is recorded and the loop moves on; failures
     # are reported together at the end.
     set -u
-    if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls example_configs/*.yml | xargs -n1 basename); fi
+    if [ -n "{{configs}}" ]; then set -- {{configs}}; else set -- $(ls templates/*.yml | xargs -n1 basename); fi
     failed=""
     for c in "$@"; do
         c="${c%.yml}"; out="scratch_output/$c"
         rm -rf "$out"; mkdir -p "$out"
         echo "== $c"
-        if uv run tango_cli run --save-dir "$out" "example_configs/$c.yml" > "$out/run.log" 2>&1; then
+        if uv run tango_cli run --save-dir "$out" "templates/$c.yml" > "$out/run.log" 2>&1; then
             ls "$out"/*.phase_*.html 2>/dev/null | sed 's/^/   /'
         else
             echo "   FAILED -- see $out/run.log"; failed="$failed $c"
@@ -122,7 +122,7 @@ phase-diagrams *configs:
 
 [windows]
 phase-diagrams *configs:
-    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem example_configs/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "example_configs/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
+    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem templates/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "templates/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
 # Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
 # `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
@@ -145,8 +145,8 @@ diagrams:
         echo "$src -> $out"
     done
 
-# example_configs/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
-# "Every example_configs/ YAML is regression-tested" Commandment), not duplicated here.
+# templates/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
+# "Every templates/ YAML is regression-tested" Commandment), not duplicated here.
 # Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
 [unix]
 apps *args:

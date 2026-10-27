@@ -1,6 +1,6 @@
 # claude_tests fixture: invalid_well_spacing
 # layout.well_spacing is zero/negative, which is not physically valid.
-# Derived from example_configs/hydro_sf_electric.yml (well_spacing: 707.0 -> -707.0).
+# Derived from templates/hydro_sf_electric.yml (well_spacing: 707.0 -> -707.0).
 #
 # NOTE (current behavior): well_spacing is a plain Pydantic `float` field
 # with no positivity constraint, so a negative value is currently accepted

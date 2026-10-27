@@ -4,7 +4,7 @@ This is the tango port of ``applications/run_EGS_direct_heat_sweep/common.py``.
 Sweep-axis constants (``WELL_DEPTHS_M``, ``MASS_FLOW_RATES_KG_S``) are copied
 verbatim from that file so the two sweeps explore the exact same design
 space; only the paths differ, since this sweep targets
-``example_configs/EGS_direct_heat.yml`` instead of a local
+``templates/EGS_direct_heat.yml`` instead of a local
 ``triemli_dh_base.yml`` copy. Unlike the AGS direct-heat sweep (which has
 four axes: depth, mass-flow, loop-length, loop-diameter), EGS has no
 horizontal loop, so this is a 2-axis (depth x mass-flow) grid — see
@@ -19,7 +19,7 @@ import yaml
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 _REPO_ROOT = SCRIPT_DIR.parents[1]
-BASE_YAML = _REPO_ROOT / "example_configs" / "EGS_direct_heat.yml"
+BASE_YAML = _REPO_ROOT / "templates" / "EGS_direct_heat.yml"
 DEFAULT_SWEEP_DIR = SCRIPT_DIR / "outputs"
 PARAMS_FILE = SCRIPT_DIR / "params.yaml"
 

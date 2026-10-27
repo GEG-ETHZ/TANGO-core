@@ -1,8 +1,8 @@
 # `applications/`
 
 Multi-run pipelines (demos, sweeps, optimizations) built on top of one
-[`../example_configs/`](../example_configs/README.md) config — as opposed to
-[`../example_configs/`](../example_configs/README.md) itself, which is
+[`../templates/`](../templates/README.md) config — as opposed to
+[`../templates/`](../templates/README.md) itself, which is
 single-simulation configs only. Each app is its own directory; nothing here
 is a library import target for anything outside its own directory.
 

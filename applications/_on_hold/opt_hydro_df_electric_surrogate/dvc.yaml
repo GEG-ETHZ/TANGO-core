@@ -11,7 +11,7 @@ stages:
       - run_trajectory.py
       - common.py
       - ../../opt_hydro_df_electric/opt_hydro_df_electric.py
-      - ../../../example_configs/hydro_df_electric.yml
+      - ../../../templates/hydro_df_electric.yml
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py).
       - ../../../src/tango.hash

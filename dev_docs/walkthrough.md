@@ -14,7 +14,7 @@ section directly:
 1. Scaffold a project with the GEG cookiecutter template.
 2. `uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.1.0`
    (swap in whatever the current release tag is).
-3. `tango_cli init .` to pull down `example_configs/` and every
+3. `tango_cli init .` to pull down `templates/` and every
    `applications/` pipeline into the new project (`--app` narrows this to
    specific apps, `--no-apps` skips them entirely — see `--help`).
 
@@ -24,7 +24,7 @@ the tag.
 ### 1.2 Run an example config
 
 ```bash
-tango_cli run --save-dir results example_configs/hydro_sf_electric.yml
+tango_cli run --save-dir results templates/hydro_sf_electric.yml
 ```
 
 Prints a one-line per-timestep summary and, because of `--save-dir`,
@@ -129,7 +129,7 @@ just apps
 Smoke-tests every script in `applications/` (demos, sweep
 pipelines with `--smoke`, optimizers at a tiny population/generation
 count) — checks the pipeline code runs end to end, not that every design
-converges. `example_configs/` regression coverage does **not** live here
+converges. `templates/` regression coverage does **not** live here
 anymore — that moved to `just test --example-configs` (see below), so
 `apps`'s job is purely `applications/` scripts now.
 
@@ -142,7 +142,7 @@ just test --all
 Runs the full pytest suite, including
 `tests/regtest/test_example_configs.py`'s full-length (real
 `sim_config.num_tsteps`, not a reduced smoke count) regression coverage
-for every `example_configs/*.yml` — golden LCOE values, injection-well
+for every `templates/*.yml` — golden LCOE values, injection-well
 physics invariants, surface net-power/thermal sanity checks. Locally this
 finishes in well under a minute; note that this suite is deliberately
 *not* run in GitLab CI (the runner is too slow for it), so this is the

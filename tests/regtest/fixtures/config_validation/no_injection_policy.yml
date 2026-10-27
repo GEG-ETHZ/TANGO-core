@@ -1,6 +1,6 @@
 # claude_tests fixture: no_injection_policy
 # sim_config.injection_mode is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (injection_mode line removed).
+# Derived from templates/hydro_sf_electric.yml (injection_mode line removed).
 #
 # NOTE: today, absent injection_mode is how Workflow.__init__ decides to
 # build a SystemDirect orchestrator instead of SystemBCIteration -- a silent

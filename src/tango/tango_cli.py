@@ -4,15 +4,15 @@ Usage examples
 --------------
 Run a simulation::
 
-    tango_cli run example_configs/hydro_sf_electric.yml
+    tango_cli run templates/hydro_sf_electric.yml
 
 Run with debug logging::
 
-    tango_cli run example_configs/hydro_sf_electric.yml --log-level DEBUG
+    tango_cli run templates/hydro_sf_electric.yml --log-level DEBUG
 
 Validate an input file without running::
 
-    tango_cli validate example_configs/hydro_sf_electric.yml
+    tango_cli validate templates/hydro_sf_electric.yml
 
 Print version::
 
@@ -124,7 +124,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  tango_cli run example_configs/hydro_sf_electric.yml\n"
+            "  tango_cli run templates/hydro_sf_electric.yml\n"
             "  tango_cli run my_config.yml --log-level DEBUG\n"
             "  tango_cli --log-level DEBUG run my_config.yml\n"
             "  tango_cli validate my_config.yml\n"
@@ -161,7 +161,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "input_file",
         type=Path,
         metavar="INPUT_FILE",
-        help=("Path to the tango YAML input file (e.g. example_configs/hydro_sf_electric.yml)."),
+        help=("Path to the tango YAML input file (e.g. templates/hydro_sf_electric.yml)."),
     )
     run_p.add_argument(
         "--save-dir",
@@ -223,12 +223,12 @@ def _build_parser() -> argparse.ArgumentParser:
         allow_abbrev=False,
         help="Copy the bundled example configs and applications into a local directory.",
         description=(
-            "Copy tango's bundled example_configs/ and every applications/ "
+            "Copy tango's bundled templates/ and every applications/ "
             "pipeline into DEST (created if needed) as a starting point for "
             "your own analysis. Anything that already exists under DEST is "
             "left as-is (not overwritten, not an error), so re-running init "
             "is always safe -- e.g. to pull down applications/ after an "
-            "earlier init only fetched example_configs/. Pass --app one or "
+            "earlier init only fetched templates/. Pass --app one or "
             "more times to copy only specific applications/ instead of all "
             "of them, or --no-apps to skip applications/ entirely."
         ),
@@ -240,7 +240,7 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=Path(),
         metavar="DEST",
-        help="Directory to copy example_configs/ and applications/ into. Default: current directory.",
+        help="Directory to copy templates/ and applications/ into. Default: current directory.",
     )
     init_p.add_argument(
         "--app",
@@ -255,7 +255,7 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p.add_argument(
         "--no-apps",
         action="store_true",
-        help="Copy only example_configs/, skipping applications/ entirely.",
+        help="Copy only templates/, skipping applications/ entirely.",
     )
     init_p.add_argument(
         "--list-apps",
@@ -372,21 +372,21 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
     explicit_apps = args.apps is not None
     apps: list[str] = [] if args.no_apps else (args.apps if explicit_apps else sorted(_AVAILABLE_APPS))
 
-    example_dest = args.dest / "example_configs"
+    example_dest = args.dest / "templates"
     app_targets = [args.dest / "applications" / app for app in apps]
 
     # Only abort on an existing target when the user named that app
     # explicitly -- an explicit ask that can't be honored without
     # overwriting is worth stopping for. In the default "copy everything"
     # case, an already-existing app is just something to leave alone (see
-    # the per-app skip below), same treatment as example_configs/.
+    # the per-app skip below), same treatment as templates/.
     if explicit_apps:
         for target in app_targets:
             if target.exists():
                 logger.error("%s already exists -- remove it or choose a different DEST.", target)
                 return 1
 
-    # NOT importlib.resources.files("tango.example_configs") -- example_configs/
+    # NOT importlib.resources.files("tango.templates") -- templates/
     # has no __init__.py, so Python treats it as an implicit namespace package,
     # and importlib.resources.as_file() cannot materialize a namespace
     # package's MultiplexedPath as a directory (tries to read it as a single
@@ -396,7 +396,7 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
     if example_dest.exists():
         logger.info("%s already exists -- leaving it as-is.", example_dest)
     else:
-        src = importlib.resources.files("tango") / "example_configs"
+        src = importlib.resources.files("tango") / "templates"
         with importlib.resources.as_file(src) as src_path:
             shutil.copytree(src_path, example_dest)
         logger.info("Copied example configs to %s", example_dest)

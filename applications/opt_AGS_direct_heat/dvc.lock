@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_AGS_direct_heat.py --clean --no-plot
     deps:
-    - path: ../../example_configs/AGS_direct_heat.yml
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: f18dbd73e4736e997370bb9d97b9a19e
+      size: 41
+    - path: ../../templates/AGS_direct_heat.yml
       hash: md5
       md5: 24e440c40f7f60414ec8074c6727cbd1
       size: 10931
-    - path: ../../src/tango.hash
-      hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
-      size: 41
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: 268fcc9ae526e905112a91ef14e54a3f
-      size: 13829
+      md5: 9262f0e81c9f3f4553e7666718b6119a
+      size: 13823
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
+      md5: f18dbd73e4736e997370bb9d97b9a19e
       size: 41
     - path: opt_AGS_direct_heat.py
       hash: md5
-      md5: 268fcc9ae526e905112a91ef14e54a3f
-      size: 13829
+      md5: 9262f0e81c9f3f4553e7666718b6119a
+      size: 13823
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 1276869c62b99d96464b369a919454ce

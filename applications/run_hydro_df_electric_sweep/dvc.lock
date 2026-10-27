@@ -3,7 +3,7 @@ stages:
   generate:
     cmd: python generate.py
     deps:
-    - path: ../../example_configs/hydro_df_electric.yml
+    - path: ../../templates/hydro_df_electric.yml
       hash: md5
       md5: 67d2235a7fae58795eb150162e629e22
       size: 11252
@@ -23,7 +23,7 @@ stages:
   sweep:
     cmd: python sweep.py
     deps:
-    - path: ../../example_configs/hydro_df_electric.yml
+    - path: ../../templates/hydro_df_electric.yml
       hash: md5
       md5: 67d2235a7fae58795eb150162e629e22
       size: 11252

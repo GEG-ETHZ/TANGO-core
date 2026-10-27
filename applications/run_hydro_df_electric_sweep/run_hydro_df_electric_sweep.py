@@ -1,6 +1,6 @@
 """End-to-end orchestrator for the tango double-flash sensitivity sweep.
 
-Targets ``example_configs/hydro_df_electric.yml`` via the ``tango`` engine
+Targets ``templates/hydro_df_electric.yml`` via the ``tango`` engine
 (``src/tango/``). Runs a one-at-a-time (OFAT) sweep across the
 double-flash topology's parameters (material properties, reservoir, wells,
 surface plant components — see ``common.py`` for the exact bounds): each

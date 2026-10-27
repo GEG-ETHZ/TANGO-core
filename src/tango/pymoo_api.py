@@ -908,7 +908,7 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        cfg = yaml.safe_load(Path("example_configs/hydro_df_electric.yml").read_text())
+        cfg = yaml.safe_load(Path("templates/hydro_df_electric.yml").read_text())
         m = Minimization(
             base_cfg=cfg,
             params=[

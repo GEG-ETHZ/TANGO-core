@@ -1,6 +1,6 @@
 """Shared constants and utilities for the tango Triemli direct-heat sweep pipeline.
 
-Targets ``example_configs/AGS_direct_heat.yml``.
+Targets ``templates/AGS_direct_heat.yml``.
 """
 
 import shutil
@@ -11,7 +11,7 @@ import yaml
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 _REPO_ROOT = SCRIPT_DIR.parents[1]
-BASE_YAML = _REPO_ROOT / "example_configs" / "AGS_direct_heat.yml"
+BASE_YAML = _REPO_ROOT / "templates" / "AGS_direct_heat.yml"
 DEFAULT_SWEEP_DIR = SCRIPT_DIR / "outputs"
 PARAMS_FILE = SCRIPT_DIR / "params.yaml"
 

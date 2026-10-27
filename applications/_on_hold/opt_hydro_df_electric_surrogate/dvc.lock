@@ -27,7 +27,7 @@ stages:
   lhs_sweep:
     cmd: python sweep_lhs.py
     deps:
-    - path: ../../../example_configs/hydro_df_electric.yml
+    - path: ../../../templates/hydro_df_electric.yml
       hash: md5
       md5: 78827d5e4a76e55ace203ac7a549aee9
       size: 9585
@@ -158,7 +158,7 @@ stages:
   run_trajectory:
     cmd: python run_trajectory.py
     deps:
-    - path: ../../example_configs/hydro_df_electric.yml
+    - path: ../../templates/hydro_df_electric.yml
       hash: md5
       md5: ccd03c211d870d7a2953733541f8b092
       size: 11250

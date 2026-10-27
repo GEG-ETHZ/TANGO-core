@@ -1,7 +1,7 @@
 """Regression tests for tango's economic-component behavior.
 
 ``hydro_sf_electric.yml``'s own golden-LCOE regression check lives in
-``test_example_configs.py`` alongside every other ``example_configs/``
+``test_example_configs.py`` alongside every other ``templates/``
 YAML's, not here -- this file owns the rest of its coverage instead:
 detailed injection-well/reservoir/surface physics invariants
 (spatial history shape, per-cell monotonicity, ``t_d`` advancement, ...)

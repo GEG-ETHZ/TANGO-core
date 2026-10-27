@@ -11,13 +11,13 @@ of its valid range at once).
 ``PARAMETER_BOUNDS`` below gives each parameter's low/high scale factor,
 keyed by tango's nested
 ``common.*``/``layout.*``/``sim_config.*``/``components.<name>.*``
-config-dict paths, targeting ``example_configs/hydro_df_electric.yml``.
+config-dict paths, targeting ``templates/hydro_df_electric.yml``.
 Two parameters are excluded entirely (documented inline below) because
 the corresponding tango schema field doesn't exist:
 
 - ``props.brine_density`` — ``Common``'s schema (``core/specs.py``,
   ``extra="forbid"``) has no ``brine_density`` field; confirmed dead/removed
-  from every ``example_configs/*.yml`` file already.
+  from every ``templates/*.yml`` file already.
 - ``schedule.num_pp`` — ``Layout``'s schema has no ``num_pp`` field at all;
   not a tango concept yet.
 
@@ -41,7 +41,7 @@ import yaml
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 _REPO_ROOT = SCRIPT_DIR.parents[1]
-BASE_YAML = _REPO_ROOT / "example_configs" / "hydro_df_electric.yml"
+BASE_YAML = _REPO_ROOT / "templates" / "hydro_df_electric.yml"
 DEFAULT_SWEEP_DIR = SCRIPT_DIR / "outputs"
 PARAMS_FILE = SCRIPT_DIR / "params.yaml"
 

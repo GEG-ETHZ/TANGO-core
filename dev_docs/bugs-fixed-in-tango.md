@@ -624,7 +624,7 @@ prematurely.
 
 ## AGS closed loop has no pump anywhere — circulation runs on thermosiphon effect alone
 
-`example_configs/AGS_direct_heat.yml`'s closed loop (`injection_well →
+`templates/AGS_direct_heat.yml`'s closed loop (`injection_well →
 horizontal_well → production_well → surface → back to injection_well`)
 had no pressure-adding device anywhere in it: `injection_well`/
 `production_well` are both the plain, non-pump well types, and the

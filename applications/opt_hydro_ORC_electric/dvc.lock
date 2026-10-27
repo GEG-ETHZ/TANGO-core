@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_hydro_ORC_electric.py --clean --no-plot
     deps:
-    - path: ../../example_configs/hydro_ORC_electric.yml
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: f18dbd73e4736e997370bb9d97b9a19e
+      size: 41
+    - path: ../../templates/hydro_ORC_electric.yml
       hash: md5
       md5: 9e31eadb5e30d9d990110faab4e3c648
       size: 11113
-    - path: ../../src/tango.hash
-      hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
-      size: 41
     - path: opt_hydro_ORC_electric.py
       hash: md5
-      md5: 226ced2ab745a7947541022beec2ca39
-      size: 13129
+      md5: f682d2b3b9fc7d4f403985b985f66bd9
+      size: 13123
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
+      md5: f18dbd73e4736e997370bb9d97b9a19e
       size: 41
     - path: opt_hydro_ORC_electric.py
       hash: md5
-      md5: 226ced2ab745a7947541022beec2ca39
-      size: 13129
+      md5: f682d2b3b9fc7d4f403985b985f66bd9
+      size: 13123
     - path: outputs/pareto_results.csv
       hash: md5
       md5: f4e4b08a22ba369c131ddc66ac7b1093

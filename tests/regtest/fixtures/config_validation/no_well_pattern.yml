@@ -1,6 +1,6 @@
 # claude_tests fixture: no_well_pattern
 # layout.well_pattern is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (well_pattern line removed).
+# Derived from templates/hydro_sf_electric.yml (well_pattern line removed).
 #
 # Expected contract: default to doublet and log a warning telling the user,
 # without stopping construction.

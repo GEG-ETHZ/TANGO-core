@@ -62,7 +62,7 @@ inputs from:
 uv run tango_cli init .
 ```
 
-This copies the `example_configs/` bundled with the installed `tango`
+This copies the `templates/` bundled with the installed `tango`
 version into your project directory. Pass `--app` (repeatable) to also
 copy one of `applications/`'s sweep/optimization/demo pipelines, or
 `--list-apps` to see which are available:
@@ -73,13 +73,13 @@ usage: tango_cli init [-h] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                       [--app APP] [--list-apps]
                       [DEST]
 
-Copy tango's bundled example_configs/ into DEST (created if needed) as a
-starting point for your own analysis. Fails if DEST/example_configs already
+Copy tango's bundled templates/ into DEST (created if needed) as a
+starting point for your own analysis. Fails if DEST/templates already
 exists, to avoid silently overwriting local edits. Pass --app one or more
 times to also copy one of applications/'s sweep/optimization/demo pipelines.
 
 positional arguments:
-  DEST                  Directory to copy example_configs/ into. Default:
+  DEST                  Directory to copy templates/ into. Default:
                         current directory.
 
 options:
@@ -97,7 +97,7 @@ options:
 
 ### Examples
 
-You can run anything in the `./example_configs/` folder with, e.g. `uv run tango_cli run example_configs/hydro_sf_electric.yml`.
+You can run anything in the `./templates/` folder with, e.g. `uv run tango_cli run templates/hydro_sf_electric.yml`.
 
 Run `tango_cli --version` any time to see the exact `tango` version
 installed, along with TANGO's confidentiality/distribution notice.
@@ -115,13 +115,13 @@ installed, along with TANGO's confidentiality/distribution notice.
     ├── CONTRIBUTING.md
     ├── dev_docs/         # Developer docs: design notes, architecture, task tracker
     ├── docs/             # User-facing docs (shipped with the package; Sphinx source)
-    ├── example_configs/  # Actively-maintained configs backing tests/applications
     ├── justfile          # Task runner (see `just --list`)
     ├── LICENSE.txt
     ├── NOTICE
     ├── src/              # Installable Python package source code
     │   └── tango
     │       └── ...
+    ├── templates/        # Actively-maintained configs backing tests/applications
     ├── tests/            # Unit and regression tests
     ├── tools/            # Repo maintenance scripts (git hooks, DVC helpers)
     └── uv.lock
@@ -130,7 +130,7 @@ installed, along with TANGO's confidentiality/distribution notice.
 **Tip:** To regenerate this tree, run:
 `tree -I '__pycache__|.venv|*.egg-info|.git'`
 
-## What's in `tests/`, `example_configs/`, and `applications/`
+## What's in `tests/`, `templates/`, and `applications/`
 
 These directories serve different purposes and are easy to mix up:
 
@@ -142,15 +142,15 @@ These directories serve different purposes and are easy to mix up:
   these should catch it — that's the whole point of running them before every
   push (see [Running Checks](#running-checks) and the pre-push git hook).
 
-- **[`example_configs/`](example_configs/README.md)** — the actively-maintained
+- **[`templates/`](templates/README.md)** — the actively-maintained
   config set: every config here backs either a unit/regression test, an
   application in `applications/`, or both — treat it as the current source
   of truth for what a valid `tango` config looks like. Runnable directly via
-  `uv run tango_cli run example_configs/<file>.yml`. See that directory's own
+  `uv run tango_cli run templates/<file>.yml`. See that directory's own
   README for what each config is.
 
 - **[`applications/`](applications/README.md)** — multi-run parameter-sweep
-  pipelines built on top of an `example_configs/` config, not single
+  pipelines built on top of a `templates/` config, not single
   simulations. Each `run_*_sweep/`
   directory is a self-contained generate → sweep → summarize (→ plot)
   pipeline with its own `common.py` (grid/LHS bounds), `dvc.yaml` (DVC-cached

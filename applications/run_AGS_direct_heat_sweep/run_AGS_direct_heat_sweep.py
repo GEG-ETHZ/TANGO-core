@@ -1,6 +1,6 @@
 """End-to-end orchestrator for the tango Triemli AGS direct-heat parameter sweep.
 
-Targets ``example_configs/AGS_direct_heat.yml`` via the ``tango`` engine.
+Targets ``templates/AGS_direct_heat.yml`` via the ``tango`` engine.
 Sweeps well depth (2-8 km) x mass flow rate (3.5-40 kg/s) x horizontal
 loop length (1000-8000 m) x loop diameter (0.2-0.75 m) over 12,870
 designs and reports production temperature, specific enthalpy, and

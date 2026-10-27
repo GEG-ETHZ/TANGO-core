@@ -2,7 +2,7 @@
 
 Documents *why* ``TARGET_CELL_LENGTH_M`` (see that constant's docstring in
 ``src/tango/components/well/numerical.py``) is 250 m: runs
-``example_configs/hydro_sf_electric.yml`` end to end with ``num_cells``
+``templates/hydro_sf_electric.yml`` end to end with ``num_cells``
 overridden uniformly across all three numerical wells (injection_well,
 production_well_lower, production_well_upper), and compares the delivered
 production temperature (``surface.history.T_inlet``, in Kelvin) at every
@@ -42,7 +42,7 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.workflows.workflow import Workflow  # noqa: E402
 
-CONFIG = _REPO_ROOT / "example_configs" / "hydro_sf_electric.yml"
+CONFIG = _REPO_ROOT / "templates" / "hydro_sf_electric.yml"
 WELL_COMPONENTS = ("injection_well", "production_well_lower", "production_well_upper")
 
 BASELINE_NUM_CELLS = 100

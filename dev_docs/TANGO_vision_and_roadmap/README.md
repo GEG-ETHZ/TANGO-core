@@ -878,7 +878,7 @@ software-sustainability review).
 
     A true end-to-end comparison of old tango's `flexible_SF_manual.yml`
     (removed along with old tango, preserved at git tag
-    `pre-tango-core-rename-2026-09-18`) vs. `example_configs/hydro_sf_electric.yml`
+    `pre-tango-core-rename-2026-09-18`) vs. `templates/hydro_sf_electric.yml`
     (tango) has now been completed across all 20 timesteps. The residual deltas are:
 
     - Reservoir outlet temperature: ≲ 0.04% (≲ 0.20 K, concentrated at the
@@ -992,7 +992,7 @@ software-sustainability review).
       heat-loss scheme, distinguished only by `angle_from_vert_deg` (2026-07-21:
       replaced an earlier `ClassVar F_DIR = ±1.0` split with this — the same
       unified class now also covers horizontal/deviated wells, e.g.
-      `example_configs/AGS_direct_heat.yml`'s `horizontal_well`, not just
+      `templates/AGS_direct_heat.yml`'s `horizontal_well`, not just
       the two vertical cases `src/tango/`'s `WellUnitNative._f_dir` split covered).
     - ~~`LumpedReservoir` is still linear 1-D Darcy~~ — **done**, though not
       literally Dupuit-Thiem: `components/reservoir/lumped.py` now implements

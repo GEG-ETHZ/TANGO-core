@@ -32,7 +32,7 @@ from tango.pymoo_api import (
 )
 from tango.workflows.workflow import Workflow
 
-# Frozen scenarios, not example_configs/: these tests force mass rates and
+# Frozen scenarios, not templates/: these tests force mass rates and
 # bounds that only make sense for a specific design, and the example
 # configs' designs change whenever they're re-optimized.
 _SCENARIOS = Path(__file__).resolve().parents[1] / "regtest" / "fixtures" / "scenarios"

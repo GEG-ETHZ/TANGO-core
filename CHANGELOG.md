@@ -7,6 +7,8 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Changed
 
+- **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
+  `DEST/templates/`, and the wheel ships it as `tango/templates/`.
 - **`tango_cli run --save-dir`** writes the full results as
   `<name>.results.yml` (was `<name>.yml`, the same name as the input file).
 - **CSV headers carry units**: every `.smry.csv`/`.econ.csv` column ends in

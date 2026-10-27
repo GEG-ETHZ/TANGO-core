@@ -1,6 +1,6 @@
 """End-to-end orchestrator for the tango Triemli EGS direct-heat parameter sweep.
 
-Targets ``example_configs/EGS_direct_heat.yml`` via the ``tango`` engine.
+Targets ``templates/EGS_direct_heat.yml`` via the ``tango`` engine.
 Sweeps well depth (2-6.5 km) x mass flow rate (5-100 kg/s) over 100
 designs and reports production temperature, specific enthalpy, and
 thermal power — see ``common.py`` for the exact grids. Only two sweep

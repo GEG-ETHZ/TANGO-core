@@ -1,10 +1,10 @@
-"""Full-length regression coverage for every ``example_configs/*.yml`` file.
+"""Full-length regression coverage for every ``templates/*.yml`` file.
 
 Companion to ``test_lcoe_regression.py``: that file owns detailed,
 topology-specific injection-well/reservoir/surface physics checks for
 ``hydro_sf_electric.yml`` (the flagship config other apps/tests build on)
 plus smoke-level/structural checks of ``AGS_direct_heat.yml``. This file's
-job is the golden-value regression check for EVERY ``example_configs/``
+job is the golden-value regression check for EVERY ``templates/``
 YAML, including those two -- one consistent pattern, run for each config's
 own real ``sim_config.num_tsteps`` (never a reduced smoke count):
 
@@ -34,7 +34,7 @@ import pytest
 
 from tango.workflows.workflow import Workflow
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
+EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "templates"
 
 # (filename, golden LCOE)
 # Values captured by actually running each config at its own
@@ -61,12 +61,12 @@ _CONFIGS: list[tuple[str, float]] = [
 
 
 def test_every_example_config_is_covered() -> None:
-    """Every example_configs/*.yml is in _CONFIGS above."""
+    """Every templates/*.yml is in _CONFIGS above."""
     on_disk = {p.name for p in EXAMPLE_CONFIGS_DIR.glob("*.yml")}
     covered = {name for name, _ in _CONFIGS}
     missing = on_disk - covered
     assert not missing, (
-        f"example_configs/ has file(s) with no regression coverage: {sorted(missing)} -- "
+        f"templates/ has file(s) with no regression coverage: {sorted(missing)} -- "
         "add each to test_example_configs.py's _CONFIGS."
     )
 
@@ -78,7 +78,7 @@ def _components(wf: Workflow) -> dict[str, Any]:
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
 def test_example_config_full_run(filename: str, reference_lcoe: float) -> None:
-    """Run one example_configs/*.yml at its own full sim_config.num_tsteps and check it."""
+    """Run one templates/*.yml at its own full sim_config.num_tsteps and check it."""
     path = EXAMPLE_CONFIGS_DIR / filename
     wf = Workflow.from_file(path)
     wf.run()

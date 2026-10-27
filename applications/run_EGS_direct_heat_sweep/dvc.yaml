@@ -7,7 +7,7 @@ stages:
     deps:
       - generate.py
       - common.py
-      - ../../example_configs/EGS_direct_heat.yml
+      - ../../templates/EGS_direct_heat.yml
     outs:
       - outputs/design_matrix.parquet
 
@@ -17,7 +17,7 @@ stages:
     deps:
       - sweep.py
       - common.py
-      - ../../example_configs/EGS_direct_heat.yml
+      - ../../templates/EGS_direct_heat.yml
       - outputs/design_matrix.parquet
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py). Tracking this one small

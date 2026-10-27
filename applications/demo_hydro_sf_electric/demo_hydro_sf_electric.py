@@ -1,6 +1,6 @@
 """Interactive demo: tango flexible Single-Flash system.
 
-Runs ``example_configs/hydro_sf_electric.yml`` and generates four figures that
+Runs ``templates/hydro_sf_electric.yml`` and generates four figures that
 ``tango`` itself does not produce (see the section "What running the YAML alone
 gets you" below):
 
@@ -24,7 +24,7 @@ is saved in that mode).
 
 What running the YAML alone gets you
 -------------------------------------
-``tango_cli run example_configs/hydro_sf_electric.yml`` (or
+``tango_cli run templates/hydro_sf_electric.yml`` (or
 ``Workflow.from_file(...).run()`` directly, with no further code) runs the
 same simulation but produces none of the above: no files are written and
 no plots are shown -- ``tango_cli`` has no ``--save-dir``/plotting flags
@@ -58,11 +58,11 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.workflows.workflow import Workflow  # noqa: E402
 
-# hydro_sf_electric.yml lives in example_configs/ (configs only, shared
+# hydro_sf_electric.yml lives in templates/ (configs only, shared
 # with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run
 # via `just test --example-configs`/`--all`) — not colocated with this
-# script, unlike the old example_configs/ layout.
-YAML_PATH = _REPO_ROOT / "example_configs" / "hydro_sf_electric.yml"
+# script, unlike the old templates/ layout.
+YAML_PATH = _REPO_ROOT / "templates" / "hydro_sf_electric.yml"
 SAVE_DIR = HERE / "outputs"
 SAVE_DIR.mkdir(exist_ok=True)
 

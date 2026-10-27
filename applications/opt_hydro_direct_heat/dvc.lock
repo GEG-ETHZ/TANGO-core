@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_hydro_direct_heat.py --clean --no-plot
     deps:
-    - path: ../../example_configs/hydro_direct_heat.yml
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: f18dbd73e4736e997370bb9d97b9a19e
+      size: 41
+    - path: ../../templates/hydro_direct_heat.yml
       hash: md5
       md5: 7e382b223b7dfb0bc9bb014e21085701
       size: 8189
-    - path: ../../src/tango.hash
-      hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
-      size: 41
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: f542ce8a395b196f07b1323c4a5552f3
-      size: 10257
+      md5: 1b56b07b8515056ea2cd23ca1c37e43a
+      size: 10251
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 153be39fd17fe55b142a67f56711473d
+      md5: f18dbd73e4736e997370bb9d97b9a19e
       size: 41
     - path: opt_hydro_direct_heat.py
       hash: md5
-      md5: f542ce8a395b196f07b1323c4a5552f3
-      size: 10257
+      md5: 1b56b07b8515056ea2cd23ca1c37e43a
+      size: 10251
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 86165562eb3b7617385c7117097d40cf

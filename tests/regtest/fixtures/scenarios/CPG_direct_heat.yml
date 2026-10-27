@@ -1,4 +1,4 @@
-# Frozen copy of example_configs/CPG_direct_heat.yml as of 2026-10-26, used as a fixed
+# Frozen copy of templates/CPG_direct_heat.yml as of 2026-10-26, used as a fixed
 # scenario by test_lcoe_regression.py. The example configs change when their
 # design point is re-optimized; this test needs a design whose reservoir
 # depletes at a raised mass rate, so it reads this copy instead. Update it
