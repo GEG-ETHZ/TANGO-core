@@ -147,47 +147,15 @@ diagrams:
 
 # templates/*.yml regression coverage lives in `just test --all` (see CONTRIBUTING.md's
 # "Every templates/ YAML is regression-tested" Commandment), not duplicated here.
-# Smoke-test every script in applications/ (--slow: the sweeps' real design grids instead of --smoke)
+# Smoke-test every script in applications/
 [unix]
-apps *args:
+apps:
     #!/usr/bin/env sh
     # -e: stop at the first command that fails.
     # -u: an unset variable is an error instead of an empty string.
     set -eu
-    # applications/run_*/ pipelines use --smoke (tiny corner-of-hypercube design
-    # matrix, written to a fresh OS tempdir every run — never outputs/) instead
-    # of their real multi-thousand-design grids — this checks the pipeline code
-    # still runs end to end, not that every design converges (some corner
-    # designs are expected to fail physically/numerically, same as in a real
-    # sweep — that's fine, a non-zero *script* exit code is the failure signal
-    # this target cares about). --slow drops --smoke to run the real grids
-    # instead — much longer, and DOES write to outputs/.
-    smoke_flag="--smoke"
-    set -- {{args}}
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            -h|--help)
-                echo "just apps [--slow]"
-                echo ""
-                echo "Smoke-test every applications/ script."
-                echo ""
-                echo "  --slow    Run the real run_*_sweep design grids instead of their tiny --smoke corner-case grids"
-                echo "            (much longer, and DOES write to outputs/, unlike the default --smoke runs)."
-                exit 0
-                ;;
-            --slow) smoke_flag=""; shift ;;
-            *) echo "just apps: unrecognized argument: $1 (accepts only --slow / --help)" >&2; exit 1 ;;
-        esac
-    done
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
-    uv run python applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
-    # run_*_sweep apps' own --smoke (tiny corner-of-hypercube grid, never
-    # touches outputs/) — same $smoke_flag/--slow split as everything else
-    # in this recipe.
-    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
-    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py $smoke_flag --n-workers 4 --quiet
-    uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py $smoke_flag --n-workers 2 --quiet
     # Every opt_* app: --smoke runs a 2-generation, population-6 search plus
     # the app's own relaxations (see tango.pymoo_api.OptApp.smoke_args), into
     # a throwaway --save-dir, never outputs/. --no-plot then --plot-only
@@ -221,7 +189,7 @@ slurm *args:
                 echo "Submit full-size Euler (SLURM) runs: sbatch each app's applications/<app>/<app>_job.sh"
                 echo "from its own directory. Every name is checked before anything is submitted."
                 echo ""
-                echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric run_AGS_direct_heat_sweep"
+                echo "  app ...     apps to submit, e.g. opt_AGS_ORC_electric opt_hydro_sf_electric"
                 echo "              (default: every app under applications/ that has a *_job.sh)"
                 echo "  --list      print the apps that have a job script (the default set), then exit"
                 echo "  --parallel  submit all jobs to run at the same time. Default: one at a time, each"
@@ -428,12 +396,7 @@ slurm-clean *args:
 [windows]
 apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
-    uv run python applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
-    # No --slow support on Windows yet (see [unix] apps above) -- always --smoke.
-    uv run python applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_EGS_direct_heat_sweep/run_EGS_direct_heat_sweep.py --smoke --n-workers 4 --quiet
-    uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py --smoke --n-workers 2 --quiet
     # See the [unix] demos recipe's comment above the equivalent loop for what
     # each opt_* app's --smoke does.
     Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }

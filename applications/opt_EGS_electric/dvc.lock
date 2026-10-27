@@ -5,7 +5,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: f18dbd73e4736e997370bb9d97b9a19e
+      md5: e25c53f69fec84c7d45f1023beb95752
       size: 41
     - path: ../../templates/EGS_electric.yml
       hash: md5
@@ -13,8 +13,8 @@ stages:
       size: 9672
     - path: opt_EGS_electric.py
       hash: md5
-      md5: 8d4a5aa4e700e3aeef2637f4ce2b7dee
-      size: 10818
+      md5: 60a56dd2588c43e2174913538984c389
+      size: 10756
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -39,12 +39,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: f18dbd73e4736e997370bb9d97b9a19e
+      md5: e25c53f69fec84c7d45f1023beb95752
       size: 41
     - path: opt_EGS_electric.py
       hash: md5
-      md5: 8d4a5aa4e700e3aeef2637f4ce2b7dee
-      size: 10818
+      md5: 60a56dd2588c43e2174913538984c389
+      size: 10756
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 64e1b8ed6dcd0e34f99efd5eb114f60f

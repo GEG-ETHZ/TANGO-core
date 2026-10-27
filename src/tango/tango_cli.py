@@ -45,10 +45,6 @@ _AVAILABLE_APPS = frozenset(
         "opt_AGS_direct_heat",
         "opt_hydro_df_electric",
         "opt_hydro_sf_electric",
-        "run_AGS_direct_heat_sweep",
-        "run_EGS_direct_heat_sweep",
-        "run_hydro_df_electric_sweep",
-        "sweep_demo_AGS_direct_heat",
     },
 )  # must track applications/'s subdirectories and pyproject.toml's
 # [tool.hatch.build.targets.wheel.force-include] entries for them

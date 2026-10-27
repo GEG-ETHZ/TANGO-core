@@ -478,8 +478,9 @@ correct estimate for EGS/CPG (reservoir-based) topologies, but it hardcoded a lo
 into a `reservoir` block that doesn't exist for AGS — a sealed closed loop with no
 reservoir node at all. The result: the direct-heat (`native_flexible`) surface unit
 could not run on any AGS topology in `src/tango/` (`KeyError: 'reservoir'` at unit
-construction — see `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`
-NOTES for the full incident writeup and the pragmatic patch applied there).
+construction — the full incident writeup and the pragmatic patch are in the NOTES of
+the since-removed `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`,
+in git history).
 
 The underlying physical quantity — "depth at which the fluid reaches its hottest
 point before returning to surface" — is real and meaningful for AGS too; it's just
@@ -517,7 +518,8 @@ contain errors — the original codebase is complex enough that misreading a sig
 or a code path is easy.**
 
 Concrete evidence this matters, found while running the Triemli AGS direct-heat sweep
-(`applications/run_AGS_direct_heat_sweep/`, see that script's NOTES): 53/500 swept
+(the since-removed `applications/run_AGS_direct_heat_sweep/`; see that script's NOTES in
+git history): 53/500 swept
 designs — all clustered right at the district-heating return temperature (~50-51°C,
 i.e. barely-functional loops) — reported `Net_thermal_power_Generated_kWe` as negative,
 which the native LCOE formula (`CAPEX / net_power`) then turns into a deeply negative
@@ -1221,10 +1223,9 @@ baseline; the refactor is applied to all input configurations.
       perturb the objective). `src/tango/`'s
       `optimizerr.py` is NOT the reference for this — see
       `dev_docs/tango_tasks.md`'s optimizerr.py review (2026-07-24) for why.
-      `applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
-      small working precedent for the underlying mechanism this API would
-      build on: it sweeps `common.rock_k` by mutating a copy of
-      `Workflow.to_dict()` and reinstantiating, rather than mutating a live
+      `Workflow`'s class docstring shows the underlying mechanism this API
+      would build on: a sweep mutates a copy of
+      `Workflow.to_dict()` and reinstantiates, rather than mutating a live
       `Workflow`/component in place — the exact dict-modify-then-reinstantiate
       pattern this pymoo API needs for both parameter-setting and (eventually)
       config-side objective extraction.

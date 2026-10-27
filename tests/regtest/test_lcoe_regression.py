@@ -700,8 +700,8 @@ def test_frozen_component_config_rejects_runtime_mutation(sf_manual_config: dict
     never reassigned by init()/solve()/the orchestrator) is now
     `Field(frozen=True)` on each Component subclass. The only supported way
     to change one is the dict-modify-then-reinstantiate pattern
-    (`Workflow.to_dict()` -> mutate the copy -> `Workflow(cfg)`), matching
-    `applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py`. Fields that are
+    (`Workflow.to_dict()` -> mutate the copy -> `Workflow(cfg)`), as shown in
+    `Workflow`'s class docstring. Fields that are
     legitimately reassigned during simulation (`inlet`/`outlet`,
     `surface.injection_pressure`) must remain mutable — checked here too.
     """

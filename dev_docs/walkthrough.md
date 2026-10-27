@@ -66,16 +66,6 @@ uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 Generates 4 PNGs in `applications/demo_hydro_sf_electric/outputs/` — this
 is the answer to "what does tango give you beyond the bare YAML run."
 
-**Sweep pipeline (generate → sweep → summarize → plot)**
-```bash
-uv run python applications/run_hydro_df_electric_sweep/run_hydro_df_electric_sweep.py --smoke --n-workers 4
-```
-`--smoke` keeps this fast (fixed small one-at-a-time design, fresh
-tempdir, never touches `outputs/`). Drop `--smoke` to talk about the real
-run instead of executing it live — the real design matrix size is fixed
-(`1 + 2 * non-degenerate params`), not something you tune via a sample
-count.
-
 **Optimization (pymoo/NSGA2)**
 ```bash
 uv run python applications/opt_hydro_df_electric/opt_hydro_df_electric.py --n-max-gen 2 --pop-size 8 -p 8 --clean
@@ -126,9 +116,8 @@ just setup   # uv sync + git hook install (or: uv sync && uv run prek install ..
 just apps
 ```
 
-Smoke-tests every script in `applications/` (demos, sweep
-pipelines with `--smoke`, optimizers at a tiny population/generation
-count) — checks the pipeline code runs end to end, not that every design
+Smoke-tests every script in `applications/` (demos, and optimizers at a
+tiny population/generation count) — checks the pipeline code runs end to end, not that every design
 converges. `templates/` regression coverage does **not** live here
 anymore — that moved to `just test --example-configs` (see below), so
 `apps`'s job is purely `applications/` scripts now.

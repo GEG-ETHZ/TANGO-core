@@ -1,9 +1,8 @@
 """Regenerate src/tango.hash — a single tracked file whose content
 changes whenever any file under src/tango/ changes.
 
-Used as a lightweight DVC dependency (see applications/*/dvc.yaml's
-``sweep`` stage) so sweep pipelines invalidate whenever tango itself
-changes, without DVC having to hash the entire source tree on every
+Used as a lightweight DVC dependency (see each opt app's dvc.yaml) so
+application pipelines invalidate whenever tango itself changes, without DVC having to hash the entire source tree on every
 ``dvc repro``.
 
 Run automatically by the ``hash-tango`` pre-commit hook

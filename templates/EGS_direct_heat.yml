@@ -5,8 +5,7 @@
 #
 # tango format — Enhanced Geothermal System (EGS), direct-heat only.
 #
-# Ported from applications/run_EGS_direct_heat_sweep/triemli_dh_base.yml (the
-# Triemli, Zurich site) combined with two already-proven tango pieces:
+# The Triemli, Zurich site, built from two already-proven tango pieces:
 # the doublet/reservoir subsurface topology from hydro_sf_electric.yml
 # (injection_well -> reservoir -> production_well_lower ->
 # production_well_upper) and the district-heating surface plant from

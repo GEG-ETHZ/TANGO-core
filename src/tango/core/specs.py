@@ -523,13 +523,12 @@ class Description(BaseModel):
     Example::
 
         description:
-          summary: Baseline single-flash config for the Triemli site sweep
+          summary: Baseline single-flash config for the Triemli site
           author: Chad Baker
           date: "2026-09-18"
           description: >
-            Manual mass-flow-rate single-flash system. Used as the
-            unmodified starting point for run_hydro_df_electric_sweep's
-            OFAT sweep — see that app's own common.py for what varies.
+            Manual mass-flow-rate single-flash system, the unmodified
+            starting point for studies of the Triemli site.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

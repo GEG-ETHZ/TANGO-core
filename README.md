@@ -149,27 +149,25 @@ These directories serve different purposes and are easy to mix up:
   `uv run tango_cli run templates/<file>.yml`. See that directory's own
   README for what each config is.
 
-- **[`applications/`](applications/README.md)** — multi-run parameter-sweep
-  pipelines built on top of a `templates/` config, not single
-  simulations. Each `run_*_sweep/`
-  directory is a self-contained generate → sweep → summarize (→ plot)
-  pipeline with its own `common.py` (grid/LHS bounds), `dvc.yaml` (DVC-cached
-  stages — see below), `params.yaml` (tunable knobs DVC tracks for
-  staleness), a `--clean` CLI flag (wipes generated outputs), and a SLURM
-  `*_job.sh` script for running on Euler/HPC. Every app also supports
-  `--smoke` for a fast end-to-end pipeline check (tiny sample count, writes
-  to a throwaway tempdir, never touches `outputs/`) — use that before
-  trusting a fresh clone or a code change, without waiting for a full sweep.
+- **[`applications/`](applications/README.md)** — multi-run studies built on
+  top of a `templates/` config, not single simulations: one multi-objective
+  optimization (`opt_*`) per config, plus a few standalone demos. Each
+  optimization has its own `dvc.yaml` (DVC-cached stages — see below),
+  `params.yaml` (search settings DVC tracks for staleness), and a SLURM
+  `*_job.sh` script for running on Euler/HPC. Every optimization also
+  supports `--smoke` for a fast end-to-end check (tiny population, writes to
+  a throwaway `--save-dir`, never touches `outputs/`) — use that before
+  trusting a fresh clone or a code change, without waiting for a full run.
 
-  Running a sweep via DVC (from the app's own directory):
+  Running an optimization via DVC (from the app's own directory):
   ```bash
-  cd applications/run_hydro_df_electric_sweep
+  cd applications/opt_hydro_sf_electric
   uv run dvc repro    # runs only stale stages, caches the rest
   ```
   On Euler/other SLURM clusters, submit it with `just slurm` instead (see
   [Running on Euler](#running-on-euler)):
   ```bash
-  just slurm run_hydro_df_electric_sweep
+  just slurm opt_hydro_sf_electric
   ```
 
 ## Developers and Internal Users
@@ -225,7 +223,7 @@ Note that these instructions have been verified to work on Euler.
 1. Submit full-size runs with `just slurm` from anywhere in `~/tango-core`,
     naming the apps to run (no names submits every app under
     `applications/` that has a `*_job.sh`):
-    `just slurm opt_AGS_ORC_electric run_hydro_df_electric_sweep`.
+    `just slurm opt_AGS_ORC_electric opt_hydro_sf_electric`.
     Jobs run one after another (each uses a whole 48-core allocation);
     `just slurm --parallel ...` runs them at the same time instead. Each job
     runs its app's `dvc repro` inside the checkout, so its results land in

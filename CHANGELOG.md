@@ -46,6 +46,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Removed
 
+- **The sweep apps** (`run_AGS_direct_heat_sweep`, `run_EGS_direct_heat_sweep`,
+  `run_hydro_df_electric_sweep`, `sweep_demo_AGS_direct_heat`). The `opt_*`
+  apps cover their configs; `Workflow`'s docstring shows the sweep pattern.
+  `just apps` drops its `--slow` flag, which only ran their full grids.
 - **`auto-pressure`, `auto-flow` and `auto-both` injection modes**, with
   `sim_config.max_mass_rate` and the `hydro_sf_electric_autopressure.yml`
   and `hydro_sf_electric_autoflow.yml` examples. They iterated pressure or

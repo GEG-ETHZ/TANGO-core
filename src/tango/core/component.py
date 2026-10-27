@@ -65,8 +65,7 @@ physics-model selections, etc. in each subclass). This mirrors ``Common``
 (``core/specs.py``): the only supported way to change one of these values
 is the dict-modify-then-reinstantiate pattern (``Workflow.to_dict()`` →
 mutate the copy → ``Workflow(cfg)``), never live attribute assignment —
-see ``applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py`` for a worked
-example.
+see ``Workflow``'s class docstring for a worked example.
 
 This is deliberately NOT applied to every field. Some fields are plain
 Pydantic fields (not ``LockedState``-wrapped) that are legitimately

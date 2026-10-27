@@ -127,8 +127,6 @@ class _LoopLengthApply:
 
 
 DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
-    # Depth, loop length, loop diameter, and mass flow cover the AGS
-    # direct-heat sweep's own axes (run_AGS_direct_heat_sweep/common.py).
     # The front sits on the deep cap: deeper rock is hotter and nothing in the
     # model pushes back (1 km deeper is ~9-12% cheaper). Whether the cap is a
     # real drilling limit, and whether well cost holds beyond ~8 km, is open
@@ -237,8 +235,7 @@ class _NegativeProductionTemperatureEvaluate:
 
 
 MIN_PRODUCTION_TEMPERATURE_C = 105.0
-"""District-heating supply threshold, the same one run_AGS_direct_heat_sweep's
-plots use to flag qualifying designs."""
+"""District-heating supply threshold (degC) for the production-temperature constraint."""
 
 
 @dataclass

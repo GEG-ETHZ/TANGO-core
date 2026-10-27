@@ -5,8 +5,7 @@
 #
 # tango format — Advanced Geothermal System (AGS), direct-heat only.
 #
-# Ported from applications/run_AGS_direct_heat_sweep/triemli_dh_base.yml (the
-# Triemli, Zurich site). AGS is a sealed closed-loop wellbore — there is no
+# The Triemli, Zurich site. AGS is a sealed closed-loop wellbore — there is no
 # reservoir component: injection_well -> horizontal_well -> production_well
 # -> surface -> back to injection_well. All heat exchange is conductive,
 # through the wellbore walls (Zhang et al. 2011 model, same as the vertical

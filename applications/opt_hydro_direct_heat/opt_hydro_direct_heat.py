@@ -103,8 +103,7 @@ DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
     # So the cap is effectively physical.
     "mass_rate_kg_per_s": (10.0, 100.0),
     "injection_pressure_Pa": (1000000.0, 8000000.0),
-    # (0.7, 1.5)x the config's own value, the same scale factor
-    # run_hydro_df_electric_sweep uses.
+    # (0.7, 1.5)x the config's own value.
     "target_extraction_pressure_Pa": (4900000.0, 10500000.0),
     # 6-24 inch wellbores.
     # The production well sits near the 0.15 m (6 inch) floor: at 0.13 m it can
