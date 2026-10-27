@@ -21,6 +21,7 @@ def fake_raft(monkeypatch: pytest.MonkeyPatch) -> type[FakeRaftModel]:
     FakeRaftModel.outlet_temperature_k = None
     FakeRaftModel.fail = False
     FakeRaftModel.dt_min_proceeds = 0
+    FakeRaftModel.element_flow_factor = 1.0
     monkeypatch.setattr(raft_wrapper, "_raft_model_class", lambda: FakeRaftModel)
     monkeypatch.setattr(raft_wrapper, "_raft_timestep_error", lambda: FakeTimestepError)
     monkeypatch.chdir(_ROOT)

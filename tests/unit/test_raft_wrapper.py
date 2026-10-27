@@ -136,6 +136,17 @@ def test_state_records_the_accepted_well_profile(config: dict[str, Any]) -> None
         assert raft_history.heat_transfer_coefficient_elements[t] == [FAKE_HEAT_TRANSFER_COEFFICIENT] * 3
 
 
+@pytest.mark.parametrize(("factor", "raises"), [(1.0005, False), (1.002, True)])
+def test_element_flow_off_the_mass_rate_raises(config: dict[str, Any], factor: float, raises: bool) -> None:
+    """An element carrying more than ``_MASS_RATE_REL_TOL`` off the loop's mass rate is a ConfigError."""
+    FakeRaftModel.element_flow_factor = factor
+    if raises:
+        with pytest.raises(ConfigError, match="element at s = "):
+            _run(config, num_tsteps=1)
+    else:
+        _run(config, num_tsteps=1)
+
+
 def test_step_accepted_at_timestep_min_above_tolerance_raises(config: dict[str, Any]) -> None:
     """A step RAFT accepted at ``timestep_min`` despite its error is a ConvergenceError, not a silent pass."""
     FakeRaftModel.dt_min_proceeds = 1
@@ -197,7 +208,7 @@ def test_unsupported_fluid_is_rejected(config: dict[str, Any]) -> None:
 def test_flow_lost_in_the_well_is_an_error(config: dict[str, Any]) -> None:
     """RAFT reporting a different inlet flow than the loop's mass rate is a ConfigError."""
     FakeRaftModel.flow_factor = 0.9
-    with pytest.raises(ConfigError, match="constant around the loop"):
+    with pytest.raises(ConfigError, match="constant along a sealed loop"):
         _run(config, num_tsteps=1)
 
 

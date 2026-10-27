@@ -28,7 +28,8 @@ make the two agree. The loop's
 pressure is set at its inlet, as everywhere in tango: RAFT gets the inlet
 pressure and temperature and the outlet mass flow, and returns the outlet
 pressure and temperature. Mass flow is assumed constant around the loop
-(a sealed well), and a RAFT result that breaks this raises.
+(a sealed well), and a RAFT result whose flows stray from it by more than
+RAFT's solver tolerance allows (``_MASS_RATE_REL_TOL``) raises.
 
 The ``raft:`` block of a tango config is this object. ``template`` names a
 RAFT config file, made by hand together with its mesh (meshes are never
@@ -80,11 +81,18 @@ _REL_TOL = 1e-9
 _MASS_RATE_REL_TOL = 1e-3
 """Relative tolerance for RAFT's reported well flows to count as the loop's mass rate.
 
-The flow RAFT solves for at the pressure-controlled inlet matches the
-outlet's only approximately: by ~1e-6 relative in RAFT's AGS example's first
-years, growing to ~2e-4 later in the run. Fluid actually lost to the rock
-would show up as far more than this. RAFT's inlet flow is recorded in
-``RaftWrapperState.mass_rate_inlet``."""
+RAFT's well mass balance is quasi-steady with no leak-off at
+``perforation_conductance: 0`` (RAFT's theory.md, "Well Coupling"), so every
+flow along the loop should equal the outlet's. A finite element solution
+conserves mass over the whole loop, not element by element, and only to the
+Newton-Raphson tolerance (the template's ``NR_tol``), so the flows match
+only approximately. In RAFT's AGS example (``NR_tol: 1e-7``), the flow RAFT
+solves for at the pressure-controlled inlet differs by up to ~1.2e-4
+relative, and the flows through the well's elements spread by up to ~9e-4.
+Both vary from year to year. A smaller ``NR_tol`` shrinks them; fluid
+actually lost to the rock would show up as far more than this.
+RAFT's inlet flow is recorded in ``RaftWrapperState.mass_rate_inlet`` and
+each element's in ``mass_rate_elements``."""
 
 
 def _raft_model_class() -> Any:
@@ -436,8 +444,10 @@ class RaftWrapper(BaseModel, StateMethods):
         """Keep RAFT's last trial as its accepted state, and record this timestep's work and well profile in ``state``.
 
         Raises:
-            SaturationError: A node along the well is not liquid, which
-                RAFT's single-phase model can't represent.
+            SaturationError: A node along the well is not liquid, which the
+                RAFT coupling doesn't support.
+            ConfigError: The mass flow through an element of the well differs
+                from the loop's mass rate by more than ``_MASS_RATE_REL_TOL``.
         """
         if self._model is None or self._trial_end_seconds is None:
             raise RuntimeError("RaftWrapper.accept() called with no RAFT trial to accept.")
@@ -467,8 +477,19 @@ class RaftWrapper(BaseModel, StateMethods):
         s.h_nodes.update(
             [FluidState.with_PT(fluid, P, T, backend).H for P, T in zip(P_nodes, T_nodes, strict=True)],
         )
-        s.s_elements.update([float(x) for x in profile.s_mid])
-        s.mass_rate_elements.update([float(q) for q in profile.q])
+        s_elements = [float(x) for x in profile.s_mid]
+        mass_rate_elements = [float(q) for q in profile.q]
+        mass_rate = s.mass_rate_outlet.get_fresh()
+        for x, q in zip(s_elements, mass_rate_elements, strict=True):
+            if not math.isclose(q, mass_rate, rel_tol=_MASS_RATE_REL_TOL):
+                raise ConfigError(
+                    f"Between t = {self._accepted_time_seconds:.6g} s and {self._trial_end_seconds:.6g} s, "
+                    f"RAFT's well element at s = {x:.6g} m carries {q!r} kg/s but the loop's mass rate is "
+                    f"{mass_rate!r} kg/s. Mass flow is constant along a sealed loop (perforation_conductance 0) "
+                    "up to RAFT's solver tolerance; a smaller NR_tol in the RAFT template tightens it.",
+                )
+        s.s_elements.update(s_elements)
+        s.mass_rate_elements.update(mass_rate_elements)
         s.reynolds_elements.update([float(re) for re in profile.reynolds])
         s.heat_transfer_coefficient_elements.update([float(hc) for hc in profile.heat_transfer_coefficient])
 
@@ -585,8 +606,9 @@ def _check_flow(
         if not math.isclose(q, mass_rate, rel_tol=_MASS_RATE_REL_TOL):
             raise ConfigError(
                 f"Between t = {t_start:.6g} s and {t_end:.6g} s, RAFT's well {name} carries {q!r} kg/s but the "
-                f"loop's mass rate is {mass_rate!r} kg/s: "
-                "mass flow must be constant around the loop (a sealed well, perforation_conductance 0).",
+                f"loop's mass rate is {mass_rate!r} kg/s. Mass flow is constant along a sealed loop "
+                "(perforation_conductance 0) up to RAFT's solver tolerance; a smaller NR_tol in the RAFT "
+                "template tightens it.",
             )
 
 
