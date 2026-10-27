@@ -1883,6 +1883,7 @@ class OptApp:
             ``(res, df, m)``.
 
         """
+        # --8<-- [start:minimization]
         m = Minimization(
             base_cfg=self.base_config(),
             params=self.param_specs() if param_specs is None else param_specs,
@@ -1908,6 +1909,7 @@ class OptApp:
             capture_trajectory_path=args.capture_trajectory,
         )
         res, df = m.run()
+        # --8<-- [end:minimization]
         return res, df, m
 
     def pretty_label(self, column: str) -> str:

@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 name = "tango-core"
 version = "1.1.0"
 authors = [{name = "ETHZ/EAPS/GEG Group"}]
-description = "Techno-economic ANalysis of Geo-energy Operations (TANGO)"
+description = "Techno-economic ANalysis of Geoenergy Operations (TANGO)"
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 requires-python = ">=3.11,<3.12"
@@ -85,6 +85,10 @@ dev = [
     "pytest-xdist>=3.8.0",
     "tango-core[dev]",
 ]
+docs = [
+    "zensical==0.0.68", # docs site generator (reads mkdocs.yml); `uv run --group docs zensical serve`
+    "mkdocstrings-python==2.0.9", # API reference pages from the Google-style docstrings
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tango"]
@@ -96,10 +100,10 @@ packages = ["src/tango"]
 # duplicating it, so nothing referencing the top-level path needs to change.
 "templates" = "tango/templates"
 
-# User-facing docs (docs/; developer docs live in dev_docs/ and are not
-# shipped). Files are listed individually, not the whole directory, for the
-# same reason as applications/ below: force-include copies whatever is on
-# disk, and docs/ will also hold Sphinx build output (docs/_build, docs/api).
+# User-facing docs from docs/. Files are listed individually, not the whole
+# directory: docs/ also holds the developer docs (task log, roadmap, design
+# notes, archive), which are not shipped, and force-include copies whatever
+# is on disk rather than only git-tracked files.
 "docs/SOURCES.md" = "tango/docs/SOURCES.md"
 
 # applications/<app>/ files, explicitly enumerated rather than

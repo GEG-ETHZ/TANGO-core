@@ -5,12 +5,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 92e8b429720629cfcbdb17c73781e303
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: ../../templates/hydro_df_electric.yml
       hash: md5
-      md5: 92384469a1551b820cabd059a03908fd
-      size: 11548
+      md5: 1e852f08fbf0b0aa8f895e0aa4bf1c82
+      size: 11544
     - path: opt_hydro_df_electric.py
       hash: md5
       md5: 5fc6dab9268c14ad7feacbbf158c5ec2
@@ -39,7 +39,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 92e8b429720629cfcbdb17c73781e303
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: opt_hydro_df_electric.py
       hash: md5

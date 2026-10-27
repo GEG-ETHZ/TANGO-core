@@ -1,4 +1,4 @@
-"""Analyze the n_max_gen study (dev_docs/pymoo_generation_budget.md).
+"""Analyze the n_max_gen study (docs/pymoo_generation_budget.md).
 
 Reads every ``studies/n_max_gen/<app>/seed<N>/evaluations.csv`` written by
 ``tools/n_max_gen_study_job.sh`` and, for each run and generation, rebuilds

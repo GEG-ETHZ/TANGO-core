@@ -1,6 +1,6 @@
 """Tests for LockedState — single-value fresh/stale wrapper.
 
-Each test targets one of the six contracted behaviours:
+Each test targets one of the six contracted behaviors:
 
   1. get_fresh() errors when stale
   2. get_fresh() succeeds when fresh

@@ -1,0 +1,139 @@
+<mxfile host="Electron">
+  <diagram name="Phase 1 Execution Flow" id="phase1-exec-flow">
+    <mxGraphModel dx="1838" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="700" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=14;fontStyle=1;" value="Phase 1 — tango Execution Flow" vertex="1">
+          <mxGeometry height="22" width="640" x="30" y="2" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;" value="(flexible_SF_manual.yml — SystemBCIteration path, auto-selected from sim_config.injection_mode)" vertex="1">
+          <mxGeometry height="16" width="640" x="30" y="24" as="geometry" />
+        </mxCell>
+        <mxCell id="time_bg" parent="1" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#888888;dashed=1;strokeWidth=2;opacity=60;" value="" vertex="1">
+          <mxGeometry height="368" width="624" x="38" y="348" as="geometry" />
+        </mxCell>
+        <mxCell id="time_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=1;fontColor=#555555;align=left;" value="TIME LOOP  (t = 0 … n_tsteps-1)" vertex="1">
+          <mxGeometry height="16" width="320" x="46" y="351" as="geometry" />
+        </mxCell>
+        <mxCell id="bc_bg" parent="1" style="rounded=1;html=1;fillColor=#ece5f0;strokeColor=#9673a6;dashed=1;strokeWidth=1.5;opacity=50;" value="" vertex="1">
+          <mxGeometry height="202" width="588" x="56" y="372" as="geometry" />
+        </mxCell>
+        <mxCell id="bc_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=1;fontColor=#7a4e9a;align=left;" value="BC ITERATION LOOP  (SystemBCIteration — iterate injection_pressure until mass flow balances)" vertex="1">
+          <mxGeometry height="15" width="574" x="62" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="START" vertex="1">
+          <mxGeometry height="36" width="150" x="275" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" value="FILE INGESTION&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;tango_cli.py → Runner · Read YAML → validate ComponentSpecs (Pydantic)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="52" width="380" x="160" y="98" as="geometry" />
+        </mxCell>
+        <mxCell id="params" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1;" value="MODIFY PARAMETERS&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;well geometry · plant type · working fluid · ...&lt;br&gt;(future: LLM-driven;  now: manual config or sweep)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="380" x="160" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" value="INITIALIZATION&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;Workflow · build component graph from ComponentSpecs&lt;br&gt;auto-select orchestrator · EconomicUnit&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="380" x="160" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_note" parent="1" style="text;html=1;strokeColor=#d79b00;fillColor=#fff7e6;fontSize=9;fontStyle=2;align=left;rounded=1;" value="sim_config.injection_mode present → SystemBCIteration&lt;br&gt;absent → SystemDirect (single pass, no inner loop)" vertex="1">
+          <mxGeometry height="43" width="220" x="550" y="277" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" value="Set injection_pressure guess&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;(initial value from surface ComponentSpec)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="310" x="195" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="SOLVE SINGLE LOOP (topological order)&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;injection_well.solve() → reservoir.solve() → production_well_lower.solve()&lt;br&gt;→ production_well_upper.solve() → surface.solve()  (surface solved last,&lt;br&gt;consuming production well output)&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="380" x="160" y="449" as="geometry" />
+        </mxCell>
+        <mxCell id="bc_d" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="Mass flow&lt;br&gt;balanced?" vertex="1">
+          <mxGeometry height="52" width="270" x="215" y="518" as="geometry" />
+        </mxCell>
+        <mxCell id="tr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" value="Record timestep results" vertex="1">
+          <mxGeometry height="36" width="310" x="195" y="583" as="geometry" />
+        </mxCell>
+        <mxCell id="t_d" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="t &lt; n_tsteps-1?" vertex="1">
+          <mxGeometry height="50" width="270" x="215" y="633" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" value="ECONOMICS&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;EconomicUnit.solve()&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="44" width="380" x="160" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;fontStyle=1;" value="OUTPUT&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;i&gt;return typed results · optionally: SerdeAPI.to_file()&lt;/i&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="44" width="380" x="160" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="conv_d" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="Converged or&lt;br&gt;budget reached?" vertex="1">
+          <mxGeometry height="52" width="270" x="215" y="842" as="geometry" />
+        </mxCell>
+        <mxCell id="end" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="END" vertex="1">
+          <mxGeometry height="36" width="150" x="275" y="914" as="geometry" />
+        </mxCell>
+        <mxCell id="future_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;strokeWidth=1.5;fontSize=9;fontStyle=3;fontColor=#6a3d8f;align=left;verticalAlign=top;" value="&lt;b style=&quot;font-size:9px;&quot;&gt;FUTURE DIRECTION — LLM SWEEP&lt;/b&gt;&lt;br&gt;&lt;a href=&quot;../../TANGO_vision_and_roadmap/README.md#future-direction--geospatial-viability-analysis-with-llm-augmentation&quot; style=&quot;color:#6a3d8f;&quot;&gt;see vision doc&lt;/a&gt;&lt;br&gt;LLM selects next candidate&lt;br&gt;geothermal installation site and&lt;br&gt;updates params accordingly" vertex="1">
+          <mxGeometry height="76" width="155" x="-165" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="e_start" edge="1" parent="1" source="start" style="edgeStyle=orthogonalEdgeStyle;" target="s1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s1_params" edge="1" parent="1" source="s1" style="edgeStyle=orthogonalEdgeStyle;" target="params" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="params" style="edgeStyle=orthogonalEdgeStyle;" target="s2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="s2" style="edgeStyle=orthogonalEdgeStyle;" target="bc1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="bc1" style="edgeStyle=orthogonalEdgeStyle;" target="bc2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="bc2" style="edgeStyle=orthogonalEdgeStyle;" target="bc_d" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="bc_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tr" value="balanced">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="bc_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="bc1" value="not balanced">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="108" y="544" />
+              <mxPoint x="108" y="416" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="tr" style="edgeStyle=orthogonalEdgeStyle;" target="t_d" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="t_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="s4" value="done">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="t_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="bc1" value="next t">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="82" y="658" />
+              <mxPoint x="82" y="416" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="s4" style="edgeStyle=orthogonalEdgeStyle;" target="s5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="s5" style="edgeStyle=orthogonalEdgeStyle;" target="conv_d" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="conv_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="end" value="YES">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="conv_d" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="params" value="NO">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="10" y="868" />
+              <mxPoint x="10" y="227" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ai_error" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;strokeWidth=2;fontSize=9;fontStyle=3;fontColor=#7a5900;align=left;verticalAlign=top;" value="&lt;b style=&quot;font-size:9px;font-style:normal;&quot;&gt;FUTURE — AI ERROR AGENT&lt;/b&gt;&lt;br&gt;on any unhandled exception:&lt;br&gt;· packages input YAML + traceback&lt;br&gt;  + last serialized component states&lt;br&gt;· sends to LLM (Claude API, opt-in)&lt;br&gt;· returns plain-English explanation&lt;br&gt;  + suggested config fix" vertex="1">
+          <mxGeometry height="110" width="195" x="600" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="e_error" edge="1" parent="1" source="bc2" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;fontSize=9;exitX=1;exitY=0.5;exitDX=0;exitDY=0;entryX=0;entryY=0.5;entryDX=0;entryDY=0;" target="ai_error" value="on error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

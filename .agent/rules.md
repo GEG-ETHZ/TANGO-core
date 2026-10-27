@@ -10,7 +10,7 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - [Pre-approved Auto-Run Commands](/.agent/rules/auto-run.md)
 - [Agent Pathing Rules](/.agent/rules/agent-pathing.md)
 - [Code Pathing Rules](/.agent/rules/code-pathing.md)
-- [Commit Message Format](/.agent/workflows/commit.md)
+- [Commit Message Format](/.agent/rules/commit-permissions.md)
 - [Gitignore Formatting](/.agent/rules/gitignore.md)
 - [Code Quality and Linting](/.agent/rules/code-quality.md)
 - [Date Handling in Documents](/.agent/rules/dates.md)
@@ -29,8 +29,7 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 
 ## Commit Message Format
 
-When committing, execute the `commit` workflow to ensure proper formatting. Do
-**not** guess the format; load the workflow.
+When committing, follow the format in `./.agent/rules/commit-permissions.md`. Do **not** guess the format.
 
 ---
 
@@ -38,11 +37,6 @@ When committing, execute the `commit` workflow to ensure proper formatting. Do
   the syntax rules in `./.agent/rules/gitignore.md`
 - **Code Quality & Linting:** For standards on markdown and code linting, see `./.agent/rules/code-quality.md`
 - **Date Handling:** Before writing dates in documents or PDFs, read `./.agent/rules/dates.md`
-- **Capability Scopes & Permissions:** For rules regarding Browser, Terminal,
-  and Host vs VM execution, reference `./.agent/rules/permissions.md`
-- **Issue, Task & Miro Sync:** Before syncing GitHub/GitLab issues, `dev_docs/`
-  task files, or the Miro board(s) for this project, read
-  `./.agent/rules/miro-sync.md`
-- **Debugging & Numerical Discrepancies:** Before changing a test tolerance or
-  explaining a wrong result or benchmark mismatch, read
-  `./.agent/rules/debugging.md`
+- **Capability Scopes & Permissions:** For rules regarding Browser, Terminal, and Host vs VM execution, reference `./.agent/rules/permissions.md`
+- **Issue, Task & Miro Sync:** Before syncing GitHub issues, `docs/` task files, or the Miro board(s) for this project, read `./.agent/rules/miro-sync.md`
+- **Debugging & Numerical Discrepancies:** Before changing a test tolerance or explaining a wrong result or benchmark mismatch, read `./.agent/rules/debugging.md`

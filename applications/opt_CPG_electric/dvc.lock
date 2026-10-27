@@ -5,12 +5,12 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 92e8b429720629cfcbdb17c73781e303
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: ../../templates/CPG_electric.yml
       hash: md5
-      md5: 7ed8e16a898ce5953347e13568bcedd2
-      size: 11228
+      md5: ae0c8730e235428e6bbfb474190a75a9
+      size: 11224
     - path: opt_CPG_electric.py
       hash: md5
       md5: 4921626c880aa399c7861208c47f847f
@@ -39,7 +39,7 @@ stages:
     deps:
     - path: ../../src/tango.hash
       hash: md5
-      md5: 92e8b429720629cfcbdb17c73781e303
+      md5: e056b923a0dab18d520100a97d4e6ae0
       size: 41
     - path: opt_CPG_electric.py
       hash: md5
