@@ -151,7 +151,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "every CSV header ends in its unit, e.g. [K]), "
             "and <name>.phase_<fluid>.html per working fluid (interactive "
             "P-h phase diagram with a year slider -- omitted if the config "
-            "has no GraphSurface surface component). "
+            "has no GraphSurface surface component). A RAFT subsurface also "
+            "keeps its own output (VTKs at its template's output_vtk, flow "
+            "logs) in <name>.raft/. "
             "Saving is opt-in: nothing is written unless this is given."
         ),
     )
@@ -282,6 +284,12 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
         logger.error("Configuration error: %s", exc)
         return 1
 
+    external_dirs = (
+        results_export.keep_external_outputs(wf, args.save_dir, args.input_file.stem)
+        if args.save_dir is not None
+        else []
+    )
+
     t_start = time.time()
     try:
         wf.run()
@@ -295,6 +303,7 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
     if args.save_dir is not None:
         written = results_export.write_results(wf, args.save_dir, args.input_file.stem)
         written += phase_diagrams.write_phase_diagrams(wf, args.save_dir, args.input_file.stem, phase_config)
+        written += [directory for directory in external_dirs if directory.is_dir()]
         for path in written:
             print(f"Wrote: {path}")
 

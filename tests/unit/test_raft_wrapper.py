@@ -75,7 +75,6 @@ def test_raft_config_is_the_template_plus_what_tango_owns(
     assert groups[(0, "inlet")]["hydraulics"] == {"type": "pressure", "function": "external"}
     assert groups[(0, "inlet")]["thermal"] == {"type": "temperature", "function": "external"}
     assert groups[(0, "outlet")]["hydraulics"] == {"type": "flux", "function": "external"}
-    assert raft_config["simulation"]["output_vtk"] == 0
     assert Path(raft_config["mesh"]["file"]) == raft_template.parent / "mesh.msh"
     assert raft_config["material"]["solid"] == template["material"]["solid"]
     assert raft_config["material"]["fluid"] == template["material"]["fluid"]
@@ -261,3 +260,33 @@ def test_liquid_check_handles_pressures_above_critical(P: float, T: float, is_li
     else:
         with pytest.raises(SaturationError):
             raft_wrapper._check_liquid("H2O", P, T, "HEOS")  # noqa: SLF001
+
+
+def test_raft_writes_no_vtks_and_keeps_nothing_by_default(config: dict[str, Any]) -> None:
+    """Without set_output_dir, RAFT's VTKs are off and its output directory is temporary."""
+    _run(config, num_tsteps=1)
+    raft_config = FakeRaftModel.instances[0].config
+    assert raft_config["simulation"]["output_vtk"] == 0
+    assert Path(raft_config["simulation"]["output_directory"]).name == "output"
+
+
+def test_output_dir_keeps_raft_output_at_the_template_settings(
+    config: dict[str, Any],
+    tmp_path: Path,
+) -> None:
+    """set_output_dir points RAFT's output at that directory and keeps the template's output_vtk."""
+    wf = Workflow(config)
+    loop = wf._orchestrator.components["grouped_subsurface"]  # noqa: SLF001
+    assert isinstance(loop, RaftGroupedSubsurface)
+    target = tmp_path / "run.raft"
+    loop.raft.set_output_dir(target)
+    wf.run()
+    model = FakeRaftModel.instances[0]
+    raft_config = model.config
+    template = yaml.safe_load(RAFT_TEMPLATE.read_text())
+    # RAFT writes into <output_directory>/<config file stem>/, i.e. target.
+    assert Path(raft_config["simulation"]["output_directory"]) == target.parent.resolve()
+    assert model.config_name == "run.raft.yaml"
+    assert raft_config["simulation"]["output_vtk"] == template["simulation"]["output_vtk"]
+    with pytest.raises(RuntimeError, match="before RAFT starts"):
+        loop.raft.set_output_dir(tmp_path / "late.raft")

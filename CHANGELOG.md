@@ -38,7 +38,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   number, and heat transfer coefficient for each element). The step sizes
   and profiles are lists per timestep, so they are in `.results.yml`, not
   the CSV. `raft.verbosity` (`quiet`, `lite`, `full`) sets RAFT's own console
-  output, separately from tango's `--log-level`.
+  output, separately from tango's `--log-level`. With `tango_core run
+  --save-dir`, RAFT keeps its own output (matrix and well VTKs at the
+  template's `output_vtk`, its flow log) in `<stem>.raft/`; without it, RAFT
+  writes no VTKs and keeps nothing.
 - **RAFT failures that used to pass silently now raise:** a step RAFT
   accepted at `timestep_min` with an extrapolation error above `rel_error_T`
   (`ConvergenceError`); a well element whose mass flow is more than 1e-3 off
@@ -107,8 +110,8 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   Version 2.0 (`LICENSE.txt`), copyright 2025 ETH Zurich. The proprietary
   license and the internal distribution notice (`NOTICE`) are gone. The
   package metadata declares the SPDX expression `Apache-2.0`, and
-  `tango_cli --version` prints the copyright and license line.
-- **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
+  `tango_core --version` prints the copyright and license line.
+- **`example_configs/` is now `templates/`.** `tango_core init` copies it to
   `DEST/templates/`, and the wheel ships it as `tango/templates/`.
 - **Forge** — GitHub (`GEG-ETHZ/TANGO-core`) replaces gitlab.ethz.ch for
   code, issues, pull requests, CI and releases. Install and clone commands,
@@ -128,7 +131,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   notes and archive sit next to the site pages; the public build excludes
   them and the internal preview includes them. `dev_docs/` is gone. The
   wheel still ships only `docs/SOURCES.md` from `docs/`.
-- **`tango_cli run --save-dir`** writes the full results as
+- **`tango_core run --save-dir`** writes the full results as
   `<name>.results.yml` (was `<name>.yml`, the same name as the input file).
 - **CSV headers carry units**: every `.smry.csv`/`.econ.csv` column ends in
   its unit, e.g. `production_well_T_outlet [K]`, `LCOE [USD/kWh]`.
