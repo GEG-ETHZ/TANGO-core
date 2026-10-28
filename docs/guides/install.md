@@ -33,7 +33,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
    uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
    ```
 
-   `uv` records the tag and the resolved commit in `pyproject.toml` and `uv.lock`, so the build stays reproducible until you change the tag. Replace `v1.1.0` with the release you need; releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-an-internal-geg-only-release).
+   `uv` records the tag and the resolved commit in `pyproject.toml` and `uv.lock`, so the build stays reproducible until you change the tag. Replace `v1.1.0` with the release you need; releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-a-release).
 
 3. Check the installation:
 
