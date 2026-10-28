@@ -17,24 +17,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tango_core.cli import _build_parser
 
 
 def test_log_level_before_subcommand() -> None:
     """``--log-level DEBUG run f.yml`` — value comes from before the subcommand."""
-    args = _build_parser().parse_args(["--log-level", "DEBUG", "run", "f.yml"])
+    args = _build_parser().parse_args(["--log-level", "DEBUG", "run", "f.yml", "--no-save"])
     assert args.log_level == "DEBUG"
 
 
 def test_log_level_after_subcommand() -> None:
     """``run f.yml --log-level DEBUG`` — value comes from after the subcommand."""
-    args = _build_parser().parse_args(["run", "f.yml", "--log-level", "DEBUG"])
+    args = _build_parser().parse_args(["run", "f.yml", "--no-save", "--log-level", "DEBUG"])
     assert args.log_level == "DEBUG"
 
 
 def test_log_level_default_when_omitted() -> None:
     """No ``--log-level`` anywhere — falls back to INFO, not SUPPRESS/unset."""
-    args = _build_parser().parse_args(["run", "f.yml"])
+    args = _build_parser().parse_args(["run", "f.yml", "--no-save"])
     assert args.log_level == "INFO"
 
 
@@ -44,10 +46,27 @@ def test_log_level_after_validate_subcommand() -> None:
     assert args.log_level == "WARNING"
 
 
-def test_save_dir_default_is_none() -> None:
-    """No ``--save-dir`` — nothing should be written (see _cmd_run's own check)."""
-    args = _build_parser().parse_args(["run", "f.yml"])
+def test_no_save_writes_nothing() -> None:
+    """``--no-save`` leaves ``save_dir`` unset, so ``_cmd_run`` writes nothing."""
+    args = _build_parser().parse_args(["run", "f.yml", "--no-save"])
+    assert args.no_save
     assert args.save_dir is None
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [[], ["--save-dir", "out", "--no-save"]],
+    ids=["neither", "both"],
+)
+def test_run_needs_exactly_one_of_save_dir_and_no_save(
+    extra: list[str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``run`` without ``--save-dir``/``--no-save``, or with both, fails naming the two flags."""
+    with pytest.raises(SystemExit) as excinfo:
+        _build_parser().parse_args(["run", "f.yml", *extra])
+    assert excinfo.value.code == 2
+    assert "--save-dir" in capsys.readouterr().err
 
 
 def test_save_dir_parses_path() -> None:

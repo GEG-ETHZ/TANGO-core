@@ -100,6 +100,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Changed
 
+- **Breaking: `tango_core run` needs `--save-dir DIR` or `--no-save`.** Running
+  without either (or with both) now stops with an argparse error, so results
+  are never lost by forgetting `--save-dir`; `--no-save` writes nothing, for
+  tests and quick checks (GitHub #125).
 - **One name: `tango_core`.** The import package is `tango_core`
   (`import tango_core`, `src/tango_core/`), matching the distribution
   `tango-core`, and the command is `tango_core` (`tango_core run`,

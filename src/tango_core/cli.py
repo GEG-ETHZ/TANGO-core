@@ -5,13 +5,14 @@
 
 Usage examples
 --------------
-Run a simulation::
+Run a simulation and save its results (``--save-dir`` or ``--no-save`` is
+required)::
 
-    tango_core run templates/hydro_sf_electric.yml
+    tango_core run templates/hydro_sf_electric.yml --save-dir results/
 
-Run with debug logging::
+Run with debug logging, saving nothing::
 
-    tango_core run templates/hydro_sf_electric.yml --log-level DEBUG
+    tango_core run templates/hydro_sf_electric.yml --no-save --log-level DEBUG
 
 Validate an input file without running::
 
@@ -97,9 +98,9 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  tango_core run templates/hydro_sf_electric.yml\n"
-            "  tango_core run my_config.yml --log-level DEBUG\n"
-            "  tango_core --log-level DEBUG run my_config.yml\n"
+            "  tango_core run templates/hydro_sf_electric.yml --save-dir results/\n"
+            "  tango_core run my_config.yml --no-save --log-level DEBUG\n"
+            "  tango_core --log-level DEBUG run my_config.yml --no-save\n"
             "  tango_core validate my_config.yml\n"
         ),
     )
@@ -136,7 +137,10 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="INPUT_FILE",
         help=("Path to the tango YAML input file (e.g. templates/hydro_sf_electric.yml)."),
     )
-    run_p.add_argument(
+    # Every run says where its results go, or that it writes none: a forgotten
+    # --save-dir would otherwise lose them silently.
+    save_group = run_p.add_mutually_exclusive_group(required=True)
+    save_group.add_argument(
         "--save-dir",
         type=Path,
         default=None,
@@ -154,8 +158,13 @@ def _build_parser() -> argparse.ArgumentParser:
             "has no GraphSurface surface component). A RAFT subsurface also "
             "keeps its own output (VTKs at its template's output_vtk, flow "
             "logs) in <name>.raft/. "
-            "Saving is opt-in: nothing is written unless this is given."
+            "Either this or --no-save is required."
         ),
+    )
+    save_group.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Write nothing to disk (tests, quick checks). Either this or --save-dir is required.",
     )
     run_p.add_argument(
         "--phase-diagram-config",
@@ -392,7 +401,7 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
             shutil.copytree(src_path, app_dest)
         logger.info("Copied applications/%s to %s", app, app_dest)
 
-    print(f"tango_core run {templates_dest / 'hydro_sf_electric.yml'}")
+    print(f"tango_core run {templates_dest / 'hydro_sf_electric.yml'} --save-dir results/")
     return 0
 
 

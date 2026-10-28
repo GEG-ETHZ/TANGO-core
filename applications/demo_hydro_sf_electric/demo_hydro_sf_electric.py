@@ -27,13 +27,11 @@ is saved in that mode).
 
 What running the YAML alone gets you
 -------------------------------------
-``tango_core run templates/hydro_sf_electric.yml`` (or
+``tango_core run templates/hydro_sf_electric.yml --save-dir DIR`` (or
 ``Workflow.from_file(...).run()`` directly, with no further code) runs the
-same simulation but produces none of the above: no files are written and
-no plots are shown -- ``tango_core`` has no ``--save-dir``/plotting flags
-today, so all you get is "Simulation finished normally" (plus whatever
-``--log-level`` prints per timestep) and the process exits with nothing
-retained. Every figure above comes from this script reading the completed
+same simulation but produces none of the plots above: the CLI writes the
+results files (``.results.yml``, ``.smry.csv``, ``.econ.csv``) and the
+phase diagrams, and ``--no-save`` writes nothing at all. Every figure above comes from this script reading the completed
 ``Workflow``'s own ``history`` state after ``run()`` returns and plotting
 it with matplotlib -- that's this demo's whole job, not something the YAML
 run does on its own.

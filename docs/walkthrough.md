@@ -29,8 +29,9 @@ tango_core run --save-dir results templates/hydro_sf_electric.yml
 
 Prints a one-line per-timestep summary and, because of `--save-dir`,
 writes three files to `./results/`: the full serialized `.yml`, a
-per-timestep `.smry.csv`, and a one-row `.econ.csv`. Without `--save-dir`
-nothing is written — saving is opt-in (see 1.3's `--help` output).
+per-timestep `.smry.csv`, and a one-row `.econ.csv`. Every run needs
+either `--save-dir` or `--no-save` (which writes nothing), so results are
+never lost by forgetting the flag (see 1.3's `--help` output).
 (Naming note: called `results/` here, not `tmp/`, since this repo's own
 `tmp/` is gitignored scratch space — don't conflate the two.)
 

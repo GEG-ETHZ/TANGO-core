@@ -106,7 +106,7 @@ Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) firs
    ```bash
    uv venv && uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ --index-strategy unsafe-best-match tango-core==X.Y.Z
    uv run tango_core --version
-   uv run tango_core init demo && uv run tango_core run demo/templates/hydro_sf_electric.yml
+   uv run tango_core init demo && uv run tango_core run demo/templates/hydro_sf_electric.yml --no-save
    ```
 
 6. If it works, approve the waiting `publish to PyPI` job in the workflow run (Actions → release). The same files go to PyPI. If it doesn't, leave the job unapproved, fix the problem, and release the next patch version; that version number is spent on TestPyPI.

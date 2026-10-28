@@ -1,6 +1,6 @@
 # One run, end to end
 
-What happens between `tango_core run config.yml` and the results files. The user's two decisions, the config and the `--save-dir` flag, are the only inputs; the exit code tells a script which stage failed.
+What happens between `tango_core run config.yml` and the results files. The user's two decisions, the config and where the results go (`--save-dir DIR`, or `--no-save` for none; one is required), are the only inputs; the exit code tells a script which stage failed.
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
@@ -24,7 +24,7 @@ sequenceDiagram
   end
   OR->>C: finalize: economics, LCOE
   Note over CLI,C: TangoError → exit 2
-  opt --save-dir
+  opt --save-dir (not --no-save)
     CLI->>U: write_results: .yml, .csv
   end
 ```
