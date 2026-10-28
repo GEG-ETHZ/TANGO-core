@@ -92,6 +92,27 @@ docs = [
     "mkdocstrings-python==2.0.9", # API reference pages from the Google-style docstrings
 ]
 
+# The sdist holds the package's source, its tests, and what the wheel is built
+# from; `uv build` makes the wheel from the sdist, so a path the wheel's
+# force-include needs must be listed here or the build fails. Everything else
+# in the repository (internal docs, agent and editor config, tooling, CI) stays
+# out of the published release. pyproject.toml is always included.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/templates",
+    "/applications",
+    "/docs/SOURCES.md",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/CITATION.cff",
+    "/LICENSE.txt",
+    "/LICENSES",
+    "/REUSE.toml",
+    "/pytest.ini",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/tango_core"]
 
