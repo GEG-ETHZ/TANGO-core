@@ -1,14 +1,21 @@
-"""Fixtures shared across tests/: a stand-in for RAFT (see ``fake_raft_model``)."""
+"""Pytest configuration shared by every test, and a stand-in for RAFT (see ``fake_raft_model``)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib
 import pytest
 import yaml
 from fake_raft_model import RAFT_TEMPLATE, FakeRaftModel, FakeTimestepError
 
 import tango.external.raft_wrapper as raft_wrapper
+
+# Tests only write figures to files. A non-interactive backend avoids
+# opening a GUI toolkit, which fails on runners without a working Tk
+# install (GitHub's hosted Windows runners). None of the imports above
+# loads matplotlib.pyplot, so this still takes effect before any figure.
+matplotlib.use("Agg")
 
 _ROOT = Path(__file__).resolve().parents[1]
 
