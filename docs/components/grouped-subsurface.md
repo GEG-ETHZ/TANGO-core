@@ -20,7 +20,7 @@ Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and
 
 ### The grouped loop
 
-::: tango.components.well.grouped_subsurface
+::: tango_core.components.well.grouped_subsurface
     options:
       members: false
       show_root_heading: false
@@ -28,7 +28,7 @@ Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and
 
 ### RAFT coupling
 
-::: tango.external.raft_wrapper
+::: tango_core.external.raft_wrapper
     options:
       members: false
       show_root_heading: false

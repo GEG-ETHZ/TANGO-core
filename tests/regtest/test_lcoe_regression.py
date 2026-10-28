@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import yaml
 
-from tango.core.errors import (
+from tango_core.core.errors import (
     ConfigError,
     CoolingLimitError,
     CoolPropError,
@@ -32,7 +32,7 @@ from tango.core.errors import (
     TangoError,
     TESPyConvergenceError,
 )
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 # ---------------------------------------------------------------------------
 # Paths and reference values
@@ -111,7 +111,7 @@ def test_workflow_to_dict_reflects_source_yaml_inputs() -> None:
         dumped["components"]["reservoir"]["reservoir_depth"]
         == original["components"]["reservoir"]["reservoir_depth"]
     )
-    # Derived from reservoir_depth (see tango.workflows.linked_quantities),
+    # Derived from reservoir_depth (see tango_core.workflows.linked_quantities),
     # so present in to_dict() although the source file leaves it out.
     assert "well_length" not in original["components"]["injection_well"]
     assert (
@@ -813,7 +813,7 @@ def test_max_mass_rate_is_rejected(sf_manual_config: dict[str, Any]) -> None:
 
 def test_coolprop_error_on_bad_state() -> None:
     """A physically invalid CoolProp query raises CoolPropError, not a bare exception."""
-    from tango.core.fluid_state import FluidState
+    from tango_core.core.fluid_state import FluidState
 
     with pytest.raises(CoolPropError):
         # Negative pressure is unphysical — CoolProp will raise internally
@@ -822,7 +822,7 @@ def test_coolprop_error_on_bad_state() -> None:
 
 def test_coolprop_error_is_tango_error() -> None:
     """CoolPropError inherits from TangoError — catchable at the base class."""
-    from tango.core.fluid_state import FluidState
+    from tango_core.core.fluid_state import FluidState
 
     with pytest.raises(TangoError):
         FluidState.with_PT("H2O", P=-1.0, T=300.0)
@@ -861,7 +861,7 @@ def test_injection_loop_closes_within_tolerance_every_year() -> None:
     outlet to within ``_DH_SURFACE_TOL``. ``AGS_ORC_electric.yml`` needs
     several iterations per year, so it exercises the relaxed-guess path.
     """
-    from tango.orchestrators.system_bc_iteration import _DH_SURFACE_TOL
+    from tango_core.orchestrators.system_bc_iteration import _DH_SURFACE_TOL
 
     config = yaml.safe_load((TEMPLATES_DIR / "AGS_ORC_electric.yml").read_text())
     config["sim_config"]["num_tsteps"] = 5
@@ -892,8 +892,8 @@ def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
     """
     import math
 
-    from tango.components.well.numerical import NumericalWell
-    from tango.core.fluid_state import FluidState
+    from tango_core.components.well.numerical import NumericalWell
+    from tango_core.core.fluid_state import FluidState
 
     config = yaml.safe_load((TEMPLATES_DIR / filename).read_text())
     config["sim_config"]["num_tsteps"] = 2

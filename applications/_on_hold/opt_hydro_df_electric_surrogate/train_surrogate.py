@@ -11,8 +11,8 @@ from pathlib import Path
 import pandas as pd
 from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, objective_specs, param_specs
 
-from tango.pymoo_api import load_params
-from tango.surrogate_api import (
+from tango_core.pymoo_api import load_params
+from tango_core.surrogate_api import (
     classifier_diagnostics_df,
     diagnostics_df,
     gaussian_process_regressor_factory,

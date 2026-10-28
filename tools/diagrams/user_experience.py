@@ -16,7 +16,7 @@ GAP = 44
 cols = [
     (580, "1", "Pick a model for each part", "components/<type>  ·  variant  →  registry.py"),
     (300, "2", "Wire into a workflow", "workflows/  ·  orchestrators/"),
-    (244, "3", "Run it", "tango_cli  ·  applications/"),
+    (244, "3", "Run it", "tango_core  ·  applications/"),
     (248, "4", "Read the results", "results_export.py"),
 ]
 x = 48
@@ -150,7 +150,7 @@ d.edge([(erail, ey + eh_ / 2), (ex_ - 2, ey + eh_ / 2)], color=ei, sw=2, size=8,
 # ---- step 3: three ways to run
 x3, w3 = xs[2]
 runs = [
-    ("Single run", "tango_cli run config.yml"),
+    ("Single run", "tango_core run config.yml"),
     ("Sweep", "applications/run_* · DVC"),
     ("Optimization", "pymoo_api · NSGA-II"),
 ]

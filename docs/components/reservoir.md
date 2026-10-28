@@ -13,7 +13,7 @@ Eclipse, OPM, tNAV) are planned as further variants of this type.
 
 ## How the model works
 
-::: tango.components.reservoir.lumped
+::: tango_core.components.reservoir.lumped
     options:
       members: false
       show_root_heading: false

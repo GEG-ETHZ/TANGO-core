@@ -1,4 +1,4 @@
-"""Unit tests for ``tango.pymoo_api``'s CLI/config plumbing and its parameter check.
+"""Unit tests for ``tango_core.pymoo_api``'s CLI/config plumbing and its parameter check.
 
 ``pymoo_api.py``'s optimization itself is exercised end-to-end by each
 ``opt_*`` app's smoke test (``test_opt_apps.py``). This file covers the
@@ -20,8 +20,8 @@ import numpy as np
 import pytest
 import yaml
 
-from tango.core.errors import ConfigError, InertParameterError
-from tango.pymoo_api import (
+from tango_core.core.errors import ConfigError, InertParameterError
+from tango_core.pymoo_api import (
     Minimization,
     ObjectiveSpec,
     ParamSpec,
@@ -30,7 +30,7 @@ from tango.pymoo_api import (
     build_pymoo_parser,
     ideal_distance,
 )
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 # Frozen scenarios, not templates/: these tests force mass rates and
 # bounds that only make sense for a specific design, and the example

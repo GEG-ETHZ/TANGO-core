@@ -1,7 +1,7 @@
 # What TESPy silently accepts
 
 A running list of things TESPy (the surface-plant solver behind
-`GraphSurface`, `src/tango/components/surface/graph.py`) solves or returns
+`GraphSurface`, `src/tango_core/components/surface/graph.py`) solves or returns
 **without complaint** even though the result is physically wrong, ill-posed,
 or not what the config meant. These are hard to catch because nothing
 raises: a run finishes and produces a plausible-looking LCOE.

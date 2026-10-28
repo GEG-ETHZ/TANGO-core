@@ -9,7 +9,7 @@ Start from a maintained config in `templates/`; never write one from scratch. Ea
 ## 2. Validate it
 
 ```bash
-uv run tango_cli validate templates/hydro_sf_electric.yml
+uv run tango_core validate templates/hydro_sf_electric.yml
 ```
 
 `validate` checks that every required field is present, every component type is registered and every schema is satisfied, without running any physics. A problem is reported as a `ConfigError` that names the field.
@@ -17,7 +17,7 @@ uv run tango_cli validate templates/hydro_sf_electric.yml
 ## 3. Run it
 
 ```bash
-uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
+uv run tango_core run templates/hydro_sf_electric.yml --save-dir results/
 ```
 
 The run logs one summary line per timestep. With `--save-dir DIR`, it writes three files:
@@ -40,12 +40,12 @@ Nothing is written without `--save-dir`. To see every convergence iteration, add
 
 An unexpected exception that is not a `TangoError` (a bug) also ends the process with exit code `1`, but prints a Python traceback instead of a one-line message. Report it as a bug.
 
-`uv run tango_cli --version` prints the installed version and the internal distribution notice. Quote the version together with any result you share.
+`uv run tango_core --version` prints the installed version and the license line. Quote the version together with any result you share.
 
 ## 4. Run from Python
 
 ```python
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 workflow = Workflow.from_file("templates/hydro_sf_electric.yml")
 workflow.run()
@@ -60,5 +60,5 @@ Three directories hold runnable material, each for a different purpose:
 | Directory | Purpose | Run with |
 |---|---|---|
 | `tests/` | Automated correctness checks. `tests/unit/` covers components in isolation; `tests/regtest/` runs full simulations, including a golden LCOE per template | `just test` (see [Running checks](install.md#running-checks)) |
-| [`templates/`](templates.md) | The maintained configs; each backs a test, an application or both | `uv run tango_cli run templates/<file>.yml` |
+| [`templates/`](templates.md) | The maintained configs; each backs a test, an application or both | `uv run tango_core run templates/<file>.yml` |
 | [`applications/`](applications.md) | Multi-run pipelines built on a template: optimizations and demos | DVC or the app's own script |

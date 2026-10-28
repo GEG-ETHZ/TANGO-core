@@ -16,14 +16,14 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.components.well.numerical import (
+from tango_core.components.well.numerical import (
     WellLengthSideEffect,
     default_num_cells,
     set_well_length,
 )
-from tango.core.errors import ConfigError
-from tango.workflows.linked_quantities import expunge_linked_quantities
-from tango.workflows.workflow import Workflow
+from tango_core.core.errors import ConfigError
+from tango_core.workflows.linked_quantities import expunge_linked_quantities
+from tango_core.workflows.workflow import Workflow
 
 _AGS = Path(__file__).resolve().parents[2] / "templates" / "AGS_direct_heat.yml"
 

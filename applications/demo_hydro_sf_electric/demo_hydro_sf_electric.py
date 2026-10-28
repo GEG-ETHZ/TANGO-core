@@ -1,7 +1,7 @@
 """Interactive demo: tango flexible Single-Flash system.
 
 Runs ``templates/hydro_sf_electric.yml`` and generates four figures that
-``tango`` itself does not produce (see the section "What running the YAML alone
+``tango_core`` itself does not produce (see the section "What running the YAML alone
 gets you" below):
 
   1. Temperature vs axial position parameterized by timestep
@@ -24,10 +24,10 @@ is saved in that mode).
 
 What running the YAML alone gets you
 -------------------------------------
-``tango_cli run templates/hydro_sf_electric.yml`` (or
+``tango_core run templates/hydro_sf_electric.yml`` (or
 ``Workflow.from_file(...).run()`` directly, with no further code) runs the
 same simulation but produces none of the above: no files are written and
-no plots are shown -- ``tango_cli`` has no ``--save-dir``/plotting flags
+no plots are shown -- ``tango_core`` has no ``--save-dir``/plotting flags
 today, so all you get is "Simulation finished normally" (plus whatever
 ``--log-level`` prints per timestep) and the process exits with nothing
 retained. Every figure above comes from this script reading the completed
@@ -56,7 +56,7 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from tango.workflows.workflow import Workflow  # noqa: E402
+from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 # hydro_sf_electric.yml lives in templates/ (configs only, shared
 # with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run

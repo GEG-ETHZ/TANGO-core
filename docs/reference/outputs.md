@@ -1,6 +1,6 @@
 # Outputs
 
-`tango_cli run <config> --save-dir DIR` writes three files; how to run it
+`tango_core run <config> --save-dir DIR` writes three files; how to run it
 is in [Run a simulation](../guides/run.md#3-run-it). This page lists what
 each column means. The tables are generated from the code
 (`tools/gen_reference.py`), so they list exactly what the files contain.

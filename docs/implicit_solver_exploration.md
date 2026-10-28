@@ -34,7 +34,7 @@ surface/process-plant components only; it has no wellbore or reservoir physics a
 
 ## Why this would help the fracking/BC-causality problem
 
-`SystemBCIteration` (`src/tango/orchestrators/system_bc_iteration.py`) currently
+`SystemBCIteration` (`src/tango_core/orchestrators/system_bc_iteration.py`) currently
 hand-rolls a fixed-point (Picard) update:
 
 ```text
@@ -67,7 +67,7 @@ the Jacobian.
 
 tespy's `Component` is a plain class built around an `OrderedDict` of `dc_cp`/`dc_simple`
 property containers, `design`/`offdesign` mode switching, and `parameters`/
-`get_parameters()` conventions. `tango.core.Component` is a Pydantic `BaseModel` with
+`get_parameters()` conventions. `tango_core.core.Component` is a Pydantic `BaseModel` with
 `LockedState`-frozen fields and serialization as a first-class concern. These two
 metaclass/`__dict__` models don't compose cleanly by inheritance — doing this "properly"
 would mean writing an adapter class (a tespy-`Component` shim that reads off the Pydantic
@@ -78,10 +78,10 @@ into the subsurface.
 ## Suggested direction
 
 Borrow the *pattern* — assemble a sparse residual/Jacobian from each component, one
-`spsolve` per outer iteration — directly inside `tango`'s own `Component`/
+`spsolve` per outer iteration — directly inside `tango_core`'s own `Component`/
 orchestrator, rather than inheriting from tespy at all:
 
-1. Add `residual()`/`jacobian()` hooks next to `solve()` on `tango.core.Component`
+1. Add `residual()`/`jacobian()` hooks next to `solve()` on `tango_core.core.Component`
    (or a mixin/ABC layered on top, so components that don't participate in the implicit
    loop are unaffected).
 2. Replace `SystemBCIteration`'s fixed-point update with a real 1-D Newton step first —
@@ -94,5 +94,5 @@ orchestrator, rather than inheriting from tespy at all:
    merging both solvers into one system.
 
 This gets the causality fix without importing tespy's design/offdesign/characteriztic-curve
-machinery, and avoids fighting the Pydantic model shape that the rest of `tango` is
+machinery, and avoids fighting the Pydantic model shape that the rest of `tango_core` is
 built on.

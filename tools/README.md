@@ -1,11 +1,11 @@
 # `tools/`
 
-Repo maintenance scripts. None of them is part of the `tango` package.
+Repo maintenance scripts. None of them is part of the `tango_core` package.
 
 | Script | What it does | Run by |
 |---|---|---|
 | `check_remote_up_to_date.py` | Fails fast when the remote has commits you lack | pre-push hook |
-| `hash_tango.py` | Regenerates `src/tango.hash`, the single file DVC stages depend on | pre-commit hook on `src/tango/` |
+| `hash_tango.py` | Regenerates `src/tango_core.hash`, the single file DVC stages depend on | pre-commit hook on `src/tango_core/` |
 | `check_full_tests_before_tag_push.py` | Requires `just test --all` before a `vX.Y.Z` tag is pushed | pre-push hook |
 | `check_licenses.py` | Generates and checks third-party license compliance (`licenses.json`, `conda_and_pip_package_licenses.csv`) | by hand, before a release |
 | `run_tango_profile.py` | Runs one template, optionally under cProfile (`--profile`) | by hand |

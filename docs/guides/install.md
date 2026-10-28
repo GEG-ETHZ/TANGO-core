@@ -38,7 +38,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 3. Check the installation:
 
    ```bash
-   uv run tango_cli --version
+   uv run tango_core --version
    ```
 
    Expected output starts with `tango 1.0.1`, followed by the internal distribution notice.
@@ -46,17 +46,17 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 4. Copy the templates into your project as a starting point:
 
    ```bash
-   uv run tango_cli init .
+   uv run tango_core init .
    ```
 
    This copies the `templates/` that ship with the installed version. An existing `templates/` is left as it is, so local edits are never overwritten. To also copy an optimization or demo pipeline, add `--app <name>` (repeatable); `--list-apps` prints the available names.
 
 To upgrade, run the `uv add` command again with the new tag.
 
-The distribution is named `tango-core`, but the import name is `tango`:
+The distribution is `tango-core`, and the import name is `tango_core`:
 
 ```python
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 ```
 
 ## Develop TANGO
@@ -76,7 +76,7 @@ from tango.workflows.workflow import Workflow
 3. Check the setup with a first run:
 
    ```bash
-   uv run tango_cli run templates/hydro_sf_electric.yml
+   uv run tango_core run templates/hydro_sf_electric.yml
    ```
 
 ### Optional: RAFT subsurface simulator
@@ -112,4 +112,4 @@ Run every command from the repository root.
 |---|---|
 | `Permission denied (publickey)` during `uv add` or `git clone` | Your SSH key is not registered on GitHub, or your account lacks access to `GEG-ETHZ/TANGO-core`. Follow the SSH guide linked above, then ask a maintainer for access. |
 | `requires-python` / no matching Python | TANGO needs Python 3.11 exactly. Install it, or let uv fetch it: `uv python install 3.11`. |
-| `tango_cli init` leaves `templates/` unchanged | Intended: it never overwrites an existing folder. Choose another destination, or move the existing folder to get fresh copies. |
+| `tango_core init` leaves `templates/` unchanged | Intended: it never overwrites an existing folder. Choose another destination, or move the existing folder to get fresh copies. |

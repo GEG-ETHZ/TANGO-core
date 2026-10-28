@@ -43,11 +43,11 @@
 
 ## How the code is organized
 
-![The TANGO core package: tango_cli, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
+![The TANGO core package: tango_core, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
 
 ## Start here
 
-To run TANGO, go to [Setup](#setup). To work on it, read the [package tour](src/tango/README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an AI agent? Paste this into it:
+To run TANGO, go to [Setup](#setup). To work on it, read the [package tour](src/tango_core/README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an AI agent? Paste this into it:
 
 ```text
 Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in this repository.
@@ -55,13 +55,13 @@ Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in 
 
 ## Setup
 
-TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/) and read access to the private GitHub repository [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is called `tango-core`; the import name is `tango`.
+TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is `tango-core`, the import name is `tango_core`, and the command is `tango_core`.
 
 Add a pinned release to your own project:
 
 ```bash
 uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
-uv run tango_cli init .        # copies the templates into ./templates
+uv run tango_core init .        # copies the templates into ./templates
 ```
 
 Or clone the repository to work on it:
@@ -75,14 +75,14 @@ just setup                     # installs dependencies and all git hooks
 Then run the flagship example, a single-flash hydrothermal power plant, and save its results:
 
 ```bash
-uv run tango_cli validate templates/hydro_sf_electric.yml
-uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
+uv run tango_core validate templates/hydro_sf_electric.yml
+uv run tango_core run templates/hydro_sf_electric.yml --save-dir results/
 ```
 
 `results/` then holds the solved config, a per-timestep CSV and an economics CSV. The same from Python:
 
 ```python
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 wf = Workflow.from_file("templates/hydro_sf_electric.yml")
 wf.run()
@@ -103,7 +103,7 @@ The documentation is published as a private site for the GEG-ETHZ organization, 
 | [Contributing](CONTRIBUTING.md) | The TANGO commandments, workflow, tests, releases |
 
 ```text
-src/tango/        the package: core, components, orchestrators, workflows, CLI, optimization
+src/tango_core/        the package: core, components, orchestrators, workflows, CLI, optimization
 templates/        maintained configs, one or more per system type; back the tests and applications
 applications/     optimizations and demos; each optimization is a DVC pipeline with a SLURM script
 tests/            unit/ (fast, run in CI) and regtest/ (full simulations; the fast subset runs before push)

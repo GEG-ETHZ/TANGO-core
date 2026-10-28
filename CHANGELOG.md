@@ -92,6 +92,13 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Changed
 
+- **One name: `tango_core`.** The import package is `tango_core`
+  (`import tango_core`, `src/tango_core/`), matching the distribution
+  `tango-core`, and the command is `tango_core` (`tango_core run`,
+  `tango_core validate`, `tango_core init`, `tango_core --version`).
+  `import tango` and `tango_cli` are gone, with no alias; update imports
+  and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
+  tracks is `src/tango_core.hash`.
 - **License: Apache-2.0.** TANGO is open source under the Apache License,
   Version 2.0 (`LICENSE.txt`), copyright 2025 ETH Zurich. The proprietary
   license and the internal distribution notice (`NOTICE`) are gone. The

@@ -57,4 +57,4 @@ Electricity versus direct heat is set by `economic.main_product` and the surface
 | `surface` | `graph` | `GraphSurface` |
 | `economic` | `doublet` | `DoubletEconomicComponent` |
 
-To add a component, see `src/tango/components/AGENTS.md`.
+To add a component, see `src/tango_core/components/AGENTS.md`.

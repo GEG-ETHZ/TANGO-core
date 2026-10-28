@@ -1,4 +1,4 @@
-"""Smoke tests for every ``applications/opt_*`` app built on ``tango.pymoo_api.OptApp``.
+"""Smoke tests for every ``applications/opt_*`` app built on ``tango_core.pymoo_api.OptApp``.
 
 Each app's real ``APP`` runs a full optimization with its own ``--smoke``
 settings (tiny population, any relaxed constraints), a single process, a fixed
@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tango.pymoo_api import OptApp
-from tango.workflows.workflow import Workflow
+from tango_core.pymoo_api import OptApp
+from tango_core.workflows.workflow import Workflow
 
 _APPLICATIONS_DIR = Path(__file__).resolve().parents[2] / "applications"
 _APP_NAMES = sorted(

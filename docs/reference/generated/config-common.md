@@ -2,12 +2,12 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `fluid_name` | `str` | required | Working fluid as a CoolProp fluid name, e.g. H2O or CO2. |
-| `rock_density` | `float` | required | Rock density (kg/m3). |
-| `rock_cp` | `float` | required | Rock specific heat capacity (J/(kg K)). |
-| `rock_k` | `float` | required | Rock thermal conductivity (W/(m K)). |
-| `thermal_gradient` | `float` | required | Geothermal gradient (K/m). |
-| `surface_temperature` | `float` | required | Surface temperature (K): the ambient air temperature for cooling, and the top of the linear geotherm. |
-| `surface_pressure` | `float` | required | Ambient surface pressure (Pa). |
-| `coolprop_backend` | `CoolPropBackend` | `<CoolPropBackend.HEOS: 'HEOS'>` | CoolProp equation-of-state backend for all fluid-property lookups (`core/fluid_state.py`'s `CoolPropBackend`). Defaults to exact `HEOS`; the faster tabulated `BICUBIC&HEOS` is unreliable near phase boundaries (see its docstring). |
-| `saturation_margin` | `float` | `0.05` | Minimum relative distance (fraction) between a well cell's pressure and the fluid's saturation pressure at that cell's temperature. The well models assume single-phase flow, so a cell whose pressure lies within `saturation_margin * p_sat(T)` of `p_sat(T)`, on either side, or inside the vapor-liquid dome, raises `SaturationError`. Only applies below the fluid's critical temperature, where a saturation pressure exists. `0` rejects only states that are actually two-phase. The 5% default is engineering judgement: no published standard gives a margin to saturation for wells in this form. Related practice that motivated it: pump suction NPSH margin ratios of 1.1-1.3 (ANSI/HI 9.6.1, application-dependent), the margin to the saturation line kept at supercritical-CO2 compressor inlets (sized case by case, e.g. by inlet Mach number), and dense-phase CO2 pipelines operated well above their phase-change pressure. |
+| `fluid_name` | `str` | required | *undocumented* |
+| `rock_density` | `float` | required | *undocumented* |
+| `rock_cp` | `float` | required | *undocumented* |
+| `rock_k` | `float` | required | *undocumented* |
+| `thermal_gradient` | `float` | required | *undocumented* |
+| `surface_temperature` | `float` | required | *undocumented* |
+| `surface_pressure` | `float` | required | *undocumented* |
+| `coolprop_backend` | `CoolPropBackend` | `<CoolPropBackend.HEOS: 'HEOS'>` | *undocumented* |
+| `saturation_margin` | `float` | `0.05` | *undocumented* |

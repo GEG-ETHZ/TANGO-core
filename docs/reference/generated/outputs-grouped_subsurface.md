@@ -4,14 +4,14 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) entering the injection well. |
-| `<name>_T_inlet` | Temperature (K) entering the injection well. |
-| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead. |
-| `<name>_mass_rate` | Mass flow rate (kg/s) around the loop. |
-| `<name>_h_outlet` | Specific enthalpy (J/kg) leaving the production well. |
-| `<name>_T_outlet` | Temperature (K) at the production wellhead. |
-| `<name>_P_outlet` | Pressure (Pa) at the production wellhead. |
-| `<name>_heat_extracted_watts` | Rate of energy the fluid gains around the loop (W): `mass_rate * (h_outlet - h_inlet)`. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_heat_extracted_watts` | *undocumented* |
 
 Columns `<name>.injection_well_<value>`: the outputs of `injection_well` · `numerical`.
 
@@ -23,30 +23,30 @@ Columns `<name>.production_well_<value>`: the outputs of `production_well` · `n
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) entering the injection well. |
-| `<name>_T_inlet` | Temperature (K) entering the injection well. |
-| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead. |
-| `<name>_mass_rate` | Mass flow rate (kg/s) around the loop. |
-| `<name>_h_outlet` | Specific enthalpy (J/kg) leaving the production well. |
-| `<name>_T_outlet` | Temperature (K) at the production wellhead. |
-| `<name>_P_outlet` | Pressure (Pa) at the production wellhead. |
-| `<name>_heat_extracted_watts` | Rate of energy the fluid gains around the loop (W): `mass_rate * (h_outlet - h_inlet)`. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_heat_extracted_watts` | *undocumented* |
 
 `raft:` block (`RaftWrapper`):
 
 | Column | Meaning |
 |---|---|
-| `<name>.raft_P_inlet` | Pressure (Pa) at the well inlet (set by tango). |
-| `<name>.raft_T_inlet` | Temperature (K) at the well inlet (set by tango). |
-| `<name>.raft_mass_rate_inlet` | Mass flow (kg/s) into the well inlet, solved by RAFT. |
-| `<name>.raft_P_outlet` | Pressure (Pa) at the well outlet, solved by RAFT. |
-| `<name>.raft_T_outlet` | Temperature (K) at the well outlet, solved by RAFT. |
-| `<name>.raft_mass_rate_outlet` | Mass flow (kg/s) out of the well outlet (set by tango). |
-| `<name>.raft_trial_solves` | RAFT solves this timestep took, one per tango injection-enthalpy iteration. |
-| `<name>.raft_solve_seconds` | Wall time (s) of all of this timestep's RAFT solves. |
-| `<name>.raft_accepted_steps` | Internal timesteps RAFT took in the accepted trial. |
-| `<name>.raft_attempts` | Internal timestep solves in the accepted trial, rejected ones included. |
-| `<name>.raft_cut_extrapolation` | Internal timesteps in the accepted trial that RAFT rejected for temperature extrapolation error. |
-| `<name>.raft_cut_newton` | Internal timesteps in the accepted trial that RAFT rejected because Newton-Raphson failed. |
-| `<name>.raft_constraint_switches` | Extra solves in the accepted trial after a wellbore constraint switched. |
-| `<name>.raft_dt_min_proceeds` | Internal timesteps in the accepted trial that RAFT accepted at `timestep_min` with an error above its tolerance. |
+| `<name>.raft_P_inlet` | *undocumented* |
+| `<name>.raft_T_inlet` | *undocumented* |
+| `<name>.raft_mass_rate_inlet` | *undocumented* |
+| `<name>.raft_P_outlet` | *undocumented* |
+| `<name>.raft_T_outlet` | *undocumented* |
+| `<name>.raft_mass_rate_outlet` | *undocumented* |
+| `<name>.raft_trial_solves` | *undocumented* |
+| `<name>.raft_solve_seconds` | *undocumented* |
+| `<name>.raft_accepted_steps` | *undocumented* |
+| `<name>.raft_attempts` | *undocumented* |
+| `<name>.raft_cut_extrapolation` | *undocumented* |
+| `<name>.raft_cut_newton` | *undocumented* |
+| `<name>.raft_constraint_switches` | *undocumented* |
+| `<name>.raft_dt_min_proceeds` | *undocumented* |

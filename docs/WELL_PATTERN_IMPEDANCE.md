@@ -2,7 +2,7 @@
 
 The analytic hydraulic impedance of a doublet, five-spot or inverted
 five-spot well pattern, as implemented in
-`src/tango/components/reservoir/wellpattern_impedance.py` and used by
+`src/tango_core/components/reservoir/wellpattern_impedance.py` and used by
 `LumpedReservoir`. Status: available.
 
 ## The `WellPattern` enum
@@ -29,7 +29,7 @@ Names are case-insensitive: `WellPattern("doublet")` and
 
 ## Use in `LumpedReservoir`
 
-`LumpedReservoir` (`src/tango/components/reservoir/lumped.py`) holds the
+`LumpedReservoir` (`src/tango_core/components/reservoir/lumped.py`) holds the
 configured pattern and defaults to `WellPattern.Doublet` when
 `layout.well_pattern` is absent. Each solve evaluates the impedance with the
 fluid properties at the current state:

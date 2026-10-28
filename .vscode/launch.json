@@ -13,7 +13,7 @@
             "type": "debugpy",
             "request": "launch",
             "python": "${workspaceFolder}/.venv/bin/python",
-            "program": "${workspaceFolder}/.venv/bin/tango_cli",
+            "program": "${workspaceFolder}/.venv/bin/tango_core",
             "args": [
                 "run",
                 "templates/hydro_df_electric.yml"
@@ -24,7 +24,7 @@
             "name": "Python: AGS_H2O_webapp_native.yml (old tango)",
             "type": "debugpy",
             "request": "launch",
-            "module": "tango.tango_cli",
+            "module": "tango_core.cli",
             "args": [
                 "-f",
                 "examples/AGS_new/AGS_H2O_webapp_native.yml"

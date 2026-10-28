@@ -1,4 +1,4 @@
-"""Fast, no-subprocess smoke test for ``tango.surrogate_api``'s pipeline.
+"""Fast, no-subprocess smoke test for ``tango_core.surrogate_api``'s pipeline.
 
 Exercises every stage (LHS sampling -> real-sim sweep -> surrogate training ->
 surrogate-driven NSGA2 -> real-sim validation) against
@@ -20,8 +20,8 @@ from types import ModuleType
 
 import pytest
 
-from tango.pymoo_api import PymooConfig
-from tango.surrogate_api import (
+from tango_core.pymoo_api import PymooConfig
+from tango_core.surrogate_api import (
     SurrogateValidationError,
     classifier_diagnostics_df,
     corrected_pareto_front,

@@ -14,7 +14,7 @@ section directly:
 1. Scaffold a project with the GEG cookiecutter template.
 2. `uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.1.0`
    (swap in whatever the current release tag is).
-3. `tango_cli init .` to pull down `templates/` and every
+3. `tango_core init .` to pull down `templates/` and every
    `applications/` pipeline into the new project (`--app` narrows this to
    specific apps, `--no-apps` skips them entirely — see `--help`).
 
@@ -24,7 +24,7 @@ the tag.
 ### 1.2 Run a template
 
 ```bash
-tango_cli run --save-dir results templates/hydro_sf_electric.yml
+tango_core run --save-dir results templates/hydro_sf_electric.yml
 ```
 
 Prints a one-line per-timestep summary and, because of `--save-dir`,
@@ -37,9 +37,9 @@ nothing is written — saving is opt-in (see 1.3's `--help` output).
 ### 1.3 Get help
 
 ```bash
-tango_cli --help
-tango_cli run --help
-tango_cli init --help
+tango_core --help
+tango_core run --help
+tango_core init --help
 ```
 
 Then one application, as a representative example of an app's own
@@ -84,14 +84,14 @@ neat but too much setup for a demo slot.
 - `opt_hydro_df_electric.py`'s Pareto plots, written to
   `applications/opt_hydro_df_electric/outputs/` (`pareto_scatter.png`,
   `pareto_parallel_coordinates.html`, etc.) after the `--clean` run above.
-- Contrast with 1.2: `tango_cli run --save-dir` gives you raw data
+- Contrast with 1.2: `tango_core run --save-dir` gives you raw data
   (YAML/CSV), never plots — rich plots are the applications' job, not
   the engine's.
 
 ### 1.6 Optional — debugging into `site-packages` (probably skip)
 
 If there's time and appetite: set a breakpoint inside the installed
-`tango` package itself (not your own project code) and step into it from
+`tango_core` package itself (not your own project code) and step into it from
 your editor. VS Code's Python debugger (`debugpy`) is the well-trodden
 path for this — you'll likely need to disable `justMyCode` to step into
 library code. Zed's debugger support is newer; not verified for this

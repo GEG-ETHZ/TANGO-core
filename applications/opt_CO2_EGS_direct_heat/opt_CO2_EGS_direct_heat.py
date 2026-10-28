@@ -22,7 +22,7 @@ rejects designs that would fracture the reservoir.
 
 The ``ParamSpec``/``ObjectiveSpec`` factories are defined here, not in
 ``pymoo_api.py``, which stays generic (see ``ParamSpec``'s docstring); the CLI,
-baseline, search, and plots come from ``tango.pymoo_api.OptApp``.
+baseline, search, and plots come from ``tango_core.pymoo_api.OptApp``.
 
 Usage: ``dvc repro`` from this directory (or ``just slurm
 opt_CO2_EGS_direct_heat`` on Euler) runs the ``optimize`` and ``plot`` stages
@@ -36,9 +36,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from tango.core.policies import InjectionPolicy
-from tango.pymoo_api import ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
-from tango.workflows.workflow import Workflow
+from tango_core.core.policies import InjectionPolicy
+from tango_core.pymoo_api import ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
+from tango_core.workflows.workflow import Workflow
 
 HERE = Path(__file__).parent
 
@@ -86,7 +86,7 @@ class _WellDiameterApply:
 
     ``reservoir.well_eff_diameter``, the average of the injection and
     production well diameters, is derived from these
-    (``tango.workflows.linked_quantities``).
+    (``tango_core.workflows.linked_quantities``).
     """
 
     wells: tuple[str, ...]

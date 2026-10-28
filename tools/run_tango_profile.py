@@ -14,7 +14,7 @@ _REPO_ROOT = Path(__file__).parents[1]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from tango.workflows.workflow import Workflow  # noqa: E402
+from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 # Configs live in templates/ (YAML only — shared with the regtests
 # and `just apps`), not alongside application scripts.

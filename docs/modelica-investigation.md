@@ -67,7 +67,7 @@ no friction.
 down-well pipe → reservoir heat exchanger (lumped thermal-mass reservoir) →
 adiabatic up-well pipe → flash valve → phase separator → {vapor: turbine →
 condenser, liquid: bypass} → ideal mixing junction → back to the sump. This
-mirrors TANGO's own single-flash surface topology (`src/tango/components/surface`),
+mirrors TANGO's own single-flash surface topology (`src/tango_core/components/surface`),
 which is why it was the natural test case rather than a toy example.
 
 MSL has no ready-made two-phase flash-separator or steam-turbine component (this

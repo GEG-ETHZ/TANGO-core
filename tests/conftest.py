@@ -9,7 +9,7 @@ import pytest
 import yaml
 from fake_raft_model import RAFT_TEMPLATE, FakeRaftModel, FakeTimestepError
 
-import tango.external.raft_wrapper as raft_wrapper
+import tango_core.external.raft_wrapper as raft_wrapper
 
 # Tests only write figures to files. A non-interactive backend avoids
 # opening a GUI toolkit, which fails on runners without a working Tk

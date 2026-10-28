@@ -4,14 +4,14 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `pipe_diameter` | `float` | required | Surface pipe inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness (m). |
-| `approach_temperature` | `float` | required | Heat exchanger approach temperature (K). Residual gap between the cooled fluid's final temperature and the ambient temperature into which heat is being rejected. |
-| `power_plant` | `dict[str, Any]` | computed | `{"nodes": {name: {type, role?, ...attrs}}, "edges": {n: {source, target, source_port?, target_port?}}}`. See module docstring for the full shape. |
-| `record_node_detail` | `bool` | `True` | If True (default), populate state.node_detail / history.node_history with every node's P/Q/T/p/m each solve(). Set False to skip this (e.g. a large network run over many timesteps where the extra bookkeeping/storage isn't worth it). |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `pipe_diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `approach_temperature` | `float` | required | *undocumented* |
+| `power_plant` | `dict[str, Any]` | computed | *undocumented* |
+| `record_node_detail` | `bool` | `True` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `target_extraction_pressure` from `sim_config.target_extraction_pressure`, `well_spacing` from `layout.well_spacing`.

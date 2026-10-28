@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import pytest
 
-from tango.core.fluid_state import COOLPROP_BACKEND, FluidState
-from tango.core.locked_state import LockedState
-from tango.core.stream import Stream
+from tango_core.core.fluid_state import COOLPROP_BACKEND, FluidState
+from tango_core.core.locked_state import LockedState
+from tango_core.core.stream import Stream
 
 # ---------------------------------------------------------------------------
 # Shared config helpers
@@ -104,7 +104,7 @@ def _assert_locked_float(field: object, expected: float, name: str) -> None:
 
 def test_lumped_injection_well_roundtrip() -> None:
     """State fields survive a model_dump / from_config round-trip as LockedState."""
-    from tango.components.well.lumped import LumpedInjectionWell
+    from tango_core.components.well.lumped import LumpedInjectionWell
 
     cfg = _well_cfg(1)
     well = LumpedInjectionWell.from_dict(cfg)
@@ -134,7 +134,7 @@ def test_lumped_injection_well_roundtrip() -> None:
 
 def test_lumped_production_well_roundtrip() -> None:
     """State fields survive a model_dump / from_config round-trip as LockedState."""
-    from tango.components.well.lumped import LumpedProductionWell
+    from tango_core.components.well.lumped import LumpedProductionWell
 
     cfg = _well_cfg(3)
     well = LumpedProductionWell.from_dict(cfg)
@@ -159,7 +159,7 @@ def test_lumped_production_well_roundtrip() -> None:
 
 def test_lumped_reservoir_roundtrip_values() -> None:
     """State values and energy_extracted survive the round-trip."""
-    from tango.components.reservoir.lumped import LumpedReservoir
+    from tango_core.components.reservoir.lumped import LumpedReservoir
 
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
@@ -184,7 +184,7 @@ def test_lumped_reservoir_roundtrip_values() -> None:
 
 def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
     """energy_extracted accumulates correctly and round-trips after multiple steps."""
-    from tango.components.reservoir.lumped import LumpedReservoir
+    from tango_core.components.reservoir.lumped import LumpedReservoir
 
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
@@ -207,7 +207,7 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
 
 def test_numerical_well_cell_arrays_roundtrip() -> None:
     """LockedState[list[float]] fields (cell arrays) also round-trip correctly."""
-    from tango.components.well.numerical import NumericalInjectionWell
+    from tango_core.components.well.numerical import NumericalInjectionWell
 
     cfg = dict(
         component_idx=1,
@@ -282,7 +282,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
     object can solve() again (GraphSurface's TESPy network lives in private,
     non-serialized attributes rebuilt by init() — see the next test for that).
     """
-    from tango.components.surface.graph import GraphSurface
+    from tango_core.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
     surface.solve(_inlet_at(423.15, 8.5e6, 50.0))
@@ -317,7 +317,7 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     non-serialized attributes) is correctly rebuilt from the serialized
     power_plant dict alone, not silently relying on stale private state.
     """
-    from tango.components.surface.graph import GraphSurface
+    from tango_core.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
     surface.solve(_inlet_at(423.15, 8.5e6, 50.0))

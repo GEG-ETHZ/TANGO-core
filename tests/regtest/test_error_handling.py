@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from tango.core.errors import CoolPropError, SaturationError, TESPyError
-from tango.workflows.workflow import Workflow  # noqa: E402
+from tango_core.core.errors import CoolPropError, SaturationError, TESPyError
+from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 ERROR_CONFIG_DIR = Path(__file__).parent / "fixtures" / "coolprop_tespy_errors"
 

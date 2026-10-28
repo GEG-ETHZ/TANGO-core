@@ -3,12 +3,9 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-# Distribution name deliberately differs from the importable module
-# (src/tango/, `import tango`) -- PyPI already has an unrelated package
-# literally named `tango`. This repo isn't published there today, but
-# `tango-core` avoids a headache if that ever changes, while keeping the
-# short `import tango` for everyday use. Common pattern (see e.g.
-# beautifulsoup4 -> bs4, scikit-learn -> sklearn, pyyaml -> yaml).
+# The distribution `tango-core`, the import package `tango_core`
+# (src/tango_core/), and the `tango_core` command share one name. PyPI
+# already has an unrelated package called `tango`.
 name = "tango-core"
 version = "1.1.0"
 authors = [{name = "Geothermal Energy and Geofluids Group, ETH Zurich", email = "chad.baker@eaps.ethz.ch"}]
@@ -54,14 +51,14 @@ dependencies = [
     "dvc-webdav>=3.0.1",
     "dvc-gs>=3.0.2",
     "plotly>=5.24,<6.0", # interactive parallel-coordinates plots for parameter sweeps;
-                          # interactive P-h phase diagrams from `tango_cli run --save-dir`
+                          # interactive P-h phase diagrams from `tango_core run --save-dir`
 ]
 
 [project.urls]
 Homepage = "https://tango.app/"
 
 [project.scripts]
-tango_cli = "tango.tango_cli:main"
+tango_core = "tango_core.cli:main"
 
 [project.optional-dependencies]
 # RAFT (GEG-ETHZ/RAFT): FEM wellbore + rock heat simulator behind the
@@ -96,20 +93,20 @@ docs = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tango"]
+packages = ["src/tango_core"]
 
 [tool.hatch.build.targets.wheel.force-include]
 # templates/ lives at the repo root (used directly by tests/dvc/justfile
-# via that path) rather than under src/tango/ -- force-include ships it in
-# the wheel at tango/templates/ (see tango_cli init) without moving or
+# via that path) rather than under src/tango_core/ -- force-include ships it in
+# the wheel at tango_core/templates/ (see tango_core init) without moving or
 # duplicating it, so nothing referencing the top-level path needs to change.
-"templates" = "tango/templates"
+"templates" = "tango_core/templates"
 
 # User-facing docs from docs/. Files are listed individually, not the whole
 # directory: docs/ also holds the developer docs (task log, roadmap, design
 # notes, archive), which are not shipped, and force-include copies whatever
 # is on disk rather than only git-tracked files.
-"docs/SOURCES.md" = "tango/docs/SOURCES.md"
+"docs/SOURCES.md" = "tango_core/docs/SOURCES.md"
 
 # applications/<app>/ files, explicitly enumerated rather than
 # force-including the whole applications/ directory -- app dirs
@@ -121,97 +118,97 @@ packages = ["src/tango"]
 # own runs), outputs/.gitignore (placeholder, not needed in a fresh
 # copy), REDESIGN_TODO.md (internal planning note, not user-facing), and
 # applications/README.md (describes the whole directory, not one app --
-# not copied per-app by `tango_cli init --app`). Regenerate by re-running
+# not copied per-app by `tango_core init --app`). Regenerate by re-running
 # that command and re-applying this same filter if apps are added,
 # renamed, or gain/lose files.
-"applications/demo_hydro_sf_electric/.gitignore" = "tango/applications/demo_hydro_sf_electric/.gitignore"
-"applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py" = "tango/applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py"
-"applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py" = "tango/applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py"
-"applications/opt_AGS_ORC_electric/.gitignore" = "tango/applications/opt_AGS_ORC_electric/.gitignore"
-"applications/opt_AGS_ORC_electric/dvc.yaml" = "tango/applications/opt_AGS_ORC_electric/dvc.yaml"
-"applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py" = "tango/applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py"
-"applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric_job.sh" = "tango/applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric_job.sh"
-"applications/opt_AGS_ORC_electric/params.yaml" = "tango/applications/opt_AGS_ORC_electric/params.yaml"
-"applications/opt_AGS_direct_heat/.gitignore" = "tango/applications/opt_AGS_direct_heat/.gitignore"
-"applications/opt_AGS_direct_heat/dvc.yaml" = "tango/applications/opt_AGS_direct_heat/dvc.yaml"
-"applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py" = "tango/applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py"
-"applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh" = "tango/applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh"
-"applications/opt_AGS_direct_heat/params.yaml" = "tango/applications/opt_AGS_direct_heat/params.yaml"
-"applications/opt_CO2_AGS_ORC_electric/.gitignore" = "tango/applications/opt_CO2_AGS_ORC_electric/.gitignore"
-"applications/opt_CO2_AGS_ORC_electric/dvc.yaml" = "tango/applications/opt_CO2_AGS_ORC_electric/dvc.yaml"
-"applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric.py" = "tango/applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric.py"
-"applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric_job.sh" = "tango/applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric_job.sh"
-"applications/opt_CO2_AGS_ORC_electric/params.yaml" = "tango/applications/opt_CO2_AGS_ORC_electric/params.yaml"
-"applications/opt_CO2_AGS_direct_heat/.gitignore" = "tango/applications/opt_CO2_AGS_direct_heat/.gitignore"
-"applications/opt_CO2_AGS_direct_heat/dvc.yaml" = "tango/applications/opt_CO2_AGS_direct_heat/dvc.yaml"
-"applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat.py" = "tango/applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat.py"
-"applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat_job.sh" = "tango/applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat_job.sh"
-"applications/opt_CO2_AGS_direct_heat/params.yaml" = "tango/applications/opt_CO2_AGS_direct_heat/params.yaml"
-"applications/opt_CO2_AGS_electric/.gitignore" = "tango/applications/opt_CO2_AGS_electric/.gitignore"
-"applications/opt_CO2_AGS_electric/dvc.yaml" = "tango/applications/opt_CO2_AGS_electric/dvc.yaml"
-"applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric.py" = "tango/applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric.py"
-"applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric_job.sh" = "tango/applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric_job.sh"
-"applications/opt_CO2_AGS_electric/params.yaml" = "tango/applications/opt_CO2_AGS_electric/params.yaml"
-"applications/opt_CO2_EGS_ORC_electric/.gitignore" = "tango/applications/opt_CO2_EGS_ORC_electric/.gitignore"
-"applications/opt_CO2_EGS_ORC_electric/dvc.yaml" = "tango/applications/opt_CO2_EGS_ORC_electric/dvc.yaml"
-"applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric.py" = "tango/applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric.py"
-"applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric_job.sh" = "tango/applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric_job.sh"
-"applications/opt_CO2_EGS_ORC_electric/params.yaml" = "tango/applications/opt_CO2_EGS_ORC_electric/params.yaml"
-"applications/opt_CO2_EGS_direct_heat/.gitignore" = "tango/applications/opt_CO2_EGS_direct_heat/.gitignore"
-"applications/opt_CO2_EGS_direct_heat/dvc.yaml" = "tango/applications/opt_CO2_EGS_direct_heat/dvc.yaml"
-"applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat.py" = "tango/applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat.py"
-"applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat_job.sh" = "tango/applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat_job.sh"
-"applications/opt_CO2_EGS_direct_heat/params.yaml" = "tango/applications/opt_CO2_EGS_direct_heat/params.yaml"
-"applications/opt_CO2_EGS_electric/.gitignore" = "tango/applications/opt_CO2_EGS_electric/.gitignore"
-"applications/opt_CO2_EGS_electric/dvc.yaml" = "tango/applications/opt_CO2_EGS_electric/dvc.yaml"
-"applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric.py" = "tango/applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric.py"
-"applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric_job.sh" = "tango/applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric_job.sh"
-"applications/opt_CO2_EGS_electric/params.yaml" = "tango/applications/opt_CO2_EGS_electric/params.yaml"
-"applications/opt_CPG_direct_heat/.gitignore" = "tango/applications/opt_CPG_direct_heat/.gitignore"
-"applications/opt_CPG_direct_heat/dvc.yaml" = "tango/applications/opt_CPG_direct_heat/dvc.yaml"
-"applications/opt_CPG_direct_heat/opt_CPG_direct_heat.py" = "tango/applications/opt_CPG_direct_heat/opt_CPG_direct_heat.py"
-"applications/opt_CPG_direct_heat/opt_CPG_direct_heat_job.sh" = "tango/applications/opt_CPG_direct_heat/opt_CPG_direct_heat_job.sh"
-"applications/opt_CPG_direct_heat/params.yaml" = "tango/applications/opt_CPG_direct_heat/params.yaml"
-"applications/opt_CPG_electric/.gitignore" = "tango/applications/opt_CPG_electric/.gitignore"
-"applications/opt_CPG_electric/dvc.yaml" = "tango/applications/opt_CPG_electric/dvc.yaml"
-"applications/opt_CPG_electric/opt_CPG_electric.py" = "tango/applications/opt_CPG_electric/opt_CPG_electric.py"
-"applications/opt_CPG_electric/opt_CPG_electric_job.sh" = "tango/applications/opt_CPG_electric/opt_CPG_electric_job.sh"
-"applications/opt_CPG_electric/params.yaml" = "tango/applications/opt_CPG_electric/params.yaml"
-"applications/opt_EGS_direct_heat/.gitignore" = "tango/applications/opt_EGS_direct_heat/.gitignore"
-"applications/opt_EGS_direct_heat/dvc.yaml" = "tango/applications/opt_EGS_direct_heat/dvc.yaml"
-"applications/opt_EGS_direct_heat/opt_EGS_direct_heat.py" = "tango/applications/opt_EGS_direct_heat/opt_EGS_direct_heat.py"
-"applications/opt_EGS_direct_heat/opt_EGS_direct_heat_job.sh" = "tango/applications/opt_EGS_direct_heat/opt_EGS_direct_heat_job.sh"
-"applications/opt_EGS_direct_heat/params.yaml" = "tango/applications/opt_EGS_direct_heat/params.yaml"
-"applications/opt_EGS_electric/.gitignore" = "tango/applications/opt_EGS_electric/.gitignore"
-"applications/opt_EGS_electric/dvc.yaml" = "tango/applications/opt_EGS_electric/dvc.yaml"
-"applications/opt_EGS_electric/opt_EGS_electric.py" = "tango/applications/opt_EGS_electric/opt_EGS_electric.py"
-"applications/opt_EGS_electric/opt_EGS_electric_job.sh" = "tango/applications/opt_EGS_electric/opt_EGS_electric_job.sh"
-"applications/opt_EGS_electric/params.yaml" = "tango/applications/opt_EGS_electric/params.yaml"
-"applications/opt_hydro_ORC_electric/.gitignore" = "tango/applications/opt_hydro_ORC_electric/.gitignore"
-"applications/opt_hydro_ORC_electric/dvc.yaml" = "tango/applications/opt_hydro_ORC_electric/dvc.yaml"
-"applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric.py" = "tango/applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric.py"
-"applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric_job.sh" = "tango/applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric_job.sh"
-"applications/opt_hydro_ORC_electric/params.yaml" = "tango/applications/opt_hydro_ORC_electric/params.yaml"
-"applications/opt_hydro_df_electric/.gitignore" = "tango/applications/opt_hydro_df_electric/.gitignore"
-"applications/opt_hydro_df_electric/dvc.yaml" = "tango/applications/opt_hydro_df_electric/dvc.yaml"
-"applications/opt_hydro_df_electric/opt_hydro_df_electric.py" = "tango/applications/opt_hydro_df_electric/opt_hydro_df_electric.py"
-"applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh" = "tango/applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh"
-"applications/opt_hydro_df_electric/params.yaml" = "tango/applications/opt_hydro_df_electric/params.yaml"
-"applications/opt_hydro_direct_heat/.gitignore" = "tango/applications/opt_hydro_direct_heat/.gitignore"
-"applications/opt_hydro_direct_heat/dvc.yaml" = "tango/applications/opt_hydro_direct_heat/dvc.yaml"
-"applications/opt_hydro_direct_heat/opt_hydro_direct_heat.py" = "tango/applications/opt_hydro_direct_heat/opt_hydro_direct_heat.py"
-"applications/opt_hydro_direct_heat/opt_hydro_direct_heat_job.sh" = "tango/applications/opt_hydro_direct_heat/opt_hydro_direct_heat_job.sh"
-"applications/opt_hydro_direct_heat/params.yaml" = "tango/applications/opt_hydro_direct_heat/params.yaml"
-"applications/opt_hydro_sf_electric/.gitignore" = "tango/applications/opt_hydro_sf_electric/.gitignore"
-"applications/opt_hydro_sf_electric/dvc.yaml" = "tango/applications/opt_hydro_sf_electric/dvc.yaml"
-"applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py" = "tango/applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py"
-"applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh" = "tango/applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh"
-"applications/opt_hydro_sf_electric/params.yaml" = "tango/applications/opt_hydro_sf_electric/params.yaml"
-"applications/opt_hydro_sf_electric_5spot/.gitignore" = "tango/applications/opt_hydro_sf_electric_5spot/.gitignore"
-"applications/opt_hydro_sf_electric_5spot/dvc.yaml" = "tango/applications/opt_hydro_sf_electric_5spot/dvc.yaml"
-"applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot.py" = "tango/applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot.py"
-"applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot_job.sh" = "tango/applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot_job.sh"
-"applications/opt_hydro_sf_electric_5spot/params.yaml" = "tango/applications/opt_hydro_sf_electric_5spot/params.yaml"
+"applications/demo_hydro_sf_electric/.gitignore" = "tango_core/applications/demo_hydro_sf_electric/.gitignore"
+"applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py" = "tango_core/applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py"
+"applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py" = "tango_core/applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py"
+"applications/opt_AGS_ORC_electric/.gitignore" = "tango_core/applications/opt_AGS_ORC_electric/.gitignore"
+"applications/opt_AGS_ORC_electric/dvc.yaml" = "tango_core/applications/opt_AGS_ORC_electric/dvc.yaml"
+"applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py" = "tango_core/applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric.py"
+"applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric_job.sh" = "tango_core/applications/opt_AGS_ORC_electric/opt_AGS_ORC_electric_job.sh"
+"applications/opt_AGS_ORC_electric/params.yaml" = "tango_core/applications/opt_AGS_ORC_electric/params.yaml"
+"applications/opt_AGS_direct_heat/.gitignore" = "tango_core/applications/opt_AGS_direct_heat/.gitignore"
+"applications/opt_AGS_direct_heat/dvc.yaml" = "tango_core/applications/opt_AGS_direct_heat/dvc.yaml"
+"applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py" = "tango_core/applications/opt_AGS_direct_heat/opt_AGS_direct_heat.py"
+"applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh" = "tango_core/applications/opt_AGS_direct_heat/opt_AGS_direct_heat_job.sh"
+"applications/opt_AGS_direct_heat/params.yaml" = "tango_core/applications/opt_AGS_direct_heat/params.yaml"
+"applications/opt_CO2_AGS_ORC_electric/.gitignore" = "tango_core/applications/opt_CO2_AGS_ORC_electric/.gitignore"
+"applications/opt_CO2_AGS_ORC_electric/dvc.yaml" = "tango_core/applications/opt_CO2_AGS_ORC_electric/dvc.yaml"
+"applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric.py" = "tango_core/applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric.py"
+"applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric_job.sh" = "tango_core/applications/opt_CO2_AGS_ORC_electric/opt_CO2_AGS_ORC_electric_job.sh"
+"applications/opt_CO2_AGS_ORC_electric/params.yaml" = "tango_core/applications/opt_CO2_AGS_ORC_electric/params.yaml"
+"applications/opt_CO2_AGS_direct_heat/.gitignore" = "tango_core/applications/opt_CO2_AGS_direct_heat/.gitignore"
+"applications/opt_CO2_AGS_direct_heat/dvc.yaml" = "tango_core/applications/opt_CO2_AGS_direct_heat/dvc.yaml"
+"applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat.py" = "tango_core/applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat.py"
+"applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat_job.sh" = "tango_core/applications/opt_CO2_AGS_direct_heat/opt_CO2_AGS_direct_heat_job.sh"
+"applications/opt_CO2_AGS_direct_heat/params.yaml" = "tango_core/applications/opt_CO2_AGS_direct_heat/params.yaml"
+"applications/opt_CO2_AGS_electric/.gitignore" = "tango_core/applications/opt_CO2_AGS_electric/.gitignore"
+"applications/opt_CO2_AGS_electric/dvc.yaml" = "tango_core/applications/opt_CO2_AGS_electric/dvc.yaml"
+"applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric.py" = "tango_core/applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric.py"
+"applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric_job.sh" = "tango_core/applications/opt_CO2_AGS_electric/opt_CO2_AGS_electric_job.sh"
+"applications/opt_CO2_AGS_electric/params.yaml" = "tango_core/applications/opt_CO2_AGS_electric/params.yaml"
+"applications/opt_CO2_EGS_ORC_electric/.gitignore" = "tango_core/applications/opt_CO2_EGS_ORC_electric/.gitignore"
+"applications/opt_CO2_EGS_ORC_electric/dvc.yaml" = "tango_core/applications/opt_CO2_EGS_ORC_electric/dvc.yaml"
+"applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric.py" = "tango_core/applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric.py"
+"applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric_job.sh" = "tango_core/applications/opt_CO2_EGS_ORC_electric/opt_CO2_EGS_ORC_electric_job.sh"
+"applications/opt_CO2_EGS_ORC_electric/params.yaml" = "tango_core/applications/opt_CO2_EGS_ORC_electric/params.yaml"
+"applications/opt_CO2_EGS_direct_heat/.gitignore" = "tango_core/applications/opt_CO2_EGS_direct_heat/.gitignore"
+"applications/opt_CO2_EGS_direct_heat/dvc.yaml" = "tango_core/applications/opt_CO2_EGS_direct_heat/dvc.yaml"
+"applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat.py" = "tango_core/applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat.py"
+"applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat_job.sh" = "tango_core/applications/opt_CO2_EGS_direct_heat/opt_CO2_EGS_direct_heat_job.sh"
+"applications/opt_CO2_EGS_direct_heat/params.yaml" = "tango_core/applications/opt_CO2_EGS_direct_heat/params.yaml"
+"applications/opt_CO2_EGS_electric/.gitignore" = "tango_core/applications/opt_CO2_EGS_electric/.gitignore"
+"applications/opt_CO2_EGS_electric/dvc.yaml" = "tango_core/applications/opt_CO2_EGS_electric/dvc.yaml"
+"applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric.py" = "tango_core/applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric.py"
+"applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric_job.sh" = "tango_core/applications/opt_CO2_EGS_electric/opt_CO2_EGS_electric_job.sh"
+"applications/opt_CO2_EGS_electric/params.yaml" = "tango_core/applications/opt_CO2_EGS_electric/params.yaml"
+"applications/opt_CPG_direct_heat/.gitignore" = "tango_core/applications/opt_CPG_direct_heat/.gitignore"
+"applications/opt_CPG_direct_heat/dvc.yaml" = "tango_core/applications/opt_CPG_direct_heat/dvc.yaml"
+"applications/opt_CPG_direct_heat/opt_CPG_direct_heat.py" = "tango_core/applications/opt_CPG_direct_heat/opt_CPG_direct_heat.py"
+"applications/opt_CPG_direct_heat/opt_CPG_direct_heat_job.sh" = "tango_core/applications/opt_CPG_direct_heat/opt_CPG_direct_heat_job.sh"
+"applications/opt_CPG_direct_heat/params.yaml" = "tango_core/applications/opt_CPG_direct_heat/params.yaml"
+"applications/opt_CPG_electric/.gitignore" = "tango_core/applications/opt_CPG_electric/.gitignore"
+"applications/opt_CPG_electric/dvc.yaml" = "tango_core/applications/opt_CPG_electric/dvc.yaml"
+"applications/opt_CPG_electric/opt_CPG_electric.py" = "tango_core/applications/opt_CPG_electric/opt_CPG_electric.py"
+"applications/opt_CPG_electric/opt_CPG_electric_job.sh" = "tango_core/applications/opt_CPG_electric/opt_CPG_electric_job.sh"
+"applications/opt_CPG_electric/params.yaml" = "tango_core/applications/opt_CPG_electric/params.yaml"
+"applications/opt_EGS_direct_heat/.gitignore" = "tango_core/applications/opt_EGS_direct_heat/.gitignore"
+"applications/opt_EGS_direct_heat/dvc.yaml" = "tango_core/applications/opt_EGS_direct_heat/dvc.yaml"
+"applications/opt_EGS_direct_heat/opt_EGS_direct_heat.py" = "tango_core/applications/opt_EGS_direct_heat/opt_EGS_direct_heat.py"
+"applications/opt_EGS_direct_heat/opt_EGS_direct_heat_job.sh" = "tango_core/applications/opt_EGS_direct_heat/opt_EGS_direct_heat_job.sh"
+"applications/opt_EGS_direct_heat/params.yaml" = "tango_core/applications/opt_EGS_direct_heat/params.yaml"
+"applications/opt_EGS_electric/.gitignore" = "tango_core/applications/opt_EGS_electric/.gitignore"
+"applications/opt_EGS_electric/dvc.yaml" = "tango_core/applications/opt_EGS_electric/dvc.yaml"
+"applications/opt_EGS_electric/opt_EGS_electric.py" = "tango_core/applications/opt_EGS_electric/opt_EGS_electric.py"
+"applications/opt_EGS_electric/opt_EGS_electric_job.sh" = "tango_core/applications/opt_EGS_electric/opt_EGS_electric_job.sh"
+"applications/opt_EGS_electric/params.yaml" = "tango_core/applications/opt_EGS_electric/params.yaml"
+"applications/opt_hydro_ORC_electric/.gitignore" = "tango_core/applications/opt_hydro_ORC_electric/.gitignore"
+"applications/opt_hydro_ORC_electric/dvc.yaml" = "tango_core/applications/opt_hydro_ORC_electric/dvc.yaml"
+"applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric.py" = "tango_core/applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric.py"
+"applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric_job.sh" = "tango_core/applications/opt_hydro_ORC_electric/opt_hydro_ORC_electric_job.sh"
+"applications/opt_hydro_ORC_electric/params.yaml" = "tango_core/applications/opt_hydro_ORC_electric/params.yaml"
+"applications/opt_hydro_df_electric/.gitignore" = "tango_core/applications/opt_hydro_df_electric/.gitignore"
+"applications/opt_hydro_df_electric/dvc.yaml" = "tango_core/applications/opt_hydro_df_electric/dvc.yaml"
+"applications/opt_hydro_df_electric/opt_hydro_df_electric.py" = "tango_core/applications/opt_hydro_df_electric/opt_hydro_df_electric.py"
+"applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh" = "tango_core/applications/opt_hydro_df_electric/opt_hydro_df_electric_job.sh"
+"applications/opt_hydro_df_electric/params.yaml" = "tango_core/applications/opt_hydro_df_electric/params.yaml"
+"applications/opt_hydro_direct_heat/.gitignore" = "tango_core/applications/opt_hydro_direct_heat/.gitignore"
+"applications/opt_hydro_direct_heat/dvc.yaml" = "tango_core/applications/opt_hydro_direct_heat/dvc.yaml"
+"applications/opt_hydro_direct_heat/opt_hydro_direct_heat.py" = "tango_core/applications/opt_hydro_direct_heat/opt_hydro_direct_heat.py"
+"applications/opt_hydro_direct_heat/opt_hydro_direct_heat_job.sh" = "tango_core/applications/opt_hydro_direct_heat/opt_hydro_direct_heat_job.sh"
+"applications/opt_hydro_direct_heat/params.yaml" = "tango_core/applications/opt_hydro_direct_heat/params.yaml"
+"applications/opt_hydro_sf_electric/.gitignore" = "tango_core/applications/opt_hydro_sf_electric/.gitignore"
+"applications/opt_hydro_sf_electric/dvc.yaml" = "tango_core/applications/opt_hydro_sf_electric/dvc.yaml"
+"applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py" = "tango_core/applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py"
+"applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh" = "tango_core/applications/opt_hydro_sf_electric/opt_hydro_sf_electric_job.sh"
+"applications/opt_hydro_sf_electric/params.yaml" = "tango_core/applications/opt_hydro_sf_electric/params.yaml"
+"applications/opt_hydro_sf_electric_5spot/.gitignore" = "tango_core/applications/opt_hydro_sf_electric_5spot/.gitignore"
+"applications/opt_hydro_sf_electric_5spot/dvc.yaml" = "tango_core/applications/opt_hydro_sf_electric_5spot/dvc.yaml"
+"applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot.py" = "tango_core/applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot.py"
+"applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot_job.sh" = "tango_core/applications/opt_hydro_sf_electric_5spot/opt_hydro_sf_electric_5spot_job.sh"
+"applications/opt_hydro_sf_electric_5spot/params.yaml" = "tango_core/applications/opt_hydro_sf_electric_5spot/params.yaml"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
@@ -260,7 +257,7 @@ exclude = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["tango"]
+known-first-party = ["tango_core"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
 [tool.ruff.format]
@@ -374,14 +371,14 @@ module = [
 ]
 ignore_missing_imports = true
 
-# The one deliberate relaxation of `strict = true` for tango's own code.
+# The one deliberate relaxation of `strict = true` for tango_core's own code.
 [[tool.mypy.overrides]]
-module = "tango.*"
+module = "tango_core.*"
 warn_return_any = false  # untyped third-party deps (CoolProp, numpy/pandas in some contexts) return Any; suppress that cascade rather than the module's own typing
 
 # pymoo ships no type information, so its base classes (ElementwiseProblem,
 # Output, DuplicateElimination) are `Any`; subclassing them is unavoidable in
 # the pymoo adapters.
 [[tool.mypy.overrides]]
-module = ["tango.pymoo_api", "tango.surrogate_api"]
+module = ["tango_core.pymoo_api", "tango_core.surrogate_api"]
 disallow_subclassing_any = false

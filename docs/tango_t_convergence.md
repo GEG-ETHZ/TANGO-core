@@ -1,7 +1,7 @@
 # Injection-Enthalpy Convergence
 
 How `SystemBCIteration` finds a self-consistent injection enthalpy
-every timestep. Code: `src/tango/orchestrators/system_bc_iteration.py`
+every timestep. Code: `src/tango_core/orchestrators/system_bc_iteration.py`
 (`_converge_injection_enthalpy`). Reference case:
 `templates/hydro_sf_electric.yml`, a doublet with a single-flash
 surface plant; the same mechanism applies to every `SystemBCIteration`

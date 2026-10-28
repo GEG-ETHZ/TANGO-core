@@ -54,8 +54,8 @@ from pathlib import Path
 
 import pytest
 
-from tango.core.errors import ConfigError
-from tango.workflows.workflow import Workflow
+from tango_core.core.errors import ConfigError
+from tango_core.workflows.workflow import Workflow
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "config_validation"
 
@@ -103,7 +103,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         notes="""
         A user could accidentally enter a value in celsius
 
-        Initially raised: ``src/tango/core/specs.py
+        Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -111,7 +111,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         error_type=AttributeError,
         notes="""A components block (e.g. 'common') is absent.
 
-        Initially raised: ``src/tango/core/specs.py
+        Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -119,7 +119,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         error_type=ConfigError,
         notes="""A geometry field that must be positive (pipe_diameter) is negative.
 
-        Initially raised: ``src/tango/core/specs.py
+        Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -127,7 +127,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         error_type=ConfigError,
         notes="""well_spacing is given as a non-numeric value (e.g. a string).
 
-        Initially raised: ``src/tango/core/specs.py
+        Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -135,7 +135,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         error_type=ConfigError,
         notes="""layout.well_pattern names a string that matches no known WellPattern alias.
 
-        Initially raised: ``src/tango/core/specs.py``
+        Initially raised: ``src/tango_core/core/specs.py``
         """,
     ),
     ErrorCase(
@@ -144,7 +144,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         notes="""
             layout.well_pattern resolves to a real WellPattern member that has
             no impedance formula implemented yet.
-            Initially raised: ``src/tango/core/specs.py
+            Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -153,7 +153,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         notes="""
             sim_config.injection_mode names a recognized InjectionPolicy that
             the orchestrator does not implement yet.
-            Initially raised: ``src/tango/core/specs.py
+            Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
     ErrorCase(
@@ -162,7 +162,7 @@ CONFIG_ERROR_CASES: list[ErrorCase] = [
         notes="""
         common.fluid_name omitted; raise error
 
-        Initially raised: ``src/tango/core/specs.py
+        Initially raised: ``src/tango_core/core/specs.py
         """,
     ),
 ]

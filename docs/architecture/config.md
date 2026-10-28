@@ -1,6 +1,6 @@
 # From config to objects
 
-TANGO follows *object == config* (the first commandment in `CONTRIBUTING.md`): every block in the YAML file becomes one validated object. `Workflow.__init__` (`src/tango/workflows/workflow.py`) does the mapping; a validation failure raises `ConfigError` before anything runs.
+TANGO follows *object == config* (the first commandment in `CONTRIBUTING.md`): every block in the YAML file becomes one validated object. `Workflow.__init__` (`src/tango_core/workflows/workflow.py`) does the mapping; a validation failure raises `ConfigError` before anything runs.
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
@@ -54,13 +54,13 @@ flowchart TB
 
 | YAML block | Becomes | Defined in |
 |---|---|---|
-| `common` | `Common`, one instance shared by reference with every component | `src/tango/core/specs.py` |
-| `layout` | `Layout`; `well_spacing` and `well_pattern` are copied into components that declare them | `src/tango/core/specs.py` |
-| `sim_config` | `SimConfig`: `num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`, `max_mass_rate`, `target_extraction_pressure`, `bc_checkpoint_idx` | `src/tango/core/specs.py` |
-| `components.<name>` | `COMPONENT_REGISTRY[(type, variant)].from_dict(...)` | `src/tango/components/registry.py` |
-| `economic` | `COMPONENT_REGISTRY[("economic", type)]`, today `DoubletEconomicComponent` | `src/tango/components/registry.py`, `src/tango/components/economic/doublet.py` |
-| `title` | A plain string, kept on the `Workflow` | `src/tango/workflows/workflow.py` |
-| `description` | `Description` (optional) | `src/tango/core/specs.py` |
+| `common` | `Common`, one instance shared by reference with every component | `src/tango_core/core/specs.py` |
+| `layout` | `Layout`; `well_spacing` and `well_pattern` are copied into components that declare them | `src/tango_core/core/specs.py` |
+| `sim_config` | `SimConfig`: `num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`, `max_mass_rate`, `target_extraction_pressure`, `bc_checkpoint_idx` | `src/tango_core/core/specs.py` |
+| `components.<name>` | `COMPONENT_REGISTRY[(type, variant)].from_dict(...)` | `src/tango_core/components/registry.py` |
+| `economic` | `COMPONENT_REGISTRY[("economic", type)]`, today `DoubletEconomicComponent` | `src/tango_core/components/registry.py`, `src/tango_core/components/economic/doublet.py` |
+| `title` | A plain string, kept on the `Workflow` | `src/tango_core/workflows/workflow.py` |
+| `description` | `Description` (optional) | `src/tango_core/core/specs.py` |
 
 The orchestrator follows from one key: if `sim_config.injection_mode` is set, the run uses `SystemBCIteration`; if it is absent, `SystemDirect` (one pass per timestep). Every config in `templates/` sets it.
 

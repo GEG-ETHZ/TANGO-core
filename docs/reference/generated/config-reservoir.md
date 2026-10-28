@@ -4,19 +4,19 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `reservoir_depth` | `float` | required | Depth of the reservoir mid-point (m). |
-| `thickness` | `float` | required | Reservoir thickness (m). |
-| `permeability` | `float` | required | Reservoir permeability (m²). |
-| `porosity` | `float` | required | Reservoir porosity (dimensionless). |
-| `hydro_static_pressure` | `float` | required | Hydrostatic pressure at reservoir depth (Pa). User-supplied nominal value used only for the fracking-safety ceiling (BC-iteration target pressure) — NOT the reservoir's own initial/undepleted pressure; see `brine_density` below for that. |
-| `over_pressure_percentage` | `float` | required | Over-pressure as a percentage of hydrostatic pressure (%). Combines with `hydro_static_pressure` for the fracking-safety ceiling only. |
-| `brine_density` | `float` | `1000.0` | Brine density (kg/m³), used to compute the reservoir's true initial/undepleted pressure (`brine_density × g × reservoir_depth`). Deliberately a physically-derived value, distinct from `hydro_static_pressure` (a user-supplied nominal value used only for the fracking ceiling) — conflating the two was a real bug, see `docs/tango_tasks.md`. |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per reservoir since gravity varies regionally. |
-| `well_eff_diameter` | `float` | `0.41` | Effective well diameter for impedance calculation (m) — the average of injection and production well diameters; set explicitly here for transparency. |
-| `net_to_gross_ratio` | `float` | `1.0` | Net-to-gross ratio for effective reservoir thickness (dimensionless). |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `reservoir_depth` | `float` | required | *undocumented* |
+| `thickness` | `float` | required | *undocumented* |
+| `permeability` | `float` | required | *undocumented* |
+| `porosity` | `float` | required | *undocumented* |
+| `hydro_static_pressure` | `float` | required | *undocumented* |
+| `over_pressure_percentage` | `float` | required | *undocumented* |
+| `brine_density` | `float` | `1000.0` | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `well_eff_diameter` | `float` | `0.41` | *undocumented* |
+| `net_to_gross_ratio` | `float` | `1.0` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.

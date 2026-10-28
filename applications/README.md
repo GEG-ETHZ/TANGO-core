@@ -1,6 +1,6 @@
 # Applications
 
-`applications/` holds studies that run many TANGO simulations: design optimizations, surrogate-model pipelines and demonstrations. Each application starts from one configuration in [`templates/`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/templates/README.md), varies it, and runs `Workflow(cfg).run()` once per design point, in parallel. Every application is a self-contained directory. Nothing outside the directory imports from it, and `tango_cli init --app <name>` copies one into your own project.
+`applications/` holds studies that run many TANGO simulations: design optimizations, surrogate-model pipelines and demonstrations. Each application starts from one configuration in [`templates/`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/templates/README.md), varies it, and runs `Workflow(cfg).run()` once per design point, in parallel. Every application is a self-contained directory. Nothing outside the directory imports from it, and `tango_core init --app <name>` copies one into your own project.
 
 ## Catalog
 
@@ -19,7 +19,7 @@ On hold, under `_on_hold/`: `opt_hydro_df_electric_surrogate`, the `opt_hydro_df
 | Demo (`demo_*`) | `<name>.py` | none | — |
 | Optimization (`opt_*`) | `<name>.py` | `dvc.yaml` | `params.yaml`, SLURM `<name>_job.sh` |
 
-Results go to the application's `outputs/` directory, or to `--save-dir` where the script supports it. DVC stages depend on `src/tango.hash`, so a change to the package invalidates them automatically.
+Results go to the application's `outputs/` directory, or to `--save-dir` where the script supports it. DVC stages depend on `src/tango_core.hash`, so a change to the package invalidates them automatically.
 
 ## Running
 
@@ -54,7 +54,7 @@ On the ETH Euler cluster, submit full-size runs with `just slurm <app> ...` from
 
 ## Optimizations
 
-Each `opt_*` script defines its decision variables, bounds and objectives and hands them to `tango.pymoo_api.OptApp`, which supplies the command line, the baseline run, the NSGA-II search (`tango.pymoo_api.Minimization`) and the plots. Each has its own DVC pipeline and SLURM job script.
+Each `opt_*` script defines its decision variables, bounds and objectives and hands them to `tango_core.pymoo_api.OptApp`, which supplies the command line, the baseline run, the NSGA-II search (`tango_core.pymoo_api.Minimization`) and the plots. Each has its own DVC pipeline and SLURM job script.
 
 Every application searches mass flow rate, injection pressure and the surface pipe diameter. Doublets also search the injection and production well diameters, plus the target extraction pressure where the production well has a pump. AGS applications also search well depth, horizontal loop length and diameter, and vertical well diameter. Condensing pressures for water and ORC cycles are site conditions and are not searched. Each application also reports production temperature, specific investment cost and OPEX for its Pareto front.
 
@@ -73,7 +73,7 @@ Before searching, every application checks that each decision variable matters: 
 
 ## On hold
 
-Applications in `_on_hold/` are kept but no longer run: `just slurm`, `just apps`, the wheel and `tango_cli init` all skip them.
+Applications in `_on_hold/` are kept but no longer run: `just slurm`, `just apps`, the wheel and `tango_core init` all skip them.
 
 - `opt_hydro_df_electric_surrogate`: `opt_hydro_df_electric`'s search against a trained surrogate model instead of the real simulation. Its LCOE predictions near the Pareto front never got within the 1% needed to trust the result. Whether to bring it back or delete it is tracked in [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106).
 
@@ -82,5 +82,5 @@ Applications in `_on_hold/` are kept but no longer run: `just slurm`, `just apps
 1. Copy the closest existing application directory and rename every file prefix to the new name.
 2. Point it at a configuration in `templates/`. Add a new configuration there first if none fits.
 3. Give it a fast end-to-end mode with `--smoke`. The `apps` recipe in the `justfile` finds every `opt_*` application and runs it with `--smoke`; add any other application's invocation there by hand.
-4. List every file in `pyproject.toml`'s `[tool.hatch.build.targets.wheel.force-include]`, so that `tango_cli init --app` ships it.
+4. List every file in `pyproject.toml`'s `[tool.hatch.build.targets.wheel.force-include]`, so that `tango_core init --app` ships it.
 5. Add a row to the catalog above.

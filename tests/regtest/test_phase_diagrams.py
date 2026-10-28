@@ -16,10 +16,10 @@ import yaml
 from CoolProp import CoolProp as CP
 from fake_raft_model import FakeRaftModel
 
-from tango import phase_diagrams
-from tango.components.surface.graph import GraphSurface
-from tango.core.errors import ConfigError
-from tango.workflows.workflow import Workflow
+from tango_core import phase_diagrams
+from tango_core.components.surface.graph import GraphSurface
+from tango_core.core.errors import ConfigError
+from tango_core.workflows.workflow import Workflow
 
 # Frozen scenario copies of templates; see test_lcoe_regression.py.
 _TEMPLATES_DIR = Path(__file__).parent / "fixtures" / "scenarios"

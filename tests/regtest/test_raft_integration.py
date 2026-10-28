@@ -14,9 +14,9 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
-from tango.core.constants import YEAR_TO_SECOND
-from tango.workflows.workflow import Workflow
+from tango_core.components.well.grouped_subsurface import RaftGroupedSubsurface
+from tango_core.core.constants import YEAR_TO_SECOND
+from tango_core.workflows.workflow import Workflow
 
 pytest.importorskip("geg_raft")
 

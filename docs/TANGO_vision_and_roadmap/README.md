@@ -188,7 +188,7 @@ and makes it harder to reason about which path a given config will take. The ref
 rename these to reflect their actual behavior — `SystemDirect` / `SystemBCIteration` — with
 external simulator support as a separate, composable concern.
 
-Orchestrator selection in `tango` is automatic: if `sim_config.injection_mode` is present,
+Orchestrator selection in `tango_core` is automatic: if `sim_config.injection_mode` is present,
 `SystemBCIteration` is used; otherwise `SystemDirect`. No `workflow` key is needed at the
 top level.
 
@@ -221,7 +221,7 @@ resolve the external-tool socket question (see below) before that integration wo
 
 #### BC iteration mode — `InjectionPolicy` (replaces `check_fracking` / `manual` / `automatic`)
 
-The current `src/tango/` code controls BC iteration behavior through three separate,
+The current `src/tango_core/` code controls BC iteration behavior through three separate,
 poorly documented fields:
 
 - `mass_rate.type: "manual"` — mass flow rate is user-prescribed
@@ -251,13 +251,13 @@ misread. Worse, they conflate two physically distinct fracking mechanisms.
    reservoir inlet pressure `inj_well.outlet.P` exceeds
    `hydrostatic_P × (1 + overpressure% / 100)`.
 
-These two mechanisms are checked via separate code paths in `src/tango/` but neither is
+These two mechanisms are checked via separate code paths in `src/tango_core/` but neither is
 clearly labeled. `check_fracking` guards only the flow-rate cap; the injection pressure
 adjustment (`test_p` update) runs regardless of the flag.
 
 **Why two separate checks at all, rather than one combined constraint?** Both mechanisms
 ultimately bound the same physical quantity — reservoir inlet pressure — so it's fair to
-ask why `InjectionPolicy` (and `src/tango/` before it) doesn't just treat "reservoir inlet
+ask why `InjectionPolicy` (and `src/tango_core/` before it) doesn't just treat "reservoir inlet
 pressure exceeds the fracking threshold" as a single check. The answer is architectural, not
 physical: TANGO uses an **explicit** solver that marches through the well/reservoir/surface
 loop component by component, one pressure/temperature calculation at a time, each step
@@ -285,14 +285,14 @@ network as the surface plant).
 
 **`InjectionPolicy` — the clean replacement**
 
-In `tango`, both concerns are unified into a single enum that makes every operating
+In `tango_core`, both concerns are unified into a single enum that makes every operating
 mode self-documenting. The YAML field is `sim_config.injection_mode`. Note that
 `sim_config.mass_rate` is only meaningful for policies where flow rate is user-prescribed
 (`MANUAL`, `MANUAL_FRACKING_CHECK`, `AUTO_PRESSURE`); for `AUTO_FLOW` and `AUTO_BOTH` it is
 computed from `fracking_flow()` each pass, so the field may be omitted entirely under those modes.
 
 ```python
-class InjectionPolicy(enum.StrEnum):  # tango.core.policies
+class InjectionPolicy(enum.StrEnum):  # tango_core.core.policies
     """Controls how mass flow rate and injection wellhead pressure are determined."""
 
     MANUAL = "manual"
@@ -332,7 +332,7 @@ mode-based rate computation, regardless of mode. It is meaningful for `AUTO_FLOW
 `MANUAL_FRACKING_CHECK` if the specified rate is already below the cap.
 
 **Current implementation status (confirmed 2026-06-16):** only `MANUAL` is implemented in
-`tango` today — a single circuit pass, no correction of any kind. `MANUAL_FRACKING_CHECK`,
+`tango_core` today — a single circuit pass, no correction of any kind. `MANUAL_FRACKING_CHECK`,
 `AUTO_PRESSURE`, `AUTO_FLOW`, and `AUTO_BOTH` all raise `NotImplementedError` from
 `SystemBCIteration.run_timestep` (Phase 2 work). In particular, `AUTO_BOTH` — which jointly
 manipulates both mass flow rate and injection pressure — is confirmed to raise
@@ -347,7 +347,7 @@ output and cost across every timestep in the simulation, not on any single times
 isolation. Minimizing it means searching over decision variables (e.g. constant `mass_rate`
 and/or `test_p` setpoints, or eventually time-varying schedules) and re-running the *entire*
 multi-timestep simulation as the inner evaluation of an outer constrained optimizer — much
-closer in shape to the existing `optimizerr.py` / `pymoo` machinery in `src/tango/` than to the
+closer in shape to the existing `optimizerr.py` / `pymoo` machinery in `src/tango_core/` than to the
 per-timestep Newton loop in `SystemBCIteration`. Constraints would be the same fracking limits
 checked at every timestep along the way. This means `MIN_LCOE` (and any other whole-horizon
 objective — e.g. `MAX_NET_POWER` over the full horizon rather than per-timestep) likely cannot
@@ -357,9 +357,9 @@ room for this distinction — e.g. a separate enum or a flag distinguishing per-
 policies from whole-horizon optimization objectives — rather than assuming every future variant
 fits the same per-timestep mechanism as `AUTO_PRESSURE`/`AUTO_FLOW`/`AUTO_BOTH`.
 
-**Approximate mapping from `src/tango/` configurations**
+**Approximate mapping from `src/tango_core/` configurations**
 
-| `src/tango/` configuration | `InjectionPolicy` equivalent |
+| `src/tango_core/` configuration | `InjectionPolicy` equivalent |
 |---|---|
 | `type: manual, check_fracking: False` | `MANUAL` |
 | `type: manual, check_fracking: True` | `MANUAL_FRACKING_CHECK` |
@@ -368,10 +368,10 @@ fits the same per-timestep mechanism as `AUTO_PRESSURE`/`AUTO_FLOW`/`AUTO_BOTH`.
 In HotmapsDispatch mode, `type: automatic` has more complex behavior: early timesteps
 use a specified rate with an optional fracking cap (similar to `MANUAL_FRACKING_CHECK`),
 while later timesteps either use `fracking_flow()` or iterate mass flow rate to hit a
-target thermal power output (`controlled_power_generation: yes` — note that `src/tango/`
+target thermal power output (`controlled_power_generation: yes` — note that `src/tango_core/`
 checks this with a `== "yes"` string comparison, so `True` silently does nothing there).
 This is a distinct operating mode not yet represented in `InjectionPolicy` and should be
-designed as its own variant when the Hotmaps feature is migrated to `tango`.
+designed as its own variant when the Hotmaps feature is migrated to `tango_core`.
 
 **Planned future variants**
 
@@ -454,7 +454,7 @@ both) — needs careful thought before the integration work begins. The architec
 should drive the socket design, not the other way around. Leave this as an explicit open
 question until there is a concrete use case to design against.
 
-Whichever shape wins, the goal is the same: `tango` should define a stable interface
+Whichever shape wins, the goal is the same: `tango_core` should define a stable interface
 template (an ABC any component — reservoir, well, or surface — can implement) so that
 outside simulation tools can be plugged in as drop-in components rather than requiring
 bespoke orchestrator changes each time. Composability, not a growing list of one-off
@@ -471,13 +471,13 @@ A follow-up implementation spike (Rumoca + MSL) is in `docs/modelica-investigati
 
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
-`src/tango/units/native/surface/flexible_pp.py`'s `validate_custom()` estimated the
+`src/tango_core/units/native/surface/flexible_pp.py`'s `validate_custom()` estimated the
 temperature the working fluid reaches before entering the surface plant as
 `surface_temperature + reservoir["reservoir_depth"] * thermal_gradient`. This is a
 correct estimate for EGS/CPG (reservoir-based) topologies, but it hardcoded a lookup
 into a `reservoir` block that doesn't exist for AGS — a sealed closed loop with no
 reservoir node at all. The result: the direct-heat (`native_flexible`) surface unit
-could not run on any AGS topology in `src/tango/` (`KeyError: 'reservoir'` at unit
+could not run on any AGS topology in `src/tango_core/` (`KeyError: 'reservoir'` at unit
 construction — the full incident writeup and the pragmatic patch are in the NOTES of
 the since-removed `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`,
 in git history).
@@ -491,29 +491,29 @@ begins, used identically to `reservoir_depth` (`T0 + h * thermal_gradient`) in
 `horizontal_well.py`. So the substitution is physically sound, but the name
 `wellhead_depth` is itself confusing independent of the reservoir/no-reservoir
 question — a second, smaller naming bug layered on top of the first. The
-`src/tango/` issue is that "depth of the subsurface heat-pickup point" was only
+`src/tango_core/` issue is that "depth of the subsurface heat-pickup point" was only
 ever named/looked-up as `reservoir_depth`, so the code silently assumed every
 topology has a reservoir.
 
-For `tango`, this argues for an AGS-bespoke depth/temperature-estimate concept
+For `tango_core`, this argues for an AGS-bespoke depth/temperature-estimate concept
 (e.g. a `heat_pickup_depth` property computed per-topology, or resolved generically
 by asking whichever component sits between injection and production for "the depth
 its outlet temperature estimate should use") rather than a single hardcoded
 `specs["reservoir"]["reservoir_depth"]` lookup shared across all surface units.
-`tango`'s component-based design (each component owns its own state/specs
+`tango_core`'s component-based design (each component owns its own state/specs
 dataclass — see `LockedState`, `NumericalProductionWell`/`NumericalInjectionWell`,
 `LumpedReservoir`) makes this easy to get right: the surface unit should ask the
 upstream subsurface component(s) for this estimate rather than reaching into a
 specific node name that may not exist.
 
-#### `tango` example coverage matrix — one system type needs both a heat and a power example
+#### `tango_core` example coverage matrix — one system type needs both a heat and a power example
 
 Moved to [GitLab #67](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/67): the coverage matrix (one worked example per system type × heat/power) and the per-config review checklist. The per-config design history is in [#68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/68) (closed).
 
 #### Pump electricity accounting — known inconsistencies (needs HIL verification)
 
 **⚠ Human-in-the-loop (HIL) verification required before relying on net power or LCOE
-outputs from `src/tango/`.  The summary below is based on static code analysis and may
+outputs from `src/tango_core/`.  The summary below is based on static code analysis and may
 contain errors — the original codebase is complex enough that misreading a sign convention
 or a code path is easy.**
 
@@ -548,7 +548,7 @@ can reach 15–20% of gross — large enough to determine whether a site is econ
 Getting this right matters most exactly where the resource is marginal.
 
 Production-well pump electricity is now wired to `DoubletEconomicComponent`
-(`_production_pump_parasitic_power`, `src/tango/components/economic/doublet.py`).
+(`_production_pump_parasitic_power`, `src/tango_core/components/economic/doublet.py`).
 Injection-well pump electricity is not yet wired to any `EconomicComponent` —
 it remains a `TODO` placeholder (see `LumpedProductionWellWithPump` /
 demo plots for where the zero shows up today).
@@ -573,10 +573,10 @@ simulation configuration and the graph topology. The web app should read from an
 that schema, not maintain its own parallel representation.
 
 **Planned new GUI/web tool, built on the example scripts as a template.** Using the
-fleshed-out `tango` example scripts (see Phase 3 tasks) as its foundation, the new
+fleshed-out `tango_core` example scripts (see Phase 3 tasks) as its foundation, the new
 tool should:
 - Store graphical annotations (component positions, connection lines) directly in the
-  `tango` config files, so all config — simulation and graphics — lives in one place
+  `tango_core` config files, so all config — simulation and graphics — lives in one place
   (this generalizes the "store web app lines and graphics as annotations" Phase 3 task
   below into the tool's actual design basis, not just a data-format fix)
 - Let users build custom models and configure component connections graphically, not just
@@ -585,7 +585,7 @@ tool should:
   corresponding results
 - Perform batch simulations (sweeps) from the GUI, not just single runs
 - Export a model/simulation configuration to an equivalent script, so a GUI-built model can
-  be handed off as ordinary `tango` Python/YAML rather than staying GUI-locked
+  be handed off as ordinary `tango_core` Python/YAML rather than staying GUI-locked
 
 This is a superset of the Tier 4 "no-code scenario builder" concept above — the near-term
 goal is a general modeling/scripting-bridge tool, not only a SaaS-tier feature.
@@ -700,7 +700,7 @@ A 2026-07-16 repo cleanup audit found the Sphinx API-doc toolchain
 (`source/`, `.readthedocs.yml`, `make.bat`, `tox.ini`'s `docs` env) dormant
 and broken — `.readthedocs.yml` pointed at a `docs/conf.py` that didn't
 exist — and removed it rather than fix it. We still need a real process for
-generating API docs from `src/tango`/`src/tango` (whether that's a
+generating API docs from `src/tango_core`/`src/tango_core` (whether that's a
 revived Sphinx setup, mkdocs, or something else) rather than leaving it
 undecided.
 
@@ -783,25 +783,25 @@ software-sustainability review).
 - [ ] Capture performance baselines (runtime, memory) on those same inputs
     (NOTE: this could be added to existing regression tests, as long as it can be
     done without having much impact on duration of tests)
-- [ ] When comparing `tango` against original `src/tango/`, first wire
-    `tango` to use the **same formulas as the original** (Haaland friction
+- [ ] When comparing `tango_core` against original `src/tango_core/`, first wire
+    `tango_core` to use the **same formulas as the original** (Haaland friction
     factor, radial Dupuit-Thiem reservoir flow, full TESPy surface cycle) and
     verify that results match — or identify and explain any discrepancies.
     Only after that baseline is confirmed should the alternative formulas
-    already implemented in `tango` (Swamee-Jain, linear 1-D Darcy,
+    already implemented in `tango_core` (Swamee-Jain, linear 1-D Darcy,
     lumped-efficiency surface) be run, to evaluate where they land relative
     to the verified baseline.  Both sets of formulas should remain as
     selectable variants — do not replace the originals.
 
     **Status (2026-06-22) — end-to-end parity achieved within deliberate bounds:**
-    `NumericalInjectionWell` (`src/tango/components/well/numerical.py`,
+    `NumericalInjectionWell` (`src/tango_core/components/well/numerical.py`,
     registered as `variant: numerical`) now replicates
-    `src/tango/units/native/well/base.py::WellUnitNative.process_stream()`
+    `src/tango_core/units/native/well/base.py::WellUnitNative.process_stream()`
     exactly: 100-cell axial discretization, Haaland friction factor
     (`core/fluid_utils.py::friction_factor_haaland`), Zhang et al. (2011)
     transient conductive heat loss, and real CoolProp property lookups via a
     new thin wrapper (`core/fluid_state.py::FluidState`, parity with
-    `src/tango/core/fluidstate.py`). `LumpedInjectionWell` (`variant: lumped`) is
+    `src/tango_core/core/fluidstate.py`). `LumpedInjectionWell` (`variant: lumped`) is
     kept as the permanent fast/simple variant per its module docstring — not
     replaced.
 
@@ -833,7 +833,7 @@ software-sustainability review).
     before the tango refactor began):
 
     1. `FlowRateCalculator.iterator()` in
-       `src/tango/orchestrators/BC_calculator.py:129` is the per-timestep
+       `src/tango_core/orchestrators/BC_calculator.py:129` is the per-timestep
        convergence loop. It runs up to 200 outer iterations; in practice it
        converges in **2–3 iterations** (3 at t=0, 2 at t=1–19, confirmed by
        instrumentation).
@@ -841,7 +841,7 @@ software-sustainability review).
     2. Each outer iteration calls `self.reservoir.stream_interface()`
        (`BC_calculator.py:406`), which internally calls
        `self.update_energy_extracted(del_=m_dot * (h_prod - h_inj) * dt)`
-       (`src/tango/units/native/reservoir.py:186`). This mutates
+       (`src/tango_core/units/native/reservoir.py:186`). This mutates
        `_energy_extracted` — a temporal state variable — inside a convergence
        loop.
 
@@ -851,7 +851,7 @@ software-sustainability review).
        previous value rather than adding to it.
 
     4. `_energy_extracted_old` is only committed once per timestep, in
-       `update_time_dependent_vars()` (`src/tango/orchestrators/external.py:148`).
+       `update_time_dependent_vars()` (`src/tango_core/orchestrators/external.py:148`).
 
     The consequence: when the outer loop converges and breaks on iteration N
     (`BC_calculator.py:551`),
@@ -922,20 +922,20 @@ software-sustainability review).
       replaced an earlier `ClassVar F_DIR = ±1.0` split with this — the same
       unified class now also covers horizontal/deviated wells, e.g.
       `templates/AGS_direct_heat.yml`'s `horizontal_well`, not just
-      the two vertical cases `src/tango/`'s `WellUnitNative._f_dir` split covered).
+      the two vertical cases `src/tango_core/`'s `WellUnitNative._f_dir` split covered).
     - ~~`LumpedReservoir` is still linear 1-D Darcy~~ — **done**, though not
       literally Dupuit-Thiem: `components/reservoir/lumped.py` now implements
       the doublet radial-flow impedance formula (Birdsell et al. 2024) plus
       Adams 2015 thermal-depletion tracking, matching
-      `src/tango/units/native/reservoir.py`'s doublet well pattern.
+      `src/tango_core/units/native/reservoir.py`'s doublet well pattern.
     - ~~`SingleFlashSurface` is still a Phase 1 placeholder~~ — **done, then
       superseded.** The original hardcoded `SingleFlashSurface` (`components/
       surface/single_flash.py`) built and solved a real TESPy `Network` each
-      timestep, targeting parity with `src/tango/units/native/surface/
+      timestep, targeting parity with `src/tango_core/units/native/surface/
       flexible_pp.py`. As of 2026-07-20 it has been **deleted** and replaced
       by `GraphSurface` (`components/surface/graph.py`), which builds the
       same kind of TESPy network but from a generic `power_plant.nodes`/
-      `edges` YAML block instead of hardcoded Python — see the `tango`
+      `edges` YAML block instead of hardcoded Python — see the `tango_core`
       example coverage matrix above for what topologies are and aren't
       covered yet.
     - Dimensionless-time tracking in `NumericalInjectionWell`/
@@ -1005,12 +1005,12 @@ all congruent with each other.
     - [x] package/module/class structure, highlighting paths touched by that file
 - [ ] Design and migrate `addons` (ThermaGraph, Analyzer): the old implementation was a
     stringly-typed activation flag, never cleanly realized as separate installable dependencies.
-    In `tango`, addons should be first-class composable components with a defined ABC.
+    In `tango_core`, addons should be first-class composable components with a defined ABC.
     Needs a design decision before the migration tool handles them.
 - [ ] Build a one-way migration tool from old to new input format
 - [x] Stand up the parallel module structure with `mypy --strict` and `ruff` passing from the first commit
 - [ ] Bring in classes, methods, and functions to make the new structure functional
-- [x] Add test coverage for `tango`. `tests/unit/test_serde_roundtrip.py` and
+- [x] Add test coverage for `tango_core`. `tests/unit/test_serde_roundtrip.py` and
     `tests/unit/test_locked_state.py` cover `LockedState`/serialization behavior,
     and `tests/regtest/test_lcoe_regression.py` (originally `test_tango_next.py`
     — renamed once the old-vs-new parity comparison it used to house was
@@ -1060,7 +1060,7 @@ all congruent with each other.
 
 **Tasks:**
 - [x] Convert all classes to Pydantic `BaseModel` (preferred) or `dataclass` —
-    every `tango` component subclasses `Component(BaseModel, ABC)`
+    every `tango_core` component subclasses `Component(BaseModel, ABC)`
     (`core/component.py`); `state`/`history` are `dataclass` per the
     task's own "preferred or" allowance.
 - [x] Add a component-specific `state` object to each class; move all transient state variables into it
@@ -1108,12 +1108,12 @@ baseline; the refactor is applied to all input configurations.
 **Tasks:**
 - [ ] Add `solve()` method to each physical component so it can run independently via a test harness
 - [ ] Run the refactored system against all baseline input files and verify results match within tolerance
-- [ ] Once all configurations are validated against `tango`, remove most or all references to
-      `src/tango/` (old tango) from the codebase and documentation. Until then, old tango serves
+- [ ] Once all configurations are validated against `tango_core`, remove most or all references to
+      `src/tango_core/` (old tango) from the codebase and documentation. Until then, old tango serves
       as the reference implementation and must not be deleted.
 - [ ] Where results diverge, investigate bugs in both the old and new code
 - [ ] Compare performance against pre-refactor baselines; investigate regressions
-- [ ] Once `tango` is starting to stabilize (past the current example-porting churn),
+- [ ] Once `tango_core` is starting to stabilize (past the current example-porting churn),
       profile it properly (e.g. `cProfile`/`py-spy`, not just wall-clock comparison against
       old tango) to find real hotspots before optimizing anything — candidates worth a look
       going in: `LockedState` read/write overhead given how often it's touched per timestep,
@@ -1125,8 +1125,8 @@ baseline; the refactor is applied to all input configurations.
       per-node diagnostics) was deliberately chosen for correctness/clarity over raw speed.
 - [ ] Store web app lines and graphics as annotations in the TANGO run file
 - [ ] Onboard Janna or additional support
-- [ ] Fill out the `tango` example coverage matrix (AGS / EGS / CPG / Hydrothermal
-      × heat / power extraction) — see "`tango` example coverage matrix" above.
+- [ ] Fill out the `tango_core` example coverage matrix (AGS / EGS / CPG / Hydrothermal
+      × heat / power extraction) — see "`tango_core` example coverage matrix" above.
       CPG needs a CO2 `FluidState` path first; the others are mostly new
       `power_plant` topologies on existing components.
 - [x] ~~Beyond the matrix, port the broader set of old-tango examples confirmed actually
@@ -1134,23 +1134,23 @@ baseline; the refactor is applied to all input configurations.
       `REPO_CLEANUP_AUDIT.md` are both deleted (internal-release cleanup);
       preserved at git tag `pre-tango-core-rename-2026-09-18`. See
       "Beyond the matrix" above for the fuller note.
-- [ ] Design combined heat-and-power (cogeneration) economics for `tango`
-      before building a cogeneration example — see the note above. `src/tango/`
+- [ ] Design combined heat-and-power (cogeneration) economics for `tango_core`
+      before building a cogeneration example — see the note above. `src/tango_core/`
       precedent exists (`flexible_SF_cogeneration_e/h.yml`); the gap is a
       combined-cost formulation on top of `MainProduct`, not the surface-plant
       topology.
 - [ ] Design a lightweight, generic seasonal/variable heat-demand mechanism for
-      `tango` (decoupled from the Hotmaps-specific `HotmapsDispatchDT` in
-      `src/tango/`) before treating any pure-heat or cogeneration example as
+      `tango_core` (decoupled from the Hotmaps-specific `HotmapsDispatchDT` in
+      `src/tango_core/`) before treating any pure-heat or cogeneration example as
       representative — see the note above.
-- [ ] **A clean pymoo optimization API for `tango`** — parameters set via a
+- [ ] **A clean pymoo optimization API for `tango_core`** — parameters set via a
       list of explicit functions operating on a config dict, objectives extracted
       the same way, dict-modify-then-reinstantiate throughout (never mutating a
       live `Workflow`/component), wrapped so users don't need to understand
       pymoo's `*args`/`**kwargs`-heavy `Problem` API directly. Should ship with a
       couple of worked examples and lightweight test coverage (not full
       optimization runs — sanity-check that parameter-setting functions actually
-      perturb the objective). `src/tango/`'s
+      perturb the objective). `src/tango_core/`'s
       `optimizerr.py` is NOT the reference for this — see
       `docs/tango_tasks.md`'s optimizerr.py review (2026-07-24) for why.
       `Workflow`'s class docstring shows the underlying mechanism this API
@@ -1175,7 +1175,7 @@ baseline; the refactor is applied to all input configurations.
       is going to be applied regardless, a weighted-sum scalarization fed to a
       single-objective optimizer gets to the same kind of single answer with
       far less machinery — the point of running MOO is to *not* pre-commit to
-      that. `tango`'s pymoo API should write every point on the returned
+      that. `tango_core`'s pymoo API should write every point on the returned
       front to a dataframe/CSV (plus one `ideal_distance` column, the
       normalized distance to the ideal corner, as a sort hint, not a filter)
       and leave the choice to the human — return the full
@@ -1236,7 +1236,7 @@ with no pointer to which component produced it. End users — especially those w
 a deep background in thermodynamics or numerical methods — are left staring at a
 Python traceback with no actionable guidance.
 
-The idea: wrap `tango_cli run` in a top-level exception handler that, on any
+The idea: wrap `tango_core run` in a top-level exception handler that, on any
 unhandled error, packages the context and sends it to an LLM agent for interpretation.
 
 **What the agent receives:**
@@ -1262,7 +1262,7 @@ hard-code as static error messages.
 
 **Implementation approach, prerequisites, and error-taxonomy design:** see
 [Appendix: AI-Assisted Error Interpretation — Implementation Sketch](../appendices/ai_error_interpretation_sketch.md)
-for the code-level sketch (a top-level exception handler wrapping `tango_cli run`,
+for the code-level sketch (a top-level exception handler wrapping `tango_core run`,
 routed through a stable `TangoError` exception taxonomy modeled on Rust's
 `thiserror`/`anyhow` pattern).
 
@@ -1333,7 +1333,7 @@ one Newton solve.)
 **This idea has already been explored once, with a different conclusion** — see
 [`subsurface_as_tespy_components.md`](subsurface_as_tespy_components.md) for the full
 writeup, including why literally subclassing TESPy's `Component` runs into a real
-architectural mismatch with `tango`'s Pydantic-based component model, and why
+architectural mismatch with `tango_core`'s Pydantic-based component model, and why
 folding subsurface into one TESPy network would also collide with the outer circuit's
 deliberately linear (`component_idx`/`prev`/`next`) representation. **Do not start a
 prototype of this without explicit sign-off** — it's flagged as a backlog item in
@@ -1377,9 +1377,9 @@ are even feasible.
 *Parked, not urgent — kept for reference when Phase 2 optimization/LCOE work begins,*
 *since that is where the trade-offs below matter most.*
 
-`tango` uses [TESPy](https://github.com/oemof/tespy) to model the single-flash power
+`tango_core` uses [TESPy](https://github.com/oemof/tespy) to model the single-flash power
 plant cycle (valve → droplet separator → turbine/condenser/pump branches → mixer). TESPy
-was chosen for Phase 1 to achieve numerical parity with `src/tango/`, which also relies on
+was chosen for Phase 1 to achieve numerical parity with `src/tango_core/`, which also relies on
 it. The dependency is appropriate for that goal but carries several rough edges that should
 be weighed for Phase 2+.
 
@@ -1412,7 +1412,7 @@ A direct CoolProp implementation of the single-flash cycle would:
   the cycle graph).
 - Remove the warm-start limitation — each timestep can start from the previous solution
   with no extra overhead.
-- Produce clean, structured errors via `CoolPropError` already in the `tango` error
+- Produce clean, structured errors via `CoolPropError` already in the `tango_core` error
   taxonomy.
 - Reduce the dependency surface: CoolProp is already required; TESPy would no longer be.
 - Make the cycle physics fully transparent and testable at the unit level.
@@ -1431,7 +1431,7 @@ the no-warm-start penalty will be most visible.
 ORC cycle ported from old tango (`flexible_ORC_manual.yml` → `GraphSurface`;
 old tango and this file removed, preserved at git tag
 `pre-tango-core-rename-2026-09-18`),
-`tango` is now past "single-flash only," which is exactly the case this appendix
+`tango_core` is now past "single-flash only," which is exactly the case this appendix
 already flagged as making the direct-CoolProp trade-off "less clear." The
 direct-CoolProp-migration recommendation above should be read as weaker for anything
 beyond single-flash going forward.
@@ -1463,7 +1463,7 @@ A wider review confirmed there's no better foundation to switch to right now:
   hand-written analytic derivatives (a `numeric_deriv` finite-difference fallback
   exists but is opt-in per equation, not automatic differentiation).
   `tespy.tools.helpers.UserDefinedEquation` offers a lighter path for one-off equations
-  without a full subclass. No custom components exist in `tango` today —
+  without a full subclass. No custom components exist in `tango_core` today —
   `GraphSurface` maps YAML `type:` strings straight onto stock TESPy classes — but the
   `PumpOrValve` pseudo-type (resolved today by building and solving two full parallel
   networks and picking whichever is valid) is exactly the kind of case a single custom

@@ -22,7 +22,7 @@ variants.
 
 ### Lumped wells
 
-::: tango.components.well.lumped
+::: tango_core.components.well.lumped
     options:
       members: false
       show_root_heading: false
@@ -30,7 +30,7 @@ variants.
 
 ### Numerical wells
 
-::: tango.components.well.numerical
+::: tango_core.components.well.numerical
     options:
       members: false
       show_root_heading: false

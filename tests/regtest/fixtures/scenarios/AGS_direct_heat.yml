@@ -50,7 +50,7 @@ common:
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
-  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango_core.workflows.linked_quantities)
 
 sim_config:
   num_tsteps: 25              # 25 years of operation
@@ -104,7 +104,7 @@ components:
     well_length: 707.0          # m — horizontal loop flow-path length
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
-    # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    # wellhead_depth: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
     angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
 
   production_well:
@@ -113,7 +113,7 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    # well_length: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
     diameter: 0.311              # m
     pipe_roughness: 5.5e-5       # m
 

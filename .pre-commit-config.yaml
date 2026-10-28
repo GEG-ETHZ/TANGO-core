@@ -30,10 +30,10 @@ repos:
   - repo: local
     hooks:
       - id: hash-tango
-        name: hash src/tango (for DVC dep tracking)
+        name: hash src/tango_core (for DVC dep tracking)
         entry: uv run python tools/hash_tango.py
         language: system
-        files: ^src/tango/
+        files: ^src/tango_core/
         pass_filenames: false
 
   # Strict/Slow checks (run ONLY on push)

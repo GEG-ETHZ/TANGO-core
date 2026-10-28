@@ -1,6 +1,6 @@
 # Boundary-condition iteration
 
-`SystemBCIteration.run_timestep` (`src/tango/orchestrators/system_bc_iteration.py`) decides how one timestep converges. The injection temperature is unknown until the surface plant has been solved, so every mode iterates it; the `auto-*` modes add an outer loop on wellhead pressure or mass rate, to stay at the fracking limit.
+`SystemBCIteration.run_timestep` (`src/tango_core/orchestrators/system_bc_iteration.py`) decides how one timestep converges. The injection temperature is unknown until the surface plant has been solved, so every mode iterates it; the `auto-*` modes add an outer loop on wellhead pressure or mass rate, to stay at the fracking limit.
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%

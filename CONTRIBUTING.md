@@ -12,21 +12,21 @@ cd tango-core
 just setup        # uv sync, direnv allow, and the git hooks
 ```
 
-The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-config.yaml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.pre-commit-config.yaml). On commit: Ruff, whitespace and YAML checks, gitleaks, the `src/tango.hash` refresh. On push: remote freshness, mypy, the fast pytest subset, the release-tag gate. They block commits and pushes to `main` and `develop`. Skip a single hook with `SKIP=<id>`, never with `--no-verify`.
+The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-config.yaml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.pre-commit-config.yaml). On commit: Ruff, whitespace and YAML checks, gitleaks, the `src/tango_core.hash` refresh. On push: remote freshness, mypy, the fast pytest subset, the release-tag gate. They block commits and pushes to `main` and `develop`. Skip a single hook with `SKIP=<id>`, never with `--no-verify`.
 
 ## TANGO Commandments
 
 Binding for every change; each exists because its absence caused a real problem.
 
 1. <a id="rule-object-is-config"></a>**object == config.** Code objects and the YAML config are congruent, close to 1:1; only values derived at instantiation are exempt.
-1. <a id="rule-locked-state"></a>**Mutation is guarded.** Every value that changes across timesteps or iterations is a `LockedState` (`src/tango/core/locked_state.py`) inside the component's `state` dataclass, written exactly once per solve.
+1. <a id="rule-locked-state"></a>**Mutation is guarded.** Every value that changes across timesteps or iterations is a `LockedState` (`src/tango_core/core/locked_state.py`) inside the component's `state` dataclass, written exactly once per solve.
 1. <a id="rule-state-history-parity"></a>**History is recordable.** Every `*State` field has a `list[T]` twin in the matching `*History`, appended in `record()`. Exception: `EconomicState`, which runs once through `finalize()`.
 1. <a id="rule-shared-by-reference"></a>**Single source of truth.** Data several objects need is shared by reference, never copied.
 1. <a id="rule-ci-checks"></a>**Deterministic quality checks.** Every change passes mypy strict, Ruff lint and format, and pytest; `just check` runs them locally, and CI runs them again on every pull request.
 1. <a id="rule-docstrings"></a>**Docstrings** follow the Google style and document arguments, attributes and return values; the API reference is generated from them.
 1. <a id="rule-pydantic-schemas"></a>**Schemas defined in code.** Config and persisted state are pydantic fields. Exempt: orchestration internals, `LockedState` runtime state, and framework primitives, none of which is loaded from or dumped to config.
 1. <a id="rule-no-eval"></a>**No `eval`.**
-1. <a id="rule-unit-conversion-factors"></a>**Unit conversions** are defined in, and imported from, `src/tango/core/constants.py`.
+1. <a id="rule-unit-conversion-factors"></a>**Unit conversions** are defined in, and imported from, `src/tango_core/core/constants.py`.
 1. <a id="rule-finite-values-strenum"></a>**Enums for finite variants.** A parameter with a small, finite set of values is a `StrEnum`.
 1. <a id="rule-no-silent-pass"></a>**No silent base-class methods.** An unimplemented method raises `NotImplementedError`, never `pass`.
 1. <a id="rule-unit-suffix-naming"></a>**Unit suffixes.** A non-SI value names its unit (`p_out_megapascals`) and is converted where it is read; SI values carry no suffix. A file-global unit such as TESPy's `p_unit='bar'` hides the unit and is not used.

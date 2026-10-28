@@ -32,8 +32,8 @@ from typing import Any
 
 import pytest
 
-from tango.components.well.grouped_subsurface import NumericalGroupedSubsurface
-from tango.workflows.workflow import Workflow
+from tango_core.components.well.grouped_subsurface import NumericalGroupedSubsurface
+from tango_core.workflows.workflow import Workflow
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 

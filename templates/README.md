@@ -1,12 +1,12 @@
 # Templates
 
-`templates/` holds the maintained reference configurations for TANGO. Each file describes one complete geothermal system, from reservoir to economics. Each one is a valid starting point for your own study. Every file is covered by the full-length regression suite ([`tests/regtest/test_templates.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/tests/regtest/test_templates.py)), which fails if a file here has no golden-value check. These files are therefore the source of truth for what a valid configuration looks like. `tango_cli init` ships them with the installed package.
+`templates/` holds the maintained reference configurations for TANGO. Each file describes one complete geothermal system, from reservoir to economics. Each one is a valid starting point for your own study. Every file is covered by the full-length regression suite ([`tests/regtest/test_templates.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/tests/regtest/test_templates.py)), which fails if a file here has no golden-value check. These files are therefore the source of truth for what a valid configuration looks like. `tango_core init` ships them with the installed package.
 
 ## Run one
 
 ```bash
-uv run tango_cli validate templates/hydro_sf_electric.yml   # check the file, no simulation
-uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
+uv run tango_core validate templates/hydro_sf_electric.yml   # check the file, no simulation
+uv run tango_core run templates/hydro_sf_electric.yml --save-dir results/
 ```
 
 ## Configurations
@@ -33,7 +33,7 @@ uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
 
 How a configuration maps onto the code is described in [Config to objects](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/architecture/config.md). The meaning of each injection mode is described in [Boundary-condition iteration](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/runtime/bc-iteration.md).
 
-A file name containing `ORC` means a binary plant: the geofluid heats a secondary working fluid (R245fa) that drives the turbine, and `tango_cli run --save-dir` writes a phase diagram for each fluid.
+A file name containing `ORC` means a binary plant: the geofluid heats a secondary working fluid (R245fa) that drives the turbine, and `tango_core run --save-dir` writes a phase diagram for each fluid.
 
 ## Conventions
 
@@ -45,6 +45,6 @@ A file name containing `ORC` means a binary plant: the geofluid heats a secondar
 ## Adding a configuration
 
 1. Copy the closest existing file and change only what differs.
-2. Run `uv run tango_cli validate` and then `uv run tango_cli run` on it.
+2. Run `uv run tango_core validate` and then `uv run tango_core run` on it.
 3. Add it to `_CONFIGS` in `tests/regtest/test_templates.py`, with its golden LCOE value. The suite fails until you do.
 4. Add a row to the table above.

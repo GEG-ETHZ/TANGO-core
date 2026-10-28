@@ -1,13 +1,13 @@
 # One run, end to end
 
-What happens between `tango_cli run config.yml` and the results files. The user's two decisions, the config and the `--save-dir` flag, are the only inputs; the exit code tells a script which stage failed.
+What happens between `tango_core run config.yml` and the results files. The user's two decisions, the config and the `--save-dir` flag, are the only inputs; the exit code tells a script which stage failed.
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
 sequenceDiagram
   autonumber
   actor U as User
-  participant CLI as tango_cli
+  participant CLI as tango_core
   participant WF as Workflow
   participant OR as Orchestrator
   participant C as Components
@@ -31,10 +31,10 @@ sequenceDiagram
 
 | Step | Code |
 |---|---|
-| Parse arguments, call `_cmd_run` | `src/tango/tango_cli.py` |
-| Load and validate, build components and orchestrator | `Workflow.from_file` → `Workflow.__init__` (`src/tango/workflows/workflow.py`) |
-| Timestep loop | `SystemDirect.run` (`src/tango/orchestrators/system_direct.py`) |
-| Economics, once | `SystemDirect.finalize` → `DoubletEconomicComponent.solve` (`src/tango/components/economic/doublet.py`) |
-| Write files | `write_results` (`src/tango/results_export.py`) |
+| Parse arguments, call `_cmd_run` | `src/tango_core/cli.py` |
+| Load and validate, build components and orchestrator | `Workflow.from_file` → `Workflow.__init__` (`src/tango_core/workflows/workflow.py`) |
+| Timestep loop | `SystemDirect.run` (`src/tango_core/orchestrators/system_direct.py`) |
+| Economics, once | `SystemDirect.finalize` → `DoubletEconomicComponent.solve` (`src/tango_core/components/economic/doublet.py`) |
+| Write files | `write_results` (`src/tango_core/results_export.py`) |
 
 Exit codes and the files `--save-dir` writes are listed in [Run a simulation](../guides/run.md#3-run-it).

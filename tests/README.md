@@ -16,7 +16,7 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 | `unit/test_serde_roundtrip.py` | Every component serializes and reloads unchanged |
 | `unit/test_state_history_parity.py` | Every `*State` field has a `*History` counterpart ([rule](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CONTRIBUTING.md#rule-state-history-parity)) |
 | `unit/test_convergence_snapshot.py` | `snapshot_convergence_state` / `restore_convergence_state` |
-| `unit/test_tango_cli.py` | `tango_cli` argument parsing |
+| `unit/test_cli.py` | `tango_core` argument parsing |
 | `unit/test_pymoo_api.py`, `unit/test_surrogate_api.py` | Optimization and surrogate pipeline plumbing |
 | `regtest/test_templates.py` | Every `templates/*.yml` at full length, against its golden LCOE; fails if a configuration is not listed |
 | `regtest/test_lcoe_regression.py` | Economic component behavior and the reference LCOE |

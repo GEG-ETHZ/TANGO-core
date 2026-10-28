@@ -89,7 +89,7 @@ components:
     component_idx: 0          # first component solved each pass — circuit cut here
     prev: 4
     next: 1
-    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    # well_length: derived: equals reservoir.reservoir_depth (see tango_core.workflows.linked_quantities)
     diameter: 0.6             # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
 
@@ -103,13 +103,13 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango_core.workflows.linked_quantities)
     over_pressure_percentage: 20
     brine_density: 1000            # kg/m3 — used for the reservoir's own
                                     # initial/undepleted pressure, not the
                                     # circulating fluid (see brine_density's
                                     # own docstring in core/specs.py)
-    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango_core.workflows.linked_quantities)
 
   production_well_lower:
     type: production_well
@@ -117,10 +117,10 @@ components:
     component_idx: 2
     prev: 1
     next: 3
-    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango_core.workflows.linked_quantities)
     diameter: 0.403           # m
     pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
-    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango_core.workflows.linked_quantities)
 
   production_well_upper:
     type: production_well

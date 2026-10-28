@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from tango.core.errors import DoubleWriteError, FreshAccessError, StaleAccessError
-from tango.core.locked_state import LockedState
+from tango_core.core.errors import DoubleWriteError, FreshAccessError, StaleAccessError
+from tango_core.core.locked_state import LockedState
 
 # ---------------------------------------------------------------------------
 # Fixtures

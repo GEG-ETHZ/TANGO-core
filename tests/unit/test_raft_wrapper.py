@@ -25,10 +25,10 @@ from fake_raft_model import (
     FakeRaftModel,
 )
 
-import tango.external.raft_wrapper as raft_wrapper
-from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
-from tango.core.errors import ConfigError, ConvergenceError, SaturationError
-from tango.workflows.workflow import Workflow
+import tango_core.external.raft_wrapper as raft_wrapper
+from tango_core.components.well.grouped_subsurface import RaftGroupedSubsurface
+from tango_core.core.errors import ConfigError, ConvergenceError, SaturationError
+from tango_core.workflows.workflow import Workflow
 
 _ROOT = Path(__file__).resolve().parents[2]
 _RAFT_CONFIG = _ROOT / "templates" / "AGS_ORC_electric_raft.yml"

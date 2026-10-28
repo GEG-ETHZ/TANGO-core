@@ -81,7 +81,7 @@ training-data generation. Rough shape:
 
 ## What was actually built (2026-09-03)
 
-- **`ParamToleranceDuplicateElimination`** (new class in `src/tango/pymoo_api.py`,
+- **`ParamToleranceDuplicateElimination`** (new class in `src/tango_core/pymoo_api.py`,
   next to `Minimization`) — two designs are duplicates if EVERY param is
   within `tol_frac` of the other's OWN `bounds` range (not one combined
   Euclidean distance against a fixed absolute epsilon like pymoo's own
@@ -254,7 +254,7 @@ training-data generation. Rough shape:
 Read this file's "What was actually built" section, then re-read the
 working directory's current `applications/opt_hydro_df_electric_surrogate/`
 state (params.yaml, dvc.yaml, run_trajectory.py, and
-`src/tango/pymoo_api.py`'s `ParamToleranceDuplicateElimination`/
+`src/tango_core/pymoo_api.py`'s `ParamToleranceDuplicateElimination`/
 `Minimization.capture_trajectory_path`) to confirm nothing's drifted since.
 If Chad has already run this on Euler, check `outputs/` and
 `dvc.lock` for real results before re-explaining the design from scratch.

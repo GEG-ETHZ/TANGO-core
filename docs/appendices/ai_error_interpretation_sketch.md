@@ -11,7 +11,7 @@ detail (code, prerequisites) rather than vision-doc-level narrative.*
 **Implementation sketch:**
 
 ```python
-# tango_cli.py — outer try/except in the `run` subcommand
+# cli.py — outer try/except in the `run` subcommand
 try:
     Workflow.from_file(path).run()
 except Exception as exc:

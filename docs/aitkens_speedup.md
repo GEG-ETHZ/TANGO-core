@@ -45,7 +45,7 @@ added, TANGO used plain Picard iteration, $T_{n+1} = G(T_n)$.
 
 ## Implementation
 
-`aitken_relax` in `src/tango/core/accelerators.py` implements the
+`aitken_relax` in `src/tango_core/core/accelerators.py` implements the
 Irons–Tuck form of Aitken relaxation. `SystemBCIteration._converge_injection_T`
 calls it after every pass of the circuit to choose the next injection
 temperature.

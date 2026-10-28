@@ -37,13 +37,13 @@ import pandas as pd
 from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, base_config, make_plots, objective_specs, param_specs
 from common import DISPLAY_RENAME as _DISPLAY_RENAME
 
-from tango.pymoo_api import load_params
-from tango.surrogate_api import (
+from tango_core.pymoo_api import load_params
+from tango_core.surrogate_api import (
     SurrogateValidationError,
     corrected_pareto_front,
     validate_surrogate_pareto,
 )
-from tango.utils import print_dt
+from tango_core.utils import print_dt
 
 
 def build_parser() -> argparse.ArgumentParser:
