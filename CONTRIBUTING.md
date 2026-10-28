@@ -86,18 +86,33 @@ A shebang line, if any, stays above them. Other files are covered by [`REUSE.tom
 
 [`CHANGELOG.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries collect under `## [In Development]` until a release is cut, then move under `## [X.Y.Z] — YYYY-MM-DD`, and the comparison links in the footer are updated. Since 1.0, an entry is required per release and optional per merge.
 
-## Cutting an Internal (GEG-only) Release
+## Cutting a Release
 
-TANGO is installed from a release tag on the private repository; nothing is published to PyPI. Versions follow [Semantic Versioning](https://semver.org/); tags carry a `v` prefix.
+Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) first and to [PyPI](https://pypi.org/project/tango-core/) only after the TestPyPI upload installs and runs. PyPI never accepts the same version twice, so a broken upload there can't be replaced. Versions follow [Semantic Versioning](https://semver.org/); tags carry a `v` prefix. [`.github/workflows/release.yml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.github/workflows/release.yml) does the uploads with PyPI Trusted Publishing, so no API token is stored anywhere.
 
-1. Check that `## [In Development]` covers the release.
+1. Check that `## [In Development]` in `CHANGELOG.md` covers the release, then rename it to `## [X.Y.Z] — YYYY-MM-DD` and set `version` and `date-released` in `CITATION.cff`.
 2. Bump `version` in `pyproject.toml` on `main` through a pull request. Its `license-check` job (`tools/check_licenses.py`) fails if a runtime dependency's license is not allowed; do not tag until it passes. Review each flagged license (the job uploads `licenses.json` and a draw.io dependency tree) and either replace the dependency or add a `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the reason, through its own pull request.
-3. Tag that commit and push the tag; the pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
+3. Tag that commit and push the tag. The pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
 
    ```bash
    git checkout main && git pull
-   git tag v1.0.1
-   git push origin refs/tags/v1.0.1
+   git tag vX.Y.Z
+   git push origin refs/tags/vX.Y.Z
    ```
 
-4. Create a GitHub Release from the tag (`gh release create v1.0.1 --notes-from-tag`) with the changelog section as its notes, and tell consumers which tag to pin.
+4. The tag starts the `release` workflow. It checks that the tag matches `version` in `pyproject.toml`, builds the wheel and sdist once, and uploads them to TestPyPI.
+5. Install the TestPyPI upload in a fresh directory and check it runs. The extra index supplies the dependencies, which are not on TestPyPI:
+
+   ```bash
+   uv venv && uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ --index-strategy unsafe-best-match tango-core==X.Y.Z
+   uv run tango_core --version
+   uv run tango_core init demo && uv run tango_core run demo/templates/hydro_sf_electric.yml
+   ```
+
+6. If it works, approve the waiting `publish to PyPI` job in the workflow run (Actions → release). The same files go to PyPI. If it doesn't, leave the job unapproved, fix the problem, and release the next patch version; that version number is spent on TestPyPI.
+7. Create a GitHub Release from the tag (`gh release create vX.Y.Z --notes-from-tag`) with the changelog section as its notes.
+
+### One-time setup
+
+- On [pypi.org](https://pypi.org/manage/account/publishing/) and [test.pypi.org](https://test.pypi.org/manage/account/publishing/), add a trusted publisher for project `tango-core`: owner `GEG-ETHZ`, repository `TANGO-core`, workflow `release.yml`, environment `pypi` on PyPI and `testpypi` on TestPyPI. Before the first upload this is a "pending publisher", which also reserves the name.
+- In the repository's Settings → Environments, create `testpypi` with no protection rules and `pypi` with a required reviewer.

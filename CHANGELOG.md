@@ -7,6 +7,11 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Added
 
+- **Releases on PyPI.** `pip install tango-core` (or `uv add tango-core`)
+  once a release is out. Pushing a version tag runs
+  `.github/workflows/release.yml`, which uploads the release to TestPyPI
+  and then, after a maintainer approves, the same files to PyPI, using
+  Trusted Publishing (no stored token). `CONTRIBUTING.md` has the steps.
 - **`grouped_subsurface` component** (`type: grouped_subsurface`): an AGS
   loop's injection, horizontal and production wells grouped into one circuit
   component, configured as three segment blocks (see
