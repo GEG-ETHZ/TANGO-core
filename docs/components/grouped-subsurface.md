@@ -42,6 +42,11 @@ Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and
 
 Columns in `<name>.smry.csv`, where `<name>` is the component's key in the config.
 RAFT's step sizes and its profile along the well are lists per timestep, so
-they are in `<stem>.yml`, not the CSV.
+they are in `<stem>.results.yml`, not the CSV.
+
+With `--save-dir`, RAFT also keeps its own output in `<stem>.raft/`: the
+matrix and well VTKs (at the template's `output_vtk` and `output_frequency`,
+once per tango timestep, plus the initial state) and its flow log. Without
+`--save-dir`, RAFT writes no VTKs and keeps nothing.
 
 --8<-- "docs/reference/generated/outputs-grouped_subsurface.md"

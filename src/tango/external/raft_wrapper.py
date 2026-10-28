@@ -39,6 +39,12 @@ profile, fluid and well alignment are checked against the tango config
 sets what tango owns: the well diameter and roughness, the coupling
 boundary conditions and the output location.
 
+RAFT's own output files (VTKs, flow logs) are kept only when asked for
+with ``set_output_dir()`` (``tango_cli run --save-dir`` does this): RAFT
+then writes them there, at the template's ``output_vtk`` and
+``output_frequency``, once per tango timestep. Otherwise RAFT writes no
+VTKs, and its run directory is temporary.
+
 ``state``/``history`` record, per timestep, RAFT's raw values at the well
 inlet and outlet, how much work the timestep took (trial solves, wall
 time), RAFT's own timestepping statistics for the accepted trial
@@ -297,6 +303,8 @@ class RaftWrapper(BaseModel, StateMethods):
     _outlet_label: str = PrivateAttr(default="")
     _model: Any = PrivateAttr(default=None)
     _run_dir: Path | None = PrivateAttr(default=None)
+    # Where RAFT's own output files are kept (set_output_dir); None: nowhere.
+    _output_dir: Path | None = PrivateAttr(default=None)
     # Time (s) of RAFT's accepted state, and the end time of the pending trial.
     _accepted_time_seconds: float = PrivateAttr(default=0.0)
     _trial_end_seconds: float | None = PrivateAttr(default=None)
@@ -340,7 +348,6 @@ class RaftWrapper(BaseModel, StateMethods):
         inlet_bc["thermal"] = {"type": "temperature", "function": "external"}
         outlet_bc["hydraulics"] = {"type": "flux", "function": "external"}
         outlet_bc.pop("thermal", None)
-        config["simulation"]["output_vtk"] = 0
 
         self._raft_config = config
         self._mesh_path = mesh_path
@@ -348,11 +355,25 @@ class RaftWrapper(BaseModel, StateMethods):
         self._inlet_label = inlet_bc["label"]
         self._outlet_label = outlet_bc["label"]
 
+    def set_output_dir(self, directory: Path) -> None:
+        """Keep RAFT's own output files (VTKs, flow logs) in ``directory``.
+
+        RAFT writes them once per tango timestep, at the template's
+        ``output_vtk`` and ``output_frequency``. Without this, RAFT writes no
+        VTKs and its output is deleted at exit.
+
+        Raises:
+            RuntimeError: RAFT has already started.
+        """
+        if self._model is not None:
+            raise RuntimeError("RaftWrapper.set_output_dir() must be called before RAFT starts.")
+        self._output_dir = Path(directory).resolve()
+
     def _start(self) -> None:
         """Write the RAFT config into a fresh temporary directory and start RAFT.
 
-        The directory (RAFT's config, logs and output) is deleted when the
-        Python process exits.
+        The directory (RAFT's config, and its output unless ``set_output_dir``
+        gave one) is deleted when the Python process exits.
 
         Raises:
             ConfigError: The template's mesh file is missing (a mesh stored
@@ -368,10 +389,17 @@ class RaftWrapper(BaseModel, StateMethods):
         atexit.register(shutil.rmtree, run_dir, ignore_errors=True)
         config = copy.deepcopy(self._raft_config)
         config["mesh"]["file"] = str(self._mesh_path)
-        config["simulation"]["output_directory"] = str(run_dir / "output")
-        (run_dir / "raft.yaml").write_text(yaml.safe_dump(config, sort_keys=False))
+        # RAFT writes into <output_directory>/<config file stem>/.
+        if self._output_dir is None:
+            config_name = "raft.yaml"
+            config["simulation"]["output_directory"] = str(run_dir / "output")
+            config["simulation"]["output_vtk"] = 0
+        else:
+            config_name = f"{self._output_dir.name}.yaml"
+            config["simulation"]["output_directory"] = str(self._output_dir.parent)
+        (run_dir / config_name).write_text(yaml.safe_dump(config, sort_keys=False))
         self._run_dir = run_dir
-        self._model = _raft_model_class()("raft.yaml", 0.0, config_dir=run_dir, verbosity=self.verbosity)
+        self._model = _raft_model_class()(config_name, 0.0, config_dir=run_dir, verbosity=self.verbosity)
 
     # ------------------------------------------------------------------
     # Coupling

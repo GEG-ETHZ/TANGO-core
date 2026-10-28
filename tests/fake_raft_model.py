@@ -80,6 +80,7 @@ class FakeRaftModel:
         """Read the config tango wrote, as RAFT would."""
         del verbosity
         self.config: dict[str, Any] = yaml.safe_load((Path(config_dir) / config_name).read_text())
+        self.config_name = config_name
         groups = {tuple(g["well"]): g for g in self.config["boundary_conditions"] if "well" in g}
         self.inlet_label = groups[(0, "inlet")]["label"]
         self.outlet_label = groups[(0, "outlet")]["label"]

@@ -22,6 +22,10 @@ didn't have before:
 
 Every CSV column header ends in its unit, e.g. ``production_well_T_outlet
 [K]`` (``[-]`` for a dimensionless quantity), from ``FIELD_UNITS``.
+
+An external simulator's own output files go next to these, in
+``<stem>.raft/`` for a RAFT subsurface; ``keep_external_outputs`` sets that
+up before the run.
 """
 
 from __future__ import annotations
@@ -108,6 +112,28 @@ history or economic field can't reach a CSV without a unit.
 def _with_unit(column: str, field_name: str) -> str:
     """``column`` with ``field_name``'s unit appended, e.g. ``"surface_T_outlet [K]"``."""
     return f"{column} [{FIELD_UNITS[field_name]}]"
+
+
+def keep_external_outputs(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
+    """Have each RAFT subsurface keep its own output files (VTKs, flow logs) in ``save_dir``.
+
+    Call before ``wf.run()``. With one RAFT component the directory is
+    ``<stem>.raft/``; with several, ``<stem>.<component>.raft/``.
+
+    Returns:
+        The directories RAFT will write into.
+    """
+    rafts = [
+        (name, component)
+        for name, component in wf._orchestrator.components.items()  # noqa: SLF001
+        if isinstance(component, RaftGroupedSubsurface)
+    ]
+    directories = []
+    for name, component in rafts:
+        directory = save_dir / (f"{stem}.raft" if len(rafts) == 1 else f"{stem}.{name}.raft")
+        component.raft.set_output_dir(directory)
+        directories.append(directory)
+    return directories
 
 
 def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
