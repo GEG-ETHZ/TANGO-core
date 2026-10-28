@@ -92,6 +92,11 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Changed
 
+- **License: Apache-2.0.** TANGO is open source under the Apache License,
+  Version 2.0 (`LICENSE.txt`), copyright 2025 ETH Zurich. The proprietary
+  license and the internal distribution notice (`NOTICE`) are gone. The
+  package metadata declares the SPDX expression `Apache-2.0`, and
+  `tango_cli --version` prints the copyright and license line.
 - **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
   `DEST/templates/`, and the wheel ships it as `tango/templates/`.
 - **Forge** — GitHub (`GEG-ETHZ/TANGO-core`) replaces gitlab.ethz.ch for

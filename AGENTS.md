@@ -59,7 +59,7 @@ Read before any change:
 1. `tests/regtest/` takes over an hour. CI runs only `tests/unit/`; the pre-push hook runs the fast subset (`not slow and not perf`), and `just test --all` runs everything before a release tag.
 2. A hook regenerates `src/tango.hash` on every `src/tango/` change. The DVC stages in `applications/` depend on it.
 3. Every shipped example sets `sim_config.injection_mode`, so every example runs `SystemBCIteration`. `SystemDirect` runs only when the key is absent.
-4. The docs site must stay private (see `NOTICE`) until tango-core goes public. The deploy job runs only when the repository variable `PAGES_PRIVATE` is `true`. Never set it without confirming Settings → Pages → Visibility: Private. The first deploy is tracked in [#74](https://github.com/GEG-ETHZ/TANGO-core/issues/74); the steps for going public, including the switch to the public build, are in [#110](https://github.com/GEG-ETHZ/TANGO-core/issues/110).
+4. The docs site must stay private until tango-core goes public. The deploy job runs only when the repository variable `PAGES_PRIVATE` is `true`. Never set it without confirming Settings → Pages → Visibility: Private. The first deploy is tracked in [#74](https://github.com/GEG-ETHZ/TANGO-core/issues/74); the steps for going public, including the switch to the public build, are in [#110](https://github.com/GEG-ETHZ/TANGO-core/issues/110).
 5. Links in `src/tango/**/README.md` are absolute GitHub URLs, because the site includes those files from a different path.
 6. A new or renamed config field, or a changed field docstring, changes the generated docs: run `just docs-gen` and commit the result, or the CI check `tools/gen_reference.py --check` fails.
 

@@ -26,7 +26,6 @@ Copy the bundled templates into a local directory to start from::
 from __future__ import annotations
 
 import argparse
-import importlib.metadata
 import importlib.resources
 import logging
 import shutil
@@ -49,32 +48,7 @@ _AVAILABLE_APPS = frozenset(
 )  # must track applications/'s subdirectories and pyproject.toml's
 # [tool.hatch.build.targets.wheel.force-include] entries for them
 
-_NOTICE_FALLBACK = (
-    "TANGO is confidential, proprietary GEG-group-internal software. "
-    "Not for redistribution outside the group without written permission. "
-    "See NOTICE/LICENSE.txt in the tango-core repository for the full terms."
-)
-
-
-def _notice_text() -> str:
-    """Return the confidentiality NOTICE, read from installed package metadata.
-
-    Reads ``NOTICE`` from ``tango-core``'s distribution ``licenses/`` folder
-    (where setuptools' default license-files discovery puts it) via
-    ``importlib.metadata``, rather than duplicating its text as a Python
-    string constant here — one source of truth (the repo-root ``NOTICE``
-    file), no drift risk between the two. Falls back to a short built-in
-    summary if the distribution metadata can't be found (e.g. running
-    directly from an unbuilt checkout).
-    """
-    try:
-        dist = importlib.metadata.distribution("tango-core")
-        for f in dist.files or []:
-            if Path(str(f)).name == "NOTICE":
-                return Path(str(dist.locate_file(f))).read_text(encoding="utf-8").strip()
-    except (importlib.metadata.PackageNotFoundError, OSError):
-        pass
-    return _NOTICE_FALLBACK
+_LICENSE_NOTICE = "Copyright 2025 ETH Zurich. Licensed under the Apache License, Version 2.0."
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -129,7 +103,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"tango {__version__}\n\n{_notice_text()}",
+        version=f"tango {__version__}\n\n{_LICENSE_NOTICE}",
     )
     parser.add_argument(
         "--log-level",
@@ -286,7 +260,7 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
 
     logger = logging.getLogger(__name__)
     logger.info(
-        "tango %s -- confidential GEG-internal software, `tango_cli --version` for full notice",
+        "tango %s",
         __version__,
     )
     logger.info("Input: %s", args.input_file)

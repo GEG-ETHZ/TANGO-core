@@ -194,6 +194,17 @@
     "Parent": "celery"
   },
   {
+    "Name": "build",
+    "License": "MIT",
+    "Direct": false,
+    "Depth": 2,
+    "Scope": "runtime",
+    "RequiredBy": [
+      "fluprodia"
+    ],
+    "Parent": "fluprodia"
+  },
+  {
     "Name": "celery",
     "License": "BSD-3-Clause",
     "Direct": false,
@@ -609,6 +620,28 @@
     "Parent": "dvc"
   },
   {
+    "Name": "flexcache",
+    "License": "BSD",
+    "Direct": false,
+    "Depth": 3,
+    "Scope": "runtime",
+    "RequiredBy": [
+      "pint"
+    ],
+    "Parent": "pint"
+  },
+  {
+    "Name": "flexparser",
+    "License": "BSD-3-Clause",
+    "Direct": false,
+    "Depth": 3,
+    "Scope": "runtime",
+    "RequiredBy": [
+      "pint"
+    ],
+    "Parent": "pint"
+  },
+  {
     "Name": "flufl.lock",
     "License": "Apache-2.0",
     "Direct": false,
@@ -626,7 +659,8 @@
     "Depth": 1,
     "Scope": "runtime",
     "RequiredBy": [
-      "tango-core"
+      "tango-core",
+      "tespy"
     ],
     "Parent": "tango-core"
   },
@@ -1196,6 +1230,7 @@
     "Scope": "runtime",
     "RequiredBy": [
       "black",
+      "build",
       "dvc",
       "hydra-core",
       "ipykernel",
@@ -1260,6 +1295,18 @@
     "Parent": "matplotlib"
   },
   {
+    "Name": "Pint",
+    "License": "BSD",
+    "Direct": false,
+    "Depth": 2,
+    "Scope": "runtime",
+    "RequiredBy": [
+      "fluprodia",
+      "tespy"
+    ],
+    "Parent": "fluprodia"
+  },
+  {
     "Name": "pip",
     "License": "MIT",
     "Direct": true,
@@ -1280,6 +1327,7 @@
       "black",
       "dvc",
       "jupyter-core",
+      "pint",
       "pytoolconfig"
     ],
     "Parent": "dvc"
@@ -1550,6 +1598,17 @@
     "Parent": "matplotlib"
   },
   {
+    "Name": "pyproject_hooks",
+    "License": "MIT",
+    "Direct": false,
+    "Depth": 3,
+    "Scope": "runtime",
+    "RequiredBy": [
+      "build"
+    ],
+    "Parent": "build"
+  },
+  {
     "Name": "python-arango",
     "License": "MIT License",
     "Direct": true,
@@ -1697,7 +1756,8 @@
     "RequiredBy": [
       "pymoo",
       "scikit-learn",
-      "tango-core"
+      "tango-core",
+      "tespy"
     ],
     "Parent": "tango-core"
   },
@@ -1965,9 +2025,12 @@
       "asyncssh",
       "docstring-to-markdown",
       "dulwich",
+      "flexcache",
+      "flexparser",
       "grpcio",
       "ipython",
       "mypy",
+      "pint",
       "pydantic",
       "pydantic-core",
       "typing-inspection"

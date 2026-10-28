@@ -8,9 +8,16 @@ abstract: >-
   over the project's lifetime, and computes the levelized cost of
   electricity or heat.
 authors:
-  - name: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zürich"
-version: 1.0.1
-date-released: 2026-09-24
+  - family-names: Baker
+    given-names: Chad
+    email: chad.baker@eaps.ethz.ch
+    orcid: "https://orcid.org/0000-0003-2233-221X"
+    affiliation: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zurich"
+  - family-names: McSweeney
+    given-names: Dubhaltach
+    affiliation: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zurich"
+license: Apache-2.0
+version: 1.1.0
 repository-code: "https://github.com/GEG-ETHZ/TANGO-core"
 keywords:
   - geothermal energy

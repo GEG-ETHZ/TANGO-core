@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml)
 [![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
-[![License](https://img.shields.io/badge/license-GEG%20internal-0E0E10.svg)](./NOTICE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE.txt)
 [![Python](https://img.shields.io/badge/python-3.11-0E0E10.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
@@ -20,7 +20,7 @@
 ![What will a geothermal project's electricity or heat cost over its life? You describe the surface plant, the wells, the reservoir and the economics; TANGO couples them into one system, solved over the project's lifetime, for hydrothermal, CPG, EGS and AGS systems; you get LCOE or LCOH, net electric and thermal power, temperature, pressure and flow for every part and timestep, and the best designs from sweeps and optimization](docs/diagrams/hero.drawio.svg)
 
 > [!NOTE]
-> TANGO is research software of the Geothermal Energy and Geofluids group at ETH Zürich. It is confidential and licensed to GEG members only; see [`NOTICE`](NOTICE).
+> TANGO is research software of the Geothermal Energy and Geofluids group at ETH Zürich, released under the [Apache License 2.0](LICENSE.txt).
 
 ## Contents
 
@@ -130,4 +130,6 @@ Code changes follow the [TANGO commandments](CONTRIBUTING.md#tango-commandments)
 
 ## License
 
-Copyright © ETH Zürich, Geothermal Energy and Geofluids (GEG) group, Department of Earth and Planetary Sciences. All rights reserved. TANGO is proprietary and confidential and licensed to current GEG members for internal use only. See [`LICENSE.txt`](LICENSE.txt) and [`NOTICE`](NOTICE).
+Copyright © 2025 ETH Zurich. Authors: Chad Baker and Dubhaltach McSweeney, Geothermal Energy and Geofluids (GEG) group, Department of Earth and Planetary Sciences.
+
+TANGO is licensed under the Apache License, Version 2.0; see [`LICENSE.txt`](LICENSE.txt).

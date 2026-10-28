@@ -15,7 +15,7 @@ There are two ways to install TANGO:
 | uv | latest | macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh` · Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
 | GitHub SSH access | — | [Connect to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) |
 
-TANGO is internal to the GEG group (see [`NOTICE`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/NOTICE) and [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)). Installing it requires read access to the private GitHub repository [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core); there is no public package.
+TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)).
 
 ## Use a release
 

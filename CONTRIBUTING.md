@@ -1,6 +1,6 @@
 # Contributing to TANGO
 
-For anyone changing TANGO's code, configs or documentation: the setup, the rules every change follows, and how a change gets from a branch to a release. TANGO is internal to the GEG group at ETH Zürich (see [`NOTICE`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/NOTICE)); contributors are GEG members with write access to [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core).
+For anyone changing TANGO's code, configs or documentation: the setup, the rules every change follows, and how a change gets from a branch to a release. TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)); contributors are GEG members with write access to [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core).
 
 ## Development setup
 

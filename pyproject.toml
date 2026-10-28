@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,14 +11,15 @@ build-backend = "hatchling.build"
 # beautifulsoup4 -> bs4, scikit-learn -> sklearn, pyyaml -> yaml).
 name = "tango-core"
 version = "1.1.0"
-authors = [{name = "ETHZ/EAPS/GEG Group"}]
+authors = [{name = "Geothermal Energy and Geofluids Group, ETH Zurich", email = "chad.baker@eaps.ethz.ch"}]
+maintainers = [{name = "Chad Baker", email = "chad.baker@eaps.ethz.ch"}]
 description = "Techno-economic ANalysis of Geoenergy Operations (TANGO)"
 readme = "README.md"
-license = { file = "LICENSE.txt" }
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
 requires-python = ">=3.11,<3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: Other/Proprietary License",
     "Operating System :: POSIX",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",

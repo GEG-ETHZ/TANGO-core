@@ -9,7 +9,8 @@
 #
 # Deploy is gated on the repository variable PAGES_PRIVATE == "true".
 # Pages sites are org-private only on GitHub Enterprise Cloud; on any other
-# plan the site would be public, which NOTICE forbids. Set the variable
+# plan the site would be public, which has to wait until tango-core goes
+# public. Set the variable
 # (Settings → Secrets and variables → Actions → Variables) only after
 # Settings → Pages shows "Visibility: Private".
 name: Docs site
