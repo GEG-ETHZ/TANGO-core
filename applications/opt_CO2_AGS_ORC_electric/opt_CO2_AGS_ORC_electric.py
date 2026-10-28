@@ -189,9 +189,9 @@ def param_specs(bounds: dict[str, tuple[float, float]]) -> list[ParamSpec]:
 
     - ``depth_m`` sets both vertical wells and the horizontal loop's starting
       depth.
-    - ``loop_length_m`` also sets ``layout.well_spacing`` (the surface pipe
-      run), which by convention equals the loop length; it is set only there,
-      since ``tango`` rejects component-level overrides of ``layout:`` fields.
+    - ``loop_length_m`` sets the horizontal well's length; ``layout.well_spacing``
+      (the surface pipe run) is derived from it, since the wellheads are a loop
+      length apart.
     - ``vertical_well_diameter_m`` sets the injection and production wells
       together, which also satisfies ``DoubletEconomicComponent``'s uniform-
       diameter requirement on the production side.
