@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Regression tests for tango_core's argument parsing.
 
 Covers ``--log-level``'s before/after-subcommand placement specifically —

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Lumped-parameter wellbore components for tango.
 
 LumpedInjectionWell and LumpedProductionWell model a single-segment wellbore

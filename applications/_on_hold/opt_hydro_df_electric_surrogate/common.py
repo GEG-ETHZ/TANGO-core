@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared plumbing for the hydro_df_electric surrogate pipeline scripts.
 
 Every stage script (``generate_lhs.py``, ``sweep_lhs.py``, ``train_surrogate.py``,

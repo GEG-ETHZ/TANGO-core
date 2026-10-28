@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """A small builder for draw.io files (mxfile XML) with the diagrams' shared palette.
 
 Every diagram in ``docs/diagrams/`` is written through ``Doc``: rectangles, text, chips, edges and

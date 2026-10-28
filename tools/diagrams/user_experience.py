@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """How you use TANGO: pick a model for each part, wire them into a workflow, run, read the results; who drives it.
 
 Prints draw.io XML; ``build.py`` exports it to ``docs/diagrams/user-experience.drawio.svg``.

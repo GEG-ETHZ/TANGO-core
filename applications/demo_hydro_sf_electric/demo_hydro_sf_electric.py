@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Interactive demo: tango flexible Single-Flash system.
 
 Runs ``templates/hydro_sf_electric.yml`` and generates four figures that

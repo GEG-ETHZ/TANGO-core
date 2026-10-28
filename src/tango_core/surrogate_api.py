@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Surrogate-model-assisted NSGA2 for tango's ``opt_*`` pymoo apps.
 
 Deliberately independent of ``tango_core.pymoo_api`` INTERNALS — this module

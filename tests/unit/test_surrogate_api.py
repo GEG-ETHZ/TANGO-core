@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Fast, no-subprocess smoke test for ``tango_core.surrogate_api``'s pipeline.
 
 Exercises every stage (LHS sampling -> real-sim sweep -> surrogate training ->

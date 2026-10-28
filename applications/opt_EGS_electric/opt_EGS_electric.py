@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Multi-objective optimization of the EGS single-flash electric example.
 
 Searches mass flow rate, injection pressure, target extraction pressure,

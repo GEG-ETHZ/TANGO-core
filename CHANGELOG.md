@@ -99,6 +99,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   `import tango` and `tango_cli` are gone, with no alias; update imports
   and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
   tracks is `src/tango_core.hash`.
+- **SPDX license headers.** Every Python file starts with
+  `SPDX-FileCopyrightText` and `SPDX-License-Identifier` lines, and
+  `REUSE.toml` covers the other files, so the repository complies with the
+  REUSE specification. A `reuse lint` prek hook keeps it that way.
 - **License: Apache-2.0.** TANGO is open source under the Apache License,
   Version 2.0 (`LICENSE.txt`), copyright 2025 ETH Zurich. The proprietary
   license and the internal distribution notice (`NOTICE`) are gone. The

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Defines series acceleration functions and classes that can be imported into difference functions
 
 Keeping with the modular philosophy of Tango, however once tango is in production this may be deemed an unecessary module (i.e. just code the aitkens function where it is needed!)

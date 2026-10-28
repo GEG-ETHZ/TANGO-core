@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Physical constants and SI prefix scalars for tango.
 
 Unit conversions should be expressed as named constants imported from here,

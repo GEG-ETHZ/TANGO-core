@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Write a completed Workflow's results to disk as three files.
 
 ``tango_core run --save-dir DIR`` is the only caller today. Three files,

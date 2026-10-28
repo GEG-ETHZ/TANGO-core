@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Component base class for tango.
 
 Components are Pydantic models — the instantiated object is 1:1 with the YAML

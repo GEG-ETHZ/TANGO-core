@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Discretized (numerically-integrated) wellbore components for tango.
 
 ``NumericalWell`` marches the wellbore state node-by-node: the wellbore is split

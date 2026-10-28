@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """``NumericalWell``'s linked ``well_length``/``num_cells``/``cell_length`` and its derived fields.
 
 ``well_length = num_cells * cell_length``: a config may give either of the

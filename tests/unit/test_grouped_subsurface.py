@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """The ``grouped_subsurface`` component: an AGS loop's three wells as one circuit component.
 
 The ``numerical`` variant must give exactly the same results as the same

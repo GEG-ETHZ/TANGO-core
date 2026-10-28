@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """``RaftWrapper`` and the ``raft`` variant of ``grouped_subsurface``, against a stand-in for RAFT.
 
 ``FakeRaftModel`` honors ``geg_raft.api.RaftModel``'s coupling contract (each

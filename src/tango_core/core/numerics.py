@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Small, dependency-free numerical root-finding helpers for tango.
 
 Kept separate from any one component so multiple components can share the

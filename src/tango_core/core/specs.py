@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Validated schemas for the top-level ``common:``/``layout:``/``sim_config:`` YAML blocks.
 
 Every ``Component`` subclass is already its own schema (Pydantic fields,

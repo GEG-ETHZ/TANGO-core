@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Selectable physics-model enums and dispatch functions for tango.
 
 Several physical phenomena have multiple competing correlations in the

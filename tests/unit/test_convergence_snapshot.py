@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for ``Component.snapshot_convergence_state()`` /
 ``restore_convergence_state()``.
 

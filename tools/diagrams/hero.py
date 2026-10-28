@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """The hero: the question TANGO answers, what you describe, the one coupled system, and what you get.
 
 Prints draw.io XML; ``build.py`` exports it to ``docs/diagrams/hero.drawio.svg``. It sits under the banner

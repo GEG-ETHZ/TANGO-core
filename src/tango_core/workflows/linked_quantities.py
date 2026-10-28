@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Config values that are linked across components: each has one source, the rest are derived.
 
 Several quantities appear in more than one place in a config because more

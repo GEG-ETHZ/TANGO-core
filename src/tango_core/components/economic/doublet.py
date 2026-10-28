@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 r"""Doublet CAPEX/LCOE economic component for tango.
 
 Computes total CAPEX (wells, permitting, exploration, surface pipes,

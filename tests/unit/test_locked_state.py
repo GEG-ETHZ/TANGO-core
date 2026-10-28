@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for LockedState — single-value fresh/stale wrapper.
 
 Each test targets one of the six contracted behaviors:

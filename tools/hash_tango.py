@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Regenerate src/tango_core.hash — a single tracked file whose content
 changes whenever any file under src/tango_core/ changes.
 

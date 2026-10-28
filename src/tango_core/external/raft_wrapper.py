@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """``RaftWrapper``: drives RAFT, an external wellbore and rock simulator, one tango timestep at a time.
 
 RAFT (GEG-ETHZ/RAFT, the optional ``raft`` extra) solves flow and heat in

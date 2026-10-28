@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 3: run NSGA2 against the trained surrogate instead of the real simulation.
 
 ``n_max_gen``/``pop_size``/``ftol``/``xtol``/``seed`` default to THIS app's

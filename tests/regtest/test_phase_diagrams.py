@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Regression tests for ``phase_diagrams.write_phase_diagrams``.
 
 Uses a reduced timestep count (fast) rather than any template's own

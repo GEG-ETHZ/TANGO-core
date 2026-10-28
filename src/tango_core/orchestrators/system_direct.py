@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """SystemDirect — single-pass orchestrator for tango.
 
 Auto-selected when sim_config.injection_mode is absent — i.e. the input graph

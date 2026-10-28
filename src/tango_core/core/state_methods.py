@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """StateMethods — mixin providing recursive state-lifecycle operations.
 
 Any class that either IS a ``*State``/``Stream``-shaped leaf (its own

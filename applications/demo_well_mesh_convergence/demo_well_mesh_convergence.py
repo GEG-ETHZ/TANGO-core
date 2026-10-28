@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Mesh-convergence proof-of-work for ``NumericalWell``'s cell resolution.
 
 Documents *why* ``TARGET_CELL_LENGTH_M`` (see that constant's docstring in

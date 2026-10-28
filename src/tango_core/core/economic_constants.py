@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Hardcoded cost-model constants for ``DoubletEconomicComponent``.
 
 Every CAPEX formula that uses these constants (``DoubletEconomicComponent``,

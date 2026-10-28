@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """FluidState — thin CoolProp wrapper for tango.
 
 A thin wrapper around CoolProp's ``AbstractState``, covering PT/HP/PS

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """How the code is organized: the tango package, the clients that can connect to it from outside, and,
 below it, the libraries it uses and the external simulators a connector would reach.
 

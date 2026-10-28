@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Generate and check third-party package license compliance.
 
 Two steps, runnable together or separately:

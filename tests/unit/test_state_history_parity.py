@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Enforces the TANGO Commandment (CONTRIBUTING.md, rule-state-history-parity):
 every attribute in a ``*State`` class (``Stream`` included) must have an
 analog in its ``*History`` class.

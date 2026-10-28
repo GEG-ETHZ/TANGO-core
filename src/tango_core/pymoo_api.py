@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 r"""Multi-objective optimization API for tango, built on pymoo.
 
 A thin wrapper around pymoo that provides:

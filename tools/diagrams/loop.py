@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """The fluid loop, the plant and the caprock as one vector image, without text.
 
 Drawn in the slide's coordinates (x 40..530, y 40..760); ``system_key.draw_key`` places it. Hot water

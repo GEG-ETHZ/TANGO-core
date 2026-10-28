@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Orchestrators for tango.
 
 Auto-selection rule (applied by Workflow) — a topology question, not a

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Interactive P-h phase diagrams for every working fluid in a Workflow.
 
 ``tango_core run --save-dir DIR`` is the caller. Writes one

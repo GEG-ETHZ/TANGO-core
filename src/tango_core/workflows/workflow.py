@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Workflow — top-level entry point for tango simulations."""
 
 from __future__ import annotations

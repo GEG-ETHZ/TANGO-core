@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Abstract base for well components in tango, and the well sections the economic model costs."""
 
 from __future__ import annotations

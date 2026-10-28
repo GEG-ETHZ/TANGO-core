@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 3: fit a surrogate (regressors + feasibility classifier) on the LHS training data.
 
 Usage: uv run python train_surrogate.py

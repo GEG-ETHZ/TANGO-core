@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Generic, YAML-graph-driven surface / power-plant component for tango.
 
 ``GraphSurface`` builds its TESPy network entirely from a

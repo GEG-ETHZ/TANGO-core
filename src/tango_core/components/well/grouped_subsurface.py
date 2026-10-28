@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """An AGS subsurface grouped into one component: injection well -> horizontal well -> production well.
 
 An advanced geothermal system (AGS) circulates its working fluid through a

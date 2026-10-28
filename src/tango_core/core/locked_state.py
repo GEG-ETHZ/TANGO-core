@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """LockedState — single-value wrapper that enforces one update per timestep.
 
 Motivation

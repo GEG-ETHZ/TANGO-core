@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Multi-objective optimization of the CO2-plume geothermal (CPG) direct-heat (district heating) example.
 
 Searches mass flow rate, injection pressure, injection and production well

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 5: re-run the REAL simulation on every surrogate pareto design and compare.
 
 Raises (non-zero exit) if any objective is off by more than ``--tolerance``

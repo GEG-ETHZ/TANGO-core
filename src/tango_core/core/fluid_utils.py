@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared hydraulic and fluid-property utilities for tango.
 
 All functions are stateless, SI units throughout, and intentionally

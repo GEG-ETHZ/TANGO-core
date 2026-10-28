@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Generate the config-key and output reference pages from the code.
 
 Writes Markdown fragments into ``docs/reference/generated/`` that the docs

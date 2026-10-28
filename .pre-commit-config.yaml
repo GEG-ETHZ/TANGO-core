@@ -49,6 +49,12 @@ repos:
 
   # Built-in hooks
   # Secrets never reach a commit: gitleaks scans the staged diff.
+  # Every file has a copyright and license (SPDX header or REUSE.toml).
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:

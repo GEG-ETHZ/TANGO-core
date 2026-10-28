@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Analyze the n_max_gen study (docs/pymoo_generation_budget.md).
 
 Reads every ``studies/n_max_gen/<app>/seed<N>/evaluations.csv`` written by

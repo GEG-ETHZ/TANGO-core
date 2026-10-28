@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Linked config values across components: one source each, the rest derived and checked.
 
 See ``tango_core.workflows.linked_quantities`` for the relations.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Pytest configuration shared by every test, and a stand-in for RAFT (see ``fake_raft_model``)."""
 
 from __future__ import annotations

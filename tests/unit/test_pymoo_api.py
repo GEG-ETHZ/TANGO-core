@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Unit tests for ``tango_core.pymoo_api``'s CLI/config plumbing and its parameter check.
 
 ``pymoo_api.py``'s optimization itself is exercised end-to-end by each

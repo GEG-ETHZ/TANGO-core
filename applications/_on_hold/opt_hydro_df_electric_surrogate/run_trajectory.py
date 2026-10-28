@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 1: run the REAL simulation via a short real NSGA2 search, retaining
 EVERY evaluated individual (not just the final front) as surrogate training
 data.

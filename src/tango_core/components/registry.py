@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Component registry for tango.
 
 Maps (type, variant) string pairs from the input YAML to concrete Component

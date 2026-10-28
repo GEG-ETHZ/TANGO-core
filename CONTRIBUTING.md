@@ -71,6 +71,17 @@ Store meshes and other large binary inputs with DVC, not git: `dvc add <file>`, 
 
 The one exception is `templates/raft/AGS_single.msh` (1.1 MB), the mesh of the RAFT example. It's committed to git, and excluded from `check-added-large-files`, so CI can run RAFT without DVC credentials.
 
+## License headers
+
+TANGO is licensed under Apache-2.0 and follows the [REUSE](https://reuse.software/) specification. Every Python file starts with:
+
+```python
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+```
+
+A shebang line, if any, stays above them. Other files are covered by [`REUSE.toml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/REUSE.toml). A file from a third party keeps its own copyright and license: give it an annotation in `REUSE.toml`, and add its license text to `LICENSES/`. The `reuse` prek hook runs `reuse lint` on every commit.
+
 ## Changelog
 
 [`CHANGELOG.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries collect under `## [In Development]` until a release is cut, then move under `## [X.Y.Z] — YYYY-MM-DD`, and the comparison links in the footer are updated. Since 1.0, an entry is required per release and optional per merge.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Smoke tests for every ``applications/opt_*`` app built on ``tango_core.pymoo_api.OptApp``.
 
 Each app's real ``APP`` runs a full optimization with its own ``--smoke``
