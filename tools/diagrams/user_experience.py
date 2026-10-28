@@ -153,7 +153,7 @@ d.edge([(erail, ey + eh_ / 2), (ex_ - 2, ey + eh_ / 2)], color=ei, sw=2, size=8,
 # ---- step 3: three ways to run
 x3, w3 = xs[2]
 runs = [
-    ("Single run", "tango_core run config.yml"),
+    ("Single run", "tango_core run config.yml\n--save-dir out/"),
     ("Sweep", "applications/run_* · DVC"),
     ("Optimization", "pymoo_api · NSGA-II"),
 ]

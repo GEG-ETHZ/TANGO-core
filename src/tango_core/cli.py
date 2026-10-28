@@ -59,8 +59,8 @@ def _build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser with sub-commands.
 
     ``--log-level`` is accepted BOTH before and after the subcommand
-    (``tango_core --log-level DEBUG run f.yml`` and
-    ``tango_core run f.yml --log-level DEBUG`` both work). The
+    (``tango_core --log-level DEBUG run f.yml --no-save`` and
+    ``tango_core run f.yml --no-save --log-level DEBUG`` both work). The
     top-level parser owns an INDEPENDENT copy with a real default
     (``"INFO"``) — NOT inherited via ``parents``, and NOT combined with
     ``set_defaults()`` — while each subparser gets a separate copy (via a
