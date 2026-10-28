@@ -339,13 +339,16 @@ adjusting its pressures (GitHub #123). TANGO's and RAFT's fluid property
 models differ slightly, so TANGO's heat figure for a RAFT run is 0.6–1.2%
 lower than RAFT's own; this is documented.
 
-## tango-core is ready to be released as open source under Apache-2.0 (2026-10-28)
+## tango-core 1.1.0 is released as open source under Apache-2.0 (2026-10-28)
 
 **In plain terms:** for FlexGEO's open-source modeling catalogue (D4.2,
 due October 31), the whole of tango-core is released publicly rather than
 split into separate packages. The group leader approved the Apache-2.0
-license, the same one RAFT and METRO use. The repository itself
-(`GEG-ETHZ/TANGO-core`) becomes public once this work merges.
+license, the same one RAFT and METRO use. Version 1.1.0, the first
+public release, is tagged on `main`; it includes the optimized example
+designs (GitHub #56) and the RAFT coupling (GitHub #105). Making the
+repository (`GEG-ETHZ/TANGO-core`) public and publishing 1.1.0 to PyPI
+follow.
 
 **What changed:**
 
@@ -408,19 +411,17 @@ search bounds are each either explained or handed off, and designs that
 boil a well, collapse its pressure, or deliver negative heat are rejected
 by name. An AGS loop's subsurface can be simulated by RAFT instead of
 tango's own wells, with RAFT's internal behavior recorded and its silent
-failure modes turned into errors (GitHub #105, merging after #56).
-tango-core is licensed under Apache-2.0 and ready to go public, with
+failure modes turned into errors (GitHub #105). All of this is in
+version 1.1.0, the first public release, licensed under Apache-2.0, with
 releases published to PyPI through a checked, two-stage process.
 
 ## Immediate next steps
 
 1. Apply the rerun CPG heat optimization's pick to its config.
 2. Domain-expert review of the engineering limits in GitHub #120.
-3. Release 1.1.0, the first public release, with the optimized example
-   designs: merge #56, #105, and the open-source work, make the repository
-   public, and publish to PyPI.
+3. Make the repository and the documentation site public, finish the
+   one-time PyPI setup, and publish 1.1.0 to PyPI.
 4. Review every example's phase diagram and physics against the checklist
    in GitLab #67.
 5. Reservoir mass imbalance (#63, high priority).
-6. Merge the RAFT coupling (GitHub #105) after #56, then make its CI job a
-   required check.
+6. Make the RAFT coupling's CI job a required check.

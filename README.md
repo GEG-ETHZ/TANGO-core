@@ -13,7 +13,7 @@
 [![prek](https://img.shields.io/badge/hooks-prek-0E0E10.svg)](https://github.com/j178/prek)
 [![gitleaks](https://img.shields.io/badge/secrets-gitleaks-0E0E10.svg)](https://github.com/gitleaks/gitleaks)
 [![DVC](https://img.shields.io/badge/pipelines-DVC-0E0E10.svg)](https://dvc.org/)
-[![Version](https://img.shields.io/badge/version-1.0.1-0E0E10.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-0E0E10.svg)](CHANGELOG.md)
 
 **Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 

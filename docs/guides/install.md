@@ -41,7 +41,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
    uv run tango_core --version
    ```
 
-   Expected output starts with `tango 1.0.1`, followed by the internal distribution notice.
+   Expected output starts with `tango_core 1.1.0`, followed by the copyright and license line.
 
 4. Copy the templates into your project as a starting point:
 
