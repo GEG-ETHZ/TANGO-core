@@ -95,6 +95,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ### Changed
 
+- **Breaking: `tango_cli run` needs `--save-dir DIR` or `--no-save`.** Running
+  without either (or with both) now stops with an argparse error, so results
+  are never lost by forgetting `--save-dir`; `--no-save` writes nothing, for
+  tests and quick checks (GitHub #125).
 - **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
   `DEST/templates/`, and the wheel ships it as `tango/templates/`.
 - **Forge** — GitHub (`GEG-ETHZ/TANGO-core`) replaces gitlab.ethz.ch for

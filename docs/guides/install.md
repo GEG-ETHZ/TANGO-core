@@ -76,7 +76,7 @@ from tango.workflows.workflow import Workflow
 3. Check the setup with a first run:
 
    ```bash
-   uv run tango_cli run templates/hydro_sf_electric.yml
+   uv run tango_cli run templates/hydro_sf_electric.yml --no-save
    ```
 
 ### Optional: RAFT subsurface simulator
