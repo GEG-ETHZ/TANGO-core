@@ -29,7 +29,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   the automatic sync keeps extras installed.
 - **`grouped_subsurface` variant `raft`**: RAFT simulates the loop's wells and
   the surrounding rock (`templates/AGS_ORC_electric_raft.yml`, same
-  site and plant as the numerical example). `tango.external.raft_wrapper.RaftWrapper`
+  site and plant as the numerical example). `tango_core.external.raft_wrapper.RaftWrapper`
   (the config's `raft:` block) drives RAFT one trial per injection-enthalpy
   iteration and accepts the last one per timestep, converting between
   tango's enthalpy and RAFT's temperature. RAFT's config template and mesh
@@ -71,7 +71,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 - **Architecture and runtime pages** — layer graph, config-to-objects,
   component circuit, nested loops, BC iteration and one-run diagrams under
   `docs/architecture/` and `docs/runtime/`; a `README.md` in each
-  `src/tango/` subpackage; API reference from the docstrings.
+  `src/tango_core/` subpackage; API reference from the docstrings.
 - **README banner and diagrams** — a wordmark banner in the cold-to-hot
   gradient (`tools/readme_assets.py`), a hero and three editable
   `.drawio.svg` diagrams built around one system pictogram: what TANGO
@@ -87,7 +87,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   (`mkdocs.internal.yml`, `just docs-internal`) that adds the task log,
   roadmap, and archive; until the public release, the org-private Pages
   site deploys this build.
-- **`AGENTS.md`** at the root, in `docs/` and in `src/tango/components/`;
+- **`AGENTS.md`** at the root, in `docs/` and in `src/tango_core/components/`;
   `CLAUDE.md` and `GEMINI.md` point to it.
 - **Project files** — `SECURITY.md` (private vulnerability reporting on
   GitHub), `CITATION.cff`, `.editorconfig`, and GitHub templates for pull
@@ -111,6 +111,10 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   `import tango` and `tango_cli` are gone, with no alias; update imports
   and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
   tracks is `src/tango_core.hash`.
+- **Smaller source archive (sdist).** It now holds the package source,
+  tests, templates, applications, and the release files (license, README,
+  changelog, citation) instead of every file in the repository; the wheel
+  is unchanged.
 - **SPDX license headers.** Every Python file starts with
   `SPDX-FileCopyrightText` and `SPDX-License-Identifier` lines, and
   `REUSE.toml` covers the other files, so the repository complies with the
@@ -153,7 +157,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   to TESPy's `td_bubble`.
 - **Linked config values have one source.** A quantity that several
   components need is written once and the rest derived
-  (`tango.workflows.linked_quantities`); a config that gives a copy which
+  (`tango_core.workflows.linked_quantities`); a config that gives a copy which
   disagrees raises `ConfigError` instead of running with it. Doublet:
   `reservoir.reservoir_depth` and the pump depth
   (`production_well_upper.well_length`) set the injection well's length, the
