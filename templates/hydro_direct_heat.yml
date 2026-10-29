@@ -1,0 +1,171 @@
+# Design point: opt_hydro_direct_heat's Pareto pick (the design closest to the ideal corner),
+# design 10 of its outputs/pareto_results.csv (md5 86165562eb3b7617385c7117097d40cf),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
+# tango format — hydrothermal doublet system, direct-heat (district heating)
+# extraction, manual mass flow rate.
+#
+# Same doublet subsurface topology and site as hydro_sf_electric.yml
+# (injection_well -> reservoir -> production_well_lower ->
+# production_well_upper -> surface -> back to injection_well) — see that
+# file's own comments for the full subsurface rationale; the design values
+# (mass_rate, pressures, diameters) are this file's own Pareto pick. The
+# main difference is the surface plant: instead of a Single-Flash power plant (Valve ->
+# DropletSeparator -> Turbine/Compressor branches), the produced fluid here
+# passes through a district-heating SimpleHeatExchanger (district_heating_hx), then
+# circulation_control brings it back up to injection_pressure before
+# re-injection — the same direct-heat topology as AGS_direct_heat.yml's
+# power_plant, just fed by a real doublet reservoir instead of a closed
+# AGS loop.
+#
+# Unlike AGS_direct_heat.yml (no reservoir, so this fluid never needs a
+# pump-driven pressure boost on its own), this config's
+# production_well_upper is a production_well_with_pump: the reservoir's
+# hydrostatic/depletion-driven pressure is not guaranteed to reach
+# target_extraction_pressure on its own, same as hydro_sf_electric.yml.
+# circulation_control (PumpOrValve, matching AGS_direct_heat.yml's own
+# rationale for that node) closes the SURFACE side of the loop -- getting
+# from the district-heating exchanger's outlet back up to
+# injection_pressure -- which is a separate concern from
+# production_well_upper's own downhole pump.
+#
+# Reservoir temperature here (~5000 m depth, same as hydro_sf_electric.yml)
+# is far hotter than a district-heating return temperature needs -- this is
+# a deliberately favorable case for direct-heat extraction (the opposite
+# problem from AGS_ORC_electric.yml, where the shallow AGS loop needed
+# deepening to reach a power-viable temperature).
+
+title: Hydrothermal doublet system, direct-heat (district heating), manual flow rate
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg·K)
+  rock_k: 2.1                # W/(m·K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0              # years
+  target_extraction_pressure: 6_100_000    # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 100.0           # kg/s — set by the opt_hydro_direct_heat Pareto pick; see header
+  bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
+
+economic:
+  # Computed by DoubletEconomicComponent, but scoped/verified against the
+  # DOUBLET + turbine/pump/condenser topology (hydro_df_electric.yml), not
+  # this one — confirmed CAPEX_surface_plant comes back 0.0 here (not a
+  # crash): the district-heating exchanger has no Subtype: cooler/condenser
+  # tag, so it isn't counted by any of the ported surface-plant cost
+  # formulas. CAPEX_total/LCOH below are real but understate true cost
+  # (missing the surface heat exchanger's own equipment cost) until a
+  # direct-heat-exchanger cost formula is ported. See
+  # DoubletEconomicComponent's module docstring for the full scope. Same
+  # caveat as AGS_direct_heat.yml's economic block.
+  type: doublet
+  project_maturity: green_field  # green_field or brown_field
+  discount_rate: 0.095
+  main_product: heat
+
+components:
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last (surface consumes production well output)
+    prev: 3
+    next: 0
+    injection_pressure: 5_860_000     # Pa — initial guess for bc_iteration solver
+    pipe_diameter: 0.214       # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Direct-heat surface plant: produced fluid passes through a
+      # district-heating heat exchanger, then circulation_control brings it
+      # back up to injection_pressure before it re-enters the ground — no
+      # turbine, no by-product electricity generation, but real electricity
+      # CAN be consumed here (see circulation_control below). Identical
+      # shape to AGS_direct_heat.yml's power_plant — see that file's
+      # comments for the full node-by-node rationale (district_heating_hx's
+      # pressure_ratio vs. a fixed p_out, circulation_control's
+      # PumpOrValve type and why it has no p_out of its own).
+      nodes:
+        inlet:
+          type: Source
+        district_heating_hx:
+          type: SimpleHeatExchanger
+          role: net_thermal
+          T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+          pressure_ratio: 0.99   # dimensionless — small, realistic conductive-HX loss (~1%)
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+        outlet:
+          type: Sink
+      edges:
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
+        '3': {source: circulation_control, target: outlet}
+
+  injection_well:
+    type: injection_well
+    variant: numerical           # discretized marching solver; "lumped" = LumpedInjectionWell (single closed-form calc)
+    component_idx: 0          # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    diameter: 0.215           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    over_pressure_percentage: 10
+    brine_density: 1000           # kg/m3 — used for the reservoir's own
+                                   # initial/undepleted pressure (brine_density * g * depth)
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical           # discretized marching solver; "lumped" = LumpedProductionWell (single closed-form calc)
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.16            # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+
+  production_well_upper:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0       # m
+    diameter: 0.16            # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.

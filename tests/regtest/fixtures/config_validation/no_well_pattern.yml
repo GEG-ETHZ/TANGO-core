@@ -1,6 +1,6 @@
 # claude_tests fixture: no_well_pattern
 # layout.well_pattern is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (well_pattern line removed).
+# Derived from templates/hydro_sf_electric.yml (well_pattern line removed).
 #
 # Expected contract: default to doublet and log a warning telling the user,
 # without stopping construction.
@@ -123,7 +123,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

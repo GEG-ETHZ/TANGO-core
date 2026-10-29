@@ -4,7 +4,7 @@ Every key a TANGO config accepts, generated from the code
 (`tools/gen_reference.py` reads the pydantic schemas and their
 docstrings). How the blocks become objects is described in
 [Config to objects](../architecture/config.md); start a new config from an
-[example config](../guides/example-configs.md).
+[template](../guides/templates.md).
 
 ## `title` and `description`
 

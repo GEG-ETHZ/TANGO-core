@@ -1,6 +1,6 @@
 # claude_tests fixture: no_surface_conditions
 # surface.surface_temperature and surface.surface_pressure are both omitted.
-# Derived from example_configs/hydro_sf_electric.yml (both lines removed).
+# Derived from templates/hydro_sf_electric.yml (both lines removed).
 #
 # NOTE (current behavior): both fields are required Pydantic `float` fields
 # on the surface component base class with no default, so omitting them
@@ -126,7 +126,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

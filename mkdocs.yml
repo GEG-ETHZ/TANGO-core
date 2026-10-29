@@ -49,9 +49,18 @@ plugins:
       glob:
         - AGENTS.md
         - "archive/*"
+        - aitkens_speedup.md
+        - appendices/ai_error_interpretation_sketch.md
+        - bugs-fixed-in-tango.md
+        - implicit_solver_exploration.md
         - long_term_architecture_exploration.md
+        - modelica-investigation.md
+        - pymoo_generation_budget.md
         - tango_tasks.md
+        - tespy_limitations.md
+        - walkthrough.md
         - TANGO_vision_and_roadmap/README.md
+        - TANGO_vision_and_roadmap/subsurface_as_tespy_components.md
         # fragments written by tools/gen_reference.py, included by snippets
         - "reference/generated/*"
   - mkdocstrings:
@@ -93,7 +102,7 @@ nav:
   - Getting started:
       - Install: guides/install.md
       - Run a simulation: guides/run.md
-      - Example configs: guides/example-configs.md
+      - Templates: guides/templates.md
       - Applications: guides/applications.md
       - Optimization: guides/optimization.md
       - Running on Euler: guides/euler.md
@@ -116,10 +125,8 @@ nav:
   - Deep dives:
       - Config validation: CONFIG_VALIDATION.md
       - Error tracebacks: ERROR_TRACEBACKS.md
-      - Injection-temperature convergence: tango_t_convergence.md
-      - Aitken speed-up: aitkens_speedup.md
+      - Injection-enthalpy convergence: tango_t_convergence.md
       - Well-pattern impedance: WELL_PATTERN_IMPEDANCE.md
-      - Bugs found and fixed: bugs-fixed-in-tango.md
   - Reference:
       - Config reference: reference/config.md
       - Outputs: reference/outputs.md

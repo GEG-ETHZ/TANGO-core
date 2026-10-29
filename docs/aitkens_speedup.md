@@ -18,6 +18,8 @@ $f(x_n) \approx x_n$ within a tolerance. For example, $x_{n+1} = \cos(x_n)$
 converges from any starting angle in radians to the Dottie number,
 $0.739085133\ldots$
 
+<img src="./diagrams/img/tango/cos_converge_example.png" alt="Example of Aitkens Process in action of Cos(x) = x" width="1100">
+
 ### Aitken's method
 
 Aitken's $\Delta^2$ process uses the last three iterates to extrapolate

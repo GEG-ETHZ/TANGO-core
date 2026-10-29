@@ -30,11 +30,11 @@ class FrictionModel(enum.StrEnum):
     """Selects which Darcy-Weisbach friction-factor correlation to use."""
 
     HAALAND = "haaland"
-    """Haaland (1983) explicit approximation. Default; the discretized
-    wellbore models are pinned to this variant."""
+    """Haaland (1983) explicit approximation (docs/SOURCES.md#haaland1983).
+    Default; the discretized wellbore models are pinned to this variant."""
 
     SWAMEE_JAIN = "swamee-jain"
-    """Swamee-Jain (1976) explicit approximation — see
+    """Swamee-Jain (1976) explicit approximation (docs/SOURCES.md#swameejain1976) — see
     fluid_utils.friction_factor_darcy's docstring for the "human review
     needed" caveat."""
 
@@ -47,7 +47,7 @@ class HeatTransferModel(enum.StrEnum):
     Zhang et al. (2011) transient conductive heat-loss correlation
     (dimensionless-time beta). Default.
 
-    See ./fluid_utils.py::heat_loss_zhang_2011 for full reference.
+    See docs/SOURCES.md#zhang2011 and fluid_utils.heat_loss_zhang_2011.
     """
 
     NONE = "none"

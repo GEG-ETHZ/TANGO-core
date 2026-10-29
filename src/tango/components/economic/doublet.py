@@ -11,7 +11,7 @@ coefficients are overridable ``Field``s, but the formula's SHAPE is not
 configurable, and no alternative well-cost model is supported. Only H2O
 is supported (no CO2-specific cost terms). This is not a general-purpose
 economic engine — it covers exactly the well/surface-plant shapes tango's
-own example configs use today, nothing broader.
+own templates use today, nothing broader.
 
 Runs exactly once, after every physical timestep completes — see
 ``EconomicComponent``'s (``base.py``) and ``SystemDirect.finalize()``'s
@@ -83,8 +83,7 @@ from tango.core.policies import MainProduct, ProjectMaturity
 from tango.core.state_methods import StateMethods
 
 if TYPE_CHECKING:
-    from tango.core.component import Component
-    from tango.core.stream import Stream
+    from tango.core.component import FlowComponent
 
 # Default probability of success; not exposed as a tango config field
 # since nothing varies it yet.
@@ -256,10 +255,8 @@ class DoubletEconomicComponent(EconomicComponent):
     state: EconomicState = Field(default_factory=EconomicState)
     """Final economic results, computed once after the last timestep."""
 
-    def solve(self, inlet: Stream) -> None:  # noqa: ARG002
+    def solve(self) -> None:
         """Compute CAPEX + LCOE from ``self._components`` (set by the orchestrator).
-
-        ``inlet`` is unused — see ``EconomicComponent.solve()``'s docstring.
 
         Raises:
             RuntimeError: If called without ``self._components`` having been
@@ -267,7 +264,7 @@ class DoubletEconomicComponent(EconomicComponent):
                 ``SystemDirect.finalize()``).
 
         """
-        components: dict[str, Component] | None = getattr(self, "_components", None)
+        components: dict[str, FlowComponent] | None = getattr(self, "_components", None)
         if components is None:
             raise RuntimeError(
                 "DoubletEconomicComponent.solve() requires self._components to be set "
@@ -530,7 +527,7 @@ class DoubletEconomicComponent(EconomicComponent):
         Every ``SimpleHeatExchanger`` node with ``Subtype: cooler`` or
         ``Subtype: condenser`` joins its ``set_number``'s group; a
         singleton set (condenser only, no paired cooler — the case for
-        ``hydro_df_electric.yml``'s condenser1/condenser2) works
+        ``hydro_df_electric.yml``'s high_pressure_condenser/low_pressure_condenser) works
         correctly: ``F_cooling -> 0``, cost reduces to the condensing term
         alone.
         """

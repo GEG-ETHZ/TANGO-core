@@ -16,14 +16,14 @@ Read before any change:
 | Entry points | `tango_cli` (`run`, `validate`, `init`), `tango.workflows.workflow.Workflow` |
 | Environment | `uv sync`; tasks in `justfile` |
 | Checks | `just check` = ruff format, ruff lint, mypy strict, pytest |
-| Code CI | GitHub Actions (`.github/workflows/ci.yml`): format check, lint, mypy, `tools/gen_reference.py --check`, and `tests/unit/` only |
+| Code CI | GitHub Actions (`.github/workflows/tests.yml`): format check, lint, mypy, `tools/gen_reference.py --check`, and `tests/unit/` only, on macOS, Linux, and Windows |
 | Docs site | Zensical (`mkdocs.yml`); `just docs` serves it at <http://127.0.0.1:8000>, `just docs-build` writes `site/`, `just docs-internal` adds the internal pages; built on GitHub by `.github/workflows/docs.yml` |
 | Issue tracker | GitHub issues on `GEG-ETHZ/TANGO-core` |
 
 ## A. Using TANGO for someone
 
 1. Ask which system they study (hydrothermal, EGS, CPG, AGS) and whether they need one run, a sweep or an optimization.
-2. Start from the closest file in [`example_configs/`](example_configs/README.md). Never write a config from scratch.
+2. Start from the closest file in [`templates/`](templates/README.md). Never write a config from scratch.
 3. Validate before running: `uv run tango_cli validate <config>`, then `uv run tango_cli run <config> --save-dir results/`.
 4. For sweeps and optimizations, use [`applications/`](applications/README.md). Run a sweep with `--smoke` first. For an `opt_*` app, run a tiny `--n-max-gen`/`--pop-size` with a throwaway `--save-dir` first.
 5. Report the LCOE together with the config and version that produced it (`uv run tango_cli --version`).

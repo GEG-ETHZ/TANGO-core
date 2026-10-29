@@ -6,12 +6,12 @@ from abc import abstractmethod
 
 from pydantic import Field, PositiveFloat
 
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 from tango.core.constants import GRAVITY
 from tango.core.stream import Stream
 
 
-class WellComponent(Component):
+class WellComponent(FlowComponent):
     """Abstract base for all wellbore components (injection and production).
 
     Concrete implementations: LumpedInjectionWell, NumericalInjectionWell,
@@ -35,5 +35,5 @@ class WellComponent(Component):
     GRAVITY, overridable per well since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> None:
-        """Compute outlet fluid state from inlet state through the wellbore."""
+    def solve(self, inlet: Stream) -> Stream:
+        """Compute and return the outlet fluid state from the inlet state through the wellbore."""

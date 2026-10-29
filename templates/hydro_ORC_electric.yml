@@ -1,0 +1,225 @@
+# Design point: opt_hydro_ORC_electric's Pareto pick (the design closest to the ideal corner),
+# design 20 of its outputs/pareto_results.csv (md5 f4e4b08a22ba369c131ddc66ac7b1093),
+# recorded in dvc.lock at commit a1cbdb18. Decision variables rounded to
+# 3 significant figures.
+#
+# tango format — Hydrothermal system with a binary (ORC) power plant.
+#
+# Ported from old tango's flexible_ORC_manual.yml (removed along with old
+# tango; preserved at git tag pre-tango-core-rename-2026-09-18). The
+# subsurface (doublet
+# reservoir + pumped production) has the same topology as hydro_sf_electric.yml's/
+# hydro_df_electric.yml's — same site numbers, reused verbatim — only the
+# surface plant differs: a two-stage binary (Organic Rankine Cycle) plant
+# where the geofluid loop (out1 side of each HeatExchanger) transfers heat
+# to a separate, closed secondary working-fluid loop (out2 side) that
+# drives its own turbine. CycleCloser ("orc_cycle_closer") closes the secondary loop so
+# TESPy can solve it with no open Source/Sink of its own.
+#
+# The secondary loop needed one new GraphSurface capability: per-port
+# connection attributes (fluid/guess-values/vapor quality) for a node with
+# more than one outgoing connection — see graph.py's
+# GraphSurface._apply_connection_config docstring. Dropped relative to the
+# single/double-flash examples' condenser blocks: Subtype/design/
+# cooling_tower_mode/set_number — cost-metadata-only fields (see
+# hydro_sf_electric.yml's condenser block for the same note), never passed
+# to a TESPy set_attr() call, so omitting them here doesn't affect
+# GraphSurface's physics.
+#
+# target_extraction_pressure, mass_rate, injection_pressure, the feed-pump
+# pressure, and the well/surface pipe diameters are set by the
+# opt_hydro_ORC_electric Pareto pick (see the Design point header), not
+# copied from flexible_ORC_manual.yml or the SF/DF examples.
+# flexible_ORC_manual.yml's 6 MPa injection_pressure puts the injection
+# well's bottom-hole pressure just above the reservoir's fracking threshold.
+
+title: Hydrothermal system with binary (ORC) power plant, manual flow rate
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m
+  surface_temperature: 288   # K — ambient
+  surface_pressure: 100_000  # Pa — ambient
+
+layout:
+  well_spacing: 707.0        # m
+  well_pattern: DOUBLET
+  well_pattern_dimens: [1, 1]
+
+sim_config:
+  num_tsteps: 20
+  dt_years: 1.0              # years
+  target_extraction_pressure: 1_300_000    # Pa — set by the opt_hydro_ORC_electric Pareto pick; see header
+  # The injection well outlet peaks at 53.90 MPa, just under the 53.96 MPa
+  # fracking threshold: opt_hydro_ORC_electric's pick sits at that edge.
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 100.0           # kg/s — set by the opt_hydro_ORC_electric Pareto pick; see header
+  bc_checkpoint_idx: 4       # component_idx of the surface (below)
+
+economic:
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+
+components:
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4          # solved last (surface consumes production well output)
+    prev: 3
+    next: 0
+    injection_pressure: 4_820_000     # Pa — fixed injection wellhead pressure under injection_mode:
+                                     # manual; see the header for why not flexible_ORC_manual.yml's 6 MPa
+    pipe_diameter: 0.308       # m
+    approach_temperature: 7.0  # K
+    pipe_roughness: 55.e-6     # m — absolute pipe wall roughness
+
+    power_plant:
+      # Binary (ORC) TESPy topology: the geofluid loop (Source("inlet") ->
+      # evaporator -> preheater -> circulation_control -> Sink("outlet")) transfers
+      # heat, at each of two heat exchangers, to a separate closed secondary
+      # working-fluid loop (preheater.out2 -> evaporator.out2 ->
+      # orc_turbine -> orc_desuperheater -> orc_condenser -> orc_feed_pump -> orc_cycle_closer -> back to
+      # preheater.in2) that never mixes with the geofluid.
+      #
+      # Source("inlet") -(out1)-> evaporator -(out1)-> preheater -(out1)-> circulation_control -> Sink("outlet")
+      #                                  ^in2                    ^in2
+      #                                  |                       |
+      #                            (out2)|                 (out2)|
+      #                        orc_turbine <-evaporator<--preheater<-- orc_cycle_closer <- orc_feed_pump <- orc_condenser <- orc_desuperheater <- orc_turbine
+      nodes:
+        inlet:
+          type: Source
+
+        outlet:
+          type: Sink
+
+        evaporator:
+          type: HeatExchanger
+          ttd_l: 7                     # K — terminal temperature difference (boiler)
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          h0_out1: 419.0               # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
+          p0_megapascals_out2: 1.08                # MPa (= 10.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
+
+        preheater:
+          type: HeatExchanger
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
+          p0_megapascals_out2: 1.08                # MPa (= 10.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
+
+        circulation_control:
+          # PumpOrValve (not a fixed Compressor): whether this geofluid
+          # recirculation point is a real pump or a passive throttle depends
+          # on design-point conditions -- given target_extraction_pressure
+          # and injection_pressure, the
+          # loop's own driving pressure can land on either side of what a
+          # fixed-p_out Compressor would need, the same ambiguity
+          # AGS_direct_heat.yml's circulation_control resolves this way --
+          # see graph.py's module docstring.
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        orc_turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar) -- condensing pressure, see orc_condenser
+
+        orc_desuperheater:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar) -- condensing pressure, see orc_condenser
+          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+
+        orc_condenser:
+          type: SimpleHeatExchanger
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 24.3 degC at 1.45 bar, so the 1 K subcooled outlet
+          # (23.3 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 14.85 + 7 = 21.85 degC.
+          p_out_megapascals: 0.145      # MPa (= 1.45 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+
+        orc_feed_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 1.08       # MPa (= 10.8 bar) — set by the opt_hydro_ORC_electric Pareto pick
+
+        orc_cycle_closer:
+          type: CycleCloser
+          # No config -- purely topological, closes the secondary loop so
+          # TESPy can solve it with no open Source/Sink of its own.
+
+      edges:
+        # Geofluid (primary) loop
+        '1': {source: inlet, target: evaporator, target_port: in1}
+        '2': {source: evaporator, source_port: out1, target: preheater, target_port: in1}
+        '3': {source: preheater, source_port: out1, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}
+        # Secondary (ORC working-fluid) loop
+        '5': {source: orc_cycle_closer, target: preheater, target_port: in2}
+        '6': {source: preheater, source_port: out2, target: evaporator, target_port: in2}
+        '7': {source: evaporator, source_port: out2, target: orc_turbine}
+        '8': {source: orc_turbine, target: orc_desuperheater}
+        '9': {source: orc_desuperheater, target: orc_condenser}
+        '10': {source: orc_condenser, target: orc_feed_pump}
+        '11': {source: orc_feed_pump, target: orc_cycle_closer}
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0
+    prev: 4
+    next: 1
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    diameter: 0.379           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m
+    thickness: 300.0              # m
+    permeability: 5.0e-14         # m2 (~50 mD)
+    porosity: 0.1
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    over_pressure_percentage: 10
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.361           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+
+  production_well_upper:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0       # m
+    diameter: 0.361           # m
+    pipe_roughness: 55.e-6    # m — absolute pipe wall roughness
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.

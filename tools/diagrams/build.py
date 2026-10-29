@@ -27,6 +27,9 @@ DIAGRAMS = {
     "architecture_map.py": "architecture-map",
 }
 
+#: where the draw.io desktop app keeps its command line on macOS, used when ``drawio`` is not on PATH
+MACOS_DRAWIO = "/Applications/draw.io.app/Contents/MacOS/draw.io"
+
 log = logging.getLogger(__name__)
 
 
@@ -65,6 +68,10 @@ def export(script: str, name: str, drawio: str, workdir: Path) -> Path:
         raise RuntimeError(
             f"drawio failed to export {name} (exit {result.returncode}): {result.stderr.strip()}",
         )
+    # drawio writes no final newline; add it so the end-of-file-fixer hook leaves the export alone
+    svg = target.read_bytes()
+    if not svg.endswith(b"\n"):
+        target.write_bytes(svg + b"\n")
     return target
 
 
@@ -72,6 +79,8 @@ def main() -> int:
     """Export every diagram; return a process exit code."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     drawio = shutil.which("drawio")
+    if drawio is None and Path(MACOS_DRAWIO).exists():
+        drawio = MACOS_DRAWIO
     if drawio is None:
         log.error(
             "drawio not found on PATH: install the draw.io desktop app and link its command line as `drawio`",

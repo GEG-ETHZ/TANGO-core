@@ -12,7 +12,7 @@ assignees: ""
 
 ## How to reproduce
 
-1. Config: <!-- attach the YAML, or name the example_configs/ file and what you changed -->
+1. Config: <!-- attach the YAML, or name the templates/ file and what you changed -->
 2. Command: <!-- e.g. uv run tango_cli run my_config.yml --log-level DEBUG -->
 
 ## What you expected

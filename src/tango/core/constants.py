@@ -24,6 +24,8 @@ PA_TO_BAR    = 1e-5
 BAR_TO_PA    = 1e5
 W_TO_KW      = 1e-3
 W_TO_MW      = 1e-6
+KJ_PER_KG_TO_J_PER_KG = 1e3
+J_PER_KG_TO_KJ_PER_KG = 1e-3
 
 Temperature offsets (additive, not multiplicative)
 ----------------------------------------------------
@@ -48,7 +50,7 @@ gravity genuinely varies regionally by up to ~0.5%.
 
 TODO: pinned to this rounded value rather than the more precise NIST/ISO
 80000-3 standard value (9.80665) to keep existing golden/reference values
-(e.g. test_example_configs.py's golden LCOE values) stable — switching to
+(e.g. test_templates.py's golden LCOE values) stable — switching to
 9.80665 is a one-line change (component-level overrides already exist)
 whenever Chad decides to make it, flagged in docs/tango_tasks.md rather
 than changed here since it would shift those reference values by a tiny
@@ -96,6 +98,12 @@ W_TO_KW: float = 1e-3
 W_TO_MW: float = 1e-6
 """Multiply W to get MW."""
 
+KJ_PER_KG_TO_J_PER_KG: float = 1e3
+"""Multiply kJ/kg to get J/kg."""
+
+J_PER_KG_TO_KJ_PER_KG: float = 1e-3
+"""Multiply J/kg to get kJ/kg."""
+
 C_TO_K_OFFSET: float = 273.15
 """Add to a temperature in degC to get K."""
 
@@ -109,7 +117,7 @@ formula (annual operational hours)."""
 EULER_CONSTANT: float = 0.5772156649015329
 """The Euler-Mascheroni constant γ, to float64 precision. Used by
 ``fluid_utils.heat_loss_zhang_2011``'s wellbore heat-loss β correlation
-for ``t_d > 2.8`` (Zhang et al. 2011, Geothermics 40, 261-266, Eq. 2 —
+for ``t_d > 2.8`` (Zhang et al. 2011, Eq. 2; docs/SOURCES.md#zhang2011 —
 see that function's docstring), whose coefficient is exactly ``2γ``
 (``EULER_CONSTANT_X2``, below)."""
 EULER_CONSTANT_X2: float = EULER_CONSTANT * 2.0

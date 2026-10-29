@@ -1,0 +1,247 @@
+# Frozen copy of templates/AGS_ORC_electric.yml as of 2026-10-13, used as a fixed
+# scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
+# configs change when their design point is re-optimized; these tests check
+# behavior that needs a specific design (e.g. which regime a pump runs in), so
+# they read this copy instead. Update it deliberately, not alongside the example.
+# tango format — Advanced Geothermal System (AGS), binary (ORC) power
+# extraction, hypothetical deepened variant of the Triemli site.
+#
+# NOT the real Triemli site: rock properties/gradient match the real site,
+# but the well depths below are a hypothetical deepening (see rationale
+# further down) needed to reach a power-viable temperature. Nothing here
+# should be read as a real drilling proposal for Triemli.
+#
+# Same closed-loop subsurface SHAPE as AGS_direct_heat.yml (injection_well ->
+# horizontal_well -> production_well -> surface -> back to injection_well,
+# no reservoir, SystemBCIteration/injection_mode: manual) — see that file's
+# module docstring for the full subsurface rationale. The well DEPTHS are
+# NOT copied verbatim, though: AGS_direct_heat.yml's real Triemli district-
+# heating design (3000 m vertical + 707 m horizontal) only delivers ~53 degC
+# to the surface -- confirmed by running that file directly -- nowhere near
+# enough enthalpy to drive the binary-cycle design below profitably (net
+# power came back strongly negative, turbine output not covering the
+# circulation/ORC pump parasitic loads). Real AGS-for-power concepts (e.g.
+# deep closed-loop designs like Eavor-Loop) deliberately go much deeper than
+# a district-heating design for exactly this reason. This file uses 8000 m
+# vertical + 3000 m horizontal instead -- same rock properties/gradient,
+# same mass_rate -- which delivers ~95-100 degC to the surface and gives
+# solidly positive net power (~520 kW in the first year, declining to
+# ~390 kW by year 25, verified by direct run, not just a temperature
+# guess). Not claimed as a realistic drilling target for the real Triemli
+# site -- illustrative only, same spirit as AGS_direct_heat.yml's own note
+# that its depth is "one point from the original sweep's range," not a
+# site-specific commitment.
+#
+# The surface plant itself: instead of a district-heating SimpleHeatExchanger
+# (dh_hx), the produced geofluid here transfers heat to a closed secondary
+# (Organic Rankine Cycle) working-fluid loop that drives its own turbine —
+# the same binary-cycle topology as hydro_ORC_electric.yml's power_plant,
+# just fed by AGS's closed loop instead of a doublet reservoir + pumped
+# production well. AGS's own circulation_control (PumpOrValve — see
+# AGS_direct_heat.yml's comment for why a fixed Valve or Compressor is wrong
+# here) plays the same closing role hydro_ORC_electric.yml's pump2 does on
+# its geofluid loop.
+#
+# The secondary-loop setpoints (ttd_l, pressure ratios, R245fa working
+# fluid, feed-pump pressure) are copied as-is from hydro_ORC_electric.yml
+# — a generic, reasonable binary-cycle design, NOT independently
+# re-optimized for this site's specific produced-fluid temperature. Revisit
+# if these numbers ever need to be realistic rather than illustrative. The
+# condensing pressure is the exception: it is set from this site's cooling
+# limit (see orc_condenser).
+#
+# Site parameters — rock properties/gradient identical to AGS_direct_heat.yml's
+# real Triemli values, well depths hypothetically deepened (see above):
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   fluid                : H2O
+#   application          : binary (ORC) electricity generation
+
+title: Advanced Geothermal System (AGS), binary (ORC) power extraction, hypothetical deepened Triemli-like site
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+
+sim_config:
+  num_tsteps: 25              # 25 years of operation
+  dt_years: 1.0                # years
+  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
+  injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
+                                # even without a reservoir
+  mass_rate: 30                 # kg/s — matches AGS_direct_heat.yml's subsurface loop
+  bc_checkpoint_idx: 3           # component_idx of the surface (below)
+
+economic:
+  # Computed by DoubletEconomicComponent, but scoped/verified against the
+  # DOUBLET + turbine/pump/condenser topology (hydro_df_electric.yml), not
+  # this one — see that component's module docstring for the full scope.
+  # Unlike AGS_direct_heat.yml, this surface plant's turbine/pump/condenser
+  # nodes ARE tagged the same way hydro_df_electric.yml's are, so CAPEX
+  # coverage should be more complete here than in the direct-heat sibling.
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # circuit entry — where the solve pass begins each timestep
+    prev: 3
+    next: 1
+    well_length: 8000.0        # m — vertical well depth (hypothetically deepened, see module docstring)
+    diameter: 0.311             # m  (~12-inch casing)
+    pipe_roughness: 5.5e-5      # m
+
+  horizontal_well:
+    type: horizontal_well
+    variant: numerical
+    component_idx: 1
+    prev: 0
+    next: 2
+    well_length: 3000.0          # m — horizontal loop flow-path length (hypothetically
+                                   # lengthened alongside the vertical depth, see module docstring)
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
+
+  production_well:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 3            # solved last, loops back to injection_well (next: 0)
+    prev: 2
+    next: 0
+    injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
+                                     # sim_config above); AUTO_PRESSURE mode exists and
+                                     # does converge this value iteratively -- see
+                                     # SystemBCIteration's module docstring -- this config
+                                     # just chooses manual instead, matching AGS_direct_heat.yml.
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing
+    # above (see _PROTECTED_COMPONENT_KEYS in workflows/workflow.py for the
+    # duplicated-value bug class this guards against).
+
+    power_plant:
+      # Binary (ORC) TESPy topology, identical in shape to
+      # hydro_ORC_electric.yml's power_plant (see that file for the full
+      # node-by-node rationale): the geofluid loop (Source("inlet") ->
+      # evaporator -> preheater -> circulation_control ->
+      # Sink("outlet")) transfers heat, at each of two heat exchangers, to a
+      # separate closed secondary working-fluid loop (preheater.out2 ->
+      # evaporator.out2 -> orc_turbine -> orc_desuperheater -> orc_condenser -> orc_feed_pump -> orc_cycle_closer ->
+      # back to preheater.in2) that never mixes with the geofluid.
+      # circulation_control replaces hydro_ORC_electric.yml's pump2 —
+      # same PumpOrValve role, same reason (AGS's closed loop has no other
+      # pressure source — see AGS_direct_heat.yml's comment on this node).
+      #
+      # No p_out_megapascals on circulation_control, deliberately: same
+      # reasoning as AGS_direct_heat.yml's circulation_control — injection_pressure
+      # (above) already hard-sets the outlet connection's pressure.
+      nodes:
+        inlet:
+          type: Source
+
+        outlet:
+          type: Sink
+
+        evaporator:
+          type: HeatExchanger
+          ttd_l: 7                     # K — terminal temperature difference (boiler)
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          h0_out1: 250                 # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
+          p0_megapascals_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
+
+        preheater:
+          type: HeatExchanger
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
+          p0_megapascals_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
+
+        circulation_control:
+          # PumpOrValve (not a fixed Compressor): whether this geofluid
+          # recirculation point is a real pump or a passive throttle depends
+          # on design-point conditions, exactly as AGS_direct_heat.yml's own
+          # circulation_control node — see that file's comment for the full
+          # rationale (thermosiphon effect, no other pressure source on this
+          # closed loop).
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        orc_turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
+
+        orc_desuperheater:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar) -- condensing pressure, see orc_condenser
+          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+
+        orc_condenser:
+          type: SimpleHeatExchanger
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 20.4 degC at 1.25 bar, so the 1 K subcooled outlet
+          # (19.4 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 11 + 7 = 18 degC.
+          p_out_megapascals: 0.125      # MPa (= 1.25 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+
+        orc_feed_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.5        # MPa (= 5 bar)
+
+        orc_cycle_closer:
+          type: CycleCloser
+          # No config -- purely topological, closes the secondary loop so
+          # TESPy can solve it with no open Source/Sink of its own.
+
+      edges:
+        # Geofluid (primary, closed AGS) loop
+        '1': {source: inlet, target: evaporator, target_port: in1}
+        '2': {source: evaporator, source_port: out1, target: preheater, target_port: in1}
+        '3': {source: preheater, source_port: out1, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}
+        # Secondary (ORC working-fluid) loop
+        '5': {source: orc_cycle_closer, target: preheater, target_port: in2}
+        '6': {source: preheater, source_port: out2, target: evaporator, target_port: in2}
+        '7': {source: evaporator, source_port: out2, target: orc_turbine}
+        '8': {source: orc_turbine, target: orc_desuperheater}
+        '9': {source: orc_desuperheater, target: orc_condenser}
+        '10': {source: orc_condenser, target: orc_feed_pump}
+        '11': {source: orc_feed_pump, target: orc_cycle_closer}

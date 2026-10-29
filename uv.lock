@@ -284,6 +284,20 @@ wheels = [
 ]
 
 [[package]]
+name = "build"
+version = "1.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "os_name == 'nt'" },
+    { name = "packaging" },
+    { name = "pyproject-hooks" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bd/67/4898a44ea4f3f8e213b0954ec0aa0a16971d62a6212d6ea3931e97115b99/build-1.6.1.tar.gz", hash = "sha256:51cc11666391ab6f092070437ac747002ff46f3e4113a3622177ee6b488bfc53", size = 113427, upload-time = "2026-09-10T07:56:00.417Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/9b/9fb3585dabcd73a1b2a6267f63f62649347c9e6d072c9fde365b105abb2c/build-1.6.1-py3-none-any.whl", hash = "sha256:ecd351a4be9d35a9eaaba244a7687143c9c7d4aea6ac964e7e7ddab20cbcf4e7", size = 31179, upload-time = "2026-09-10T07:55:59.148Z" },
+]
+
+[[package]]
 name = "celery"
 version = "5.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -896,6 +910,30 @@ wheels = [
 ]
 
 [[package]]
+name = "flexcache"
+version = "0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/b0/8a21e330561c65653d010ef112bf38f60890051d244ede197ddaa08e50c1/flexcache-0.3.tar.gz", hash = "sha256:18743bd5a0621bfe2cf8d519e4c3bfdf57a269c15d1ced3fb4b64e0ff4600656", size = 15816, upload-time = "2024-03-09T03:21:07.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/cd/c883e1a7c447479d6e13985565080e3fea88ab5a107c21684c813dba1875/flexcache-0.3-py3-none-any.whl", hash = "sha256:d43c9fea82336af6e0115e308d9d33a185390b8346a017564611f1466dcd2e32", size = 13263, upload-time = "2024-03-09T03:21:05.635Z" },
+]
+
+[[package]]
+name = "flexparser"
+version = "0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/99/b4de7e39e8eaf8207ba1a8fa2241dd98b2ba72ae6e16960d8351736d8702/flexparser-0.4.tar.gz", hash = "sha256:266d98905595be2ccc5da964fe0a2c3526fbbffdc45b65b3146d75db992ef6b2", size = 31799, upload-time = "2024-11-07T02:00:56.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/5e/3be305568fe5f34448807976dc82fc151d76c3e0e03958f34770286278c1/flexparser-0.4-py3-none-any.whl", hash = "sha256:3738b456192dcb3e15620f324c447721023c0293f6af9955b481e91d00179846", size = 27625, upload-time = "2024-11-07T02:00:54.523Z" },
+]
+
+[[package]]
 name = "flufl-lock"
 version = "9.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -910,15 +948,17 @@ wheels = [
 
 [[package]]
 name = "fluprodia"
-version = "3.5.1"
+version = "4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "build" },
     { name = "coolprop" },
     { name = "numpy" },
+    { name = "pint" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/27/01/7607a2730285754e381bad861bed163f1f94ed8ac484707eb62300088b51/fluprodia-3.5.1.tar.gz", hash = "sha256:aa4f5db5c6d40c956230603ee4ca10145a2f9d77c22cbcd9923f35f964e030f8", size = 1107306, upload-time = "2025-01-22T20:45:22.843Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/85/8f899172807cd18274e255586c8d8d76f694eb04a5366b010e9e62e7df04/fluprodia-4.3.tar.gz", hash = "sha256:4fe8382239789b1e08ad7e5ead52bd9cccb15a935217117388073a044d007f6b", size = 1168927, upload-time = "2026-08-10T08:37:19.558Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/27/6d007d527e1d8f7011fdf1fa3abcb83c2c7e78e59f06e00333cee387f302/fluprodia-3.5.1-py3-none-any.whl", hash = "sha256:3cb194ce5d6cd7bc4a7b6781e2fdef12a09b8f037febe8ca9b389727abccc52e", size = 16354, upload-time = "2025-01-22T20:45:15.876Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/88/6475d693774133161ae91f7e77cda701d208184c64eb80ee83a8a2d1d469/fluprodia-4.3-py3-none-any.whl", hash = "sha256:bbba609b798246a9a959f210962f4a424476d879e4ecd084a39d725d9bc98fea", size = 22947, upload-time = "2026-08-10T08:37:17.629Z" },
 ]
 
 [[package]]
@@ -2043,6 +2083,21 @@ wheels = [
 ]
 
 [[package]]
+name = "pint"
+version = "0.25.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flexcache" },
+    { name = "flexparser" },
+    { name = "platformdirs" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/52/9d/b1379cdbd33a49d17d627bc24e2b63cca06a1c5343b38072d2889499e82e/pint-0.25.3.tar.gz", hash = "sha256:f8f5df6cf65314d74da1ade1bf96f8e3e4d0c41b51577ac53c49e7d44ca5acee", size = 255106, upload-time = "2026-03-19T21:57:08.72Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/dd/a9fe6a0a09512da23951c68bf36466aeecd89def3183dc095edbc807ddc5/pint-0.25.3-py3-none-any.whl", hash = "sha256:27eb25143bd5de9fcc4d5a4b484f16faf6b4615aa93ece6b3373a8c1a3c1b97d", size = 307488, upload-time = "2026-03-19T21:57:07.022Z" },
+]
+
+[[package]]
 name = "pip"
 version = "23.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2462,6 +2517,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f3/91/9c6ee907786a473bf81c5f53cf703ba0957b23ab84c264080fb5a450416f/pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc", size = 6851574, upload-time = "2026-01-21T03:57:59.36Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d", size = 122781, upload-time = "2026-01-21T03:57:55.912Z" },
+]
+
+[[package]]
+name = "pyproject-hooks"
+version = "1.3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/5d/f2ddeef4a855a102aaae5e97826a0260007522ab504421b75addfdb1517c/pyproject_hooks-1.3.3.tar.gz", hash = "sha256:defda19b854fa0d3bd4f76ea4ddcba8abd7dcfcdd585a6690ade050744fc5f43", size = 21013, upload-time = "2026-09-16T08:58:03.999Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/11/044d1ae1b4ec0d7af88ee5bc91e081be1022533032b906a7bdabdbb60977/pyproject_hooks-1.3.3-py3-none-any.whl", hash = "sha256:5fc53fdac9f7bd63fbcdc868fb5f90b4784d78a53a3d3388cd738b807441a20b", size = 10724, upload-time = "2026-09-16T08:58:02.96Z" },
 ]
 
 [[package]]
@@ -3054,7 +3118,7 @@ wheels = [
 
 [[package]]
 name = "tango-core"
-version = "1.0.1"
+version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "coolprop" },
@@ -3071,6 +3135,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pexpect" },
     { name = "pip" },
+    { name = "plotly" },
     { name = "polars" },
     { name = "pydantic" },
     { name = "pymoo" },
@@ -3093,7 +3158,6 @@ dev = [
     { name = "ipykernel" },
     { name = "ipython" },
     { name = "pandas-stubs" },
-    { name = "plotly" },
     { name = "pylsp-mypy" },
     { name = "pylsp-rope" },
     { name = "pytest" },
@@ -3122,7 +3186,7 @@ requires-dist = [
     { name = "dvc", marker = "extra == 'dev'", specifier = ">=3.0,<4.0" },
     { name = "dvc-gs", specifier = ">=3.0.2" },
     { name = "dvc-webdav", specifier = ">=3.0.1" },
-    { name = "fluprodia", specifier = ">=3.5.1,<4" },
+    { name = "fluprodia", specifier = ">=4.1.2,<5" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=7.0" },
     { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.37.0,<10" },
     { name = "jinja2", specifier = ">=3.1,<4.0" },
@@ -3136,7 +3200,7 @@ requires-dist = [
     { name = "pandas-stubs", marker = "extra == 'dev'", specifier = ">=2.3.2.250926,<3" },
     { name = "pexpect", specifier = ">=4.0,<5.0" },
     { name = "pip", specifier = ">=23.2,<24.0" },
-    { name = "plotly", marker = "extra == 'dev'", specifier = ">=5.24,<6.0" },
+    { name = "plotly", specifier = ">=5.24,<6.0" },
     { name = "polars", specifier = ">=1.0,<2.0" },
     { name = "pydantic", specifier = ">=2.0,<3.0" },
     { name = "pylsp-mypy", marker = "extra == 'dev'", specifier = ">=0.7.0" },
@@ -3154,7 +3218,7 @@ requires-dist = [
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.4,<8.0" },
     { name = "tabulate", specifier = ">=0.8,<1.0" },
     { name = "termcolor", specifier = ">=2.5,<3.0" },
-    { name = "tespy", specifier = "==0.7.1.post1" },
+    { name = "tespy", specifier = "==0.11.2" },
     { name = "tqdm", specifier = ">=4.66,<5.0" },
     { name = "types-networkx", marker = "extra == 'dev'", specifier = ">=3.5.0.20251104,<4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
@@ -3194,19 +3258,22 @@ wheels = [
 
 [[package]]
 name = "tespy"
-version = "0.7.1.post1"
+version = "0.11.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coolprop" },
+    { name = "fluprodia" },
     { name = "jinja2" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pint" },
+    { name = "scipy" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/9d/4d8c0b5c13b13acc01cea0f187a255197e5a1681652163c3a306c64d325c/tespy-0.7.1.post1.tar.gz", hash = "sha256:8b0ab2755b5c8e06426af11d4cc2874e837926be5cb5554572e4e9624c85e9b0", size = 1393745, upload-time = "2023-12-03T11:38:53.033Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/f3/21895e7026eb01fb5221200340c0e9b86ba79e06e37b51d80b25edbf505a/tespy-0.11.2.tar.gz", hash = "sha256:3113f10e1f2cd1b2f8e7b5197ebfd20a54baedd4ce09e3d3a1127d124e8fdcad", size = 20560906, upload-time = "2026-09-03T05:57:38.115Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/17/ba/fa53104d6b126275d6f9b5b6ad5330cd748e51b0981e2f1994808f3c8297/tespy-0.7.1.post1-py3-none-any.whl", hash = "sha256:76d0a9edf9a9fe7058d2413ba8b3f3fdf64edb519f2856d73f7c74468b3eb6cd", size = 226159, upload-time = "2023-12-03T11:38:49.068Z" },
+    { url = "https://files.pythonhosted.org/packages/82/60/ab22c707995ec4c384f493d674f31630435a6770cbcbe28eb61dcfe5c1ed/tespy-0.11.2-py3-none-any.whl", hash = "sha256:236eaa1fdb8d97afa03e199a4c2a2aa62939d414c886ffd61a7f081b816af672", size = 384210, upload-time = "2026-09-03T05:57:30.168Z" },
 ]
 
 [[package]]

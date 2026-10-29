@@ -13,9 +13,9 @@ workflow this enables:
    ``ParamSpec`` bounds (this module's own LHS, not ``pymoo_api``'s ``LHS``
    import, which only pads a partially-seeded GA population).
 2. ``run_lhs_sweep`` — evaluate every sampled point with the REAL simulation,
-   in parallel, mirroring ``run_hydro_df_electric_sweep/sweep.py``'s
-   spawn-context/``imap_unordered``/atomic-per-row-JSON pattern (this is a
-   real, possibly-long, Euler-scale job — resumability matters here).
+   in parallel: a spawn-context pool, ``imap_unordered``, and one atomic JSON
+   file per row (this is a real, possibly-long, Euler-scale job —
+   resumability matters here).
 3. ``train_surrogate`` — one regressor per objective (default:
    ``MLPRegressor``, swappable via ``regressor_factory`` -- see
    ``REGRESSOR_FACTORIES``), fit on the successful rows from step 2.
@@ -64,23 +64,18 @@ from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
-from tango.core.errors import ConvergenceError, CoolPropError, FrackingViolationError
-from tango.pymoo_api import ParetoProgressOutput
+from tango.pymoo_api import (
+    IDEAL_DISTANCE_COL,
+    INFEASIBLE_DESIGN_EXCEPTIONS,
+    ParetoProgressOutput,
+    ideal_distance,
+)
 from tango.workflows.workflow import Workflow
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
     from tango.pymoo_api import ObjectiveSpec, ParamSpec, PymooConfig
-
-# Same physical-infeasibility-vs-bug distinction pymoo_api.py's _CV_EXCEPTIONS
-# makes (see that module's docstring) — a sampled LHS design failing one of
-# these is an expected outcome, not a crash; anything else should still raise.
-_INFEASIBLE_EXCEPTIONS: tuple[type[Exception], ...] = (
-    CoolPropError,
-    FrackingViolationError,
-    ConvergenceError,
-)
 
 # Same shape as pymoo_api.py's _CV_OBJECTIVE_FALLBACK/_FEASIBLE_G/_INFEASIBLE_G
 # (private there, redefined here rather than imported — pymoo_api.py isn't
@@ -95,11 +90,11 @@ _INFEASIBLE_G = 1.0
 class SurrogateInfeasibleError(Exception):
     """Raised by ``SurrogateModel.evaluate_one`` when the feasibility classifier predicts failure.
 
-    Mirrors ``pymoo_api.Minimization``'s ``_CV_EXCEPTIONS`` pattern (a
+    Mirrors ``pymoo_api.Minimization``'s ``INFEASIBLE_DESIGN_EXCEPTIONS`` pattern (a
     specific, anticipated "this design doesn't work" signal, not a crash) —
     ``_SurrogateProblem._evaluate`` catches exactly this and turns it into a
     real pymoo constraint violation (``G > 0``), the same way
-    ``Minimization._evaluate_one`` turns a real ``_CV_EXCEPTIONS`` into one.
+    ``Minimization._evaluate_one`` turns a real ``INFEASIBLE_DESIGN_EXCEPTIONS`` into one.
     A caller building their OWN ``Minimization`` against a hybrid classifier-
     gated evaluator (rather than this module's independent surrogate driver)
     can pass this type via ``Minimization(..., extra_cv_exceptions=(SurrogateInfeasibleError,))``
@@ -164,12 +159,19 @@ def evaluate_training_row(
     try:
         wf = Workflow(cfg)
         wf.run()
-    except _INFEASIBLE_EXCEPTIONS as exc:
+    except INFEASIBLE_DESIGN_EXCEPTIONS as exc:
         row["error_type"] = type(exc).__name__
         row["error_message"] = str(exc)
         return row
-    for o in objectives:
-        row[o.name] = o.evaluate(wf)
+    values = {o.name: o.evaluate(wf) for o in objectives}
+    if not all(math.isfinite(v) for v in values.values()):
+        # Same rule as Minimization._evaluate_one: a NaN/inf objective (e.g.
+        # LCOE when net power is <= 0) is an infeasible design, not a
+        # training target.
+        row["error_type"] = "NonFiniteObjective"
+        row["error_message"] = f"non-finite objective(s) {values}"
+        return row
+    row.update(values)
     row["success"] = True
     return row
 
@@ -198,7 +200,7 @@ def _cached_row_is_valid(result_file: Path, params: list[ParamSpec], x_row: list
     if not result_file.exists():
         return False
     try:
-        cached = json.loads(result_file.read_text())
+        cached = json.loads(result_file.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return False
     return all(
@@ -213,8 +215,7 @@ def _evaluate_and_write(
     """Worker: evaluate one row and atomically write its JSON result file.
 
     Module-level (not a closure) and takes only picklable arguments — required
-    for the ``spawn`` multiprocessing context (see ``run_hydro_df_electric_sweep/
-    sweep.py``'s ``run_single_simulation`` for the same constraint).
+    for the ``spawn`` multiprocessing context.
     """
     row_idx, x, base_cfg, params, objectives, results_dir = args
     result_file = results_dir / f"{row_idx:06d}.json"
@@ -223,14 +224,20 @@ def _evaluate_and_write(
     row = evaluate_training_row(x, base_cfg, params, objectives)
     row["row_idx"] = row_idx
     results_dir.mkdir(exist_ok=True, parents=True)
-    with tempfile.NamedTemporaryFile(mode="w", dir=results_dir, delete=False, suffix=".tmp") as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=results_dir,
+        delete=False,
+        suffix=".tmp",
+    ) as f:
         json.dump(row, f)
         tmp_path = Path(f.name)
     tmp_path.rename(result_file)
 
 
 def run_lhs_sweep(
-    base_workflow: Workflow,
+    base_cfg: dict[str, Any],
     params: list[ParamSpec],
     objectives: list[ObjectiveSpec],
     x: npt.NDArray[np.float64],
@@ -240,8 +247,7 @@ def run_lhs_sweep(
 ) -> pd.DataFrame:
     """Evaluate every row of ``x`` with the REAL simulation, in parallel.
 
-    Mirrors ``run_hydro_df_electric_sweep/sweep.py``'s ``run_sweep()``: a
-    spawn-context ``multiprocessing.Pool``, ``imap_unordered``, one atomic
+    A spawn-context ``multiprocessing.Pool``, ``imap_unordered``, one atomic
     JSON file per design point under ``results_dir`` (resumable — an
     already-written row whose cached design matches ``x`` is skipped, so a
     killed run just needs to be restarted with the same ``results_dir`` --
@@ -250,7 +256,10 @@ def run_lhs_sweep(
     job (unlike the surrogate-driven GA below, which is cheap enough to just
     rerun from scratch if killed).
     """
-    base_cfg = base_workflow.to_dict()
+    # Validate once, here; workers get only the dict, kept as written (see
+    # Minimization.base_cfg for why not Workflow.to_dict()).
+    Workflow(copy.deepcopy(base_cfg))
+    base_cfg = copy.deepcopy(base_cfg)
     n_samples = x.shape[0]
     results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -273,7 +282,7 @@ def run_lhs_sweep(
                         f"LHS sweep progress: {len(completed) + done}/{n_samples} ({done}/{len(pending)} this run)",
                     )
 
-    rows = [json.loads(f.read_text()) for f in sorted(results_dir.glob("*.json"))]
+    rows = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(results_dir.glob("*.json"))]
     return pd.DataFrame(rows).sort_values("row_idx").reset_index(drop=True)
 
 
@@ -855,7 +864,7 @@ def run_surrogate_optimization(
     — the exact SAME ``Output`` class ``Minimization.run()`` itself uses, not
     a second, independently-shaped one — so the real-sim and surrogate-driven
     runs print IDENTICAL tables (``n_gen``/``n_eval``/``n_nds``/``t [s]``/
-    ``euclid_min (z)``), directly comparable line for line. Without the
+    ``ideal_min``), directly comparable line for line. Without the
     elapsed-time column specifically, there's no way to tell from the log
     whether a fast run converged early via ``ftol``/``xtol`` after a handful
     of generations or actually ran every one of ``n_max_gen``, which matters
@@ -883,16 +892,8 @@ def run_surrogate_optimization(
     f_df = pd.DataFrame(f, columns=surrogate.objective_names)
     df = pd.concat([x_df, f_df], axis=1)
 
-    # Same z-score-normalized Euclidean-distance column
-    # Minimization._build_results_df computes (see that method's docstring
-    # for why it's z-score, not raw-unit, normalized) — required for
-    # make_plots' plot_pareto_parallel_coordinates/plot_pareto_scatter_zscore,
-    # which color by this column and KeyError without it (confirmed the hard
-    # way on a real Euler run: optimize_surrogate.py wrote
-    # surrogate_pareto_results.csv successfully, then crashed in make_plots).
-    std = f_df.std().replace(0.0, 1.0)
-    z = (f_df - f_df.mean()) / std
-    df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    # Same column Minimization._build_results_df adds.
+    df[IDEAL_DISTANCE_COL] = ideal_distance(f)
     return df
 
 
@@ -901,7 +902,7 @@ class SurrogateValidationError(Exception):
 
 
 def validate_surrogate_pareto(
-    base_workflow: Workflow,
+    base_cfg: dict[str, Any],
     params: list[ParamSpec],
     objectives: list[ObjectiveSpec],
     surrogate_df: pd.DataFrame,
@@ -925,7 +926,7 @@ def validate_surrogate_pareto(
     objective_names = [o.name for o in objectives]
     x = surrogate_df[param_names].to_numpy(dtype=float)
 
-    actual_df = run_lhs_sweep(base_workflow, params, objectives, x, n_workers, results_dir, quiet=quiet)
+    actual_df = run_lhs_sweep(base_cfg, params, objectives, x, n_workers, results_dir, quiet=quiet)
 
     comparison = surrogate_df[param_names].copy()
     violations: list[str] = []
@@ -985,7 +986,7 @@ def corrected_pareto_front(
 
     Returns a DataFrame in the same column shape as ``Minimization``'s own
     results (param columns + objective columns, using the PLAIN objective
-    names — not ``actual_<name>`` — plus ``euclidean``), so it's directly
+    names — not ``actual_<name>`` — plus ``ideal_distance``), so it's directly
     plottable with any app's existing ``make_plots()``.
     """
     real = comparison[comparison["real_success"]].copy()
@@ -995,15 +996,12 @@ def corrected_pareto_front(
     result = result.reset_index(drop=True)
 
     if len(result) == 0:
-        result["euclidean"] = pd.Series(dtype=float)
+        result[IDEAL_DISTANCE_COL] = pd.Series(dtype=float)
         return result
 
     f = result[objective_names].to_numpy(dtype=float)
     front_idx = NonDominatedSorting().do(f, only_non_dominated_front=True)
     result = result.iloc[front_idx].reset_index(drop=True)
 
-    f_df = result[objective_names]
-    std = f_df.std().replace(0.0, 1.0)
-    z = (f_df - f_df.mean()) / std
-    result["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+    result[IDEAL_DISTANCE_COL] = ideal_distance(result[objective_names])
     return result

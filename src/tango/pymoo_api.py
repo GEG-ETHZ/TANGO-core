@@ -1,5 +1,19 @@
 r"""Multi-objective optimization API for tango, built on pymoo.
 
+A thin wrapper around pymoo that provides:
+
+- **Typed interfaces** (``Minimization``, ``ParamSpec``, ``ObjectiveSpec``,
+  ``PymooConfig``) in place of pymoo's ``*args``/``**kwargs``-heavy API, so
+  a misconfigured search fails at construction instead of deep inside pymoo.
+- **A strong mechanism for setting decision variables and extracting
+  objectives:** each ``ParamSpec`` applies its value to a config dict (and
+  reads it back), and each ``ObjectiveSpec`` reads one number from a
+  finished run.
+- **Parallel evaluation with minimal configuration:** set
+  ``PymooConfig.n_processes``.
+- **Plotting utilities** (Pareto scatter and parallel-coordinates plots) to
+  help downselect designs from a front.
+
 Adapted to tango's actual seams:
 
 - **Parameters mutate config dicts, not live objects.** ``Workflow.to_dict()``'s
@@ -7,7 +21,9 @@ Adapted to tango's actual seams:
   base_wf.to_dict(); cfg[...] = ...; Workflow(cfg).run()``) — a fresh
   ``Workflow`` is built and run from a mutated copy of the base config on
   every evaluation, rather than trying to mutate a live, already-solved
-  ``Workflow`` in place.
+  ``Workflow`` in place. The same goes for everything sent to worker
+  processes: only plain data (config dicts, picklable specs) crosses a
+  process boundary, never a live ``Workflow``.
 - **Constraint violations are real pymoo constraints, not objective-space
   penalties.** A common alternative pattern falls back to a fixed huge
   objective value (e.g. ``1.02e12``) on simulation failure — that value has
@@ -18,8 +34,10 @@ Adapted to tango's actual seams:
   regardless of ``F``) means the objective fallback value's magnitude is
   irrelevant, so it can just be ``0.0`` rather than a magic huge number.
 - **Only specific, known-physical failure modes become a CV — everything
-  else raises.** ``_evaluate_one`` catches exactly ``_CV_EXCEPTIONS``
-  (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``) —
+  else raises.** ``_evaluate_one`` catches exactly ``INFEASIBLE_DESIGN_EXCEPTIONS``
+  (``CoolPropError``, ``FrackingViolationError``, ``ConvergenceError``,
+  ``InvalidPowerStateError``, ``CoolingLimitError``, ``SaturationError``,
+  ``WellPressureCollapseError``) —
   the ``tango`` errors that genuinely mean "this sampled design is
   infeasible," not "something is broken." A bare ``except Exception``
   would also swallow ``ConfigError`` (almost always a bug in a
@@ -28,32 +46,23 @@ Adapted to tango's actual seams:
   poisoning results across a long unattended search instead of crashing
   loudly where the bug actually is.
 
-``InjectionPolicy`` restriction: only ``MANUAL`` and ``MANUAL_FRACKING_CHECK``
-are accepted (see ``Minimization.__init__``). ``AUTO_BOTH`` raises
-``NotImplementedError`` from ``SystemBCIteration.run_timestep`` outright (see
-``InjectionPolicy.AUTO_BOTH``'s own docstring — not under active
-development). ``AUTO_PRESSURE``/``AUTO_FLOW`` ARE implemented,
-but deliberately NOT accepted here: each drives its own inner Newton/Picard
-loop that actively overwrites a field (``components.<surface>.injection_pressure``
-for ``AUTO_PRESSURE``, ``sim_config.mass_rate`` for ``AUTO_FLOW``) every
-timestep — exactly the kind of field an app script's own ``ParamSpec`` might
-hand to pymoo as a decision variable. Accepting either would mean pymoo's
-outer search and ``SystemBCIteration``'s own inner solver fighting over the
-same parameter, with whichever one writes last silently winning — not a
-"maybe investigate this," a real correctness hazard any future policy widening
-must design
-around (e.g. rejecting the combination of a policy that owns a field and a
-``ParamSpec`` that also targets it), not just re-check informally.
+``InjectionPolicy``: the base config must set ``sim_config.injection_mode``
+(``MANUAL`` or ``MANUAL_FRACKING_CHECK``, the only modes there are); the
+search itself chooses the operating point, with a fracking violation under
+``MANUAL_FRACKING_CHECK`` counting as an infeasible design.
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
+import dataclasses
 import itertools
 import json
 import logging
 import multiprocessing
+import shutil
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -65,6 +74,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import yaml
+from matplotlib.colors import Normalize
 from matplotlib.ticker import MaxNLocator
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -79,12 +89,18 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination as DMOT
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 from tango.core.errors import (
+    ConfigError,
     ConvergenceError,
+    CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
+    InertParameterError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 from tango.core.policies import InjectionPolicy
 from tango.utils import print_dt
@@ -102,7 +118,9 @@ from tango.workflows.workflow import Workflow
 # this CV, that negative value would get averaged into
 # DoubletEconomicComponent.net_power_W and could flip a subtraction into an
 # addition, silently producing a deceptively low LCOE for an infeasible
-# design instead of excluding it). Deliberately NOT ConfigError (raised
+# design instead of excluding it), CoolingLimitError (a cooler or condenser
+# below the site's cooling limit). Also what tango.surrogate_api counts as an
+# infeasible sample, so the two can't drift apart. Deliberately NOT ConfigError (raised
 # almost entirely during config loading/parsing — hitting it from a
 # ParamSpec-mutated config points at a bug in a ParamSpec.apply, not an
 # infeasible design) or the LockedStateError family (internal get/set-
@@ -110,11 +128,14 @@ from tango.workflows.workflow import Workflow
 # management) -- those, and any bare Python exception, should crash the
 # whole run rather than silently poison results across an unattended
 # search.
-_CV_EXCEPTIONS: tuple[type[Exception], ...] = (
+INFEASIBLE_DESIGN_EXCEPTIONS: tuple[type[Exception], ...] = (
+    CoolingLimitError,
     CoolPropError,
     FrackingViolationError,
     ConvergenceError,
     InvalidPowerStateError,
+    SaturationError,
+    WellPressureCollapseError,
 )
 
 logger = logging.getLogger(__name__)
@@ -249,6 +270,16 @@ class PymooConfig:
     """Probability each variable gets mutated (pymoo's default mutation
     operator, ``PM``, calls this ``prob`` — default ``1/n_var`` if left
     ``None`` here). Same ``algorithm=`` caveat as ``crossover_prob`` above."""
+    report_archive: bool = False
+    """Report the non-dominated set of every feasible design evaluated during
+    the run, instead of only the final population's non-dominated designs.
+
+    NSGA-II keeps a fixed-size population (``pop_size``) and thins its front
+    to fit, so the final population holds at most ``pop_size`` designs and
+    can drop good ones found earlier, especially near the ends of the front.
+    The archive keeps them all. It only changes what's reported; the search
+    itself is unchanged. Each reported design is re-solved once for the
+    report columns, so a larger front costs that many extra simulations."""
 
 
 def load_params(params_file: Path) -> dict[str, Any]:
@@ -260,7 +291,7 @@ def load_params(params_file: Path) -> dict[str, Any]:
     into the command line.
     """
     if params_file.exists():
-        return yaml.safe_load(params_file.read_text()) or {}
+        return yaml.safe_load(params_file.read_text(encoding="utf-8")) or {}
     return {}
 
 
@@ -385,6 +416,17 @@ def build_pymoo_parser(
         default=seed_default,
         help=f"Random seed for reproducibility. Defaults to {seed_default} (params.yaml/PymooConfig). Ignored if --no-seed is given.",
     )
+    report_archive_default = bool(params.get("report_archive", default_pymoo_config.report_archive))
+    parser.add_argument(
+        "--report-archive",
+        action=argparse.BooleanOptionalAction,
+        default=report_archive_default,
+        help=(
+            "Report the non-dominated set of every feasible design evaluated, not just the final "
+            "population's (at most pop_size). The search itself is unchanged. Defaults to "
+            f"{report_archive_default} (params.yaml/PymooConfig)."
+        ),
+    )
     parser.add_argument(
         "--no-seed",
         action="store_true",
@@ -418,6 +460,11 @@ def build_pymoo_parser(
         default=default_output_dir,
         help=f"Where to write results/plots. Defaults to {default_output_dir}.",
     )
+    # --clean also deletes pareto_results_partial.csv, so a job killed at its
+    # wall-clock limit restarts from generation 1. Runs are kept to a few
+    # hours, so this isn't handled; to recover one by hand, copy the partial
+    # CSV out of --save-dir, rerun with --seed-from pointing at it, then
+    # `dvc commit` the app's stage.
     parser.add_argument(
         "--clean",
         action="store_true",
@@ -442,6 +489,18 @@ def build_pymoo_parser(
             "restarts at generation 1) -- see Minimization's seed_from "
             "docstring for the full tradeoff. Remaining population slots "
             "beyond what the file provides are filled via LHS."
+        ),
+    )
+    parser.add_argument(
+        "--capture-trajectory",
+        type=Path,
+        default=None,
+        metavar="CSV",
+        help=(
+            "Append every evaluated design (parameters, objectives, feasibility, "
+            "and the generation it was evaluated in) to this CSV, not just the "
+            "final front. Used to study how the front improves generation by "
+            "generation. Appends to an existing file, so point it at a new one."
         ),
     )
     plot_group = parser.add_mutually_exclusive_group()
@@ -562,6 +621,10 @@ def plot_objective_vs_param_scatter(
             # gives each label room regardless of how narrow the column's
             # actual data range is.
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+            # A parameter pinned at a bound spans a tiny range, and matplotlib
+            # would then label it as an offset (e.g. "+6.9999e1") that's
+            # unreadable and collides with the axis label. Plain values instead.
+            ax.ticklabel_format(axis="x", useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
@@ -630,6 +693,8 @@ def plot_param_pair_vs_objective_scatter(
             ax.grid(visible=True, alpha=0.3)
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
             ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+            # Plain values, not offsets (see plot_objective_vs_param_scatter).
+            ax.ticklabel_format(useOffset=False)
             for label in ax.get_xticklabels():
                 label.set_rotation(30)
                 label.set_ha("right")
@@ -678,12 +743,19 @@ class ParamSpec:
             ``__call__`` pickles fine, by class reference + simple field
             values — use that shape, not a closure.)
         bounds: ``(lower, upper)`` bound pymoo searches within.
+        read: ``config_dict -> value``: the value this parameter currently has
+            in a config, in the same units as ``bounds``. Gives
+            ``Minimization``'s parameter check its baseline (see
+            ``Minimization.check_param_sensitivity``); without it, the
+            bounds midpoint stands in. Same picklability requirement as
+            ``apply``.
 
     """
 
     name: str
     apply: Callable[[dict[str, Any], float], dict[str, Any]]
     bounds: tuple[float, float]
+    read: Callable[[dict[str, Any]], float] | None = None
 
 
 @dataclass
@@ -750,6 +822,46 @@ class ConstraintSpec:
 
 
 # ---------------------------------------------------------------------------
+# Distance to the ideal corner
+# ---------------------------------------------------------------------------
+
+IDEAL_DISTANCE_COL = "ideal_distance"
+"""Results column: each design's normalized distance to the front's ideal corner."""
+
+
+def normalized_shortfall(f: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Each objective rescaled to 0-1 over the given designs: 0 = best, 1 = worst.
+
+    ``f`` holds minimized objectives, one row per design (as pymoo stores
+    them; a maximized quantity is stored negated, e.g.
+    ``negative_mean_power_W``). An objective that's the same for every
+    design maps to 0.
+    """
+    f = np.asarray(f, dtype=float)
+    f = f if f.ndim == 2 else f.reshape(1, -1)
+    span = np.ptp(f, axis=0)
+    return (f - f.min(axis=0)) / np.where(span > 0, span, 1.0)
+
+
+def ideal_distance(f: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Each design's distance to the ideal corner of a set of designs.
+
+    The ideal corner pairs the best value of every objective found among
+    the designs (for LCOE vs. power: the cheapest LCOE and the highest
+    power). No single design usually reaches it. Each objective is first
+    rescaled to 0-1 over the designs (``normalized_shortfall``), so
+    objectives with different units count equally. The result runs from 0
+    (a design that's best in every objective) to ``sqrt(n_objectives)``.
+    The design with the smallest distance is the default pick: the one
+    that gives up the least in all objectives at once.
+
+    It depends only on the best and worst value of each objective, not on
+    how the optimizer happened to space the designs along the front.
+    """
+    return np.sqrt((normalized_shortfall(f) ** 2).sum(axis=1))
+
+
+# ---------------------------------------------------------------------------
 # Live progress output (verbose=True)
 # ---------------------------------------------------------------------------
 
@@ -757,25 +869,12 @@ class ConstraintSpec:
 class ParetoProgressOutput(Output):
     """Per-generation progress table for ``Minimization.run()`` (``verbose=True``).
 
-    Two design choices worth calling out explicitly:
+    ``n_nds`` and ``ideal_min`` both describe ``algorithm.opt`` (the
+    current non-dominated front), not the whole population, so the two
+    columns describe the same designs. ``ideal_min`` is the smallest
+    ``ideal_distance`` on that front.
 
-    1. **Scale mixing.** Summing RAW, unnormalized objective values before
-       taking a norm is only meaningful if every objective is on a
-       comparable scale. Not true here (LCOE ~0.1-1,
-       ``negative_mean_power_W`` ~1e6-1e7): the larger-magnitude objective would
-       completely dominate, making the metric say almost nothing about the
-       smaller one. Z-score normalizing each objective column (subtract
-       its mean, divide by its std, both computed fresh from the CURRENT
-       front every generation) puts them on equal footing before summing.
-    2. **Consistent solution set.** ``n_nds`` and ``euclid_min`` both report
-       on ``algorithm.opt`` (the non-dominated front), not a mix of
-       ``algorithm.opt`` for one column and ``algorithm.pop`` (the WHOLE
-       population, including dominated individuals) for the other — two
-       columns should describe the same set, not different ones.
-
-    This only changes what prints during a run (nothing here touches the
-    saved results dataframe, which already reports on the final pareto
-    front only, not the full population).
+    This only changes what prints during a run, not the saved results.
     """
 
     def __init__(self) -> None:
@@ -784,8 +883,8 @@ class ParetoProgressOutput(Output):
         self.t_start = time.perf_counter()
         self.n_nds = Column("n_nds", width=8)
         self.t_s = Column("t [s]", width=10)
-        self.euclid_min = Column("euclid_min (z)", width=16)
-        self.columns += [self.n_nds, self.t_s, self.euclid_min]
+        self.ideal_min = Column("ideal_min", width=12)
+        self.columns += [self.n_nds, self.t_s, self.ideal_min]
 
     def update(self, algorithm: GeneticAlgorithm) -> None:
         """Refresh each column from the current generation's non-dominated front."""
@@ -794,14 +893,9 @@ class ParetoProgressOutput(Output):
         self.n_nds.set(len(algorithm.opt))
         self.t_s.set(f"{time.perf_counter() - self.t_start:.3g}")
         if opt_f is None or len(opt_f) == 0:
-            self.euclid_min.set("n/a")
+            self.ideal_min.set("n/a")
             return
-        opt_f = np.asarray(opt_f, dtype=float)
-        std = opt_f.std(axis=0)
-        std = np.where(std > 0, std, 1.0)  # constant column -> no scaling, avoid /0
-        z = (opt_f - opt_f.mean(axis=0)) / std
-        euclid = np.sqrt((z**2).sum(axis=1)).min()
-        self.euclid_min.set(f"{euclid:.3g}")
+        self.ideal_min.set(f"{ideal_distance(opt_f).min():.3g}")
 
 
 # ---------------------------------------------------------------------------
@@ -819,9 +913,9 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        wf = Workflow.from_file("example_configs/hydro_df_electric.yml")
+        cfg = yaml.safe_load(Path("templates/hydro_df_electric.yml").read_text(encoding="utf-8"))
         m = Minimization(
-            base_workflow=wf,
+            base_cfg=cfg,
             params=[
                 mass_rate_param(bounds=(10.0, 100.0)),
                 injection_pressure_param(bounds=(1e6, 10e6)),
@@ -831,9 +925,15 @@ class Minimization:
         res, df = m.run()
 
     Args:
-        base_workflow: Template ``Workflow`` — its config (via ``to_dict()``)
-            is the starting point every evaluation mutates a copy of. Never
-            mutated or re-run itself.
+        base_cfg: Template config dict, as written (e.g. a loaded example
+            config) — the starting point every evaluation mutates a copy of.
+            Validated once, up front, by building a ``Workflow`` from it in
+            ``__post_init__``, but kept as given rather than replaced by
+            ``Workflow.to_dict()``, which would pin defaults derived from
+            inputs the params change. Only
+            plain data is kept: ``Minimization`` is pickled to worker
+            processes when ``n_processes > 1``, and a live ``Workflow``
+            can't always be pickled (a TESPy network can't).
         params: Decision variables — see ``ParamSpec``'s own docstring for
             why the concrete factories live in the calling script, not here.
         objectives: Objectives to minimize — see ``ObjectiveSpec``'s own
@@ -882,7 +982,7 @@ class Minimization:
             — NOT a real objective, doesn't affect the search. See its own
             field docstring. Default ``()`` (no extra columns).
         log_failures: Append one JSON line per constraint-violating
-            evaluation (see ``_CV_EXCEPTIONS``) to ``save_dir /
+            evaluation (see ``INFEASIBLE_DESIGN_EXCEPTIONS``) to ``save_dir /
             "failures.jsonl"`` — the mutated parameter values plus the
             exception type/message. No objective values are logged for a
             failure: a design either fully evaluates (all objectives
@@ -893,7 +993,7 @@ class Minimization:
             ``InvalidPowerStateError``/``CoolPropError`` clusters in)
             instead of re-deriving it from ad hoc scratch scripts each time.
         extra_cv_exceptions: Additional exception TYPES (beyond the
-            built-in ``_CV_EXCEPTIONS`` — ``CoolPropError``/
+            built-in ``INFEASIBLE_DESIGN_EXCEPTIONS`` — ``CoolPropError``/
             ``FrackingViolationError``/``ConvergenceError``/
             ``InvalidPowerStateError``) that ``_evaluate_one`` also treats
             as a constraint violation rather than letting crash the whole
@@ -907,16 +1007,17 @@ class Minimization:
             Default ``()`` (no change from the base set).
         capture_trajectory_path: If given, append every generation's
             newly-evaluated individuals (not just the final front) to this
-            CSV path as surrogate training data — see
-            ``_append_trajectory``. Default ``None`` (no capture).
+            CSV path, e.g. as surrogate training data or to study how the
+            front improves per generation — see ``_append_trajectory``.
+            Default ``None`` (no capture).
 
     Raises:
-        ValueError: If ``base_workflow``'s own ``sim_config.injection_mode``
+        ValueError: If ``base_cfg``'s own ``sim_config.injection_mode``
             is not one of the two allowed policies (see module docstring).
 
     """
 
-    base_workflow: Workflow
+    base_cfg: dict[str, Any]
     params: list[ParamSpec]
     objectives: list[ObjectiveSpec]
     pymoo_config: PymooConfig | None = None
@@ -942,6 +1043,15 @@ class Minimization:
     (no extra columns)."""
     log_failures: bool = False
     extra_cv_exceptions: tuple[type[Exception], ...] = ()
+    check_param_sensitivity: bool = True
+    """Before searching, check that every param moves at least one objective
+    or constraint (see ``_check_param_sensitivity``); raises
+    ``InertParameterError`` otherwise. Costs ``1 + 2 * len(params)``
+    evaluations, parallelized like the search. Turn off for a setup already
+    known to be good."""
+    sensitivity_step_frac: float = 0.05
+    """Size of the parameter check's up/down step, as a fraction of each
+    param's bounds width."""
     capture_trajectory_path: Path | str | None = None
     """If given, append EVERY generation's newly-evaluated individuals
     (params + objectives if feasible + a ``success`` bool) to this CSV
@@ -952,14 +1062,22 @@ class Minimization:
     optimizer's own search trajectory. See ``_append_trajectory``."""
 
     # Derived/internal state, not constructor args -- set in __post_init__.
-    base_cfg: dict[str, Any] = field(init=False, repr=False)
     policy: InjectionPolicy = field(init=False)
     n_failures: int = field(init=False, default=0)
-    """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+    """Count of evaluations that failed the built-in feasibility constraint
+    (a CV exception or a non-finite objective) — inspect after ``run()``.
+    Counted in ``run()``, in the main process, from each generation's
+    evaluated designs: with ``n_processes > 1`` the evaluations run on
+    copies of this object in worker processes, so a count kept in
+    ``_evaluate_one`` would be lost."""
     _cv_exceptions: tuple[type[Exception], ...] = field(init=False, repr=False)
-    """``_CV_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
+    """``INFEASIBLE_DESIGN_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
     _trajectory_row_idx: int = field(init=False, default=0, repr=False)
     """Running counter for ``_append_trajectory``'s ``row_idx`` column, across generations."""
+    _archive_x: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Decision variables of the non-dominated feasible designs evaluated so far (``report_archive``)."""
+    _archive_f: npt.NDArray[np.float64] | None = field(init=False, default=None, repr=False)
+    """Objectives matching ``_archive_x``."""
 
     def __post_init__(self) -> None:
         """Validate ``policy``, resolve ``base_cfg``/``algorithm``/``pad_sampling`` defaults.
@@ -974,26 +1092,28 @@ class Minimization:
         field's declared type is fixed from its class-level annotation, full
         stop (confirmed empirically: even re-annotating the assignment
         target here doesn't change what mypy sees in OTHER methods).
-        ``_elementwise_runner``/``run``/``_save_intermediate``/
+        ``run``/``_save_intermediate``/
         ``_write_pareto`` each carry a short ``assert``/``isinstance`` at
         the top to re-narrow -- see their docstrings/comments, not repeated
         here.
         """
-        self.base_cfg = self.base_workflow.to_dict()
+        # Built once only to validate the config here, in the main process;
+        # the Workflow is dropped so only plain data is kept (see
+        # ``base_cfg``). The template stays as written, NOT Workflow.to_dict():
+        # that output pins every default derived from another input (e.g. a
+        # numerical well's num_cells from its well_length), and an evaluation
+        # that changes the input must get the default for the new value.
+        Workflow(copy.deepcopy(self.base_cfg))
+        self.base_cfg = copy.deepcopy(self.base_cfg)
         # No policy= override -- always the base config's OWN choice.
         # Confirmed the hard way: an earlier override param let a caller
         # (opt_hydro_df_electric.py) never pass it at all, silently forcing
         # MANUAL and skipping hydro_df_electric.yml's own
         # manual-fracking-check setting entirely, with no error to catch it.
-        # An unsupported policy (AUTO_*) is a real setup error -- raise
-        # rather than silently coercing it to something else.
         policy = InjectionPolicy(self.base_cfg["sim_config"]["injection_mode"])
         if policy not in ALLOWED_POLICIES:
             raise ValueError(
-                f"Minimization only supports {[p.value for p in ALLOWED_POLICIES]!r}, got {policy.value!r} — "
-                "AUTO_BOTH raises NotImplementedError in SystemBCIteration outright (not under active "
-                "development); AUTO_PRESSURE/AUTO_FLOW ARE implemented but not accepted "
-                "here either (see module docstring).",
+                f"Minimization only supports {[p.value for p in ALLOWED_POLICIES]!r}, got {policy.value!r}.",
             )
         self.policy = policy
         self.params = list(self.params)
@@ -1018,7 +1138,7 @@ class Minimization:
         )
         self.seed_from = Path(self.seed_from) if self.seed_from is not None else None
         self.pad_sampling = self.pad_sampling if self.pad_sampling is not None else LHS()
-        self._cv_exceptions = _CV_EXCEPTIONS + tuple(self.extra_cv_exceptions)
+        self._cv_exceptions = INFEASIBLE_DESIGN_EXCEPTIONS + tuple(self.extra_cv_exceptions)
 
     def _load_seed_x(self, path: Path) -> npt.NDArray[np.float64]:
         """Read a previous run's results CSV, return its param columns as an ``(n, n_var)`` array.
@@ -1049,7 +1169,7 @@ class Minimization:
         the in-memory ``df`` this class returns from ``run()``, and every
         plotting function downstream all keep using bare (unprefixed)
         names throughout; only what lands in the CSV on disk changes.
-        Columns not covered here (currently just ``euclidean``) are left
+        Columns not covered here (currently just ``ideal_distance``) are left
         bare — they're neither a decision variable, an active objective,
         nor a ``report_specs`` read-out, so no category prefix applies.
         """
@@ -1074,11 +1194,14 @@ class Minimization:
             "error_type": type(exc).__name__,
             "error_message": str(exc),
         }
-        with (self.save_dir / "failures.jsonl").open("a") as f:
+        with (self.save_dir / "failures.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
 
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
         """Build, run, and score one design — CV on self._cv_exceptions, raise on anything else.
+
+        A design whose objectives aren't all finite (e.g. a NaN LCOE because
+        the plant's net power is <= 0) counts as infeasible too.
 
         Returns ``len(self.constraints) + 1`` G values: index 0 is the
         built-in physical-feasibility constraint, the rest are
@@ -1107,7 +1230,6 @@ class Minimization:
             wf = Workflow(cfg)
             wf.run()
         except self._cv_exceptions as exc:
-            self.n_failures += 1
             if self.verbose:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
             if self.log_failures:
@@ -1116,15 +1238,147 @@ class Minimization:
                 _INFEASIBLE_G,
                 *([float("inf")] * len(self.constraints)),
             ]
+        f = [spec.evaluate(wf) for spec in self.objectives]
+        if not all(np.isfinite(f)):
+            # A NaN/inf objective (e.g. LCOE when net power is <= 0, see
+            # DoubletEconomicComponent._compute_lcoe) would otherwise rank as
+            # feasible, and pymoo's non-dominated sorting puts NaN rows in
+            # the first front. Treat it as infeasible like a failed solve.
+            if self.log_failures:
+                self._log_failure(
+                    x,
+                    ValueError(
+                        f"non-finite objective(s) {dict(zip([o.name for o in self.objectives], f, strict=True))}",
+                    ),
+                )
+            return [_CV_OBJECTIVE_FALLBACK] * len(self.objectives), [
+                _INFEASIBLE_G,
+                *([float("inf")] * len(self.constraints)),
+            ]
         g_extra = [c.evaluate(wf) for c in self.constraints]
-        return [spec.evaluate(wf) for spec in self.objectives], [_FEASIBLE_G, *g_extra]
+        return f, [_FEASIBLE_G, *g_extra]
 
-    def _elementwise_runner(self) -> LoopedElementwiseEvaluation | StarmapParallelization:
-        assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
-        if self.pymoo_config.n_processes <= 1:
-            return LoopedElementwiseEvaluation()
-        pool = multiprocessing.Pool(self.pymoo_config.n_processes)
-        return StarmapParallelization(pool.starmap)
+    def _baseline_x(self) -> npt.NDArray[np.float64]:
+        """Each param's value in ``base_cfg`` (``ParamSpec.read``), or its bounds midpoint, clipped to bounds."""
+        values = []
+        for p in self.params:
+            lo, hi = p.bounds
+            if p.read is None:
+                logger.info(
+                    "Parameter check: %s has no read(); using its bounds midpoint as the baseline.",
+                    p.name,
+                )
+                value = 0.5 * (lo + hi)
+            else:
+                value = p.read(self.base_cfg)
+            values.append(min(max(value, lo), hi))
+        return np.array(values, dtype=float)
+
+    def _check_param_sensitivity(self, problem: ElementwiseProblem) -> None:
+        """Raise if any param leaves every objective and constraint unchanged when moved up or down.
+
+        Evaluates the baseline (``_baseline_x``), then each param alone at
+        baseline ± ``sensitivity_step_frac`` × its bounds width, clipped to
+        bounds; a side with no room (baseline at a bound) is skipped. A side
+        "moves" the design if any objective or constraint value differs from
+        the baseline's by more than a relative 1e-9, which includes becoming
+        infeasible. Evaluated through ``problem`` so it runs on the same
+        worker pool as the search; these evaluations aren't counted in
+        ``n_failures`` or logged to ``failures.jsonl``.
+
+        A param whose bounds leave no room on either side is logged and
+        skipped rather than reported as inert. A param whose baseline sits
+        on a bound has only one side to test; if that side is dead it's
+        logged as a warning, not reported as inert, since one inward step
+        can't tell an inert param from one that only matters past the bound.
+
+        Raises:
+            ConfigError: If the baseline design itself is infeasible: the
+                check needs a feasible starting point, and an infeasible one
+                usually means the config or forced injection policy is wrong.
+            InertParameterError: Naming every param with both sides tested
+                and neither moving anything. A param with only one dead side,
+                whether the other moved or wasn't tested, is logged as a
+                warning instead (legitimate near a bound or a kink).
+
+        """
+        x0 = self._baseline_x()
+        rows = [x0]
+        sides: list[tuple[int, str, float]] = []
+        for i, p in enumerate(self.params):
+            lo, hi = p.bounds
+            step = self.sensitivity_step_frac * (hi - lo)
+            for label, value in (("+", min(x0[i] + step, hi)), ("-", max(x0[i] - step, lo))):
+                if value == x0[i]:
+                    continue
+                x = x0.copy()
+                x[i] = value
+                rows.append(x)
+                sides.append((i, label, value))
+
+        log_failures = self.log_failures
+        self.log_failures = False
+        try:
+            f, g = problem.evaluate(np.array(rows), return_values_of=["F", "G"])
+        finally:
+            self.log_failures = log_failures
+        out = np.hstack([np.atleast_2d(f), np.atleast_2d(g)])
+
+        if g[0][0] > 0:
+            raise ConfigError(
+                "Parameter check: the baseline design ("
+                + ", ".join(f"{p.name}={v:.6g}" for p, v in zip(self.params, x0, strict=True))
+                + ") is infeasible, so there's nothing to perturb from. Fix the config (or the forced "
+                "injection policy), or pass check_param_sensitivity=False.",
+            )
+
+        moved: dict[int, dict[str, bool]] = {i: {} for i in range(len(self.params))}
+        tried: dict[int, list[float]] = {i: [] for i in range(len(self.params))}
+        for row, (i, label, value) in enumerate(sides, start=1):
+            moved[i][label] = not bool(
+                np.all(np.isclose(out[row], out[0], rtol=1e-9, atol=0.0, equal_nan=True)),
+            )
+            tried[i].append(value)
+
+        inert = []
+        for i, p in enumerate(self.params):
+            logger.info(
+                "Parameter check: %s baseline %.6g, %s",
+                p.name,
+                x0[i],
+                ", ".join(f"{label}{'moves' if m else ' changes nothing'}" for label, m in moved[i].items())
+                or "no room to move within bounds",
+            )
+            if not moved[i]:
+                continue  # bounds leave no room to move; nothing to judge
+            if len(moved[i]) == 2 and not any(moved[i].values()):  # noqa: PLR2004
+                inert.append(
+                    f"{p.name} (baseline {x0[i]:.6g}, tried {', '.join(f'{v:.6g}' for v in tried[i])})",
+                )
+            elif len(moved[i]) == 1 and not any(moved[i].values()):
+                (label,) = moved[i]
+                logger.warning(
+                    "Parameter check: moving %s %s from its %s bound %.6g changed no objective or constraint; "
+                    "the other side has no room to test, so it isn't reported as inert.",
+                    p.name,
+                    "up" if label == "+" else "down",
+                    "lower" if label == "+" else "upper",
+                    x0[i],
+                )
+            elif not all(moved[i].values()):
+                dead = [label for label, m in moved[i].items() if not m]
+                logger.warning(
+                    "Parameter check: moving %s in the %s direction from %.6g changed no objective or constraint.",
+                    p.name,
+                    "/".join(dead),
+                    x0[i],
+                )
+        if inert:
+            raise InertParameterError(
+                "These parameters changed no objective or constraint when moved up or down from their baseline: "
+                + "; ".join(inert)
+                + ". Check what each one's ParamSpec.apply writes, or drop it from the search.",
+            )
 
     def run(self) -> tuple[Result, pd.DataFrame]:
         """Run the optimization and return pymoo's raw ``Result`` plus a results dataframe.
@@ -1146,10 +1400,20 @@ class Minimization:
             ``(res, df)`` — ``res`` is pymoo's own ``Result`` (``res.X``/
             ``res.F`` are the pareto-front decision variables/objectives);
             ``df`` has one row per pareto-front design, one column per
-            param, one column per objective, plus ``euclidean`` (see
+            param, one column per objective, plus ``ideal_distance`` (see
             ``_build_results_df``).
 
         """
+        assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
+        if self.pymoo_config.n_processes <= 1:
+            return self._run(_Problem(self, LoopedElementwiseEvaluation()))
+        # The pool lives only as long as this run, so its worker processes
+        # are shut down even when the parameter check or the search raises.
+        with multiprocessing.Pool(self.pymoo_config.n_processes) as pool:
+            return self._run(_Problem(self, StarmapParallelization(pool.starmap)))
+
+    def _run(self, problem: _Problem) -> tuple[Result, pd.DataFrame]:
+        """``run()``'s body, given a problem whose evaluation runner (and pool, if any) ``run()`` owns."""
         # __post_init__ always resolves these (see its docstring) — asserts
         # narrow mypy's view back down from the constructor-facing
         # Optional/str types to what they're actually guaranteed to be here.
@@ -1158,7 +1422,9 @@ class Minimization:
         assert self.pad_sampling is not None
         assert isinstance(self.save_dir, Path)
 
-        problem = _Problem(self)
+        self.n_failures = 0
+        if self.check_param_sensitivity:
+            self._check_param_sensitivity(problem)
         termination = DMOT(
             xtol=self.pymoo_config.xtol,
             ftol=self.pymoo_config.ftol,
@@ -1226,15 +1492,22 @@ class Minimization:
         )
         while algorithm.has_next():
             algorithm.next()
+            if algorithm.off is not None and len(algorithm.off) > 0:
+                # off holds exactly this generation's evaluated designs (see
+                # _append_trajectory); G[:, 0] is the built-in feasibility constraint.
+                self.n_failures += int((algorithm.off.get("G")[:, 0] > 0).sum())
             if self.save_results:
                 self._save_intermediate(algorithm)
             if self.capture_trajectory_path is not None:
                 self._append_trajectory(algorithm)
+            if self.pymoo_config.report_archive:
+                self._update_archive(algorithm)
         res = algorithm.result()
 
-        df = self._build_results_df(res.X, res.F)
+        x, f = (self._archive_x, self._archive_f) if self.pymoo_config.report_archive else (res.X, res.F)
+        df = self._build_results_df(x, f)
         if self.report_specs:
-            df = self._add_report_columns(df, res.X)
+            df = self._add_report_columns(df, x)
         if self.n_failures:
             logger.info(
                 "Minimization: %d evaluations were constraint violations (failed to solve).",
@@ -1242,7 +1515,7 @@ class Minimization:
             )
         if self.save_results:
             self._write_pareto(
-                res.X,
+                x,
                 df,
                 self.save_dir / "pareto_results.csv",
                 self.save_dir / "pareto_configs" if self.save_pareto_configs else None,
@@ -1269,6 +1542,31 @@ class Minimization:
             self.save_dir / "pareto_results_partial.csv",
             self.save_dir / "pareto_configs_partial" if self.save_pareto_configs else None,
         )
+
+    def _update_archive(self, algorithm: GeneticAlgorithm) -> None:
+        """Merge this generation's feasible evaluations into the non-dominated archive.
+
+        Reads ``algorithm.off`` (exactly the designs evaluated by this
+        generation; see ``_append_trajectory``) and keeps only the
+        non-dominated designs of archive plus newcomers, so memory stays
+        bounded by the front's size, not the number of evaluations.
+        """
+        off = algorithm.off
+        if off is None or len(off) == 0:
+            return
+        feasible = (off.get("G") <= 0).all(axis=1)
+        if not feasible.any():
+            return
+        x = np.asarray(off.get("X")[feasible], dtype=float)
+        f = np.asarray(off.get("F")[feasible], dtype=float)
+        if self._archive_x is not None and self._archive_f is not None:
+            x = np.vstack([self._archive_x, x])
+            f = np.vstack([self._archive_f, f])
+        front = NonDominatedSorting().do(f, only_non_dominated_front=True)
+        # Identical objective vectors are mutually non-dominated; keep one of each.
+        _, unique = np.unique(f[front], axis=0, return_index=True)
+        keep = np.asarray(front)[np.sort(unique)]
+        self._archive_x, self._archive_f = x[keep], f[keep]
 
     def _append_trajectory(self, algorithm: GeneticAlgorithm) -> None:
         """Append this generation's newly-evaluated individuals to ``capture_trajectory_path``.
@@ -1341,26 +1639,10 @@ class Minimization:
     ) -> pd.DataFrame:
         """Pareto-front results (params ``x`` + objectives ``f``) as a dataframe.
 
-        Adds a ``euclidean`` aggregate column. Deliberately no ``n_gen``
-        column — every row of one results dataframe comes from the SAME
-        (final, or one intermediate) generation, so the column would be
-        constant across the whole file and carry no actual information;
-        ``ParetoProgressOutput``'s live
-        per-generation console table (a genuinely different thing — it
-        varies row-to-row over TIME, not over one saved file's rows) is
-        unaffected.
-
-        ``euclidean`` is a Z-SCORE-NORMALIZED Euclidean distance
-        (``sqrt(Σ z_i²)``, ``z_i = (objective_i - mean) / std`` across the
-        pareto front) — deliberately NOT a sum of RAW objective values,
-        which would be dominated by whichever objective happens to have the
-        largest units (e.g. here, ``negative_mean_power_W`` ~1e6-1e7 vs.
-        LCOE ~0.1-1 — the raw version would make LCOE contribute nothing).
-        Normalization is computed fresh from this call's own pareto front
-        and used ONLY inline, in the expression below — every column saved
-        to ``df``/the CSV stays in its original, un-normalized units, so
-        a different normalization can always be recomputed later from the
-        raw data without having lost anything.
+        Adds an ``ideal_distance`` column (see ``ideal_distance``), computed
+        over this front. Every other column keeps its original units.
+        Deliberately no ``n_gen`` column: every row comes from the same
+        generation, so it would be constant.
         """
         if x is None or f is None:
             return pd.DataFrame(columns=[p.name for p in self.params] + [o.name for o in self.objectives])
@@ -1371,9 +1653,7 @@ class Minimization:
         x_df = pd.DataFrame(x, columns=[p.name for p in self.params])
         f_df = pd.DataFrame(f, columns=[o.name for o in self.objectives])
         df = pd.concat([x_df, f_df], axis=1)
-        std = f_df.std().replace(0.0, 1.0)  # constant column -> no scaling, avoid /0
-        z = (f_df - f_df.mean()) / std
-        df["euclidean"] = (z**2).sum(axis=1).pow(0.5)
+        df[IDEAL_DISTANCE_COL] = ideal_distance(f)
         return df
 
     def _add_report_columns(self, df: pd.DataFrame, x: npt.NDArray[np.float64] | None) -> pd.DataFrame:
@@ -1423,7 +1703,10 @@ class Minimization:
         x = x if x.ndim == 2 else x.reshape(1, -1)
         for i, row in enumerate(x):
             cfg = self._build_config(list(row))
-            (configs_dir / f"design_{i:03d}.yml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+            (configs_dir / f"design_{i:03d}.yml").write_text(
+                yaml.safe_dump(cfg, sort_keys=False),
+                encoding="utf-8",
+            )
         logger.info("Wrote %d pareto-design configs to %s", len(x), configs_dir)
 
 
@@ -1433,8 +1716,16 @@ class _Problem(ElementwiseProblem):
     Private: users construct ``Minimization``, not this class directly.
     """
 
-    def __init__(self, mgr: Minimization) -> None:
-        """Wrap ``mgr``, deriving pymoo's required n_var/n_obj/bounds from it."""
+    def __init__(
+        self,
+        mgr: Minimization,
+        runner: LoopedElementwiseEvaluation | StarmapParallelization | None = None,
+    ) -> None:
+        """Wrap ``mgr``, deriving pymoo's required n_var/n_obj/bounds from it.
+
+        ``runner`` evaluates designs (default: serially, in this process);
+        ``Minimization.run()`` passes one backed by the pool it owns.
+        """
         self.mgr = mgr
         super().__init__(
             n_var=len(mgr.params),
@@ -1442,10 +1733,543 @@ class _Problem(ElementwiseProblem):
             n_ieq_constr=1 + len(mgr.constraints),
             xl=[p.bounds[0] for p in mgr.params],
             xu=[p.bounds[1] for p in mgr.params],
-            elementwise_runner=mgr._elementwise_runner(),  # noqa: SLF001
+            elementwise_runner=runner if runner is not None else LoopedElementwiseEvaluation(),
         )
 
     def _evaluate(self, x: list[float], out: dict[str, Any], *args: Any, **kwargs: Any) -> None:
         f, g = self.mgr._evaluate_one(list(x))  # noqa: SLF001
         out["F"] = f
         out["G"] = g
+
+
+# ---------------------------------------------------------------------------
+# Shared opt_* app runner
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ObjectiveScatter:
+    """Which two result columns an ``OptApp``'s objective-space scatter plots show.
+
+    Args:
+        x_col: Display column (after ``OptApp.display_rename``) on the x axis.
+        x_label: x-axis label.
+        y_col: Display column on the y axis.
+        y_label: y-axis label, in the units after ``y_scale``.
+        y_scale: Factor applied to ``y_col`` before plotting (e.g. ``1e-6``
+            for W -> MW).
+        color_col: Display column the points are colored by; ``None`` for a
+            single color.
+
+    """
+
+    x_col: str
+    x_label: str
+    y_col: str
+    y_label: str
+    y_scale: float = 1.0
+    color_col: str | None = None
+
+
+@dataclass
+class OptApp:
+    """Everything that differs between ``opt_*`` app scripts; the rest is shared here.
+
+    An app script builds one ``OptApp`` from its own ``ParamSpec``/
+    ``ObjectiveSpec``/``ConstraintSpec`` factories (which stay in the app, see
+    ``ParamSpec``'s docstring) and calls ``app.main()``. This class supplies the
+    CLI, the forced injection policy, the baseline run, the ``Minimization``
+    setup, and the plots, none of which depend on the system being optimized.
+
+    Each param's ``apply`` must also have a ``read(config) -> float`` method
+    returning the value the config currently holds, in the param's own units.
+    ``param_specs`` copies it into ``ParamSpec.read``, which gives
+    ``Minimization``'s parameter check its baseline and lets the smoke tests
+    build narrow bounds around each config's own design point.
+
+    Args:
+        title: Short name used in plot titles, e.g. ``"AGS_ORC_electric"``.
+        description: One-line ``--help`` description.
+        config_path: The template this app optimizes.
+        app_dir: The app's directory (holds ``params.yaml`` and ``outputs/``).
+        injection_mode: Injection policy forced onto the base workflow,
+            whatever the config says (``manual`` or ``manual-fracking-check``;
+            see ``Minimization``).
+        default_bounds: Production bounds per param name.
+        param_factory: ``bounds -> params``; called with ``default_bounds`` or
+            an override with the same keys.
+        objective_specs: Active NSGA2 objectives.
+        report_specs: Reporting-only read-outs (see ``Minimization``).
+        constraint_factory: ``parsed CLI args -> constraints``, so a
+            constraint threshold can be a CLI flag (see ``configure_parser``).
+        configure_parser: Adds app-specific CLI flags.
+        display_rename: Negated-objective rename for plots (see
+            ``prepare_plot_df``).
+        column_labels: Full axis label per display column.
+        scatter: Axes of the objective-space scatter plots.
+        smoke_args: Extra CLI arguments ``--smoke`` adds, e.g. relaxing a
+            constraint that a tiny population would otherwise miss entirely,
+            leaving an empty Pareto front for the plots.
+
+    """
+
+    title: str
+    description: str
+    config_path: Path
+    app_dir: Path
+    injection_mode: InjectionPolicy
+    default_bounds: dict[str, tuple[float, float]]
+    param_factory: Callable[[dict[str, tuple[float, float]]], list[ParamSpec]]
+    objective_specs: list[ObjectiveSpec]
+    scatter: ObjectiveScatter
+    report_specs: list[ObjectiveSpec] = field(default_factory=list)
+    constraint_factory: Callable[[argparse.Namespace], list[ConstraintSpec]] | None = None
+    configure_parser: Callable[[argparse.ArgumentParser], None] | None = None
+    display_rename: dict[str, str] = field(default_factory=dict)
+    column_labels: dict[str, str] = field(default_factory=dict)
+    smoke_args: list[str] = field(default_factory=list)
+
+    @property
+    def params_file(self) -> Path:
+        """This app's ``params.yaml``."""
+        return self.app_dir / "params.yaml"
+
+    @property
+    def default_output_dir(self) -> Path:
+        """This app's ``outputs/``."""
+        return self.app_dir / "outputs"
+
+    def param_specs(self, bounds: dict[str, tuple[float, float]] | None = None) -> list[ParamSpec]:
+        """Decision variables with ``default_bounds``, or ``bounds`` (same keys) instead.
+
+        Raises:
+            ValueError: If ``bounds``' keys, or the factory's param names,
+                don't match ``default_bounds``' keys.
+
+        """
+        b = self.default_bounds if bounds is None else bounds
+        if set(b) != set(self.default_bounds):
+            raise ValueError(f"bounds keys {sorted(b)} must match {sorted(self.default_bounds)}")
+        specs = [
+            p
+            if p.read is not None or not hasattr(p.apply, "read")
+            else dataclasses.replace(p, read=p.apply.read)
+            for p in self.param_factory(b)
+        ]
+        names = [p.name for p in specs]
+        if sorted(names) != sorted(self.default_bounds):
+            raise ValueError(f"param names {names} must match bounds keys {sorted(self.default_bounds)}")
+        return specs
+
+    def build_parser(self) -> argparse.ArgumentParser:
+        """``build_pymoo_parser`` plus ``--smoke`` and this app's own flags."""
+        parser = build_pymoo_parser(
+            description=self.description,
+            default_output_dir=self.default_output_dir,
+            params=load_params(self.params_file),
+        )
+        parser.add_argument(
+            "--smoke",
+            action="store_true",
+            help=(
+                "Fast end-to-end check: a 2-generation search with population 6, plus this app's own "
+                f"relaxations ({' '.join(self.smoke_args) or 'none'}). Combine with --save-dir pointing at a "
+                "throwaway directory."
+            ),
+        )
+        parser.add_argument(
+            "--skip-param-check",
+            action="store_true",
+            help="Skip the check that every decision variable moves an objective or constraint "
+            "(see Minimization.check_param_sensitivity).",
+        )
+        if self.configure_parser is not None:
+            self.configure_parser(parser)
+        return parser
+
+    def parse_args(self, argv: list[str] | None = None) -> argparse.Namespace:
+        """Parse ``argv`` (default ``sys.argv[1:]``); ``--smoke`` appends its settings, which win."""
+        parser = self.build_parser()
+        argv = sys.argv[1:] if argv is None else argv
+        args = parser.parse_args(argv)
+        if args.smoke:
+            if Path(args.save_dir).resolve() == self.default_output_dir.resolve():
+                parser.error(
+                    "--smoke needs a throwaway --save-dir; it would overwrite this app's DVC-tracked outputs/",
+                )
+            args = parser.parse_args([*argv, "--n-max-gen", "2", "--pop-size", "6", *self.smoke_args])
+        return args
+
+    def base_config(self) -> dict[str, Any]:
+        """The template with ``injection_mode`` forced to this app's policy."""
+        cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
+        cfg["sim_config"]["injection_mode"] = self.injection_mode.value
+        return cfg
+
+    def build_baseline(self) -> Workflow:
+        """Run the config's own design point, to report the baseline objectives."""
+        wf = Workflow(self.base_config())
+        wf.run()
+        return wf
+
+    def run_optimization(
+        self,
+        args: argparse.Namespace,
+        param_specs: list[ParamSpec] | None = None,
+    ) -> tuple[Result, pd.DataFrame, Minimization]:
+        """Run NSGA2 over ``param_specs`` (default: ``self.param_specs()``).
+
+        Returns:
+            ``(res, df, m)``.
+
+        """
+        # --8<-- [start:minimization]
+        m = Minimization(
+            base_cfg=self.base_config(),
+            params=self.param_specs() if param_specs is None else param_specs,
+            objectives=self.objective_specs,
+            constraints=self.constraint_factory(args) if self.constraint_factory is not None else [],
+            report_specs=self.report_specs,
+            pymoo_config=PymooConfig(
+                n_max_gen=args.n_max_gen,
+                pop_size=args.pop_size,
+                ftol=args.ftol,
+                xtol=args.xtol,
+                termination_period=args.termination_period,
+                n_processes=args.n_processes,
+                seed=None if args.no_seed else args.seed,
+                crossover_prob=args.crossover_prob,
+                mutation_prob=args.mutation_prob,
+                report_archive=args.report_archive,
+            ),
+            verbose=not args.quiet,
+            save_dir=args.save_dir,
+            seed_from=args.seed_from,
+            check_param_sensitivity=not args.skip_param_check,
+            capture_trajectory_path=args.capture_trajectory,
+        )
+        res, df = m.run()
+        # --8<-- [end:minimization]
+        return res, df, m
+
+    def pretty_label(self, column: str) -> str:
+        """``column_labels[column]`` if there is one, else ``column``."""
+        return self.column_labels.get(column, column)
+
+    def make_plots(self, df: pd.DataFrame, save_dir: Path) -> None:
+        """Build every plot from a pareto-front dataframe (bare column names).
+
+        No empty-``df`` guard: an empty front means no feasible design was
+        found, which should fail loudly here.
+        """
+        # Recomputed here rather than read from the CSV, so --plot-only also
+        # works on results saved before this column existed.
+        objective_names = [o.name for o in self.objective_specs]
+        df = df.drop(columns=["euclidean"], errors="ignore")
+        df[IDEAL_DISTANCE_COL] = ideal_distance(df[objective_names])
+        plot_df = prepare_plot_df(df, self.display_rename)
+        param_cols = [p.name for p in self.param_specs()]
+        objective_cols = [self.display_rename.get(name, name) for name in objective_names]
+        display_to_objective = dict(zip(objective_cols, objective_names, strict=True))
+        plot_pareto_parallel_coordinates(
+            plot_df,
+            save_dir / "pareto_parallel_coordinates.png",
+            title=f"{self.title} — pareto front",
+            labels=self.column_labels,
+        )
+        plot_pareto_parallel_coordinates_interactive(
+            plot_df,
+            save_dir / "pareto_parallel_coordinates.html",
+            title=f"{self.title} — pareto front (interactive: drag along an axis to filter)",
+            labels=self.column_labels,
+        )
+        plot_pareto_objective_scatter(
+            plot_df,
+            save_dir / "pareto_scatter.png",
+            self.scatter,
+            title=f"{self.title} — pareto front (objective space)",
+            labels=self.column_labels,
+        )
+        if self.scatter.x_col in display_to_objective and self.scatter.y_col in display_to_objective:
+            plot_pareto_objective_scatter(
+                plot_df,
+                save_dir / "pareto_scatter_normalized.png",
+                self.scatter,
+                title=f"{self.title} — pareto front (normalized, ideal corner at 0, 0)",
+                labels=self.column_labels,
+                shortfall=normalized_shortfall(
+                    df[[display_to_objective[self.scatter.x_col], display_to_objective[self.scatter.y_col]]],
+                ),
+            )
+        plot_objective_vs_param_scatter(
+            plot_df,
+            param_cols=param_cols,
+            objective_cols=objective_cols,
+            out_path=save_dir / "pareto_scatter_by_param.png",
+            title=f"{self.title} — objectives vs. parameters",
+        )
+        plot_param_pair_vs_objective_scatter(
+            plot_df,
+            param_cols=param_cols,
+            objective_cols=objective_cols,
+            out_path=save_dir / "pareto_scatter_param_pairs.png",
+            title=f"{self.title} — objective vs. parameter pairs",
+        )
+
+    def main(self, argv: list[str] | None = None) -> None:
+        """Run the baseline and the search, then plot — or one half, via ``--no-plot``/``--plot-only``.
+
+        The split lets an app's ``dvc.yaml`` run "optimize" and "plot" as
+        separate stages, so a plotting-only change reruns just the plots.
+        """
+        args = self.parse_args(argv)
+        print(f"opt_{self.title} starting at")
+        print_dt()
+        logging.basicConfig(level=args.log_level)
+
+        if args.plot_only:
+            df = strip_column_prefixes(pd.read_csv(args.save_dir / "pareto_results.csv"))
+        else:
+            if args.clean and args.save_dir.exists():
+                shutil.rmtree(args.save_dir)
+            args.save_dir.mkdir(parents=True, exist_ok=True)
+
+            baseline_wf = self.build_baseline()
+            baseline = ", ".join(f"{o.name}={o.evaluate(baseline_wf):.6g}" for o in self.objective_specs)
+            print(f"Baseline (config design point): {baseline}")
+
+            _res, df, _m = self.run_optimization(args)
+            print(f"Pareto front: {len(df)} designs")
+            print(df)
+
+            if args.no_plot:
+                return
+
+        self.make_plots(df, args.save_dir)
+
+
+def plot_pareto_parallel_coordinates(
+    df: pd.DataFrame,
+    out_path: Path,
+    title: str,
+    labels: dict[str, str] | None = None,
+    color_col: str = IDEAL_DISTANCE_COL,
+) -> None:
+    """Static parallel-coordinates plot across every pareto-front design.
+
+    Min-max normalized axes, viridis_r coloring clipped to the 5th-95th
+    percentile of ``color_col``. Prepends a ``design_number`` axis (0-based,
+    matching ``pareto_configs/design_NNN.yml``) so a line can be traced back to
+    its saved config. Operates on a copy of ``df``.
+    """
+    labels = labels or {}
+    df = df.copy()
+    df.insert(0, "design_number", range(len(df)))
+    cols = list(df.columns)
+    data = df[cols].to_numpy(dtype=float)
+    mins = data.min(axis=0)
+    maxs = data.max(axis=0)
+    span = np.where(maxs > mins, maxs - mins, 1.0)
+    normalized = (data - mins) / span
+
+    color_values = df[color_col].to_numpy(dtype=float)
+    cmap = plt.get_cmap("viridis_r")
+    c_min, c_max = np.percentile(color_values, [5, 95])
+    if c_max <= c_min:
+        c_min, c_max = float(color_values.min()), float(color_values.max())
+    c_span = c_max - c_min if c_max > c_min else 1.0
+    clipped = np.clip(color_values, c_min, c_max)
+
+    fig, ax = plt.subplots(figsize=(1.8 * len(cols), 6.5))
+    x = np.arange(len(cols))
+    for row, color_value in zip(normalized, clipped, strict=True):
+        ax.plot(x, row, color=cmap((color_value - c_min) / c_span), alpha=0.5, linewidth=1.0)
+
+    for i, (col_min, col_max, label) in enumerate(zip(mins, maxs, cols, strict=True)):
+        ax.axvline(i, color="grey", linewidth=0.8, zorder=0)
+        ax.text(
+            i,
+            1.04,
+            f"{col_max:.3g}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            transform=ax.get_xaxis_transform(),
+        )
+        ax.text(
+            i,
+            -0.04,
+            f"{col_min:.3g}",
+            ha="center",
+            va="top",
+            fontsize=8,
+            transform=ax.get_xaxis_transform(),
+        )
+        ax.text(
+            i,
+            -0.15,
+            labels.get(label, label),
+            ha="right",
+            va="top",
+            fontsize=8,
+            rotation=30,
+            rotation_mode="anchor",
+            transform=ax.get_xaxis_transform(),
+        )
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlim(-0.2, len(cols) - 0.8)
+    ax.set_ylim(-0.45, 1.14)
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=Normalize(vmin=c_min, vmax=c_max))
+    cbar = fig.colorbar(sm, ax=ax, pad=0.02, extend="both")
+    cbar.set_label(f"{color_col} (5th-95th pctile; outliers clipped)")
+
+    fig.suptitle(title, y=0.99)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_pareto_parallel_coordinates_interactive(
+    df: pd.DataFrame,
+    out_path: Path,
+    title: str,
+    labels: dict[str, str] | None = None,
+    color_col: str = IDEAL_DISTANCE_COL,
+) -> bool:
+    """Interactive HTML version of ``plot_pareto_parallel_coordinates`` (Plotly Parcoords).
+
+    Returns:
+        ``False`` (and writes nothing) if plotly isn't installed.
+
+    """
+    try:
+        import plotly.graph_objects as go  # noqa: PLC0415
+    except ImportError:
+        print(f"plotly not installed — skipping {out_path.name} (install with `uv sync --group dev`)")
+        return False
+
+    labels = labels or {}
+    df = df.copy()
+    df.insert(0, "design_number", range(len(df)))
+    cols = list(df.columns)
+    color_values = df[color_col].to_numpy(dtype=float)
+    c_min, c_max = np.percentile(color_values, [5, 95])
+    if c_max <= c_min:
+        c_min, c_max = float(color_values.min()), float(color_values.max())
+
+    # "~s" (SI-prefix style: 1.3G, 823k) only for magnitudes >= 1: below 1,
+    # d3 uses milli/micro prefixes, so 0.215 would render as "215m" and read
+    # as meters on an "_m" column. Smaller columns get plain "~g" instead.
+    dimensions: list[dict[str, Any]] = [
+        {
+            "label": labels.get(c, c),
+            "values": df[c].to_numpy(),
+            "tickformat": "~s" if np.max(np.abs(df[c].to_numpy())) >= 1 else "~g",
+        }
+        for c in cols
+    ]
+    fig = go.Figure(
+        data=go.Parcoords(
+            line={
+                "color": color_values,
+                "colorscale": "Viridis",
+                "cmin": c_min,
+                "cmax": c_max,
+                "showscale": True,
+                "colorbar": {"title": f"{color_col} (5-95 pctile)"},
+            },
+            dimensions=dimensions,
+        ),
+    )
+    fig.update_layout(
+        title=title,
+        paper_bgcolor="#e8e8e8",
+        plot_bgcolor="#e8e8e8",
+        # Parcoords can't rotate axis labels, so widen the figure per
+        # dimension instead to keep labels from overlapping.
+        width=max(1200, 220 * len(cols)),
+        height=700,
+    )
+    fig.write_html(out_path)
+    return True
+
+
+def _diagonal_label_offset(x: pd.Series, y: pd.Series) -> tuple[tuple[float, float], str]:
+    """Point-label offset perpendicular to the data's dominant diagonal, so labels don't sit on the line."""
+    if len(x) < 2:
+        return (-5, 5), "right"
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r = np.corrcoef(x, y)[0, 1]
+    if np.isnan(r) or r >= 0:
+        return (-5, 5), "right"
+    return (5, 5), "left"
+
+
+def plot_pareto_objective_scatter(
+    df: pd.DataFrame,
+    out_path: Path,
+    scatter: ObjectiveScatter,
+    title: str,
+    labels: dict[str, str] | None = None,
+    *,
+    shortfall: npt.NDArray[np.float64] | None = None,
+) -> None:
+    """2D scatter of two result columns, each point labeled with its design number.
+
+    Args:
+        df: Pareto results, display column names.
+        out_path: PNG to write.
+        scatter: Axes and coloring.
+        title: Plot title.
+        labels: Colorbar label per display column.
+        shortfall: If given, plot this instead of the raw values: one row per
+            design, columns for the x and y objectives, each rescaled to 0-1
+            (0 = best on the front; see ``normalized_shortfall``). The ideal
+            corner is then (0, 0), and the design closest to it (the
+            smallest ``ideal_distance`` in these two objectives) is ringed.
+
+    """
+    labels = labels or {}
+    x = df[scatter.x_col].astype(float)
+    y = df[scatter.y_col].astype(float) * scatter.y_scale
+    x_label, y_label = scatter.x_label, scatter.y_label
+    if shortfall is not None:
+        x = pd.Series(shortfall[:, 0], index=df.index)
+        y = pd.Series(shortfall[:, 1], index=df.index)
+        x_label = f"{x_label}: 0 = best on front, 1 = worst"
+        y_label = f"{y_label}: 0 = best on front, 1 = worst"
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    if shortfall is not None:
+        ax.scatter([0.0], [0.0], marker="*", s=250, color="tab:red", zorder=4, label="ideal corner")
+        pick = int(np.hypot(x, y).argmin())
+        ax.scatter(
+            [x.iloc[pick]],
+            [y.iloc[pick]],
+            s=220,
+            facecolors="none",
+            edgecolors="tab:red",
+            linewidths=2,
+            zorder=4,
+            label=f"closest to ideal corner (design {pick})",
+        )
+        ax.legend(loc="upper right")
+    if scatter.color_col is None:
+        ax.scatter(x, y, s=40, zorder=3)
+    else:
+        sc = ax.scatter(x, y, s=40, c=df[scatter.color_col].to_numpy(dtype=float), cmap="viridis", zorder=3)
+        fig.colorbar(sc, ax=ax).set_label(labels.get(scatter.color_col, scatter.color_col))
+    xytext, ha = _diagonal_label_offset(x, y)
+    for i, (xi, yi) in enumerate(zip(x, y, strict=True)):
+        ax.annotate(str(i), (xi, yi), textcoords="offset points", xytext=xytext, ha=ha, fontsize=8)
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+    ax.grid(visible=True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)

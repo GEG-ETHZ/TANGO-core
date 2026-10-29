@@ -13,11 +13,12 @@ from pydantic import ValidationError
 
 from tango.components.economic.base import EconomicComponent
 from tango.components.registry import COMPONENT_REGISTRY
-from tango.core.component import Component
+from tango.core.component import Component, FlowComponent
 from tango.core.errors import ConfigError
 from tango.core.specs import Common, Description, Layout, SimConfig
 from tango.orchestrators.system_bc_iteration import SystemBCIteration
 from tango.orchestrators.system_direct import SystemDirect
+from tango.workflows.linked_quantities import resolve_linked_quantities
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class Workflow:
 
     Usage::
 
-        wf = Workflow.from_file("example_configs/hydro_sf_electric.yml")
+        wf = Workflow.from_file("templates/hydro_sf_electric.yml")
         wf.run()
 
     ``from_file``/``from_str``/``to_file``/``to_str``/``to_dict`` are the
@@ -119,7 +120,13 @@ class Workflow:
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
-        """Build the orchestrator and components from a parsed config dict."""
+        """Build the orchestrator and components from a parsed config dict.
+
+        Linked values across components (e.g. a doublet's reservoir depth and
+        its wells' lengths) are filled in and checked first; see
+        ``tango.workflows.linked_quantities``.
+        """
+        config = resolve_linked_quantities(config)
         self.title = config.get("title")
 
         try:
@@ -161,7 +168,7 @@ class Workflow:
         if self._sim_config.injection_mode is not None:
             _check_loop_has_pressure_source(config["components"])
 
-        # mass_rate/max_mass_rate/bc_checkpoint_idx requirements are all
+        # mass_rate/bc_checkpoint_idx requirements are both
         # enforced by SimConfig.check_injection_mode_requirements above
         # (raises ValueError -> caught as ConfigError by the try block
         # above) -- nothing left to check here, just read the validated
@@ -179,7 +186,6 @@ class Workflow:
                     mass_rate=self._sim_config.mass_rate,
                     bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                     policy=self._sim_config.injection_mode,
-                    max_mass_rate=self._sim_config.max_mass_rate,
                     economic=self._economic,
                 )
             )
@@ -201,7 +207,7 @@ class Workflow:
         if not p.exists():
             raise ConfigError(f"Input file not found: {p}")
         try:
-            text = p.read_text()
+            text = p.read_text(encoding="utf-8")
         except OSError as exc:
             raise ConfigError(f"Failed to read input file: {p}\n{exc}") from exc
         logger.info("Loaded input file: %s", p)
@@ -280,7 +286,7 @@ class Workflow:
 
     def to_file(self, path: Path | str) -> None:
         """Write this Workflow's config to a YAML file at ``path``."""
-        Path(path).write_text(self.to_str())
+        Path(path).write_text(self.to_str(), encoding="utf-8")
 
     def run(self) -> None:
         """Execute the full simulation."""
@@ -316,7 +322,7 @@ def _yaml_safe(obj: Any) -> Any:
     return obj
 
 
-def _check_common_identity(components: dict[str, Component], common: Common) -> None:
+def _check_common_identity(components: dict[str, FlowComponent], common: Common) -> None:
     """Assert every component's ``common`` (if declared) is this Workflow's SAME instance.
 
     Called once, at construction time, right after ``_build_components``.
@@ -365,7 +371,7 @@ def _check_common_identity(components: dict[str, Component], common: Common) -> 
 # node at all could. "Pump" isn't a real GraphSurface component type
 # today (see graph.py's _COMPONENT_TYPES) -- TESPy's Compressor class is
 # used to model a liquid pump via its generic pressure-rise abstraction
-# (see hydro_df_electric.yml's pump1/pump2) -- included here anyway in
+# (see hydro_df_electric.yml's brine_pump/condensate_pump) -- included here anyway in
 # case a dedicated "Pump" type is ever registered, so this check doesn't
 # need updating the day that happens.
 _PRESSURE_SOURCE_NODE_TYPES = frozenset({"Compressor", "Pump", "PumpOrValve"})
@@ -481,7 +487,7 @@ def _build_components(
     layout: Layout,
     dt_years: float,
     target_extraction_pressure: float,
-) -> dict[str, Component]:
+) -> dict[str, FlowComponent]:
     """Instantiate all components from the ``components:`` YAML block.
 
     Each component receives:
@@ -545,7 +551,7 @@ def _build_components(
         f"{sorted(_LAYOUT_EXTRA_KEYS)} — update both together."
     )
 
-    built: dict[str, Component] = {}
+    built: dict[str, FlowComponent] = {}
     for name, comp_cfg in components_block.items():
         comp_type: str = comp_cfg.get("type", "")
         comp_variant: str = comp_cfg.get("variant", "lumped")
@@ -598,6 +604,11 @@ def _build_components(
                 f"Failed to build component {name!r} ({comp_type}/{comp_variant}): {exc}",
             ) from exc
 
+        if not isinstance(component, FlowComponent):
+            raise ConfigError(
+                f"Component {name!r} ({comp_type}/{comp_variant}) has no fluid inlet/outlet, so it can't be "
+                "part of the components: circuit (an economic component goes in its own economic: block).",
+            )
         built[name] = component
         logger.debug("Built component %r  idx=%d", name, component.component_idx)
 

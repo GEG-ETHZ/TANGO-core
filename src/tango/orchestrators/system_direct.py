@@ -18,7 +18,7 @@ a single timestep takes once that topology choice has been made.
 from __future__ import annotations
 
 from tango.components.economic.base import EconomicComponent
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 from tango.core.errors import CoolPropError
 from tango.core.orchestrator import Orchestrator
 from tango.core.stream import Stream
@@ -32,7 +32,7 @@ class SystemDirect(Orchestrator):
 
     def __init__(
         self,
-        components: dict[str, Component],
+        components: dict[str, FlowComponent],
         n_tsteps: int = 1,
         economic: EconomicComponent | None = None,
     ) -> None:
@@ -55,17 +55,17 @@ class SystemDirect(Orchestrator):
         self._economic = economic
 
         # Sort components by component_idx for deterministic solve order.
-        self._ordered: list[Component] = sorted(
+        self._ordered: list[FlowComponent] = sorted(
             components.values(),
             key=lambda c: c.component_idx,
         )
         # Build idx → component lookup for stream wiring.
-        self._by_idx: dict[int, Component] = {c.component_idx: c for c in self._ordered}
+        self._by_idx: dict[int, FlowComponent] = {c.component_idx: c for c in self._ordered}
 
         self._pending_inlets: dict[int, Stream] = {}
         """Most-recently-computed inlet ``Stream`` for each ``component_idx``,
         keyed by ``component_idx`` — this is what replaces ``inlet`` as a
-        stored ``Component`` field (see ``Component.solve()``'s docstring
+        stored field (see ``FlowComponent.solve()``'s docstring
         for why ``inlet`` is a call parameter, not a field): the persisted
         "what feeds this component next" record now lives on the
         ORCHESTRATOR, which owns wiring, not on the component itself.
@@ -82,11 +82,11 @@ class SystemDirect(Orchestrator):
         """
 
     @property
-    def components(self) -> dict[str, Component]:
+    def components(self) -> dict[str, FlowComponent]:
         """Return the named component dict."""
         return self._components
 
-    def _next_inlet(self, component: Component) -> Stream:
+    def _next_inlet(self, component: FlowComponent) -> Stream:
         """Return the ``Stream`` to feed into ``component``'s next ``solve()`` call.
 
         Falls back to ``Stream.fresh()`` (all fields freshly zero) for a
@@ -96,8 +96,8 @@ class SystemDirect(Orchestrator):
         """
         return self._pending_inlets.get(component.component_idx, Stream.fresh())
 
-    def _record_outlet(self, component: Component) -> None:
-        """Convert ``component.outlet`` into its downstream neighbor's next inlet.
+    def _record_outlet(self, component: FlowComponent, outlet: Stream) -> None:
+        """Copy ``outlet``, the Stream ``component.solve()`` just returned, into its downstream neighbor's next inlet.
 
         Stores into ``self._pending_inlets[next_idx]`` rather than writing
         directly to the downstream component (``inlet`` is no longer a
@@ -110,11 +110,10 @@ class SystemDirect(Orchestrator):
         next_idx: int | None = getattr(component, "next", None)
         if next_idx is None or next_idx not in self._by_idx:
             return
-        src = component.outlet
         self._pending_inlets[next_idx] = Stream.fresh(
-            T=src.T.get_fresh(),
-            P=src.P.get_fresh(),
-            mass_rate=src.mass_rate.get_fresh(),
+            h=outlet.h.get_fresh(),
+            P=outlet.P.get_fresh(),
+            mass_rate=outlet.mass_rate.get_fresh(),
         )
 
     def run_timestep(self, t: int) -> None:
@@ -122,14 +121,14 @@ class SystemDirect(Orchestrator):
         for component in self._ordered:
             component.mark_all_stale()
             try:
-                component.solve(self._next_inlet(component))
+                outlet = component.solve(self._next_inlet(component))
             except CoolPropError as exc:
                 raise CoolPropError(
                     f"Timestep: {t} / {self.n_tsteps}",
                     f"Component: {component.__class__.__name__} Component index: {component.component_idx}",
                     f"{exc}",
                 ) from exc
-            self._record_outlet(component)
+            self._record_outlet(component, outlet)
 
     def _after_timestep(self, t: int) -> None:
         """Hook called after each timestep in ``run()``; no-op by default.
@@ -155,22 +154,18 @@ class SystemDirect(Orchestrator):
         ``components/economic/doublet.py``), which is complete only after
         the last timestep.
 
-        The economic component has no ``inlet``/``outlet`` wiring to any
-        other component, so it gets the whole ``components`` dict handed to
-        it directly (a private, non-Pydantic attribute — the same "live
-        cross-reference" pattern ``GraphSurface`` already uses for its TESPy
-        network), rather than going through the ``Stream`` abstraction every
-        physical component uses.
+        The economic component has no ``inlet``/``outlet`` (it is a plain
+        ``Component``, not a ``FlowComponent``), so it gets the whole
+        ``components`` dict handed to it directly (a private, non-Pydantic
+        attribute — the same "live cross-reference" pattern ``GraphSurface``
+        already uses for its TESPy network), rather than going through the
+        ``Stream`` hand-off every flow component uses.
         """
         if self._economic is None:
             return
         self._economic._components = self._components  # noqa: SLF001
         self._economic.mark_all_stale()
-        # Stream() (unused) — EconomicComponent.solve() ignores `inlet`
-        # entirely; see EconomicComponent.solve()'s docstring for why the
-        # signature still requires one (Liskov compatibility with
-        # Component.solve()).
-        self._economic.solve(Stream())
+        self._economic.solve()
 
     def run(self) -> None:
         """Execute all timesteps, then the economic finalize step (if any)."""

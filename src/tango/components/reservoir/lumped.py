@@ -17,14 +17,9 @@ Temperature model (thermal depletion):
 where T₀ = initial reservoir temperature, T_inj = current injection temperature.
 
 References:
-Doublet impedance:
-    [Adams, B.M. & Schädle, P. (2020). genGEO: coupled reservoir-electricity-cost
-    geothermal simulator, v0.0.1 [Software]. Zenodo.](https://doi.org/10.5281/zenodo.4383139)
-
-Thermal depletion (cumulative-energy / γ(ψ) fitting function):
-    [Adams, B.M. et al. (2015). A comparison of electric power output of CO2
-    Plume Geothermal (CPG) and brine geothermal systems for varying reservoir
-    conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+    Doublet impedance: Adams & Schädle (2020), genGEO; see docs/SOURCES.md#adams2020gengeo.
+    Thermal depletion (cumulative-energy / γ(ψ) fitting function): Adams et al.
+    (2015); see docs/SOURCES.md#adams2015.
 
 """
 
@@ -40,6 +35,7 @@ from scipy.special import erfc  # type: ignore[import-untyped]
 from tango.components.reservoir.base import ReservoirComponent
 from tango.components.reservoir.wellpattern_impedance import WellPattern
 from tango.core.constants import YEAR_TO_SECOND
+from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import (
     fluid_cp,
     fluid_density,
@@ -274,34 +270,38 @@ class LumpedReservoir(ReservoirComponent):
     well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer horizontal distance (m) — from layout: block."""
     well_eff_diameter: float = Field(default=0.41, frozen=True)
-    """Effective well diameter for impedance calculation (m) — the average
-    of injection and production well diameters; set explicitly here for
-    transparency.
+    """Effective well diameter for the impedance calculation (m): the mean
+    of the injection and production well diameters. Derived from the config
+    (see ``tango.workflows.linked_quantities``); a config value that
+    disagrees raises ``ConfigError``.
     """
     well_pattern: WellPattern | None = Field(frozen=True)
     """Well pattern for analytic impedance solution — threaded from
     ``Layout.well_pattern`` (already validated/coerced there) via
     ``_build_components``'s ``layout_extras`` mechanism."""
-    wp: WellPattern = WellPattern.Doublet
+    wp: WellPattern = Field(default=WellPattern.Doublet, exclude=True)
     """Resolved ``well_pattern`` object"""
     net_to_gross_ratio: float = Field(default=1.0, frozen=True)
     """Net-to-gross ratio for effective reservoir thickness (dimensionless)."""
 
     # ---- Derived constants (computed once by init(), never touched by solve()) ----
+    # Excluded from serialization: pure functions of the inputs, recomputed
+    # by every init(), so a serialized copy could only go stale. A config
+    # that supplies one anyway is checked (Component._set_derived).
     # Deliberately NOT frozen — init() assigns these directly (plain floats,
     # not LockedState) once; see Component's class docstring for why fields
     # like this stay mutable rather than Field(frozen=True). Unlike p1/p2/p3
     # (now in `state` — see LumpedReservoirState), solve() never reassigns
     # these, so they have no need to live in `state` either.
-    T_initial: float = 0.0
+    T_initial: float = Field(default=0.0, exclude=True)
     """Un-depleted reservoir temperature = surface_T + gradient × depth (K)."""
-    P_initial: float = 0.0
+    P_initial: float = Field(default=0.0, exclude=True)
     """Un-depleted reservoir pressure = brine_density × g × reservoir_depth
     (Pa). Distinct from the fracking-safety ceiling
     (hydro_static_pressure × (1 + over_pressure_percentage/100))."""
-    rock_volume: float = 0.0
+    rock_volume: float = Field(default=0.0, exclude=True)
     """Rock (non-fluid) volume = thickness × area × (1 − porosity) (m³)."""
-    rock_C_v: float = 0.0  # noqa: N815
+    rock_C_v: float = Field(default=0.0, exclude=True)  # noqa: N815
     """Volumetric heat capacity of rock = rock_density × rock_cp (J/(m³·K))."""
 
     # ---- Runtime state / history ----
@@ -313,15 +313,16 @@ class LumpedReservoir(ReservoirComponent):
 
     def init(self) -> None:
         """Pre-compute geometry and depletion coefficients from validated fields."""
-        self.wp = self.well_pattern if self.well_pattern is not None else WellPattern.Doublet
-
-        self.T_initial = self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth
-        self.P_initial = self.brine_density * self.gravity * self.reservoir_depth
         area = 0.5 * self.well_spacing**2  # DOUBLET area approximation
         volume = self.thickness * area
         fluid_volume = self.porosity * volume
-        self.rock_volume = volume - fluid_volume
-        self.rock_C_v = self.common.rock_density * self.common.rock_cp
+        self._set_derived(
+            wp=self.well_pattern if self.well_pattern is not None else WellPattern.Doublet,
+            T_initial=self.common.surface_temperature + self.common.thermal_gradient * self.reservoir_depth,
+            P_initial=self.brine_density * self.gravity * self.reservoir_depth,
+            rock_volume=volume - fluid_volume,
+            rock_C_v=self.common.rock_density * self.common.rock_cp,
+        )
 
     def _recompute_depletion_coeffs(self, m_dot: float, rho_fluid: float, cp_fluid: float) -> None:
         """Update ``state``'s thermal-depletion curve-fit coefficients p1/p2/p3 from current fluid properties.
@@ -331,9 +332,7 @@ class LumpedReservoir(ReservoirComponent):
         within-timestep re-solve (see ``LumpedReservoirState.p1``'s
         docstring).
 
-        Reference: [Adams, B.M. et al. (2015). A comparison of electric power
-        output of CO2 Plume Geothermal (CPG) and brine geothermal systems for
-        varying reservoir conditions. Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+        Reference: Adams et al. (2015); see docs/SOURCES.md#adams2015.
         """
         b = self.thickness
         k_rock = self.common.rock_k
@@ -354,7 +353,7 @@ class LumpedReservoir(ReservoirComponent):
     def _depletion_curve(self, psi: float) -> float:
         """γ(ψ): fraction of (T₀ − T_inj) remaining in produced fluid.
 
-        Reference: [Adams, B.M. et al. (2015). Applied Energy, 140, 365-377.](https://doi.org/10.1016/j.apenergy.2014.11.043)
+        Reference: Adams et al. (2015); see docs/SOURCES.md#adams2015
         (same curve-fit as ``_recompute_depletion_coeffs`` above — see its
         docstring).
         """
@@ -366,7 +365,7 @@ class LumpedReservoir(ReservoirComponent):
             C = 1.13
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * math.exp(-C * (p2 * psi + p1)))
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
 
@@ -385,12 +384,15 @@ class LumpedReservoir(ReservoirComponent):
         T_out_prev = self.T_initial if not was_solved_before else s.T_outlet.get_stale()
         P_out_prev = self.P_initial if not was_solved_before else s.P_outlet.get_stale()
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        T_inj = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
+        # this model's depletion physics works in temperature; derive it once from the arriving (h, P)
+        T_inj = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend).T
+        s.T_inlet.update(T_inj)
         mdot = s.mass_rate.get_fresh()
 
         s.T_reservoir_initial.update(self.T_initial)
@@ -428,8 +430,6 @@ class LumpedReservoir(ReservoirComponent):
 
         # Thermal depletion (Adams 2015)
         dT = self.T_initial - T_inj
-        h_in = fluid_enthalpy(fluid_name, T_inj, P_in, backend)
-        s.h_inlet.update(h_in)
 
         h_prod_prev = fluid_enthalpy(fluid_name, T_out_prev, P_out_prev, backend)
         rho_avg = 0.5 * (
@@ -457,6 +457,7 @@ class LumpedReservoir(ReservoirComponent):
         s.T_outlet.update(T_out)
         s.h_outlet.update(fluid_enthalpy(fluid_name, T_out, P_out, backend))
 
-        self.outlet.T.update(T_out)
+        self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(P_out)
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

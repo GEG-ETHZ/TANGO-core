@@ -4,6 +4,8 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet`; set on TESPy's inlet connection as-is. |
+| `<name>_h_outlet` | Specific enthalpy (J/kg) on TESPy's outlet connection -- what `outlet` carries. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |

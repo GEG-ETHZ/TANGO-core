@@ -1,0 +1,171 @@
+# Frozen copy of templates/CO2_AGS_direct_heat.yml as of 2026-10-13, used as a fixed
+# scenario by test_lcoe_regression.py and test_phase_diagrams.py. The example
+# configs change when their design point is re-optimized; these tests check
+# behavior that needs a specific design (e.g. which regime a pump runs in), so
+# they read this copy instead. Update it deliberately, not alongside the example.
+# tango format — Advanced Geothermal System (AGS) with CO2 as the working
+# fluid, direct-heat (district heating) extraction, hypothetical deepened
+# variant of the Triemli site.
+#
+# NOT the real Triemli site: rock properties/gradient match the real site
+# (same as AGS_direct_heat.yml), but the well depths below are a
+# hypothetical deepening. Nothing here should be read as a real drilling
+# proposal for Triemli.
+#
+# Same closed-loop subsurface SHAPE as AGS_direct_heat.yml (injection_well
+# -> horizontal_well -> production_well -> surface -> back to
+# injection_well, no reservoir) -- see that file's module docstring for the
+# full subsurface rationale. fluid_name: CO2 instead of H2O -- confirmed by
+# CPG_electric.yml's own port that tango's fluid handling is fluid-agnostic,
+# no new code needed.
+#
+# Depth is NOT copied verbatim from AGS_direct_heat.yml's real 3000 m/707 m,
+# though, for a genuinely different reason than AGS_ORC_electric.yml's own
+# deepening (that one needed more TEMPERATURE for its ORC cycle). Here, a
+# first draft at the real 3000 m depth ran without crashing but produced
+# consistently NEGATIVE net_thermal_W (the district-heating exchanger
+# appeared to be adding heat, not extracting it) across a wide sweep of
+# both the DH return-temperature target and district_heating_hx's own outlet pressure --
+# confirmed by direct run and an independent CoolProp enthalpy check
+# (matching TESPy's own solved Q to within noise, ruling out a units/sign
+# bug). Root cause: at that depth, the produced fluid's converged (T, P)
+# sits uncomfortably close to CO2's actual critical point (Tc=304.13 K,
+# Pc=7.38 MPa) -- within ~5-20 K and ~0.3-0.4 MPa of it -- a genuinely
+# near-critical regime where enthalpy's sensitivity to pressure becomes
+# extreme (property gradients diverge at the critical point itself) and
+# stops tracking temperature the way it does for an ordinary fluid state.
+# A small, otherwise-unremarkable pressure change through district_heating_hx dominated
+# the enthalpy balance there, overwhelming the temperature-driven cooling
+# entirely -- a real physics effect, not a bug, but one that makes this
+# design point unusable for district-heat extraction as specified. This is
+# a distinct failure mode from the near-critical-point SOLVER CRASH found
+# elsewhere in this session's CO2/CPG audit (CPG_direct_heat.yml) -- here
+# nothing crashes, the physics is just genuinely unusable at that depth.
+#
+# Deepening to 6000 m (with injection_pressure/district_heating_hx's outlet pressure also
+# raised well clear of CO2's critical pressure, not just its critical
+# temperature) moves the whole design comfortably away from the critical
+# point and gives real, stable net_thermal_W across the full 25-year run --
+# confirmed by direct run. Not claimed as a realistic drilling target for
+# the real Triemli site -- illustrative only, same spirit as
+# AGS_ORC_electric.yml's own disclaimer.
+#
+# district_heating_hx's own outlet pressure (7.8 MPa) was checked against the CLOSED
+# LOOP's own real natural pressure by direct run before being committed --
+# see CPG_direct_heat.yml's own documented mistake for why this matters.
+# Unlike the reservoir-fed CO2 configs, this closed loop's production_well
+# pressure is genuinely coupled to the surface plant's own downstream
+# choices (a real feedback loop, not an independent quantity) -- an
+# earlier value chosen to nearly match the loop's converged pressure
+# turned out to leave almost no real margin (well within numerical noise
+# of the "silently raising pressure" bug found elsewhere this session), so
+# 7.8 MPa was chosen instead specifically for a confirmed, stable ~0.5 MPa
+# margin below the natural value across the whole run.
+
+title: Advanced Geothermal System (AGS) with CO2, direct-heat, hypothetical deepened Triemli-like site
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+
+sim_config:
+  num_tsteps: 25              # 25 years of operation
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — INERT for this topology (plain
+                                          # production_well, no pump) -- kept
+                                          # for consistency, matching every
+                                          # other CO2 config.
+  injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
+                                # even without a reservoir
+  mass_rate: 30                 # kg/s — matches AGS_direct_heat.yml's subsurface loop
+  bc_checkpoint_idx: 3           # component_idx of the surface (below)
+
+economic:
+  # Same CAPEX-coverage caveat as every other direct-heat example: the
+  # district-heating exchanger has no Subtype: cooler/condenser tag, so
+  # CAPEX_surface_plant is 0.0 here (real, not a crash).
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: heat
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # circuit entry — where the solve pass begins each timestep
+    prev: 3
+    next: 1
+    well_length: 6000.0        # m — vertical well depth (hypothetically deepened, see header comment)
+    diameter: 0.311             # m  (~12-inch casing)
+    pipe_roughness: 5.5e-5      # m
+
+  horizontal_well:
+    type: horizontal_well
+    variant: numerical
+    component_idx: 1
+    prev: 0
+    next: 2
+    well_length: 707.0          # m — horizontal loop flow-path length
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+    # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    angle_from_vert_deg: 90       # fully horizontal — see components/well/numerical.py
+
+  production_well:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.311              # m
+    pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 3            # solved last, loops back to injection_well (next: 0)
+    prev: 2
+    next: 0
+    injection_pressure: 9_000_000  # Pa — well clear of CO2's 7.38 MPa critical pressure
+                                     # (see header comment for why this matters here beyond
+                                     # just staying single-phase).
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+
+    power_plant:
+      # Direct-heat surface plant, same shape as AGS_direct_heat.yml's own
+      # (district_heating_hx + circulation_control). district_heating_hx uses an ABSOLUTE
+      # p_out_megapascals (not AGS_direct_heat.yml's pressure_ratio: 0.99)
+      # for the same CO2-TESPy-initial-guess reason as every other CO2
+      # config in this matrix -- see header comment for how this specific
+      # value was chosen and verified.
+      nodes:
+        inlet:
+          type: Source
+        district_heating_hx:
+          type: SimpleHeatExchanger
+          role: net_thermal
+          T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+          p_out_megapascals: 7.8  # MPa -- see header comment for the margin verification.
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+        outlet:
+          type: Sink
+      edges:
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: circulation_control}
+        '3': {source: circulation_control, target: outlet}

@@ -1,7 +1,7 @@
 # claude_tests fixture: injection_policy_not_implemented
 # sim_config.injection_mode names a real, recognized InjectionPolicy member
 # that the orchestrator does not implement yet.
-# Derived from example_configs/hydro_sf_electric.yml
+# Derived from templates/hydro_sf_electric.yml
 # (injection_mode: manual -> manual-fracing-check).
 #
 # NOTE (current behavior): InjectionPolicy.MANUAL_FRACING_CHECK is a real
@@ -127,7 +127,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

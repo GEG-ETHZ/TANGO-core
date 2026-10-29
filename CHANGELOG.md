@@ -5,6 +5,38 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ## [In Development]
 
+### Breaking
+
+Configs, scripts, and workflows written for an earlier version need these
+changes:
+
+- **`auto-pressure`, `auto-flow`, and `auto-both` injection modes are
+  removed**; a config that names one fails validation with a message
+  saying so. Use `manual-fracking-check` and find the
+  operating point with an `applications/opt_*/` search.
+- **`sim_config.max_mass_rate` is rejected** as an unknown key. Drop it; it
+  only served `auto-flow`.
+- **`example_configs/` is now `templates/`**, in the repository, in the wheel
+  (`tango/templates/`), and in what `tango_cli init` copies.
+- **The sweep apps are deleted** (`run_*_sweep`, `sweep_demo_AGS_direct_heat`),
+  and the surrogate app moved to
+  `applications/_on_hold/opt_hydro_df_electric_surrogate/`. Use the `opt_*`
+  apps, or `Workflow` in a loop as its docstring shows.
+- **Unknown surface-node keys raise `ConfigError`.** Fix the typo or remove
+  the key.
+- **`p0_out{N}` is now `p0_megapascals_out{N}`, in MPa.** The old key was
+  passed to TESPy as bar, so its values were 10x too low; rename the key and
+  give the value in MPa.
+- **A linked config value that disagrees raises `ConfigError`.** Values
+  derived from another one (e.g. `hydro_static_pressure`,
+  `well_eff_diameter`, the injection well's length, a numerical well's
+  `num_cells` with `cell_length`) must match it; drop them from the config and
+  let TANGO derive them.
+- **`tango_cli run --save-dir` writes `<name>.results.yml`** instead of
+  `<name>.yml`. Update anything that reads the old name.
+- **`just slurm-fetch` needs app names or `--all`.** A bare call fetches
+  nothing.
+
 ### Added
 
 - **Docs site** — `mkdocs.yml` (read by Zensical), a `docs` dependency
@@ -35,13 +67,16 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 - **Project files** — `SECURITY.md` (private vulnerability reporting on
   GitHub), `CITATION.cff`, `.editorconfig`, and GitHub templates for pull
   requests, bugs, features and tasks.
-- **GitHub Actions CI** (`.github/workflows/ci.yml`) — format check, lint,
-  mypy strict, the generated-docs check, and `tests/unit/` on every pull
-  request and push to `main`; `.github/workflows/docs.yml` builds the docs
+- **GitHub Actions CI** (`.github/workflows/tests.yml`) — format check, lint,
+  mypy strict, the generated-docs check, and the pre-push test selection
+  (`-m "not slow and not perf"`) on macOS, Linux and Windows, on every pull request and push to `main` and `develop`;
+  `license-check.yml` gates releases; `.github/workflows/docs.yml` builds the docs
   site on every pull request.
 
 ### Changed
 
+- **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
+  `DEST/templates/`, and the wheel ships it as `tango/templates/`.
 - **Forge** — GitHub (`GEG-ETHZ/TANGO-core`) replaces gitlab.ethz.ch for
   code, issues, pull requests, CI and releases. Install and clone commands,
   contributor workflow and release steps point to GitHub;
@@ -56,6 +91,190 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
   tests.
 - **Historical docs** — progress summaries, refactor notes and the phase
   0/1 diagrams moved to `docs/archive/`, off the site.
+- **Developer docs are back in `docs/`.** The task log, roadmap, design
+  notes and archive sit next to the site pages; the public build excludes
+  them and the internal preview includes them. `dev_docs/` is gone. The
+  wheel still ships only `docs/SOURCES.md` from `docs/`.
+- **`tango_cli run --save-dir`** writes the full results as
+  `<name>.results.yml` (was `<name>.yml`, the same name as the input file).
+- **CSV headers carry units**: every `.smry.csv`/`.econ.csv` column ends in
+  its unit, e.g. `production_well_T_outlet [K]`, `LCOE [USD/kWh]`.
+- **Phase diagrams** number every state point in flow order, with a
+  "State points" key under the plot, and open on the final year instead of
+  animating through every year on load.
+- **TESPy 0.7.1 → 0.11.2** (GitLab #75). LCOE results for every example
+  config are unchanged to 1e-6. ORC designs that used to fail to converge at
+  random now solve every time. The `subcooling_K` surface-node key now maps
+  to TESPy's `td_bubble`.
+- **Linked config values have one source.** A quantity that several
+  components need is written once and the rest derived
+  (`tango.workflows.linked_quantities`); a config that gives a copy which
+  disagrees raises `ConfigError` instead of running with it. Doublet:
+  `reservoir.reservoir_depth` and the pump depth
+  (`production_well_upper.well_length`) set the injection well's length, the
+  lower production segment, `well_eff_diameter` and `hydro_static_pressure`
+  (= brine density x g x depth; 2% lower than the old hand-entered 50 MPa in
+  the hydro configs, 24.5 vs 25 MPa in CPG). AGS: the injection well's length
+  sets the production well and the loop's depth, and the loop length sets
+  `layout.well_spacing`. Every example config drops its redundant copies.
+- **Numerical wells:** `num_cells` and `cell_length` are linked to
+  `well_length` (give either, both if they agree, or neither for the
+  default). Derived values (`T_r`, cross-section, ...) are no longer written
+  by `to_dict()`, and a config that supplies one that disagrees raises
+  instead of being silently overwritten; `LumpedReservoir`'s derived values
+  work the same way. `set_well_length()` changes a length with an explicit
+  choice of what follows it.
+- **Surface-node keys are checked:** an unknown key (a typo, a renamed key)
+  raises `ConfigError` instead of being ignored. The TESPy starting-pressure
+  guess is now `p0_megapascals_out{N}`, in MPa like `p_out_megapascals`; the
+  old `p0_out{N}` was passed to TESPy unconverted in bar, so the ORC
+  configs' and opt apps' MPa values were 10x too low.
+
+### Removed
+
+- **The sweep apps** (`run_AGS_direct_heat_sweep`, `run_EGS_direct_heat_sweep`,
+  `run_hydro_df_electric_sweep`, `sweep_demo_AGS_direct_heat`). The `opt_*`
+  apps cover their configs; `Workflow`'s docstring shows the sweep pattern.
+  `just apps` drops its `--slow` flag, which only ran their full grids.
+- **`auto-pressure`, `auto-flow` and `auto-both` injection modes**, with
+  `sim_config.max_mass_rate` and the `hydro_sf_electric_autopressure.yml`
+  and `hydro_sf_electric_autoflow.yml` examples. They iterated pressure or
+  flow toward a fracking threshold within each timestep; `auto-pressure`
+  could cycle without converging, and `auto-both` was never implemented.
+  Find operating points with the `applications/opt_*/` searches instead,
+  which treat fracking as a constraint under `manual-fracking-check`.
+
+### Fixed
+
+- **Optimizations used the base design's well resolution.** `Minimization`
+  built its template with `Workflow.to_dict()`, which pinned each numerical
+  well's cell count, so AGS designs with longer wells were simulated with
+  far coarser cells (an 8000 m loop in 10 cells of 800 m instead of 40 of
+  200 m; up to 1.3% in LCOE). The template is now the config as written.
+- **Sweeps:** the EGS direct-heat sweep never moved the lower production
+  segment's starting depth with the reservoir depth, so its rock
+  temperatures stayed at the base design's; the hydro_df sweep varied the
+  reservoir depth and the well lengths independently; all three sweeps
+  inherited the pinned cell counts above. They now build from the YAML and
+  set only source values; the hydro_df one-at-a-time design drops from 59
+  to 55 rows.
+- **Parallel optimizations on TESPy 0.11:** `Minimization` and the surrogate
+  sweep take a config dict (`base_cfg`), not a `Workflow`, so nothing
+  unpicklable is sent to worker processes.
+- **hydro_df's two flash-pressure parameters** give the same design in
+  either application order.
+
+---
+
+## [1.1.0] — 2026-10-05
+
+Completes the example coverage matrix, moves the stream interface from
+temperature to specific enthalpy, adds interactive phase diagrams, and
+fixes several physics and solver bugs those diagrams exposed. Adds
+run-time guards that turn physically impossible surface-plant results into
+typed errors, realistic cited component efficiencies, and a third-party
+license gate. **Results change substantially for CO2 and closed-loop (AGS)
+configs**; every example config is regoldened.
+[Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
+
+### Added
+
+- **Coverage matrix complete**: `AGS_ORC_electric.yml`,
+  `hydro_direct_heat.yml`, `CPG_direct_heat.yml`, `CO2_EGS_direct_heat.yml`,
+  `CO2_AGS_direct_heat.yml`, and the CO2 power cells, including direct-CO2
+  plants `CO2_EGS_electric.yml` and `CO2_AGS_electric.yml` (the CO2 itself
+  drives the turbine; LCOE 0.40 and 2.89 vs 1.55 and 10.9 for the binary
+  versions). Matrix and per-config review checklist: GitLab #67.
+- **Interactive P-h phase diagrams** (GitLab #56): `tango_cli run
+  --save-dir` writes one Plotly `<config>.phase_<fluid>.html` per working
+  fluid, with a year slider, configurable isotherms/isentropes/isochores/
+  quality lines (`--phase-diagram-config`), a shaded two-phase region, a
+  phase-color legend, and wells drawn along their computed profiles
+  (including the downhole pump step). `just phase-diagrams` writes every
+  config's into gitignored `scratch_output/<config>/`.
+- **Run-time guards** in `GraphSurface`, as typed errors that optimizers
+  treat as infeasible designs:
+  - `PassivePressureRiseError`: a heat exchanger, valve, separator, mixer
+    or cycle closer whose outlet pressure is above its inlet (TESPy solves
+    a fixed absolute `p_out` above the real inlet as free compression).
+  - `NegativeNetPowerError`: a turbine plant that consumes more power than
+    it makes. Checked once per timestep, on the converged state.
+  - `ValveCannotRaisePressureError`: a `PumpOrValve` on its Valve leg whose
+    pressure would rise. The only power-state error that retries the node
+    as a pump; any other is reported as itself.
+  - `NegativeNetThermalError`: a heat plant whose produced fluid has cooled
+    so far (e.g. a depleted reservoir) that its `net_thermal` exchangers
+    would heat it. Checked once per timestep, on the converged state.
+  - `TESPyConvergenceError`: an unconverged TESPy solve, except TESPy's
+    measured ~1 J/kg stall on a pump drawing exactly saturated liquid,
+    which is used with a warning naming the pump.
+- **`subcooling_K`** surface-node key (TESPy `Td_bp`, `td_bubble` since
+  TESPy 0.11): an outlet that many
+  kelvin below saturation at its actual pressure.
+- **Third-party license tooling**: `tools/check_licenses.py` records the
+  dependency graph (direct/indirect, depth, scope), evaluates license
+  expressions, supports reviewed approvals, and draws a draw.io dependency
+  tree; a `license_check` CI job runs on MRs into `main` and on release
+  tags.
+- **`docs/SOURCES.md`**, a verified bibliography that code and configs cite
+  by key; `docs/` is now user-facing (shipped in the wheel), with developer
+  docs in `dev_docs/`. `dev_docs/tespy_limitations.md` lists what TESPy
+  solves without complaint and TANGO's guards.
+
+### Fixed
+
+- **Energy was lost at every component boundary for CO2**: components
+  passed temperature and each rebuilt enthalpy from (T, P), and near CO2's
+  critical point the tabular property backend lost up to ~42 kJ/kg per
+  hand-off (~1.1 MW in `CO2_EGS_direct_heat.yml`). `Stream` now carries
+  specific enthalpy. The wellhead-to-plant pipe now drops pressure at
+  constant enthalpy (it was isothermal).
+- **Production wells had their rock temperatures upside down**: the
+  rock-temperature profile increased in depth along the flow, which is
+  reversed for upward flow. Small effect for hydrothermal/EGS/CPG (within
+  ~1%), large for closed AGS loops (`CO2_AGS_ORC_electric` LCOE 55.1 ->
+  10.9).
+- **The injection-enthalpy loop could accept an open loop**: its relaxed
+  guess never reached the injection well, and convergence was checked
+  against that unused guess (loop open by up to ~3.6 kJ/kg). Every config
+  now closes within 1 kJ/kg every year.
+- **`AUTO_PRESSURE`/`AUTO_BOTH` depleted the reservoir once per outer
+  iteration** instead of once per timestep.
+- **Free compression in two heat configs**: `CPG_direct_heat.yml` and
+  `CO2_EGS_direct_heat.yml` had heat exchangers raising pressure for free,
+  which had been letting them reinject dense CO2. Both now use a pressure
+  ratio and an injection cooler; `CPG_direct_heat.yml` runs at 75 kg/s and
+  its reservoir now supplies the heat (its CO2 had been reinjected hotter
+  than the reservoir, so all delivered heat was pump work).
+- **The `PumpOrValve` fallback reported the wrong error**: a negative-net-
+  power or free-compression failure was retried as a pump and surfaced as
+  "negative pump power".
+- **A CO2 EGS power example ran away**: reinjected CO2 sat on its
+  pseudo-critical density drop; `CO2_EGS_ORC_electric.yml` now cools it
+  before reinjection.
+
+### Changed
+
+- **Realistic component efficiencies** in every example config, each with
+  a citation: turbines 0.85 and surface pumps 0.75 (DiPippo 2016),
+  downhole pumps 0.55 overall ESP string (van 't Spijker & Ungemach 2016).
+  Three marginal examples were adjusted to stay net-positive
+  (`EGS_electric.yml` deepened to a hypothetical 5000 m; `CPG_electric.yml`
+  at 125 kg/s; `CO2_AGS_ORC_electric.yml` at 20 years).
+- **Descriptive surface node names** in the example configs (e.g.
+  `evaporator`, `preheater`, `flash_valve`, `separator`, `brine_pump`,
+  `condensate_pump`, `district_heating_hx`; every `PumpOrValve` is
+  `circulation_control`). Application parameter paths that address these
+  nodes changed accordingly.
+- **Binary (ORC) plant configs carry `ORC` in their file names.**
+- **Condensers subcool by 1 K** (`subcooling_K: 1.0`) instead of ending at
+  exactly saturated liquid, except four ORC condensers and
+  `CPG_electric.yml`'s, which already sit at or below their cooling limit.
+- `tango_cli init` copies every application by default (`--app` narrows,
+  `--no-apps` skips).
+- The pre-push remote-freshness hook passes when you have rewritten your
+  own pushed commits (amend/rebase), and still blocks when someone else
+  pushed.
 
 ---
 
@@ -253,6 +472,7 @@ implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
-[In Development]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.1...HEAD
+[In Development]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/old-tango-main-2026-06-08...v1.0.0

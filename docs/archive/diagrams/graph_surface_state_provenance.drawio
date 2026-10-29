@@ -83,7 +83,7 @@
           <mxGeometry height="150" width="1420" x="20" y="850" as="geometry" />
         </mxCell>
 
-        <mxCell id="footer" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontStyle=2;fontColor=#666666;" value="Ref: src/tango/components/surface/graph.py (GraphSurface.init / _apply_node_config / solve); src/tango/units/native/surface/flexible_pp.py (validate_pressure_monotonicity, approach_temperature/BAC regression); example_configs/hydro_sf_electric.yml, AGS_direct_heat.yml. dh_hx = district-heating heat exchanger, not delta-h." vertex="1">
+        <mxCell id="footer" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontStyle=2;fontColor=#666666;" value="Ref: src/tango/components/surface/graph.py (GraphSurface.init / _apply_node_config / solve); src/tango/units/native/surface/flexible_pp.py (validate_pressure_monotonicity, approach_temperature/BAC regression); templates/hydro_sf_electric.yml, AGS_direct_heat.yml. dh_hx = district-heating heat exchanger, not delta-h." vertex="1">
           <mxGeometry height="18" width="1440" x="20" y="1008" as="geometry" />
         </mxCell>
       </root>

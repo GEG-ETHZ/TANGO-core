@@ -30,10 +30,10 @@ TANGO is internal to the GEG group (see [`NOTICE`](https://github.com/GEG-ETHZ/T
 2. From inside the new project, add TANGO pinned to a release tag:
 
    ```bash
-   uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.0.1
+   uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
    ```
 
-   `uv` records the tag and the resolved commit in `pyproject.toml` and `uv.lock`, so the build stays reproducible until you change the tag. Replace `v1.0.1` with the release you need; releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-an-internal-geg-only-release).
+   `uv` records the tag and the resolved commit in `pyproject.toml` and `uv.lock`, so the build stays reproducible until you change the tag. Replace `v1.1.0` with the release you need; releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-an-internal-geg-only-release).
 
 3. Check the installation:
 
@@ -43,13 +43,13 @@ TANGO is internal to the GEG group (see [`NOTICE`](https://github.com/GEG-ETHZ/T
 
    Expected output starts with `tango 1.0.1`, followed by the internal distribution notice.
 
-4. Copy the example configs into your project as a starting point:
+4. Copy the templates into your project as a starting point:
 
    ```bash
    uv run tango_cli init .
    ```
 
-   This copies the `example_configs/` that ship with the installed version. It fails if `example_configs/` already exists, so local edits are never overwritten. To also copy a sweep, optimization or demo pipeline, add `--app <name>` (repeatable); `--list-apps` prints the available names.
+   This copies the `templates/` that ship with the installed version. An existing `templates/` is left as it is, so local edits are never overwritten. To also copy an optimization or demo pipeline, add `--app <name>` (repeatable); `--list-apps` prints the available names.
 
 To upgrade, run the `uv add` command again with the new tag.
 
@@ -76,7 +76,7 @@ from tango.workflows.workflow import Workflow
 3. Check the setup with a first run:
 
    ```bash
-   uv run tango_cli run example_configs/hydro_sf_electric.yml
+   uv run tango_cli run templates/hydro_sf_electric.yml
    ```
 
 ### Running checks
@@ -99,4 +99,4 @@ Run every command from the repository root.
 |---|---|
 | `Permission denied (publickey)` during `uv add` or `git clone` | Your SSH key is not registered on GitHub, or your account lacks access to `GEG-ETHZ/TANGO-core`. Follow the SSH guide linked above, then ask a maintainer for access. |
 | `requires-python` / no matching Python | TANGO needs Python 3.11 exactly. Install it, or let uv fetch it: `uv python install 3.11`. |
-| `tango_cli init` fails because `example_configs` exists | Intended: it never overwrites. Choose another destination, or move the existing folder. |
+| `tango_cli init` leaves `templates/` unchanged | Intended: it never overwrites an existing folder. Choose another destination, or move the existing folder to get fresh copies. |

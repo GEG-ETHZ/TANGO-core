@@ -58,6 +58,7 @@ memory/
 .claude/
 
 # draw.io autosave/crash-recovery files
+docs/diagrams/src/.$*.bkp
 docs/archive/diagrams/.$*.bkp
 
 # Configuration and secrets
@@ -71,6 +72,10 @@ builds
 # Images
 *.png
 *.svg
+# Only images that a markdown doc embeds are tracked; other diagram exports
+# stay local. docs/diagrams/*.svg are the topology diagrams that
+# `just diagrams` exports from docs/diagrams/src/*.drawio.
+!docs/diagrams/*.svg
 !docs/diagrams/img/**/*.svg
 # README banner and hero (tools/readme_assets.py) and editable hero diagrams
 !/docs/assets/*.svg
@@ -79,6 +84,9 @@ builds
 .aider*
 .claude/
 *.drawio.bkp
+
+# Local run output, e.g. from `just phase-diagrams`
+scratch_output/
 
 # Root-level scratch markdown (planning notes, worklogs) — not meant to be
 # tracked; repo-root only, doesn't affect docs/ etc. Existing tracked
@@ -97,3 +105,6 @@ builds
 
 # Docs site build output, internal preview (mkdocs.internal.yml)
 /site-internal/
+
+# Study runs that never go through DVC, e.g. tools/n_max_gen_study_job.sh
+studies/

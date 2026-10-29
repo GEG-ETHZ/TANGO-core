@@ -1,0 +1,213 @@
+# Design point: opt_EGS_electric's Pareto pick (the design closest to the ideal corner),
+# design 7 of its outputs/pareto_results.csv (md5 64e1b8ed6dcd0e34f99efd5eb114f60f),
+# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# 3 significant figures.
+#
+# tango format — Enhanced Geothermal System (EGS), power extraction.
+#
+# EGS doublet with hydro_sf_electric.yml's Single-Flash surface plant
+# (Source -> Valve -> DropletSeparator -> Turbine/brine_pump ->
+# SimpleHeatExchanger(condenser) -> condensate_pump -> Merge -> Sink) -- completes the
+# EGS row of the tango example coverage matrix (GitLab #67), alongside
+# EGS_direct_heat.yml.
+#
+# The reservoir is deepened to 5000 m, a hypothetical Triemli-like site
+# (same rock properties/gradient; illustrative, not a drilling target).
+# At the real Triemli EGS depth (3000 m, EGS_direct_heat.yml's site) the
+# brine reaches the surface at only ~115 degC -- too cold for a flash
+# plant, which works by boiling the brine at reduced pressure; with
+# realistic turbine/pump efficiencies the plant there barely stayed
+# net-positive (LCOE ~31). At 5000 m the brine arrives at ~178 degC in the
+# first year. At this config's 147 kg/s the reservoir cools quickly: ~125 degC
+# by year 4 and ~111 degC by year 19, when net power has fallen from 7.5 MW
+# to almost zero. This design is kept anyway: the optimizer scores LCOE
+# averaged over the run and only rejects negative output, so a plant that
+# idles for its last ~10 years can still be the pick. See GitHub #121.
+#
+# Site parameters (Triemli-like, deepened):
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   fluid                : H2O
+#   reservoir depth      : 5000 m (hypothetical)
+#   application          : power (single-flash), not direct heat
+#
+# target_extraction_pressure is low here (1.05 MPa, set by the
+# opt_EGS_electric Pareto pick; see the Design point header): this
+# system's turbine output is
+# easily swamped by production_well_with_pump's OWN downhole parasitic
+# power draw, which scales with how much lift pressure the well pump has
+# to add to reach the target -- confirmed empirically (the per-timestep
+# orchestrator log only shows the SURFACE plant's own net power, which
+# looked positive throughout; DoubletEconomicComponent's LCOE calc
+# separately subtracts the downhole pump's draw too and came back
+# negative/NaN until this was lowered). See this file's own economic:
+# main_product and DoubletEconomicComponent's _production_pump_parasitic_power
+# docstring for that accounting split.
+#
+# KNOWN GAP: EGS reservoir stimulation is not costed (GitLab #66).
+
+title: Enhanced Geothermal System (EGS), single-flash, hypothetical deepened Triemli-like site
+
+description:
+  summary: EGS doublet with single-flash power extraction (companion to EGS_direct_heat.yml)
+  date: "2026-09-21"
+  description: >
+    Enhanced Geothermal System doublet at a hypothetical deepened (5000 m)
+    Triemli-like site, with a single-flash power plant instead of
+    EGS_direct_heat.yml's district-heating exchanger -- completes the EGS
+    row of the tango example coverage matrix.
+
+common:
+  fluid_name: H2O
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)  — typical crystalline basement
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  well_spacing: 500.0        # m — typical for EGS doublet
+  well_pattern: DOUBLET
+
+sim_config:
+  num_tsteps: 20              # years of operation
+  dt_years: 1.0                # years
+  target_extraction_pressure: 1_050_000    # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells)
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 147.0              # kg/s
+  bc_checkpoint_idx: 4           # component_idx of the surface (below)
+
+economic:
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    diameter: 0.488             # m — set by the opt_EGS_electric Pareto pick; see header
+    pipe_roughness: 5.5e-5      # m
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 5000.0       # m (hypothetical deepened site, see header)
+    thickness: 300.0              # m
+    permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
+    porosity: 0.1
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    over_pressure_percentage: 10
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.458              # m
+    pipe_roughness: 5.5e-5       # m
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+
+  production_well_upper:
+    type: production_well_with_pump
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 1000.0         # m = 0.2 x reservoir_depth
+    diameter: 0.458              # m
+    pipe_roughness: 5.5e-5       # m
+    pump_efficiency: 0.55          # overall ESP string efficiency, van 't Spijker & Ungemach (2016) -- see docs/SOURCES.md#vantspijker2016
+    # target_extraction_pressure is NOT set here — it's sourced from
+    # sim_config.target_extraction_pressure above.
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4            # solved last, loops back to injection_well (next: 0)
+    prev: 3
+    next: 0
+    injection_pressure: 2_370_000    # Pa — initial guess for the BC-iteration solver
+    pipe_diameter: 0.202              # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing above.
+
+    power_plant:
+      # Single-Flash TESPy topology, identical to hydro_sf_electric.yml's
+      # -- see components/surface/graph.py module docstring for the
+      # inlet/outlet/role naming contract this depends on.
+      #
+      # Source("inlet") -> Valve -> DropletSeparator -(liquid)-> Compressor(brine_pump) -\
+      #                                              \-(vapor)-> Turbine -> SimpleHeatExchanger(condenser) -> Compressor(condensate_pump) -> Merge -> Sink("outlet")
+      nodes:
+        inlet:
+          type: Source
+
+        flash_valve:
+          type: Valve
+          p_out_megapascals: 0.130         # MPa (= 1.30 bar) — set by the opt_EGS_electric Pareto pick; must stay below H2O's saturation pressure at the produced brine's temperature to actually flash a meaningful vapor fraction, or the turbine starves
+
+        separator:
+          type: DropletSeparator
+
+        brine_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar)
+
+        condenser:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.005         # MPa (= 0.05 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+          # Cost-only metadata (DoubletEconomicComponent, ignored by GraphSurface's
+          # physics): a singleton set (no paired cooler), closed/wet cooling tower.
+          Subtype: condenser
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
+
+        condensate_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        reinjection_mixer:
+          type: Merge
+
+        outlet:
+          type: Sink
+
+      edges:
+        '1': {source: inlet, target: flash_valve}
+        '2': {source: flash_valve, target: separator}
+        '3': {source: separator, target: brine_pump, source_port: out1}    # liquid branch
+        '4': {source: separator, target: turbine, source_port: out2}  # vapor branch
+        '5': {source: turbine, target: condenser}
+        '6': {source: condenser, target: condensate_pump}
+        '7': {source: condensate_pump, target: reinjection_mixer, target_port: in1}     # condensate
+        '8': {source: brine_pump, target: reinjection_mixer, target_port: in2}    # separator liquid
+        '9': {source: reinjection_mixer, target: outlet}

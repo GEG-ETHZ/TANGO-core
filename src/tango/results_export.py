@@ -4,10 +4,11 @@
 matching old tango's own summary/economic split, plus one new one tango
 didn't have before:
 
-- ``<stem>.yml``: the full results, via ``Workflow.to_file()`` -- every
+- ``<stem>.results.yml``: the full results, via ``Workflow.to_file()`` -- every
   component's complete config AND final solved state/history, reloadable
   with ``Workflow.from_file()`` for further analysis. This is the
-  authoritative, complete record.
+  authoritative, complete record. The ``.results`` part keeps it from
+  having the same name as the input file it came from.
 - ``<stem>.smry.csv``: one row per timestep, one column per
   ``<component>_<field>`` for every SCALAR (not spatially-resolved)
   ``history`` field across all components -- a flat, spreadsheet-friendly
@@ -18,6 +19,9 @@ didn't have before:
 - ``<stem>.econ.csv``: one row, every field of the economic component's
   final ``state`` (CAPEX/LCOE/net power/...) -- omitted entirely if the
   config has no ``economic:`` block, since there's nothing to write.
+
+Every CSV column header ends in its unit, e.g. ``production_well_T_outlet
+[K]`` (``[-]`` for a dimensionless quantity), from ``FIELD_UNITS``.
 """
 
 from __future__ import annotations
@@ -29,9 +33,69 @@ from typing import Any
 
 from tango.workflows.workflow import Workflow
 
+FIELD_UNITS: dict[str, str] = {
+    # Stream and fluid properties
+    "T_inlet": "K",
+    "T_outlet": "K",
+    "T_reservoir_initial": "K",
+    "P_inlet": "Pa",
+    "P_outlet": "Pa",
+    "P_reservoir": "Pa",
+    "P_tespy_inlet": "Pa",
+    "h_inlet": "J/kg",
+    "h_outlet": "J/kg",
+    "mass_rate": "kg/s",
+    "rho": "kg/m^3",
+    "mu": "Pa s",
+    "velocity": "m/s",
+    # Pressure changes
+    "dP_pipe": "Pa",
+    "delta_p_darcy": "Pa",
+    "delta_p_friction": "Pa",
+    "delta_p_hydrostatic": "Pa",
+    "pump_delta_p": "Pa",
+    # Wells and reservoir
+    "Re": "-",
+    "friction_factor": "-",
+    "t_d": "-",
+    "impedance": "Pa s/kg",
+    "psi": "-",
+    "gamma": "-",
+    "p1": "-",
+    "p2": "-",
+    "p3": "-",
+    "energy_extraction_rate": "W",
+    "energy_extracted": "J",
+    "ever_solved": "bool",
+    # Power
+    "pump_power_watts": "W",
+    "net_power_W": "W",
+    "net_thermal_W": "W",
+    # Economics
+    "CAPEX_well": "USD",
+    "CAPEX_permitting": "USD",
+    "CAPEX_exploration": "USD",
+    "CAPEX_surface_pipes": "USD",
+    "CAPEX_surface_plant": "USD",
+    "CAPEX_total": "USD",
+    "LCOE": "USD/kWh",
+    "specific_investment_cost": "USD/kW",
+    "OPEX": "USD/yr",
+}
+"""Unit of every field written to the CSVs, keyed by field name (no component prefix).
+
+A field missing here raises ``KeyError`` when the CSVs are written, so a new
+history or economic field can't reach a CSV without a unit.
+"""
+
+
+def _with_unit(column: str, field_name: str) -> str:
+    """``column`` with ``field_name``'s unit appended, e.g. ``"surface_T_outlet [K]"``."""
+    return f"{column} [{FIELD_UNITS[field_name]}]"
+
 
 def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
-    """Write ``<stem>.yml``/``.smry.csv``/``.econ.csv`` into ``save_dir``.
+    """Write ``<stem>.results.yml``/``.smry.csv``/``.econ.csv`` into ``save_dir``.
 
     Args:
         wf: A Workflow whose ``run()`` has already completed.
@@ -46,7 +110,7 @@ def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
     save_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
-    yaml_path = save_dir / f"{stem}.yml"
+    yaml_path = save_dir / f"{stem}.results.yml"
     wf.to_file(yaml_path)
     written.append(yaml_path)
 
@@ -78,13 +142,13 @@ def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
                 # spatially-resolved (e.g. NumericalWellHistory.T_cells, one list
                 # per timestep) -- none of these fit a flat per-timestep table.
                 continue
-            columns[f"{name}_{f.name}"] = values
+            columns[_with_unit(f"{name}_{f.name}", f.name)] = values
 
     n_tsteps = wf._sim_config.num_tsteps  # noqa: SLF001
     dt_years = wf._sim_config.dt_years  # noqa: SLF001
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["timestep", "year", *columns.keys()])
+        writer.writerow(["timestep [-]", "year [yr]", *columns.keys()])
         for t in range(n_tsteps):
             row: list[Any] = [t, t * dt_years]
             for values in columns.values():
@@ -102,7 +166,7 @@ def _write_economic_summary_csv(wf: Workflow, path: Path) -> None:
     assert wf._economic is not None  # noqa: S101, SLF001
     state = wf._economic.state  # noqa: SLF001
     fields = [f.name for f in dataclasses.fields(state)]
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(fields)
+        writer.writerow([_with_unit(name, name) for name in fields])
         writer.writerow([getattr(state, name).get_fresh() for name in fields])

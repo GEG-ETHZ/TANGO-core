@@ -1,6 +1,6 @@
 # Running on Euler
 
-This guide runs a TANGO sweep as a SLURM job on ETH's Euler cluster. The example is the hydrothermal double-flash sweep in `applications/run_hydro_df_electric_sweep/`; the other applications follow the same pattern with their own `*_job.sh` scripts.
+This guide runs TANGO applications as SLURM jobs on ETH's Euler cluster. The example is the hydrothermal single-flash optimization in `applications/opt_hydro_sf_electric/`; the other applications follow the same pattern with their own `*_job.sh` scripts.
 
 ## Prerequisites
 
@@ -32,29 +32,32 @@ curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -
 
 Make sure `~/.local/bin` is on your `PATH`. If it is not, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and log in again.
 
-## 3. Submit the job
+## 3. Submit the jobs
+
+From anywhere in `~/tango-core`, name the applications to run:
 
 ```bash
-rsync -ahPv ~/tango-core/applications/ /cluster/scratch/$USER/tango-applications/
-cd /cluster/scratch/$USER/tango-applications/run_hydro_df_electric_sweep
-sbatch --cpus-per-task=16 run_hydro_df_electric_sweep_job.sh
+just slurm opt_AGS_ORC_electric opt_hydro_sf_electric
 ```
 
-The job script sets the number of parallel workers from the CPU allocation (CPUs minus 3), writes it to `params.yaml` and runs the DVC pipeline. Requesting fewer than 48 CPUs keeps the job from counting against the group's Euler quota.
+With no names, `just slurm` submits every application under `applications/` that has a `*_job.sh`. The jobs run one after another, each on a whole 48-core allocation. Each job runs its application's `dvc repro` inside the checkout, so its results land in that application's own `outputs/`. Hyperparameters such as population size and worker count come from each application's `params.yaml`; edit and commit that file rather than passing arguments to the job. `just slurm --help` lists the options.
 
-## 4. Monitor and analyze
+## 4. Monitor and fetch the results
+
+Run `myjobs` on Euler to check status. Each job writes `<app>_<jobid>.out` and `.err` in its application directory, and a failed job shows as FAILED in `sacct`.
+
+When the jobs finish, copy the results back from your laptop, inside your local checkout:
 
 ```bash
-myjobs                                                   # job status
-uv run --project ~/tango-core run_hydro_df_electric_analysis.py   # once the job has finished
+just slurm-fetch opt_AGS_ORC_electric opt_hydro_sf_electric
 ```
 
-SLURM writes the job's output to `run_hydro_df_electric_sweep_<jobid>.out` and `.err` in the submit directory.
+Name the applications to fetch, or pass `--all` for every one; with neither, nothing is fetched. An application with no `outputs/` on Euler is skipped. This copies each application's `outputs/`, job logs, and `dvc.lock`, plus Euler's DVC cache. Run `dvc push` afterwards so the results are kept; `just slurm-fetch --help` lists the options.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
 | `uv: command not found` in the job log | `~/.local/bin` is not on `PATH` in non-interactive shells. Add the `export` line to `~/.bashrc`. |
-| `fatal: not a git repository` | The job script must be submitted from its own application directory; it locates the repository from `$SLURM_SUBMIT_DIR`, not from git. |
+| `fatal: not a git repository` | The job script must be submitted from its own application directory; it locates the repository from `$SLURM_SUBMIT_DIR`, not from git. `just slurm` does this for you. |
 | The job is queued for a long time | Request fewer CPUs, or check the Euler status page. |

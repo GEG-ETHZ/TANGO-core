@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 
 
 class Orchestrator(ABC):
@@ -18,7 +18,7 @@ class Orchestrator(ABC):
 
     @property
     @abstractmethod
-    def components(self) -> dict[str, Component]:
+    def components(self) -> dict[str, FlowComponent]:
         """Named components, keyed by the name used in the input file."""
         ...
 

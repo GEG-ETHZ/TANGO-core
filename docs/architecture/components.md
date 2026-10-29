@@ -36,7 +36,7 @@ flowchart TB
   classDef human fill:#202124,stroke:#9AA0A6,color:#FFFFFF,font-size:15px
 ```
 
-The circuit above is `example_configs/hydro_sf_electric.yml`. The four system types reuse the same building blocks:
+The circuit above is `templates/hydro_sf_electric.yml`. The four system types reuse the same building blocks:
 
 | System | Example config | Fluid | What differs |
 |---|---|---|---|

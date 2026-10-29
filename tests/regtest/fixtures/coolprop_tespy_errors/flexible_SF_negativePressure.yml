@@ -1,3 +1,10 @@
+# INVALID FOR NOW (GitHub issue #109): five-spot patterns are costed and
+# simulated as a single doublet. Only the reservoir impedance uses
+# well_pattern; the economics cost one injection and one production well and
+# one well_spacing of surface pipe, and the single modeled production well carries
+# the full mass rate instead of its per-well share. Don't use this config's
+# LCOE until #109 is fixed.
+#
 # tango format — Inverted 5-spot hydrothermal system, automatic mass flow rate
 #
 # Structural changes from the old format:
@@ -30,7 +37,7 @@ layout:  # well-field geometry
 sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
-  injection_mode: manual  # InjectionPolicy: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
+  injection_mode: manual  # InjectionPolicy: manual | manual-fracing-check
   mass_rate: 55           #!!! NOTE: this is the line that was changed from 26 to 55 kg/s and leading to a coolProp error!
   bc_checkpoint_idx: 4      # component_idx of the BC checkpoint (surface); must match surface.component_idx below
   target_extraction_pressure: 7_000_000  # Pa
@@ -132,7 +139,6 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 50_000_000  # Pa
     over_pressure_percentage: 10
     well_eff_diameter: 0.410      # m — average of injection and production well diameters
 
