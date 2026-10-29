@@ -44,11 +44,9 @@
 # COMPLETED.
 set -euo pipefail
 
-# NOT git-based (unlike the sibling sweep job scripts' `git -C ... rev-parse
-# --show-toplevel`) -- that assumes a git clone, but the documented Euler
-# workflow (README.md's "Running on Euler") is rsync-based and doesn't
-# necessarily bring `.git` along, which made REPO_ROOT resolve to an empty
-# string and `uv run --project ""` fail with a useless error.
+# NOT git-based (`git -C ... rev-parse --show-toplevel`): that needs `.git`,
+# and a checkout copied to Euler without it made REPO_ROOT resolve to an
+# empty string and `uv run --project ""` fail with a useless error.
 #
 # Also NOT `dirname "$0"`-based, despite this script's own location
 # relative to the repo root being fixed: `sbatch` COPIES the submitted
@@ -64,6 +62,14 @@ set -euo pipefail
 REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/opt_EGS_direct_heat"
 PARAMS_FILE="$APP_DIR/params.yaml"
+
+# Submitted from anywhere but this app's directory, $SLURM_SUBMIT_DIR puts
+# REPO_ROOT somewhere else; stop before running in the wrong place.
+if [ ! -f "$APP_DIR/dvc.yaml" ]; then
+  echo "No $APP_DIR/dvc.yaml: REPO_ROOT resolved to $REPO_ROOT." >&2
+  echo "Submit this from its own directory, or use \`just slurm <app>\` from the repo root." >&2
+  exit 1
+fi
 
 if [ $# -gt 0 ]; then
   echo "This job takes no arguments -- edit $PARAMS_FILE directly before submitting." >&2
