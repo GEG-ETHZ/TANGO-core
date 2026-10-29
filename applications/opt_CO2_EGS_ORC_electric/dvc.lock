@@ -1,0 +1,76 @@
+schema: '2.0'
+stages:
+  optimize:
+    cmd: python opt_CO2_EGS_ORC_electric.py --clean --no-plot
+    deps:
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: e056b923a0dab18d520100a97d4e6ae0
+      size: 41
+    - path: ../../templates/CO2_EGS_ORC_electric.yml
+      hash: md5
+      md5: 7ac245ed329c442163e64564ca3a739b
+      size: 13771
+    - path: opt_CO2_EGS_ORC_electric.py
+      hash: md5
+      md5: 4f7882ea43dfb56d1b55b51b7ed6073c
+      size: 11688
+    params:
+      params.yaml:
+        crossover_prob: 0.9
+        ftol: 0.005
+        mutation_prob:
+        n_max_gen: 200
+        pop_size: 45
+        seed: 1
+        xtol: 0.0005
+    outs:
+    - path: outputs/pareto_configs
+      hash: md5
+      md5: 374f6f0673ed37af0c6b7171f075d95a.dir
+      size: 197171
+      nfiles: 45
+    - path: outputs/pareto_results.csv
+      hash: md5
+      md5: d55bdea3bc5101dcb537ed66083e7a40
+      size: 10431
+  plot:
+    cmd: python opt_CO2_EGS_ORC_electric.py --plot-only
+    deps:
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: e056b923a0dab18d520100a97d4e6ae0
+      size: 41
+    - path: opt_CO2_EGS_ORC_electric.py
+      hash: md5
+      md5: 4f7882ea43dfb56d1b55b51b7ed6073c
+      size: 11688
+    - path: outputs/pareto_results.csv
+      hash: md5
+      md5: d55bdea3bc5101dcb537ed66083e7a40
+      size: 10431
+    outs:
+    - path: outputs/pareto_parallel_coordinates.html
+      hash: md5
+      md5: 939b00c454205b3cb9397eaca36b12c0
+      size: 4578953
+    - path: outputs/pareto_parallel_coordinates.png
+      hash: md5
+      md5: 4a0daea803202d48729a23e2acf0400f
+      size: 992947
+    - path: outputs/pareto_scatter.png
+      hash: md5
+      md5: 484920938606bc188782009be9ea2205
+      size: 98477
+    - path: outputs/pareto_scatter_by_param.png
+      hash: md5
+      md5: e924cc38d944814cae68b4e56fcbb16f
+      size: 199467
+    - path: outputs/pareto_scatter_normalized.png
+      hash: md5
+      md5: b9aa319f1e4af56e409bb0013494b2b4
+      size: 118273
+    - path: outputs/pareto_scatter_param_pairs.png
+      hash: md5
+      md5: 9bacf6eacdd95253266639aa8303a92a
+      size: 1108497

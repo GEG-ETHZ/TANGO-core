@@ -4,10 +4,12 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
 | `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
 | `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
@@ -16,6 +18,8 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
+| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
@@ -33,10 +37,12 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
 | `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
 | `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
@@ -45,6 +51,8 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
+| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
@@ -62,10 +70,12 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
 | `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
 | `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
@@ -74,6 +84,8 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
+| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
@@ -93,10 +105,12 @@
 
 | Column | Meaning |
 |---|---|
+| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
 | `<name>_T_inlet` | Per-timestep inlet temperature (K). |
 | `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
 | `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
 | `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
+| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
 | `<name>_T_outlet` | Per-timestep outlet temperature (K). |
 | `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
 | `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |

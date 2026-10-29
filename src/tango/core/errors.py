@@ -16,11 +16,42 @@ class ComponentSolveError(TangoError):
 
 
 class SaturationError(TangoError):
-    """Raised when a fluid state unexpectedly enters or approaches a two-phase region."""
+    """Raised when a fluid state unexpectedly enters or approaches a two-phase region.
+
+    The well models assume single-phase flow (their friction and heat-loss
+    correlations don't apply to a boiling mixture), so a well cell whose
+    state falls inside the vapor-liquid dome raises this instead of
+    silently marching on with mixture properties.
+    """
+
+
+class WellPressureCollapseError(TangoError):
+    """Raised when a well's pressure falls to zero or below while marching along it.
+
+    The flow can't be pushed (or lifted) through the well at this mass rate:
+    friction and the hydrostatic column take more pressure than the well's
+    inlet provides. An infeasible design, not a bug. A hot liquid usually
+    hits ``SaturationError`` first, on its way down through its saturation
+    pressure; this covers a cell step that jumps straight past it, and
+    fluids above their critical temperature, which have no saturation
+    pressure.
+    """
 
 
 class ConfigError(TangoError):
     """Raised when an input configuration is invalid or inconsistent."""
+
+
+class InertParameterError(ConfigError):
+    """Raised when an optimization decision variable has no effect on any objective or constraint.
+
+    Perturbing the parameter up and down from its baseline left every
+    objective and constraint unchanged, so the search would spend a whole
+    dimension on it for nothing. Usually a ``ParamSpec.apply`` that writes a
+    config field nothing reads, or a field that is inert for this topology.
+    A ``ConfigError``, so an optimizer never mistakes it for an infeasible
+    design.
+    """
 
 
 class FrackingViolationError(TangoError):
@@ -59,6 +90,68 @@ class InvalidPowerStateError(TangoError):
     """
 
 
+class ValveCannotRaisePressureError(InvalidPowerStateError):
+    """Raised when a circulation valve would have to raise pressure to meet its target.
+
+    A valve is passive and can only drop pressure; the plant's natural
+    driving force falls short, so a pump is needed there. For a ``PumpOrValve``
+    node, ``GraphSurface`` retries with the node as a pump on this error. Other
+    ``InvalidPowerStateError`` cases (e.g. a different pump in the plant
+    reporting negative power) are not about the circulation device and are
+    raised as they are.
+    """
+
+
+class NegativeNetPowerError(InvalidPowerStateError):
+    """Raised when a power plant with a turbine is a net consumer of electricity.
+
+    The turbine's output no longer covers the plant's own pump load, e.g.
+    once the reservoir has cooled. ``GraphSurface.record()`` checks it once
+    per timestep on the converged state, not on every solve: the
+    injection-enthalpy iteration's first passes start from a cold seed and
+    can be briefly negative before the loop converges.
+    """
+
+
+class NegativeNetThermalError(InvalidPowerStateError):
+    """Raised when a heat plant delivers no heat: its net thermal output is negative.
+
+    The produced fluid has cooled so far (e.g. once the reservoir is
+    depleted) that the heat exchangers tagged ``role: net_thermal`` would
+    have to heat it instead of taking heat from it. Such a plant has
+    nothing to sell, so the design is infeasible. ``GraphSurface`` checks it
+    once per timestep, on the converged state.
+    """
+
+
+class PassivePressureRiseError(InvalidPowerStateError):
+    """Raised when a passive surface-plant component raises its fluid's pressure.
+
+    Heat exchangers, valves, separators, mixers and cycle closers do no
+    work, so pressure can only fall (or stay level) across them. TESPy
+    solves such a network anyway when a component has a fixed absolute
+    outlet pressure above what actually arrives at its inlet: the
+    component compresses the fluid for free, and the pump work that rise
+    would really cost is never charged. A subclass of
+    ``InvalidPowerStateError`` because the result is the same kind of
+    error, uncharged work, and so that an optimizer treats it as an
+    infeasible design point.
+    """
+
+
+class CoolingLimitError(TangoError):
+    """Raised when a surface-plant component cools its fluid below what the site can reject heat to.
+
+    Heat rejected to the environment needs a heat sink colder than the fluid
+    leaving the cooler or condenser by at least the approach temperature, so
+    no outlet can be colder than ``surface_temperature +
+    approach_temperature``. TESPy solves a fixed outlet state below that
+    limit without complaint, as if free refrigeration were available, which
+    overstates the turbine's expansion and the plant's output. Treated as an
+    infeasible design by an optimizer.
+    """
+
+
 class CoolPropError(TangoError):
     """Wraps a CoolProp failure raised by *our own* direct property lookup.
 
@@ -83,12 +176,19 @@ class TESPyError(TangoError):
     raise ``TESPyCoolPropError`` instead so it's still catchable as a
     CoolProp-rooted error.
 
-    TESPy integration is real (``GraphSurface`` solves an actual TESPy
-    ``Network`` each timestep), but no call site wraps a TESPy solve failure
-    in this class yet — ``GraphSurface.solve()`` lets TESPy's own exceptions
-    propagate directly. This class exists so the error taxonomy is ready to
-    wrap those failures (see vision doc, Future Direction — AI-Assisted
-    Error Interpretation, for why this taxonomy matters).
+    ``GraphSurface`` raises the subclasses ``TESPyConvergenceError`` (the
+    solve didn't converge) and ``TESPyCoolPropError`` (a property lookup
+    failed inside the solve).
+    """
+
+
+class TESPyConvergenceError(TESPyError, ConvergenceError):
+    """Raised when a TESPy network solve returns without converging.
+
+    TESPy's ``Network.solve()`` returns normally when it stops short of its
+    convergence tolerance, leaving outlet values that may be wrong. A
+    subclass of ``ConvergenceError`` too, so an optimizer treats it as an
+    infeasible design point.
     """
 
 
@@ -99,8 +199,6 @@ class TESPyCoolPropError(TESPyError, CoolPropError):
     catch either: ``except TESPyError`` to catch any TESPy-related failure,
     or ``except CoolPropError`` to catch any CoolProp-rooted failure
     regardless of whether it was raised directly or via TESPy.
-
-    Not yet wired to any call site — see ``TESPyError`` docstring.
     """
 
 

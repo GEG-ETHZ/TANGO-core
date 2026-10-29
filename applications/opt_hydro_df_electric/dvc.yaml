@@ -13,7 +13,7 @@ stages:
     cmd: python opt_hydro_df_electric.py --clean --no-plot
     deps:
       - opt_hydro_df_electric.py
-      - ../../example_configs/hydro_df_electric.yml
+      - ../../templates/hydro_df_electric.yml
       # Content hash of src/tango/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py). Tracking this one small
       # file instead of the whole src/tango/ tree directly means DVC
@@ -42,10 +42,12 @@ stages:
     deps:
       - opt_hydro_df_electric.py
       - outputs/pareto_results.csv
+      # Plotting code lives in tango.pymoo_api (OptApp.make_plots).
+      - ../../src/tango.hash
     outs:
       - outputs/pareto_parallel_coordinates.png
       - outputs/pareto_parallel_coordinates.html
       - outputs/pareto_scatter.png
-      - outputs/pareto_scatter_zscore.png
+      - outputs/pareto_scatter_normalized.png
       - outputs/pareto_scatter_by_param.png
       - outputs/pareto_scatter_param_pairs.png

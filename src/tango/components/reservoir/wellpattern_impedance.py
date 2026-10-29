@@ -15,6 +15,16 @@ class WellPattern(StrEnum):
     Example: ``WellPattern("DOUBLET")``, ``WellPattern("doublet")``, and
     ``WellPattern("Doublet")`` (member name) all resolve to the same
     member — lookup is case-insensitive via ``_missing_`` below.
+
+    .. warning::
+        Configs using ``FiveSpot`` or ``InvertedFiveSpot`` are invalid for
+        now (GitHub issue #109). Only the reservoir impedance below knows
+        about the pattern. The economics cost them as a single doublet (one
+        injection and one production well, one ``well_spacing`` of surface
+        pipe), and the single modeled injection or production well carries
+        the full mass rate instead of its per-well share. The member
+        docstrings' layouts (which wells sit at the corners) also disagree
+        with the pre-1.0 cost model's; #109 tracks settling which is right.
     """
 
     Doublet = "DOUBLET"
@@ -156,15 +166,7 @@ class WellPattern(StrEnum):
                 defined yet.
 
         References:
-            [Birdsell, D.T., Adams, B.M., Deb, P., Ogland-Hand, J.D.,
-            Bielicki, J.M., Fleming, M.R., & Saar, M.O. (2024). Analytical
-            solutions to evaluate the geothermal energy generation
-            potential from sedimentary-basin reservoirs. Geothermics, 116,
-            102843.](https://doi.org/10.1016/j.geothermics.2023.102843)
-            Previously misattributed as "Adams et al. (2020)" -- corrected
-            2026-09-21 after checking Crossref metadata directly: Adams is
-            the second author, not first, and the paper published in 2024
-            (the DOI's 2023 is the online-first year).
+            Birdsell et al. (2024); see docs/SOURCES.md#birdsell2024.
 
         """
         L = well_spacing

@@ -2,7 +2,7 @@
 ``restore_convergence_state()``.
 
 ``inlet`` is not a stored ``Component`` field — ``solve(inlet)`` takes it as
-a call parameter (see ``Component.solve()``'s docstring) — and ``outlet``,
+a call parameter (see ``FlowComponent.solve()``'s docstring) — and ``outlet``,
 while still a stored field, is written from exactly the same values every
 concrete ``solve()`` also records into ``state`` (``state.T_outlet``/
 ``P_outlet``/``mass_rate``, or their production-well equivalents). This
@@ -22,7 +22,7 @@ it neither rewinds it nor duplicates entries.
 ``test_history_restored`` checks this in isolation, against a single
 ``LumpedReservoir`` built by hand. ``test_history_restored_across_full_workflow``
 checks the same invariant end-to-end, for every component wired into a real
-circuit (``example_configs/hydro_sf_electric.yml``, driven through its
+circuit (``templates/hydro_sf_electric.yml``, driven through its
 actual orchestrator) — the surface/well/reservoir component types differ
 enough (a TESPy graph, spatially-discretized numerical wells, a lumped
 reservoir) that the isolated check alone doesn't prove the invariant holds
@@ -38,7 +38,7 @@ must actually come back to its snapshotted value — not just the handful
 
 ``test_power_output_reproducible_across_convergence_attempts`` checks the
 practical consequence of both: ``SystemBCIteration``'s inner convergence
-loop (``_converge_injection_T`` in ``system_bc_iteration.py``) restores the
+loop (``_converge_injection_enthalpy`` in ``system_bc_iteration.py``) restores the
 same snapshot before every re-solve attempt, so feeding the reservoir the
 SAME injection-temperature guess on two different inner iterations must
 yield the SAME reservoir power output. Before the fix that introduced
@@ -76,12 +76,13 @@ import pytest
 import yaml
 
 from tango.components.reservoir.lumped import LumpedReservoir
+from tango.core.fluid_state import COOLPROP_BACKEND, FluidState
 from tango.core.locked_state import LockedState
 from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow
 
-EXAMPLE_CONFIGS_DIR = Path(__file__).parents[2] / "example_configs"
-HYDRO_SF_ELECTRIC = EXAMPLE_CONFIGS_DIR / "hydro_sf_electric.yml"
+TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
+HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"
 
 _COMMON_FIELDS: dict[str, float | str] = {
     "fluid_name": "water",
@@ -92,6 +93,18 @@ _COMMON_FIELDS: dict[str, float | str] = {
     "surface_temperature": 288.0,
     "surface_pressure": 101325.0,
 }
+
+
+def _inlet_at(T: float, P: float, mass_rate: float) -> Stream:
+    """An inlet ``Stream`` at a readable (T, P), converted to the stream's enthalpy with this file's fluid."""
+    h = FluidState.with_PT(
+        str(_COMMON_FIELDS["fluid_name"]),
+        P,
+        T,
+        str(_COMMON_FIELDS.get("coolprop_backend", COOLPROP_BACKEND)),
+    ).H
+    return Stream.fresh(h=h, P=P, mass_rate=mass_rate)
+
 
 _RESERVOIR_FIELDS: dict[str, float] = {
     "dt_years": 1.0,
@@ -117,7 +130,7 @@ def _reservoir_cfg(idx: int) -> dict:
 
 def _run_workflow(res: LumpedReservoir, timestep: int) -> None:
     """Run one "timestep" of the workflow: solve and record history."""
-    inlet = Stream.fresh(T=350.0, P=5.1e7, mass_rate=50.0)
+    inlet = _inlet_at(350.0, 5.1e7, 50.0)
     if timestep > 0:
         res.mark_all_stale()
     res.solve(inlet)
@@ -224,7 +237,7 @@ def _resolve_from_snapshot(res: LumpedReservoir, snapshot: Any, inlet: Stream) -
 
     Mirrors the exact per-component order ``SystemBCIteration``'s inner
     convergence loop uses before every re-solve attempt (see
-    ``_converge_injection_T`` in ``system_bc_iteration.py``):
+    ``_converge_injection_enthalpy`` in ``system_bc_iteration.py``):
     ``restore_convergence_state()`` -> ``mark_all_stale()`` -> ``solve(inlet)``.
     """
     res.restore_convergence_state(snapshot)
@@ -253,7 +266,7 @@ def test_power_output_reproducible_across_convergence_attempts() -> None:
     _run_workflow(res, 0)
     snapshot = res.snapshot_convergence_state()
 
-    same_guess = Stream.fresh(T=340.0, P=5.05e7, mass_rate=48.0)
+    same_guess = _inlet_at(340.0, 5.05e7, 48.0)
 
     # Convergence-loop attempt #1.
     power_1 = _resolve_from_snapshot(res, snapshot, same_guess)
@@ -296,7 +309,7 @@ def _load_hydro_sf_electric_workflow(num_tsteps: int) -> Workflow:
     uses for its ``_run_tango`` helper) so this test stays cheap
     regardless of the example's own configured ``num_tsteps``.
     """
-    config: dict[str, Any] = yaml.safe_load(HYDRO_SF_ELECTRIC.read_text())
+    config: dict[str, Any] = yaml.safe_load(HYDRO_SF_ELECTRIC.read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = num_tsteps
     return Workflow(config)
 
@@ -310,9 +323,7 @@ def test_surface_power_output_reproducible_across_convergence_attempts() -> None
     ``injection_pressure`` lives outside ``state`` (see
     ``SurfaceComponent.injection_pressure``'s docstring), so
     ``restore_convergence_state()`` never rolls it back — this test resets
-    it explicitly, the same way ``SystemBCIteration._converge_injection_pressure``
-    writes it directly each outer iteration, rather than relying on the
-    snapshot mechanism for it.
+    it explicitly rather than relying on the snapshot mechanism for it.
     """
     wf = _load_hydro_sf_electric_workflow(num_tsteps=1)
     wf.run()
@@ -322,7 +333,7 @@ def test_surface_power_output_reproducible_across_convergence_attempts() -> None
     original_injection_pressure = surface.injection_pressure
 
     s = surface.state
-    guess = Stream.fresh(T=s.T_inlet.get_fresh(), P=s.P_inlet.get_fresh(), mass_rate=s.mass_rate.get_fresh())
+    guess = Stream.fresh(h=s.h_inlet.get_fresh(), P=s.P_inlet.get_fresh(), mass_rate=s.mass_rate.get_fresh())
 
     def _resolve(inlet: Stream) -> float:
         surface.restore_convergence_state(snapshot)
@@ -340,7 +351,7 @@ def test_surface_power_output_reproducible_across_convergence_attempts() -> None
     # `state` and the TESPy network's invisible warm-start connection state.
     surface.set_injection_pressure(original_injection_pressure + 5e5)
     different_guess = Stream.fresh(
-        T=guess.T.get_fresh() - 5.0,
+        h=guess.h.get_fresh() - 20_000.0,  # ~5 K colder for water
         P=guess.P.get_fresh(),
         mass_rate=guess.mass_rate.get_fresh(),
     )

@@ -6,5 +6,5 @@ Read the [TANGO commandments](https://github.com/GEG-ETHZ/TANGO-core/blob/main/C
 2. **Config fields are pydantic fields** on the class, named as in the YAML (rules *object == config* and *schemas defined in code*). Derived values go in `init()`, which `from_dict` calls. Do not redeclare `common` or the layout-derived keys (`well_spacing`, `well_pattern`, `dt_years`, `target_extraction_pressure`); `Workflow` threads those in.
 3. **Mutable values live in a `*State` dataclass** as `LockedState` fields (rule *mutation is guarded*), and every `*State` field has a `list` twin in a `*History` class appended in `record()` (rule *history is recordable*). `tests/unit/test_state_history_parity.py` enforces the pairing. Follow `reservoir/lumped.py` (`LumpedReservoirState`, `LumpedReservoirHistory`).
 4. **Register it.** Add `("<type>", "<variant>"): YourClass` to `COMPONENT_REGISTRY` in `registry.py`.
-5. **Cover it with a config.** Add or extend a file in `example_configs/` and make sure a regression test runs it (rule *example configs are regression-covered*).
+5. **Cover it with a config.** Add or extend a file in `templates/` and make sure a regression test runs it (rule *templates are regression-covered*).
 6. **Update the docs** in the same change: the table in `README.md` here and the variants table in `docs/architecture/components.md`.

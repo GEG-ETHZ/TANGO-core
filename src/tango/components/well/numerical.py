@@ -13,15 +13,16 @@ history fields below despite their name) have ``num_cells + 1`` entries.
 
 Governing equations (per cell):
 
-- Pressure:  P[i] = P[i-1] - f_dir·ρ·g·dz - ΔP_friction   (Darcy-Weisbach)
-- Enthalpy:  h[i] = h[i-1] - f_dir·g·dz - Q_loss / ṁ       (Zhang 2011 heat-loss)
+- Pressure:  P[i] = P[i-1] - upward_component·ρ·g·dz - ΔP_friction   (Darcy-Weisbach)
+- Enthalpy:  h[i] = h[i-1] - upward_component·g·dz - Q_loss / ṁ       (Zhang 2011 heat-loss)
 
 A single class covers injection, production, and (future) deviated wells,
 distinguished only by ``angle_from_vert_deg``: 0° = straight down
 (injection), 180° = straight up (production), values in between describe a
-deviated well, 90° a horizontal one. ``f_dir = -cos(radians(angle))`` so it
+deviated well, 90° a horizontal one. ``upward_component = -cos(radians(angle))``
+(the vertical component of the unit flow direction, positive upward) so it
 matches the sign convention above exactly at the two endpoints
-(``f_dir = -1`` for straight-down injection, ``+1`` for straight-up
+(``upward_component = -1`` for straight-down injection, ``+1`` for straight-up
 production) while interpolating smoothly in between — a horizontal well
 (90°) correctly gets zero elevation-dependent pressure/enthalpy change.
 Friction and heat-loss terms use the full ``cell_length`` (flow-path
@@ -43,14 +44,9 @@ Default physics selections:
   FrictionModel.HAALAND, HeatTransferModel.ZHANG_2011.
 See ``core/physics_models.py`` to add or select a different variant.
 
-**Known simplification (flag for later):** dimensionless time (``t_d``) only
-advances correctly when ``solve()`` is called exactly once per timestep — true
-today because only ``InjectionPolicy.MANUAL`` is implemented. Once AUTO_* policies
-add multi-pass outer loops, ``t_d`` must be split between a per-pass
-update and a per-timestep commit. NOTE: AUTO_PRESSURE/
-AUTO_FLOW/AUTO_BOTH are now implemented (SystemBCIteration) — whether this
-simplification still holds for them, or needs the t_d split described
-above, hasn't been re-checked since. Flagged in docs/tango_tasks.md.
+**Dimensionless time:** ``t_d`` advances once per committed timestep; the
+injection-enthalpy loop's re-solves within a timestep restore it from the
+timestep-start snapshot (``Component.snapshot_convergence_state``).
 
 **History:** each spatially-distributed quantity is one state variable whose value
 is a vector along the well axis; recorded as one entry per timestep.
@@ -63,17 +59,18 @@ performance; results are converted to lists before storing in state.
 
 from __future__ import annotations
 
+import enum
 import math
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import Field, model_validator
+from pydantic import Field, PositiveInt, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from tango.components.well.base import WellComponent
 from tango.core.constants import YEAR_TO_SECOND
-from tango.core.errors import InvalidPowerStateError
+from tango.core.errors import ConfigError, InvalidPowerStateError, SaturationError, WellPressureCollapseError
 from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import reynolds_number
 from tango.core.locked_state import LockedState
@@ -126,8 +123,10 @@ class NumericalWellState(StateMethods):
     module docstring's cells-vs-nodes note).
     """
 
+    h_inlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Specific enthalpy (J/kg) arriving on ``inlet`` -- the march's starting state."""
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Inlet temperature (K)."""
+    """Temperature (K) at the inlet, derived from (``h_inlet``, ``P_inlet``)."""
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
     """Inlet pressure (Pa)."""
     mass_rate: LockedState[float] = field(default_factory=_ls_nan)
@@ -153,6 +152,8 @@ class NumericalWellState(StateMethods):
     """Fluid dynamic viscosity at each axial node (Pa s)."""
     u_cells: LockedState[list[float]] = field(default_factory=_ls_cells)
     """Mean flow velocity at each axial node (m/s)."""
+    h_outlet: LockedState[float] = field(default_factory=_ls_nan)
+    """Specific enthalpy (J/kg) at the last node -- what ``outlet`` carries."""
     T_outlet: LockedState[float] = field(default_factory=_ls_nan)
     """Outlet temperature (K)."""
     P_outlet: LockedState[float] = field(default_factory=_ls_nan)
@@ -178,6 +179,7 @@ class NumericalWellHistory:
     class).
     """
 
+    h_inlet: list[float] = field(default_factory=list)
     T_inlet: list[float] = field(default_factory=list)
     """Per-timestep inlet temperature (K)."""
     P_inlet: list[float] = field(default_factory=list)
@@ -198,6 +200,8 @@ class NumericalWellHistory:
     """Per-timestep list of the fluid dynamic viscosity at each axial node (Pa s)."""
     u_cells: list[list[float]] = field(default_factory=list)
     """Per-timestep list of the mean flow velocity at each axial node (m/s)."""
+    h_outlet: list[float] = field(default_factory=list)
+    """Per-timestep outlet specific enthalpy (J/kg)."""
     T_outlet: list[float] = field(default_factory=list)
     """Per-timestep outlet temperature (K)."""
     P_outlet: list[float] = field(default_factory=list)
@@ -207,6 +211,7 @@ class NumericalWellHistory:
 
     def record(self, state: NumericalWellState) -> None:
         """Append a copy of ``state`` as one timestep entry."""
+        self.h_inlet.append(state.h_inlet.get_fresh())
         self.T_inlet.append(state.T_inlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
         self.mass_rate.append(state.mass_rate.get_fresh())
@@ -217,6 +222,7 @@ class NumericalWellHistory:
         self.rho_cells.append(list(state.rho_cells.get_fresh()))
         self.mu_cells.append(list(state.mu_cells.get_fresh()))
         self.u_cells.append(list(state.u_cells.get_fresh()))
+        self.h_outlet.append(state.h_outlet.get_fresh())
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_outlet.append(state.P_outlet.get_fresh())
         self.pump_power_watts.append(state.pump_power_watts.get_fresh())
@@ -252,6 +258,72 @@ has headroom under the 0.1% target.
 """
 
 
+_DERIVED_REL_TOL = 1e-9
+"""Relative tolerance for a derived value supplied in a config to count as matching (float noise only)."""
+
+DERIVED_FIELDS: tuple[str, ...] = ("relative_roughness", "cross_sectional_area", "t_scaling_factor", "T_r")
+"""``NumericalWell`` fields computed by ``init()`` from its inputs. Not
+serialized; a config should leave them out (``init()`` rejects a value that
+disagrees with the computed one)."""
+
+
+def default_num_cells(well_length: float) -> int:
+    """``num_cells`` for a well whose config gives neither ``num_cells`` nor ``cell_length``."""
+    return math.ceil(math.ceil(well_length / TARGET_CELL_LENGTH_M) / 10) * 10
+
+
+def _cells_for_target(well_length: float, cell_length: float) -> int:
+    """Fewest cells no longer than ``cell_length`` (the tolerance absorbs ``well_length / n`` round-trips)."""
+    return max(1, math.ceil(well_length / cell_length * (1.0 - _DERIVED_REL_TOL)))
+
+
+class WellLengthSideEffect(enum.StrEnum):
+    """Which linked quantity absorbs a ``well_length`` change -- see ``set_well_length``."""
+
+    KEEP_CELL_LENGTH = "keep-cell-length"
+    """Keep the resolution: ``num_cells`` follows the new length."""
+    KEEP_NUM_CELLS = "keep-num-cells"
+    """Keep the cell count: ``cell_length`` follows the new length."""
+
+
+def expunge_derived_fields(well_cfg: dict[str, Any]) -> None:
+    """Remove ``DERIVED_FIELDS`` from a well's config dict so ``init()`` recomputes them.
+
+    ``Workflow.to_dict()`` doesn't write them, so this only matters for a
+    config dict that was given them explicitly.
+    """
+    for name in DERIVED_FIELDS:
+        well_cfg.pop(name, None)
+
+
+def set_well_length(well_cfg: dict[str, Any], well_length: float, side_effect: WellLengthSideEffect) -> None:
+    """Set ``well_length`` in a ``NumericalWell`` config dict, keeping its discretization consistent.
+
+    ``well_length``, ``num_cells`` and ``cell_length`` are linked, so
+    changing the length means one of the other two must change too;
+    ``side_effect`` says which. A config that gives neither keeps giving
+    neither (the default resolution applies to the new length). Also
+    removes the derived fields (``expunge_derived_fields``).
+    """
+    old_length = float(well_cfg["well_length"])
+    num_cells: int | None = well_cfg.get("num_cells")
+    cell_length: float | None = well_cfg.get("cell_length")
+    if num_cells is not None or cell_length is not None:
+        if cell_length is None:
+            assert num_cells is not None  # noqa: S101 -- narrows for mypy; guaranteed by the branch condition
+            cell_length = old_length / num_cells
+        elif num_cells is None:
+            num_cells = _cells_for_target(old_length, cell_length)
+        if side_effect is WellLengthSideEffect.KEEP_CELL_LENGTH:
+            well_cfg["cell_length"] = cell_length
+            well_cfg.pop("num_cells", None)
+        else:
+            well_cfg["num_cells"] = num_cells
+            well_cfg.pop("cell_length", None)
+    well_cfg["well_length"] = float(well_length)
+    expunge_derived_fields(well_cfg)
+
+
 class NumericalWell(WellComponent):
     """Discretized wellbore: one marching scheme for injection, production,
     and (future) deviated/horizontal wells.
@@ -274,13 +346,27 @@ class NumericalWell(WellComponent):
     reservoir or any other well. See core/specs.py."""
     dt_years: float = Field(frozen=True)
     """Timestep length (years), threaded from sim_config.dt_years."""
-    num_cells: int = Field(frozen=True)
-    """Axial discretization cell count. Left unset in YAML, it is derived
-    from ``well_length`` by the ``_default_num_cells`` validator below to
-    match ``TARGET_CELL_LENGTH_M`` per cell, rounded up to the nearest 10 --
-    see that constant's docstring for the rationale. Set explicitly only to
-    override that default, e.g. for a mesh-convergence sweep
-    (``applications/demo_well_mesh_convergence/``)."""
+    num_cells: PositiveInt = Field(frozen=True)
+    """Axial discretization cell count. ``well_length``, ``num_cells`` and
+    ``cell_length`` are linked (``well_length = num_cells * cell_length``);
+    a config may give ``num_cells``, ``cell_length``, both (they must agree)
+    or neither (``num_cells`` then defaults to ``TARGET_CELL_LENGTH_M`` per
+    cell, rounded up to the nearest 10 -- see that constant's docstring).
+    Resolved by the ``_resolve_discretization`` validator below. To change
+    ``well_length`` in a config dict, use ``set_well_length``, which makes
+    the caller choose which of the other two absorbs the change."""
+    discretization_given: tuple[str, ...] = Field(default=(), frozen=True, exclude=True)
+    """Which of ``num_cells``/``cell_length`` the config itself gave (set by
+    ``_resolve_discretization``). Serialization writes only those, so a
+    ``to_dict()`` copy re-derives a default cell count from its own
+    ``well_length`` rather than pinning the original one."""
+    cell_length: float = Field(frozen=True)
+    """Flow-path length per cell (m), exactly ``well_length / num_cells``.
+    Given alone in a config, it is a target: ``num_cells`` becomes the
+    smallest count whose cells are no longer than it, and this field is
+    then set to the exact resulting length. Used for friction and heat-loss
+    geometry, deliberately *not* scaled by angle, since those depend on
+    distance traveled."""
     wellhead_depth: float = Field(default=0.0, frozen=True)
     """True vertical depth (m) of the well's shallow end, whichever way the
     fluid flows: the top of an injection or production well (0 for a well
@@ -297,33 +383,74 @@ class NumericalWell(WellComponent):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_num_cells(cls, data: Any) -> Any:
-        """Fill in ``num_cells`` from ``well_length`` when not given explicitly.
+    def _resolve_discretization(cls, data: Any) -> Any:
+        """Resolve ``num_cells``/``cell_length`` from whichever of them the config gives.
 
-        Runs before field validation, so ``num_cells`` still comes out a
-        required, frozen ``int`` field -- this only supplies the value when
-        the YAML config (or caller) omits it. See ``TARGET_CELL_LENGTH_M``'s
-        docstring for why matching cell_length (not num_cells) across wells
-        is the right invariant to hold.
+        Runs before field validation, so both still come out required,
+        frozen fields. See ``num_cells``'s docstring for the rules.
+
+        Raises:
+            ConfigError: ``num_cells`` and ``cell_length`` are both given but
+                don't multiply out to ``well_length`` (e.g. ``well_length``
+                was edited in a saved config without ``set_well_length``),
+                ``num_cells`` isn't a positive integer, or ``cell_length``
+                isn't positive.
         """
-        if isinstance(data, dict) and data.get("num_cells") is None:
-            cells_needed = math.ceil(data["well_length"] / TARGET_CELL_LENGTH_M)
-            data["num_cells"] = math.ceil(cells_needed / 10) * 10
+        if not isinstance(data, dict):
+            return data
+        well_length = float(data["well_length"])
+        num_cells, cell_length = data.get("num_cells"), data.get("cell_length")
+        if num_cells is not None and (
+            isinstance(num_cells, bool) or not isinstance(num_cells, int) or num_cells <= 0
+        ):
+            raise ConfigError(f"num_cells must be a positive integer, got {num_cells!r}")
+        data["discretization_given"] = tuple(
+            key
+            for key, value in (("num_cells", num_cells), ("cell_length", cell_length))
+            if value is not None
+        )
+        if num_cells is not None and cell_length is not None:
+            if not math.isclose(num_cells * cell_length, well_length, rel_tol=_DERIVED_REL_TOL):
+                raise ConfigError(
+                    f"num_cells ({num_cells}) x cell_length ({cell_length} m) = "
+                    f"{num_cells * cell_length} m, but well_length is {well_length} m. Give only one "
+                    "of num_cells/cell_length, or change well_length with set_well_length().",
+                )
+        elif cell_length is not None:
+            if cell_length <= 0:
+                raise ConfigError(f"cell_length must be positive, got {cell_length}")
+            num_cells = _cells_for_target(well_length, cell_length)
+        elif num_cells is None:
+            num_cells = default_num_cells(well_length)
+        data["num_cells"] = num_cells
+        data["cell_length"] = well_length / num_cells
         return data
 
-    # ---- Derived quantities (computed by init(), serialized for save/restore) ----
-    # Deliberately NOT frozen — init() computes cell_length/relative_roughness/
+    @model_serializer(mode="wrap")
+    def _omit_derived_discretization(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Leave out whichever of ``num_cells``/``cell_length`` the config didn't give (see ``discretization_given``)."""
+        data: dict[str, Any] = handler(self)
+        for key in ("num_cells", "cell_length"):
+            if key not in self.discretization_given:
+                data.pop(key, None)
+        return data
+
+    # ---- Derived quantities (computed by init()) ----
+    # Deliberately NOT frozen — init() computes relative_roughness/
     # cross_sectional_area/t_scaling_factor/T_r via direct assignment; see
     # Component's class docstring for why fields like this stay mutable.
-    cell_length: float = 0.0
-    """Flow-path length of one cell, well_length / num_cells (m)."""
-    relative_roughness: float = 0.0
+    # Excluded from serialization: they are pure functions of the inputs and
+    # recomputed by every init(), so a serialized copy could only go stale
+    # when a saved config's inputs are edited. A config that supplies one
+    # anyway is checked against the computed value; a mismatch raises
+    # instead of being silently overwritten.
+    relative_roughness: float = Field(default=0.0, exclude=True)
     """Pipe roughness divided by diameter (dimensionless)."""
-    cross_sectional_area: float = 0.0
+    cross_sectional_area: float = Field(default=0.0, exclude=True)
     """Flow cross-section of the well (m2)."""
-    t_scaling_factor: float = 0.0
+    t_scaling_factor: float = Field(default=0.0, exclude=True)
     """Factor 4 k / (rho c d^2) that converts elapsed time to dimensionless time t_d (1/s)."""
-    T_r: list[float] = Field(default_factory=list)
+    T_r: list[float] = Field(default_factory=list, exclude=True)
     """Rock temperature profile along well axis (K), one value per cell."""
 
     # ---- Runtime state / history ----
@@ -334,52 +461,87 @@ class NumericalWell(WellComponent):
     """Per-timestep record of the well state."""
 
     def init(self) -> None:
-        """Pre-compute geometry constants from validated input fields."""
-        (
-            self.cell_length,
-            self.relative_roughness,
-            self.cross_sectional_area,
-            self.t_scaling_factor,
-            self.T_r,
-        ) = self._compute_derived()
+        """Pre-compute geometry constants from validated input fields.
 
-    def _compute_derived(self) -> tuple[float, float, float, float, list[float]]:
+        Raises:
+            ConfigError: The config supplied a derived value (see
+                ``DERIVED_FIELDS``) that disagrees with what this well's
+                inputs give. Remove it (``expunge_derived_fields``) so it is
+                recomputed.
+        """
+        self._set_derived(**dict(zip(DERIVED_FIELDS, self._compute_derived(), strict=True)))
+
+    def _compute_derived(self) -> tuple[float, float, float, list[float]]:
         """Compute geometry-derived constants from this well's validated input fields.
 
         Returns:
-            Tuple of ``(cell_length, relative_roughness, cross_sectional_area,
-            t_scaling_factor, T_r)``. ``cell_length`` is flow-path length per
-            cell (m) — used for friction and heat-loss geometry, deliberately
-            *not* scaled by angle, since those depend on distance traveled.
-            ``T_r`` is the rock temperature (K) at each cell's true vertical
+            Tuple in ``DERIVED_FIELDS`` order. ``T_r`` is the rock temperature (K) at each cell's true vertical
             depth — ``num_cells`` entries, ONE PER CELL (not per node —
             ``_march`` uses ``T_r[i - 1]`` for marching step ``i``, i.e. the
             cell that step falls within) — computed by projecting flow-path
             position onto true vertical depth (via ``cos(angle_from_vert_deg)``)
             before applying ``thermal_gradient`` (a per-vertical-meter
             quantity), so ``T_r`` tracks actual rock temperature rather than
-            distance traveled. ``abs()`` is applied because depth increases
-            away from the wellhead regardless of flow direction — the
-            separate ``f_dir`` sign in ``solve()`` already handles the
-            injection-vs-production gravity direction, so this must stay a
-            positive magnitude.
+            distance traveled. Cells are ordered along the flow: for a well
+            whose flow runs upward (``angle_from_vert_deg`` above 90°, e.g. a
+            production well), the first cell is the deepest one, so depth is
+            measured back from the far (bottom) end of the well rather than
+            down from ``wellhead_depth``.
 
         """
-        cell_length = self.well_length / self.num_cells
         relative_roughness = self.pipe_roughness / self.diameter
         cross_sectional_area = 0.25 * math.pi * self.diameter**2
         t_scaling_factor = (
             4.0 * self.common.rock_k / (self.common.rock_density * self.common.rock_cp * self.diameter**2)
         )
         zspace = np.linspace(0.0, self.well_length, self.num_cells + 1)
-        zspace = (zspace[1:] + zspace[:-1]) * 0.5
+        zspace = (zspace[1:] + zspace[:-1]) * 0.5  # cell midpoints, along the flow
+        if self.angle_from_vert_deg > 90.0:
+            zspace = self.well_length - zspace  # upward flow: distance from the shallow end is L - z
         vertical_depth = self.wellhead_depth + zspace * abs(math.cos(math.radians(self.angle_from_vert_deg)))
         T_r = (self.common.surface_temperature + vertical_depth * self.common.thermal_gradient).tolist()
-        return cell_length, relative_roughness, cross_sectional_area, t_scaling_factor, T_r
+        return relative_roughness, cross_sectional_area, t_scaling_factor, T_r
+
+    def _check_saturation_margin(
+        self,
+        state: FluidState,
+        node: int,
+        n: int,
+        dz: float,
+        P_inlet: float,
+        mdot: float,
+    ) -> None:
+        """Raise ``SaturationError`` if a node's state is two-phase or near saturation.
+
+        "Near" is within ``common.saturation_margin`` (a fraction of the
+        saturation pressure at the node's temperature) on either side.
+        Above the critical temperature there's no saturation pressure, so
+        only the two-phase test applies. Nothing checks the steep property
+        changes near the pseudo-critical line there (e.g. CO2 just above
+        31 °C), where too coarse a cell length can step over them (#94).
+        """
+        margin = self.common.saturation_margin
+        where = (
+            f"well component_idx={self.component_idx}: {node * dz:.0f} m along the well "
+            f"(node {node} of {n}), P={state.P / 1e5:.2f} bar, T={state.T - 273.15:.1f} degC, "
+            f"from {P_inlet / 1e5:.2f} bar at its inlet, at {mdot:.2f} kg/s"
+        )
+        if state.is_two_phase:
+            raise SaturationError(
+                f"{where}: the fluid is two-phase. The well model assumes single-phase flow.",
+            )
+        if margin <= 0.0 or state.T_critical <= state.T:
+            return
+        p_sat = state.saturation_pressure(state.T)
+        if abs(state.P - p_sat) < margin * p_sat:
+            raise SaturationError(
+                f"{where}: within {margin:.0%} of the saturation pressure ({p_sat / 1e5:.2f} bar at this "
+                "temperature; common.saturation_margin). The well model assumes single-phase flow.",
+            )
 
     def _march(
         self,
-        T_in: float,
+        h_in: float,
         P_in: float,
         mdot: float,
         t_d: float,
@@ -393,7 +555,7 @@ class NumericalWell(WellComponent):
     ]:
         """Pure cell-by-cell march from a given starting state — no state writes.
 
-        Takes the starting (temperature, pressure, mass rate) and
+        Takes the starting (specific enthalpy, pressure, mass rate) and
         dimensionless time explicitly, rather than reading ``solve()``'s
         ``inlet`` parameter/``self.state.t_d`` directly, so it can be called repeatedly with a
         TRIAL starting state (e.g. a candidate pump-discharge condition in
@@ -418,7 +580,8 @@ class NumericalWell(WellComponent):
         mu = np.zeros(n + 1)
         u = np.zeros(n + 1)
 
-        inlet_state = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
+        inlet_state = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
+        self._check_saturation_margin(inlet_state, 0, n, self.cell_length, inlet_state.P, mdot)
         P[0] = inlet_state.P
         h[0] = inlet_state.H
         T_f[0] = inlet_state.T
@@ -429,10 +592,14 @@ class NumericalWell(WellComponent):
         A = self.cross_sectional_area
         g = self.gravity * self.gravity_scale_factor
         dz = self.cell_length  # flow-path length per cell (friction, heat-loss)
-        # -cos(...) so this matches the f_dir convention above exactly at the
-        # endpoints (-1 straight down / injection, +1 straight up / production)
-        # while interpolating through 0 at 90 degrees (horizontal).
-        f_dir = -math.cos(math.radians(self.angle_from_vert_deg))
+        # -cos(...) so this matches the upward_component convention in the
+        # module docstring exactly at the endpoints (-1 straight down /
+        # injection, +1 straight up / production) while interpolating through
+        # 0 at 90 degrees (horizontal).
+        upward_component = -math.cos(math.radians(self.angle_from_vert_deg))
+        # specific potential-energy gain per cell (J/kg); constant along the
+        # well, so computed once here rather than per cell
+        potential_energy_per_cell = upward_component * g * dz
         T_r = np.asarray(self.T_r)
 
         for i in range(1, n + 1):
@@ -446,11 +613,19 @@ class NumericalWell(WellComponent):
                 t_d=t_d,
                 delta_T=T_f[i - 1] - T_r[i - 1],
             )
-            dp_grav = f_dir * rho[i - 1] * g * dz
+            dp_grav = potential_energy_per_cell * rho[i - 1]
             P[i] = P[i - 1] - dp_grav - dP_loss
-            h[i] = h[i - 1] - f_dir * g * dz - Q_loss / mdot
+            h[i] = h[i - 1] - potential_energy_per_cell - Q_loss / mdot
 
+            if P[i] <= 0.0:
+                raise WellPressureCollapseError(
+                    f"well component_idx={self.component_idx}: pressure fell to {P[i] / 1e5:.2f} bar "
+                    f"{i * dz:.0f} m along the well (cell {i} of {n}), from {P[0] / 1e5:.2f} bar at its "
+                    f"inlet, at {mdot:.2f} kg/s -- friction and the hydrostatic column take more "
+                    "pressure than the inlet provides.",
+                )
             cell_state = FluidState.with_HP(self.common.fluid_name, h[i], P[i], self.common.coolprop_backend)
+            self._check_saturation_margin(cell_state, i, n, dz, P[0], mdot)
             rho[i] = cell_state.rho
             mu[i] = cell_state.mu
             T_f[i] = cell_state.T
@@ -458,11 +633,11 @@ class NumericalWell(WellComponent):
 
         return P, h, T_f, rho, mu, u
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
@@ -470,11 +645,12 @@ class NumericalWell(WellComponent):
         t_d = s.t_d.get_stale() + del_t
         s.t_d.update(t_d)
 
-        T_in = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
         mdot = s.mass_rate.get_fresh()
 
-        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
+        P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
+        s.T_inlet.update(T_f[0])
 
         s.P_cells.update(P.tolist())
         s.h_cells.update(h.tolist())
@@ -483,12 +659,14 @@ class NumericalWell(WellComponent):
         s.mu_cells.update(mu.tolist())
         s.u_cells.update(u.tolist())
         s.P_outlet.update(P[-1])
+        s.h_outlet.update(h[-1])
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(0.0)
 
-        self.outlet.T.update(T_f[-1])
+        self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -539,14 +717,31 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
 
     Use this for the upper production well segment in a split (lower/upper)
     production wellbore configuration.
+    Assumptions:
+        - All of the pump's losses heat the produced fluid. The actual
+          enthalpy rise is the isentropic rise divided by
+          ``pump_efficiency``, and the pump's electricity draw is
+          ``mass_rate`` times that same rise. This is right for losses in
+          the pump and its fluid-cooled downhole motor. It is not quite right
+          when ``pump_efficiency`` is an overall pump-string figure that also
+          covers surface equipment (cable, transformer, frequency
+          converter), whose losses heat the surroundings rather than the
+          fluid: the electricity draw is still correct, but the discharge
+          enthalpy is slightly overstated (about 1 kJ/kg for a 50 bar boost
+          of hot brine at an overall efficiency of 0.55).
     """
 
     pump_efficiency: float = 1.0
-    """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
-    derating). TODO: lower this default to ~0.9 once a real efficiency
-    figure is settled on — deliberately deferred until then. See
-    ``solve()``'s docstring for the isentropic-efficiency pump model this
-    scales."""
+    """Pump efficiency (dimensionless): the isentropic enthalpy rise divided by
+    the actual one, which is also the electricity drawn per unit mass. Defaults
+    to 1.0 (ideal pump). The templates use **0.55**, the overall
+    electric submersible pump (ESP) string efficiency of van 't Spijker &
+    Ungemach (2016) (see ``docs/SOURCES.md#vantspijker2016``): pump 70% ×
+    motor 90% × cable 97% × transformer 99% × frequency converter 94%. The
+    overall figure is used, not the 70% pump-only one, because downhole pump
+    power is billed as electricity drawn at the surface. See the class's
+    Assumptions section for what this means for the fluid's enthalpy, and
+    ``solve()``'s docstring for the pump model this scales."""
     target_extraction_pressure: float = 0.0
     """Target outlet pressure after pump boost (Pa). 0 = no active pump.
     Sourced from ``sim_config.target_extraction_pressure`` — the SAME
@@ -554,7 +749,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
     ``_build_components`` (see that field's docstring in ``core/specs.py``
     for the duplicated-value bug this replaced)."""
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """March wellbore heat loss, then apply a pump boost if needed.
 
         If the natural (un-boosted) march already reaches
@@ -575,7 +770,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         Pump work uses a standard isentropic-efficiency model — entropy at
         the true inlet state, isentropic enthalpy at the candidate discharge
         pressure, efficiency-derated to the actual enthalpy rise, then
-        flashed back to temperature — rather than assuming the compression
+        handed to the march as enthalpy directly — rather than assuming the compression
         is perfectly isothermal. The gap between an isothermal and an
         isentropic-efficiency result is driven by TEMPERATURE, not pressure
         level or the size of the pressure rise: ``dH|_S - dH|_T =
@@ -589,57 +784,82 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         """
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
         t_d = s.t_d.get_stale() + del_t
 
-        T_in = s.T_inlet.get_fresh()
+        h_in = s.h_inlet.get_fresh()
         P_in = s.P_inlet.get_fresh()
         mdot = s.mass_rate.get_fresh()
         target_Pa = self.target_extraction_pressure
 
-        P, h, T_f, rho, mu, u = self._march(T_in, P_in, mdot, t_d)
+        before = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
+        s.T_inlet.update(before.T)
+        # Unaided, the well may not lift the flow at all: its pressure collapses
+        # or the fluid boils on the way up. With a pump that only means the pump
+        # is needed, so it isn't an error here; the pumped march below decides
+        # feasibility. Without one (target_Pa <= 0) it's the well's own failure.
+        try:
+            P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
+            unpumped_outlet_Pa: float | None = P[-1]
+        except (SaturationError, WellPressureCollapseError):
+            if target_Pa <= 0:
+                raise
+            unpumped_outlet_Pa = None
 
-        if target_Pa <= P[-1]:
+        if unpumped_outlet_Pa is not None and target_Pa <= unpumped_outlet_Pa:
             pump_pwr = 0.0
         else:
-            before = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
 
-            def _discharge_state(P_pump_out: float) -> tuple[float, float]:
-                """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
+            def _discharge_enthalpy(P_pump_out: float) -> float:
+                """Isentropic-efficiency pump model: discharge pressure -> actual discharge enthalpy."""
                 h_isentropic = FluidState.with_PS(
                     self.common.fluid_name,
                     P_pump_out,
                     before.S,
                     self.common.coolprop_backend,
                 ).H
-                h_actual = before.H + (h_isentropic - before.H) / self.pump_efficiency
-                t_pump_out = FluidState.with_HP(
-                    self.common.fluid_name,
-                    h_actual,
-                    P_pump_out,
-                    self.common.coolprop_backend,
-                ).T
-                return h_actual, t_pump_out
+                return before.H + (h_isentropic - before.H) / self.pump_efficiency
 
             def _residual(P_pump_out: float) -> float:
-                _, t_pump_out = _discharge_state(P_pump_out)
-                p_trial, *_ = self._march(t_pump_out, P_pump_out, mdot, t_d)
+                p_trial, *_ = self._march(_discharge_enthalpy(P_pump_out), P_pump_out, mdot, t_d)
                 return p_trial[-1] - target_Pa
 
+            if unpumped_outlet_Pa is not None:
+                x0, x1 = P_in, P_in + (target_Pa - unpumped_outlet_Pa)
+            else:
+                # No unaided march to extrapolate from, so start from an
+                # estimate of the pressure the well takes: its hydrostatic
+                # column plus friction, both at inlet conditions. Both guesses
+                # sit at or above it, so the first trial marches don't collapse.
+                well_length = self.cell_length * self.num_cells
+                rise = -math.cos(math.radians(self.angle_from_vert_deg)) * well_length
+                u_in = mdot / self.cross_sectional_area / before.rho
+                ff_in = compute_friction_factor(
+                    self.friction_model,
+                    reynolds_number(mdot, self.diameter, before.mu),
+                    self.diameter,
+                    self.pipe_roughness,
+                )
+                dP_estimate = (
+                    before.rho * self.gravity * self.gravity_scale_factor * rise
+                    + 0.5 * ff_in * well_length * before.rho * u_in**2 / self.diameter
+                )
+                x1 = target_Pa + dP_estimate
+                x0 = x1 + 0.1 * abs(dP_estimate)
             P_pump_out = secant_solve(
                 _residual,
-                x0=P_in,
-                x1=P_in + (target_Pa - P[-1]),
+                x0=x0,
+                x1=x1,
                 tol=PUMP_BOOST_TOL_PA,
                 max_iter=PUMP_BOOST_MAX_ITER,
                 error_context=f"well component_idx={self.component_idx}: pump-boost pressure convergence",
             )
-            h_actual, T_pump_out = _discharge_state(P_pump_out)
-            P, h, T_f, rho, mu, u = self._march(T_pump_out, P_pump_out, mdot, t_d)
+            h_actual = _discharge_enthalpy(P_pump_out)
+            P, h, T_f, rho, mu, u = self._march(h_actual, P_pump_out, mdot, t_d)
             pump_pwr = mdot * (h_actual - before.H)
             if pump_pwr < 0:
                 raise InvalidPowerStateError(
@@ -659,9 +879,11 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         s.mu_cells.update(mu.tolist())
         s.u_cells.update(u.tolist())
         s.P_outlet.update(P[-1])
+        s.h_outlet.update(h[-1])
         s.T_outlet.update(T_f[-1])
         s.pump_power_watts.update(pump_pwr)
 
-        self.outlet.T.update(T_f[-1])
+        self.outlet.h.update(h[-1])
         self.outlet.P.update(P[-1])
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

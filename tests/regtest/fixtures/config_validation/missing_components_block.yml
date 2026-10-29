@@ -1,6 +1,6 @@
 # claude_tests fixture: missing_components_block
 # The entire top-level 'components:' block is absent.
-# Derived from example_configs/hydro_sf_electric.yml (components: block removed).
+# Derived from templates/hydro_sf_electric.yml (components: block removed).
 #
 # NOTE (current behavior): Workflow.__init__ accesses config["components"]
 # with a plain dict index, outside the try/except that wraps component-build

@@ -3,7 +3,7 @@
   <img alt="TANGO, Techno-economic ANalysis of Geoenergy Operations. Reservoir, wells and surface plant coupled in one modular simulator, solved over the project's lifetime, with the levelized cost of electricity or heat." src="docs/assets/banner-light.svg">
 </picture>
 
-[![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/ci.yml)
+[![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml)
 [![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-GEG%20internal-0E0E10.svg)](./NOTICE)
 [![Python](https://img.shields.io/badge/python-3.11-0E0E10.svg)](https://www.python.org/downloads/)
@@ -60,8 +60,8 @@ TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting
 Add a pinned release to your own project:
 
 ```bash
-uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.0.1
-uv run tango_cli init .        # copies the example configs into ./example_configs
+uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
+uv run tango_cli init .        # copies the templates into ./templates
 ```
 
 Or clone the repository to work on it:
@@ -75,8 +75,8 @@ just setup                     # installs dependencies and all git hooks
 Then run the flagship example, a single-flash hydrothermal power plant, and save its results:
 
 ```bash
-uv run tango_cli validate example_configs/hydro_sf_electric.yml
-uv run tango_cli run example_configs/hydro_sf_electric.yml --save-dir results/
+uv run tango_cli validate templates/hydro_sf_electric.yml
+uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
 ```
 
 `results/` then holds the solved config, a per-timestep CSV and an economics CSV. The same from Python:
@@ -84,11 +84,11 @@ uv run tango_cli run example_configs/hydro_sf_electric.yml --save-dir results/
 ```python
 from tango.workflows.workflow import Workflow
 
-wf = Workflow.from_file("example_configs/hydro_sf_electric.yml")
+wf = Workflow.from_file("templates/hydro_sf_electric.yml")
 wf.run()
 ```
 
-The [installation guide](docs/guides/install.md) covers SSH access, release pinning and upgrades; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; sweeps and optimizations live in [`applications/`](applications/README.md).
+The [installation guide](docs/guides/install.md) covers SSH access, release pinning and upgrades; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; optimizations live in [`applications/`](applications/README.md).
 
 ## Documentation and layout
 
@@ -96,7 +96,7 @@ The documentation is published as a private site for the GEG-ETHZ organization, 
 
 | Section | What it covers |
 |---|---|
-| [Getting started](docs/guides/install.md) | Installation, first run, example configs, applications, Euler |
+| [Getting started](docs/guides/install.md) | Installation, first run, templates, applications, Euler |
 | [Architecture](docs/architecture/index.md) | Package layers, config to objects, the component circuit |
 | [Runtime](docs/runtime/index.md) | The nested loops, boundary-condition iteration, one run end to end |
 | [API reference](docs/reference/index.md) | Generated from the docstrings |
@@ -104,8 +104,8 @@ The documentation is published as a private site for the GEG-ETHZ organization, 
 
 ```text
 src/tango/        the package: core, components, orchestrators, workflows, CLI, optimization
-example_configs/  maintained configs, one or more per system type; back the tests and applications
-applications/     sweeps, optimizations and demos, each a DVC pipeline with a SLURM script
+templates/        maintained configs, one or more per system type; back the tests and applications
+applications/     optimizations and demos; each optimization is a DVC pipeline with a SLURM script
 tests/            unit/ (fast, run in CI) and regtest/ (full simulations; the fast subset runs before push)
 docs/             the documentation site: guides, architecture, runtime, deep dives, API reference
 tools/            maintenance scripts, the diagram generators and git-hook helpers

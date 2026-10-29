@@ -6,12 +6,12 @@ from abc import abstractmethod
 
 from pydantic import Field, PositiveFloat
 
-from tango.core.component import Component
+from tango.core.component import FlowComponent
 from tango.core.specs import Common
 from tango.core.stream import Stream
 
 
-class SurfaceComponent(Component):
+class SurfaceComponent(FlowComponent):
     """Abstract base for surface / power-plant components.
 
     The surface component is always at component_idx=0 (the BC checkpoint).
@@ -32,9 +32,10 @@ class SurfaceComponent(Component):
     independent copy. Provides surface_temperature/surface_pressure
     (ambient BC state). See core/specs.py."""
     injection_pressure: PositiveFloat
-    """Initial guess for injection wellhead pressure used by SystemBCIteration (Pa).
-    Updated in-place by SystemBCIteration each convergence pass — deliberately
-    NOT frozen, unlike the other fields here; see Component's class docstring.
+    """Injection wellhead pressure (Pa), fixed for the whole run.
+
+    Not frozen, unlike the other fields here: tests and tools set it
+    directly on a built component (see Component's class docstring).
     """
     pipe_diameter: PositiveFloat = Field(frozen=True)
     """Surface pipe inner diameter (m)."""
@@ -57,5 +58,5 @@ class SurfaceComponent(Component):
     that explicitly)."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> None:
-        """Compute power plant outputs and reinjection state from production inlet."""
+    def solve(self, inlet: Stream) -> Stream:
+        """Compute power plant outputs, and compute and return the reinjection state from the production inlet."""

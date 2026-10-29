@@ -1,28 +1,30 @@
 """Interactive demo: tango flexible Single-Flash system.
 
-Runs ``example_configs/hydro_sf_electric.yml`` and generates four figures that
+Runs ``templates/hydro_sf_electric.yml`` and generates four figures that
 ``tango`` itself does not produce (see the section "What running the YAML alone
 gets you" below):
 
   1. Temperature vs axial position parameterized by timestep
        - Injection well: full spatial profile (NumericalInjectionWell)
-       - Production well: inlet/outlet only — lumped model, flat profile (Phase 2 TODO)
+       - Production well: inlet/outlet only — lumped model, flat profile
+         (TODO: replace with a spatially-resolved production well model)
   2. Reservoir inlet and outlet temperature vs elapsed time
   3. Gross power, production-pump power, and net power vs time
-       (injection-pump power is Phase 2 — shown as zero placeholder)
+       (injection-pump power isn't wired to the economic layer yet —
+       shown as a zero placeholder)
   4. Cumulative net energy, injection-pump energy, and production-pump energy vs time
 
 Run from the repo root::
 
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
 
-Default: writes SVGs to this script's own ``outputs/`` directory without
+Default: writes PNGs to this script's own ``outputs/`` directory without
 opening windows. Pass ``--show`` for interactive windows instead (nothing
 is saved in that mode).
 
 What running the YAML alone gets you
 -------------------------------------
-``tango_cli run example_configs/hydro_sf_electric.yml`` (or
+``tango_cli run templates/hydro_sf_electric.yml`` (or
 ``Workflow.from_file(...).run()`` directly, with no further code) runs the
 same simulation but produces none of the above: no files are written and
 no plots are shown -- ``tango_cli`` has no ``--save-dir``/plotting flags
@@ -56,11 +58,11 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from tango.workflows.workflow import Workflow  # noqa: E402
 
-# hydro_sf_electric.yml lives in example_configs/ (configs only, shared
+# hydro_sf_electric.yml lives in templates/ (configs only, shared
 # with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run
-# via `just test --example-configs`/`--all`) — not colocated with this
-# script, unlike the old example_configs/ layout.
-YAML_PATH = _REPO_ROOT / "example_configs" / "hydro_sf_electric.yml"
+# via `just test --templates`/`--all`) — not colocated with this
+# script, unlike the old templates/ layout.
+YAML_PATH = _REPO_ROOT / "templates" / "hydro_sf_electric.yml"
 SAVE_DIR = HERE / "outputs"
 SAVE_DIR.mkdir(exist_ok=True)
 
@@ -248,7 +250,8 @@ def fig2_reservoir_temperature(d: dict, save_path: Path | None = None) -> None:
     ax.set_xlabel("Elapsed time (years)")
     ax.set_ylabel("Temperature (°C)")
     ax.set_title(
-        "Reservoir inlet and outlet temperature vs time\n(LumpedReservoir — no thermal depletion in Phase 1)",
+        "Reservoir inlet and outlet temperature vs time\n"
+        "(LumpedReservoir — Adams (2015) thermal depletion model)",
     )
     ax.grid(True, alpha=0.3)
 
@@ -287,7 +290,7 @@ def fig3_power_vs_time(d: dict, save_path: Path | None = None) -> None:
         d["inj_pump_MW"],
         "g--^",
         ms=4,
-        label="Injection pump (Phase 2 — zero placeholder)",
+        label="Injection pump (not yet wired to economics — zero placeholder)",
     )
     ax.plot(d["years"], d["net_MW"], "k-D", ms=5, lw=1.8, label="Net power")
     ax.set_xlabel("Elapsed time (years)")
@@ -320,7 +323,7 @@ def fig4_cumulative_energy(d: dict, save_path: Path | None = None) -> None:
         d["cum_inj_pump_GWh"],
         "g--^",
         ms=4,
-        label="Cumulative injection-pump energy (Phase 2 — zero)",
+        label="Cumulative injection-pump energy (not yet wired — zero)",
     )
     ax.set_xlabel("Elapsed time (years)")
     ax.set_ylabel("Cumulative energy (GWh)")
@@ -352,7 +355,7 @@ def main() -> None:
     parser.add_argument(
         "--show",
         action="store_true",
-        help="Open interactive plot windows instead of saving SVGs.",
+        help="Open interactive plot windows instead of saving PNGs.",
     )
     args = parser.parse_args()
 
@@ -367,10 +370,10 @@ def main() -> None:
     def _sp(name: str) -> Path | None:
         return None if args.show else SAVE_DIR / name
 
-    fig1_well_temperature_profiles(d, _sp("fig1_well_temperature_profiles.svg"))
-    fig2_reservoir_temperature(d, _sp("fig2_reservoir_temperature.svg"))
-    fig3_power_vs_time(d, _sp("fig3_power_vs_time.svg"))
-    fig4_cumulative_energy(d, _sp("fig4_cumulative_energy.svg"))
+    fig1_well_temperature_profiles(d, _sp("fig1_well_temperature_profiles.png"))
+    fig2_reservoir_temperature(d, _sp("fig2_reservoir_temperature.png"))
+    fig3_power_vs_time(d, _sp("fig3_power_vs_time.png"))
+    fig4_cumulative_energy(d, _sp("fig4_cumulative_energy.png"))
 
     if args.show:
         plt.show()

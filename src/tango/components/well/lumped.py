@@ -13,6 +13,12 @@ These are permanent optional variants to be kept alongside higher-fidelity
 numerical-integration models once those are implemented.  Do NOT deprecate or
 remove them when adding e.g. ``NumericalInjectionWell``.
 
+**Marches in temperature.** These wells work in temperature and convert
+back to enthalpy at the outlet, so they don't conserve energy where enthalpy
+changes steeply with temperature: near a fluid's critical point or its
+saturation line. Use ``variant: numerical`` (which marches in enthalpy) for
+CO2 or for flow near saturation; every template's wells do.
+
 Simplified-physics TODOs are marked throughout; upgrade path for each is noted.
 """
 
@@ -65,8 +71,10 @@ class WellboreState(StateMethods):
     timestep.
     """
 
+    h_inlet: LockedState[float] = field(default_factory=_ls)
+    """Inlet specific enthalpy (J/kg), from ``inlet``."""
     T_inlet: LockedState[float] = field(default_factory=_ls)
-    """Inlet temperature (K)."""
+    """Inlet temperature (K), derived from (``h_inlet``, ``P_inlet``); this model's own physics works in temperature."""
     P_inlet: LockedState[float] = field(default_factory=_ls)
     """Inlet pressure (Pa)."""
     mass_rate: LockedState[float] = field(default_factory=_ls)
@@ -85,6 +93,8 @@ class WellboreState(StateMethods):
     """Frictional pressure loss along the well, a positive magnitude (Pa)."""
     delta_p_hydrostatic: LockedState[float] = field(default_factory=_ls)
     """Hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa)."""
+    h_outlet: LockedState[float] = field(default_factory=_ls)
+    """Outlet specific enthalpy (J/kg), derived from (``T_outlet``, ``P_outlet``) -- what ``outlet`` carries."""
     T_outlet: LockedState[float] = field(default_factory=_ls)
     """Outlet temperature (K)."""
     P_outlet: LockedState[float] = field(default_factory=_ls)
@@ -115,6 +125,8 @@ class WellboreHistory:
     see ``record()``.
     """
 
+    h_inlet: list[float] = field(default_factory=list)
+    h_outlet: list[float] = field(default_factory=list)
     T_inlet: list[float] = field(default_factory=list)
     """Per-timestep inlet temperature (K)."""
     T_outlet: list[float] = field(default_factory=list)
@@ -142,6 +154,8 @@ class WellboreHistory:
 
     def record(self, state: WellboreState) -> None:
         """Append one timestep snapshot."""
+        self.h_inlet.append(state.h_inlet.get_fresh())
+        self.h_outlet.append(state.h_outlet.get_fresh())
         self.T_inlet.append(state.T_inlet.get_fresh())
         self.T_outlet.append(state.T_outlet.get_fresh())
         self.P_inlet.append(state.P_inlet.get_fresh())
@@ -173,6 +187,16 @@ class ProductionWellWithPumpHistory(WellboreHistory):
         self.pump_power_watts.append(pump_state.pump_power_watts.get_fresh() if pump_state else 0.0)
 
 
+def _temperature(common: Common, h: float, P: float) -> float:
+    """Temperature (K) at (h [J/kg], P [Pa]) -- these lumped models work in temperature internally."""
+    return FluidState.with_HP(common.fluid_name, h, P, common.coolprop_backend).T
+
+
+def _enthalpy(common: Common, P: float, T: float) -> float:
+    """Specific enthalpy (J/kg) at (P [Pa], T [K]), for the ``outlet`` stream."""
+    return FluidState.with_PT(common.fluid_name, P, T, common.coolprop_backend).H
+
+
 # ---------------------------------------------------------------------------
 # LumpedInjectionWell
 # ---------------------------------------------------------------------------
@@ -200,12 +224,13 @@ class LumpedInjectionWell(WellComponent):
     history: WellboreHistory = Field(default_factory=WellboreHistory)
     """Per-timestep record of the well state."""
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
+        s.T_inlet.update(_temperature(self.common, s.h_inlet.get_fresh(), s.P_inlet.get_fresh()))
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         rho = fluid_density(
@@ -237,9 +262,11 @@ class LumpedInjectionWell(WellComponent):
         s.P_outlet.update(s.P_inlet.get_fresh() + dp_h - dp_f)
         s.T_outlet.update(s.T_inlet.get_fresh() + self.common.thermal_gradient * self.well_length)
 
-        self.outlet.T.update(s.T_outlet.get_fresh())
+        s.h_outlet.update(_enthalpy(self.common, s.P_outlet.get_fresh(), s.T_outlet.get_fresh()))
+        self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
         self.outlet.mass_rate.update(s.mass_rate.get_fresh())
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -269,12 +296,13 @@ class LumpedProductionWell(WellComponent):
     history: WellboreHistory = Field(default_factory=WellboreHistory)
     """Per-timestep record of the well state."""
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
+        s.T_inlet.update(_temperature(self.common, s.h_inlet.get_fresh(), s.P_inlet.get_fresh()))
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         rho = fluid_density(
@@ -304,11 +332,15 @@ class LumpedProductionWell(WellComponent):
         s.delta_p_hydrostatic.update(dp_h)
 
         s.P_outlet.update(s.P_inlet.get_fresh() - dp_h - dp_f)
-        s.T_outlet.update(s.T_inlet.get_fresh())  # perfectly insulated; Phase 2: Zhang 2011
+        s.T_outlet.update(
+            s.T_inlet.get_fresh(),
+        )  # perfectly insulated; TODO: transient wellbore heat-loss model (candidate: Zhang 2011)
 
-        self.outlet.T.update(s.T_outlet.get_fresh())
+        s.h_outlet.update(_enthalpy(self.common, s.P_outlet.get_fresh(), s.T_outlet.get_fresh()))
+        self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(s.P_outlet.get_fresh())
         self.outlet.mass_rate.update(s.mass_rate.get_fresh())
+        return self.outlet
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +353,18 @@ class LumpedProductionWellWithPump(WellComponent):
 
     TODO: replace with TESPy Compressor or explicit pump curve.
     TODO: track pump electricity consumption in EconomicComponent.
+    Assumptions:
+        - All of the pump's losses heat the produced fluid. The actual
+          enthalpy rise is the isentropic rise divided by
+          ``pump_efficiency``, and the pump's electricity draw is
+          ``mass_rate`` times that same rise. This is right for losses in
+          the pump and its fluid-cooled downhole motor. It is not quite right
+          when ``pump_efficiency`` is an overall pump-string figure that also
+          covers surface equipment (cable, transformer, frequency
+          converter), whose losses heat the surroundings rather than the
+          fluid: the electricity draw is still correct, but the discharge
+          enthalpy is slightly overstated (about 1 kJ/kg for a 50 bar boost
+          of hot brine at an overall efficiency of 0.55).
     """
 
     common: Common = Field(frozen=True)
@@ -328,11 +372,16 @@ class LumpedProductionWellWithPump(WellComponent):
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
     pump_efficiency: float = Field(default=1.0, frozen=True)
-    """Pump isentropic efficiency (dimensionless). Defaults to 1.0 (no
-    derating). TODO: lower this default to ~0.9 once a real efficiency
-    figure is settled on — deliberately deferred until then. See
-    ``solve()``'s docstring for the isentropic-efficiency pump model this
-    scales."""
+    """Pump efficiency (dimensionless): the isentropic enthalpy rise divided by
+    the actual one, which is also the electricity drawn per unit mass. Defaults
+    to 1.0 (ideal pump). The templates use **0.55**, the overall
+    electric submersible pump (ESP) string efficiency of van 't Spijker &
+    Ungemach (2016) (see ``docs/SOURCES.md#vantspijker2016``): pump 70% ×
+    motor 90% × cable 97% × transformer 99% × frequency converter 94%. The
+    overall figure is used, not the 70% pump-only one, because downhole pump
+    power is billed as electricity drawn at the surface. See the class's
+    Assumptions section for what this means for the fluid's enthalpy, and
+    ``solve()``'s docstring for the pump model this scales."""
     target_extraction_pressure: float = Field(default=0.0, frozen=True)
     """Target outlet pressure from the pump (Pa). 0 means no active pump.
     Sourced from ``sim_config.target_extraction_pressure`` — the SAME
@@ -366,7 +415,7 @@ class LumpedProductionWellWithPump(WellComponent):
         P_outlet = P_start - dp_h - dp_f
         return P_outlet, rho, mu, vel, re, ff, dp_f, dp_h
 
-    def solve(self, inlet: Stream) -> None:
+    def solve(self, inlet: Stream) -> Stream:
         """Compute wellhead T and P including wellbore losses and pump boost.
 
         If a pump boost is needed, the boosted pump-discharge pressure is
@@ -393,8 +442,9 @@ class LumpedProductionWellWithPump(WellComponent):
         """
         s = self.state
 
-        s.T_inlet.update(inlet.T.get_fresh())
+        s.h_inlet.update(inlet.h.get_fresh())
         s.P_inlet.update(inlet.P.get_fresh())
+        s.T_inlet.update(_temperature(self.common, s.h_inlet.get_fresh(), s.P_inlet.get_fresh()))
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
         T_in = s.T_inlet.get_fresh()
@@ -419,14 +469,20 @@ class LumpedProductionWellWithPump(WellComponent):
             s.pump_delta_p.update(0.0)
             s.pump_power_watts.update(0.0)
             s.P_outlet.update(P_after_natural)
-            s.T_outlet.update(T_in)  # simplified: insulated + no pump T rise (Phase 2)
+            s.T_outlet.update(T_in)  # simplified: insulated, no pump-induced T rise modeled yet
+            s.h_outlet.update(_enthalpy(self.common, P_after_natural, T_in))
 
-            self.outlet.T.update(T_in)
+            self.outlet.h.update(s.h_outlet.get_fresh())
             self.outlet.P.update(P_after_natural)
             self.outlet.mass_rate.update(mdot)
-            return
+            return self.outlet
 
-        before = FluidState.with_PT(self.common.fluid_name, P_in, T_in, self.common.coolprop_backend)
+        before = FluidState.with_HP(
+            self.common.fluid_name,
+            s.h_inlet.get_fresh(),
+            P_in,
+            self.common.coolprop_backend,
+        )
 
         def _discharge_state(P_pump_out: float) -> tuple[float, float]:
             """Isentropic-efficiency pump model: (P_pump_out) -> (h_actual, T_pump_out)."""
@@ -483,7 +539,9 @@ class LumpedProductionWellWithPump(WellComponent):
         s.pump_power_watts.update(pump_pwr)
         s.P_outlet.update(P_outlet)
         s.T_outlet.update(T_pump_out)
+        s.h_outlet.update(_enthalpy(self.common, P_outlet, T_pump_out))
 
-        self.outlet.T.update(T_pump_out)
+        self.outlet.h.update(s.h_outlet.get_fresh())
         self.outlet.P.update(P_outlet)
         self.outlet.mass_rate.update(mdot)
+        return self.outlet

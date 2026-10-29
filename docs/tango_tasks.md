@@ -8,25 +8,14 @@ detail from here). The vision doc is the durable, Confluence-bound
 narrative; this file is scratch-adjacent but checked in, for tracking
 in-flight multi-step work across sessions.
 
-- **High urgency as of 2026-09-22** -- generate documentation and host on github.com
-- **Added 2026-09-24** -- `GraphSurface.net_power_W`'s name overclaims what
-  it actually measures. It's the sum of `-P` over TESPy nodes tagged
-  `role: net_electric` only — real physics components in the YAML graph
-  (turbines, compressors/pumps). It does NOT include the cooling-tower
-  fan/pump parasitic power (`DoubletEconomicComponent
-  ._cooling_condenser_parasitic_power`, a Baltimore-Aircoil cost-model
-  regression estimate, not a modeled TESPy component at all) or the
-  production-well downhole pump parasitic — both of those are only
-  applied two layers away, inside the economics component, never
-  reflected back into the surface plant's own reported "net" power. A
-  user reading `surface.net_power_W`/`.history.net_power_W` directly
-  would reasonably assume it's the true bottom line; it isn't. Found
-  while investigating why CPG's surface plant always looked net-positive
-  even when its true (post-parasitic) economics went negative (see the
-  resolved `LCOE`-NaN entry below). Rename (e.g. `net_electric_power_W` or
-  similar, to signal "electric components only") and/or document this
-  scope limit clearly wherever `net_power_W` is read — not yet decided
-  which, or how urgent, just don't want it forgotten.
+**Migration to GitLab issues in progress (started 2026-09-25, see issue
+#45 for the plan/decisions).** Open items are being ported to GitLab
+issues one at a time; each migrated bullet's body is replaced with a
+one-line pointer to its issue, in place, rather than deleted outright. The
+"Completed Tasks" archive below is NOT being migrated — it stays here.
+
+- See issue [#47](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/47) — generate documentation and host on github.com.
+- See issue [#48](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/48) — `GraphSurface.net_power_W`'s name overclaims its scope.
 - ~~**SUPER HIGH PRIORITY, added 2026-09-23 — `CPG_electric.yml`'s `LCOE` is
   `NaN`.**~~ — **resolved 2026-09-23.** Found while building full-length
   regression coverage for every `example_configs/` YAML
@@ -70,15 +59,7 @@ in-flight multi-step work across sessions.
     neither codebase's implementation actually honors. `_bac_regression`'s
     own docstring in `doublet.py` now documents this explicitly so it
     doesn't get "fixed" into a regression later.
-- **Added 2026-09-23** -- include GeoProp in TANGO, ideally as a standalone
-  code offered alongside the others via our (significantly improved) GEG
-  software web page/GitHub, etc. Needs coordination with the other authors
-  first -- placeholder here so this isn't forgotten, not yet scoped as an
-  actionable task. Citation: Merbecks, T., A.M.M. Leal, P. Bombarda, P.
-  Silva, D. Alfani, and M.O. Saar, GeoProp: A thermophysical property
-  modelling framework for single and two-phase geothermal geofluids,
-  Geothermics, https://doi.org/10.1016/j.geothermics.2024.103146,
-  125:103146, 2025.
+- See issue [#49](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/49) — include GeoProp in TANGO.
 - **KNOWN, LOW PRIORITY, NOT PURSUED FURTHER (2026-09-17) — `test_native.py`'s
   `flexible_SF_doublet.yml` LCOE golden is stale.** Found while investigating
   a merge (`dev/aitkens-process` <-> `dev/make-tango-robust`): expected
@@ -106,42 +87,15 @@ in-flight multi-step work across sessions.
   actually been stale. Revisit only if old tango needs to be trusted as a
   reference again for something specific; otherwise leave as-is.
 
-- **Added 2026-09-17**: build phase-diagram (P-h/T-s style) visuals for
-  `tango` fluid states to match what the tango web app shows. Not
-  scoped yet — needs a decision on which diagram(s), which components'
-  states to plot (surface plant nodes via `GraphSurface.state.node_detail`
-  is the obvious source), and where these should live (a `tango`
-  plotting helper vs. something the web app itself renders from
-  `Workflow.to_dict()`/history output).
+- See issue [#50](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/50) — build phase-diagram (P-h/T-s) visuals for tango fluid states.
 
-  This duplicates what old tango's `ThermaGraph` addon did
-  (`src/tango/addons/ThermaGraph/`, removed along with the rest of old
-  tango — recoverable from git history if useful as a reference for what
-  the diagrams looked like). Whatever replaces it should NOT copy that
-  addon system's design, which had three separate problems worth avoiding:
-  - **Optional deps swallowed into a log line, not a real error.** Each
-    addon's import lived in a `try/except` inside
-    `native_workflow.py::addons_manager()`; a missing optional dependency
-    (e.g. PyQt5, only pulled in by the `tango-app` extra) just logged
-    `"Failed to load addon '...'"` and silently ran the simulation without
-    it, instead of surfacing a clear "install the X extra" error.
-  - **The `== "yes"` string-comparison trap.** Whether an addon actually
-    ran was gated by `addon_specs.active.lower() == "yes"` — the same
-    footgun documented in this repo's `CONTRIBUTING.md` YAML Style section
-    (writing `active: True` silently does nothing, or crashes outright).
-  - **No registry — copy-pasted if-blocks.** `ThermaGraph` and `Analyzer`
-    were two hand-copied blocks in `addons_manager()`; adding a third
-    addon meant copying the pattern a third time rather than registering
-    against something extensible.
-
-  Whatever plotting mechanism gets built here should use a real
-  extras-based dependency check (fail loudly, not a caught-and-logged
-  `ImportError`), a proper boolean (not a `"yes"`/`"no"` string) for any
-  on/off config flag, and — if there's ever a second diagram type — an
-  actual registry instead of a growing pile of if-blocks.
-
-- **Added 2026-09-17**: add functionality to copy demos/examples/applications to
-  working directories of where tango is a dep
+- ~~**Added 2026-09-17**: add functionality to copy demos/examples/applications to
+  working directories of where tango is a dep~~ — **DONE 2026-09-25**:
+  `tango_cli init` now copies `example_configs/` and every
+  `applications/` pipeline into DEST by default (`--app` narrows to
+  specific apps, `--no-apps` skips applications entirely). Also fixed the
+  related bug where re-running `init --app X` after a plain `init` failed
+  outright because `example_configs/` already existed.
 
 - ~~**Added 2026-09-17**: check the correctness of the Adams et al. (2015)
   transient conductive heat-loss reference used by `NumericalWell`~~ —
@@ -163,74 +117,19 @@ in-flight multi-step work across sessions.
   (2024), Geothermics 116:102843 — Adams is the second author, not first,
   and the DOI's own "2023" is the online-first year, not 2020.
 
-- **Added 2026-09-16**: check how turine and other surface component costs are being calculated relative to sizing -- based on last year? first year? max? average?  This needs careful thought.
+- See issue [#51](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/51) — decide how surface-component cost sizing is calculated relative to time.
 
-- **Added 2026-09-15**: make sure that all systems, even hydrothermal systems,
-  can operate without a production well pump (Larderello is a dry steam system
-  and requires no pump at all!  However, since the late 1970's they've been
-  reinjecting)
-- **Added 2026-09-15**: make sure that we can handle non-condensable gases,
-  which can make up several percent of the subsurface fluids in hydrothermal
-  systems (Larderello as precedent)
+- See issue [#52](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/52) — support production well operation with no pump (e.g. Larderello).
+- See issue [#53](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/53) — handle non-condensable gases in subsurface fluids.
 
-- **Added 2026-09-11**
-  make sure that there are examples/tutorials/demos (ask Claude about a good way to expose this) that show off how TANGO can be used to assess:
-  - how binary (e.g. ORC) and single fluid systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - how single- and double-flash systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - how CO2 and water systems compare in terms of LCOE and power and what conditions need to change to alter which is more favorable.
-  - a matrix of these
+- See issue [#54](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/54) — build examples/tutorials demonstrating LCOE/power tradeoffs across system types.
 
 - See **Completed Tasks → From the top-level list** for the outer-circuit
   `component_idx`/`prev`/`next` vs. tespy-style `edges` question (flagged
   2026-09-09, decided 2026-09-17: keep as-is) and the `LumpedReservoir`
   initial-pressure bootstrap fix (DONE 2026-08-04) and the production-well
   pump-power formula fix (DONE 2026-08-10).
-- [ ] **SCOPED 2026-08-14, ready to implement: re-architect the production-well
-  pump boost as a Secant-converged iteration over the segment's INLET
-  pressure, not a value tacked onto an already-completed march.**
-  `NumericalProductionWellWithPump`/`LumpedProductionWellWithPump` currently
-  march the entire upper wellbore segment first (`super().solve()`, using
-  the fluid's natural, un-boosted pressure trajectory the whole way), THEN
-  apply the pump boost as a single closed-form enthalpy correction tacked
-  onto the very last step — implicitly treating the pump as sitting exactly
-  at the wellhead, with zero pipe between the pump and the surface. There is
-  no `pump_depth` field anywhere in either component. If the pump physically
-  sits lower in the segment (realistic for an ESP), every cell genuinely
-  above the pump is being marched with the WRONG density: friction/heat-loss
-  per cell depends on local fluid density, and the marching solve computed
-  that density from the natural (un-boosted, lower-pressure) trajectory
-  instead of the boosted one — a small error for a liquid far from its
-  critical point, but potentially a real one exactly in the "approaching a
-  phase boundary" regime this was originally flagged for.
-
-  **Two closed-form sub-questions got resolved along the way, NEITHER of
-  which needs iteration on its own:**
-  1. Accounting for imperfect pump efficiency does NOT require root-finding:
-     entropy at the inlet state → isentropic enthalpy at the target pressure
-     (needs a new `FluidState.with_PS`, straightforward CoolProp PSmass
-     call) → efficiency-derated actual enthalpy via
-     `h_actual = h_in + (h_isentropic - h_in) / pump_efficiency` (pure
-     algebra — efficiency only scales a linear interpolation, no
-     nonlinearity) → actual outlet temperature via the already-existing
-     `FluidState.with_HP`. Four direct property evaluations, no iteration.
-  2. Inverting enthalpy back to temperature does NOT require root-finding
-     either — `FluidState.with_HP` already does this directly.
-
-  **What DOES require iteration, and why cloning is unavoidable:** the
-  segment's own friction/gravity pressure drop is a function of the
-  boosted pressure profile, which is exactly what we're solving for — a
-  genuine fixed-point problem, not a scalar property inversion. Design:
-  guess a boosted inlet pressure, clone `production_well_upper` (a full
-  re-solve mutates ~100 cells' worth of `LockedState` fields — trying a
-  candidate on the live component would either violate the "written once
-  per timestep" contract or require repeatedly mark-staling every cell,
-  neither of which belongs on the real object mid-search), re-march the
-  WHOLE segment with that guessed inlet, compare the resulting outlet
-  pressure to `target_extraction_pressure`, Secant-update the inlet-pressure
-  guess, repeat with a real tolerance check (not a fixed iteration count).
-  Early-exit without a second iteration if the first guess already
-  converges. Commit the final converged state to the real component once
-  done, exactly once per field.
+- See issue [#55](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/55) — re-architect the production-well pump boost as a Secant-converged iteration over segment inlet pressure.
 - See **Completed Tasks → From the top-level list** for
   `pymoo_api.Minimization` saving the front every generation
   (DONE 2026-08-11) and the superseded stop/resume work for
@@ -337,7 +236,7 @@ Goal: get through all of this in the next session (2026-09-17).
       `docs/bugs-fixed-in-tango.md`) or inlined substance. Full list of
       what was touched, preserved as a record:
       - `example_configs/EGS_direct_heat.yml` (known simplification vs.
-        old tango's `max_mass_rate` cap), `hydro_orc_electric.yml` (dropped
+        old tango's `max_mass_rate` cap), `hydro_ORC_electric.yml` (dropped
         cost-metadata attributes; the manual-vs-manual-fracking-check
         numeric-margin rationale).
       - `src/tango/orchestrators/system_bc_iteration.py`,
@@ -381,14 +280,14 @@ Goal: get through all of this in the next session (2026-09-17).
         to the *current* file, not old tango. Triage each one; don't
         blind-strip.
     - **Third-party dependency license compliance tooling needs
-      modernizing** (`tools/check_licenses.py` +
-      `tools/conda_and_pip_package_licenses.csv`, discovered while
-      confirming closed-source licensing didn't conflict with any
-      dependency's own license). Currently: a manual-only script, not
-      wired into anything, dumping a 5,475-row CSV (full pip+conda
-      transitive closure) that's already stale (last generated 2026-08-11).
-      Chad wants:
-      - A more human-readable output format than CSV (undecided — CSV
+      modernizing** (`tools/check_licenses.py` → `tools/licenses.json`,
+      discovered while confirming closed-source licensing didn't conflict
+      with any dependency's own license). Currently: a manual-only script,
+      not wired into anything. The old 5,475-row pip+conda CSV output was
+      dropped (2026-09-30); each `licenses.json` entry now records
+      `Direct`/`Depth`/`Scope` (runtime vs dev)/`RequiredBy` from the
+      installed dependency graph. Chad wants:
+      - A more human-readable output format than JSON/CSV (undecided — CSV
         felt too rigid for this).
       - Wired into `just` (a recipe, not just a standalone script).
       - Enforced via pre-commit and/or GitLab CI, not purely manual.
@@ -434,9 +333,7 @@ specific to deleted old-tango files/apps).
   ```
   Benefits: merges component config with graph structure, eliminates
   redundant per-component sections, multi-port components use a dict for
-  `connects_to`. See also
-  [ALTRIOS's rail network representation](https://github.com/NatLabRockies/altrios/blob/main/python/altrios/resources/networks/Taconite.yaml)
-  for another take on a self-contained graph format.
+  `connects_to`.
 - **Restore/update `GUIDELINES.md`.** Doesn't exist in this repo at all
   currently (not even a stale copy) — the original TODO pointed at
   `https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/blob/main/GUIDELINES.md`,
@@ -541,6 +438,8 @@ scheduled" below) — old tango is not being patched.
 
 ## Surrogate-assisted optimization (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap
 
+**On hold since 2026-10-16.** The app was moved to `applications/_on_hold/`, because LCOE accuracy never reached the 1% target near the front. The trajectory-based redesign scored a cross-validated R² of 0.27–0.34. Whether to bring it back or delete it is tracked in [#106](https://github.com/GEG-ETHZ/TANGO-core/issues/106). The history below is kept for reference.
+
 See **Completed Tasks → From "Surrogate-assisted optimization
 (`opt_hydro_df_electric_surrogate`) — pareto-front quality gap, open
 2026-08-19"** for the full investigation and its resolution
@@ -616,12 +515,19 @@ from scratch.
   for this).
 - **MOOSE/MOSKito integration** — ~55 configs unrunnable, hardcoded to a
   former contributor's (Morteza's) machine, no docs left. Blocked on his
-  response to outreach. Backlog.
+  response to outreach. Backlog. Also covers GitLab issue #21's DWSIM
+  coupling ask — Chad's call (2026-09-25): DWSIM is downstream of MOOSE
+  here, tracked together rather than as a separate thread.
 - **No genuine "modest disparity" old-vs-new parity case found yet** — SF/
   EGS/double-flash sweeps all came back "good" agreement. CPG/ORC
   topologies and edge-of-sweep-range points haven't been checked.
 - **Multi-segment well CAPEX (`well_length_seq`/`well_diameter_seq`
-  equivalent) — planned, not built.** Old tango's fields of the same name
+  equivalent) — planned, not built.** Overlaps GitLab issues
+  [#17](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/17)
+  (economic-calculation flexibility) and
+  [#20](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/20)
+  (new wellbore cost models) — link those there when this gets built
+  rather than opening a fresh issue. Old tango's fields of the same name
   are meant to let well CAPEX vary by depth segment based on OUTER/casing
   diameter (different drilling/material cost per segment), independent of
   the inner flow diameter the physics uses — confirmed with Chad
@@ -791,59 +697,7 @@ reasoning doesn't have to be re-derived next session.
 
 ## Active: external binary release to a collaborator (added 2026-09-23)
 
-We need to give an external collaborator a runnable copy of `tango` without
-exposing `src/tango/` (the actual physics/orchestration source). This is a
-different distribution boundary from anything decided so far — the existing
-internal release (see "Release plan for `tango` as an internal release, GEG
-team members only" above) is explicitly GEG-only, and the open-source plan
-below covers only the wellbore model plus its foundation dependencies,
-published under a permissive license. Neither covers "closed code, given to
-one named external party." This is new territory (no prior Python
-binary-distribution precedent in this project), so proceed carefully.
-
-**Scope, confirmed 2026-09-23:** `applications/` scripts are fine to hand
-over as plain, readable `.py` — they're not the sensitive part. Only
-`src/tango/` itself needs to be hidden. The collaborator does need to write/
-run their own code against `tango`, so the deliverable is **a compiled,
-importable `tango` package** (Nuitka `--module` mode: compiles `tango`'s
-own code to a real compiled extension — `.so` on macOS/Linux, `.pyd` on
-Windows — that a plain `import tango` picks up like any other installed
-package, but with no readable source behind it). This rules out a
-standalone Nuitka executable (`--standalone`/`--onefile`) — that produces a
-closed program you *run*, not a library you *import*, which doesn't fit
-"collaborator writes their own scripts against `tango`." It also rules out
-PyInstaller and a plain wheel — neither hides source at all.
-
-Open items, in order, before any build work starts:
-
-1. **Authorization first.** Confirm there's an actual NDA / data-sharing
-   agreement covering this specific collaborator before anything is built,
-   let alone sent. Reusing the internal GEG-only `NOTICE`/`LICENSE.txt` is
-   not sufficient — that license was written for internal distribution and
-   says so explicitly; sending it to an outside party under that license
-   would misstate the terms. This needs its own license text and sign-off,
-   not a reused file.
-2. **Collaborator sets up their own Python environment normally** (their
-   own `uv`/`pip`, their own venv) and installs `tango`'s third-party
-   dependencies (numpy, CoolProp, TESPy, pydantic, pymoo, etc.) the usual
-   way — those are already-public open-source packages, not something we
-   need to hide or bundle. Only the compiled `tango` package itself is
-   handed over as an artifact; `applications/` ships as plain `.py`
-   alongside it, importing `tango` normally.
-3. **Target platform(s) and Python version.** A Nuitka `--module` build is
-   specific to both the OS *and* the Python version/ABI it was compiled
-   against — confirm the collaborator's OS and Python version before
-   building, and expect to produce one build per (OS, Python version)
-   combination they need.
-4. **Test on a genuinely clean machine.** Build a small throwaway spike
-   first — compile one or two simple `tango` modules, confirm
-   `import tango` plus a minimal example config actually runs on a clean
-   VM/machine with no development environment installed — before investing
-   in compiling the whole package. "Works on the machine that built it" is
-   not sufficient evidence it will work for the collaborator.
-5. Once 1–4 are settled: compile the full `src/tango/` package, verify the
-   collaborator's own example scripts run against it exactly as they would
-   against the uncompiled source, then hand it over.
+Moved to [GitLab issue #61](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/61) (2026-09-28): licensed Nuitka binary + docs release to Paromita Deb, including the full technical plan formerly here.
 
 ## Backlog (queued, not yet started)
 
@@ -1112,13 +966,13 @@ Open items, in order, before any build work starts:
 - Seasonal/variable heat-demand mechanism design (see vision doc's
   "Seasonal heat-demand variation" section) — the real fix for task 1's
   gap, not yet designed.
-- `tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal ×
-  heat/power) — vision doc, Phase 3. AGS and EGS have heat, Hydrothermal
-  and CPG have power; AGS/EGS/Hydrothermal are each missing their other
-  cell. CO2-AGS/CO2-EGS not started, but likely tractable — CPG's port
-  found `tango`'s fluid handling is already CO2-agnostic (see vision doc's
-  2026-09-21 correction), so the earlier "CO2 needs new FluidState work"
-  assumption for those two rows is probably also stale.
+- ~~`tango` example coverage matrix (AGS/EGS/CPG/Hydrothermal × heat/power)~~
+  — **DONE 2026-09-25.** Every cell filled (AGS/EGS/CPG/Hydrothermal ×
+  heat/power, including all four CO2 variants) with a real, runnable,
+  sanity-checked config — full details, including the depth-deepening
+  rationale for each hypothetical site and three real pump-or-valve bugs
+  found and fixed along the way (a CO2/CPG-wide audit prompted by Chad),
+  in GitLab #68 (closed; the live matrix and review checklist are in #67).
 - ~~Broader old-tango example porting (58 confirmed-PASS + ~10
   confirmed-fine-just-slow per `REPO_CLEANUP_AUDIT.md`)~~ — moot as of
   2026-09-18: old tango's `examples/` set and `REPO_CLEANUP_AUDIT.md` (the
@@ -1190,7 +1044,7 @@ Open items, in order, before any build work starts:
 
 - **LOW PRIORITY, NO URGENCY — sync up the diagrams.** Flagged 2026-08-17
   (Chad). Scope not worked out yet — at minimum, the exec-flow diagrams
-  (`docs/diagrams/*.drawio`, e.g.
+  (`docs/archive/diagrams/*.drawio`, e.g.
   `hydro_df_electric_exec_flow.drawio` referenced by the "Debugger
   walkthrough" item above) and the vision doc's own diagram set
   (`docs/TANGO_vision_and_roadmap/README.md`, already migrated to `.drawio` for
@@ -1209,17 +1063,14 @@ Open items, in order, before any build work starts:
   assessment. The two items directly below are what that unlocks in
   practice.
 
-- **LOW PRIORITY, NO URGENCY — bump the `tespy` pin.** Flagged 2026-09-17.
-  `pyproject.toml` pins `tespy==0.7.1.post1` (Dec 2023); current release is
-  0.11.2 (Sept 2026) — 4 minor versions behind. Newer TESPy has a friendlier
-  custom-component extension API (`dependents()`, `dc_cmc`/`num_eq_sets`)
-  that doesn't exist in our pinned version — worth having before any
-  custom-TESPy-component work starts (see
-  `docs/TANGO_vision_and_roadmap/README.md`'s Appendix A). Bump the pin, fix
-  whatever breaks, and re-check golden-snapshot economic/LCOE tests for
-  drift (same category of issue as the recent CoolProp-BICUBIC tolerance
-  loosening). Deliberately held until Chad finishes his current unrelated
-  work in another session.
+- **DONE 2026-10-12 — bumped the `tespy` pin to 0.11.2** (GitLab #75).
+  The breaks were the network-units API (`Network.units.set_defaults()`),
+  `Td_bp` becoming `td_bubble`, and the solver's iteration count and residual
+  history moving to `Network.problem`. Every LCOE golden held at 1e-6. On a
+  40-design sample of each ORC app's bounds, TESPy convergence failures went
+  from 45 to 0 and the repeat-solve flip-flop disappeared (0.11 seeds its
+  mass-flow starting values by component label; 0.7.1 drew them from the
+  global random generator). CoolProp is still pinned at 6.8.0.
 
 - **AGS-wellbore-as-TESPy-component prototype.** Flagged 2026-09-17, not
   started. Explore modeling a standalone surface plant with a custom
@@ -1403,7 +1254,7 @@ detailed working record, just filed separately.
   it is.
 
 - **DONE 2026-09-17 — ported `examples/flexible_ORC_manual.yml` as
-  `example_configs/hydro_orc_electric.yml`; no dedicated ORC component
+  `example_configs/hydro_ORC_electric.yml`; no dedicated ORC component
   needed.** The binary (ORC) plant is a plain `GraphSurface` subgraph — the
   secondary R245fa loop lives entirely inside `power_plant.nodes`/`edges`,
   closed via `CycleCloser`. Needed one real `GraphSurface` extension:
@@ -1427,7 +1278,7 @@ detailed working record, just filed separately.
   else here, landing on the wrong side of this site's tight margin;
   `manual-fracking-check` has no self-correction to absorb it. Also added:
   a draw.io topology diagram
-  (`docs/archive/diagrams/hydro_orc_electric_topology.drawio` +
+  (`docs/diagrams/src/hydro_ORC_electric_topology.drawio` +
   rendered PNG). `docs/TANGO_vision_and_roadmap/README.md`'s AGS
   power-generation-sweep port can reuse this pattern directly — no new
   Python needed there either, only YAML composition.
@@ -1729,7 +1580,7 @@ old tango's apps — that's task 3 below, still blocked/deferred.
 - [x] **Blocking gap RESOLVED 2026-09-17**: a binary/ORC plant is now a
       plain `GraphSurface` subgraph, no dedicated ORC component needed —
       confirmed by porting `examples/flexible_ORC_manual.yml` to
-      `example_configs/hydro_orc_electric.yml` (parity case added to
+      `example_configs/hydro_ORC_electric.yml` (parity case added to
       `tests/regtest/test_old_new_parity.py`). The secondary (ORC
       working-fluid) loop lives entirely inside `power_plant.nodes`/
       `edges` — `CycleCloser` closes it, and a two-sided `HeatExchanger`
@@ -2448,7 +2299,7 @@ verified, then this fix popped back in and re-checked).
   minimizing LCOE and maximizing power, which is exactly pymoo's job
   (`opt_*` apps), with fracking-avoidance enforced as a constraint/CV
   exception (`FrackingViolationError`, already in `pymoo_api.py`'s
-  `_CV_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
+  `INFEASIBLE_DESIGN_EXCEPTIONS`) rather than something an in-simulation auto-adjustment
   loop needs to hunt for live. Consistent with `pymoo_api.py`'s own module
   docstring, which already explains why `AUTO_*` policies aren't wired
   into `Minimization` at all — `MANUAL`/`MANUAL_FRACKING_CHECK` plus

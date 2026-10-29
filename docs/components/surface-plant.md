@@ -9,8 +9,8 @@ the config's `power_plant` block lists TESPy nodes (turbines, separators,
 heat exchangers, pumps) and the edges between them, and TANGO solves that
 network every timestep. A single-flash, double-flash, ORC or direct-heat
 plant is therefore a config change, not new code. See
-`example_configs/hydro_sf_electric.yml` (single flash) and
-`example_configs/AGS_direct_heat.yml` (direct heat) for complete graphs.
+`templates/hydro_sf_electric.yml` (single flash) and
+`templates/AGS_direct_heat.yml` (direct heat) for complete graphs.
 An Aspen Plus connection is planned as a further variant.
 
 ## How the model works

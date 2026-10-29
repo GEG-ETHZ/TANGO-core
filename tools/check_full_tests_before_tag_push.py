@@ -1,14 +1,14 @@
 """Require a clean `just test --all` before pushing a version-release tag.
 
 Release tags (``vX.Y.Z``) are the agreed trigger for "periodically" in
-CONTRIBUTING.md's "Every example_configs/ YAML is regression-tested"
+CONTRIBUTING.md's "Every templates/ YAML is regression-tested"
 Commandment — a release should never ship without the full suite
 (including ``tests/regtest/``'s full-length, slow-marked runs) having
 actually passed, not just the fast subset every ordinary push already
 runs via this repo's other pre-push hooks.
 
 Not a CI job: ``tests/regtest/`` takes over an hour, so CI
-(``.github/workflows/ci.yml``) runs only ``tests/unit/``, and a
+(``.github/workflows/tests.yml``) runs only ``tests/unit/``, and a
 tag-triggered CI job would hit the same runtime limit. A local pre-push
 hook, gated on the pushed ref, is the only currently-practical
 enforcement point.

@@ -7,7 +7,7 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 | Path | Scope | Typical runtime |
 |---|---|---|
 | `tests/unit/` | One class or function at a time: `LockedState`, serialization round-trips, state/history parity, convergence snapshots, CLI parsing, the optimization and surrogate APIs | Seconds |
-| `tests/regtest/` | Full simulations end to end: every example configuration against a golden LCOE, configuration validation, error handling, LCOE regression, results export | Up to more than an hour for the full set |
+| `tests/regtest/` | Full simulations end to end: every template against a golden LCOE, configuration validation, error handling, LCOE regression, results export | Up to more than an hour for the full set |
 | `tests/regtest/fixtures/` | Deliberately invalid configurations for the validation tests | — |
 
 | File | Checks |
@@ -18,7 +18,7 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 | `unit/test_convergence_snapshot.py` | `snapshot_convergence_state` / `restore_convergence_state` |
 | `unit/test_tango_cli.py` | `tango_cli` argument parsing |
 | `unit/test_pymoo_api.py`, `unit/test_surrogate_api.py` | Optimization and surrogate pipeline plumbing |
-| `regtest/test_example_configs.py` | Every `example_configs/*.yml` at full length, against its golden LCOE; fails if a configuration is not listed |
+| `regtest/test_templates.py` | Every `templates/*.yml` at full length, against its golden LCOE; fails if a configuration is not listed |
 | `regtest/test_lcoe_regression.py` | Economic component behavior and the reference LCOE |
 | `regtest/test_config_validation.py` | Invalid configurations raise `ConfigError` with a clear message |
 | `regtest/test_error_handling.py` | Runtime failures raise the right `TangoError` subclass |
@@ -36,18 +36,20 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 
 | Trigger | Command | Covers |
 |---|---|---|
-| GitHub Actions CI (pull requests, `main`) | `uv run pytest tests/unit` | Unit tests only. The regression tier exceeds the runner's time limit. |
-| Pre-push hook | `uv run pytest -m "not perf and not slow"` | Unit and regression tests, without `slow` and `perf` |
+| GitHub Actions CI (pull requests, `main`) | `uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/` | The pre-push selection, on Linux, macOS, and Windows |
+| Pre-push hook | `uv run python -X warn_default_encoding -m pytest -m "not perf and not slow"` | Unit and regression tests, without `slow` and `perf` |
 | Release-tag push | `just test --all` (enforced by `tools/check_full_tests_before_tag_push.py`) | Everything |
 
-A green CI pipeline therefore means "unit tests pass". The regression guarantee comes from the pre-push hook and the release-tag gate.
+A green CI pipeline therefore means the pre-push selection passes on every platform. The `slow` and `perf` tests run only at the release-tag gate.
+
+All three run Python with `-X warn_default_encoding`, and `pytest.ini` turns the resulting warning into a failure for TANGO and test code: a text file opened without `encoding="utf-8"` reads as cp1252 on Windows and can fail there. Plain `uv run pytest` skips this check.
 
 ## Running locally
 
 ```bash
 just test                     # same selection as the pre-push hook
 just test --all               # everything, including slow and perf
-just test --example-configs   # only the example-configuration regression slice
+just test --templates         # only the templates regression slice
 uv run pytest tests/unit -x   # unit tests, stop at the first failure
 ```
 
@@ -55,8 +57,8 @@ uv run pytest tests/unit -x   # unit tests, stop at the first failure
 
 1. Unit tests go in `tests/unit/`. They build objects directly and do not run a full simulation.
 2. A test that runs a full simulation goes in `tests/regtest/`. If it needs the real number of timesteps, mark it `@pytest.mark.slow` and add a reduced-timestep companion.
-3. A new example configuration must be added to `_CONFIGS` in `regtest/test_example_configs.py`, with its golden LCOE.
-4. Name tests after the behavior they check, for example `test_auto_flow_respects_max_mass_rate`.
+3. A new template must be added to `_CONFIGS` in `regtest/test_templates.py`, with its golden LCOE.
+4. Name tests after the behavior they check, for example `test_max_mass_rate_is_rejected`.
 
 ## Known limitation
 

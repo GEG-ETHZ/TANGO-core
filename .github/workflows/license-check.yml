@@ -1,0 +1,46 @@
+# Third-party license gate for releases: fails if any runtime dependency's
+# license isn't allowed by tools/check_licenses.py (an allowed license, or an
+# entry in its REVIEWED_PACKAGES table). Resolving a failure means a person reviews the
+# license and either replaces the dependency or adds a REVIEWED_PACKAGES entry
+# with the reason, through a normal PR.
+#
+# Runs on PRs into main -- the only point where it can stop a release, since
+# the pushed tag *is* the release (CONTRIBUTING.md § "Cutting an Internal
+# (GEG-only) Release") -- and again on the release tag itself as a record of
+# what shipped. licenses.json and the draw.io dependency tree are kept as
+# artifacts for the reviewer.
+name: license-check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license_check:
+    name: license check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - run: uv run --locked python tools/check_licenses.py --drawio tools/dependency_tree.drawio
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: license-report
+          path: |
+            tools/licenses.json
+            tools/dependency_tree.drawio
+          # 90 days is GitHub's default maximum for private repositories
+          # unless an org admin raises it.
+          retention-days: 90

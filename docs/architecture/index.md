@@ -62,7 +62,7 @@ Around the package:
 
 | Path | Role |
 |---|---|
-| `example_configs/` | The maintained configs; each backs a test or an application |
+| `templates/` | The maintained configs; each backs a test or an application |
 | `applications/` | Multi-run pipelines (sweeps, optimizations) built on those configs |
 | `tests/` | `unit/` and `regtest/` |
 

@@ -5,9 +5,9 @@ duplicate of InjectionPolicy:
   sim_config.injection_mode present  →  SystemBCIteration (subclasses SystemDirect)
   sim_config.injection_mode absent   →  SystemDirect
 
-InjectionPolicy (manual / manual-fracking-check / auto-pressure / auto-flow /
-auto-both) governs how many circuit passes SystemBCIteration runs per
-timestep — it does not affect which orchestrator class is chosen.
+InjectionPolicy (manual / manual-fracking-check) decides whether
+SystemBCIteration checks each timestep against the fracking limit — it
+does not affect which orchestrator class is chosen.
 """
 
 from tango.orchestrators.system_bc_iteration import SystemBCIteration

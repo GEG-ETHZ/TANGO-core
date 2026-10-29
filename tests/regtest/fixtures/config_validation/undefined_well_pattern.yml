@@ -1,6 +1,6 @@
 # claude_tests fixture: undefined_well_pattern
 # layout.well_pattern names a string that matches no known WellPattern alias.
-# Derived from example_configs/hydro_sf_electric.yml (well_pattern: DOUBLET -> HEXAGON).
+# Derived from templates/hydro_sf_electric.yml (well_pattern: DOUBLET -> HEXAGON).
 #
 # NOTE (current behavior): well_pattern is stored as a plain `str` field and
 # is only resolved into a WellPattern enum member lazily, inside the
@@ -130,7 +130,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

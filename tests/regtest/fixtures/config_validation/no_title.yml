@@ -1,6 +1,6 @@
 # claude_tests fixture: no_title
 # Top-level 'title' key is absent entirely.
-# Derived from example_configs/hydro_sf_electric.yml (title line removed).
+# Derived from templates/hydro_sf_electric.yml (title line removed).
 #
 # NOTE (current behavior): 'title' is never read by Workflow.from_file or
 # Workflow.__init__ today -- nothing validates its presence, so this case
@@ -25,8 +25,8 @@ sim_config:
   num_tsteps: 20
   dt_years: 1.0              # years
   target_extraction_pressure: 7_000_000  # Pa
-  injection_mode: manual     # InjectionPolicy: manual | manual-fracing-check | auto-pressure | auto-flow | auto-both
-  mass_rate: 50              # kg/s — omit (or ignored) for auto-flow and auto-both
+  injection_mode: manual     # InjectionPolicy: manual | manual-fracing-check
+  mass_rate: 50              # kg/s
   bc_checkpoint_idx: 4       # component_idx of the BC checkpoint (surface); must match surface.component_idx below
 
 economic:
@@ -124,7 +124,6 @@ components:
     thickness: 300.0              # m
     permeability: 5.0e-14         # m2 (~50 mD)
     porosity: 0.1
-    hydro_static_pressure: 50_000_000  # Pa
     over_pressure_percentage: 10
     well_eff_diameter: 0.410      # m
 

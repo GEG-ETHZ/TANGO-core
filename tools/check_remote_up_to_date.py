@@ -10,9 +10,11 @@ The standard `pre-commit`/`prek` pre-push environment variables
 only set during an actual `git push` -- unset for `just check`, manual
 `prek run`, etc. No-op then rather than erroring.
 
-A deliberate force-push (rewriting history already on the remote) will
-also trip this check -- that's intentional; use `git push --no-verify` if
-you really mean it.
+Rewriting your own already-pushed commits (``git commit --amend``, a
+rebase) passes: if the remote tip is a commit in your local reflog, it's one
+you made or checked out yourself, so the remote holds nothing you haven't
+seen, and the push needs ``--force-with-lease`` as usual. A remote tip that
+isn't in your reflog means someone else pushed, and the check still fails.
 """
 
 from __future__ import annotations
@@ -50,6 +52,14 @@ def main() -> int:
         ["git", "merge-base", "--is-ancestor", remote_sha, local_sha],
     ).returncode
 
+    if is_ancestor != 0 and _in_local_reflog(remote_sha):
+        print(
+            f"note: '{remote}/{branch}' is a commit from your own reflog (rewritten history, e.g. an"
+            " amend or rebase) -- not blocking; push with --force-with-lease.",
+            file=sys.stderr,
+        )
+        return 0
+
     if is_ancestor != 0:
         print(
             f"error: '{remote}/{branch}' has commits you don't have locally"
@@ -60,6 +70,29 @@ def main() -> int:
         return 1
 
     return 0
+
+
+def _in_local_reflog(sha: str) -> bool:
+    """True if ``sha`` appears in the reflog of ``HEAD`` or any local branch.
+
+    Remote-tracking refs are deliberately excluded: their reflogs record
+    every fetch, including the one ``main()`` just did, so the remote tip
+    would always be found there.
+    """
+    branches = subprocess.run(
+        ["git", "for-each-ref", "--format=%(refname)", "refs/heads"],
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    for ref in ["HEAD", *branches]:
+        reflog = subprocess.run(
+            ["git", "log", "--walk-reflogs", "--format=%H", ref],
+            capture_output=True,
+            text=True,
+        )
+        if reflog.returncode == 0 and sha in reflog.stdout.split():
+            return True
+    return False
 
 
 if __name__ == "__main__":

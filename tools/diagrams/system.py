@@ -4,7 +4,7 @@ could reach.
 
 Prints draw.io XML; ``build.py`` exports it to ``docs/diagrams/tango-couples-every-model.drawio.svg``.
 
-Inputs and outputs follow the config keys and the recorded histories (example_configs/hydro_sf_electric.yml,
+Inputs and outputs follow the config keys and the recorded histories (templates/hydro_sf_electric.yml,
 core/specs.py, the *History classes, economic/doublet.py), checked 2026-10-21.
 """
 

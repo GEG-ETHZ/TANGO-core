@@ -2,9 +2,8 @@
 
 Exercises every stage (LHS sampling -> real-sim sweep -> surrogate training ->
 surrogate-driven NSGA2 -> real-sim validation) against
-``opt_hydro_df_electric``'s REAL ``_param_specs``/``_objective_specs``/
-``build_baseline`` (fewest decision variables among the ``opt_*`` apps, so
-the cheapest full round-trip) with tiny sample/pop/gen counts. Checks
+``opt_hydro_df_electric``'s real ``APP`` (decision variables, objectives,
+baseline) with tiny sample/pop/gen counts. Checks
 schema/shape/plumbing correctness only — a handful of LHS samples is nowhere
 near enough for a genuinely accurate surrogate, so ``tolerance`` in the
 validation step is left deliberately loose (this is not a surrogate-quality
@@ -63,19 +62,19 @@ def app() -> ModuleType:
 
 def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     """LHS -> real-sim sweep -> train -> surrogate NSGA2 -> real-sim validation, schema-only."""
-    params = app._param_specs()  # noqa: SLF001
-    objectives = app._objective_specs()  # noqa: SLF001
+    params = app.APP.param_specs()
+    objectives = app.APP.objective_specs
     param_names = [p.name for p in params]
     objective_names = [o.name for o in objectives]
 
-    base_wf, _wf_manual = app.build_baseline()
+    base_cfg = app.APP.base_config()
 
     n_samples = 20
     x = generate_lhs_samples(params, n_samples=n_samples, seed=1)
     assert x.shape == (n_samples, len(params))
 
     training_df = run_lhs_sweep(
-        base_wf,
+        base_cfg,
         params,
         objectives,
         x,
@@ -120,7 +119,7 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     # This is a schema/plumbing check, not a surrogate-quality check.
     try:
         comparison = validate_surrogate_pareto(
-            base_wf,
+            base_cfg,
             params,
             objectives,
             pareto_df,
@@ -142,6 +141,6 @@ def test_surrogate_pipeline_end_to_end(app: ModuleType, tmp_path: Path) -> None:
     # Schema-only: at this tiny scale the corrected front may legitimately be
     # empty (few/no real-feasible designs among a 6-pop, 2-gen surrogate
     # search) -- only assert column shape, not that it's non-empty.
-    for col in [*param_names, *objective_names, "euclidean"]:
+    for col in [*param_names, *objective_names, "ideal_distance"]:
         assert col in corrected.columns
     assert len(corrected) <= int(comparison["real_success"].sum())

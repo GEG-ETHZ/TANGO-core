@@ -1,6 +1,6 @@
 # claude_tests fixture: no_timestep
 # sim_config.dt_years is omitted entirely.
-# Derived from example_configs/hydro_sf_electric.yml (dt_years line removed).
+# Derived from templates/hydro_sf_electric.yml (dt_years line removed).
 #
 # NOTE (current behavior): dt_years is read via a plain dict index
 # (sim_config["dt_years"]) in Workflow.__init__, so today this raises a bare
@@ -125,7 +125,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

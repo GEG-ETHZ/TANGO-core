@@ -1,6 +1,6 @@
 # claude_tests fixture: negative_pipe_diameter
 # surface.pipe_diameter is negative, which is not physically valid.
-# Derived from example_configs/hydro_sf_electric.yml (pipe_diameter: 0.41 -> -0.41).
+# Derived from templates/hydro_sf_electric.yml (pipe_diameter: 0.41 -> -0.41).
 #
 # NOTE (current behavior): pipe_diameter has no positivity constraint at the
 # Pydantic layer, so this is currently accepted silently at construction and
@@ -126,7 +126,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

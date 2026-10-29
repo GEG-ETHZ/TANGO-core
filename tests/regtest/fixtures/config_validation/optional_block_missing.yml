@@ -1,6 +1,6 @@
 # claude_tests fixture: optional_block_missing
 # The optional top-level 'economic:' block is absent entirely.
-# Derived from example_configs/hydro_sf_electric.yml (economic: block removed).
+# Derived from templates/hydro_sf_electric.yml (economic: block removed).
 #
 # NOTE (current behavior): the economic block isn't read anywhere in
 # Workflow.__init__ today -- there's no economic component wiring yet, so
@@ -122,7 +122,6 @@ components:
     thickness: 300.0
     permeability: 5.0e-14
     porosity: 0.1
-    hydro_static_pressure: 50_000_000
     over_pressure_percentage: 10
     well_eff_diameter: 0.410
 

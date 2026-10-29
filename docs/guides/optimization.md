@@ -36,10 +36,10 @@ parallel when `n_processes` is above one. A run that fails to converge or
 breaks a physical limit counts as infeasible instead of stopping the search.
 
 ```python
---8<-- "applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py:minimization"
+--8<-- "src/tango/pymoo_api.py:minimization"
 ```
 
-The examples above are included from `applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py`, so they always match the code.
+The examples above are included from `applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py` and from `OptApp.run_optimization` in `src/tango/pymoo_api.py`, so they always match the code.
 
 ## How the optimization works
 

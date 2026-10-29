@@ -34,7 +34,7 @@ Binding for every change; each exists because its absence caused a real problem.
 1. <a id="rule-document-private-attributes"></a>**Document private attributes.** Every `_name` has a comment.
 1. <a id="rule-encapsulated-mutation"></a>**Encapsulated mutation.** Only the instance modifies its fields; external code never assigns `obj.field = value`. `state` and `Stream` fields are `.update()`d through `LockedState`. Compliance is not yet audited (`docs/tango_tasks.md`).
 1. <a id="rule-yaml-booleans"></a>**YAML booleans are `True`/`False`**, never `yes`/`no`/`on`/`off`: PyYAML and YAML 1.2 parsers read those differently.
-1. <a id="rule-example-configs-regression-covered"></a>**Every `example_configs/` YAML is regression-tested** by `just test --all`, against a golden value or for structural sanity; a smoke run alone does not count.
+1. <a id="rule-templates-regression-covered"></a>**Every `templates/` YAML is regression-tested** by `just test --all`, against a golden value or for structural sanity; a smoke run alone does not count.
 
 ## How a change moves
 
@@ -56,7 +56,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/), wit
 | `just check` | Format, lint, type check, fast tests, in CI order | Before every push |
 | `just test` | `tests/unit/` and the fast part of `tests/regtest/` | The pre-push hook |
 | `just test --all` | Everything, over an hour | Before a release tag, and before merging numerics changes |
-| `just test --example-configs` | Every `example_configs/*.yml` against its golden LCOE | When a config or a model changes |
+| `just test --templates` | Every `templates/*.yml` against its golden LCOE | When a config or a model changes |
 | `just apps` | A smoke run of every script in `applications/` | When an application changes |
 
 CI runs `tests/unit/` only; the regression tier exceeds the runner's time limit. A new feature or fix comes with a test that fails without it.
@@ -74,7 +74,7 @@ CI runs `tests/unit/` only; the regression tier exceeds the runner's time limit.
 TANGO is installed from a release tag on the private repository; nothing is published to PyPI. Versions follow [Semantic Versioning](https://semver.org/); tags carry a `v` prefix.
 
 1. Check that `## [In Development]` covers the release.
-2. Bump `version` in `pyproject.toml` on `main` through a pull request.
+2. Bump `version` in `pyproject.toml` on `main` through a pull request. Its `license-check` job (`tools/check_licenses.py`) fails if a runtime dependency's license is not allowed; do not tag until it passes. Review each flagged license (the job uploads `licenses.json` and a draw.io dependency tree) and either replace the dependency or add a `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the reason, through its own pull request.
 3. Tag that commit and push the tag; the pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
 
    ```bash

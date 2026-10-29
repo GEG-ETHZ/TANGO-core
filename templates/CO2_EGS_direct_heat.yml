@@ -1,0 +1,229 @@
+# Design point: opt_CO2_EGS_direct_heat's Pareto pick (the design closest to the ideal corner),
+# design 39 of its outputs/pareto_results.csv (md5 a8311c707cee660c493e957650ffc22a),
+# recorded in dvc.lock at commit 6aa52991. Decision variables rounded to
+# 3 significant figures.
+#
+# tango format — Enhanced Geothermal System (EGS) with CO2 as the working
+# fluid, direct-heat (district heating) extraction.
+#
+# Same doublet subsurface topology and site parameters as
+# EGS_direct_heat.yml (injection_well -> reservoir -> production_well_lower
+# -> production_well_upper -> surface -> back to injection_well, Triemli,
+# Zurich rock properties), just fluid_name: CO2 instead of H2O -- confirmed
+# by CPG_electric.yml's own port that tango's fluid handling (FluidState,
+# fluid_utils.py, GraphSurface) is already fluid-agnostic, no new code
+# needed. Two real differences from EGS_direct_heat.yml, both following
+# CPG_electric.yml's own precedent for CO2 rather than EGS_direct_heat.yml's
+# H2O precedent:
+#
+# 1. production_well_upper is a plain production_well, NOT
+#    production_well_with_pump. CPG_electric.yml's own header comment
+#    explains why: "No downhole pump on the production side (thermosiphon
+#    is strong enough with CO2 that a plain production_well suffices,
+#    matching old tango)." Separately, docs/tango_tasks.md flags that the
+#    current pump-boost implementation treats the fluid as
+#    constant-density through the pump -- a reasonable approximation for
+#    water, but NOT for supercritical CO2's strongly nonlinear
+#    density-vs-pressure behavior -- so avoiding the pump entirely here
+#    sidesteps a known, not-yet-fixed approximation gap rather than
+#    exercising it.
+# 2. target_extraction_pressure/injection_pressure are both kept ABOVE
+#    CO2's 7.38 MPa critical pressure (unlike EGS_direct_heat.yml's 5.06/2.63
+#    MPa), matching CPG_electric.yml/CPG_direct_heat.yml's own reasoning --
+#    the reservoir here is far hotter relative to CO2's ~31 degC critical
+#    temperature than CPG's is (3000 m / ~116 degC vs. CPG's 2500 m /
+#    lower), giving much more margin against the near-critical-point
+#    solver instability documented in CPG_direct_heat.yml's own comments --
+#    confirmed comfortable by direct run across the full 25-year duration,
+#    no num_tsteps shortening needed here (unlike that file).
+# 3. Removing the downhole pump left the closed loop with no pressure
+#    source at all, so a surface-side circulation_control (PumpOrValve)
+#    was added -- see the power_plant block below. Confirmed by direct
+#    run: this resolves to a passive Valve across the entire run, not a
+#    running pump -- CO2's thermosiphon effect here is genuinely strong
+#    enough on its own once the CO2 is reinjected dense (production
+#    wellhead delivers ~12.5-14.3 MPa, well above the 8.64 MPa needed at
+#    injection; see injection_cooler below); the device only
+#    throttles the natural surplus down, it doesn't add to it. See
+#    GitLab issue #57 for the real gap this surfaces: a system that
+#    resolves to a passive Valve at steady state still needs a real pump
+#    to KICK-START circulation in the first place (not simulated here,
+#    deliberately out of scope), and that startup pump's CAPEX currently
+#    has no representation anywhere in DoubletEconomicComponent, since
+#    it never appears as a running TESPy node.
+#
+# Site parameters (Triemli, Zurich) — identical to EGS_direct_heat.yml:
+#   surface temperature : 11 degC (284.15 K)
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   reservoir temperature: ~116 degC at 3000 m depth
+#   application          : direct heat only (district heating, no electricity)
+#   DH return temp       : 50 degC (re-injection temperature)
+
+title: Enhanced Geothermal System (EGS) with CO2, direct-heat, Triemli site
+
+common:
+  fluid_name: CO2
+  rock_density: 2650.0       # kg/m3
+  rock_cp: 1000.0            # J/(kg*K)
+  rock_k: 2.1                # W/(m*K)  — typical crystalline basement
+  thermal_gradient: 0.035    # K/m  (35 degC/km, Triemli site)
+  surface_temperature: 284.15  # K  (11 degC, Triemli) — ambient
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  well_spacing: 500.0        # m — typical for EGS doublet
+
+sim_config:
+  num_tsteps: 25              # 25 years of operation
+  dt_years: 1.0                # years
+  target_extraction_pressure: 8_000_000  # Pa — kept above CO2's 7.38 MPa
+                                          # critical pressure, matching
+                                          # CPG_electric.yml/CPG_direct_heat.yml
+  injection_mode: manual-fracking-check  # InjectionPolicy: manual | manual-fracking-check
+  mass_rate: 32.8               # kg/s — set by the opt_CO2_EGS_direct_heat Pareto pick; see header
+  bc_checkpoint_idx: 4           # component_idx of the surface (below)
+
+economic:
+  # Same CAPEX-coverage caveat as every other direct-heat example: the
+  # district-heating exchanger has no Subtype: cooler/condenser tag, so
+  # CAPEX_surface_plant is 0.0 here (real, not a crash). Also same KNOWN
+  # GAP as EGS_direct_heat.yml/EGS_electric.yml: EGS reservoir stimulation
+  # cost is not modeled, in tango or old tango.
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: heat
+
+components:
+
+  injection_well:
+    type: injection_well
+    variant: numerical
+    component_idx: 0           # first component solved each pass — circuit cut here
+    prev: 4
+    next: 1
+    # well_length: derived: equals reservoir.reservoir_depth (see tango.workflows.linked_quantities)
+    diameter: 0.151             # m  (~6-inch casing)
+    pipe_roughness: 5.5e-5      # m
+
+  reservoir:
+    type: reservoir
+    variant: lumped
+    component_idx: 1
+    prev: 0
+    next: 2
+    reservoir_depth: 3000.0       # m
+    thickness: 300.0              # m
+    permeability: 1.0e-13         # m2  (~100 mD — moderate EGS)
+    porosity: 0.1
+    # hydro_static_pressure: derived: brine_density x gravity x reservoir_depth (see tango.workflows.linked_quantities)
+    over_pressure_percentage: 5
+    # well_eff_diameter: derived: mean of the injection and production well diameters (see tango.workflows.linked_quantities)
+
+  production_well_lower:
+    type: production_well
+    variant: numerical
+    component_idx: 2
+    prev: 1
+    next: 3
+    # well_length: derived: reservoir.reservoir_depth minus production_well_upper.well_length (see tango.workflows.linked_quantities)
+    diameter: 0.261              # m
+    pipe_roughness: 5.5e-5       # m
+    # wellhead_depth: derived: equals production_well_upper.well_length (see tango.workflows.linked_quantities)
+
+  production_well_upper:
+    type: production_well       # plain, NOT production_well_with_pump -- see header comment
+    variant: numerical
+    component_idx: 3
+    prev: 2
+    next: 4
+    well_length: 600.0          # m = 0.2 x reservoir_depth
+    diameter: 0.261              # m
+    pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 4            # solved last, loops back to injection_well (next: 0)
+    prev: 3
+    next: 0
+    injection_pressure: 8_640_000       # Pa — ABOVE CO2's 7.38 MPa critical pressure,
+                                     # matching CPG_direct_heat.yml's own reasoning
+                                     # (see this file's header comment). Set by the
+                                     # opt_CO2_EGS_direct_heat Pareto pick; it also keeps the
+                                     # ~31-32 degC reinjected CO2 common.saturation_margin (5%)
+                                     # clear of saturation, which 7.5 MPa would not.
+    pipe_diameter: 0.324              # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing
+    # above (see _PROTECTED_COMPONENT_KEYS in workflows/workflow.py for the
+    # duplicated-value bug class this guards against).
+
+    power_plant:
+      # Direct-heat surface plant. Unlike EGS_direct_heat.yml's own
+      # power_plant (no circulation_control node -- that config's
+      # production_well_with_pump is the loop's pressure source), this
+      # config removed the downhole pump entirely (see header comment), so
+      # it needs a surface-side pressure source instead --
+      # circulation_control (PumpOrValve), same node/role/rationale as
+      # CPG_direct_heat.yml's own. Without one, tango's own closed-loop
+      # validation (_check_loop_has_pressure_source,
+      # workflows/workflow.py) correctly rejects this config outright:
+      # confirmed by direct run, not assumed -- a first draft with no
+      # circulation device anywhere failed exactly that check.
+      #
+      # district_heating_hx takes a pressure_ratio (a 2.5% loss), not an
+      # absolute p_out: the production wellhead pressure falls over the run,
+      # so any fixed outlet pressure ends up above the inlet in some years,
+      # and TESPy would solve
+      # that as free compression. p0_megapascals_out1 is only TESPy's starting
+      # guess (MPa): without it, TESPy's default guess is below CO2's triple-point
+      # pressure and the solve fails outright.
+      #
+      # injection_cooler then cools the CO2 from the 50 degC district-heating
+      # return to 38 degC so it is reinjected dense (~700-720 kg/m3 after
+      # circulation_control). The window is narrow:
+      # - Without cooling (T_out at 50 degC) the injection column is light,
+      #   the thermosiphon weakens, and the production well fails in its
+      #   first year (a CoolProp error).
+      # - At 37 degC or colder, the dense column pushes the injection well's
+      #   bottom-hole pressure past the 30.9 MPa fracking threshold
+      #   (37 degC: 31.15 MPa).
+      # - Warmer, the column lightens and the heat output falls (42 degC:
+      #   ~16% less); by 44 degC the loop no longer converges.
+      # At 38 degC the bottom-hole pressure peaks at 30.88 MPa, right at the
+      # threshold. The heat rejected below 50 degC is too cold for the
+      # district-heating network.
+      # circulation_control resolves to its passive Valve leg and throttles
+      # the natural surplus down to injection_pressure.
+      nodes:
+        inlet:
+          type: Source
+        district_heating_hx:
+          type: SimpleHeatExchanger
+          role: net_thermal
+          T_out: 323.15    # K (50 degC) — district-heating return / re-injection temperature
+          pressure_ratio: 0.975   # 2.5% heat-exchanger pressure loss
+          p0_megapascals_out1: 10            # MPa -- TESPy starting guess only (see comment above)
+        injection_cooler:
+          type: SimpleHeatExchanger    # cools the CO2 before reinjection -- see comment above
+          T_out: 311.15                # K (38 degC) -- dense CO2 for the thermosiphon; see comment above
+          pressure_ratio: 1.0          # no pressure drop
+          p0_megapascals_out1: 10                 # MPa -- TESPy starting guess for the outlet pressure
+          h0_out1: 270                 # kJ/kg -- TESPy starting guess for the outlet enthalpy
+          Subtype: cooler              # cooling-tower cost (DoubletEconomicComponent)
+          set_number: 1
+          design: closed
+          cooling_tower_mode: WET
+        circulation_control:
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+        outlet:
+          type: Sink
+      edges:
+        '1': {source: inlet, target: district_heating_hx}
+        '2': {source: district_heating_hx, target: injection_cooler}
+        '3': {source: injection_cooler, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}

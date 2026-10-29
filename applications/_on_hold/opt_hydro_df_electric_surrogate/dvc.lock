@@ -1,0 +1,195 @@
+schema: '2.0'
+stages:
+  lhs_generate:
+    cmd: python generate_lhs.py
+    deps:
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: generate_lhs.py
+      hash: md5
+      md5: 63b50f5de424d8d579e1a51412ac781a
+      size: 1740
+    params:
+      params.yaml:
+        lhs_seed: 1
+        n_lhs_samples: 5000
+    outs:
+    - path: outputs/lhs_design_matrix.csv
+      hash: md5
+      md5: ea52a7a6ae57f47fcd118877e69325ae
+      size: 297423
+  lhs_sweep:
+    cmd: python sweep_lhs.py
+    deps:
+    - path: ../../../templates/hydro_df_electric.yml
+      hash: md5
+      md5: 78827d5e4a76e55ace203ac7a549aee9
+      size: 9585
+    - path: ../../../src/tango.hash
+      hash: md5
+      md5: c402624273599bd5e02f1e05902b0efd
+      size: 41
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: bd34879f3188e56eb2bf78d0a134041f
+      size: 27524
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: outputs/lhs_design_matrix.csv
+      hash: md5
+      md5: ea52a7a6ae57f47fcd118877e69325ae
+      size: 297423
+    - path: sweep_lhs.py
+      hash: md5
+      md5: 0e2d17d280cfd207464727a5dc7ca2d6
+      size: 3092
+    params:
+      params.yaml:
+        n_lhs_samples: 5000
+    outs:
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: 57269365cee88019a89d0c7bca36cc0f
+      size: 1157693
+  train_surrogate:
+    cmd: python train_surrogate.py
+    deps:
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: 2724fd81e322b8b07ccf52529198c024
+      size: 41
+    - path: common.py
+      hash: md5
+      md5: e11a200c3dac550a0767ad50a9d6044d
+      size: 3090
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: 62a8e07aa2c39922eccf70fd8b799f38
+      size: 960153
+    - path: train_surrogate.py
+      hash: md5
+      md5: 6b07f1085cd18bbe5008204cd8c18923
+      size: 5701
+    params:
+      params.yaml:
+        classifier_n_estimators: 300
+        classifier_threshold: 0.5
+        cv_folds: 5
+        gpr_n_restarts_optimizer: 5
+        mlp_alpha: 0.001
+        mlp_hidden_layer_sizes: 16,16
+        mlp_max_iter: 2000
+        regressor: mlp
+        regressor_rf_n_estimators: 300
+        surrogate_seed: 1
+    outs:
+    - path: outputs/surrogate_classifier_diagnostics.csv
+      hash: md5
+      md5: 20f872fec7678e31c7d9a93f051d491b
+      size: 83
+    - path: outputs/surrogate_diagnostics.csv
+      hash: md5
+      md5: 150437084434a987703de1979edcfb00
+      size: 126
+    - path: outputs/surrogate_model.joblib
+      hash: md5
+      md5: 5a8b32a58b7d715eb3b040cefd8de32c
+      size: 17038964
+  optimize_surrogate:
+    cmd: python optimize_surrogate.py
+    deps:
+    - path: ../opt_hydro_df_electric/params.yaml
+      hash: md5
+      md5: 19718660d2a1c4ecd684e6b464156843
+      size: 1003
+    - path: common.py
+      hash: md5
+      md5: 379c6faeeb3e7469e6ab97ffcdb6c852
+      size: 3085
+    - path: optimize_surrogate.py
+      hash: md5
+      md5: 7f17a51ddd1154f3115c980481fda75d
+      size: 4501
+    - path: outputs/surrogate_model.joblib
+      hash: md5
+      md5: 0a767378b3da7a8387f0bfe9823b20d8
+      size: 7232660
+    - path: params.yaml
+      hash: md5
+      md5: 4047d5a5863ac80dbe837267dde0c962
+      size: 3608
+    outs:
+    - path: outputs/pareto_parallel_coordinates.html
+      hash: md5
+      md5: b1dc73e2574f528095c4391587dc3256
+      size: 4573455
+    - path: outputs/pareto_parallel_coordinates.png
+      hash: md5
+      md5: 8d2965927ee4c27208084056a117e3b8
+      size: 616537
+    - path: outputs/pareto_scatter.png
+      hash: md5
+      md5: e06eeca9b7166fd0c2e250304cb97e46
+      size: 70925
+    - path: outputs/pareto_scatter_by_param.png
+      hash: md5
+      md5: 412b0bf4661b48672e5e979328882654
+      size: 134328
+    - path: outputs/pareto_scatter_param_pairs.png
+      hash: md5
+      md5: 45c06f49e723eb74bfbf2ed38ed20130
+      size: 214529
+    - path: outputs/pareto_scatter_zscore.png
+      hash: md5
+      md5: c6ce5be10a497c0d862de593f7822404
+      size: 69656
+    - path: outputs/surrogate_pareto_results.csv
+      hash: md5
+      md5: b9cdd49001a111170ccc0c90e43e3735
+      size: 5132
+  run_trajectory:
+    cmd: python run_trajectory.py
+    deps:
+    - path: ../../templates/hydro_df_electric.yml
+      hash: md5
+      md5: ccd03c211d870d7a2953733541f8b092
+      size: 11250
+    - path: ../../src/tango.hash
+      hash: md5
+      md5: 2724fd81e322b8b07ccf52529198c024
+      size: 41
+    - path: ../opt_hydro_df_electric/opt_hydro_df_electric.py
+      hash: md5
+      md5: c076175164de4bb10c304ed1a44e57ff
+      size: 12801
+    - path: common.py
+      hash: md5
+      md5: e11a200c3dac550a0767ad50a9d6044d
+      size: 3090
+    - path: run_trajectory.py
+      hash: md5
+      md5: 5ac7cfb449101478d9769a7e78e47d6c
+      size: 6484
+    params:
+      params.yaml:
+        trajectory_dedup_tol_frac: 0.001
+        trajectory_n_gen: 5
+        trajectory_pop_size: 1000
+        trajectory_seed: 1
+    outs:
+    - path: outputs/lhs_training_data.csv
+      hash: md5
+      md5: 62a8e07aa2c39922eccf70fd8b799f38
+      size: 960153
+    - path: outputs/trajectory_pareto_results.csv
+      hash: md5
+      md5: 3d4a2174b59ff33a209ddfe879d22aab
+      size: 1068

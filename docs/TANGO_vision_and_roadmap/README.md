@@ -389,9 +389,6 @@ prevention, leaving room for variants that optimise operating objectives:
 These require the Phase 2 Newton-step solver infrastructure and the pump electricity
 accounting fix to be in place before they can be meaningfully implemented.
 
-*Diagram: [BC Iteration Solver](../archive/diagrams/phase1_bc_iteration_solver.drawio) — shows
-current modes and which trigger the outer convergence loop.*
-
 ### Open Design Questions
 
 Design questions not yet settled — flagged here so the reasoning behind them doesn't
@@ -481,8 +478,9 @@ correct estimate for EGS/CPG (reservoir-based) topologies, but it hardcoded a lo
 into a `reservoir` block that doesn't exist for AGS — a sealed closed loop with no
 reservoir node at all. The result: the direct-heat (`native_flexible`) surface unit
 could not run on any AGS topology in `src/tango/` (`KeyError: 'reservoir'` at unit
-construction — see `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`
-NOTES for the full incident writeup and the pragmatic patch applied there).
+construction — the full incident writeup and the pragmatic patch are in the NOTES of
+the since-removed `applications/run_AGS_direct_heat_sweep/run_AGS_direct_heat_sweep.py`,
+in git history).
 
 The underlying physical quantity — "depth at which the fluid reaches its hottest
 point before returning to surface" — is real and meaningful for AGS too; it's just
@@ -510,198 +508,7 @@ specific node name that may not exist.
 
 #### `tango` example coverage matrix — one system type needs both a heat and a power example
 
-As of 2026-09-23, `example_configs/` covers five cells of a larger matrix:
-Single-Flash hydrothermal (power, `hydro_sf_electric.yml`), AGS direct-heat
-(heat, `AGS_direct_heat.yml`, ported from `applications/run_AGS_direct_heat_sweep/`),
-EGS direct-heat and power (heat, `EGS_direct_heat.yml`; power,
-`EGS_electric.yml`; both ported from `applications/run_EGS_direct_heat_sweep/`),
-and CPG power (`CPG_electric.yml`, ported from old tango's
-`examples/CPG_num_pp.yml` — preserved at git tag
-`pre-tango-core-rename-2026-09-18` — simplified from its 6-pattern
-INVERTED_5SPOT field to a single doublet, same as the AGS/EGS ports). CPG's
-surface plant is a genuinely new topology, not just a fluid-name swap:
-`FluidState`/`fluid_utils.py`/`GraphSurface` were already fluid-agnostic
-(`common.fluid_name` threaded everywhere already, no hardcoded water found).
-CPG's real work was matching old tango's actual physics: CO2 stays
-supercritical/dense-phase through the subsurface and turbine, then
-condenses afterward at an ambient-driven condensing pressure (same
-phase-change-anchored mechanism the water cycle's own condenser uses) —
-an earlier version of this file held CO2 supercritical the *entire* way
-through, which had no physical anchor for the turbine/condenser outlet
-pressure and masked a real thermosiphon-related bug. Depth, injection
-pressure, pump efficiency, and economic `project_maturity` were all
-matched directly against old tango's converged/actual values (confirmed
-by running `CPG_num_pp.yml` itself), not re-derived from scratch. The
-full matrix TANGO needs to demonstrate, one worked example per cell:
-
-|                  | Heat extraction         | Power extraction           |
-|------------------|-------------------------|----------------------------|
-| AGS              | ✓ `AGS_direct_heat.yml` | ☐                          |
-| CO2-AGS          | ☐                       | ☐                          |
-| EGS              | ✓ `EGS_direct_heat.yml` | ✓ `EGS_electric.yml`       |
-| CO2-EGS          | ☐                       | ☐                          |
-| CPG              | ☐                       | ✓ `CPG_electric.yml`       |
-| Hydrothermal     | ☐                       | ✓ `hydro_sf_electric.yml`  |
-
-Each cell should be a real, runnable `tango` YAML — not just a config that
-happens to parse, but one whose output has been sanity-checked (as
-`AGS_direct_heat.yml` and `hydro_sf_electric.yml` were) against expected physical
-behavior. `GraphSurface`'s YAML-graph-driven design (see
-`components/surface/graph.py`) should make most of these a matter of composing a
-new `power_plant.nodes`/`edges` topology and tagging the right nodes
-`role: net_electric` / `role: net_thermal`, rather than new Python — EGS and
-hydrothermal share `LumpedReservoir`. **Correction, 2026-09-21**: this
-section previously claimed CPG needed a CO2 `FluidState` path that didn't
-exist yet (H2O-only) as "likely the largest gap in this matrix" — checked
-while building `CPG_electric.yml` and found that's stale: `FluidState`,
-`fluid_utils.py`, and every component that touches fluid properties
-already thread `common.fluid_name` generically (no hardcoded water
-anywhere), and CoolProp's CO2 support works out of the box. Whatever made
-this claim true earlier was apparently resolved as a side effect of other
-generic refactoring, without this doc being updated. The remaining CO2
-cells (CO2-AGS, CO2-EGS) are likely comparably tractable YAML-authoring
-work, same shape as AGS/EGS/CPG above, not a physics gap.
-
-**`GraphSurface`'s fixed `p_out` values — why this is a legitimate modeling choice, not a
-shortcut.** Raised 2026-07-22 while tracing where `hydro_sf_electric.yml`'s TESPy plant
-states are solved versus imposed (see `docs/archive/diagrams/graph_surface_state_provenance.drawio`
-for the full node-by-node breakdown). `GraphSurface` fixes two independent pressures per
-plant — flash pressure (the valve ahead of the droplet separator) and condensing pressure
-(shared by the turbine's and condenser's outlets, i.e. zero ΔP assumed across the condenser)
-— as YAML constants rather than deriving them from a resistance/flow relationship. This is
-not a `tango`-introduced simplification: `src/tango/`'s `flexible_pp.py` does the exact
-same thing (`p_out` as a bare fixed constant, same units convention). The justification: both
-are genuine real-plant control targets, not passively-emergent quantities. Flash pressure is
-routinely chosen by plant designers/operators to maximize power extraction for the delivered
-brine enthalpy (that choice *is* the single-flash design problem); condensing pressure is set
-primarily by the cooling system (ambient temperature via the cooling tower, `approach_temperature`
-— see the diagram for why that field is currently a no-op in `GraphSurface`'s condenser, only
-feeding a not-yet-ported parasitic-power calc), which changes on daily/seasonal timescales far
-slower than turbine/pump power modulation.
-
-Concretely, today, a condenser's fixed `p_out_megapascals`/`T_out` YAML values are NOT derived
-automatically from `approach_temperature` at solve time — nothing in `GraphSurface` reads that
-field to compute them. Instead, whoever authors the config computes the target condensing
-temperature by hand (`<ambient/surface temperature> + <approach temperature difference>`),
-converts that to a saturation pressure for the working fluid, and hardcodes the result directly
-into the node's `p_out_megapascals`/`T_out` fields. `approach_temperature` itself is only read
-later, by the economic component's cost/parasitic-power regressions — nothing enforces that a
-config's hardcoded condenser values actually stay consistent with its own
-`common.surface_temperature`/`approach_temperature` fields if either one is edited afterward.
-
-So treating these two pressures as externally-imposed
-setpoints is defensible as a first-order approximation — but only self-consistently if the
-chosen values are actually calibrated to the site's assumed ambient/well conditions, and nothing
-currently checks that (see the diagram's risk callout). A rigorous *quantified* error estimate
-for "how wrong is this relative to treating pump power as the real state variable" would need
-either a resistance-closed alternative formulation to diff against, or real plant operating data
-— neither exists yet; this paragraph documents the qualitative justification only, not a
-validated bound.
-
-Two known, tracked-but-not-yet-addressed gaps in this area (see `docs/tango_tasks.md`):
-old tango's `src/tango/units/native/surface/flexible_pp.py::validate_pressure_monotonicity()`
-(walks the power-plant graph upstream from each `p_out`, stopping at `Pump`/`Compressor`
-boundaries, raises on non-monotonic pressure) has no `tango` equivalent yet — **correction,
-2026-09-22:** this file no longer exists in the working tree; old tango's `src/tango/` was
-deleted in the 2026-09-18 internal-release cleanup and is only recoverable via
-`git show pre-tango-core-rename-2026-09-18:src/tango/units/native/surface/flexible_pp.py`,
-same as the other old-tango references already flagged stale elsewhere in this doc; and
-`AGS_direct_heat.yml`'s `dh_hx` node is a sharper version of the same risk with no `p_out`
-field to even inspect (its pressure is implicitly whatever gap exists between two unrelated
-boundary conditions — see the diagram).
-
-**Beyond the matrix — port the broader set of old-tango examples that actually run.**
-
-> **Moot as of 2026-09-18:** old tango's `examples/` directory and
-> `REPO_CLEANUP_AUDIT.md` (the categorization this whole subsection relies
-> on) were both deleted in the internal-release cleanup — there's nothing
-> left to port *from*. Both are preserved at git tag
-> `pre-tango-core-rename-2026-09-18` if this ever needs revisiting. The
-> rest of this subsection is left as historical reasoning, not pruned —
-> revisit/trim at your discretion.
-
-The 8-cell matrix above is the minimum canonical set, not the target. `src/tango/`'s
-`examples/` directory has many more real variants that don't map cleanly onto one
-matrix cell — different well layouts (`doublet`, `inverted`), file-driven schedules
-(`file_reader_*`, `*_reader.yml`), cost-reporting modes
-(`flexible_pp_cost_entire.yml`/`_breakdown.yml`), multi-objective optimization sweeps
-(`MO1-4.yml`, `SO1-4.yml`), and more. These are real coverage, and Phase 3's existing
-"work through all remaining TANGO input file configurations" task already calls for
-this — the addition here is a concrete scope: port *as many as are reasonable*, meaning
-work from `REPO_CLEANUP_AUDIT.md`'s categorization of what's actually running in old
-tango, not every file that happens to exist under `examples/`. As of the 2026-07-20
-sweep (`tools/examples_sweep_output/sweep_20260720_101252.md`) that's **58 confirmed
-`PASS`**, plus **~10 more confirmed fine and just slow** (see
-`REPO_CLEANUP_AUDIT.md`'s `TIMEOUT` backlog section — genuinely completes, just needs
-a longer budget than the sweep's default 300 s). Explicitly exclude, without spending
-more effort re-litigating them here, the two backlog buckets `REPO_CLEANUP_AUDIT.md`
-already documents as blocked or broken: `EXPECTED_FAIL` configs blocked on external
-dependencies (MOOSE, PyQt5, the deprecated `BatchSimulation` feature, a hardcoded
-Hotmaps dispatch path) and the ~14 `flexible_DF_*`/optimization configs that still
-time out even at a 900 s budget (worth investigating as a possible real solver bug in
-`src/tango/`, but that's a `src/tango/` question, not a porting-priority one).
-
-**Combined heat-and-power (cogeneration) — separate, harder problem, needs design
-discussion before examples:** `src/tango/` *does* have precedent —
-old tango's `flexible_SF_cogeneration_e.yml` / `flexible_SF_cogeneration_h.yml`
-(removed along with old tango; preserved at git tag
-`pre-tango-core-rename-2026-09-18`) split
-the droplet separator's liquid branch to a district-heating `SimpleHeatExchanger`
-while the vapor branch still drives the turbine, extracting both products from one
-plant simultaneously. So this isn't undesigned territory in old tango, and
-`GraphSurface`'s `role: net_electric` / `role: net_thermal` tags already support
-tagging both kinds of node in the same topology with zero new code — the open
-question is entirely on the economic side: `MainProduct` (`core/policies.py`) is
-currently a single either/or LCOE-or-LCOH switch on `EconomicComponent`, and
-combined heat-and-power needs a real answer for how a *combined* levelized cost
-(or two separate ones reported side by side) should be computed and compared
-against old tango's cogeneration examples — that discussion should happen before
-building a `tango` cogeneration example, not as a side effect of building one.
-
-**Seasonal heat-demand variation — a real gap, not just a cogeneration concern:**
-every direct-heat example checked (`src/tango/`'s `flexible_heat.yml`, both
-cogeneration examples above, and `tango`'s new `AGS_direct_heat.yml`) runs
-with a constant mass flow rate for every timestep (`mass_rate: {type: manual}`,
-`ConstantDT` time stepping) — production, and therefore heat delivered, never
-varies with a demand curve. District heating demand is strongly seasonal in
-reality (dominated by outdoor temperature), so a plant sized against a flat annual
-average will be badly oversized for summer and possibly undersized for winter
-peak — a real result-invalidating gap for any heat-focused example, not only the
-combined heat-and-power case above.
-
-`src/tango/` does have *a* precedent elsewhere in the codebase, but it's not used by
-`applications/run_AGS_direct_heat_sweep/` (confirmed by grep — that app never
-references "Hotmaps"; `sweep.py`'s only touch on mass rate is
-`set_nested_value(specs, "schedule.mass_rate.value", mdot)`, a constant per sweep
-design point, not a per-timestep demand curve) and it's heavier than a simple
-seasonal profile: `time_type: HotmapsDispatchDT` (`orchestrators/BC_calculator.py`,
-`orchestrators/HotmapsDispatch_runner.py`) reads an external, pre-processed demand
-time series (`self.processor.averaged_df`) from the EU Hotmaps district-heating
-tool and iterates mass rate each timestep to follow it via
-`controlled_power_generation`. This is tightly coupled to the Hotmaps desktop app
-integration (Excel generation, a Windows-path trigger file) — already flagged as
-one of the fragile, externally-dependent pieces in the repo cleanup backlog (see
-`REPO_CLEANUP_AUDIT.md`), not something to port as-is.
-
-`tango` has no equivalent yet — `sim_config.mass_rate` is a single scalar for
-the whole run. Before either pure-heat or cogeneration examples can be considered
-representative rather than illustrative, this needs a design discussion: at
-minimum, a much lighter-weight generic demand-profile mechanism (e.g. a per-timestep
-mass-rate *or* target-thermal-power schedule read from a plain CSV/array, decoupled
-from any specific external tool) that both the pure-heat and cogeneration cases can
-share, distinct from the InjectionPolicy machinery (which governs the injection
-*pressure* BC, not the production-side demand target).
-
-This gap is now flagged directly in `applications/run_AGS_direct_heat_sweep/
-run_AGS_direct_heat_sweep.py`'s module docstring (item 5), rather than only
-here, so it isn't missed by someone reading that app in isolation. It applies
-equally to `applications/run_AGS_sweep/` — the power-generation counterpart of
-that app, covering the same (depth, mass-flow, loop-length, loop-diameter)
-design space via old tango's `AGS_new/AGS_H2O_webapp_native.yml`'s
-(removed along with old tango; preserved at git tag
-`pre-tango-core-rename-2026-09-18`) validated ORC
-surface plant instead of the direct-heat DH exchanger — for any variant of it
-that targets a thermal or cogeneration product rather than pure electricity.
+Moved to [GitLab #67](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/67): the coverage matrix (one worked example per system type × heat/power) and the per-config review checklist. The per-config design history is in [#68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/issues/68) (closed).
 
 #### Pump electricity accounting — known inconsistencies (needs HIL verification)
 
@@ -711,7 +518,8 @@ contain errors — the original codebase is complex enough that misreading a sig
 or a code path is easy.**
 
 Concrete evidence this matters, found while running the Triemli AGS direct-heat sweep
-(`applications/run_AGS_direct_heat_sweep/`, see that script's NOTES): 53/500 swept
+(the since-removed `applications/run_AGS_direct_heat_sweep/`; see that script's NOTES in
+git history): 53/500 swept
 designs — all clustered right at the district-heating return temperature (~50-51°C,
 i.e. barely-functional loops) — reported `Net_thermal_power_Generated_kWe` as negative,
 which the native LCOE formula (`CAPEX / net_power`) then turns into a deeply negative
@@ -739,15 +547,17 @@ For a low-permeability reservoir the required injection pressure is much higher 
 can reach 15–20% of gross — large enough to determine whether a site is economically viable.
 Getting this right matters most exactly where the resource is marginal.
 
-In `tango` Phase 1, no pump electricity is wired to an `EconomicComponent` yet —
-placeholders with `TODO (Phase 2)` notes throughout.
+Production-well pump electricity is now wired to `DoubletEconomicComponent`
+(`_production_pump_parasitic_power`, `src/tango/components/economic/doublet.py`).
+Injection-well pump electricity is not yet wired to any `EconomicComponent` —
+it remains a `TODO` placeholder (see `LumpedProductionWellWithPump` /
+demo plots for where the zero shows up today).
 
-Phase 2 should:
+Remaining work:
 - Verify the table above with HIL testing on representative configs
-- Fix the CPG production downhole pump gap in `src/tango/`
 - Reconcile `surface.w_net` with the economic-layer value so there is one authoritative
-  net-power number per timestep (see cascading calculation principle below in Phase 2)
-- Wire `pump_power_watts` from all tango wellbore components into the economic component
+  net-power number per timestep (see cascading calculation principle below)
+- Wire `pump_power_watts` from the injection-well component into the economic component
 
 #### Web app config fragmentation (tango-super ecosystem)
 
@@ -1073,7 +883,7 @@ software-sustainability review).
 
     A true end-to-end comparison of old tango's `flexible_SF_manual.yml`
     (removed along with old tango, preserved at git tag
-    `pre-tango-core-rename-2026-09-18`) vs. `example_configs/hydro_sf_electric.yml`
+    `pre-tango-core-rename-2026-09-18`) vs. `templates/hydro_sf_electric.yml`
     (tango) has now been completed across all 20 timesteps. The residual deltas are:
 
     - Reservoir outlet temperature: ≲ 0.04% (≲ 0.20 K, concentrated at the
@@ -1134,7 +944,7 @@ software-sustainability review).
     once the solver has converged on a self-consistent solution for that
     timestep.
 
-    tango avoids this by design: `SystemBCIteration._converge_injection_T()`
+    tango avoids this by design: `SystemBCIteration._converge_injection_enthalpy()`
     (`system_bc_iteration.py`) snapshots every component's cross-timestep
     state once per timestep, then restores and fully re-solves the *entire*
     circuit — reservoir included, no exceptions — on every inner iteration,
@@ -1187,7 +997,7 @@ software-sustainability review).
       heat-loss scheme, distinguished only by `angle_from_vert_deg` (2026-07-21:
       replaced an earlier `ClassVar F_DIR = ±1.0` split with this — the same
       unified class now also covers horizontal/deviated wells, e.g.
-      `example_configs/AGS_direct_heat.yml`'s `horizontal_well`, not just
+      `templates/AGS_direct_heat.yml`'s `horizontal_well`, not just
       the two vertical cases `src/tango/`'s `WellUnitNative._f_dir` split covered).
     - ~~`LumpedReservoir` is still linear 1-D Darcy~~ — **done**, though not
       literally Dupuit-Thiem: `components/reservoir/lumped.py` now implements
@@ -1339,7 +1149,7 @@ all congruent with each other.
 - [ ] `iter_history` object that saves the state for each solver iteration —
     **open question, not committed (2026-08): may not be worth building.**
     Not built today; the convergence-loop rework
-    (`SystemBCIteration._converge_injection_T`) re-solves components up to
+    (`SystemBCIteration._converge_injection_enthalpy`) re-solves components up to
     20x per timestep with no per-iteration history recorded, only the
     converged final state. Chad's read: this arguably belongs to debugger
     territory (step through with a real debugger when you need
@@ -1419,10 +1229,9 @@ baseline; the refactor is applied to all input configurations.
       perturb the objective). `src/tango/`'s
       `optimizerr.py` is NOT the reference for this — see
       `docs/tango_tasks.md`'s optimizerr.py review (2026-07-24) for why.
-      `applications/sweep_demo_AGS_direct_heat/sweep_demo_AGS_direct_heat.py` (2026-07-24) is a
-      small working precedent for the underlying mechanism this API would
-      build on: it sweeps `common.rock_k` by mutating a copy of
-      `Workflow.to_dict()` and reinstantiating, rather than mutating a live
+      `Workflow`'s class docstring shows the underlying mechanism this API
+      would build on: a sweep mutates a copy of
+      `Workflow.to_dict()` and reinstantiates, rather than mutating a live
       `Workflow`/component in place — the exact dict-modify-then-reinstantiate
       pattern this pymoo API needs for both parameter-setting and (eventually)
       config-side objective extraction.
@@ -1443,8 +1252,9 @@ baseline; the refactor is applied to all input configurations.
       single-objective optimizer gets to the same kind of single answer with
       far less machinery — the point of running MOO is to *not* pre-commit to
       that. `tango`'s pymoo API should write every point on the returned
-      front to a dataframe/CSV (plus one `euclidean`-distance column as a sort
-      hint, not a filter) and leave the choice to the human — return the full
+      front to a dataframe/CSV (plus one `ideal_distance` column, the
+      normalized distance to the ideal corner, as a sort hint, not a filter)
+      and leave the choice to the human — return the full
       front by default. The ASF/pseudo-weights *math* from
       `optimizerr.py` is still worth keeping (see the `docs/tango_tasks.md`
       review) — just re-scoped as a separate, explicitly-invoked, opt-in

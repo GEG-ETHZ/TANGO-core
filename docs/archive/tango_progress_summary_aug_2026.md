@@ -3,7 +3,7 @@
 *Prepared 2026-08-01, updated 2026-08-14. Managerial-level summary — for
 engineering detail, see `docs/tango_tasks.md` (working task tracker)
 and `docs/TANGO_vision_and_roadmap/README.md` (full technical roadmap). Continues
-from `docs/tango_progress_summary_july_2026.md`.*
+from `docs/archive/tango_progress_summary_july_2026.md`.*
 
 ## Old system is not actually solving AGS — and proof tango doesn't have this bug
 
@@ -538,12 +538,12 @@ design.
 try a smoother statistical model first (see below for how that played
 out), rather than accepting a result we already knew wasn't trustworthy.
 Continued into September — see
-`docs/tango_progress_summary_sep_2026.md`.
+`docs/archive/tango_progress_summary_sep_2026.md`.
 
 ## Where things stand
 
 Unchanged from July's snapshot pending the decision above — see
-`docs/tango_progress_summary_july_2026.md`'s coverage table and
+`docs/archive/tango_progress_summary_july_2026.md`'s coverage table and
 `docs/tango_tasks.md` for current detail. AGS direct-heat remains
 implemented and runs correctly in `tango` on its own terms (its own
 smoke test and internal self-consistency checks pass); what's blocked is
