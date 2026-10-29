@@ -1154,10 +1154,11 @@ class GraphSurface(SurfaceComponent):
                 # compressor leg would fail with a misleading
                 # negative-pump-power error instead of the real cause.
                 raise
-            except (TESPyCoolPropError, InvalidPowerStateError):
+            except (TESPyConvergenceError, TESPyCoolPropError, InvalidPowerStateError):
                 # Whatever went wrong with the valve leg (an unphysical
-                # required pressure rise, or even a CoolProp flash failure
-                # near that unphysical state) -- retry with the real pump.
+                # required pressure rise, a solve that doesn't converge near
+                # that unphysical state, or a CoolProp flash failure there)
+                # -- retry with the real pump.
                 # The two bundles' upstream nodes see identical fixed
                 # inlet/outlet conditions regardless of which one
                 # circulation_control resolves to, so this can't also fail

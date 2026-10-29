@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import yaml
 
+from tango.components.surface.graph import GraphSurface
 from tango.core.errors import (
     ConfigError,
     CoolingLimitError,
@@ -395,6 +396,33 @@ def test_pump_or_valve_auto_resolves_to_compressor_when_needed(
         "A real pump should be a genuine, consistent net consumer here, not the impossible "
         f"apparent-generation state this whole check exists to reject: {surface.history.net_power_W}"
     )
+
+
+def test_pump_or_valve_retries_with_pump_when_valve_leg_does_not_converge(
+    ags_direct_heat_config: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Valve-resolved network that fails to converge is retried with the Compressor, not rejected.
+
+    Near the regime boundary the valve leg can stop short of convergence
+    (``TESPyConvergenceError``) instead of reporting an unphysical pressure
+    rise; the design may still be feasible with the pump.
+    """
+    ags_direct_heat_config["sim_config"]["mass_rate"] = 30.0  # needs a real pump -- see YAML comment
+    ags_direct_heat_config["sim_config"]["num_tsteps"] = N_TSTEPS_FAST
+    original = GraphSurface._solve_active_bundle  # noqa: SLF001
+
+    def valve_leg_does_not_converge(self: GraphSurface, *args: Any, **kwargs: Any) -> Any:
+        if self._network is self._valve_bundle.network:  # noqa: SLF001
+            raise TESPyConvergenceError("valve leg did not converge (forced by test)")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GraphSurface, "_solve_active_bundle", valve_leg_does_not_converge)
+    wf = Workflow(ags_direct_heat_config)
+    wf.run()
+
+    surface = _components(wf)["surface"]
+    assert type(surface._nodes["circulation_control"]).__name__ == "Compressor"  # noqa: SLF001
 
 
 # ---------------------------------------------------------------------------
