@@ -375,7 +375,7 @@ def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
     """A saved diagram's title carries the config file's stem and the config's own ``title``."""
     wf = _run_fast("hydro_sf_electric.yml")
     (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
-    html = path.read_text()
+    html = path.read_text(encoding="utf-8")
     assert "hydro_sf_electric — H2O P–h phase diagram" in html
     assert str(wf.to_dict()["title"]) in html
 
@@ -400,7 +400,7 @@ def test_written_diagram_opens_static_on_the_final_year(tmp_path: Path) -> None:
     """The HTML doesn't animate on load, and its slider starts on the final year the plot shows."""
     wf = _run_fast("hydro_sf_electric.yml")
     (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
-    assert "Plotly.animate(" not in path.read_text()
+    assert "Plotly.animate(" not in path.read_text(encoding="utf-8")
 
     fig = _sf_figure()
     assert fig.layout.sliders[0].active == len(fig.frames) - 1
