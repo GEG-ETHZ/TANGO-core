@@ -19,7 +19,7 @@ authors:
     affiliation: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zurich"
 license: Apache-2.0
 version: 1.1.0
-date-released: 2026-10-28
+date-released: 2026-10-29
 repository-code: "https://github.com/GEG-ETHZ/TANGO-core"
 keywords:
   - geothermal energy

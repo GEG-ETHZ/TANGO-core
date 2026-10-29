@@ -1,7 +1,7 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
 *Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, 2026-10-26,
-2026-10-27, and 2026-10-28. Covers October 1–28. Managerial-level summary — for engineering detail,
+2026-10-27, 2026-10-28, and 2026-10-29. Covers October 1–29. Managerial-level summary — for engineering detail,
 see the issues linked below (GitLab numbers up to #75, GitHub from #94 on)
 and `docs/tango_tasks.md`. Continues from
 `docs/archive/tango_progress_summary_sep_2026.md`.*
@@ -339,7 +339,7 @@ adjusting its pressures (GitHub #123). TANGO's and RAFT's fluid property
 models differ slightly, so TANGO's heat figure for a RAFT run is 0.6–1.2%
 lower than RAFT's own; this is documented.
 
-## tango-core 1.1.0 is released as open source under Apache-2.0 (2026-10-28)
+## tango-core 1.1.0 is released as open source under Apache-2.0 (2026-10-28–29)
 
 **In plain terms:** for FlexGEO's open-source modeling catalogue (D4.2,
 due October 31), the whole of tango-core is released publicly rather than
@@ -373,9 +373,9 @@ follow.
   progress summaries) stay in the repository but off the public
   documentation site and out of the published package.
 
-**Still open:** the copyright start year (2025, to be confirmed), making
-the repository and the documentation site public, the one-time PyPI setup,
-and a citable DOI through Zenodo (GitHub #124, deferred).
+**Still open:** making the repository and the documentation site public,
+the one-time PyPI setup, and a citable DOI through Zenodo (GitHub #124,
+deferred).
 
 ## Smaller items worth noting
 

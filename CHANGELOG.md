@@ -7,7 +7,7 @@ Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.
 
 ---
 
-## [1.1.0] — 2026-10-28
+## [1.1.0] — 2026-10-29
 
 First public release: tango-core is open source under Apache-2.0, and
 releases go to PyPI. It completes the example coverage matrix with an
