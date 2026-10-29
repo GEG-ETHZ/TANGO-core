@@ -8,7 +8,7 @@
 |---|---|---|---|
 | `demo_hydro_sf_electric` | Demo | `hydro_sf_electric.yml` | One run, plotted: well temperature profiles, reservoir temperature, power over time |
 | `demo_well_mesh_convergence` | Demo | `hydro_sf_electric.yml` | How fine the `NumericalWell` cell mesh must be; documents the default cell length |
-| `opt_*` (one per template, 16 in all) | Optimization | The configuration of the same name | Designs that minimize LCOE and maximize mean net power (electric, or thermal for direct heat); see [Optimizations](#optimizations) |
+| `opt_*` (one per template, 17 in all) | Optimization | The configuration of the same name | Designs that minimize LCOE and maximize mean net power (electric, or thermal for direct heat); see [Optimizations](#optimizations) |
 
 On hold, under `_on_hold/`: `opt_hydro_df_electric_surrogate`, the `opt_hydro_df_electric` search on a trained surrogate model; see [On hold](#on-hold).
 

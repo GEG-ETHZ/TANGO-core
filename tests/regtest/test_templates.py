@@ -15,9 +15,9 @@ own real ``sim_config.num_tsteps`` (never a reduced smoke count):
   is positive at every timestep past the known t=0 cold-start transient
   (see ``SystemBCIteration._seed_circuit_inlet``'s docstring).
 - ``economic.state.LCOE`` matches a committed golden snapshot (``rel=1e-6``:
-  with the exact ``HEOS`` CoolProp backend, reruns agree to within 2e-11
-  relative, so this leaves room for platform differences while still
-  catching any real change). This is a self-consistency check against
+  with the exact ``HEOS`` CoolProp backend, reruns on one machine agree to
+  within 2e-11 relative, so this leaves room for platform differences while
+  still catching any real change). This is a self-consistency check against
   tango's own prior output, not a comparison against any other
   implementation.
 
@@ -56,6 +56,8 @@ _CONFIGS: list[tuple[str, float]] = [
     ("hydro_direct_heat.yml", 0.03600456578455728),
     ("hydro_ORC_electric.yml", 0.32694303779297584),
     ("hydro_sf_electric.yml", 0.47191635645469593),
+    # A change detector only: five-spot economics and well flows are still
+    # those of a single doublet (#109), so this LCOE isn't a valid cost.
     ("hydro_sf_electric_5spot.yml", 0.8108358034934499),
 ]
 
@@ -108,6 +110,10 @@ def test_template_full_run(filename: str, reference_lcoe: float) -> None:
 
     assert wf._economic is not None, f"{filename}: expected an economic: block"  # noqa: SLF001
     lcoe = wf._economic.state.LCOE.get_fresh()  # noqa: SLF001
+    # rel=1e-6 was set from reruns on one machine (macOS arm64, which agree to
+    # ~2e-11) and hasn't been checked on another platform (e.g. Euler's x86
+    # Linux). If a golden fails there by a tiny relative amount, loosen this
+    # (e.g. to 1e-4) rather than regolden.
     assert lcoe == pytest.approx(reference_lcoe, rel=1e-6), (
         f"{filename}: LCOE {lcoe} is more than 1e-6 relative off the golden value {reference_lcoe}"
     )

@@ -516,7 +516,9 @@ class NumericalWell(WellComponent):
         "Near" is within ``common.saturation_margin`` (a fraction of the
         saturation pressure at the node's temperature) on either side.
         Above the critical temperature there's no saturation pressure, so
-        only the two-phase test applies.
+        only the two-phase test applies. Nothing checks the steep property
+        changes near the pseudo-critical line there (e.g. CO2 just above
+        31 °C), where too coarse a cell length can step over them (#94).
         """
         margin = self.common.saturation_margin
         where = (
