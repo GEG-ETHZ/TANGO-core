@@ -805,12 +805,15 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         before = FluidState.with_HP(self.common.fluid_name, h_in, P_in, self.common.coolprop_backend)
         s.T_inlet.update(before.T)
         # Unaided, the well may not lift the flow at all: its pressure collapses
-        # or the fluid boils on the way up. That only means the pump is needed,
-        # so it isn't an error here; the pumped march below decides feasibility.
+        # or the fluid boils on the way up. With a pump that only means the pump
+        # is needed, so it isn't an error here; the pumped march below decides
+        # feasibility. Without one (target_Pa <= 0) it's the well's own failure.
         try:
             P, h, T_f, rho, mu, u = self._march(h_in, P_in, mdot, t_d)
             unpumped_outlet_Pa: float | None = P[-1]
         except (SaturationError, WellPressureCollapseError):
+            if target_Pa <= 0:
+                raise
             unpumped_outlet_Pa = None
 
         if unpumped_outlet_Pa is not None and target_Pa <= unpumped_outlet_Pa:
