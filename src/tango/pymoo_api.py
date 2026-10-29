@@ -291,7 +291,7 @@ def load_params(params_file: Path) -> dict[str, Any]:
     into the command line.
     """
     if params_file.exists():
-        return yaml.safe_load(params_file.read_text()) or {}
+        return yaml.safe_load(params_file.read_text(encoding="utf-8")) or {}
     return {}
 
 
@@ -913,7 +913,7 @@ class Minimization:
         # Defined in the calling app script, e.g.
         # applications/opt_hydro_df_electric/opt_hydro_df_electric.py —
         # NOT in pymoo_api.py itself.
-        cfg = yaml.safe_load(Path("templates/hydro_df_electric.yml").read_text())
+        cfg = yaml.safe_load(Path("templates/hydro_df_electric.yml").read_text(encoding="utf-8"))
         m = Minimization(
             base_cfg=cfg,
             params=[
@@ -1194,7 +1194,7 @@ class Minimization:
             "error_type": type(exc).__name__,
             "error_message": str(exc),
         }
-        with (self.save_dir / "failures.jsonl").open("a") as f:
+        with (self.save_dir / "failures.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
 
     def _evaluate_one(self, x: list[float]) -> tuple[list[float], list[float]]:
@@ -1703,7 +1703,10 @@ class Minimization:
         x = x if x.ndim == 2 else x.reshape(1, -1)
         for i, row in enumerate(x):
             cfg = self._build_config(list(row))
-            (configs_dir / f"design_{i:03d}.yml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+            (configs_dir / f"design_{i:03d}.yml").write_text(
+                yaml.safe_dump(cfg, sort_keys=False),
+                encoding="utf-8",
+            )
         logger.info("Wrote %d pareto-design configs to %s", len(x), configs_dir)
 
 
@@ -1899,7 +1902,7 @@ class OptApp:
 
     def base_config(self) -> dict[str, Any]:
         """The template with ``injection_mode`` forced to this app's policy."""
-        cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text())
+        cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
         cfg["sim_config"]["injection_mode"] = self.injection_mode.value
         return cfg
 

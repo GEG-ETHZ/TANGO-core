@@ -282,11 +282,11 @@ def main() -> int:
     expected = fragments()
     for name, content in expected.items():
         path = OUT_DIR / name
-        if path.exists() and path.read_text() == content:
+        if path.exists() and path.read_text(encoding="utf-8") == content:
             continue
         stale.append(name)
         if not args.check:
-            path.write_text(content)
+            path.write_text(content, encoding="utf-8")
     # a fragment no longer generated (renamed or removed group) would otherwise linger
     for path in sorted(OUT_DIR.glob("*.md")):
         if path.name not in expected:

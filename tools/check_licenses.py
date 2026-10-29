@@ -424,7 +424,7 @@ def _filter_scope(data: list[dict[str, Any]], *, include_dev: bool) -> list[dict
 
 def write_license_data(data: list[dict[str, Any]]) -> None:
     """Write license data to licenses.json."""
-    with JSON_PATH.open("w") as f:
+    with JSON_PATH.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         f.write("\n")
 
@@ -689,7 +689,7 @@ def write_dependency_tree(data: list[dict[str, Any]], path: Path) -> None:
         "      <root>\n        " + "\n        ".join(cells) + "\n      </root>\n"
         "    </mxGraphModel>\n  </diagram>\n</mxfile>\n"
     )
-    path.write_text(xml)
+    path.write_text(xml, encoding="utf-8")
     print(f"Wrote dependency tree ({len(row_of) - 1} packages) to {path}")
 
 
@@ -722,7 +722,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.check_only:
-        with JSON_PATH.open() as f:
+        with JSON_PATH.open(encoding="utf-8") as f:
             data = _filter_scope(json.load(f), include_dev=args.dev)
     else:
         data = _filter_scope(generate_license_data(), include_dev=args.dev)
