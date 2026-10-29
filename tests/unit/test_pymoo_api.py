@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import multiprocessing
 import pickle
 import sys
 from dataclasses import dataclass
@@ -196,7 +197,24 @@ def test_non_finite_objective_counts_as_infeasible(tmp_path: Path) -> None:
     m.objectives = [ObjectiveSpec(name="nan", evaluate=_NanObjective())]
     _f, g = m._evaluate_one([30.0])  # noqa: SLF001
     assert g[0] > 0
-    assert m.n_failures == 1
+
+
+def test_failures_are_counted_across_worker_processes(tmp_path: Path) -> None:
+    """With n_processes > 1, n_failures still counts every infeasible evaluation (counted in the main process)."""
+    m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE)], tmp_path, check_param_sensitivity=False)
+    m.objectives = [ObjectiveSpec(name="nan", evaluate=_NanObjective())]
+    m.pymoo_config.n_processes = 2
+    m.run()
+    assert m.n_failures == m.pymoo_config.pop_size  # one generation, every design infeasible
+
+
+def test_worker_pool_is_shut_down_when_run_raises(tmp_path: Path) -> None:
+    """run() owns its worker pool, so no worker process outlives a run that raises."""
+    m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE), _param(*_INERT)], tmp_path)
+    m.pymoo_config.n_processes = 2
+    with pytest.raises(InertParameterError):
+        m.run()
+    assert multiprocessing.active_children() == []
 
 
 def test_param_check_skips_param_with_no_room(tmp_path: Path) -> None:

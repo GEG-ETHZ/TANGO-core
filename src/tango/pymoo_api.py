@@ -1059,7 +1059,12 @@ class Minimization:
     # Derived/internal state, not constructor args -- set in __post_init__.
     policy: InjectionPolicy = field(init=False)
     n_failures: int = field(init=False, default=0)
-    """Count of evaluations that raised (CV, not crash) — inspect after ``run()``."""
+    """Count of evaluations that failed the built-in feasibility constraint
+    (a CV exception or a non-finite objective) — inspect after ``run()``.
+    Counted in ``run()``, in the main process, from each generation's
+    evaluated designs: with ``n_processes > 1`` the evaluations run on
+    copies of this object in worker processes, so a count kept in
+    ``_evaluate_one`` would be lost."""
     _cv_exceptions: tuple[type[Exception], ...] = field(init=False, repr=False)
     """``INFEASIBLE_DESIGN_EXCEPTIONS`` merged with ``extra_cv_exceptions`` — what ``_evaluate_one`` actually catches."""
     _trajectory_row_idx: int = field(init=False, default=0, repr=False)
@@ -1082,7 +1087,7 @@ class Minimization:
         field's declared type is fixed from its class-level annotation, full
         stop (confirmed empirically: even re-annotating the assignment
         target here doesn't change what mypy sees in OTHER methods).
-        ``_elementwise_runner``/``run``/``_save_intermediate``/
+        ``run``/``_save_intermediate``/
         ``_write_pareto`` each carry a short ``assert``/``isinstance`` at
         the top to re-narrow -- see their docstrings/comments, not repeated
         here.
@@ -1220,7 +1225,6 @@ class Minimization:
             wf = Workflow(cfg)
             wf.run()
         except self._cv_exceptions as exc:
-            self.n_failures += 1
             if self.verbose:
                 logger.info("Evaluation failed (treated as constraint violation): %s", exc)
             if self.log_failures:
@@ -1235,7 +1239,6 @@ class Minimization:
             # DoubletEconomicComponent._compute_lcoe) would otherwise rank as
             # feasible, and pymoo's non-dominated sorting puts NaN rows in
             # the first front. Treat it as infeasible like a failed solve.
-            self.n_failures += 1
             if self.log_failures:
                 self._log_failure(
                     x,
@@ -1308,12 +1311,12 @@ class Minimization:
                 rows.append(x)
                 sides.append((i, label, value))
 
-        n_failures, log_failures = self.n_failures, self.log_failures
+        log_failures = self.log_failures
         self.log_failures = False
         try:
             f, g = problem.evaluate(np.array(rows), return_values_of=["F", "G"])
         finally:
-            self.n_failures, self.log_failures = n_failures, log_failures
+            self.log_failures = log_failures
         out = np.hstack([np.atleast_2d(f), np.atleast_2d(g)])
 
         if g[0][0] > 0:
@@ -1372,13 +1375,6 @@ class Minimization:
                 + ". Check what each one's ParamSpec.apply writes, or drop it from the search.",
             )
 
-    def _elementwise_runner(self) -> LoopedElementwiseEvaluation | StarmapParallelization:
-        assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
-        if self.pymoo_config.n_processes <= 1:
-            return LoopedElementwiseEvaluation()
-        pool = multiprocessing.Pool(self.pymoo_config.n_processes)
-        return StarmapParallelization(pool.starmap)
-
     def run(self) -> tuple[Result, pd.DataFrame]:
         """Run the optimization and return pymoo's raw ``Result`` plus a results dataframe.
 
@@ -1403,6 +1399,16 @@ class Minimization:
             ``_build_results_df``).
 
         """
+        assert self.pymoo_config is not None  # __post_init__ always resolves this — see its docstring
+        if self.pymoo_config.n_processes <= 1:
+            return self._run(_Problem(self, LoopedElementwiseEvaluation()))
+        # The pool lives only as long as this run, so its worker processes
+        # are shut down even when the parameter check or the search raises.
+        with multiprocessing.Pool(self.pymoo_config.n_processes) as pool:
+            return self._run(_Problem(self, StarmapParallelization(pool.starmap)))
+
+    def _run(self, problem: _Problem) -> tuple[Result, pd.DataFrame]:
+        """``run()``'s body, given a problem whose evaluation runner (and pool, if any) ``run()`` owns."""
         # __post_init__ always resolves these (see its docstring) — asserts
         # narrow mypy's view back down from the constructor-facing
         # Optional/str types to what they're actually guaranteed to be here.
@@ -1411,7 +1417,7 @@ class Minimization:
         assert self.pad_sampling is not None
         assert isinstance(self.save_dir, Path)
 
-        problem = _Problem(self)
+        self.n_failures = 0
         if self.check_param_sensitivity:
             self._check_param_sensitivity(problem)
         termination = DMOT(
@@ -1481,6 +1487,10 @@ class Minimization:
         )
         while algorithm.has_next():
             algorithm.next()
+            if algorithm.off is not None and len(algorithm.off) > 0:
+                # off holds exactly this generation's evaluated designs (see
+                # _append_trajectory); G[:, 0] is the built-in feasibility constraint.
+                self.n_failures += int((algorithm.off.get("G")[:, 0] > 0).sum())
             if self.save_results:
                 self._save_intermediate(algorithm)
             if self.capture_trajectory_path is not None:
@@ -1698,8 +1708,16 @@ class _Problem(ElementwiseProblem):
     Private: users construct ``Minimization``, not this class directly.
     """
 
-    def __init__(self, mgr: Minimization) -> None:
-        """Wrap ``mgr``, deriving pymoo's required n_var/n_obj/bounds from it."""
+    def __init__(
+        self,
+        mgr: Minimization,
+        runner: LoopedElementwiseEvaluation | StarmapParallelization | None = None,
+    ) -> None:
+        """Wrap ``mgr``, deriving pymoo's required n_var/n_obj/bounds from it.
+
+        ``runner`` evaluates designs (default: serially, in this process);
+        ``Minimization.run()`` passes one backed by the pool it owns.
+        """
         self.mgr = mgr
         super().__init__(
             n_var=len(mgr.params),
@@ -1707,7 +1725,7 @@ class _Problem(ElementwiseProblem):
             n_ieq_constr=1 + len(mgr.constraints),
             xl=[p.bounds[0] for p in mgr.params],
             xu=[p.bounds[1] for p in mgr.params],
-            elementwise_runner=mgr._elementwise_runner(),  # noqa: SLF001
+            elementwise_runner=runner if runner is not None else LoopedElementwiseEvaluation(),
         )
 
     def _evaluate(self, x: list[float], out: dict[str, Any], *args: Any, **kwargs: Any) -> None:
