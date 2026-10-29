@@ -463,6 +463,11 @@ Time: {t * self.dt_years} years
                             common.coolprop_backend,
                         ).H
                         self._set_circuit_entry_enthalpy(h_inj_used)
+                        # The reset is a jump, not a relaxation step, so the
+                        # residual and factor from before it would give Aitken
+                        # a meaningless secant; restart its history instead.
+                        r_prev = None
+                        delta_prev = None
                         break
 
                     raise CoolPropError(f"""

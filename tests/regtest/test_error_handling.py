@@ -9,7 +9,8 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.components.well.numerical import NumericalProductionWellWithPump
+import tango.orchestrators.system_bc_iteration as system_bc_iteration
+from tango.components.well.numerical import NumericalInjectionWell, NumericalProductionWellWithPump
 from tango.core.errors import CoolPropError, SaturationError, TESPyError, WellPressureCollapseError
 from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow  # noqa: E402
@@ -106,3 +107,31 @@ def test_pump_less_well_reports_its_own_collapse() -> None:
     with pytest.raises(WellPressureCollapseError, match="forced collapse of the unaided march"):
         well.solve(Stream.fresh(h=4.0e5, P=2.0e7, mass_rate=30.0))
     assert len(marches) == 1
+
+
+def test_below_freezing_retry_restarts_aitken_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """After the below-freezing reset, the next Aitken step starts fresh instead of reusing pre-reset history."""
+    scenario = Path(__file__).parent / "fixtures" / "scenarios" / "hydro_sf_electric.yml"
+    config = yaml.safe_load(scenario.read_text())
+    config["sim_config"]["num_tsteps"] = 1
+    workflow = Workflow(config)
+    original_relax = system_bc_iteration.aitken_relax
+    original_solve = NumericalInjectionWell.solve
+    histories: list[tuple[float | None, float | None]] = []
+    first_after_retry: list[int] = []
+
+    def relax(**kwargs: Any) -> tuple[float, float, float]:
+        histories.append((kwargs["r_prev"], kwargs["delta_prev"]))
+        return original_relax(**kwargs)
+
+    def solve(self: NumericalInjectionWell, inlet: Stream) -> Stream:
+        if histories and not first_after_retry:
+            first_after_retry.append(len(histories))
+            raise CoolPropError("forced by test: Tmelt")
+        return original_solve(self, inlet)
+
+    monkeypatch.setattr(system_bc_iteration, "aitken_relax", relax)
+    monkeypatch.setattr(NumericalInjectionWell, "solve", solve)
+    workflow.run()
+    assert first_after_retry, "the forced below-freezing retry never ran"
+    assert histories[first_after_retry[0]] == (None, None)
