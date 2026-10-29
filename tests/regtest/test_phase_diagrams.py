@@ -247,7 +247,7 @@ def test_load_config_from_inline_string_and_file(tmp_path: Path) -> None:
     )
     inline = phase_diagrams.load_phase_diagram_config(text)
     config_file = tmp_path / "phase.yml"
-    config_file.write_text(text)
+    config_file.write_text(text, encoding="utf-8")
     from_file = phase_diagrams.load_phase_diagram_config(str(config_file))
     assert inline == from_file
     assert inline.default.isotherm_temperatures_kelvin == (300.0, 400.0)

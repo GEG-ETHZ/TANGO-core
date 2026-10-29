@@ -309,7 +309,7 @@ def _load_hydro_sf_electric_workflow(num_tsteps: int) -> Workflow:
     uses for its ``_run_tango`` helper) so this test stays cheap
     regardless of the example's own configured ``num_tsteps``.
     """
-    config: dict[str, Any] = yaml.safe_load(HYDRO_SF_ELECTRIC.read_text())
+    config: dict[str, Any] = yaml.safe_load(HYDRO_SF_ELECTRIC.read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = num_tsteps
     return Workflow(config)
 

@@ -88,7 +88,7 @@ def test_failure(case: ErrorCase, capsys) -> None:
 def test_pump_less_well_reports_its_own_collapse() -> None:
     """A production well with no pump target re-raises its unaided march's failure instead of solving for a pump."""
     scenario = Path(__file__).parent / "fixtures" / "scenarios" / "hydro_sf_electric.yml"
-    config = yaml.safe_load(scenario.read_text())
+    config = yaml.safe_load(scenario.read_text(encoding="utf-8"))
     components = Workflow(config)._orchestrator.components  # noqa: SLF001
     well = next(c for c in components.values() if isinstance(c, NumericalProductionWellWithPump))
     well.target_extraction_pressure = 0.0
@@ -112,7 +112,7 @@ def test_pump_less_well_reports_its_own_collapse() -> None:
 def test_below_freezing_retry_restarts_aitken_history(monkeypatch: pytest.MonkeyPatch) -> None:
     """After the below-freezing reset, the next Aitken step starts fresh instead of reusing pre-reset history."""
     scenario = Path(__file__).parent / "fixtures" / "scenarios" / "hydro_sf_electric.yml"
-    config = yaml.safe_load(scenario.read_text())
+    config = yaml.safe_load(scenario.read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 1
     workflow = Workflow(config)
     original_relax = system_bc_iteration.aitken_relax

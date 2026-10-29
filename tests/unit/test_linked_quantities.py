@@ -20,7 +20,7 @@ _CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 
 
 def _load(name: str) -> dict[str, Any]:
-    cfg: dict[str, Any] = yaml.safe_load((_CONFIGS / name).read_text())
+    cfg: dict[str, Any] = yaml.safe_load((_CONFIGS / name).read_text(encoding="utf-8"))
     cfg["sim_config"]["num_tsteps"] = 1
     return cfg
 
