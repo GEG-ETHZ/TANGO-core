@@ -1015,18 +1015,61 @@ def test_condensing_below_cooling_limit_is_rejected(
         Workflow(config).run()
 
 
-def test_negative_net_power_is_reported_as_itself() -> None:
-    """A depleted power plant fails with NegativeNetPowerError, not a retried pump's misleading error.
+def test_depleted_plant_reports_its_own_failure_not_a_retried_pump() -> None:
+    """A depleted ORC plant reports its ORC feed pump's failure, not a misleading retried-pump error.
 
     CO2_EGS_ORC_electric.yml at 80 kg/s cools its reservoir until, in year
-    16, the turbine no longer covers the plant's own pumps. The
-    PumpOrValve fallback must not retry with circulation_control as a pump,
-    which used to surface as "circulation_control reports P=... (negative)".
+    16, the ORC loop's feed pump reports negative power. That isn't about
+    circulation_control, so the PumpOrValve fallback must not retry with it
+    as a pump (which used to surface as "circulation_control reports P=...
+    (negative)").
     """
     config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_ORC_electric.yml").read_text())
     config["sim_config"]["mass_rate"] = 80
-    with pytest.raises(NegativeNetPowerError, match="net_power_W"):
+    with pytest.raises(InvalidPowerStateError, match="orc_feed_pump"):
         Workflow(config).run()
+
+
+def test_pump_or_valve_does_not_retry_on_an_unrelated_invalid_state(
+    ags_direct_heat_config: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An InvalidPowerStateError not about the circulation valve propagates without a pump retry."""
+    ags_direct_heat_config["sim_config"]["num_tsteps"] = N_TSTEPS_FAST
+    original = GraphSurface._solve_active_bundle  # noqa: SLF001
+    legs: list[str] = []
+
+    def valve_leg_hits_another_pump(self: GraphSurface, *args: Any, **kwargs: Any) -> Any:
+        if self._network is self._valve_bundle.network:  # noqa: SLF001
+            legs.append("valve")
+            raise InvalidPowerStateError("some_other_pump reports P=-1.0 W (forced by test)")
+        legs.append("compressor")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GraphSurface, "_solve_active_bundle", valve_leg_hits_another_pump)
+    with pytest.raises(InvalidPowerStateError, match="some_other_pump"):
+        Workflow(ags_direct_heat_config).run()
+    assert "compressor" not in legs
+
+
+def test_negative_net_power_is_checked_on_the_converged_timestep() -> None:
+    """``record()`` rejects a turbine plant whose converged net power is negative.
+
+    The check runs once per timestep on the converged state, not inside
+    ``solve()``, whose first passes start from a cold seed and can be briefly
+    negative before the injection loop converges.
+    """
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_ORC_electric.yml").read_text())
+    config["sim_config"]["num_tsteps"] = 1
+    wf = Workflow(config)
+    wf.run()
+    surface = _components(wf)["surface"]
+    assert surface.history.net_power_W[0] > 0
+
+    surface.state.net_power_W.mark_stale()
+    surface.state.net_power_W.update(-1.0e5)
+    with pytest.raises(NegativeNetPowerError, match="timestep 1"):
+        surface.record(1)
 
 
 def test_negative_net_thermal_is_infeasible() -> None:

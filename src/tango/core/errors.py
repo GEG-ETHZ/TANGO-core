@@ -90,15 +90,26 @@ class InvalidPowerStateError(TangoError):
     """
 
 
+class ValveCannotRaisePressureError(InvalidPowerStateError):
+    """Raised when a circulation valve would have to raise pressure to meet its target.
+
+    A valve is passive and can only drop pressure; the plant's natural
+    driving force falls short, so a pump is needed there. For a ``PumpOrValve``
+    node, ``GraphSurface`` retries with the node as a pump on this error. Other
+    ``InvalidPowerStateError`` cases (e.g. a different pump in the plant
+    reporting negative power) are not about the circulation device and are
+    raised as they are.
+    """
+
+
 class NegativeNetPowerError(InvalidPowerStateError):
     """Raised when a power plant with a turbine is a net consumer of electricity.
 
     The turbine's output no longer covers the plant's own pump load, e.g.
-    once the reservoir has cooled. Kept distinct from the other
-    ``InvalidPowerStateError`` cases because it doesn't depend on whether a
-    ``PumpOrValve`` node resolves to a valve or a pump: as a pump it would
-    only draw more power, so ``GraphSurface`` re-raises it rather than
-    retrying with the pump.
+    once the reservoir has cooled. ``GraphSurface.record()`` checks it once
+    per timestep on the converged state, not on every solve: the
+    injection-enthalpy iteration's first passes start from a cold seed and
+    can be briefly negative before the loop converges.
     """
 
 

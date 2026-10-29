@@ -166,7 +166,10 @@ configs**; every example config is regoldened.
     or cycle closer whose outlet pressure is above its inlet (TESPy solves
     a fixed absolute `p_out` above the real inlet as free compression).
   - `NegativeNetPowerError`: a turbine plant that consumes more power than
-    it makes.
+    it makes. Checked once per timestep, on the converged state.
+  - `ValveCannotRaisePressureError`: a `PumpOrValve` on its Valve leg whose
+    pressure would rise. The only power-state error that retries the node
+    as a pump; any other is reported as itself.
   - `NegativeNetThermalError`: a heat plant whose produced fluid has cooled
     so far (e.g. a depleted reservoir) that its `net_thermal` exchangers
     would heat it. Checked once per timestep, on the converged state.

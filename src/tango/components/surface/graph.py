@@ -91,6 +91,7 @@ from tango.core.errors import (
     PassivePressureRiseError,
     TESPyConvergenceError,
     TESPyCoolPropError,
+    ValveCannotRaisePressureError,
 )
 from tango.core.fluid_state import FluidState
 from tango.core.fluid_utils import (
@@ -451,19 +452,35 @@ class GraphSurface(SurfaceComponent):
     """Per-timestep record of the plant state."""
 
     def record(self, timestep: int) -> None:
-        """Raise if the converged timestep delivers negative heat, then record it.
+        """Raise if the converged timestep delivers negative power or heat, then record it.
 
-        A plant with ``role: net_thermal`` exchangers delivers negative heat
-        when the produced fluid has cooled so far (e.g. once the reservoir is
-        depleted) that those exchangers would heat it instead. This is checked
-        here, once per timestep on the converged state, rather than in
-        ``solve()``: the injection-enthalpy iteration's first pass starts a
-        closed loop from the cold seed, whose produced fluid is legitimately
-        too cool for a solve or two before the loop converges.
+        A plant with a turbine delivers negative power when the turbine no
+        longer covers the plant's own pumps, and a plant with ``role:
+        net_thermal`` exchangers delivers negative heat when the produced
+        fluid has cooled so far (e.g. once the reservoir is depleted) that
+        those exchangers would heat it instead. Both are checked here, once
+        per timestep on the converged state, rather than in ``solve()``: the
+        injection-enthalpy iteration's first pass starts a closed loop from
+        the cold seed, whose produced fluid is legitimately too cool for a
+        solve or two before the loop converges.
+
+        Only a plant with a turbine is expected to make power. A plant
+        without one (e.g. a direct-heat plant whose only electric node is a
+        circulation pump) is always a net consumer, which is its correct
+        state, and the economics count its power as a by-product cost.
 
         Raises:
+            NegativeNetPowerError: with the net electric output.
             NegativeNetThermalError: with the net thermal output.
         """
+        net_power_W = self.state.net_power_W.get_fresh()  # noqa: N806
+        has_generator = any(type(node).__name__ == "Turbine" for node in self._net_electric_nodes)
+        if has_generator and net_power_W < 0:
+            raise NegativeNetPowerError(
+                f"surface plant net_power_W={net_power_W:.1f} W is negative at timestep {timestep} -- "
+                "the surface plant is a net consumer, not producer, of electricity (turbine output no "
+                "longer covers its own surface pump parasitic load).",
+            )
         net_thermal_W = self.state.net_thermal_W.get_fresh()  # noqa: N806
         if self._net_thermal_nodes and net_thermal_W < 0:
             raise NegativeNetThermalError(
@@ -901,11 +918,12 @@ class GraphSurface(SurfaceComponent):
         Both raise ``InvalidPowerStateError`` (an existing ``pymoo_api``
         ``INFEASIBLE_DESIGN_EXCEPTIONS`` member, so a plain ``Valve``/``Compressor``
         node hitting this just marks the design point infeasible during a
-        search rather than crashing it). For a ``type: PumpOrValve`` node
-        specifically, ``solve()`` catches the Valve-leg version of this
-        exception itself and retries with the Compressor leg (see
-        ``_NetworkBundle``) -- so for that node type, this check is the
-        fallback TRIGGER, not necessarily a final, user-visible failure.
+        search rather than crashing it); the valve case raises its subclass
+        ``ValveCannotRaisePressureError``. For a ``type: PumpOrValve`` node,
+        ``solve()`` catches that subclass on the Valve leg and retries with the
+        Compressor leg (see ``_NetworkBundle``) -- so for that node type, the
+        valve check is the fallback TRIGGER, not necessarily a final,
+        user-visible failure.
         """
         for node in self._net_electric_nodes:
             if type(node).__name__ == "Compressor" and node.P.val < -_PUMP_POWER_TOLERANCE_W:
@@ -935,7 +953,7 @@ class GraphSurface(SurfaceComponent):
             outlet_conn = next(c for c in self._conns if c.source is node)
             dp_bar = outlet_conn.p.val - inlet_conn.p.val
             if dp_bar > _VALVE_PRESSURE_INCREASE_TOLERANCE_BAR:
-                raise InvalidPowerStateError(
+                raise ValveCannotRaisePressureError(
                     f"{node.label} would need to RAISE pressure by {dp_bar * BAR_TO_PA:.1f} "
                     "Pa to hit this design's target -- a passive valve can only ever drop "
                     "pressure; the natural driving force here (e.g. thermosiphon) falls "
@@ -1080,25 +1098,8 @@ class GraphSurface(SurfaceComponent):
         # ---- Net power / thermal (see module docstring for sign convention) ----
         net_power_W = sum(-node.P.val for node in self._net_electric_nodes)
         net_thermal_W = sum(-node.Q.val for node in self._net_thermal_nodes)
-        # Only a genuine generator (Turbine) creates an expectation that
-        # net_power_W should be positive -- a plant with no generator at
-        # all (e.g. AGS_direct_heat.yml's circulation_control-only setup: a pure
-        # electric consumer, no by-product electricity) has NO way to ever
-        # be net-positive, and that's the correct, permanent state, not a
-        # feasibility-boundary artifact. See InvalidPowerStateError's own
-        # docstring for the risk this guards against (a negative value
-        # silently corrupting DoubletEconomicComponent's averaged LCOE
-        # calc) -- that risk is specific to a topology that EXPECTS net
-        # generation; main_product=HEAT's LCOE formula already treats
-        # net_power_W as a by-product term (_compute_lcoe), handling a
-        # negative value there correctly.
-        has_generator = any(type(node).__name__ == "Turbine" for node in self._net_electric_nodes)
-        if has_generator and net_power_W < 0:
-            raise NegativeNetPowerError(
-                f"surface plant net_power_W={net_power_W:.1f} W is negative -- the surface plant "
-                "is a net consumer, not producer, of electricity this timestep (turbine output no "
-                "longer covers its own surface pump parasitic load).",
-            )
+        # A negative net_power_W is checked in record(), on the converged
+        # timestep only (see its docstring).
         self._check_pump_or_valve_validity()
         self._check_passive_pressure()
         self._check_cooling_limit()
@@ -1143,22 +1144,22 @@ class GraphSurface(SurfaceComponent):
                 )
             except (
                 PassivePressureRiseError,
-                NegativeNetPowerError,
                 CoolingLimitError,
             ):
-                # None of these depends on circulation_control resolving to a
+                # Neither depends on circulation_control resolving to a
                 # valve: an upstream passive node raising pressure, or a
                 # cooler below the site's cooling limit, is identical in both
-                # bundles, and as a pump circulation_control would only draw
-                # more power. Retrying can't fix any of them, and the
-                # compressor leg would fail with a misleading
-                # negative-pump-power error instead of the real cause.
+                # bundles. Retrying can't fix either, and the compressor leg
+                # would fail with a misleading negative-pump-power error
+                # instead of the real cause.
                 raise
-            except (TESPyConvergenceError, TESPyCoolPropError, InvalidPowerStateError):
-                # Whatever went wrong with the valve leg (an unphysical
-                # required pressure rise, a solve that doesn't converge near
-                # that unphysical state, or a CoolProp flash failure there)
-                # -- retry with the real pump.
+            except (TESPyConvergenceError, TESPyCoolPropError, ValveCannotRaisePressureError):
+                # The valve leg needs an unphysical pressure rise, or its
+                # solve doesn't converge or hits a CoolProp flash failure
+                # near that unphysical state -- retry with the real pump.
+                # Any other InvalidPowerStateError (e.g. a different pump in
+                # the plant reporting negative power) isn't about the
+                # circulation device, so it propagates as it is.
                 # The two bundles' upstream nodes see identical fixed
                 # inlet/outlet conditions regardless of which one
                 # circulation_control resolves to, so this can't also fail
