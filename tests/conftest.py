@@ -38,9 +38,9 @@ def fake_raft(monkeypatch: pytest.MonkeyPatch) -> type[FakeRaftModel]:
 @pytest.fixture
 def raft_template(tmp_path: Path) -> Path:
     """A copy of the example's RAFT template pointing at a stand-in mesh file."""
-    template = yaml.safe_load(RAFT_TEMPLATE.read_text())
-    (tmp_path / "mesh.msh").write_text("stand-in mesh: FakeRaftModel never reads it\n")
+    template = yaml.safe_load(RAFT_TEMPLATE.read_text(encoding="utf-8"))
+    (tmp_path / "mesh.msh").write_text("stand-in mesh: FakeRaftModel never reads it\n", encoding="utf-8")
     template["mesh"]["file"] = "mesh.msh"
     path = tmp_path / "template.yaml"
-    path.write_text(yaml.safe_dump(template))
+    path.write_text(yaml.safe_dump(template), encoding="utf-8")
     return path

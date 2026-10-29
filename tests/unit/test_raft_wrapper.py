@@ -43,7 +43,7 @@ def _use_fake_raft(fake_raft: type[FakeRaftModel]) -> None:
 @pytest.fixture
 def config(raft_template: Path) -> dict[str, Any]:
     """The RAFT template (3 timesteps), using ``raft_template``."""
-    cfg: dict[str, Any] = yaml.safe_load(_RAFT_CONFIG.read_text())
+    cfg: dict[str, Any] = yaml.safe_load(_RAFT_CONFIG.read_text(encoding="utf-8"))
     cfg["sim_config"]["num_tsteps"] = 3
     cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)
     return cfg
@@ -65,7 +65,7 @@ def test_raft_config_is_the_template_plus_what_tango_owns(
     """Well size, coupling BCs and output come from tango; everything else is the template's."""
     _run(config, num_tsteps=1)
     raft_config = FakeRaftModel.instances[0].config
-    template = yaml.safe_load(RAFT_TEMPLATE.read_text())
+    template = yaml.safe_load(RAFT_TEMPLATE.read_text(encoding="utf-8"))
     assert raft_config["material"]["wells"]["diameter"] == [0.311]
     assert raft_config["material"]["wells"]["roughness"] == [5.5e-5]
     groups = {tuple(g["well"]): g for g in raft_config["boundary_conditions"] if "well" in g}
@@ -198,7 +198,7 @@ def test_segments_must_share_diameter(config: dict[str, Any]) -> None:
 
 def test_unsupported_fluid_is_rejected(config: dict[str, Any]) -> None:
     """Only fluids with a RAFT fluid_type mapping are accepted."""
-    template = yaml.safe_load(RAFT_TEMPLATE.read_text())
+    template = yaml.safe_load(RAFT_TEMPLATE.read_text(encoding="utf-8"))
     common = Workflow(config)._common.model_copy(update={"fluid_name": "CO2"})  # noqa: SLF001
     with pytest.raises(ConfigError, match="fluid_name"):
         raft_wrapper._check_site(template, common, str(RAFT_TEMPLATE))  # noqa: SLF001
@@ -280,7 +280,7 @@ def test_output_dir_keeps_raft_output_at_the_template_settings(
     wf.run()
     model = FakeRaftModel.instances[0]
     raft_config = model.config
-    template = yaml.safe_load(RAFT_TEMPLATE.read_text())
+    template = yaml.safe_load(RAFT_TEMPLATE.read_text(encoding="utf-8"))
     # RAFT writes into <output_directory>/<config file stem>/, i.e. target.
     assert Path(raft_config["simulation"]["output_directory"]) == target.parent.resolve()
     assert model.config_name == "run.raft.yaml"

@@ -207,7 +207,7 @@ class Workflow:
         if not p.exists():
             raise ConfigError(f"Input file not found: {p}")
         try:
-            text = p.read_text()
+            text = p.read_text(encoding="utf-8")
         except OSError as exc:
             raise ConfigError(f"Failed to read input file: {p}\n{exc}") from exc
         logger.info("Loaded input file: %s", p)
@@ -286,7 +286,7 @@ class Workflow:
 
     def to_file(self, path: Path | str) -> None:
         """Write this Workflow's config to a YAML file at ``path``."""
-        Path(path).write_text(self.to_str())
+        Path(path).write_text(self.to_str(), encoding="utf-8")
 
     def run(self) -> None:
         """Execute the full simulation."""

@@ -113,7 +113,7 @@ class _Lcoe:
 
 def _minimization(config: str, params: list[ParamSpec], tmp_path: Path, **overrides: Any) -> Minimization:
     """A 1-generation, population-2 search on a 2-timestep run of a template."""
-    cfg = yaml.safe_load((_SCENARIOS / config).read_text())
+    cfg = yaml.safe_load((_SCENARIOS / config).read_text(encoding="utf-8"))
     cfg["sim_config"]["num_tsteps"] = 2
     for path, value in overrides.pop("set", {}).items():
         _SetPath(tuple(path.split(".")))(cfg, value)
@@ -219,7 +219,7 @@ def test_worker_pool_is_shut_down_when_run_raises(tmp_path: Path) -> None:
 
 def test_param_check_skips_param_with_no_room(tmp_path: Path) -> None:
     """A param whose bounds leave no room on either side is skipped, not reported as inert."""
-    diameter = yaml.safe_load((_SCENARIOS / "AGS_direct_heat.yml").read_text())["components"][
+    diameter = yaml.safe_load((_SCENARIOS / "AGS_direct_heat.yml").read_text(encoding="utf-8"))["components"][
         "injection_well"
     ]["diameter"]
     pinned = _param("pinned_diameter_m", "components.injection_well.diameter", (diameter, diameter))

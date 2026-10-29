@@ -29,7 +29,7 @@ _GROUPED = "AGS_ORC_electric_grouped_subsurface.yml"
 
 
 def _load(name: str, num_tsteps: int | None = None) -> dict[str, Any]:
-    cfg: dict[str, Any] = yaml.safe_load((_CONFIGS / name).read_text())
+    cfg: dict[str, Any] = yaml.safe_load((_CONFIGS / name).read_text(encoding="utf-8"))
     if num_tsteps is not None:
         cfg["sim_config"]["num_tsteps"] = num_tsteps
     return cfg

@@ -250,7 +250,7 @@ def test_load_config_from_inline_string_and_file(tmp_path: Path) -> None:
     )
     inline = phase_diagrams.load_phase_diagram_config(text)
     config_file = tmp_path / "phase.yml"
-    config_file.write_text(text)
+    config_file.write_text(text, encoding="utf-8")
     from_file = phase_diagrams.load_phase_diagram_config(str(config_file))
     assert inline == from_file
     assert inline.default.isotherm_temperatures_kelvin == (300.0, 400.0)
@@ -357,7 +357,9 @@ def test_raft_loop_is_drawn_as_its_three_segments(
     raft_template: Path,
 ) -> None:
     """The raft variant's recorded profile is split at the segment boundaries into three joined lines."""
-    cfg: dict[str, Any] = yaml.safe_load(Path("templates/AGS_ORC_electric_raft.yml").read_text())
+    cfg: dict[str, Any] = yaml.safe_load(
+        Path("templates/AGS_ORC_electric_raft.yml").read_text(encoding="utf-8"),
+    )
     cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)
     cfg["sim_config"]["num_tsteps"] = 2
     wf = Workflow(cfg)
@@ -408,7 +410,7 @@ def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
     """A saved diagram's title carries the config file's stem and the config's own ``title``."""
     wf = _run_fast("hydro_sf_electric.yml")
     (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
-    html = path.read_text()
+    html = path.read_text(encoding="utf-8")
     assert "hydro_sf_electric — H2O P–h phase diagram" in html
     assert str(wf.to_dict()["title"]) in html
 
@@ -433,7 +435,7 @@ def test_written_diagram_opens_static_on_the_final_year(tmp_path: Path) -> None:
     """The HTML doesn't animate on load, and its slider starts on the final year the plot shows."""
     wf = _run_fast("hydro_sf_electric.yml")
     (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
-    assert "Plotly.animate(" not in path.read_text()
+    assert "Plotly.animate(" not in path.read_text(encoding="utf-8")
 
     fig = _sf_figure()
     assert fig.layout.sliders[0].active == len(fig.frames) - 1

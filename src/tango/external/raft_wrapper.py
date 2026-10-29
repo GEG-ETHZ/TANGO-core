@@ -330,7 +330,7 @@ class RaftWrapper(BaseModel, StateMethods):
                 f"raft.template {self.template!r} not found (absolute, or relative to the working "
                 f"directory {Path.cwd()}).",
             )
-        config: dict[str, Any] = yaml.safe_load(template_path.read_text())
+        config: dict[str, Any] = yaml.safe_load(template_path.read_text(encoding="utf-8"))
         try:
             _check_site(config, common, self.template)
             _check_alignment(config, geometry, self.template)
@@ -397,7 +397,7 @@ class RaftWrapper(BaseModel, StateMethods):
         else:
             config_name = f"{self._output_dir.name}.yaml"
             config["simulation"]["output_directory"] = str(self._output_dir.parent)
-        (run_dir / config_name).write_text(yaml.safe_dump(config, sort_keys=False))
+        (run_dir / config_name).write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
         self._run_dir = run_dir
         self._model = _raft_model_class()(config_name, 0.0, config_dir=run_dir, verbosity=self.verbosity)
 

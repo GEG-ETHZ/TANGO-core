@@ -66,7 +66,7 @@ def test_smry_csv_has_one_row_per_timestep(tmp_path: Path) -> None:
     wf = _run_fast("hydro_sf_electric.yml")
     results_export.write_results(wf, tmp_path, "hydro_sf_electric")
 
-    with (tmp_path / "hydro_sf_electric.smry.csv").open() as f:
+    with (tmp_path / "hydro_sf_electric.smry.csv").open(encoding="utf-8") as f:
         rows = list(csv.reader(f))
 
     header, data_rows = rows[0], rows[1:]
@@ -87,7 +87,7 @@ def test_econ_csv_matches_economic_state(tmp_path: Path) -> None:
     wf = _run_fast("hydro_sf_electric.yml")
     results_export.write_results(wf, tmp_path, "hydro_sf_electric")
 
-    with (tmp_path / "hydro_sf_electric.econ.csv").open() as f:
+    with (tmp_path / "hydro_sf_electric.econ.csv").open(encoding="utf-8") as f:
         header, row = list(csv.reader(f))
 
     assert wf._economic is not None  # noqa: SLF001
@@ -123,6 +123,6 @@ def test_every_csv_column_has_a_unit(filename: str, tmp_path: Path, request: pyt
     for path in results_export.write_results(wf, tmp_path, "out"):
         if path.suffix != ".csv":
             continue
-        with path.open() as f:
+        with path.open(encoding="utf-8") as f:
             header = next(csv.reader(f))
         assert all(re.fullmatch(r".+ \[[^\]]+\]", column) for column in header), path.name

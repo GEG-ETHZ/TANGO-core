@@ -30,7 +30,7 @@ _AGS = Path(__file__).resolve().parents[2] / "templates" / "AGS_direct_heat.yml"
 
 def _config(**loop: Any) -> dict[str, Any]:
     """AGS_direct_heat.yml with a 707 m loop (10 cells by default), overridden by ``loop``."""
-    cfg: dict[str, Any] = yaml.safe_load(_AGS.read_text())
+    cfg: dict[str, Any] = yaml.safe_load(_AGS.read_text(encoding="utf-8"))
     cfg["sim_config"]["num_tsteps"] = 1
     cfg["components"]["horizontal_well"].update({"well_length": 707.0, **loop})
     return cfg

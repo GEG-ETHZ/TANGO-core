@@ -226,7 +226,7 @@ def load_phase_diagram_config(source: str) -> PhaseDiagramConfig:
         ConfigError: the text isn't a mapping, or any key/value is invalid.
     """
     path = Path(source)
-    text = path.read_text() if path.is_file() else source
+    text = path.read_text(encoding="utf-8") if path.is_file() else source
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:

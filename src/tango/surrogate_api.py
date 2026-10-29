@@ -200,7 +200,7 @@ def _cached_row_is_valid(result_file: Path, params: list[ParamSpec], x_row: list
     if not result_file.exists():
         return False
     try:
-        cached = json.loads(result_file.read_text())
+        cached = json.loads(result_file.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return False
     return all(
@@ -224,7 +224,13 @@ def _evaluate_and_write(
     row = evaluate_training_row(x, base_cfg, params, objectives)
     row["row_idx"] = row_idx
     results_dir.mkdir(exist_ok=True, parents=True)
-    with tempfile.NamedTemporaryFile(mode="w", dir=results_dir, delete=False, suffix=".tmp") as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=results_dir,
+        delete=False,
+        suffix=".tmp",
+    ) as f:
         json.dump(row, f)
         tmp_path = Path(f.name)
     tmp_path.rename(result_file)
@@ -276,7 +282,7 @@ def run_lhs_sweep(
                         f"LHS sweep progress: {len(completed) + done}/{n_samples} ({done}/{len(pending)} this run)",
                     )
 
-    rows = [json.loads(f.read_text()) for f in sorted(results_dir.glob("*.json"))]
+    rows = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(results_dir.glob("*.json"))]
     return pd.DataFrame(rows).sort_values("row_idx").reset_index(drop=True)
 
 
