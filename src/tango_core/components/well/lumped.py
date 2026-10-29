@@ -16,6 +16,12 @@ These are permanent optional variants to be kept alongside higher-fidelity
 numerical-integration models once those are implemented.  Do NOT deprecate or
 remove them when adding e.g. ``NumericalInjectionWell``.
 
+**Marches in temperature.** These wells work in temperature and convert
+back to enthalpy at the outlet, so they don't conserve energy where enthalpy
+changes steeply with temperature: near a fluid's critical point or its
+saturation line. Use ``variant: numerical`` (which marches in enthalpy) for
+CO2 or for flow near saturation; every template's wells do.
+
 Simplified-physics TODOs are marked throughout; upgrade path for each is noted.
 """
 

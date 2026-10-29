@@ -37,7 +37,7 @@ Terms used across the TANGO documentation and code. Code names are given where a
 | Timestep | One step of the project's life, `sim_config.dt_years` long | `SystemDirect.run` |
 | Orchestrator | The object that runs the circuit through time | `orchestrators/` |
 | BC iteration | Boundary-condition iteration: repeating a timestep until the circuit closes | `SystemBCIteration` |
-| `injection_mode` | How a timestep is converged: `manual`, `manual-fracking-check`, `auto-pressure`, `auto-flow` (`auto-both` raises `NotImplementedError`) | `core/policies.py` · `InjectionPolicy` |
+| `injection_mode` | How a timestep is converged: `manual`, or `manual-fracking-check`, which also checks the fracking limit | `core/policies.py` · `InjectionPolicy` |
 | Fracking limit | The highest allowed injection pressure: hydrostatic pressure plus the configured overpressure percentage | `SystemBCIteration._check_fracking` |
 | Aitken relaxation | A correction that speeds up the injection-temperature iteration | `core/accelerators.py` · `aitken_relax` |
 | `LockedState` | A value that may be written once per solve; reading it stale raises an error | `core/locked_state.py` |

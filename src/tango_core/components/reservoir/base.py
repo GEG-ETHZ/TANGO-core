@@ -37,20 +37,19 @@ class ReservoirComponent(FlowComponent):
     porosity: PositiveFloat = Field(frozen=True)
     """Reservoir porosity (dimensionless)."""
     hydro_static_pressure: PositiveFloat = Field(frozen=True)
-    """Hydrostatic pressure at reservoir depth (Pa). User-supplied nominal
-    value used only for the fracking-safety ceiling (BC-iteration target
-    pressure) — NOT the reservoir's own initial/undepleted pressure; see
-    ``brine_density`` below for that."""
+    """Hydrostatic pressure at reservoir depth (Pa), used only for the
+    fracking-safety ceiling. Derived from the config as ``brine_density ×
+    gravity × reservoir_depth`` (see ``tango_core.workflows.linked_quantities``),
+    so it's the same pressure the reservoir starts at; a config value that
+    disagrees raises ``ConfigError``. For another in-situ density, set
+    ``brine_density`` and leave this out."""
     over_pressure_percentage: PositiveFloat = Field(frozen=True)
     """Over-pressure as a percentage of hydrostatic pressure (%). Combines
     with ``hydro_static_pressure`` for the fracking-safety ceiling only."""
     brine_density: PositiveFloat = Field(default=1000.0, frozen=True)
-    """Brine density (kg/m³), used to compute the reservoir's true
-    initial/undepleted pressure (``brine_density × g × reservoir_depth``).
-    Deliberately a physically-derived value, distinct from
-    ``hydro_static_pressure`` (a user-supplied nominal value used only for
-    the fracking ceiling) — conflating the two was a real bug, see
-    ``docs/tango_tasks.md``."""
+    """Brine density (kg/m³). Sets both the reservoir's initial/undepleted
+    pressure and ``hydro_static_pressure``, each ``brine_density × g ×
+    reservoir_depth``."""
     gravity: PositiveFloat = Field(default=GRAVITY, frozen=True)
     """Gravitational acceleration (m/s²) — defaults to core/constants.py's
     GRAVITY, overridable per reservoir since gravity varies regionally."""

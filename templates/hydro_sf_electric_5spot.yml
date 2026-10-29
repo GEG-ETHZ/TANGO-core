@@ -127,7 +127,7 @@ components:
 
   injection_well:
     type: injection_well
-    variant: numerical           # discretized marching solver; "native" = LumpedInjectionWell (single closed-form calc)
+    variant: numerical           # discretized marching solver; "lumped" = LumpedInjectionWell (single closed-form calc)
     component_idx: 0          # first component solved each pass — circuit cut here (matches old tango solve order)
     prev: 4
     next: 1
@@ -154,7 +154,7 @@ components:
 
   production_well_lower:
     type: production_well
-    variant: numerical           # discretized marching solver; "native" = LumpedProductionWell (single closed-form calc)
+    variant: numerical           # discretized marching solver; "lumped" = LumpedProductionWell (single closed-form calc)
     component_idx: 2
     prev: 1
     next: 3

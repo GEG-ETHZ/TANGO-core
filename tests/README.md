@@ -36,11 +36,11 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 
 | Trigger | Command | Covers |
 |---|---|---|
-| GitHub Actions CI (pull requests, `main`) | `uv run pytest tests/unit` | Unit tests only. The regression tier exceeds the runner's time limit. |
+| GitHub Actions CI (pull requests, `main`) | `uv run pytest -m "not slow and not perf" tests/` | The pre-push selection, on Linux, macOS, and Windows |
 | Pre-push hook | `uv run pytest -m "not perf and not slow"` | Unit and regression tests, without `slow` and `perf` |
 | Release-tag push | `just test --all` (enforced by `tools/check_full_tests_before_tag_push.py`) | Everything |
 
-A green CI pipeline therefore means "unit tests pass". The regression guarantee comes from the pre-push hook and the release-tag gate.
+A green CI pipeline therefore means the pre-push selection passes on every platform. The `slow` and `perf` tests run only at the release-tag gate.
 
 ## Running locally
 
@@ -56,7 +56,7 @@ uv run pytest tests/unit -x   # unit tests, stop at the first failure
 1. Unit tests go in `tests/unit/`. They build objects directly and do not run a full simulation.
 2. A test that runs a full simulation goes in `tests/regtest/`. If it needs the real number of timesteps, mark it `@pytest.mark.slow` and add a reduced-timestep companion.
 3. A new template must be added to `_CONFIGS` in `regtest/test_templates.py`, with its golden LCOE.
-4. Name tests after the behavior they check, for example `test_auto_flow_respects_max_mass_rate`.
+4. Name tests after the behavior they check, for example `test_max_mass_rate_is_rejected`.
 
 ## Known limitation
 

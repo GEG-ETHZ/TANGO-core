@@ -463,6 +463,11 @@ def build_pymoo_parser(
         default=default_output_dir,
         help=f"Where to write results/plots. Defaults to {default_output_dir}.",
     )
+    # --clean also deletes pareto_results_partial.csv, so a job killed at its
+    # wall-clock limit restarts from generation 1. Runs are kept to a few
+    # hours, so this isn't handled; to recover one by hand, copy the partial
+    # CSV out of --save-dir, rerun with --seed-from pointing at it, then
+    # `dvc commit` the app's stage.
     parser.add_argument(
         "--clean",
         action="store_true",

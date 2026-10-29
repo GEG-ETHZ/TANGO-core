@@ -24,6 +24,43 @@ is regoldened.
 
 [Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
 
+### Breaking
+
+Configs, scripts, and workflows written for an earlier version need these
+changes:
+
+- **`auto-pressure`, `auto-flow`, and `auto-both` injection modes are
+  removed**; a config that names one fails validation with a message
+  saying so. Use `manual-fracking-check` and find the
+  operating point with an `applications/opt_*/` search.
+- **`sim_config.max_mass_rate` is rejected** as an unknown key. Drop it; it
+  only served `auto-flow`.
+- **`example_configs/` is now `templates/`**, in the repository, in the wheel
+  (`tango_core/templates/`), and in what `tango_core init` copies.
+- **The sweep apps are deleted** (`run_*_sweep`, `sweep_demo_AGS_direct_heat`),
+  and the surrogate app moved to
+  `applications/_on_hold/opt_hydro_df_electric_surrogate/`. Use the `opt_*`
+  apps, or `Workflow` in a loop as its docstring shows.
+- **Unknown surface-node keys raise `ConfigError`.** Fix the typo or remove
+  the key.
+- **`p0_out{N}` is now `p0_megapascals_out{N}`, in MPa.** The old key was
+  passed to TESPy as bar, so its values were 10x too low; rename the key and
+  give the value in MPa.
+- **A linked config value that disagrees raises `ConfigError`.** Values
+  derived from another one (e.g. `hydro_static_pressure`,
+  `well_eff_diameter`, the injection well's length, a numerical well's
+  `num_cells` with `cell_length`) must match it; drop them from the config and
+  let TANGO derive them.
+- **`tango_core run --save-dir` writes `<name>.results.yml`** instead of
+  `<name>.yml`. Update anything that reads the old name.
+- **`just slurm-fetch` needs app names or `--all`.** A bare call fetches
+  nothing.
+- **The package is `tango_core` and the command is `tango_core`.** Replace
+  `import tango` with `import tango_core` and `tango_cli` with `tango_core`
+  in scripts and notebooks; there is no alias for the old names.
+- **`tango_core run` needs `--save-dir DIR` or `--no-save`.** A run with
+  neither stops with an error instead of discarding its results.
+
 ### Added
 
 - **Releases on PyPI.** `pip install tango-core` or `uv add tango-core`.
@@ -112,8 +149,8 @@ is regoldened.
   GitHub), `CITATION.cff`, `.editorconfig`, and GitHub templates for pull
   requests, bugs, features and tasks.
 - **GitHub Actions CI** (`.github/workflows/tests.yml`) — format check, lint,
-  mypy strict, the generated-docs check, and `tests/unit/` on macOS, Linux
-  and Windows, on every pull request and push to `main` and `develop`;
+  mypy strict, the generated-docs check, and the pre-push test selection
+  (`-m "not slow and not perf"`) on macOS, Linux and Windows, on every pull request and push to `main` and `develop`;
   `license-check.yml` gates releases; `.github/workflows/docs.yml` builds the docs
   site on every pull request.
 - **Coverage matrix complete**: `AGS_ORC_electric.yml`,
