@@ -227,7 +227,9 @@ slurm *args:
     # (each job runs `dvc repro` here), so a second submission while the first
     # is still queued or running fails both. Job names are tango_<app> (see
     # each *_job.sh's --job-name).
-    queued=" $(squeue -h -u "$USER" -o %j | tr '\n' ' ') "
+    # Captured on its own: in a pipeline, a failing squeue would read as an empty queue.
+    jobs=$(squeue -h -u "$USER" -o %j) || { echo "squeue failed, so queued jobs can't be checked. Nothing submitted."; exit 1; }
+    queued=" $(printf '%s\n' "$jobs" | tr '\n' ' ') "
     busy=""
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
@@ -260,27 +262,33 @@ slurm-fetch *args:
     remote="${TANGO_EULER_DIR:-tango-core}"
     dry=""
     push=""
+    all=""
     apps=""
     for arg in {{args}}; do
         case "$arg" in
             -h|--help)
-                echo "Usage: just slurm-fetch [--dry-run] [--push] [--list] [app ...]"
+                echo "Usage: just slurm-fetch [--dry-run] [--push] [--list] (--all | app ...)"
                 echo ""
                 echo "Copy each app's outputs/, job logs (*.out/*.err), and dvc.lock from the Euler checkout"
                 echo "($host:$remote) into this checkout, then Euler's DVC cache, which \`dvc push\` needs."
                 echo "Each app's files are mirrored (--delete), so a file removed on Euler is removed here."
                 echo "The DVC cache is only added to, never pruned."
                 echo ""
-                echo "  app ...     apps to fetch (default: every app under applications/ that has a *_job.sh)"
+                echo "  app ...     apps to fetch"
+                echo "  --all       fetch every app under applications/ that has a *_job.sh"
                 echo "  --dry-run   show what would change, change nothing"
                 echo "  --push      run \`uv run dvc push\` afterwards"
-                echo "  --list      print the apps that have a job script (the default set), then exit"
+                echo "  --list      print the apps that have a job script (the --all set), then exit"
+                echo ""
+                echo "Name the apps or pass --all: with neither, nothing is fetched. An app with no outputs/"
+                echo "on Euler is skipped, so a never-run app's local results aren't mirrored away."
                 echo ""
                 echo "Refuses if any requested app still has a job queued or running on Euler (squeue lists"
                 echo "tango_<app>): its outputs would be half-written. Override the host or repo path with"
                 echo "TANGO_EULER_HOST / TANGO_EULER_DIR."
                 exit 0 ;;
             -n|--dry-run) dry="-n" ;;
+            --all) all=1 ;;
             --list) for f in applications/*/*_job.sh; do basename "$(dirname "$f")"; done; exit 0 ;;
             --push) push=1 ;;
             -*) echo "unknown option: $arg (see just slurm-fetch --help)"; exit 1 ;;
@@ -288,15 +296,38 @@ slurm-fetch *args:
         esac
     done
     if command -v sbatch >/dev/null 2>&1; then echo "Run this on your laptop, not on Euler."; exit 1; fi
+    if [ -n "$apps" ] && [ -n "$all" ]; then echo "Name apps or pass --all, not both."; exit 1; fi
+    if [ -z "$apps" ] && [ -z "$all" ]; then
+        echo "Nothing fetched: name the apps to fetch, or pass --all for every one of these:"
+        for f in applications/*/*_job.sh; do echo "  $(basename "$(dirname "$f")")"; done
+        exit 1
+    fi
     if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
+    names=""
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"
         [ -d "applications/$a" ] || { echo "no such app: applications/$a"; exit 1; }
+        names="$names $a"
     done
-    queued=" $(ssh "$host" 'squeue -h -u "$USER" -o %j' | tr '\n' ' ') "
+    set -- $names
+    # One ssh call: Euler's queued job names ("job <name>") and which apps have
+    # an outputs/ there ("outputs <app>"). squeue is captured on its own, since
+    # in a pipeline a failing squeue would read as an empty queue.
+    state=$(ssh "$host" "cd $remote/applications || exit 4
+        jobs=\$(squeue -h -u \"\$USER\" -o %j) || exit 3
+        printf '%s\n' \"\$jobs\" | sed 's/^/job /'
+        for a in $names; do if [ -d \"\$a/outputs\" ]; then echo \"outputs \$a\"; fi; done") || {
+        case $? in
+            3) echo "squeue failed on $host, so running jobs can't be checked. Nothing fetched." ;;
+            4) echo "no $remote/applications on $host. Nothing fetched." ;;
+            *) echo "ssh to $host failed. Nothing fetched." ;;
+        esac
+        exit 1
+    }
+    queued=" $(printf '%s\n' "$state" | sed -n 's/^job //p' | tr '\n' ' ') "
+    with_outputs=" $(printf '%s\n' "$state" | sed -n 's/^outputs //p' | tr '\n' ' ') "
     busy=""
     for a in "$@"; do
-        a="${a%/}"; a="${a##*/}"
         case "$queued" in *" tango_$a "*) busy="$busy $a" ;; esac
     done
     if [ -n "$busy" ]; then
@@ -305,8 +336,8 @@ slurm-fetch *args:
         exit 1
     fi
     for a in "$@"; do
-        a="${a%/}"; a="${a##*/}"
         echo "== $a"
+        case "$with_outputs" in *" $a "*) ;; *) echo "  nothing to fetch (no outputs/ on $host)"; continue ;; esac
         # Captured rather than piped, so a failing rsync still stops the recipe.
         changes=$(rsync -a $dry --itemize-changes --delete \
             --include='outputs/***' --include='*.out' --include='*.err' --include='dvc.lock' --exclude='*' \
@@ -364,8 +395,11 @@ slurm-clean *args:
     active=" "
     active_apps=" "
     if command -v squeue >/dev/null 2>&1; then
-        active=" $(squeue -h -u "$USER" -o %i | tr '\n' ' ') "
-        active_apps=" $(squeue -h -u "$USER" -o %j | sed 's/^tango_//' | tr '\n' ' ') "
+        # Captured on its own: in a pipeline, a failing squeue would read as an
+        # empty queue, and the logs of running jobs would be deleted.
+        jobs=$(squeue -h -u "$USER" -o '%i %j') || { echo "squeue failed, so running jobs can't be checked. Nothing deleted."; exit 1; }
+        active=" $(printf '%s\n' "$jobs" | awk 'NF { print $1 }' | tr '\n' ' ') "
+        active_apps=" $(printf '%s\n' "$jobs" | awk 'NF { sub(/^tango_/, "", $2); print $2 }' | tr '\n' ' ') "
     fi
     n=0
     for dir in applications/*/ applications/_on_hold/*/; do
