@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
-from tango.core.errors import CoolPropError, SaturationError, TESPyError
+from tango.components.well.numerical import NumericalProductionWellWithPump
+from tango.core.errors import CoolPropError, SaturationError, TESPyError, WellPressureCollapseError
+from tango.core.stream import Stream
 from tango.workflows.workflow import Workflow  # noqa: E402
 
 ERROR_CONFIG_DIR = Path(__file__).parent / "fixtures" / "coolprop_tespy_errors"
@@ -77,3 +82,27 @@ def test_failure(case: ErrorCase, capsys) -> None:
     """Checks that a config raises a CoolPropFailure and the error_message in the test case is a regex match with the error message that is returned"""
     with pytest.raises(case.error_type, match=case.error_message):
         run_simulation(case)
+
+
+def test_pump_less_well_reports_its_own_collapse() -> None:
+    """A production well with no pump target re-raises its unaided march's failure instead of solving for a pump."""
+    scenario = Path(__file__).parent / "fixtures" / "scenarios" / "hydro_sf_electric.yml"
+    config = yaml.safe_load(scenario.read_text())
+    components = Workflow(config)._orchestrator.components  # noqa: SLF001
+    well = next(c for c in components.values() if isinstance(c, NumericalProductionWellWithPump))
+    well.target_extraction_pressure = 0.0
+    marches: list[float] = []
+
+    def collapse_once(original: Callable[..., Any]) -> Callable[..., Any]:
+        def march(h: float, P: float, *args: Any) -> Any:  # noqa: N803
+            marches.append(P)
+            if len(marches) == 1:
+                raise WellPressureCollapseError("forced collapse of the unaided march")
+            return original(h, P, *args)
+
+        return march
+
+    well._march = collapse_once(well._march)  # type: ignore[method-assign]  # noqa: SLF001
+    with pytest.raises(WellPressureCollapseError, match="forced collapse of the unaided march"):
+        well.solve(Stream.fresh(h=4.0e5, P=2.0e7, mass_rate=30.0))
+    assert len(marches) == 1
