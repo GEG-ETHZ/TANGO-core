@@ -51,4 +51,6 @@ jobs:
       # DVC's staleness checks); a mismatch means hash_tango.py differs by OS.
       - name: src/tango.hash is current
         run: uv run python tools/hash_tango.py
-      - run: uv run pytest -m "not slow and not perf" tests/ -v
+      # -X warn_default_encoding: fail on a text file opened without an
+      # encoding (see pytest.ini), which breaks on Windows.
+      - run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v

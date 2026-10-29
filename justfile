@@ -59,9 +59,12 @@ test *args:
     # For anything else, pass your own -m straight through, e.g.
     # `just test -m "perf"` or `just test -m "slow"`.
     args="{{args}}"
+    # -X warn_default_encoding: fail on a text file opened without an encoding
+    # (see pytest.ini's filterwarnings).
+    pytest=(uv run python -X warn_default_encoding -m pytest)
     if [[ "$args" == *"--all"* ]]; then
         args="${args/--all/}"
-        uv run pytest -v $args
+        "${pytest[@]}" -v $args
     elif [[ "$args" == *"--templates"* ]]; then
         # Full-length regression coverage for every templates/*.yml
         # (see tests/regtest/test_templates.py's own module docstring
@@ -70,13 +73,13 @@ test *args:
         # above (no -m filter there), this is just a fast, direct way to
         # run only this slice without the rest of the suite.
         args="${args/--templates/}"
-        uv run pytest -v tests/regtest/test_templates.py tests/regtest/test_lcoe_regression.py $args
+        "${pytest[@]}" -v tests/regtest/test_templates.py tests/regtest/test_lcoe_regression.py $args
     elif [[ "$args" == *"--perf"* ]]; then
         args="${args/--perf/}"
-        uv run pytest -v -m "perf" $args
+        "${pytest[@]}" -v -m "perf" $args
     else
         args="${args/--fast/}"
-        uv run pytest -v -m "not perf and not slow" $args
+        "${pytest[@]}" -v -m "not perf and not slow" $args
     fi
     status=$?
     # pytest's own arg parser is the only thing that can validate free-form
