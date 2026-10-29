@@ -1,8 +1,8 @@
-# Lint, type-check, the generated-docs check, and unit tests on every PR and
-# on pushes to main/develop, with unit tests on macOS, Linux, and Windows.
-# tests/regtest/ isn't run here: it takes over an hour (see tests/README.md);
-# the pre-push hook runs its fast subset, and `just test --all` runs
-# everything before a release tag is pushed.
+# Lint, type-check, the generated-docs check, and tests on every PR and on
+# pushes to main/develop, with tests on macOS, Linux, and Windows. The tests
+# are the pre-push hook's selection (unit and regression, without `slow` and
+# `perf`), so CI checks what every push was meant to have passed; `just test
+# --all` runs everything before a release tag is pushed (see tests/README.md).
 name: tests
 
 on:
@@ -10,6 +10,10 @@ on:
   push:
     branches: [main, develop]
   workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
 
 # A newer push to the same branch or PR cancels the run in progress.
 concurrency:
@@ -31,7 +35,7 @@ jobs:
         run: uv run python tools/gen_reference.py --check
 
   test:
-    name: unit tests (${{ matrix.os }})
+    name: tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Let every OS finish, so a platform-specific failure isn't hidden by
@@ -47,4 +51,4 @@ jobs:
       # DVC's staleness checks); a mismatch means hash_tango.py differs by OS.
       - name: src/tango.hash is current
         run: uv run python tools/hash_tango.py
-      - run: uv run pytest tests/unit -v
+      - run: uv run pytest -m "not slow and not perf" tests/ -v

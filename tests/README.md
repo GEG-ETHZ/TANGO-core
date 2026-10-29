@@ -36,11 +36,11 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 
 | Trigger | Command | Covers |
 |---|---|---|
-| GitHub Actions CI (pull requests, `main`) | `uv run pytest tests/unit` | Unit tests only. The regression tier exceeds the runner's time limit. |
+| GitHub Actions CI (pull requests, `main`) | `uv run pytest -m "not slow and not perf" tests/` | The pre-push selection, on Linux, macOS, and Windows |
 | Pre-push hook | `uv run pytest -m "not perf and not slow"` | Unit and regression tests, without `slow` and `perf` |
 | Release-tag push | `just test --all` (enforced by `tools/check_full_tests_before_tag_push.py`) | Everything |
 
-A green CI pipeline therefore means "unit tests pass". The regression guarantee comes from the pre-push hook and the release-tag gate.
+A green CI pipeline therefore means the pre-push selection passes on every platform. The `slow` and `perf` tests run only at the release-tag gate.
 
 ## Running locally
 
