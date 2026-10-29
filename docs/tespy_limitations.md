@@ -40,19 +40,14 @@ systems, so one network can't decide which of the two the plant needs.
 
 **Remaining gaps:**
 
-- The fallback is triggered by *any* `TESPyCoolPropError` or
-  `InvalidPowerStateError` on the Valve leg, including failures that have
-  nothing to do with whether `circulation_control` is a valve or a pump.
-  The retry can't fix those, and the Compressor leg then fails for its own
-  reason, so the error the user sees names the wrong problem. Known cases:
-  - a genuine CoolProp failure is silently retried as a pump;
-  - negative plant net power (turbine output below the plant's own pump
-    load, e.g. `CO2_EGS_ORC_electric.yml` at 80 kg/s once the reservoir
-    has cooled by year 16) is reported as "circulation_control reports
-    P = -1.1 MW (negative)" from the retried pump.
-  `PassivePressureRiseError` and `NegativeNetPowerError` are now
-  re-raised without the retry, since neither depends on the valve/pump
-  choice; the CoolProp case is still retried.
+- The fallback is triggered by any `TESPyCoolPropError` on the Valve leg,
+  including a genuine CoolProp failure that has nothing to do with whether
+  `circulation_control` is a valve or a pump. The retry can't fix that, and
+  the Compressor leg then fails for its own reason, so the error the user
+  sees names the wrong problem. `InvalidPowerStateError` is no longer
+  retried in general: only `ValveCannotRaisePressureError` (the Valve leg's
+  pressure rose) and `TESPyConvergenceError` trigger the Compressor leg, so
+  e.g. an ORC feed pump's negative power is reported as itself.
 - A loop that resolves to a passive valve has no startup pump costed (#57).
 - *[TANGO]* A `PumpOrValve` that runs as a pump is never costed:
   `DoubletEconomicComponent._injection_pump_cost` only counts nodes whose
@@ -204,7 +199,8 @@ caused a silent 1000x power error during development.
 
 **TANGO workaround:** net totals are summed as `-P.val` / `-Q.val` over
 role-tagged nodes; negative net power raises `NegativeNetPowerError` only
-when the plant has a `Turbine`, and negative net thermal power raises
+when the plant has a `Turbine` (checked once per timestep, on the converged
+state), and negative net thermal power raises
 `NegativeNetThermalError` when the plant has `net_thermal` nodes.
 
 ## TESPy's own warnings are suppressed *[TANGO]*

@@ -52,7 +52,7 @@ When the jobs finish, copy the results back from your laptop, inside your local 
 just slurm-fetch opt_AGS_ORC_electric opt_hydro_sf_electric
 ```
 
-This copies each application's `outputs/`, job logs and `dvc.lock`, plus Euler's DVC cache. Run `dvc push` afterwards so the results are kept; `just slurm-fetch --help` lists the options.
+Name the applications to fetch, or pass `--all` for every one; with neither, nothing is fetched. An application with no `outputs/` on Euler is skipped. This copies each application's `outputs/`, job logs, and `dvc.lock`, plus Euler's DVC cache. Run `dvc push` afterwards so the results are kept; `just slurm-fetch --help` lists the options.
 
 ## Troubleshooting
 

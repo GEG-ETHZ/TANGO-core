@@ -45,6 +45,14 @@ REPO_ROOT="$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}/../../.." && pwd)"
 APP_DIR="$REPO_ROOT/applications/_on_hold/opt_hydro_df_electric_surrogate"
 PARAMS_FILE="$APP_DIR/params.yaml"
 
+# Submitted from anywhere but this app's directory, $SLURM_SUBMIT_DIR puts
+# REPO_ROOT somewhere else; stop before running in the wrong place.
+if [ ! -f "$APP_DIR/dvc.yaml" ]; then
+  echo "No $APP_DIR/dvc.yaml: REPO_ROOT resolved to $REPO_ROOT." >&2
+  echo "Submit this from its own directory, or use \`just slurm <app>\` from the repo root." >&2
+  exit 1
+fi
+
 if [ $# -gt 0 ]; then
   echo "This job takes no arguments -- edit $PARAMS_FILE directly before submitting." >&2
   exit 1
