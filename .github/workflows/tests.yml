@@ -51,7 +51,9 @@ jobs:
       # DVC's staleness checks); a mismatch means hash_tango.py differs by OS.
       - name: src/tango_core.hash is current
         run: uv run python tools/hash_tango.py
-      - run: uv run pytest -m "not slow and not perf" tests/ -v
+      # -X warn_default_encoding: fail on a text file opened without an
+      # encoding (see pytest.ini), which breaks on Windows.
+      - run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
 
   raft:
     # The optional RAFT extra (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
@@ -83,6 +85,6 @@ jobs:
       - if: env.RAFT_DEPLOY_KEY != ''
         run: uv sync --locked --extra raft
       - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv run pytest -m "not slow and not perf" tests/ -v
+        run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
       - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv run pytest tests/regtest/test_raft_integration.py -v
+        run: uv run python -X warn_default_encoding -m pytest tests/regtest/test_raft_integration.py -v

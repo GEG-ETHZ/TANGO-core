@@ -31,7 +31,7 @@ def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> 
     """A year runs, RAFT keeps the loop's mass rate, heats the fluid, and records its work."""
     monkeypatch.chdir(_ROOT)
     cfg: dict[str, Any] = yaml.safe_load(
-        (_ROOT / "templates" / "AGS_ORC_electric_raft.yml").read_text(),
+        (_ROOT / "templates" / "AGS_ORC_electric_raft.yml").read_text(encoding="utf-8"),
     )
     cfg["sim_config"]["num_tsteps"] = 1
     wf = Workflow(cfg)

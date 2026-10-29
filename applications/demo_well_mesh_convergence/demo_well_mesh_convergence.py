@@ -61,7 +61,7 @@ def run_with_num_cells(num_cells: int) -> list[float]:
     Returns the per-timestep production temperature (K) delivered to the
     surface (``surface.history.T_inlet``).
     """
-    config = yaml.safe_load(CONFIG.read_text())
+    config = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     for name in WELL_COMPONENTS:
         config["components"][name]["num_cells"] = num_cells
 

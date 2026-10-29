@@ -74,7 +74,7 @@ def _run_tango(path: Path, num_tsteps: int | None = None) -> Workflow:
     if num_tsteps is None:
         wf = Workflow.from_file(path)
     else:
-        cfg = yaml.safe_load(Path(path).read_text())
+        cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         cfg["sim_config"]["num_tsteps"] = num_tsteps
         wf = Workflow(cfg)
     wf.run()
@@ -102,7 +102,7 @@ def test_workflow_to_dict_reflects_source_yaml_inputs() -> None:
     invariant here; test_workflow_from_str_to_str_roundtrip below is what
     actually proves full round-trip fidelity.
     """
-    with HYDRO_SF_ELECTRIC.open() as f:
+    with HYDRO_SF_ELECTRIC.open(encoding="utf-8") as f:
         original = yaml.safe_load(f)
 
     wf = Workflow.from_file(HYDRO_SF_ELECTRIC)
@@ -601,7 +601,7 @@ def sf_manual_config() -> dict[str, Any]:
     wants a valid tango config to tweak before constructing a Workflow
     (without touching the file on disk) can depend on this fixture too.
     """
-    with HYDRO_SF_ELECTRIC.open() as f:
+    with HYDRO_SF_ELECTRIC.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -612,7 +612,7 @@ def ags_direct_heat_config() -> dict[str, Any]:
     A reservoir-less (closed-loop) topology — useful for tests that need to
     confirm behavior when there's no ``ReservoirComponent`` to find.
     """
-    with AGS_DIRECT_HEAT.open() as f:
+    with AGS_DIRECT_HEAT.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -894,7 +894,7 @@ def test_injection_loop_closes_within_tolerance_every_year() -> None:
     """
     from tango_core.orchestrators.system_bc_iteration import _DH_SURFACE_TOL
 
-    config = yaml.safe_load((TEMPLATES_DIR / "AGS_ORC_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "AGS_ORC_electric.yml").read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 5
     wf = Workflow(config)
     wf.run()
@@ -926,7 +926,7 @@ def test_well_heat_flows_from_hot_to_cold_in_every_cell(filename: str) -> None:
     from tango_core.components.well.numerical import NumericalWell
     from tango_core.core.fluid_state import FluidState
 
-    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 2
     wf = Workflow(config)
     wf.run()
@@ -967,7 +967,7 @@ def test_heat_exchanger_raising_pressure_is_rejected() -> None:
     ~10.4 MPa. The error names the heat exchanger; the PumpOrValve fallback
     must not swallow it and report a negative pump power instead.
     """
-    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_direct_heat.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_direct_heat.yml").read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 2
     plant = config["components"]["surface"]["power_plant"]
     hx = plant["nodes"]["district_heating_hx"]
@@ -1009,7 +1009,7 @@ def test_condensing_below_cooling_limit_is_rejected(
     CPG_electric.yml's 21.85 degC limit, so only the 1 K subcooled condenser
     outlet (21.0 degC) falls below it.
     """
-    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / filename).read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 1
     nodes = config["components"]["surface"]["power_plant"]["nodes"]
     for name in condensing_nodes:
@@ -1027,7 +1027,7 @@ def test_depleted_plant_reports_its_own_failure_not_a_retried_pump() -> None:
     as a pump (which used to surface as "circulation_control reports P=...
     (negative)").
     """
-    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_ORC_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CO2_EGS_ORC_electric.yml").read_text(encoding="utf-8"))
     config["sim_config"]["mass_rate"] = 80
     with pytest.raises(InvalidPowerStateError, match="orc_feed_pump"):
         Workflow(config).run()
@@ -1062,7 +1062,7 @@ def test_negative_net_power_is_checked_on_the_converged_timestep() -> None:
     ``solve()``, whose first passes start from a cold seed and can be briefly
     negative before the injection loop converges.
     """
-    config = yaml.safe_load((TEMPLATES_DIR / "hydro_ORC_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_ORC_electric.yml").read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 1
     wf = Workflow(config)
     wf.run()
@@ -1082,7 +1082,7 @@ def test_negative_net_thermal_is_infeasible() -> None:
     run, the produced CO2 is too cool for the district-heating exchanger to
     take any heat from it.
     """
-    config = yaml.safe_load((TEMPLATES_DIR / "CPG_direct_heat.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "CPG_direct_heat.yml").read_text(encoding="utf-8"))
     config["sim_config"]["mass_rate"] = 110
     with pytest.raises(NegativeNetThermalError, match="net_thermal_W"):
         Workflow(config).run()
@@ -1104,7 +1104,7 @@ def test_unconverged_tespy_solve_raises(monkeypatch: pytest.MonkeyPatch) -> None
         original_solve(self, mode, **kwargs)
 
     monkeypatch.setattr(Network, "solve", solve_one_iteration)
-    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text(encoding="utf-8"))
     config["sim_config"]["num_tsteps"] = 1
     with pytest.raises(TESPyConvergenceError, match="did not converge"):
         Workflow(config).run()
@@ -1112,7 +1112,7 @@ def test_unconverged_tespy_solve_raises(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_subcooling_must_be_positive() -> None:
     """subcooling_K is kelvin below saturation, so zero or a negative value is a config error."""
-    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text())
+    config = yaml.safe_load((TEMPLATES_DIR / "hydro_sf_electric.yml").read_text(encoding="utf-8"))
     config["components"]["surface"]["power_plant"]["nodes"]["condenser"]["subcooling_K"] = 0.0
     with pytest.raises(ConfigError, match="subcooling_K"):
         Workflow(config).run()

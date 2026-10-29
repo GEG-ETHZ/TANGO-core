@@ -84,7 +84,8 @@ repos:
         # companion at a reduced timestep count covers the same code path
         # and stays in this hook. Run `just test --all` (or `-m slow`)
         # before merging changes that could affect long-run numerics.
-        entry: uv run pytest -m "not perf and not slow"
+        # -X warn_default_encoding: see pytest.ini's filterwarnings.
+        entry: uv run python -X warn_default_encoding -m pytest -m "not perf and not slow"
         language: system
         files: '\.(py|toml|yaml|yml|lock)$'
         pass_filenames: false

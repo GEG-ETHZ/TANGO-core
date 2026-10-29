@@ -205,7 +205,7 @@ def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
 
     n_tsteps = wf._sim_config.num_tsteps  # noqa: SLF001
     dt_years = wf._sim_config.dt_years  # noqa: SLF001
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["timestep [-]", "year [yr]", *columns.keys()])
         for t in range(n_tsteps):
@@ -225,7 +225,7 @@ def _write_economic_summary_csv(wf: Workflow, path: Path) -> None:
     assert wf._economic is not None  # noqa: S101, SLF001
     state = wf._economic.state  # noqa: SLF001
     fields = [f.name for f in dataclasses.fields(state)]
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow([_with_unit(name, name) for name in fields])
         writer.writerow([getattr(state, name).get_fresh() for name in fields])

@@ -31,7 +31,7 @@ _APPLICATIONS_DIR = Path(__file__).resolve().parents[2] / "applications"
 _APP_NAMES = sorted(
     p.parent.name
     for p in _APPLICATIONS_DIR.glob("opt_*/opt_*.py")
-    if p.stem == p.parent.name and "APP = OptApp(" in p.read_text()
+    if p.stem == p.parent.name and "APP = OptApp(" in p.read_text(encoding="utf-8")
 )
 
 
