@@ -80,36 +80,26 @@ class Common(BaseModel):
 `SimConfig.check_injection_mode_requirements` is a `@model_validator`,
 because `injection_mode` decides which other fields are required:
 
-| `injection_mode` | `bc_checkpoint_idx` | `mass_rate` | `max_mass_rate` |
-|---|---|---|---|
-| absent (`SystemDirect`) | not used | as given | must be absent |
-| `manual`, `manual-fracking-check`, `auto-pressure` | required | required | must be absent |
-| `auto-flow`, `auto-both` | required | computed by the solver | optional cap; a warning if absent |
+| `injection_mode` | `bc_checkpoint_idx` | `mass_rate` |
+|---|---|---|
+| absent (`SystemDirect`) | not used | as given |
+| `manual`, `manual-fracking-check` | required | required |
 
 ```python
 class SimConfig(BaseModel):
     ...
     injection_mode: InjectionPolicy | None = None
     mass_rate: float | None = None
-    max_mass_rate: float | None = None
     bc_checkpoint_idx: int | None = None
     ...
     @model_validator(mode="after")
     def check_injection_mode_requirements(self) -> SimConfig:
         if self.injection_mode is None:
-            if self.max_mass_rate is not None:
-                raise ValueError(...)  # nothing to cap without BC iteration
             return self
-        elif self.bc_checkpoint_idx is None:
+        if self.bc_checkpoint_idx is None:
             raise ValueError(...)
-        auto_computed = {InjectionPolicy.AUTO_FLOW, InjectionPolicy.AUTO_BOTH}
-        if self.injection_mode not in auto_computed:
-            if self.mass_rate is None:
-                raise ValueError(...)
-            if self.max_mass_rate is not None:
-                raise ValueError(...)
-        elif self.max_mass_rate is None:
-            logger.warning(...)  # uncapped mass rate
+        if self.mass_rate is None:
+            raise ValueError(...)
         return self
 ```
 

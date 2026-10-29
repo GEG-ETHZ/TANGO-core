@@ -1,7 +1,6 @@
-# Third-party license gate for releases. Mirrors .gitlab-ci.yml's license_check
-# job: fails if any runtime dependency's license isn't allowed by
-# tools/check_licenses.py (an allowed license, or an entry in its
-# REVIEWED_PACKAGES table). Resolving a failure means a person reviews the
+# Third-party license gate for releases: fails if any runtime dependency's
+# license isn't allowed by tools/check_licenses.py (an allowed license, or an
+# entry in its REVIEWED_PACKAGES table). Resolving a failure means a person reviews the
 # license and either replaces the dependency or adds a REVIEWED_PACKAGES entry
 # with the reason, through a normal PR.
 #
@@ -18,6 +17,10 @@ on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,6 +41,6 @@ jobs:
           path: |
             tools/licenses.json
             tools/dependency_tree.drawio
-          # GitLab keeps these for a year; 90 days is GitHub's default maximum
-          # for private repositories unless an org admin raises it.
+          # 90 days is GitHub's default maximum for private repositories
+          # unless an org admin raises it.
           retention-days: 90

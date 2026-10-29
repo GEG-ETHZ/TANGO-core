@@ -12,11 +12,11 @@
 | `thickness` | `float` | required | Reservoir thickness (m). |
 | `permeability` | `float` | required | Reservoir permeability (m²). |
 | `porosity` | `float` | required | Reservoir porosity (dimensionless). |
-| `hydro_static_pressure` | `float` | required | Hydrostatic pressure at reservoir depth (Pa). User-supplied nominal value used only for the fracking-safety ceiling (BC-iteration target pressure) — NOT the reservoir's own initial/undepleted pressure; see `brine_density` below for that. |
+| `hydro_static_pressure` | `float` | required | Hydrostatic pressure at reservoir depth (Pa), used only for the fracking-safety ceiling. Derived from the config as `brine_density × gravity × reservoir_depth` (see `tango.workflows.linked_quantities`), so it's the same pressure the reservoir starts at; a config value that disagrees raises `ConfigError`. For another in-situ density, set `brine_density` and leave this out. |
 | `over_pressure_percentage` | `float` | required | Over-pressure as a percentage of hydrostatic pressure (%). Combines with `hydro_static_pressure` for the fracking-safety ceiling only. |
-| `brine_density` | `float` | `1000.0` | Brine density (kg/m³), used to compute the reservoir's true initial/undepleted pressure (`brine_density × g × reservoir_depth`). Deliberately a physically-derived value, distinct from `hydro_static_pressure` (a user-supplied nominal value used only for the fracking ceiling) — conflating the two was a real bug, see `docs/tango_tasks.md`. |
+| `brine_density` | `float` | `1000.0` | Brine density (kg/m³). Sets both the reservoir's initial/undepleted pressure and `hydro_static_pressure`, each `brine_density × g × reservoir_depth`. |
 | `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per reservoir since gravity varies regionally. |
-| `well_eff_diameter` | `float` | `0.41` | Effective well diameter for impedance calculation (m) — the average of injection and production well diameters; set explicitly here for transparency. |
+| `well_eff_diameter` | `float` | `0.41` | Effective well diameter for the impedance calculation (m): the mean of the injection and production well diameters. Derived from the config (see `tango.workflows.linked_quantities`); a config value that disagrees raises `ConfigError`. |
 | `net_to_gross_ratio` | `float` | `1.0` | Net-to-gross ratio for effective reservoir thickness (dimensionless). |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.

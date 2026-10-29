@@ -270,9 +270,10 @@ class LumpedReservoir(ReservoirComponent):
     well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer horizontal distance (m) — from layout: block."""
     well_eff_diameter: float = Field(default=0.41, frozen=True)
-    """Effective well diameter for impedance calculation (m) — the average
-    of injection and production well diameters; set explicitly here for
-    transparency.
+    """Effective well diameter for the impedance calculation (m): the mean
+    of the injection and production well diameters. Derived from the config
+    (see ``tango.workflows.linked_quantities``); a config value that
+    disagrees raises ``ConfigError``.
     """
     well_pattern: WellPattern | None = Field(frozen=True)
     """Well pattern for analytic impedance solution — threaded from

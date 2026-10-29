@@ -1,8 +1,8 @@
-# Lint, type-check, the generated-docs check, and unit tests on every PR and
-# on pushes to main/develop, with unit tests on macOS, Linux, and Windows.
-# tests/regtest/ isn't run here: it takes over an hour (see tests/README.md);
-# the pre-push hook runs its fast subset, and `just test --all` runs
-# everything before a release tag is pushed.
+# Lint, type-check, the generated-docs check, and tests on every PR and on
+# pushes to main/develop, with tests on macOS, Linux, and Windows. The tests
+# are the pre-push hook's selection (unit and regression, without `slow` and
+# `perf`), so CI checks what every push was meant to have passed; `just test
+# --all` runs everything before a release tag is pushed (see tests/README.md).
 name: tests
 
 on:
@@ -10,6 +10,10 @@ on:
   push:
     branches: [main, develop]
   workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
 
 # A newer push to the same branch or PR cancels the run in progress.
 concurrency:
@@ -31,7 +35,7 @@ jobs:
         run: uv run python tools/gen_reference.py --check
 
   test:
-    name: unit tests (${{ matrix.os }})
+    name: tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Let every OS finish, so a platform-specific failure isn't hidden by
@@ -47,7 +51,7 @@ jobs:
       # DVC's staleness checks); a mismatch means hash_tango.py differs by OS.
       - name: src/tango.hash is current
         run: uv run python tools/hash_tango.py
-      - run: uv run pytest tests/unit -v
+      - run: uv run pytest -m "not slow and not perf" tests/ -v
 
   raft:
     # The optional RAFT extra (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
@@ -55,10 +59,10 @@ jobs:
     # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
     # and the insteadOf rewrite routes the fetch over SSH. Every step is
     # skipped while the secret is absent (e.g. PRs from forks). Drop the key
-    # and the rewrite once RAFT is public. Besides the unit tests (which use a
-    # stand-in for RAFT), one simulated year runs on the real RAFT, using the
-    # example's mesh committed in templates/raft/, so a change in RAFT's
-    # coupling API fails here.
+    # and the rewrite once RAFT is public. Besides the test job's selection
+    # (whose RAFT tests use a stand-in for RAFT), one simulated year runs on
+    # the real RAFT, using the example's mesh committed in templates/raft/,
+    # so a change in RAFT's coupling API fails here.
     name: tests with RAFT (ubuntu-latest)
     runs-on: ubuntu-latest
     env:
@@ -67,7 +71,7 @@ jobs:
       - if: env.RAFT_DEPLOY_KEY == ''
         run: echo "::notice::RAFT_DEPLOY_KEY is not set; skipping the RAFT job."
       - if: env.RAFT_DEPLOY_KEY != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - if: env.RAFT_DEPLOY_KEY != ''
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -75,10 +79,10 @@ jobs:
       - if: env.RAFT_DEPLOY_KEY != ''
         run: git config --global url."ssh://git@github.com/GEG-ETHZ/RAFT".insteadOf "https://github.com/GEG-ETHZ/RAFT"
       - if: env.RAFT_DEPLOY_KEY != ''
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - if: env.RAFT_DEPLOY_KEY != ''
         run: uv sync --locked --extra raft
       - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv run pytest tests/unit -v
+        run: uv run pytest -m "not slow and not perf" tests/ -v
       - if: env.RAFT_DEPLOY_KEY != ''
         run: uv run pytest tests/regtest/test_raft_integration.py -v
