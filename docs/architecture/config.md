@@ -56,7 +56,7 @@ flowchart TB
 |---|---|---|
 | `common` | `Common`, one instance shared by reference with every component | `src/tango/core/specs.py` |
 | `layout` | `Layout`; `well_spacing` and `well_pattern` are copied into components that declare them | `src/tango/core/specs.py` |
-| `sim_config` | `SimConfig`: `num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`, `max_mass_rate`, `target_extraction_pressure`, `bc_checkpoint_idx` | `src/tango/core/specs.py` |
+| `sim_config` | `SimConfig`: `num_tsteps`, `dt_years`, `injection_mode`, `mass_rate`, `target_extraction_pressure`, `bc_checkpoint_idx` | `src/tango/core/specs.py` |
 | `components.<name>` | `COMPONENT_REGISTRY[(type, variant)].from_dict(...)` | `src/tango/components/registry.py` |
 | `economic` | `COMPONENT_REGISTRY[("economic", type)]`, today `DoubletEconomicComponent` | `src/tango/components/registry.py`, `src/tango/components/economic/doublet.py` |
 | `title` | A plain string, kept on the `Workflow` | `src/tango/workflows/workflow.py` |

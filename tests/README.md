@@ -56,7 +56,7 @@ uv run pytest tests/unit -x   # unit tests, stop at the first failure
 1. Unit tests go in `tests/unit/`. They build objects directly and do not run a full simulation.
 2. A test that runs a full simulation goes in `tests/regtest/`. If it needs the real number of timesteps, mark it `@pytest.mark.slow` and add a reduced-timestep companion.
 3. A new template must be added to `_CONFIGS` in `regtest/test_templates.py`, with its golden LCOE.
-4. Name tests after the behavior they check, for example `test_auto_flow_respects_max_mass_rate`.
+4. Name tests after the behavior they check, for example `test_max_mass_rate_is_rejected`.
 
 ## Known limitation
 
