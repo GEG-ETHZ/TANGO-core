@@ -1279,14 +1279,18 @@ class Minimization:
         ``n_failures`` or logged to ``failures.jsonl``.
 
         A param whose bounds leave no room on either side is logged and
-        skipped rather than reported as inert.
+        skipped rather than reported as inert. A param whose baseline sits
+        on a bound has only one side to test; if that side is dead it's
+        logged as a warning, not reported as inert, since one inward step
+        can't tell an inert param from one that only matters past the bound.
 
         Raises:
             ConfigError: If the baseline design itself is infeasible: the
                 check needs a feasible starting point, and an infeasible one
                 usually means the config or forced injection policy is wrong.
-            InertParameterError: Naming every param neither side of which
-                moved anything. A param with only one dead side is logged as a
+            InertParameterError: Naming every param with both sides tested
+                and neither moving anything. A param with only one dead side,
+                whether the other moved or wasn't tested, is logged as a
                 warning instead (legitimate near a bound or a kink).
 
         """
@@ -1339,9 +1343,19 @@ class Minimization:
             )
             if not moved[i]:
                 continue  # bounds leave no room to move; nothing to judge
-            if not any(moved[i].values()):
+            if len(moved[i]) == 2 and not any(moved[i].values()):  # noqa: PLR2004
                 inert.append(
                     f"{p.name} (baseline {x0[i]:.6g}, tried {', '.join(f'{v:.6g}' for v in tried[i])})",
+                )
+            elif len(moved[i]) == 1 and not any(moved[i].values()):
+                (label,) = moved[i]
+                logger.warning(
+                    "Parameter check: moving %s %s from its %s bound %.6g changed no objective or constraint; "
+                    "the other side has no room to test, so it isn't reported as inert.",
+                    p.name,
+                    "up" if label == "+" else "down",
+                    "lower" if label == "+" else "upper",
+                    x0[i],
                 )
             elif not all(moved[i].values()):
                 dead = [label for label, m in moved[i].items() if not m]

@@ -10,6 +10,7 @@ constraint, on short (2-timestep) runs of real templates.
 from __future__ import annotations
 
 import copy
+import logging
 import pickle
 import sys
 from dataclasses import dataclass
@@ -143,6 +144,19 @@ def test_param_check_raises_on_inert_param_naming_it(tmp_path: Path) -> None:
     with pytest.raises(InertParameterError, match="target_extraction_pressure_Pa") as excinfo:
         m.run()
     assert "mass_rate_kg_per_s" not in str(excinfo.value)
+
+
+def test_param_check_warns_on_one_sided_dead_param_at_a_bound(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A dead param whose baseline sits on a bound has one testable side, so it warns instead of raising."""
+    name, path, _bounds = _INERT
+    at_lower_bound = _param(name, path, (7.0e6, 9.0e6))  # AGS_direct_heat.yml sets 7 MPa
+    m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE), at_lower_bound], tmp_path)
+    with caplog.at_level(logging.WARNING, logger="tango.pymoo_api"):
+        m._check_param_sensitivity(_Problem(m))  # noqa: SLF001
+    assert f"moving {name} up from its lower bound" in caplog.text
 
 
 def test_param_check_can_be_turned_off(tmp_path: Path) -> None:
