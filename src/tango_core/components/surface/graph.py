@@ -1030,18 +1030,6 @@ class GraphSurface(SurfaceComponent):
                 )
 
     # ------------------------------------------------------------------
-    # BC variable accessor — SystemBCIteration calls this each iteration
-    # ------------------------------------------------------------------
-
-    def set_injection_pressure(self, P: float) -> None:
-        """Update the injection pressure BC variable (Pa)."""
-        self.injection_pressure = P
-
-    def get_injection_pressure(self) -> float:
-        """Return the current injection pressure BC variable (Pa)."""
-        return self.injection_pressure
-
-    # ------------------------------------------------------------------
     # record / solve
     # ------------------------------------------------------------------
 

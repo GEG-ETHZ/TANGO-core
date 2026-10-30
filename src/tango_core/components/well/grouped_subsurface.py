@@ -39,6 +39,44 @@ the horizontal well's length; these are derived (see
 
 Mass flow rate is assumed constant around the loop: the outlet carries the
 inlet's mass rate.
+
+Boundary conditions
+-------------------
+The loop is solved with its mass flow and temperature fixed at the inlet
+(injection wellhead) and its pressure fixed at the outlet (production
+wellhead), and it solves for the injection pressure that delivers that:
+
+- **Inlet, set by tango:** the mass rate (``sim_config.mass_rate``) and the
+  injection enthalpy (the surface plant's outlet, converged by
+  ``SystemBCIteration``).
+- **Outlet, set by tango:** the production wellhead pressure,
+  ``target_extraction_pressure`` (from ``sim_config``, the same value the
+  surface plant gets as the minimum pressure it needs at its inlet).
+- **Solved by the subsurface model:** the injection wellhead pressure
+  (``state.P_inlet``), the production temperature and enthalpy, and, for
+  RAFT, the production mass flow.
+
+``SystemBCIteration`` hands the solved injection pressure to the surface
+plant in the same pass (``SurfaceComponent.set_injection_pressure``), so the
+plant's circulation pump or valve delivers exactly the pressure the loop
+needs. The surface plant's configured ``injection_pressure`` is then only
+the first timestep's starting guess.
+
+Why this way round: an external simulator (RAFT) may later lose fluid to
+storage or leak-off. With the injected mass rate set at the inlet, a loss
+shows up as a lower production flow, where a makeup tank can replace it
+(GitHub #63); with the pressure set at the inlet instead, a loss would
+change the injected rate, which tango controls. RAFT's own template is set
+up this way too. Both variants use these boundary conditions, so they stay
+directly comparable.
+
+The numerical variant marches its wells from the inlet, so it finds the
+injection pressure by shooting (``NumericalGroupedSubsurface``'s
+``solve_for_outlet_pressure``): it marches from a trial injection pressure
+and corrects the trial until the production pressure matches the target.
+Given the injection pressure the old inlet-pressure-driven march used, it
+reproduces that march's results (tested to 1e-6 relative in
+``tests/unit/test_grouped_subsurface.py``).
 """
 
 from __future__ import annotations
@@ -66,7 +104,7 @@ from tango_core.components.well.numerical import (
 )
 from tango_core.core.component import FlowComponent
 from tango_core.core.constants import YEAR_TO_SECOND
-from tango_core.core.errors import ConfigError
+from tango_core.core.errors import ConfigError, ConvergenceError
 from tango_core.core.locked_state import LockedState
 from tango_core.core.specs import Common
 from tango_core.core.state_methods import StateMethods
@@ -93,6 +131,16 @@ LOOP_SET_SEGMENT_KEYS: tuple[str, ...] = (
 )
 """Segment fields the loop sets from its own fields; a segment block may not give them."""
 
+_SHOOTING_REL_TOL: float = 1e-9
+"""Relative tolerance on the production wellhead pressure for the numerical variant's shooting
+solve (about 0.007 Pa at 7 MPa): tight enough that the solve reproduces an inlet-pressure-driven
+march to far better than 1e-6."""
+
+_SHOOTING_MAX_ITER: int = 20
+"""Maximum marches the numerical variant's shooting solve tries before raising ``ConvergenceError``.
+For liquid water the production pressure moves almost one-for-one with the injection pressure, so
+it usually converges in 2-4."""
+
 
 def _ls_nan() -> LockedState[float]:
     ls: LockedState[float] = LockedState(float("nan"))
@@ -109,7 +157,9 @@ class GroupedSubsurfaceState(StateMethods):
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
     """Temperature (K) entering the injection well."""
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Pressure (Pa) at the injection wellhead."""
+    """Pressure (Pa) at the injection wellhead, solved by the subsurface model so the production wellhead
+    reaches ``target_extraction_pressure``; ``SystemBCIteration`` makes it the surface plant's injection
+    pressure."""
     mass_rate: LockedState[float] = field(default_factory=_ls_nan)
     """Mass flow rate (kg/s) around the loop."""
     h_outlet: LockedState[float] = field(default_factory=_ls_nan)
@@ -117,7 +167,8 @@ class GroupedSubsurfaceState(StateMethods):
     T_outlet: LockedState[float] = field(default_factory=_ls_nan)
     """Temperature (K) at the production wellhead."""
     P_outlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Pressure (Pa) at the production wellhead."""
+    """Pressure (Pa) at the production wellhead: ``target_extraction_pressure``, which tango sets (to
+    within the numerical variant's shooting tolerance)."""
     heat_extracted_watts: LockedState[float] = field(default_factory=_ls_nan)
     """Rate of energy the fluid gains around the loop (W): ``mass_rate * (h_outlet - h_inlet)``."""
 
@@ -159,6 +210,10 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
     component in the Workflow holds."""
     dt_years: float = Field(frozen=True)
     """Timestep duration (years)."""
+    target_extraction_pressure: PositiveFloat = Field(frozen=True)
+    """Production wellhead pressure (Pa) the loop delivers: its outlet boundary condition (see the
+    module docstring). From ``sim_config.target_extraction_pressure``, the same value the surface plant
+    gets as the minimum pressure it needs at its inlet."""
 
     state: GroupedSubsurfaceState = Field(default_factory=GroupedSubsurfaceState)
     history: GroupedSubsurfaceHistory = Field(default_factory=GroupedSubsurfaceHistory)
@@ -167,9 +222,33 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
     def well_sections(self) -> list[WellSection]:
         """Return the loop's drilled sections, in flow order, for the economic model."""
 
+    @abstractmethod
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+        """Solve the loop for its injection pressure, given the inlet's mass rate and enthalpy and the production pressure.
+
+        ``inlet.P`` is only a starting guess for the injection pressure; the
+        solved value is ``state.P_inlet``. See the module docstring.
+
+        Args:
+            inlet: The stream entering the injection well.
+            P_outlet: The production wellhead pressure (Pa) to deliver.
+
+        Returns:
+            The stream leaving the production well, at ``P_outlet``.
+        """
+
+    def solve(self, inlet: Stream) -> Stream:
+        """Solve the loop with its production wellhead at ``target_extraction_pressure`` (see the module docstring)."""
+        return self.solve_for_outlet_pressure(inlet, self.target_extraction_pressure)
+
+    def required_injection_pressure(self) -> float:
+        """Return the injection wellhead pressure (Pa) the last solve found, for ``SystemBCIteration``."""
+        return self.state.P_inlet.get_fresh()
+
     def _record_loop_state(
         self,
         inlet: Stream,
+        P_inlet: float,
         h_outlet: float,
         P_outlet: float,
         T_inlet: float,
@@ -177,14 +256,16 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
     ) -> Stream:
         """Write ``state`` and ``outlet`` from the loop's inlet and outlet conditions, and return ``outlet``.
 
-        The outlet's mass rate is the inlet's (constant mass flow around the loop).
+        ``P_inlet`` is the solved injection pressure, not ``inlet.P`` (a
+        starting guess). The outlet's mass rate is the inlet's (constant mass
+        flow around the loop).
         """
         s = self.state
         h_inlet = inlet.h.get_fresh()
         mass_rate = inlet.mass_rate.get_fresh()
         s.h_inlet.update(h_inlet)
         s.T_inlet.update(T_inlet)
-        s.P_inlet.update(inlet.P.get_fresh())
+        s.P_inlet.update(P_inlet)
         s.mass_rate.update(mass_rate)
         s.h_outlet.update(h_outlet)
         s.T_outlet.update(T_outlet)
@@ -263,17 +344,62 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
         for segment in self.segments():
             segment.init()
 
-    def solve(self, inlet: Stream) -> Stream:
-        """March the injection, horizontal and production wells in sequence."""
-        stream = inlet
+    def _march(self, inlet: Stream, P_inlet: float) -> Stream:
+        """March the injection, horizontal and production wells in sequence from injection pressure ``P_inlet``."""
+        stream = Stream.fresh(h=inlet.h.get_fresh(), P=P_inlet, mass_rate=inlet.mass_rate.get_fresh())
         for segment in self.segments():
             stream = segment.solve(stream)
-        return self._record_loop_state(
-            inlet,
-            h_outlet=stream.h.get_fresh(),
-            P_outlet=stream.P.get_fresh(),
-            T_inlet=self.injection_well.state.T_inlet.get_fresh(),
-            T_outlet=self.production_well.state.T_outlet.get_fresh(),
+        return stream
+
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+        """Find the injection pressure whose march delivers ``P_outlet`` at the production wellhead (shooting).
+
+        Each trial restores the segments to the state they had when this
+        solve started and marches all three wells from a trial injection
+        pressure, so a trial never builds on another. The first trial starts
+        from ``inlet.P``. The second assumes the production pressure moves
+        one-for-one with the injection pressure (nearly true for liquid
+        water); later trials use the secant through the last two. A trial
+        whose production pressure is within ``_SHOOTING_REL_TOL`` of
+        ``P_outlet`` is kept, its segments' state included, so the result is
+        exactly an ordinary march from the found injection pressure.
+
+        Raises:
+            ConvergenceError: No trial reaches ``P_outlet`` within
+                ``_SHOOTING_MAX_ITER`` marches.
+        """
+        start = {
+            name: segment.snapshot_convergence_state()
+            for name, segment in zip(SEGMENT_NAMES, self.segments(), strict=True)
+        }
+        P_in = inlet.P.get_fresh()
+        previous: tuple[float, float] | None = None  # (injection pressure, residual) of the last trial
+        for _ in range(_SHOOTING_MAX_ITER):
+            for name, segment in zip(SEGMENT_NAMES, self.segments(), strict=True):
+                segment.restore_convergence_state(start[name])
+                segment.mark_all_stale()
+            outlet = self._march(inlet, P_in)
+            residual = outlet.P.get_fresh() - P_outlet
+            if abs(residual) <= _SHOOTING_REL_TOL * abs(P_outlet):
+                return self._record_loop_state(
+                    inlet,
+                    P_inlet=P_in,
+                    h_outlet=outlet.h.get_fresh(),
+                    P_outlet=outlet.P.get_fresh(),
+                    T_inlet=self.injection_well.state.T_inlet.get_fresh(),
+                    T_outlet=self.production_well.state.T_outlet.get_fresh(),
+                )
+            if previous is None or previous[1] == residual:
+                step = -residual
+            else:
+                slope = (residual - previous[1]) / (P_in - previous[0])
+                step = -residual / slope
+            previous = (P_in, residual)
+            P_in += step
+        raise ConvergenceError(
+            f"grouped_subsurface (numerical): no injection pressure found that delivers the production "
+            f"wellhead pressure {P_outlet:.6g} Pa within {_SHOOTING_MAX_ITER} marches (last trial "
+            f"{P_in:.6g} Pa).",
         )
 
     def snapshot_convergence_state(self) -> Any:
@@ -378,11 +504,12 @@ class RaftGroupedSubsurface(GroupedSubsurfaceComponent):
             ),
         )
 
-    def solve(self, inlet: Stream) -> Stream:
-        """Run one RAFT trial over this timestep."""
-        result = self.raft.solve(inlet, self.dt_years * YEAR_TO_SECOND)
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+        """Run one RAFT trial over this timestep, with RAFT solving for the injection pressure."""
+        result = self.raft.solve(inlet, self.dt_years * YEAR_TO_SECOND, P_outlet)
         return self._record_loop_state(
             inlet,
+            P_inlet=result.P_inlet,
             h_outlet=result.h_outlet,
             P_outlet=result.P_outlet,
             T_inlet=result.T_inlet,

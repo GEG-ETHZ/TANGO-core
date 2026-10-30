@@ -9,7 +9,7 @@
 | `prev` | `int` | required | *undocumented* |
 | `next` | `int` | required | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
 
 Nested blocks:
 
@@ -28,7 +28,7 @@ Nested blocks:
 | `prev` | `int` | required | *undocumented* |
 | `next` | `int` | required | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
 
 Nested blocks:
 

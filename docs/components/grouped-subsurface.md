@@ -8,9 +8,18 @@ production well) as one circuit component, so the same config shape can be
 simulated by different models: tango's own numerical wells, or RAFT, which
 also models the surrounding rock.
 
+Both variants set the loop's mass flow and temperature at the injection
+wellhead and its pressure at the production wellhead
+(`sim_config.target_extraction_pressure`), and solve for the injection
+pressure, which the surface plant then delivers. The configured surface
+`injection_pressure` is only the first timestep's starting guess. Why, and
+how the numerical variant does it, is under "Boundary conditions" below.
+
+![The RAFT template's loop and ORC plant. Purple ① and ② mark where tango and RAFT exchange boundary conditions each pass; red boxes list where they are checked.](../diagrams/AGS_ORC_electric_raft_topology.svg)
+
 | Variant | Use it when | Model |
 |---|---|---|
-| `numerical` | The standard AGS loop, same result as three separate well components | Three numerical wells marched in sequence |
+| `numerical` | The standard AGS loop with tango's own wells | Three numerical wells marched in sequence, from the injection pressure that delivers the production pressure (found by shooting; the same physics as three separate well components, solved the other way round) |
 | `raft` | The rock's heat exchange should come from a 3D finite-element model | RAFT simulates the wells and the rock; needs the optional RAFT install ([Install](../guides/install.md#optional-raft-subsurface-simulator)) |
 
 Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and

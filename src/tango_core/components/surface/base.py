@@ -35,10 +35,16 @@ class SurfaceComponent(FlowComponent):
     independent copy. Provides surface_temperature/surface_pressure
     (ambient BC state). See core/specs.py."""
     injection_pressure: PositiveFloat
-    """Injection wellhead pressure (Pa), fixed for the whole run.
+    """Injection wellhead pressure (Pa): the pressure the plant delivers at its outlet.
 
-    Not frozen, unlike the other fields here: tests and tools set it
-    directly on a built component (see Component's class docstring).
+    Fixed for the whole run, except when a ``grouped_subsurface`` is the
+    circuit entry: that loop solves for the injection pressure it needs, and
+    ``SystemBCIteration`` sets it here every pass (``set_injection_pressure``),
+    so the configured value is only the first timestep's starting guess and
+    ``.results.yml`` holds the last timestep's solved value. Not frozen,
+    unlike the other fields here, for that reason, and because tests and
+    tools set it directly on a built component (see Component's class
+    docstring).
     """
     pipe_diameter: PositiveFloat = Field(frozen=True)
     """Surface pipe inner diameter (m)."""
@@ -59,6 +65,14 @@ class SurfaceComponent(FlowComponent):
     receives the identical value the same way — do not set this directly
     in a component's own YAML block (``_build_components`` now rejects
     that explicitly)."""
+
+    def set_injection_pressure(self, P: float) -> None:
+        """Set the injection wellhead pressure (Pa) the plant delivers on its next solve."""
+        self.injection_pressure = P
+
+    def get_injection_pressure(self) -> float:
+        """Return the injection wellhead pressure (Pa) the plant delivers."""
+        return self.injection_pressure
 
     @abstractmethod
     def solve(self, inlet: Stream) -> Stream:

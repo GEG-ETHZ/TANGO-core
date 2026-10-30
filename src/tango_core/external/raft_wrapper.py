@@ -27,12 +27,25 @@ about a reference state, ``specific_heat: 4250``), the loop's enthalpy
 gain tango computes from RAFT's inlet and outlet states is 0.6-1.2% lower
 than under RAFT's own EOS, and the heat extracted inherits that
 difference. A template with RAFT's real-fluid EOS (``density: 0``) would
-make the two agree. The loop's
-pressure is set at its inlet, as everywhere in tango: RAFT gets the inlet
-pressure and temperature and the outlet mass flow, and returns the outlet
-pressure and temperature. Mass flow is assumed constant around the loop
-(a sealed well), and a RAFT result whose flows stray from it by more than
-RAFT's solver tolerance allows (``_MASS_RATE_REL_TOL``) raises.
+make the two agree.
+
+Boundary conditions: RAFT gets the loop's inlet mass flow and temperature
+(a flux and a temperature condition on the well's inlet group) and its
+outlet pressure (a pressure condition on the outlet group), and returns the
+inlet pressure, the outlet temperature and the outlet mass flow. The outlet
+pressure is ``grouped_subsurface``'s ``target_extraction_pressure``; the
+inlet pressure RAFT solves for becomes the surface plant's injection
+pressure (see ``tango_core.components.well.grouped_subsurface``'s "Boundary
+conditions"). This is how RAFT's own template sets the well up, and it
+keeps the injected mass rate under tango's control if RAFT later loses
+fluid to storage or leak-off: a loss then shows up as a lower outlet flow.
+The inlet temperature is converted from tango's enthalpy at the inlet
+stream's pressure, the injection pressure from the previous pass;
+``SystemBCIteration`` iterates until that pressure stops changing, so the
+converged pass is consistent. Mass flow is assumed constant around the loop
+(a sealed well), and a RAFT result whose outlet or element flows stray from
+the inlet's by more than RAFT's solver tolerance allows
+(``_MASS_RATE_REL_TOL``) raises.
 
 The ``raft:`` block of a tango config is this object. ``template`` names a
 RAFT config file, made by hand together with its mesh (meshes are never
@@ -95,13 +108,19 @@ RAFT's well mass balance is quasi-steady with no leak-off at
 flow along the loop should equal the outlet's. A finite element solution
 conserves mass over the whole loop, not element by element, and only to the
 Newton-Raphson tolerance (the template's ``NR_tol``), so the flows match
-only approximately. In RAFT's AGS example (``NR_tol: 1e-7``), the flow RAFT
-solves for at the pressure-controlled inlet differs by up to ~1.2e-4
-relative, and the flows through the well's elements spread by up to ~9e-4.
-Both vary from year to year. A smaller ``NR_tol`` shrinks them; fluid
-actually lost to the rock would show up as far more than this.
-RAFT's inlet flow is recorded in ``RaftWrapperState.mass_rate_inlet`` and
-each element's in ``mass_rate_elements``."""
+only approximately. RAFT's convergence measure is divided by the mesh's
+node count (``_check_convergence_NR``), so the well's mass balance may be
+off by up to about ``NR_tol`` times the number of mesh nodes: ~1.2e-3 for
+the example mesh (12,054 nodes) at RAFT's own ``NR_tol: 1e-7``, which
+year 1 of the 25-year example reached at the production wellhead. The
+example template therefore uses ``NR_tol: 1e-8``, where the production
+flow and the element flows stay within ~1e-5 of the injected rate. A
+smaller ``NR_tol`` shrinks them further; fluid actually lost to the rock
+would show up as far more than this.
+The flow RAFT solves for at the outlet is recorded in
+``RaftWrapperState.mass_rate_outlet`` and each element's in
+``mass_rate_elements``; both are checked against the inlet's, which tango
+sets."""
 
 
 def _raft_model_class() -> Any:
@@ -144,17 +163,18 @@ class RaftWrapperState(StateMethods):
     """RAFT's values for one tango timestep, as RAFT reports them."""
 
     P_inlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Pressure (Pa) at the well inlet (set by tango)."""
+    """Pressure (Pa) at the well inlet (injection wellhead), solved by RAFT."""
     T_inlet: LockedState[float] = field(default_factory=_ls_nan)
     """Temperature (K) at the well inlet (set by tango)."""
     mass_rate_inlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Mass flow (kg/s) into the well inlet, solved by RAFT."""
+    """Mass flow (kg/s) into the well inlet (set by tango: the loop's mass rate)."""
     P_outlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Pressure (Pa) at the well outlet, solved by RAFT."""
+    """Pressure (Pa) at the well outlet (production wellhead; set by tango:
+    ``target_extraction_pressure``)."""
     T_outlet: LockedState[float] = field(default_factory=_ls_nan)
     """Temperature (K) at the well outlet, solved by RAFT."""
     mass_rate_outlet: LockedState[float] = field(default_factory=_ls_nan)
-    """Mass flow (kg/s) out of the well outlet (set by tango)."""
+    """Mass flow (kg/s) out of the well outlet, solved by RAFT."""
     trial_solves: LockedState[float] = field(default_factory=_ls_nan)
     """RAFT solves this timestep took, one per tango injection-enthalpy iteration."""
     solve_seconds: LockedState[float] = field(default_factory=_ls_nan)
@@ -274,6 +294,8 @@ class RaftLoopResult:
 
     T_inlet: float
     """Inlet temperature (K) sent to RAFT."""
+    P_inlet: float
+    """Inlet (injection wellhead) pressure (Pa) RAFT solved for."""
     P_outlet: float
     """Outlet pressure (Pa)."""
     T_outlet: float
@@ -347,9 +369,11 @@ class RaftWrapper(BaseModel, StateMethods):
         wells["roughness"] = [geometry.pipe_roughness]
         inlet_bc.setdefault("label", "inlet")
         outlet_bc.setdefault("label", "outlet")
-        inlet_bc["hydraulics"] = {"type": "pressure", "function": "external"}
+        # Mass flow and temperature in at the inlet, pressure at the outlet
+        # (see the module docstring's "Boundary conditions").
+        inlet_bc["hydraulics"] = {"type": "flux", "function": "external"}
         inlet_bc["thermal"] = {"type": "temperature", "function": "external"}
-        outlet_bc["hydraulics"] = {"type": "flux", "function": "external"}
+        outlet_bc["hydraulics"] = {"type": "pressure", "function": "external"}
         outlet_bc.pop("thermal", None)
 
         self._raft_config = config
@@ -408,15 +432,20 @@ class RaftWrapper(BaseModel, StateMethods):
     # Coupling
     # ------------------------------------------------------------------
 
-    def solve(self, inlet: Stream, dt_seconds: float) -> RaftLoopResult:
+    def solve(self, inlet: Stream, dt_seconds: float, P_outlet: float) -> RaftLoopResult:
         """Run one RAFT trial over the next ``dt_seconds`` from RAFT's accepted state; fill ``state``.
+
+        RAFT gets the inlet's mass rate and temperature and the outlet
+        pressure ``P_outlet`` (Pa), and solves for the inlet pressure (see
+        the module docstring's "Boundary conditions"). ``inlet.P`` only sets
+        the pressure at which the inlet enthalpy is converted to temperature.
 
         Raises:
             ConvergenceError: RAFT failed to converge at its minimum timestep,
                 or accepted a step at its minimum timestep whose temperature
                 extrapolation error was above its tolerance.
             ConfigError: RAFT's result breaks the loop's assumptions (the
-                mass flow differs between inlet and outlet, or a boundary
+                outlet's mass flow differs from the inlet's, or a boundary
                 condition switched mode).
             SaturationError: The outlet state is not liquid, which RAFT's
                 single-phase model can't represent.
@@ -425,12 +454,13 @@ class RaftWrapper(BaseModel, StateMethods):
             self._start()
         assert self._common is not None  # noqa: S101 -- prepare() ran
         fluid, backend = self._common.fluid_name, self._common.coolprop_backend
-        P_inlet = inlet.P.get_fresh()
         mass_rate = inlet.mass_rate.get_fresh()
-        T_inlet = FluidState.with_HP(fluid, inlet.h.get_fresh(), P_inlet, backend).T
+        T_inlet = FluidState.with_HP(fluid, inlet.h.get_fresh(), inlet.P.get_fresh(), backend).T
+        # RAFT's API takes p, T and q for every external group and uses the
+        # fields its condition type needs: q and T at the inlet, p at the outlet.
         bcs = {
-            self._inlet_label: {"p": P_inlet, "T": T_inlet, "q": mass_rate},
-            self._outlet_label: {"p": P_inlet, "T": T_inlet, "q": -mass_rate},
+            self._inlet_label: {"p": P_outlet, "T": T_inlet, "q": mass_rate},
+            self._outlet_label: {"p": P_outlet, "T": T_inlet, "q": -mass_rate},
         }
 
         t_start = self._accepted_time_seconds
@@ -441,7 +471,7 @@ class RaftWrapper(BaseModel, StateMethods):
         except _raft_timestep_error() as exc:
             raise ConvergenceError(
                 f"RAFT failed to converge between t = {t_start:.6g} s and {t_end:.6g} s with inlet "
-                f"P = {P_inlet:.6g} Pa, T = {T_inlet:.6g} K and mass rate {mass_rate:.6g} kg/s: {exc}",
+                f"T = {T_inlet:.6g} K and mass rate {mass_rate:.6g} kg/s and outlet P = {P_outlet:.6g} Pa: {exc}",
             ) from exc
         self._solve_seconds += time.perf_counter() - started
         self._trial_solves += 1
@@ -450,12 +480,13 @@ class RaftWrapper(BaseModel, StateMethods):
 
         inlet_result, outlet_result = result[self._inlet_label], result[self._outlet_label]
         _check_flow(inlet_result, outlet_result, mass_rate, t_start, t_end)
+        P_inlet = float(inlet_result["p"])
         P_outlet, T_outlet = float(outlet_result["p"]), float(outlet_result["T"])
         _check_liquid(fluid, P_outlet, T_outlet, backend)
         outlet_state = FluidState.with_PT(fluid, P_outlet, T_outlet, backend)
 
         s = self.state
-        s.P_inlet.update(float(inlet_result["p"]))
+        s.P_inlet.update(P_inlet)
         s.T_inlet.update(float(inlet_result["T"]))
         s.mass_rate_inlet.update(float(inlet_result["q"]))
         s.P_outlet.update(P_outlet)
@@ -469,7 +500,13 @@ class RaftWrapper(BaseModel, StateMethods):
         s.constraint_switches.update(float(stats.constraint_switches))
         s.dt_min_proceeds.update(float(stats.dt_min_proceeds))
         s.dt_accepted.update([float(dt) for dt in stats.dt_accepted])
-        return RaftLoopResult(T_inlet=T_inlet, P_outlet=P_outlet, T_outlet=T_outlet, h_outlet=outlet_state.H)
+        return RaftLoopResult(
+            T_inlet=T_inlet,
+            P_inlet=P_inlet,
+            P_outlet=P_outlet,
+            T_outlet=T_outlet,
+            h_outlet=outlet_state.H,
+        )
 
     def accept(self) -> None:
         """Keep RAFT's last trial as its accepted state, and record this timestep's work and well profile in ``state``.
@@ -510,7 +547,7 @@ class RaftWrapper(BaseModel, StateMethods):
         )
         s_elements = [float(x) for x in profile.s_mid]
         mass_rate_elements = [float(q) for q in profile.q]
-        mass_rate = s.mass_rate_outlet.get_fresh()
+        mass_rate = s.mass_rate_inlet.get_fresh()
         for x, q in zip(s_elements, mass_rate_elements, strict=True):
             if not math.isclose(q, mass_rate, rel_tol=_MASS_RATE_REL_TOL):
                 raise ConfigError(
@@ -626,11 +663,11 @@ def _check_flow(
     t_start: float,
     t_end: float,
 ) -> None:
-    """Raise unless RAFT kept the inlet at fixed pressure and the outlet at fixed flow, both carrying ``mass_rate``."""
-    if inlet_result["mode"] != "pressure" or outlet_result["mode"] != "flux":
+    """Raise unless RAFT kept the inlet at fixed flow and the outlet at fixed pressure, both carrying ``mass_rate``."""
+    if inlet_result["mode"] != "flux" or outlet_result["mode"] != "pressure":
         raise ConfigError(
             f"RAFT switched the well boundary conditions (inlet mode {inlet_result['mode']!r}, outlet "
-            f"mode {outlet_result['mode']!r}; expected 'pressure' and 'flux'); remove pressure "
+            f"mode {outlet_result['mode']!r}; expected 'flux' and 'pressure'); remove pressure "
             "constraints from the template's well groups.",
         )
     for name, q in (("inlet", float(inlet_result["q"])), ("outlet", -float(outlet_result["q"]))):
