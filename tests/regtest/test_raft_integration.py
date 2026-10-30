@@ -25,7 +25,13 @@ _ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.mark.slow
 def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A year runs, RAFT keeps the loop's mass rate, heats the fluid, and records its work."""
+    """A year runs with tango's boundary conditions, RAFT solves the injection pressure, heats the fluid, and records its work.
+
+    tango sets the inlet's mass rate and the outlet's pressure
+    (target_extraction_pressure); RAFT solves the inlet pressure, which the
+    surface plant then delivers, and the outlet flow, which must stay within
+    the wrapper's 1e-3 of the inlet's.
+    """
     monkeypatch.chdir(_ROOT)
     cfg: dict[str, Any] = yaml.safe_load(
         (_ROOT / "templates" / "AGS_ORC_electric_raft.yml").read_text(encoding="utf-8"),
@@ -37,8 +43,13 @@ def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> 
     loop = wf._orchestrator.components["grouped_subsurface"]  # noqa: SLF001
     assert isinstance(loop, RaftGroupedSubsurface)
     raft = loop.raft.history
-    assert raft.mass_rate_outlet == [30.0]
-    assert math.isclose(raft.mass_rate_inlet[0], 30.0, rel_tol=1e-3)
+    target = cfg["sim_config"]["target_extraction_pressure"]
+    assert raft.mass_rate_inlet == [30.0]
+    assert math.isclose(raft.mass_rate_outlet[0], 30.0, rel_tol=1e-3)
+    assert math.isclose(raft.P_outlet[0], target, rel_tol=1e-9)
+    assert loop.history.P_inlet == raft.P_inlet
+    surface = wf._orchestrator.components["surface"].history  # noqa: SLF001
+    assert math.isclose(surface.P_outlet[0], raft.P_inlet[0], abs_tol=1_000.0)
     assert raft.trial_solves[0] >= 1
     assert math.isclose(sum(raft.dt_accepted[0]), YEAR_TO_SECOND, rel_tol=1e-9)
     assert raft.accepted_steps[0] == len(raft.dt_accepted[0])
