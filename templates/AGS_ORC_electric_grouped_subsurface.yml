@@ -43,7 +43,12 @@ sim_config:
   dt_years: 1.0                # years
   target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
                                           # any component declaring this field
-                                          # (surface, pump-bearing production wells)
+                                          # (surface, pump-bearing production wells,
+                                          # grouped_subsurface). Here it is the
+                                          # loop's production wellhead pressure:
+                                          # grouped_subsurface fixes its outlet at
+                                          # this value and solves for the injection
+                                          # pressure (see its "Boundary conditions")
   injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
                                 # even without a reservoir
   mass_rate: 30                 # kg/s
@@ -91,8 +96,9 @@ components:
     component_idx: 1            # solved last, loops back to grouped_subsurface (next: 0)
     prev: 0
     next: 0
-    injection_pressure: 1_500_000  # Pa — fixed value under injection_mode: manual (see
-                                     # sim_config above)
+    injection_pressure: 1_500_000  # Pa — starting guess for the first timestep only:
+                                     # grouped_subsurface solves for the injection
+                                     # pressure each pass and the plant delivers it
     pipe_diameter: 0.41               # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
@@ -115,7 +121,8 @@ components:
       #
       # No p_out_megapascals on circulation_control, deliberately: same
       # reasoning as AGS_direct_heat.yml's circulation_control — injection_pressure
-      # (above) already hard-sets the outlet connection's pressure.
+      # (above, set each pass to the pressure grouped_subsurface solves for)
+      # already hard-sets the outlet connection's pressure.
       nodes:
         inlet:
           type: Source

@@ -12,6 +12,17 @@ plant's outlet becomes the injection well's inlet, so
 ``_converge_injection_enthalpy`` re-solves the circuit until that enthalpy
 stops moving.
 
+One exception to the fixed injection pressure: a ``grouped_subsurface`` at
+the circuit entry fixes the production wellhead pressure instead
+(``target_extraction_pressure``) and solves for the injection pressure it
+needs (see ``tango.components.well.grouped_subsurface``'s "Boundary
+conditions"). Right after it solves, each pass sets the surface plant's
+injection pressure to that value (``SurfaceComponent.set_injection_pressure``),
+so the plant delivers it in the same pass, and the loop is converged only
+once that pressure has also stopped moving (``_DP_INJECTION_TOL``). The
+surface plant's configured ``injection_pressure`` is then only the first
+timestep's starting guess.
+
 Two independent sub-problems — do not conflate:
 
 1. **Injection enthalpy (this loop)** — converges the surface outlet's
@@ -57,6 +68,7 @@ from typing import TYPE_CHECKING, Any
 from tango.components.reservoir.base import ReservoirComponent
 from tango.components.surface.base import SurfaceComponent
 from tango.components.well.base import WellComponent
+from tango.components.well.grouped_subsurface import GroupedSubsurfaceComponent
 from tango.core import fluid_utils
 from tango.core.accelerators import aitken_relax
 from tango.core.constants import PA_TO_MPA, W_TO_MW
@@ -79,6 +91,11 @@ logger = logging.getLogger(__name__)
 # differs between fluids. Enthalpy, not temperature, because near a fluid's
 # critical point T can stop moving while h is still off by kJ/kg.
 _DH_SURFACE_TOL: float = 1_000.0  # J/kg
+# Injection-pressure convergence tolerance, for a circuit entry that solves
+# for its own injection pressure (grouped_subsurface): an ABSOLUTE change in
+# that pressure between passes. dh = dP/rho, so for liquid water 1 kPa moves
+# the enthalpy by about 1 J/kg, far inside _DH_SURFACE_TOL.
+_DP_INJECTION_TOL: float = 1_000.0  # Pa
 _INJECTION_T_FLOOR = 275  # K reset for an injection temperature that drops below freezing point. although this is very unlikely to happen
 
 # Relative tolerance for the mass rate returning to the circuit entry to count
@@ -432,6 +449,11 @@ Time: {t * self.dt_years} years
         iteration starts from "state as committed at the end of the
         previous timestep," not from whatever the last iteration left
         behind), solve the whole circuit in order, wire streams as usual.
+        A ``grouped_subsurface`` circuit entry solves for the injection
+        pressure; right after it solves, the surface plant's injection
+        pressure is set to that value, so the plant delivers it in the same
+        pass, and the loop also waits for that pressure to settle within
+        ``_DP_INJECTION_TOL`` (see the module docstring).
         The injection well solves from its inlet stream
         (``self._pending_inlets[0]``): the previous timestep's surface
         outlet on the first iteration, then the Aitken-relaxed guess. The
@@ -467,6 +489,8 @@ Time: {t * self.dt_years} years
 
         for inner_iter in range(self.max_inner_iterations):
             retry_below_freezing = False
+            # The injection pressure the circuit entry solves from on this pass.
+            P_inj_used = self._next_inlet(circuit_entry).P.get_fresh()
             for component in self._ordered:
                 component.restore_convergence_state(snapshot[component.component_idx])
                 component.mark_all_stale()
@@ -507,14 +531,22 @@ Time: {t * self.dt_years} years
                     """) from exc
 
                 self._record_outlet(component, outlet)
+                if isinstance(component, GroupedSubsurfaceComponent):
+                    surface.set_injection_pressure(component.required_injection_pressure())
 
             if retry_below_freezing:
                 continue
 
             self._check_mass_rate_conserved(circuit_entry)
 
+            pressure_settled = True
+            if isinstance(circuit_entry, GroupedSubsurfaceComponent):
+                pressure_settled = (
+                    abs(circuit_entry.required_injection_pressure() - P_inj_used) < _DP_INJECTION_TOL
+                )
+
             h_surface_out = surface.outlet.h.get_fresh()
-            if abs(h_surface_out - h_inj_used) < _DH_SURFACE_TOL:
+            if abs(h_surface_out - h_inj_used) < _DH_SURFACE_TOL and pressure_settled:
                 logger.debug(
                     "h-convergence finished: inner iter %d, h_inj =%.1f J/kg, dh=%.1f J/kg",
                     inner_iter + 1,  # e.g. print 1 when `inner_iter` is 0

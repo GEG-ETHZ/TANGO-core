@@ -6,11 +6,11 @@
 |---|---|
 | `<name>_h_inlet` | Specific enthalpy (J/kg) entering the injection well. |
 | `<name>_T_inlet` | Temperature (K) entering the injection well. |
-| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead. |
+| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead, solved by the subsurface model so the production wellhead reaches `target_extraction_pressure`; `SystemBCIteration` makes it the surface plant's injection pressure. |
 | `<name>_mass_rate` | Mass flow rate (kg/s) around the loop. |
 | `<name>_h_outlet` | Specific enthalpy (J/kg) leaving the production well. |
 | `<name>_T_outlet` | Temperature (K) at the production wellhead. |
-| `<name>_P_outlet` | Pressure (Pa) at the production wellhead. |
+| `<name>_P_outlet` | Pressure (Pa) at the production wellhead: `target_extraction_pressure`, which tango sets (to within the numerical variant's shooting tolerance). |
 | `<name>_heat_extracted_watts` | Rate of energy the fluid gains around the loop (W): `mass_rate * (h_outlet - h_inlet)`. |
 
 Columns `<name>.injection_well_<value>`: the outputs of `injection_well` · `numerical`.
@@ -25,23 +25,23 @@ Columns `<name>.production_well_<value>`: the outputs of `production_well` · `n
 |---|---|
 | `<name>_h_inlet` | Specific enthalpy (J/kg) entering the injection well. |
 | `<name>_T_inlet` | Temperature (K) entering the injection well. |
-| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead. |
+| `<name>_P_inlet` | Pressure (Pa) at the injection wellhead, solved by the subsurface model so the production wellhead reaches `target_extraction_pressure`; `SystemBCIteration` makes it the surface plant's injection pressure. |
 | `<name>_mass_rate` | Mass flow rate (kg/s) around the loop. |
 | `<name>_h_outlet` | Specific enthalpy (J/kg) leaving the production well. |
 | `<name>_T_outlet` | Temperature (K) at the production wellhead. |
-| `<name>_P_outlet` | Pressure (Pa) at the production wellhead. |
+| `<name>_P_outlet` | Pressure (Pa) at the production wellhead: `target_extraction_pressure`, which tango sets (to within the numerical variant's shooting tolerance). |
 | `<name>_heat_extracted_watts` | Rate of energy the fluid gains around the loop (W): `mass_rate * (h_outlet - h_inlet)`. |
 
 `raft:` block (`RaftWrapper`):
 
 | Column | Meaning |
 |---|---|
-| `<name>.raft_P_inlet` | Pressure (Pa) at the well inlet (set by tango). |
+| `<name>.raft_P_inlet` | Pressure (Pa) at the well inlet (injection wellhead), solved by RAFT. |
 | `<name>.raft_T_inlet` | Temperature (K) at the well inlet (set by tango). |
-| `<name>.raft_mass_rate_inlet` | Mass flow (kg/s) into the well inlet, solved by RAFT. |
-| `<name>.raft_P_outlet` | Pressure (Pa) at the well outlet, solved by RAFT. |
+| `<name>.raft_mass_rate_inlet` | Mass flow (kg/s) into the well inlet (set by tango: the loop's mass rate). |
+| `<name>.raft_P_outlet` | Pressure (Pa) at the well outlet (production wellhead; set by tango: `target_extraction_pressure`). |
 | `<name>.raft_T_outlet` | Temperature (K) at the well outlet, solved by RAFT. |
-| `<name>.raft_mass_rate_outlet` | Mass flow (kg/s) out of the well outlet (set by tango). |
+| `<name>.raft_mass_rate_outlet` | Mass flow (kg/s) out of the well outlet, solved by RAFT. |
 | `<name>.raft_trial_solves` | RAFT solves this timestep took, one per tango injection-enthalpy iteration. |
 | `<name>.raft_solve_seconds` | Wall time (s) of all of this timestep's RAFT solves. |
 | `<name>.raft_accepted_steps` | Internal timesteps RAFT took in the accepted trial. |

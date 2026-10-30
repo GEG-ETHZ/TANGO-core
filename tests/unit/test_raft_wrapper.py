@@ -69,9 +69,11 @@ def test_raft_config_is_the_template_plus_what_tango_owns(
     assert raft_config["material"]["wells"]["diameter"] == [0.311]
     assert raft_config["material"]["wells"]["roughness"] == [5.5e-5]
     groups = {tuple(g["well"]): g for g in raft_config["boundary_conditions"] if "well" in g}
-    assert groups[(0, "inlet")]["hydraulics"] == {"type": "pressure", "function": "external"}
+    # Mass flow and temperature in at the inlet, pressure at the outlet.
+    assert groups[(0, "inlet")]["hydraulics"] == {"type": "flux", "function": "external"}
     assert groups[(0, "inlet")]["thermal"] == {"type": "temperature", "function": "external"}
-    assert groups[(0, "outlet")]["hydraulics"] == {"type": "flux", "function": "external"}
+    assert groups[(0, "outlet")]["hydraulics"] == {"type": "pressure", "function": "external"}
+    assert "thermal" not in groups[(0, "outlet")]
     assert Path(raft_config["mesh"]["file"]) == raft_template.parent / "mesh.msh"
     assert raft_config["material"]["solid"] == template["material"]["solid"]
     assert raft_config["material"]["fluid"] == template["material"]["fluid"]
@@ -101,6 +103,28 @@ def test_state_records_raft_values_and_loop_outlet_follows_them(config: dict[str
         assert loop.history.P_outlet[t] == raft_history.P_outlet[t]
         assert loop.history.heat_extracted_watts[t] > 0
     assert all(seconds >= 0 for seconds in raft_history.solve_seconds)
+
+
+def test_production_pressure_is_set_and_raft_solves_the_injection_pressure(config: dict[str, Any]) -> None:
+    """Outlet at target_extraction_pressure; RAFT's inlet pressure is the loop's and the surface plant's injection pressure."""
+    wf = Workflow(config)
+    wf.run()
+    loop = wf._orchestrator.components["grouped_subsurface"]  # noqa: SLF001
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(loop, RaftGroupedSubsurface)
+    target = config["sim_config"]["target_extraction_pressure"]
+    model = FakeRaftModel.instances[0]
+    # tango sends the target as the outlet's pressure condition...
+    assert loop.raft.history.P_outlet == pytest.approx([target] * len(loop.history.P_outlet), rel=1e-12)
+    for t in range(len(loop.history.P_outlet)):
+        # ...FakeRaftModel solves the inlet pressure as the outlet's minus its fixed gain...
+        P_inj = target - FAKE_PRESSURE_GAIN_PA
+        assert loop.raft.history.P_inlet[t] == pytest.approx(P_inj, rel=1e-12)
+        assert loop.history.P_inlet[t] == loop.raft.history.P_inlet[t]
+        assert loop.history.P_outlet[t] == pytest.approx(target, rel=1e-12)
+        # ...and the surface plant delivers that injection pressure.
+        assert surface.history.P_outlet[t] == pytest.approx(P_inj, rel=1e-9)
+    assert model.solves, "RAFT was never called"
 
 
 def test_state_records_raft_step_stats_of_the_accepted_trial(config: dict[str, Any]) -> None:

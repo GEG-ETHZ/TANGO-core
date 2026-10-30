@@ -116,30 +116,35 @@ class FakeRaftModel:
             dt_min_proceeds=FakeRaftModel.dt_min_proceeds,
             dt_accepted=[t_end - t_start],
         )
+        # Mass flow and temperature are set at the inlet, pressure at the
+        # outlet; the fake solves for the inlet pressure (outlet minus a fixed
+        # gain), the outlet temperature (inlet plus a fixed heating) and the
+        # outlet flow (the inlet's, scaled by flow_factor to fake a loss).
         inlet = bcs[self.inlet_label]
-        q = bcs[self.outlet_label]["q"]
+        q = inlet["q"]
+        P_out = bcs[self.outlet_label]["p"]
+        P_in = P_out - FAKE_PRESSURE_GAIN_PA
         T_out = FakeRaftModel.outlet_temperature_k or inlet["T"] + FAKE_HEATING_K
-        P_out = inlet["p"] + FAKE_PRESSURE_GAIN_PA
         s_nodes = self.s_nodes
         fractions = [x / s_nodes[-1] for x in s_nodes]
         n_elements = len(s_nodes) - 1
         self.pending_profile = FakeWellProfile(
             s=list(s_nodes),
-            p=[inlet["p"] + f * (P_out - inlet["p"]) for f in fractions],
+            p=[P_in + f * (P_out - P_in) for f in fractions],
             T=[inlet["T"] + f * (T_out - inlet["T"]) for f in fractions],
             s_mid=[(a + b) / 2 for a, b in zip(s_nodes, s_nodes[1:], strict=False)],
-            q=[-q * FakeRaftModel.element_flow_factor] + [-q] * (n_elements - 1),
+            q=[q * FakeRaftModel.element_flow_factor] + [q] * (n_elements - 1),
             reynolds=[FAKE_REYNOLDS] * n_elements,
             heat_transfer_coefficient=[FAKE_HEAT_TRANSFER_COEFFICIENT] * n_elements,
         )
         return {
-            self.inlet_label: {
-                "p": inlet["p"],
-                "T": inlet["T"],
+            self.inlet_label: {"p": P_in, "T": inlet["T"], "q": q, "mode": "flux"},
+            self.outlet_label: {
+                "p": P_out,
+                "T": T_out,
                 "q": -q * FakeRaftModel.flow_factor,
                 "mode": "pressure",
             },
-            self.outlet_label: {"p": P_out, "T": T_out, "q": q, "mode": "flux"},
         }
 
     def get_fresh(self) -> None:

@@ -43,8 +43,8 @@ TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 0.7191321530423379),
     ("AGS_ORC_electric.yml", 2.061905093287347),
-    ("AGS_ORC_electric_grouped_subsurface.yml", 3.421900718151467),
-    ("AGS_ORC_electric_raft.yml", 2.1193281005233104),
+    ("AGS_ORC_electric_grouped_subsurface.yml", 3.4193617636891585),
+    ("AGS_ORC_electric_raft.yml", 2.12360622207039),
     ("CO2_AGS_direct_heat.yml", 0.38844042532415946),
     ("CO2_AGS_electric.yml", 1.6625122145149076),
     ("CO2_AGS_ORC_electric.yml", 4.15796052520762),
