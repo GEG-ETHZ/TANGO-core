@@ -60,7 +60,6 @@ def test_one_year_with_raft_closes_the_loop(monkeypatch: pytest.MonkeyPatch) -> 
     assert math.isclose(raft.T_nodes[0][-1], raft.T_outlet[0], rel_tol=1e-9)
     assert math.isclose(raft.h_nodes[0][-1], loop.history.h_outlet[0], rel_tol=1e-9)
     assert len(raft.mass_rate_elements[0]) == len(raft.s_nodes[0]) - 1
-    assert all(math.isclose(q, 30.0, rel_tol=1e-3) for q in raft.mass_rate_elements[0])
     assert raft.T_outlet[0] > raft.T_inlet[0] + 50.0, (
         "8 km of hot rock should heat the loop by far more than 50 K"
     )

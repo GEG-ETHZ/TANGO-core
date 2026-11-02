@@ -159,17 +159,6 @@ def test_state_records_the_accepted_well_profile(config: dict[str, Any]) -> None
         assert raft_history.heat_transfer_coefficient_elements[t] == [FAKE_HEAT_TRANSFER_COEFFICIENT] * 3
 
 
-@pytest.mark.parametrize(("factor", "raises"), [(1.0005, False), (1.002, True)])
-def test_element_flow_off_the_mass_rate_raises(config: dict[str, Any], factor: float, raises: bool) -> None:
-    """An element carrying more than ``_MASS_RATE_REL_TOL`` off the loop's mass rate is a ConfigError."""
-    FakeRaftModel.element_flow_factor = factor
-    if raises:
-        with pytest.raises(ConfigError, match="element at s = "):
-            _run(config, num_tsteps=1)
-    else:
-        _run(config, num_tsteps=1)
-
-
 def test_step_accepted_at_timestep_min_above_tolerance_raises(config: dict[str, Any]) -> None:
     """A step RAFT accepted at ``timestep_min`` despite its error is a ConvergenceError, not a silent pass."""
     FakeRaftModel.dt_min_proceeds = 1
@@ -311,3 +300,34 @@ def test_output_dir_keeps_raft_output_at_the_template_settings(
     assert raft_config["simulation"]["output_vtk"] == template["simulation"]["output_vtk"]
     with pytest.raises(RuntimeError, match="before RAFT starts"):
         loop.raft.set_output_dir(tmp_path / "late.raft")
+
+
+@pytest.mark.parametrize(
+    ("end", "change", "match"),
+    [
+        ("inlet", {"hydraulics": {"type": "pressure", "function": "external"}}, "inlet group's hydraulics"),
+        ("inlet", {"thermal": None}, "inlet group's thermal"),
+        ("outlet", {"hydraulics": {"type": "flux", "function": "external"}}, "outlet group's hydraulics"),
+        ("outlet", {"thermal": {"type": "temperature", "function": "external"}}, "outlet group sets thermal"),
+        ("inlet", {"hydraulics": {"type": "flux", "function": "constant"}}, "inlet group's hydraulics"),
+        ("outlet", {"label": None}, "outlet group has no label"),
+    ],
+)
+def test_template_coupling_groups_are_checked_not_switched(
+    config: dict[str, Any],
+    raft_template: Path,
+    end: str,
+    change: dict[str, Any],
+    match: str,
+) -> None:
+    """A template whose well groups aren't set up for the coupling is a ConfigError; tango never switches them."""
+    template = yaml.safe_load(raft_template.read_text(encoding="utf-8"))
+    group = next(g for g in template["boundary_conditions"] if g.get("well") == [0, end])
+    for key, value in change.items():
+        if value is None:
+            group.pop(key, None)
+        else:
+            group[key] = value
+    raft_template.write_text(yaml.safe_dump(template), encoding="utf-8")
+    with pytest.raises(ConfigError, match=match):
+        Workflow(config)

@@ -74,7 +74,6 @@ class FakeRaftModel:
     outlet_temperature_k: ClassVar[float | None] = None
     fail: ClassVar[bool] = False
     dt_min_proceeds: ClassVar[int] = 0
-    element_flow_factor: ClassVar[float] = 1.0
 
     def __init__(self, config_name: str, t_start: float, config_dir: Path, verbosity: str) -> None:
         """Read the config tango wrote, as RAFT would."""
@@ -133,7 +132,7 @@ class FakeRaftModel:
             p=[P_in + f * (P_out - P_in) for f in fractions],
             T=[inlet["T"] + f * (T_out - inlet["T"]) for f in fractions],
             s_mid=[(a + b) / 2 for a, b in zip(s_nodes, s_nodes[1:], strict=False)],
-            q=[q * FakeRaftModel.element_flow_factor] + [q] * (n_elements - 1),
+            q=[q] * n_elements,
             reynolds=[FAKE_REYNOLDS] * n_elements,
             heat_transfer_coefficient=[FAKE_HEAT_TRANSFER_COEFFICIENT] * n_elements,
         )
