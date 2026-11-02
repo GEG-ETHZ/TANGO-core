@@ -2,13 +2,14 @@
 
 Usage examples
 --------------
-Run a simulation::
+Run a simulation and save its results (``--save-dir`` or ``--no-save`` is
+required)::
 
-    tango_cli run templates/hydro_sf_electric.yml
+    tango_cli run templates/hydro_sf_electric.yml --save-dir results/
 
-Run with debug logging::
+Run with debug logging, saving nothing::
 
-    tango_cli run templates/hydro_sf_electric.yml --log-level DEBUG
+    tango_cli run templates/hydro_sf_electric.yml --no-save --log-level DEBUG
 
 Validate an input file without running::
 
@@ -120,9 +121,9 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  tango_cli run templates/hydro_sf_electric.yml\n"
-            "  tango_cli run my_config.yml --log-level DEBUG\n"
-            "  tango_cli --log-level DEBUG run my_config.yml\n"
+            "  tango_cli run templates/hydro_sf_electric.yml --save-dir results/\n"
+            "  tango_cli run my_config.yml --no-save --log-level DEBUG\n"
+            "  tango_cli --log-level DEBUG run my_config.yml --no-save\n"
             "  tango_cli validate my_config.yml\n"
         ),
     )
@@ -159,7 +160,10 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="INPUT_FILE",
         help=("Path to the tango YAML input file (e.g. templates/hydro_sf_electric.yml)."),
     )
-    run_p.add_argument(
+    # Every run says where its results go, or that it writes none: a forgotten
+    # --save-dir would otherwise lose them silently.
+    save_group = run_p.add_mutually_exclusive_group(required=True)
+    save_group.add_argument(
         "--save-dir",
         type=Path,
         default=None,
@@ -174,9 +178,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "every CSV header ends in its unit, e.g. [K]), "
             "and <name>.phase_<fluid>.html per working fluid (interactive "
             "P-h phase diagram with a year slider -- omitted if the config "
-            "has no GraphSurface surface component). "
-            "Saving is opt-in: nothing is written unless this is given."
+            "has no GraphSurface surface component). A RAFT subsurface also "
+            "keeps its own output (VTKs at its template's output_vtk, flow "
+            "logs) in <name>.raft/. "
+            "Either this or --no-save is required."
         ),
+    )
+    save_group.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Write nothing to disk (tests, quick checks). Either this or --save-dir is required.",
     )
     run_p.add_argument(
         "--phase-diagram-config",
@@ -305,6 +316,12 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
         logger.error("Configuration error: %s", exc)
         return 1
 
+    external_dirs = (
+        results_export.keep_external_outputs(wf, args.save_dir, args.input_file.stem)
+        if args.save_dir is not None
+        else []
+    )
+
     t_start = time.time()
     try:
         wf.run()
@@ -318,6 +335,7 @@ def _cmd_run(args: argparse.Namespace, log_level: str) -> int:
     if args.save_dir is not None:
         written = results_export.write_results(wf, args.save_dir, args.input_file.stem)
         written += phase_diagrams.write_phase_diagrams(wf, args.save_dir, args.input_file.stem, phase_config)
+        written += [directory for directory in external_dirs if directory.is_dir()]
         for path in written:
             print(f"Wrote: {path}")
 
@@ -406,7 +424,7 @@ def _cmd_init(args: argparse.Namespace, log_level: str) -> int:
             shutil.copytree(src_path, app_dest)
         logger.info("Copied applications/%s to %s", app, app_dest)
 
-    print(f"tango_cli run {templates_dest / 'hydro_sf_electric.yml'}")
+    print(f"tango_cli run {templates_dest / 'hydro_sf_electric.yml'} --save-dir results/")
     return 0
 
 

@@ -8,10 +8,13 @@ not physics, so there's no reason to pay for a full-length run.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
+import yaml
 from CoolProp import CoolProp as CP
+from fake_raft_model import FakeRaftModel
 
 from tango import phase_diagrams
 from tango.components.surface.graph import GraphSurface
@@ -349,6 +352,38 @@ def test_wells_are_drawn_as_their_marched_profiles() -> None:
         assert list(trace.y) == pytest.approx([p * phase_diagrams.PA_TO_BAR for p in well.history.P_cells[t]])
 
 
+def test_raft_loop_is_drawn_as_its_three_segments(
+    fake_raft: type[FakeRaftModel],
+    raft_template: Path,
+) -> None:
+    """The raft variant's recorded profile is split at the segment boundaries into three joined lines."""
+    cfg: dict[str, Any] = yaml.safe_load(
+        Path("templates/AGS_ORC_electric_raft.yml").read_text(encoding="utf-8"),
+    )
+    cfg["components"]["grouped_subsurface"]["raft"]["template"] = str(raft_template)
+    cfg["sim_config"]["num_tsteps"] = 2
+    wf = Workflow(cfg)
+    wf.run()
+    surface = wf._orchestrator.components["surface"]  # noqa: SLF001
+    assert isinstance(surface, GraphSurface)
+    raft = wf._orchestrator.components["grouped_subsurface"].raft.history  # type: ignore[attr-defined]  # noqa: SLF001
+    fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    edges = [
+        ("outlet", "injection_well"),
+        ("injection_well", "horizontal_well"),
+        ("horizontal_well", "production_well"),
+    ]
+    for t, frame in enumerate(fig.frames):
+        # FakeRaftModel puts one node at each segment boundary: segment k runs from node k to node k + 1.
+        for k, (source, target) in enumerate(edges):
+            trace = next(tr for tr in frame.data if tr.name == f"{source} -> {target}")
+            assert list(trace.x) == pytest.approx([h / 1000 for h in raft.h_nodes[t][k : k + 2]])
+            assert list(trace.y) == pytest.approx(
+                [p * phase_diagrams.PA_TO_BAR for p in raft.P_nodes[t][k : k + 2]],
+            )
+
+
 def test_pumped_well_line_starts_at_the_pump_suction() -> None:
     """A well with a pump at its inlet is drawn from the upstream outlet (suction), through the discharge, onward.
 
@@ -425,3 +460,33 @@ def test_state_points_are_numbered_in_flow_order() -> None:
         assert labels.mode == "text"
         numbers = sorted(int(n) for text in labels.text for n in text.split(", "))
         assert numbers == list(range(1, len(key) + 1))
+
+
+def test_well_profile_changes_color_where_it_crosses_the_critical_pressure() -> None:
+    """Each stretch of a profile has its own phase's color, not one color for the whole well.
+
+    A cold-water well from 50 to 400 bar is liquid below water's critical
+    pressure (220.6 bar) and "supercritical" (CoolProp's supercritical
+    liquid) above it; the line must switch color at the crossing, joined at
+    the shared node.
+    """
+    p_bar = [50.0, 150.0, 200.0, 250.0, 400.0]
+    h_kj = [CP.PropsSI("H", "P", p / phase_diagrams.PA_TO_BAR, "T", 330.0, "Water") / 1000 for p in p_bar]
+    colors = phase_diagrams._segment_colors("H2O", "HEOS", h_kj, p_bar)  # noqa: SLF001
+    assert colors == ["blue", "blue", "green", "green"]
+    traces = phase_diagrams._profile_traces("a", "b", h_kj, p_bar, colors)  # noqa: SLF001
+    points, *lines = traces
+    assert list(points.x) == h_kj
+    by_color = {trace.line.color: trace for trace in lines}
+    assert list(by_color["blue"].y) == [50.0, 150.0, 200.0]
+    assert list(by_color["green"].y) == [200.0, 250.0, 400.0]
+    assert all(len(by_color[color].x) == 0 for color in ("orange", "red", "gray"))
+
+
+def test_separate_runs_of_one_color_are_not_joined() -> None:
+    """Two runs of one phase separated by another get a gap, not a line drawn across the other phase."""
+    p_bar = [1.0, 2.0, 3.0, 4.0, 5.0]
+    h_kj = [100.0, 200.0, 300.0, 400.0, 500.0]
+    traces = phase_diagrams._profile_traces("a", "b", h_kj, p_bar, ["blue", "green", "green", "blue"])  # noqa: SLF001
+    blue = next(trace for trace in traces[1:] if trace.line.color == "blue")
+    assert list(blue.x) == [100.0, 200.0, None, 400.0, 500.0]

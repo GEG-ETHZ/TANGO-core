@@ -22,6 +22,10 @@ didn't have before:
 
 Every CSV column header ends in its unit, e.g. ``production_well_T_outlet
 [K]`` (``[-]`` for a dimensionless quantity), from ``FIELD_UNITS``.
+
+An external simulator's own output files go next to these, in
+``<stem>.raft/`` for a RAFT subsurface; ``keep_external_outputs`` sets that
+up before the run.
 """
 
 from __future__ import annotations
@@ -31,6 +35,11 @@ import dataclasses
 from pathlib import Path
 from typing import Any
 
+from tango.components.well.grouped_subsurface import (
+    SEGMENT_NAMES,
+    NumericalGroupedSubsurface,
+    RaftGroupedSubsurface,
+)
 from tango.workflows.workflow import Workflow
 
 FIELD_UNITS: dict[str, str] = {
@@ -66,6 +75,17 @@ FIELD_UNITS: dict[str, str] = {
     "p3": "-",
     "energy_extraction_rate": "W",
     "energy_extracted": "J",
+    "heat_extracted_watts": "W",
+    "mass_rate_inlet": "kg/s",
+    "mass_rate_outlet": "kg/s",
+    "trial_solves": "-",
+    "solve_seconds": "s",
+    "accepted_steps": "-",
+    "attempts": "-",
+    "cut_extrapolation": "-",
+    "cut_newton": "-",
+    "constraint_switches": "-",
+    "dt_min_proceeds": "-",
     "ever_solved": "bool",
     # Power
     "pump_power_watts": "W",
@@ -92,6 +112,28 @@ history or economic field can't reach a CSV without a unit.
 def _with_unit(column: str, field_name: str) -> str:
     """``column`` with ``field_name``'s unit appended, e.g. ``"surface_T_outlet [K]"``."""
     return f"{column} [{FIELD_UNITS[field_name]}]"
+
+
+def keep_external_outputs(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
+    """Have each RAFT subsurface keep its own output files (VTKs, flow logs) in ``save_dir``.
+
+    Call before ``wf.run()``. With one RAFT component the directory is
+    ``<stem>.raft/``; with several, ``<stem>.<component>.raft/``.
+
+    Returns:
+        The directories RAFT will write into.
+    """
+    rafts = [
+        (name, component)
+        for name, component in wf._orchestrator.components.items()  # noqa: SLF001
+        if isinstance(component, RaftGroupedSubsurface)
+    ]
+    directories = []
+    for name, component in rafts:
+        directory = save_dir / (f"{stem}.raft" if len(rafts) == 1 else f"{stem}.{name}.raft")
+        component.raft.set_output_dir(directory)
+        directories.append(directory)
+    return directories
 
 
 def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
@@ -126,11 +168,25 @@ def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
     return written
 
 
+def _named_histories(wf: Workflow) -> list[tuple[str, Any]]:
+    """``(name, history)`` for every component, plus a ``grouped_subsurface``'s segments or RAFT (``"<name>.<part>"``)."""
+    named: list[tuple[str, Any]] = []
+    for name, component in wf._orchestrator.components.items():  # noqa: SLF001
+        named.append((name, getattr(component, "history", None)))
+        if isinstance(component, NumericalGroupedSubsurface):
+            named += [
+                (f"{name}.{segment_name}", segment.history)
+                for segment_name, segment in zip(SEGMENT_NAMES, component.segments(), strict=True)
+            ]
+        elif isinstance(component, RaftGroupedSubsurface):
+            named.append((f"{name}.raft", component.raft.history))
+    return named
+
+
 def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
     """One row per timestep; columns are every component's own scalar history fields."""
     columns: dict[str, list[Any]] = {}
-    for name, component in wf._orchestrator.components.items():  # noqa: SLF001
-        history = getattr(component, "history", None)
+    for name, history in _named_histories(wf):
         if history is None:
             continue
         for f in dataclasses.fields(history):

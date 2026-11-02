@@ -65,6 +65,12 @@ CI runs `tests/unit/` only; the regression tier exceeds the runner's time limit.
 
 `just docs` previews the site, `just docs-build` is what CI runs. A behavior change updates the page that describes it in the same pull request (`docs/architecture/`, `docs/runtime/`, the subpackage `README.md`). The API reference comes from docstrings; diagram rules and the palette are in [`docs/AGENTS.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/AGENTS.md); `just diagrams` regenerates the diagrams from `tools/diagrams/`.
 
+## Large Files
+
+Store meshes and other large binary inputs with DVC, not git: `dvc add <file>`, commit the `.dvc` file, and run `dvc push`. The `check-added-large-files` hook rejects files over 500 KB.
+
+The one exception is `templates/raft/AGS_single.msh` (1.1 MB), the mesh of the RAFT example. It's committed to git, and excluded from `check-added-large-files`, so CI can run RAFT without DVC credentials.
+
 ## Changelog
 
 [`CHANGELOG.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries collect under `## [In Development]` until a release is cut, then move under `## [X.Y.Z] — YYYY-MM-DD`, and the comparison links in the footer are updated. Since 1.0, an entry is required per release and optional per merge.

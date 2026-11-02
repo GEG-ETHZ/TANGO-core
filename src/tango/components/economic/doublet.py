@@ -59,7 +59,7 @@ from pydantic import Field
 
 from tango.components.economic.base import EconomicComponent
 from tango.components.surface.base import SurfaceComponent
-from tango.components.well.base import WellComponent
+from tango.components.well.base import HasWellSections, WellRole, WellSection
 from tango.core.constants import W_TO_KW, YEAR_TO_HOUR
 from tango.core.economic_constants import (
     BEC_MARKUP,
@@ -88,24 +88,6 @@ if TYPE_CHECKING:
 # Default probability of success; not exposed as a tango config field
 # since nothing varies it yet.
 _DEFAULT_PROBABILITY_OF_SUCCESS: float = 0.95
-
-# NumericalWell's angle_from_vert_deg convention (0 = injection, 180 =
-# production, 90 = horizontal — see components/well/numerical.py's module
-# docstring). Only NumericalWell carries this field at all; getattr(...,
-# None) below defaults any well type lacking it (e.g. the Lumped* classes,
-# which have no horizontal variant yet) to "not horizontal".
-_HORIZONTAL_ANGLE_DEG: float = 90.0
-
-
-def _is_horizontal(well: WellComponent) -> bool:
-    """True if ``well`` is a horizontal segment (e.g. AGS's ``horizontal_well``).
-
-    Used to exclude horizontal segments from the vertical production well's
-    combined-length/single-diameter costing — see
-    ``DoubletEconomicComponent._compute_well_capex``'s docstring for why a
-    horizontal segment is costed as its own separate well section instead.
-    """
-    return getattr(well, "angle_from_vert_deg", None) == _HORIZONTAL_ANGLE_DEG
 
 
 # Default temperature range, unset by every example this component is
@@ -272,7 +254,12 @@ class DoubletEconomicComponent(EconomicComponent):
             )
         s = self.state
 
-        wells = [c for c in components.values() if isinstance(c, WellComponent)]
+        wells = [
+            section
+            for c in components.values()
+            if isinstance(c, HasWellSections)
+            for section in c.well_sections()
+        ]
         surfaces = [c for c in components.values() if isinstance(c, SurfaceComponent)]
         surface = surfaces[0] if surfaces else None
 
@@ -324,20 +311,18 @@ class DoubletEconomicComponent(EconomicComponent):
             )
         )
 
-    def _compute_well_capex(self, wells: list[WellComponent]) -> float:
+    def _compute_well_capex(self, wells: list[WellSection]) -> float:
         """Injection + horizontal-loop + production well CAPEX, DOUBLET pattern.
 
-        The injection well is identified as the ``WellComponent`` at
-        ``component_idx == 0`` (the circuit entry — see ``Component``'s
-        class docstring). Every other ``WellComponent`` is split further by
-        orientation (``_is_horizontal``): a HORIZONTAL segment (e.g. AGS's
-        ``horizontal_well``, ``angle_from_vert_deg: 90``) is costed as its
+        Each section's ``role`` (see ``WellComponent.well_sections`` for how
+        a well gets one) decides how it is costed. A HORIZONTAL section (e.g.
+        AGS's ``horizontal_well``) is costed as its
         own, independent well section — it's a physically separate drilling
         operation from the vertical production well, so its own mobilization
         charge is correct, not double-counting. Everything remaining
         (VERTICAL production segments) is combined into one total depth
         before costing: a single physical production wellbore is sometimes
-        represented by several ``WellComponent`` instances for physics/
+        represented by several sections for physics/
         solve-order reasons (e.g. a lower section plus a separate upper
         section carrying a pump), and costing each sub-component as an
         independent well would double- (or triple-) count the gengeo
@@ -347,10 +332,9 @@ class DoubletEconomicComponent(EconomicComponent):
         vertical production well, since it's a genuinely separate wellbore,
         not a segment of the same one.
         """
-        injection = [w for w in wells if w.component_idx == 0]
-        others = [w for w in wells if w.component_idx != 0]
-        horizontal = [w for w in others if _is_horizontal(w)]
-        production = [w for w in others if not _is_horizontal(w)]
+        injection = [w for w in wells if w.role is WellRole.INJECTION]
+        horizontal = [w for w in wells if w.role is WellRole.HORIZONTAL]
+        production = [w for w in wells if w.role is WellRole.PRODUCTION]
 
         cost_inj = 0.0
         cost_horizontal = 0.0
@@ -368,9 +352,9 @@ class DoubletEconomicComponent(EconomicComponent):
 
     def _combined_production_length_and_diameter(
         self,
-        production: list[WellComponent],
+        production: list[WellSection],
     ) -> tuple[float, float]:
-        """Combine every VERTICAL production-side ``WellComponent`` into one well's total depth.
+        """Combine every VERTICAL production section into one well's total depth.
 
         ``production`` excludes any horizontal segment (see
         ``_compute_well_capex``, which costs those separately) — this
@@ -614,7 +598,7 @@ class DoubletEconomicComponent(EconomicComponent):
             total += q * fraction
         return total
 
-    def _production_pump_parasitic_power(self, wells: list[WellComponent]) -> float:
+    def _production_pump_parasitic_power(self, wells: list[WellSection]) -> float:
         """Mean downhole production-pump power draw (W) over the whole run.
 
         Subtracted (given tango's non-negative sign convention — see this
@@ -625,10 +609,9 @@ class DoubletEconomicComponent(EconomicComponent):
         """
         total = 0.0
         for w in wells:
-            if w.component_idx == 0:
+            if w.role is WellRole.INJECTION:
                 continue
-            history = getattr(w, "history", None)
-            pump_history: list[float] = getattr(history, "pump_power_watts", [])
+            pump_history = w.pump_power_watts_history
             if pump_history:
                 total += sum(pump_history) / len(pump_history)
         return total
@@ -641,7 +624,7 @@ class DoubletEconomicComponent(EconomicComponent):
         self,
         surface: SurfaceComponent | None,
         node_detail: dict[str, dict[str, float]],
-        wells: list[WellComponent],
+        wells: list[WellSection],
     ) -> tuple[float, float]:
         """Run-averaged net electric/thermal power (W) — see module docstring.
 

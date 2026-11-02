@@ -21,9 +21,15 @@ _TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _N_TSTEPS_FAST = 3
 
 
-def _run_fast(filename: str) -> Workflow:
+def _run_fast(filename: str, request: pytest.FixtureRequest | None = None) -> Workflow:
+    """Run ``filename`` for ``_N_TSTEPS_FAST`` timesteps; a RAFT subsurface runs against the fake RAFT."""
     cfg = Workflow.from_file(_TEMPLATES_DIR / filename).to_dict()
     cfg["sim_config"]["num_tsteps"] = _N_TSTEPS_FAST
+    for component in cfg["components"].values():
+        if component.get("variant") == "raft":
+            assert request is not None, f"{filename} needs the fake_raft fixture"
+            request.getfixturevalue("fake_raft")
+            component["raft"]["template"] = str(request.getfixturevalue("raft_template"))
     wf = Workflow(cfg)
     wf.run()
     return wf
@@ -111,9 +117,9 @@ def test_econ_csv_omitted_without_economic_block(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("filename", sorted(p.name for p in _TEMPLATES_DIR.glob("*.yml")))
-def test_every_csv_column_has_a_unit(filename: str, tmp_path: Path) -> None:
+def test_every_csv_column_has_a_unit(filename: str, tmp_path: Path, request: pytest.FixtureRequest) -> None:
     """Every template's CSV headers all end in ``[unit]``; a field missing from FIELD_UNITS raises."""
-    wf = _run_fast(filename)
+    wf = _run_fast(filename, request)
     for path in results_export.write_results(wf, tmp_path, "out"):
         if path.suffix != ".csv":
             continue

@@ -7,6 +7,7 @@ A TANGO system is built from four component types. Each is one entry under
 | Component | Config `type` | Variants | Code |
 |---|---|---|---|
 | <span class="tango-chip well">well</span> [Wells](wells.md) | `injection_well`, `production_well`, `production_well_with_pump`, `horizontal_well` | `lumped`, `numerical` (`horizontal_well`: `numerical` only) | `components/well/` |
+| <span class="tango-chip well">well</span> [Grouped subsurface](grouped-subsurface.md) | `grouped_subsurface` | `numerical`, `raft` | `components/well/grouped_subsurface.py`, `external/raft_wrapper.py` |
 | <span class="tango-chip reservoir">reservoir</span> [Reservoir](reservoir.md) | `reservoir` | `lumped` | `components/reservoir/` |
 | <span class="tango-chip surface">surface</span> [Surface plant](surface-plant.md) | `surface` | `graph` (TESPy) | `components/surface/` |
 | <span class="tango-chip economic">economic</span> [Economics](economics.md) | `economic: type: doublet` | `doublet` | `components/economic/` |

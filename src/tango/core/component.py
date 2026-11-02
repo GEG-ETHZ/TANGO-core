@@ -236,6 +236,17 @@ class Component(BaseModel, ABC, StateMethods):
         """
         self.state = copy.deepcopy(snapshot)
 
+    def accept_timestep(self) -> None:
+        """Commit the timestep whose final solve just ran; called once per timestep, before ``record()``.
+
+        An orchestrator may solve a component several times for the same
+        timestep (see ``snapshot_convergence_state``) and only the last of
+        those solves is kept. Components whose cross-timestep memory lives
+        entirely in ``state`` need nothing here. A component that delegates
+        to an external simulator holding its own state overrides this to
+        tell that simulator to keep its last trial solve. Default: no-op.
+        """
+
 
 class FlowComponent(Component):
     """Abstract base for a component the working fluid flows through: wells, reservoir, surface plant.

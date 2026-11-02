@@ -62,6 +62,9 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
+        # The RAFT example's mesh is committed on purpose so CI can run RAFT
+        # without DVC credentials; other meshes go in DVC (see CONTRIBUTING.md).
+        exclude: "templates/raft/AGS_single\\.msh"
       - id: no-commit-to-branch # This perfectly replaces the custom bash script by blocking commits AND pushes to main/develop
         args: [--branch, main, --branch, develop]
         stages: [pre-commit, pre-push]

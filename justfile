@@ -1,9 +1,30 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 # One-time (idempotent) setup after cloning: install deps, approve .envrc (macOS/Linux), and install git hooks
-setup: _setup-direnv
+setup: _setup-direnv && _setup-raft-hint
     uv sync
     uv run prek install --hook-type pre-commit --hook-type pre-push --hook-type post-checkout --overwrite
+
+# Add the optional RAFT subsurface simulator (needed only for `grouped_subsurface` variant `raft`),
+# and keep it installed across direnv's exact `uv sync` via the git-ignored .envrc.local.
+# GEG-ETHZ/RAFT is private for now: this needs GitHub read access to it (see README).
+[unix]
+setup-raft:
+    uv sync --extra raft
+    grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo 'export TANGO_UV_SYNC_ARGS="--extra raft"' >> .envrc.local
+    command -v direnv >/dev/null 2>&1 && direnv allow . || true
+
+[windows]
+setup-raft:
+    uv sync --extra raft
+
+[unix]
+_setup-raft-hint:
+    @grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo "For the optional RAFT simulator, also run 'just setup-raft' (once per clone or worktree)."
+
+[windows]
+_setup-raft-hint:
+    @echo "For the optional RAFT simulator, also run 'just setup-raft'."
 
 [unix]
 _setup-direnv:

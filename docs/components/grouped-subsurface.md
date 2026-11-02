@@ -1,0 +1,61 @@
+# Grouped subsurface
+
+<span class="tango-chip well">well</span> `components/well/grouped_subsurface.py` · config `type: grouped_subsurface`
+{ .tango-lede .well }
+
+An AGS loop's whole subsurface (injection well, horizontal well and
+production well) as one circuit component, so the same config shape can be
+simulated by different models: tango's own numerical wells, or RAFT, which
+also models the surrounding rock.
+
+Both variants set the loop's mass flow and temperature at the injection
+wellhead and its pressure at the production wellhead
+(`sim_config.target_extraction_pressure`), and solve for the injection
+pressure, which the surface plant then delivers. The configured surface
+`injection_pressure` is only the first timestep's starting guess. Why, and
+how the numerical variant does it, is under "Boundary conditions" below.
+
+![The RAFT template's loop and ORC plant. Purple ① and ② mark where tango and RAFT exchange boundary conditions each pass; the grey box shows how each timestep's passes converge.](../diagrams/AGS_ORC_electric_raft_topology.svg)
+
+| Variant | Use it when | Model |
+|---|---|---|
+| `numerical` | The standard AGS loop with tango's own wells | Three numerical wells marched in sequence, from the injection pressure that delivers the production pressure (found by shooting; the same physics as three separate well components, solved the other way round) |
+| `raft` | The rock's heat exchange should come from a 3D finite-element model | RAFT simulates the wells and the rock; needs the optional RAFT install ([Install](../guides/install.md#optional-raft-subsurface-simulator)) |
+
+Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and
+`templates/AGS_ORC_electric_raft.yml` (`raft`), the same site and plant.
+
+## How the models work
+
+### The grouped loop
+
+::: tango.components.well.grouped_subsurface
+    options:
+      members: false
+      show_root_heading: false
+      show_root_toc_entry: false
+
+### RAFT coupling
+
+::: tango.external.raft_wrapper
+    options:
+      members: false
+      show_root_heading: false
+      show_root_toc_entry: false
+
+## Config keys
+
+--8<-- "docs/reference/generated/config-grouped_subsurface.md"
+
+## Outputs per timestep
+
+Columns in `<name>.smry.csv`, where `<name>` is the component's key in the config.
+RAFT's step sizes and its profile along the well are lists per timestep, so
+they are in `<stem>.results.yml`, not the CSV.
+
+With `--save-dir`, RAFT also keeps its own output in `<stem>.raft/`: the
+matrix and well VTKs (at the template's `output_vtk` and `output_frequency`,
+once per tango timestep, plus the initial state) and its flow log. Without
+`--save-dir`, RAFT writes no VTKs and keeps nothing.
+
+--8<-- "docs/reference/generated/outputs-grouped_subsurface.md"
