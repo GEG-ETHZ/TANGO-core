@@ -47,6 +47,11 @@ import yaml
 from CoolProp import CoolProp as CP
 
 from tango.components.surface.graph import GraphSurface
+from tango.components.well.grouped_subsurface import (
+    SEGMENT_NAMES,
+    NumericalGroupedSubsurface,
+    RaftGroupedSubsurface,
+)
 from tango.core.constants import J_PER_KG_TO_KJ_PER_KG, PA_TO_BAR
 from tango.core.errors import ConfigError
 from tango.core.fluid_state import FluidState
@@ -372,7 +377,13 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     Mirrors the outer-circuit convention used throughout ``tango``
     (``component_idx``/``prev``/``next``, a single cycle across every
     component including the surface plant) -- see ``Workflow``'s own class
-    docstring.
+    docstring. A ``grouped_subsurface`` component is listed as its three well
+    segments, under their own names (``"injection_well"`` etc., as in a
+    config with three separate well components), so each gets its own
+    profile and label. For the ``raft`` variant, whose segments have no
+    state of their own, each entry is the component itself;
+    ``_raft_segment_profiles`` splits RAFT's profile along the loop into
+    the three.
     """
     components = wf._orchestrator.components  # noqa: SLF001
     by_idx = {c.component_idx: (name, c) for name, c in components.items()}
@@ -382,7 +393,15 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     while idx not in seen:
         seen.add(idx)
         name, comp = by_idx[idx]
-        order.append((name, comp))
+        if isinstance(comp, NumericalGroupedSubsurface):
+            order += [
+                (segment_name, segment)
+                for segment_name, segment in zip(SEGMENT_NAMES, comp.segments(), strict=True)
+            ]
+        elif isinstance(comp, RaftGroupedSubsurface):
+            order += [(segment_name, comp) for segment_name in SEGMENT_NAMES]
+        else:
+            order.append((name, comp))
         idx = comp.next  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
     return order
 
@@ -456,6 +475,13 @@ def _add_subsurface_points(
     for name, comp in outer_order:
         if comp is component:
             continue
+        if isinstance(comp, RaftGroupedSubsurface):
+            profiles[name] = [
+                _raft_segment_profiles(comp, t)[SEGMENT_NAMES.index(name)] for t in range(n_tsteps)
+            ]
+            h_kj[name] = [profile_h[-1] for profile_h, _ in profiles[name]]
+            p_bar[name] = [profile_p[-1] for _, profile_p in profiles[name]]
+            continue
         history = comp.history  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
         h_cells = getattr(history, "h_cells", None)
         p_cells = getattr(history, "P_cells", None)
@@ -504,6 +530,34 @@ def _add_subsurface_points(
     # sub-network, not a single point).
     keyed_order = [("inlet", "outlet") if comp is component else (name, name) for name, comp in outer_order]
     return [(keyed_order[i][1], keyed_order[(i + 1) % len(keyed_order)][0]) for i in range(len(keyed_order))]
+
+
+def _raft_segment_profiles(
+    loop: RaftGroupedSubsurface,
+    t: int,
+) -> list[tuple[list[float], list[float]]]:
+    """RAFT's recorded ``(h [kJ/kg], P [bar])`` profile in year ``t``, split into the loop's three segments.
+
+    RAFT's well runs from the injection wellhead to the production wellhead;
+    it is split at the nodes nearest the segment boundaries (the alignment
+    corners, which the mesh has nodes at), and each boundary node ends one
+    segment and starts the next, so the three lines join.
+    """
+    history = loop.raft.history
+    s_nodes = history.s_nodes[t]
+    h = [value * J_PER_KG_TO_KJ_PER_KG for value in history.h_nodes[t]]
+    p = [value * PA_TO_BAR for value in history.P_nodes[t]]
+    lengths = [segment.well_length for segment in loop.segments()]
+    boundaries = [0.0, lengths[0], lengths[0] + lengths[1], sum(lengths)]
+    indices = [_nearest_index(s_nodes, boundary) for boundary in boundaries]
+    return [
+        (h[start : end + 1], p[start : end + 1]) for start, end in zip(indices, indices[1:], strict=False)
+    ]
+
+
+def _nearest_index(values: list[float], target: float) -> int:
+    """Index of the entry of ``values`` closest to ``target``."""
+    return min(range(len(values)), key=lambda i: abs(values[i] - target))
 
 
 def _build_figure(
@@ -618,22 +672,27 @@ def _build_figure(
     ]
     numbered = _state_point_order(edges, list(h_kj))
     static_traces += _state_key_traces(numbered, xaxis_range[0], float(10 ** yaxis_range[0]))
-    # One trace per edge, then the numbered-label trace last.
-    frame_trace_indices = list(range(len(static_traces), len(static_traces) + len(edges) + 1))
+    # One trace per straight edge, 1 + len(_PROFILE_LINE_COLORS) per profiled
+    # edge (see _profile_traces), then the numbered-label trace last; the
+    # count is the same every year, as the slider's frames require.
+    n_frame_traces = (
+        sum(1 + len(_PROFILE_LINE_COLORS) if target in profiles else 1 for _, target in edges) + 1
+    )
+    frame_trace_indices = list(range(len(static_traces), len(static_traces) + n_frame_traces))
 
     frames = []
     for t in range(n_tsteps):
         frame_traces = []
         for source, target in edges:
             if target in profiles:
-                frame_traces.append(
-                    _profile_trace(
-                        source,
-                        target,
-                        *profiles[target][t],
-                        _phase_color_or_fallback(fluid_name, backend, profiles[target][t]),
-                        pumped=pumped.get(target, [False] * n_tsteps)[t],
-                    ),
+                profile_h, profile_p = profiles[target][t]
+                frame_traces += _profile_traces(
+                    source,
+                    target,
+                    profile_h,
+                    profile_p,
+                    _segment_colors(fluid_name, backend, profile_h, profile_p),
+                    pumped=pumped.get(target, [False] * n_tsteps)[t],
                 )
                 continue
             h_s, h_t = h_kj[source][t], h_kj[target][t]
@@ -730,18 +789,83 @@ def _figure_title(wf: Workflow, fluid_name: str, config_name: str | None) -> str
     return f"{heading}<br><sup>{config_title}</sup>" if config_title else heading
 
 
-def _phase_color_or_fallback(
+def _segment_colors(
     fluid_name: str,
     backend: str,
-    profile: tuple[list[float], list[float]],
-) -> str:
-    """Phase color at a profile's middle node, like a straight edge's midpoint."""
-    profile_h, profile_p = profile
-    mid = len(profile_h) // 2
-    try:
-        return _phase_color(fluid_name, profile_h[mid], profile_p[mid], backend)
-    except ValueError:
-        return _PHASE_COLOR_FALLBACK
+    profile_h: list[float],
+    profile_p: list[float],
+) -> list[str]:
+    """Phase color of each stretch between consecutive profile nodes, at its midpoint.
+
+    Same rule as a straight edge (P midpointed in log space, as the axis is
+    drawn), so a well that crosses the critical pressure or the saturation
+    curve changes color where it crosses, not at one color for the whole
+    well.
+    """
+    colors = []
+    for h_a, h_b, p_a, p_b in zip(profile_h, profile_h[1:], profile_p, profile_p[1:], strict=False):
+        mid_p = float(np.sqrt(p_a * p_b)) if p_a > 0 and p_b > 0 else (p_a + p_b) / 2
+        try:
+            colors.append(_phase_color(fluid_name, (h_a + h_b) / 2, mid_p, backend))
+        except ValueError:
+            colors.append(_PHASE_COLOR_FALLBACK)
+    return colors
+
+
+_PROFILE_LINE_COLORS: tuple[str, ...] = tuple(_PHASE_LEGEND)
+"""Every phase color, in legend order: a profiled edge gets one line trace per color (see ``_profile_traces``)."""
+
+
+def _profile_traces(
+    source: str,
+    target: str,
+    profile_h: list[float],
+    profile_p: list[float],
+    segment_colors: list[str],
+    *,
+    pumped: bool = False,
+) -> list[go.Scatter]:
+    """One edge drawn as a component's marched (h, P) profile, each stretch in its own phase's color.
+
+    A Plotly line has one color, so the profile is the hoverable point trace
+    from ``_profile_trace`` (line hidden, markers colored by phase) plus one
+    line trace per color in ``_PROFILE_LINE_COLORS``, holding only that
+    color's stretches. Consecutive stretches of a color share their node;
+    separate runs of one color are split by a gap, so no line is drawn
+    across a stretch of another phase. A color the profile never has gets an
+    empty trace, keeping the trace count the same every year.
+    """
+    line_traces = []
+    for color in _PROFILE_LINE_COLORS:
+        xs: list[float | None] = []
+        ys: list[float | None] = []
+        for k, segment_color in enumerate(segment_colors):
+            if segment_color != color:
+                continue
+            if k == 0 or segment_colors[k - 1] != color:
+                if xs:
+                    xs.append(None)
+                    ys.append(None)
+                xs.append(profile_h[k])
+                ys.append(profile_p[k])
+            xs.append(profile_h[k + 1])
+            ys.append(profile_p[k + 1])
+        line_traces.append(
+            go.Scatter(
+                x=xs,
+                y=ys,
+                mode="lines",
+                line={"color": color},
+                connectgaps=False,
+                hoverinfo="skip",
+                showlegend=False,
+                name=f"{source} -> {target} ({_PHASE_LEGEND[color]})",
+            ),
+        )
+    point_colors = (
+        [*segment_colors, segment_colors[-1]] if segment_colors else [_PHASE_COLOR_FALLBACK] * len(profile_h)
+    )
+    return [_profile_trace(source, target, profile_h, profile_p, point_colors, pumped=pumped), *line_traces]
 
 
 def _profile_trace(
@@ -749,11 +873,11 @@ def _profile_trace(
     target: str,
     profile_h: list[float],
     profile_p: list[float],
-    color: str,
+    point_colors: list[str],
     *,
     pumped: bool = False,
 ) -> go.Scatter:
-    """One edge drawn as a component's marched (h, P) profile.
+    """One edge drawn as a component's marched (h, P) profile: its points, for hover; the lines are drawn by ``_profile_traces``.
 
     Starts at the component's OWN first node, not at the upstream point:
     if the two disagree (a state lost across the component boundary), the
@@ -776,8 +900,8 @@ def _profile_trace(
         x=profile_h,
         y=profile_p,
         mode="lines+markers",
-        line={"color": color},
-        marker={"color": color, "size": sizes},
+        line={"color": "rgba(0, 0, 0, 0)"},
+        marker={"color": point_colors, "size": sizes},
         showlegend=False,
         name=f"{source} -> {target}",
         hovertext=hovertext,

@@ -16,7 +16,8 @@
             "program": "${workspaceFolder}/.venv/bin/tango_cli",
             "args": [
                 "run",
-                "templates/hydro_df_electric.yml"
+                "templates/hydro_df_electric.yml",
+                "--no-save"
             ],
             "console": "integratedTerminal"
         },

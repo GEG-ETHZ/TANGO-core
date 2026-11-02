@@ -28,7 +28,7 @@ The run logs one summary line per timestep. With `--save-dir DIR`, it writes thr
 | `<name>.smry.csv` | One row per timestep, one column per recorded quantity |
 | `<name>.econ.csv` | The economics: CAPEX by category, OPEX, LCOE. Omitted if the config has no `economic:` block |
 
-Nothing is written without `--save-dir`. To see every convergence iteration, add `--log-level DEBUG`. [One run](../runtime/one-run.md) shows what happens inside a run.
+Every run needs either `--save-dir DIR` or `--no-save`, which writes nothing; without one of them `tango_cli run` stops with an error, so results are never lost by forgetting the flag. To see every convergence iteration, add `--log-level DEBUG`. [One run](../runtime/one-run.md) shows what happens inside a run.
 
 ### Exit codes
 
@@ -60,5 +60,5 @@ Three directories hold runnable material, each for a different purpose:
 | Directory | Purpose | Run with |
 |---|---|---|
 | `tests/` | Automated correctness checks. `tests/unit/` covers components in isolation; `tests/regtest/` runs full simulations, including a golden LCOE per template | `just test` (see [Running checks](install.md#running-checks)) |
-| [`templates/`](templates.md) | The maintained configs; each backs a test, an application or both | `uv run tango_cli run templates/<file>.yml` |
+| [`templates/`](templates.md) | The maintained configs; each backs a test, an application or both | `uv run tango_cli run templates/<file>.yml --save-dir results/` |
 | [`applications/`](applications.md) | Multi-run pipelines built on a template: optimizations and demos | DVC or the app's own script |

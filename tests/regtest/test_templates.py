@@ -32,6 +32,7 @@ from typing import Any
 
 import pytest
 
+from tango.components.well.grouped_subsurface import NumericalGroupedSubsurface
 from tango.workflows.workflow import Workflow
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
@@ -42,6 +43,8 @@ TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _CONFIGS: list[tuple[str, float]] = [
     ("AGS_direct_heat.yml", 0.7191321530423379),
     ("AGS_ORC_electric.yml", 2.061905093287347),
+    ("AGS_ORC_electric_grouped_subsurface.yml", 3.4193617636891585),
+    ("AGS_ORC_electric_raft.yml", 2.12360622207039),
     ("CO2_AGS_direct_heat.yml", 0.38844042532415946),
     ("CO2_AGS_electric.yml", 1.6625122145149076),
     ("CO2_AGS_ORC_electric.yml", 4.15796052520762),
@@ -77,16 +80,36 @@ def _components(wf: Workflow) -> dict[str, Any]:
     return wf._orchestrator.components  # noqa: SLF001
 
 
+def _injection_well(comps: dict[str, Any]) -> Any:
+    """The injection well: its own component, the first segment of a numerical ``grouped_subsurface``, or
+    (for a ``grouped_subsurface`` an external simulator models as a whole) the loop itself.
+    """
+    entry = next(c for c in comps.values() if c.component_idx == 0)
+    return entry.injection_well if isinstance(entry, NumericalGroupedSubsurface) else entry
+
+
+# Templates whose subsurface needs the optional RAFT extra; skipped without it.
+_NEEDS_RAFT = {"AGS_ORC_electric_raft.yml"}
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
-def test_template_full_run(filename: str, reference_lcoe: float) -> None:
+def test_template_full_run(
+    filename: str,
+    reference_lcoe: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Run one templates/*.yml at its own full sim_config.num_tsteps and check it."""
+    if filename in _NEEDS_RAFT:
+        pytest.importorskip("geg_raft")
+    # RAFT's config template is given relative to the repository root.
+    monkeypatch.chdir(TEMPLATES_DIR.parent)
     path = TEMPLATES_DIR / filename
     wf = Workflow.from_file(path)
     wf.run()
 
     comps = _components(wf)
-    inj = comps["injection_well"]
+    inj = _injection_well(comps)
     assert inj.state.T_outlet.get_fresh() > inj.state.T_inlet.get_fresh(), (
         f"{filename}: injection well outlet T should exceed inlet T (geothermal gradient heats downward flow)"
     )

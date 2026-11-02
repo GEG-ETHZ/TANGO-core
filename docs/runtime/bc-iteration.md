@@ -41,6 +41,8 @@ flowchart TB
 
 The `auto-pressure`, `auto-flow`, and `auto-both` modes, which adjusted wellhead pressure or mass rate toward the fracking limit, were removed; the `applications/opt_*/` searches find such operating points instead.
 
+**A `grouped_subsurface` circuit entry solves for the injection pressure.** It fixes the production wellhead pressure at `sim_config.target_extraction_pressure` and finds the injection pressure that delivers it (see [Grouped subsurface](../components/grouped-subsurface.md)). Right after it solves, each pass sets the surface plant's injection pressure to that value, so the plant delivers it in the same pass, and the loop is converged only once that pressure has also settled: \|ΔP\| < 1 kPa, on top of \|Δh\| < 1 kJ/kg. The configured surface `injection_pressure` is then only the first timestep's starting guess.
+
 Every iteration of the enthalpy loop first restores each component from a snapshot of its `state` (`Component.snapshot_convergence_state`), so each attempt starts from the end of the previous timestep. If a guess drives the fluid below its melting point, CoolProp raises a `Tmelt` error and the loop retries from 275 K.
 
 | Exit | Raised by |

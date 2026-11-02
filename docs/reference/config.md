@@ -28,6 +28,10 @@ Fluid and rock properties shared by every component.
 
 --8<-- "docs/reference/generated/config-well.md"
 
+## `components`: <span class="tango-chip well">well</span> grouped subsurface
+
+--8<-- "docs/reference/generated/config-grouped_subsurface.md"
+
 ## `components`: <span class="tango-chip reservoir">reservoir</span>
 
 --8<-- "docs/reference/generated/config-reservoir.md"

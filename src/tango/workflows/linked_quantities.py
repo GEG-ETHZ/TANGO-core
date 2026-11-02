@@ -28,6 +28,10 @@ name:
   length, the horizontal well starts at that depth, and
   ``layout.well_spacing`` (the surface distance between the wellheads) is
   the horizontal well's length.
+- **AGS closed loop as one component** (any component with
+  ``type: grouped_subsurface``): the same three relations, between its
+  ``injection_well``, ``horizontal_well`` and ``production_well`` segment
+  blocks.
 """
 
 from __future__ import annotations
@@ -144,19 +148,27 @@ def _relations(cfg: dict[str, Any]) -> list[_Relation]:
                 "hydrostatic pressure at the reservoir is brine_density x gravity x reservoir_depth",
             ),
         ]
+    loop_prefixes: list[Path] = []
     if {"injection_well", "horizontal_well", "production_well"} <= set(components):
-        depth = (*c, "injection_well", "well_length")
-        loop = (*c, "horizontal_well", "well_length")
+        loop_prefixes.append(c)
+    loop_prefixes += [
+        (*c, name)
+        for name, component in components.items()
+        if isinstance(component, dict) and component.get("type") == "grouped_subsurface"
+    ]
+    for prefix in loop_prefixes:
+        depth = (*prefix, "injection_well", "well_length")
+        loop = (*prefix, "horizontal_well", "well_length")
         relations += [
             _Relation(
-                (*c, "production_well", "well_length"),
+                (*prefix, "production_well", "well_length"),
                 (_Source(depth),),
                 lambda d: d,
                 "both vertical wells reach the loop's depth",
                 inverse=lambda length: length,
             ),
             _Relation(
-                (*c, "horizontal_well", "wellhead_depth"),
+                (*prefix, "horizontal_well", "wellhead_depth"),
                 (_Source(depth),),
                 lambda d: d,
                 "the horizontal loop lies at the vertical wells' depth",

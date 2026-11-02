@@ -1,0 +1,219 @@
+# tango format — Advanced Geothermal System (AGS), binary (ORC) power
+# extraction, with the subsurface loop (injection well, horizontal well,
+# production well and the surrounding rock) simulated by RAFT: the raft
+# variant of grouped_subsurface (see tango.external.raft_wrapper; needs the
+# optional extra: `just setup-raft`).
+#
+# The same hypothetical site and plant as
+# AGS_ORC_electric_grouped_subsurface.yml (the numerical variant); only the
+# subsurface model differs, so the two can be compared directly. RAFT's own
+# config template and mesh live in templates/raft/ (made by hand with
+# RAFT's developer); the wrapper checks that the template's rock
+# properties, initial temperatures and well alignment agree with this file.
+#
+# RAFT's well fluid (water) follows the template's equation of state and
+# viscosity model (RAFT's theory.md, "Fluid Equation of State"): with
+# `density: 1000`, the Boussinesq EOS, i.e. density and internal energy
+# linearized in temperature and pressure about `reference_temperature` and
+# `reference_pressure` (`therm_expansion`, `bulk_mod`, `specific_heat`); with
+# `viscosity: -1`, a temperature-dependent viscosity calibrated for water.
+#
+# The 25 years take about 5 minutes: each injection-enthalpy iteration is
+# one RAFT solve over the year (~40 s in year 0, ~4 s by year 10), and only
+# the first few years need more than one.
+#
+# Site parameters:
+#   surface temperature : 290 K (16.85 degC) — ambient
+#   thermal gradient     : 35 degC/km (0.035 K/m)
+#   rock                 : 2600 kg/m3, 850 J/(kg*K), 2.5 W/(m*K)
+#   fluid                : H2O
+
+title: Advanced Geothermal System (AGS), binary (ORC) power extraction, hypothetical site, subsurface simulated by RAFT
+
+common:
+  fluid_name: H2O
+  rock_density: 2600.0       # kg/m3 — RAFT's coupled AGS example
+  rock_cp: 850.0             # J/(kg*K) — RAFT's coupled AGS example
+  rock_k: 2.5                # W/(m*K) — RAFT's coupled AGS example
+  thermal_gradient: 0.035    # K/m  (35 degC/km)
+  surface_temperature: 290.0   # K  (16.85 degC) — ambient; RAFT's T_ini at z=0
+  surface_pressure: 100_000     # Pa — ambient
+
+layout:
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+
+sim_config:
+  num_tsteps: 25              # 25 years of operation
+  dt_years: 1.0                # years
+  target_extraction_pressure: 7_000_000  # Pa — SINGLE shared source; threaded to
+                                          # any component declaring this field
+                                          # (surface, pump-bearing production wells,
+                                          # grouped_subsurface). Here it is the
+                                          # loop's production wellhead pressure:
+                                          # grouped_subsurface fixes its outlet at
+                                          # this value and solves for the injection
+                                          # pressure (see its "Boundary conditions")
+  injection_mode: manual       # see AGS_direct_heat.yml's module docstring: required
+                                # even without a reservoir
+  mass_rate: 30                 # kg/s
+  bc_checkpoint_idx: 1           # component_idx of the surface (below)
+
+economic:
+  # Computed by DoubletEconomicComponent, but scoped/verified against the
+  # DOUBLET + turbine/pump/condenser topology (hydro_df_electric.yml), not
+  # this one — see that component's module docstring for the full scope.
+  # Unlike AGS_direct_heat.yml, this surface plant's turbine/pump/condenser
+  # nodes ARE tagged the same way hydro_df_electric.yml's are, so CAPEX
+  # coverage should be more complete here than in the direct-heat sibling.
+  type: doublet
+  project_maturity: green_field
+  discount_rate: 0.095
+  main_product: electricity
+
+components:
+
+  grouped_subsurface:
+    # The whole subsurface loop as one component, simulated by RAFT (see
+    # tango.components.well.grouped_subsurface and
+    # tango.external.raft_wrapper). The segment lengths must match the well
+    # alignment in RAFT's template, which its mesh is built for.
+    type: grouped_subsurface
+    variant: raft
+    raft:
+      template: templates/raft/config_example_AGS_coupled_single.yaml  # relative to the working directory
+      # verbosity: lite  # RAFT's own console output: quiet (default), lite (one line
+      #                  # per internal RAFT timestep), or full (everything RAFT
+      #                  # prints, including each timestep's extrapolation error)
+    component_idx: 0           # circuit entry — where the solve pass begins each timestep
+    prev: 1
+    next: 1
+    injection_well:
+      well_length: 8000.0        # m — vertical well depth
+      diameter: 0.311             # m  (~12-inch casing)
+      pipe_roughness: 5.5e-5      # m
+    horizontal_well:
+      well_length: 3000.0          # m — horizontal loop flow-path length
+      diameter: 0.311              # m
+      pipe_roughness: 5.5e-5       # m
+      # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+    production_well:
+      # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+      diameter: 0.311              # m
+      pipe_roughness: 5.5e-5       # m
+
+  surface:
+    type: surface
+    variant: graph
+    component_idx: 1            # solved last, loops back to grouped_subsurface (next: 0)
+    prev: 0
+    next: 0
+    injection_pressure: 1_500_000  # Pa — starting guess for the first timestep only:
+                                     # grouped_subsurface solves for the injection
+                                     # pressure each pass and the plant delivers it
+    pipe_diameter: 0.41               # m
+    approach_temperature: 7.0         # K
+    pipe_roughness: 5.5e-5             # m
+    # well_spacing is NOT set here — it's sourced from layout.well_spacing
+    # above (see _PROTECTED_COMPONENT_KEYS in workflows/workflow.py for the
+    # duplicated-value bug class this guards against).
+
+    power_plant:
+      # Binary (ORC) TESPy topology, identical in shape to
+      # hydro_ORC_electric.yml's power_plant (see that file for the full
+      # node-by-node rationale): the geofluid loop (Source("inlet") ->
+      # evaporator -> preheater -> circulation_control ->
+      # Sink("outlet")) transfers heat, at each of two heat exchangers, to a
+      # separate closed secondary working-fluid loop (preheater.out2 ->
+      # evaporator.out2 -> orc_turbine -> orc_desuperheater -> orc_condenser -> orc_feed_pump -> orc_cycle_closer ->
+      # back to preheater.in2) that never mixes with the geofluid.
+      # circulation_control replaces hydro_ORC_electric.yml's pump2 —
+      # same PumpOrValve role, same reason (AGS's closed loop has no other
+      # pressure source — see AGS_direct_heat.yml's comment on this node).
+      #
+      # No p_out_megapascals on circulation_control, deliberately: same
+      # reasoning as AGS_direct_heat.yml's circulation_control — injection_pressure
+      # (above, set each pass to the pressure grouped_subsurface solves for)
+      # already hard-sets the outlet connection's pressure.
+      nodes:
+        inlet:
+          type: Source
+
+        outlet:
+          type: Sink
+
+        evaporator:
+          type: HeatExchanger
+          ttd_l: 7                     # K — terminal temperature difference (boiler)
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          h0_out1: 250                 # kJ/kg — TESPy guess value (geofluid outlet enthalpy)
+          p0_megapascals_out2: 1.38                # MPa (= 13.8 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
+
+        preheater:
+          type: HeatExchanger
+          pressure_ratio1: 1.0         # geofluid side — dimensionless
+          pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
+          vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
+          p0_megapascals_out2: 0.5                 # MPa (= 5 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
+
+        circulation_control:
+          # PumpOrValve (not a fixed Compressor): whether this geofluid
+          # recirculation point is a real pump or a passive throttle depends
+          # on design-point conditions, exactly as AGS_direct_heat.yml's own
+          # circulation_control node — see that file's comment for the full
+          # rationale (thermosiphon effect, no other pressure source on this
+          # closed loop).
+          type: PumpOrValve
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+
+        orc_turbine:
+          type: Turbine
+          role: net_electric
+          efficiency: 0.85               # turbine eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar) -- condensing pressure, see orc_condenser
+
+        orc_desuperheater:
+          type: SimpleHeatExchanger
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar) -- condensing pressure, see orc_condenser
+          vapor_mass_fraction_out: 1    # dimensionless [0-1] — TESPy vapor quality x
+
+        orc_condenser:
+          type: SimpleHeatExchanger
+          # Condensing pressure, set by the site rather than chosen: R245fa
+          # saturates at 25.3 degC at 1.5 bar, so the 1 K subcooled outlet
+          # (24.3 degC) stays above the cooling limit of surface_temperature +
+          # approach_temperature = 16.85 + 7 = 23.85 degC (rounded up to the
+          # next half bar).
+          p_out_megapascals: 0.15       # MPa (= 1.5 bar)
+          subcooling_K: 1.0              # K below saturation: slightly subcooled condensate, so the pump never draws
+                                         # exactly saturated liquid (TESPy left the condensate pump's equation
+                                         # unconverged at x = 0) and has a margin against cavitation
+
+        orc_feed_pump:
+          type: Compressor
+          role: net_electric
+          efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
+          p_out_megapascals: 0.5        # MPa (= 5 bar)
+
+        orc_cycle_closer:
+          type: CycleCloser
+          # No config -- purely topological, closes the secondary loop so
+          # TESPy can solve it with no open Source/Sink of its own.
+
+      edges:
+        # Geofluid (primary, closed AGS) loop
+        '1': {source: inlet, target: evaporator, target_port: in1}
+        '2': {source: evaporator, source_port: out1, target: preheater, target_port: in1}
+        '3': {source: preheater, source_port: out1, target: circulation_control}
+        '4': {source: circulation_control, target: outlet}
+        # Secondary (ORC working-fluid) loop
+        '5': {source: orc_cycle_closer, target: preheater, target_port: in2}
+        '6': {source: preheater, source_port: out2, target: evaporator, target_port: in2}
+        '7': {source: evaporator, source_port: out2, target: orc_turbine}
+        '8': {source: orc_turbine, target: orc_desuperheater}
+        '9': {source: orc_desuperheater, target: orc_condenser}
+        '10': {source: orc_condenser, target: orc_feed_pump}
+        '11': {source: orc_feed_pump, target: orc_cycle_closer}

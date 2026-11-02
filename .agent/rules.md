@@ -10,13 +10,14 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - [Pre-approved Auto-Run Commands](/.agent/rules/auto-run.md)
 - [Agent Pathing Rules](/.agent/rules/agent-pathing.md)
 - [Code Pathing Rules](/.agent/rules/code-pathing.md)
-- [Commit Message Format](/.agent/rules/commit-permissions.md)
+- [Commit Message Format](/.agent/rules/commit.md)
 - [Gitignore Formatting](/.agent/rules/gitignore.md)
 - [Code Quality and Linting](/.agent/rules/code-quality.md)
 - [Date Handling in Documents](/.agent/rules/dates.md)
 - [Capability Scopes & Permissions](/.agent/rules/permissions.md)
 - [Issue, Task & Miro Sync](/.agent/rules/miro-sync.md)
 - [Debugging and Numerical Discrepancies](/.agent/rules/debugging.md)
+- [Coupling External Simulators](/.agent/rules/external-coupling.md)
 
 ---
 
@@ -25,11 +26,12 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - **Agent Pathing Rules:** Before referencing or editing any agent
   configurations, read `./.agent/rules/agent-pathing.md`
 - **Code Pathing Rules:** Before referencing or editing any project code, read `./.agent/rules/code-pathing.md`
-- **Commit Workflow & Permissions:** Before initiating any git commit, read `./.agent/rules/commit-permissions.md`
+- **Commit Workflow & Permissions:** Before initiating any git commit, read `./.agent/rules/commit.md`
 
 ## Commit Message Format
 
-When committing, follow the format in `./.agent/rules/commit-permissions.md`. Do **not** guess the format.
+When writing a commit message, follow `./.agent/rules/commit.md`. Do **not**
+guess the format; read the file.
 
 ---
 
@@ -40,3 +42,4 @@ When committing, follow the format in `./.agent/rules/commit-permissions.md`. Do
 - **Capability Scopes & Permissions:** For rules regarding Browser, Terminal, and Host vs VM execution, reference `./.agent/rules/permissions.md`
 - **Issue, Task & Miro Sync:** Before syncing GitHub issues, `docs/` task files, or the Miro board(s) for this project, read `./.agent/rules/miro-sync.md`
 - **Debugging & Numerical Discrepancies:** Before changing a test tolerance or explaining a wrong result or benchmark mismatch, read `./.agent/rules/debugging.md`
+- **Coupling External Simulators:** Before writing or changing code that couples tango to another package (e.g. RAFT, `src/tango/external/`), read `./.agent/rules/external-coupling.md`

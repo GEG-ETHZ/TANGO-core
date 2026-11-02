@@ -1,7 +1,7 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
-*Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, and 2026-10-26.
-Covers October 1–26. Managerial-level summary — for engineering detail,
+*Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, 2026-10-26, and
+2026-10-27. Covers October 1–27. Managerial-level summary — for engineering detail,
 see the issues linked below (GitLab numbers up to #75, GitHub from #94 on)
 and `docs/tango_tasks.md`. Continues from
 `docs/archive/tango_progress_summary_sep_2026.md`.*
@@ -301,6 +301,44 @@ and the CPG heat optimization is being rerun with that check. (The first
 iteration of each year legitimately starts a closed loop from cold fluid,
 so the check applies only once each year's iteration has converged.)
 
+## RAFT now simulates an AGS loop's wells and rock, and extracts 1.5–2.4× the heat of tango's own wells (2026-10-15–27)
+
+**In plain terms:** RAFT, the 3D finite-element simulator of wells and
+surrounding rock developed by Bruce Gee (GEG), can now stand in for an AGS
+loop's whole subsurface: injection well, horizontal well, production well,
+and the rock around them. TANGO keeps the surface plant, the yearly loop
+iteration, and the economics. The subsurface is one component,
+`grouped_subsurface`, with two interchangeable models: tango's own
+numerical wells, or RAFT.
+
+**Result:** on the same site and plant, RAFT extracts 1.5–2.4× as much heat
+as tango's numerical wells (production temperature 164 → 116 °C over 25
+years, against 109 → 100 °C), and the cost of electricity falls from 3.42
+to 2.12. RAFT's model was reviewed with its developer and is considered
+sound; confidence in the numerical wells' analytical rock heat-exchange
+model is lower. RAFT's along-well profiles show where the difference
+arises: 1.5–1.7× the heat pickup in the horizontal well, and a production
+well that keeps gaining heat on the way up where the numerical one loses
+it.
+
+**Guarding against silent errors:** TANGO now records what RAFT does inside
+each year (how many internal time steps it took and why it shortened any,
+and its pressure, temperature, and flow along the whole well) and stops
+with a named error instead of continuing when RAFT accepts an inaccurate
+time step, when the flow along the well drifts beyond RAFT's solver
+tolerance, or when the water would boil anywhere along the well. CI runs
+one simulated year on the real RAFT, so a change on RAFT's side shows up
+before it reaches results.
+
+**Found along the way:** the phase diagrams colored a whole well by the
+phase at its midpoint, so deep AGS wells looked "supercritical" from top to
+bottom; each stretch is now colored by its own phase, for every config.
+The ORC power plants in the examples turned out to be modeled as one fixed
+design point that only scales its flow as the geofluid cools, never
+adjusting its pressures (GitHub #123). TANGO's and RAFT's fluid property
+models differ slightly, so TANGO's heat figure for a RAFT run is 0.6–1.2%
+lower than RAFT's own; this is documented.
+
 ## Smaller items worth noting
 
 - Documentation split: developer docs moved to `dev_docs/`; `docs/` now
@@ -328,7 +366,9 @@ uses realistic, cited component efficiencies, and every example except CPG
 heat now runs the design its optimization recommends. The optimizer's
 search bounds are each either explained or handed off, and designs that
 boil a well, collapse its pressure, or deliver negative heat are rejected
-by name.
+by name. An AGS loop's subsurface can be simulated by RAFT instead of
+tango's own wells, with RAFT's internal behavior recorded and its silent
+failure modes turned into errors (GitHub #105, merging after #56).
 
 ## Immediate next steps
 
@@ -338,3 +378,5 @@ by name.
 4. Review every example's phase diagram and physics against the checklist
    in GitLab #67.
 5. Reservoir mass imbalance (#63, high priority).
+6. Merge the RAFT coupling (GitHub #105) after #56, then make its CI job a
+   required check.

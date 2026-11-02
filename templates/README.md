@@ -45,6 +45,6 @@ A file name containing `ORC` means a binary plant: the geofluid heats a secondar
 ## Adding a configuration
 
 1. Copy the closest existing file and change only what differs.
-2. Run `uv run tango_cli validate` and then `uv run tango_cli run` on it.
+2. Run `uv run tango_cli validate` and then `uv run tango_cli run --no-save` (or `--save-dir DIR`) on it.
 3. Add it to `_CONFIGS` in `tests/regtest/test_templates.py`, with its golden LCOE value. The suite fails until you do.
 4. Add a row to the table above.
