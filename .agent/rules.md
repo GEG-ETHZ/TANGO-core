@@ -17,6 +17,7 @@ In addition to this document, always read `../README.md` and `../CONTRIBUTING.md
 - [Capability Scopes & Permissions](/.agent/rules/permissions.md)
 - [Issue, Task & Miro Sync](/.agent/rules/miro-sync.md)
 - [Debugging and Numerical Discrepancies](/.agent/rules/debugging.md)
+- [Coupling External Simulators](/.agent/rules/external-coupling.md)
 
 ---
 
@@ -41,3 +42,4 @@ guess the format; read the file.
 - **Capability Scopes & Permissions:** For rules regarding Browser, Terminal, and Host vs VM execution, reference `./.agent/rules/permissions.md`
 - **Issue, Task & Miro Sync:** Before syncing GitHub issues, `docs/` task files, or the Miro board(s) for this project, read `./.agent/rules/miro-sync.md`
 - **Debugging & Numerical Discrepancies:** Before changing a test tolerance or explaining a wrong result or benchmark mismatch, read `./.agent/rules/debugging.md`
+- **Coupling External Simulators:** Before writing or changing code that couples tango to another package (e.g. RAFT, `src/tango_core/external/`), read `./.agent/rules/external-coupling.md`
