@@ -7,7 +7,7 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 
 ---
 
-## [1.1.0] — 2026-10-29
+## [1.1.0] — 2026-11-02
 
 First public release: tango-core is open source under Apache-2.0, and
 releases go to PyPI. It completes the example coverage matrix with an
