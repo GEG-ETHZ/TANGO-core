@@ -2,17 +2,10 @@
 # build and deploy to GitHub Pages on every push to main, and on demand
 # (Actions → Docs site → Run workflow).
 #
-# The deployed site is the INTERNAL build (mkdocs.internal.yml): the public
-# pages plus the task log, roadmap and archive, for organization members
-# only. If the site is ever made public, deploy the public build (`site/`,
-# mkdocs.yml) instead.
-#
-# Deploy is gated on the repository variable PAGES_PRIVATE == "true".
-# Pages sites are org-private only on GitHub Enterprise Cloud; on any other
-# plan the site would be public, which has to wait until tango-core goes
-# public. Set the variable
-# (Settings → Secrets and variables → Actions → Variables) only after
-# Settings → Pages shows "Visibility: Private".
+# The deployed site is the public build (mkdocs.yml, `site/`). The internal
+# build (mkdocs.internal.yml) adds the task log, roadmap and archive; it is
+# built here only so a broken internal page fails the check, and is never
+# deployed.
 name: Docs site
 
 on:
@@ -38,17 +31,17 @@ jobs:
         with:
           python-version: "3.11"
       - run: uv sync --only-group docs --no-install-project
-      - name: Build the public site
+      - name: Build the public site (deployed)
         run: uv run --no-sync zensical build --clean
-      - name: Build the internal site (deployed)
+      - name: Build the internal site (check only)
         run: uv run --no-sync zensical build --clean -f mkdocs.internal.yml
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
-          path: site-internal
+          path: site
 
   deploy:
-    if: github.event_name != 'pull_request' && vars.PAGES_PRIVATE == 'true'
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

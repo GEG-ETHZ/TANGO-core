@@ -5,6 +5,10 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 
 ## [In Development]
 
+### Changed
+
+- The documentation site is public and shows the public pages only.
+
 ---
 
 ## [1.1.0] — 2026-11-03
