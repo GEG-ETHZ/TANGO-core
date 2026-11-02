@@ -22,8 +22,6 @@ plugins:
   - exclude:
       glob:
         - AGENTS.md
-        # rates named colleagues; kept off every build until it is deleted or rewritten
-        - archive/code-quality-report.md
         # fragments written by tools/gen_reference.py, included by snippets
         - "reference/generated/*"
   - mkdocstrings:
