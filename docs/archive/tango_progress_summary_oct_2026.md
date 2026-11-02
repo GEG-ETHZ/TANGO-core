@@ -339,13 +339,13 @@ adjusting its pressures (GitHub #123). TANGO's and RAFT's fluid property
 models differ slightly, so TANGO's heat figure for a RAFT run is 0.6–1.2%
 lower than RAFT's own; this is documented.
 
-## tango-core 1.1.0 is released as open source under Apache-2.0 (2026-10-28–29)
+## tango-core 1.1.0 is ready to be released as open source under Apache-2.0 (2026-10-28–29)
 
 **In plain terms:** for FlexGEO's open-source modeling catalogue (D4.2,
 due October 31), the whole of tango-core is released publicly rather than
 split into separate packages. The group leader approved the Apache-2.0
 license, the same one RAFT and METRO use. Version 1.1.0, the first
-public release, is tagged on `main`; it includes the optimized example
+public release, is ready to be tagged on `main`; it includes the optimized example
 designs (GitHub #56) and the RAFT coupling (GitHub #105). Making the
 repository (`GEG-ETHZ/TANGO-core`) public and publishing 1.1.0 to PyPI
 follow.
