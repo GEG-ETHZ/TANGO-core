@@ -15,7 +15,7 @@ pressure, which the surface plant then delivers. The configured surface
 `injection_pressure` is only the first timestep's starting guess. Why, and
 how the numerical variant does it, is under "Boundary conditions" below.
 
-![The RAFT template's loop and ORC plant. Purple ① and ② mark where tango and RAFT exchange boundary conditions each pass; red boxes list where they are checked.](../diagrams/AGS_ORC_electric_raft_topology.svg)
+![The RAFT template's loop and ORC plant. Purple ① and ② mark where tango and RAFT exchange boundary conditions each pass; the grey box shows how each timestep's passes converge.](../diagrams/AGS_ORC_electric_raft_topology.svg)
 
 | Variant | Use it when | Model |
 |---|---|---|

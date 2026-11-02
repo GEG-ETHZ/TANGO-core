@@ -148,7 +148,8 @@ changes:
   3.4219 → 3.4194, `AGS_ORC_electric_raft.yml` 2.1193 → 2.1236. The
   separate-well AGS templates are unchanged (GitHub #130). A new topology
   diagram, `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where
-  tango and RAFT exchange and check these boundary conditions.
+  tango and RAFT exchange these boundary conditions and how each
+  timestep's passes converge.
 - **Breaking: `tango_cli run` needs `--save-dir DIR` or `--no-save`.** Running
   without either (or with both) now stops with an argparse error, so results
   are never lost by forgetting `--save-dir`; `--no-save` writes nothing, for
