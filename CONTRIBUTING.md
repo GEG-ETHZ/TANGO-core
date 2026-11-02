@@ -88,7 +88,21 @@ A shebang line, if any, stays above them. Other files are covered by [`REUSE.tom
 
 ## Cutting a Release
 
-Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) first and to [PyPI](https://pypi.org/project/tango-core/) only after the TestPyPI upload installs and runs. PyPI never accepts the same version twice, so a broken upload there can't be replaced. Versions follow [Semantic Versioning](https://semver.org/); tags carry a `v` prefix. [`.github/workflows/release.yml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.github/workflows/release.yml) does the uploads with PyPI Trusted Publishing, so no API token is stored anywhere.
+### Choosing the version
+
+Versions follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/), `MACRO.MESO.MICRO`. The number tells users how much work upgrading takes, not whether anything changed in an incompatible way. Judge the release by its effort for a typical user:
+
+| Bump | When upgrading takes | Examples |
+|---|---|---|
+| Macro (`2.0.0`) | Real effort: users must change configs, scripts, or code | Renaming the package or a config key, removing an injection mode |
+| Meso (`1.2.0`) | Little effort, or none for most users | A new component or optional key, a break in a feature few people use |
+| Micro (`1.1.1`) | No effort | Bug fixes, documentation, performance |
+
+Whatever the bump, every change a user may have to make goes in the release's **Breaking** section of `CHANGELOG.md`.
+
+### Steps
+
+Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) first and to [PyPI](https://pypi.org/project/tango-core/) only after the TestPyPI upload installs and runs. PyPI never accepts the same version twice, so a broken upload there can't be replaced. Tags carry a `v` prefix. [`.github/workflows/release.yml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.github/workflows/release.yml) does the uploads with PyPI Trusted Publishing, so no API token is stored anywhere.
 
 1. Check that `## [In Development]` in `CHANGELOG.md` covers the release, then rename it to `## [X.Y.Z] — YYYY-MM-DD` and set `version` and `date-released` in `CITATION.cff`.
 2. Bump `version` in `pyproject.toml` on `main` through a pull request. Its `license-check` job (`tools/check_licenses.py`) fails if a runtime dependency's license is not allowed; do not tag until it passes. Review each flagged license (the job uploads `licenses.json` and a draw.io dependency tree) and either replace the dependency or add a `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the reason, through its own pull request.

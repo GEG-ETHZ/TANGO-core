@@ -1,7 +1,7 @@
 # Changelog
 
 All notable changes to TANGO are documented here.
-Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.org/).
+From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/): the number says how much work upgrading takes, and the **Breaking** section of each release says what to change.
 
 ## [In Development]
 
@@ -78,6 +78,20 @@ changes:
   shape an external subsurface simulator plugs in behind. The linked lengths
   (production length, loop depth, `layout.well_spacing`) are derived the same
   way as for the three-component AGS configs.
+  Both variants take the loop's mass flow and temperature at the injection
+  wellhead and its pressure at the production wellhead
+  (`sim_config.target_extraction_pressure`), and solve for the injection
+  pressure, the way RAFT's own template sets the well up; this keeps the
+  injected mass rate under tango's control if RAFT loses fluid to storage or
+  leak-off (GitHub #63). `SystemBCIteration` hands that pressure to the
+  surface plant in the same pass (`SurfaceComponent.set_injection_pressure`)
+  and waits for it to settle (|ΔP| < 1 kPa), so the surface
+  `injection_pressure` in these templates is only the first timestep's
+  starting guess. The `numerical` variant finds the injection pressure by
+  shooting and reproduces a separate-well run's injection pressure and cell
+  profiles to within 7e-11 over 25 years (GitHub #130). A topology diagram,
+  `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where tango and
+  RAFT exchange and check these boundary conditions.
 - **Optional `raft` extra** for the RAFT wellbore/rock simulator
   (`just setup-raft`, or `uv sync --extra raft`), pinned to release tag `v0.2.1`. Plain
   `uv sync` never fetches it; see the install guide (`docs/guides/install.md`) for access to the private repo.
@@ -103,6 +117,10 @@ changes:
   --save-dir`, RAFT keeps its own output (matrix and well VTKs at the
   template's `output_vtk`, its flow log) in `<stem>.raft/`; without it, RAFT
   writes no VTKs and keeps nothing.
+  The RAFT template sets `NR_tol` to 1e-8 instead of RAFT's 1e-7: RAFT
+  divides its residual by the mesh's 12,054 nodes, so at 1e-7 the
+  production flow could be off by ~1.2e-3 of the injected rate, above
+  tango's 1e-3 check.
 - **RAFT failures that used to pass silently now raise:** a step RAFT
   accepted at `timestep_min` with an extrapolation error above `rel_error_T`
   (`ConvergenceError`); a well element whose mass flow is more than 1e-3 off
@@ -197,28 +215,6 @@ changes:
 
 ### Changed
 
-- **Breaking for `grouped_subsurface`: the loop's pressure is set at its
-  outlet, not its inlet.** Both variants now take the loop's mass flow and
-  temperature at the injection wellhead and its pressure at the production
-  wellhead (`sim_config.target_extraction_pressure`), and solve for the
-  injection pressure. `SystemBCIteration` hands that pressure to the surface
-  plant in the same pass (`SurfaceComponent.set_injection_pressure`, moved
-  up from `GraphSurface`) and also waits for it to settle (|ΔP| < 1 kPa), so
-  the configured surface `injection_pressure` is only the first timestep's
-  starting guess for these templates. This keeps the injected mass rate
-  under tango's control if RAFT later loses fluid to storage or leak-off
-  (GitHub #63), and matches how RAFT's own template sets the well up. The
-  `numerical` variant finds the injection pressure by shooting; given the
-  production pressure a separate-well run marches to, it reproduces that
-  run's injection pressure and cell profiles to within 7e-11 over 25 years
-  (tested to 1e-6). The RAFT template's `NR_tol` is tightened from RAFT's
-  1e-7 to 1e-8: RAFT divides its residual by the mesh's 12,054 nodes, so at
-  1e-7 the production flow could be off by ~1.2e-3 of the injected rate,
-  over tango's 1e-3 check. Goldens: `AGS_ORC_electric_grouped_subsurface.yml`
-  3.4219 → 3.4194, `AGS_ORC_electric_raft.yml` 2.1193 → 2.1236. The
-  separate-well AGS templates are unchanged (GitHub #130). A new topology
-  diagram, `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where
-  tango and RAFT exchange and check these boundary conditions.
 - **Breaking: `tango_core run` needs `--save-dir DIR` or `--no-save`.** Running
   without either (or with both) now stops with an argparse error, so results
   are never lost by forgetting `--save-dir`; `--no-save` writes nothing, for
