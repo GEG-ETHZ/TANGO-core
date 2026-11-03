@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.27", "hatch-fancy-pypi-readme>=25.1"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,7 +11,7 @@ version = "1.1.0"
 authors = [{name = "Geothermal Energy and Geofluids Group, ETH Zurich", email = "chad.baker@eaps.ethz.ch"}]
 maintainers = [{name = "Chad Baker", email = "chad.baker@eaps.ethz.ch"}]
 description = "Techno-economic ANalysis of Geoenergy Operations (TANGO)"
-readme = "README.md"
+dynamic = ["readme"]  # README.md with absolute links for PyPI; see [tool.hatch.metadata.hooks.fancy-pypi-readme]
 license = "Apache-2.0"
 license-files = ["LICENSE.txt"]
 requires-python = ">=3.11,<3.12"
@@ -74,6 +74,26 @@ docs = [
     "zensical==0.0.68", # docs site generator (reads mkdocs.yml); `uv run --group docs zensical serve`
     "mkdocstrings-python==2.0.9", # API reference pages from the Google-style docstrings
 ]
+
+# PyPI shows README.md as the project page but can't resolve relative paths,
+# so the copy in the package metadata points them at GitHub: images at the
+# raw files, links at the rendered pages. The README in the repository keeps
+# its relative paths, which work on GitHub in every branch and fork.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# images: Markdown ![..](path) and HTML src= / srcset=
+pattern = '(\]\(|src="|srcset=")(?:\./)?(?!https?://|#|mailto:)([^)"]+\.(?:svg|png|jpg|jpeg|gif))'
+replacement = '\1https://raw.githubusercontent.com/GEG-ETHZ/TANGO-core/main/\2'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# every other relative Markdown link
+pattern = '\]\((?:\./)?(?!https?://|#|mailto:)([^)]+)\)'
+replacement = '](https://github.com/GEG-ETHZ/TANGO-core/blob/main/\1)'
 
 # The sdist holds the package's source, its tests, and what the wheel is built
 # from; `uv build` makes the wheel from the sdist, so a path the wheel's
