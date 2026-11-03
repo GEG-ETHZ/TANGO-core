@@ -80,7 +80,7 @@ TANGO is licensed under Apache-2.0 and follows the [REUSE](https://reuse.softwar
 # SPDX-License-Identifier: Apache-2.0
 ```
 
-A shebang line, if any, stays above them. Other files are covered by [`REUSE.toml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/REUSE.toml). A file from a third party keeps its own copyright and license: give it an annotation in `REUSE.toml`, and add its license text to `LICENSES/`. The `reuse` prek hook runs `reuse lint` on every commit.
+A shebang line, if any, stays above them. Other files are covered by the file-type patterns in [`REUSE.toml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/REUSE.toml), which deliberately leave out `*.py`, so a Python file without the header fails the check. A file of a new type fails it too: add its pattern to `REUSE.toml`. A file from a third party keeps its own copyright and license: give it an annotation in `REUSE.toml`, and add its license text to `LICENSES/`. The `reuse` prek hook runs `reuse lint` on every commit.
 
 ## Changelog
 
