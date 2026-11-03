@@ -90,11 +90,11 @@ wf = Workflow.from_file("templates/hydro_sf_electric.yml")
 wf.run()
 ```
 
-The [installation guide](docs/guides/install.md) covers SSH access, release pinning and upgrades; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; optimizations live in [`applications/`](applications/README.md).
+The [installation guide](docs/guides/install.md) covers installing from PyPI, pinning a release, upgrades, and setting up a development checkout; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; optimizations live in [`applications/`](applications/README.md).
 
 ## Documentation and layout
 
-The documentation is published as a private site for the GEG-ETHZ organization, built from [`docs/`](docs/); `just docs` previews it locally.
+The documentation is published at <https://geg-ethz.github.io/TANGO-core/>, built from [`docs/`](docs/); `just docs` previews it locally.
 
 | Section | What it covers |
 |---|---|

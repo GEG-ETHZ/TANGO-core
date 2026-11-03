@@ -4,7 +4,7 @@ There are two ways to install TANGO:
 
 | You want to | Install as | Section |
 |---|---|---|
-| Use TANGO in your own analysis project, pinned to a release | A dependency | [Use a release](#use-a-release) |
+| Use TANGO in your own analysis project | A dependency from PyPI | [Use a release](#use-a-release) |
 | Change TANGO itself | A development checkout | [Develop TANGO](#develop-tango) |
 
 ## Prerequisites
@@ -13,7 +13,6 @@ There are two ways to install TANGO:
 |---|---|---|
 | Python | 3.11 (TANGO requires `>=3.11,<3.12`) | macOS: `brew install python@3.11` · Ubuntu/Debian: `sudo apt install python3.11 python3.11-venv` · Windows: [python.org](https://www.python.org/downloads/windows/) |
 | uv | latest | macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh` · Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
-| GitHub SSH access | — | [Connect to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) |
 
 TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)).
 
@@ -27,13 +26,13 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 
    In the new `pyproject.toml`, set `requires-python = ">=3.11,<3.12"`; TANGO supports Python 3.11 only, and `uv` refuses a dependency whose Python range is narrower than the project's.
 
-2. From inside the new project, add TANGO pinned to a release tag:
+2. From inside the new project, add TANGO from [PyPI](https://pypi.org/project/tango-core/):
 
    ```bash
-   uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
+   uv add tango-core
    ```
 
-   `uv` records the tag and the resolved commit in `pyproject.toml` and `uv.lock`, so the build stays reproducible until you change the tag. Replace `v1.1.0` with the release you need; releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-a-release).
+   With pip instead of uv: `pip install tango-core`. `uv` records the installed version in `uv.lock`, so the build stays reproducible until you upgrade. To pin a specific release, use `uv add "tango-core==1.1.0"`; to install a tagged release from source, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0`. Releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-a-release).
 
 3. Check the installation:
 
@@ -51,7 +50,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 
    This copies the `templates/` that ship with the installed version. An existing `templates/` is left as it is, so local edits are never overwritten. To also copy an optimization or demo pipeline, add `--app <name>` (repeatable); `--list-apps` prints the available names.
 
-To upgrade, run the `uv add` command again with the new tag.
+To upgrade to the latest release, run `uv lock --upgrade-package tango-core && uv sync`, or `uv add "tango-core==<version>"` for a specific one.
 
 The distribution is `tango-core`, and the import name is `tango_core`:
 
@@ -64,10 +63,12 @@ from tango_core.workflows.workflow import Workflow
 1. Clone the repository and install everything, including the development tools and git hooks:
 
    ```bash
-   git clone git@github.com:GEG-ETHZ/TANGO-core.git tango-core
+   git clone https://github.com/GEG-ETHZ/TANGO-core.git tango-core
    cd tango-core
    just setup
    ```
+
+   To push branches, you need write access to the repository; members of GEG usually clone over SSH instead (`git@github.com:GEG-ETHZ/TANGO-core.git`, see [Connect to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)). Everyone else contributes through a fork and a pull request.
 
    Without [`just`](https://github.com/casey/just), run `uv sync`, then install the hooks as shown in [Contributing](../project/contributing.md#development-setup).
 
