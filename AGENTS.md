@@ -12,7 +12,7 @@ Read before any change:
 
 | Item | Value |
 |---|---|
-| Package | `tango_core` (distribution `tango-core`), Python 3.11, in `src/tango_core/` |
+| Package | `tango_core` (distribution `tango-core`), Python 3.11 to 3.13 (developed on 3.11), in `src/tango_core/` |
 | Entry points | `tango_core` (`run`, `validate`, `init`), `tango_core.workflows.workflow.Workflow` |
 | Environment | `uv sync`; tasks in `justfile` |
 | Checks | `just check` = ruff format, ruff lint, mypy strict, pytest |

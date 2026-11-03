@@ -6,7 +6,7 @@
 [![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml)
 [![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE.txt)
-[![Python](https://img.shields.io/badge/python-3.11-0E0E10.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11–3.13-0E0E10.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
 [![mypy](https://img.shields.io/badge/types-strict-0E0E10.svg)](https://mypy-lang.org/)
@@ -55,7 +55,7 @@ Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in 
 
 ## Setup
 
-TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is `tango-core`, the import name is `tango_core`, and the command is `tango_core`.
+TANGO needs Python 3.11, 3.12, or 3.13 (`>=3.11,<3.14`) and [uv](https://docs.astral.sh/uv/getting-started/installation/). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is `tango-core`, the import name is `tango_core`, and the command is `tango_core`.
 
 Add it to your own project from PyPI:
 

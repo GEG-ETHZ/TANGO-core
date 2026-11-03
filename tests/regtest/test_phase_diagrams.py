@@ -10,6 +10,7 @@ not physics, so there's no reason to pay for a full-length run.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -414,8 +415,10 @@ def test_written_diagram_title_names_the_config(tmp_path: Path) -> None:
     wf = _run_fast("hydro_sf_electric.yml")
     (path,) = phase_diagrams.write_phase_diagrams(wf, tmp_path, "hydro_sf_electric")
     html = path.read_text(encoding="utf-8")
-    assert "hydro_sf_electric — H2O P–h phase diagram" in html
-    assert str(wf.to_dict()["title"]) in html
+    for text in ("hydro_sf_electric — H2O P–h phase diagram", str(wf.to_dict()["title"])):
+        # plotly writes non-ASCII characters as-is when orjson is installed,
+        # and JSON-escaped (\u2014) when it isn't; a browser shows both the same
+        assert text in html or json.dumps(text)[1:-1] in html
 
 
 def test_phase_legend_has_one_entry_per_color() -> None:

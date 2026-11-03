@@ -11,7 +11,7 @@ There are two ways to install TANGO:
 
 | Requirement | Version | Install |
 |---|---|---|
-| Python | 3.11 (TANGO requires `>=3.11,<3.12`) | macOS: `brew install python@3.11` · Ubuntu/Debian: `sudo apt install python3.11 python3.11-venv` · Windows: [python.org](https://www.python.org/downloads/windows/) |
+| Python | 3.11, 3.12, or 3.13 (TANGO requires `>=3.11,<3.14`) | macOS: `brew install python@3.11` · Ubuntu/Debian: `sudo apt install python3.11 python3.11-venv` · Windows: [python.org](https://www.python.org/downloads/windows/) |
 | uv | latest | macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh` · Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
 
 TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)).
@@ -21,10 +21,10 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 1. Create a new project for your analysis:
 
    ```bash
-   uv init --python 3.11 my-study && cd my-study
+   uv init --python 3.13 my-study && cd my-study
    ```
 
-   In the new `pyproject.toml`, set `requires-python = ">=3.11,<3.12"`; TANGO supports Python 3.11 only, and `uv` refuses a dependency whose Python range is narrower than the project's.
+   In the new `pyproject.toml`, set `requires-python = ">=3.13,<3.14"` (or any range within 3.11 to 3.13); `uv` refuses a dependency whose Python range is narrower than the project's, and TANGO supports Python 3.11 to 3.13.
 
 2. From inside the new project, add TANGO from [PyPI](https://pypi.org/project/tango-core/):
 
@@ -112,5 +112,5 @@ Run every command from the repository root.
 | Symptom | Cause and fix |
 |---|---|
 | `Permission denied (publickey)` during `uv add` or `git clone` | Your SSH key is not registered on GitHub, or your account lacks access to `GEG-ETHZ/TANGO-core`. Follow the SSH guide linked above, then ask a maintainer for access. |
-| `requires-python` / no matching Python | TANGO needs Python 3.11 exactly. Install it, or let uv fetch it: `uv python install 3.11`. |
+| `requires-python` / no matching Python | TANGO needs Python 3.11, 3.12, or 3.13. Install one, or let uv fetch it: `uv python install 3.13`. |
 | `tango_core init` leaves `templates/` unchanged | Intended: it never overwrites an existing folder. Choose another destination, or move the existing folder to get fresh copies. |

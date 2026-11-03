@@ -55,6 +55,24 @@ jobs:
       # encoding (see pytest.ini), which breaks on Windows.
       - run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
 
+  newer-python:
+    # Development runs on Python 3.11 with uv.lock (the jobs above), but
+    # requires-python also allows 3.12 and 3.13. Install tango-core the way a
+    # PyPI user does, resolving the newest allowed dependencies rather than
+    # the lock, so a dependency release that breaks it shows up here first.
+    name: tests (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - run: uv venv --python ${{ matrix.python }}
+      - run: uv pip install . pytest pytest-xdist
+      - run: .venv/bin/python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
+
   raft:
     # The optional RAFT extra (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
     # private until its public release, so installing it needs the read-only

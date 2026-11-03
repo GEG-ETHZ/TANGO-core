@@ -236,6 +236,10 @@ changes:
   `import tango` and `tango_cli` are gone, with no alias; update imports
   and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
   tracks is `src/tango_core.hash`.
+- **Python 3.12 and 3.13** are supported as well as 3.11
+  (`requires-python = ">=3.11,<3.14"`); a CI job installs the package as
+  a PyPI user would and runs the tests on both. numpy is capped below 2.5,
+  which removed `numpy.row_stack` that pymoo 0.6.1.3 still calls.
 - **Fewer runtime dependencies.** Installing `tango-core` no longer pulls
   in packages its code doesn't use (`pip`, `pexpect`, `python-arango`,
   `tqdm`, `msgpack`, `oyaml`, `termcolor`, `tabulate`, `openpyxl`,
