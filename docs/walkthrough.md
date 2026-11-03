@@ -12,14 +12,13 @@ Follow [README.md's "General users" → "Installation"](./README.md#general-user
 section directly:
 
 1. Scaffold a project with the GEG cookiecutter template.
-2. `uv add "tango-core@git+ssh://git@gitlab.ethz.ch/geg/tango-projects/tango-core.git" --tag v1.1.0`
-   (swap in whatever the current release tag is).
+2. `uv add tango-core` (or `pip install tango-core`).
 3. `tango_core init .` to pull down `templates/` and every
    `applications/` pipeline into the new project (`--app` narrows this to
    specific apps, `--no-apps` skips them entirely — see `--help`).
 
-This is a private GitLab-only distribution (see [NOTICE](../NOTICE)), version-pinned via
-the tag.
+tango-core is published on PyPI under the Apache-2.0 license (see
+[LICENSE.txt](../LICENSE.txt)).
 
 ### 1.2 Run a template
 

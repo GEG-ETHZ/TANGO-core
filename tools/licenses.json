@@ -11,53 +11,6 @@
     "Parent": "alive-progress"
   },
   {
-    "Name": "aiohappyeyeballs",
-    "License": "PSF-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp"
-    ],
-    "Parent": "aiohttp"
-  },
-  {
-    "Name": "aiohttp",
-    "License": "Apache-2.0 AND MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp-retry",
-      "fsspec",
-      "gcsfs"
-    ],
-    "Parent": "gcsfs"
-  },
-  {
-    "Name": "aiohttp-retry",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-http",
-      "scmrepo"
-    ],
-    "Parent": "dvc-http"
-  },
-  {
-    "Name": "aiosignal",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp"
-    ],
-    "Parent": "aiohttp"
-  },
-  {
     "Name": "alive-progress",
     "License": "MIT",
     "Direct": false,
@@ -67,28 +20,6 @@
       "pymoo"
     ],
     "Parent": "pymoo"
-  },
-  {
-    "Name": "amqp",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "kombu"
-    ],
-    "Parent": "kombu"
-  },
-  {
-    "Name": "annotated-doc",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "typer"
-    ],
-    "Parent": "typer"
   },
   {
     "Name": "annotated-types",
@@ -102,76 +33,6 @@
     "Parent": "pydantic"
   },
   {
-    "Name": "antlr4-python3-runtime",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "hydra-core",
-      "omegaconf"
-    ],
-    "Parent": "hydra-core"
-  },
-  {
-    "Name": "anyio",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "httpx"
-    ],
-    "Parent": "httpx"
-  },
-  {
-    "Name": "appdirs",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "iterative-telemetry"
-    ],
-    "Parent": "iterative-telemetry"
-  },
-  {
-    "Name": "asyncssh",
-    "License": "EPL-2.0 OR GPL-2.0-or-later",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "scmrepo"
-    ],
-    "Parent": "scmrepo"
-  },
-  {
-    "Name": "atpublic",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "flufl-lock"
-    ],
-    "Parent": "flufl-lock"
-  },
-  {
-    "Name": "attrs",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp",
-      "dvc",
-      "dvc-data",
-      "sqltrie"
-    ],
-    "Parent": "dvc"
-  },
-  {
     "Name": "autograd",
     "License": "MIT License",
     "Direct": false,
@@ -183,123 +44,15 @@
     "Parent": "pymoo"
   },
   {
-    "Name": "billiard",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery"
-    ],
-    "Parent": "celery"
-  },
-  {
     "Name": "build",
     "License": "MIT",
     "Direct": false,
-    "Depth": 2,
+    "Depth": 3,
     "Scope": "runtime",
     "RequiredBy": [
       "fluprodia"
     ],
     "Parent": "fluprodia"
-  },
-  {
-    "Name": "celery",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-task"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "certifi",
-    "License": "MPL-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "httpcore",
-      "httpx",
-      "requests"
-    ],
-    "Parent": "requests"
-  },
-  {
-    "Name": "cffi",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "cryptography",
-      "pygit2"
-    ],
-    "Parent": "pygit2"
-  },
-  {
-    "Name": "charset-normalizer",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "requests"
-    ],
-    "Parent": "requests"
-  },
-  {
-    "Name": "click",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "black",
-      "celery",
-      "click-didyoumean",
-      "click-plugins",
-      "click-repl",
-      "typer"
-    ],
-    "Parent": "celery"
-  },
-  {
-    "Name": "click-didyoumean",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery"
-    ],
-    "Parent": "celery"
-  },
-  {
-    "Name": "click-plugins",
-    "License": "New BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery"
-    ],
-    "Parent": "celery"
-  },
-  {
-    "Name": "click-repl",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery"
-    ],
-    "Parent": "celery"
   },
   {
     "Name": "cma",
@@ -311,28 +64,6 @@
       "pymoo"
     ],
     "Parent": "pymoo"
-  },
-  {
-    "Name": "colorama",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "configobj",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
   },
   {
     "Name": "contourpy",
@@ -359,18 +90,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "cryptography",
-    "License": "Apache-2.0 OR BSD-3-Clause",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "asyncssh",
-      "google-auth"
-    ],
-    "Parent": "google-auth"
-  },
-  {
     "Name": "cycler",
     "License": "BSD License",
     "Direct": false,
@@ -380,18 +99,6 @@
       "matplotlib"
     ],
     "Parent": "matplotlib"
-  },
-  {
-    "Name": "decorator",
-    "License": "BSD-2-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gcsfs",
-      "ipython"
-    ],
-    "Parent": "gcsfs"
   },
   {
     "Name": "Deprecated",
@@ -405,17 +112,6 @@
     "Parent": "pymoo"
   },
   {
-    "Name": "dictdiffer",
-    "License": "MIT License",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-data"
-    ],
-    "Parent": "dvc-data"
-  },
-  {
     "Name": "dill",
     "License": "BSD-3-Clause",
     "Direct": false,
@@ -425,199 +121,6 @@
       "pymoo"
     ],
     "Parent": "pymoo"
-  },
-  {
-    "Name": "diskcache",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-data"
-    ],
-    "Parent": "dvc-data"
-  },
-  {
-    "Name": "distro",
-    "License": "Apache License, Version 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "iterative-telemetry"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dpath",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dulwich",
-    "License": "Apache-2.0 OR GPL-2.0-or-later",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-studio-client",
-      "scmrepo"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-gs",
-      "dvc-webdav",
-      "tango-core"
-    ],
-    "Parent": "dvc-gs"
-  },
-  {
-    "Name": "dvc-data",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-gs",
-    "License": "Apache License 2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "dvc-http",
-    "License": "Apache License 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-objects",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-data"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-render",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-studio-client",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-task",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "dvc-webdav",
-    "License": "Apache-2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "entrypoints",
-    "License": "MIT License",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gto"
-    ],
-    "Parent": "gto"
-  },
-  {
-    "Name": "et_xmlfile",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "openpyxl"
-    ],
-    "Parent": "openpyxl"
-  },
-  {
-    "Name": "filelock",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "iterative-telemetry"
-    ],
-    "Parent": "iterative-telemetry"
-  },
-  {
-    "Name": "flatten-dict",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
   },
   {
     "Name": "flexcache",
@@ -642,27 +145,15 @@
     "Parent": "pint"
   },
   {
-    "Name": "flufl.lock",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
     "Name": "fluprodia",
     "License": "MIT License",
-    "Direct": true,
-    "Depth": 1,
+    "Direct": false,
+    "Depth": 2,
     "Scope": "runtime",
     "RequiredBy": [
-      "tango-core",
       "tespy"
     ],
-    "Parent": "tango-core"
+    "Parent": "tespy"
   },
   {
     "Name": "fonttools",
@@ -676,203 +167,6 @@
     "Parent": "matplotlib"
   },
   {
-    "Name": "frozenlist",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp",
-      "aiosignal"
-    ],
-    "Parent": "aiohttp"
-  },
-  {
-    "Name": "fsspec",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-data",
-      "dvc-http",
-      "dvc-objects",
-      "gcsfs",
-      "scmrepo"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "funcy",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-data",
-      "dvc-objects",
-      "dvc-task",
-      "gto",
-      "scmrepo"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "gcsfs",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-gs"
-    ],
-    "Parent": "dvc-gs"
-  },
-  {
-    "Name": "gitdb",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gitpython"
-    ],
-    "Parent": "gitpython"
-  },
-  {
-    "Name": "GitPython",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "scmrepo"
-    ],
-    "Parent": "scmrepo"
-  },
-  {
-    "Name": "google-api-core",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-cloud-core",
-      "google-cloud-storage",
-      "google-cloud-storage-control"
-    ],
-    "Parent": "google-cloud-storage-control"
-  },
-  {
-    "Name": "google-auth",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gcsfs",
-      "google-api-core",
-      "google-auth-oauthlib",
-      "google-cloud-core",
-      "google-cloud-storage",
-      "google-cloud-storage-control"
-    ],
-    "Parent": "gcsfs"
-  },
-  {
-    "Name": "google-auth-oauthlib",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gcsfs"
-    ],
-    "Parent": "gcsfs"
-  },
-  {
-    "Name": "google-cloud-core",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-cloud-storage"
-    ],
-    "Parent": "google-cloud-storage"
-  },
-  {
-    "Name": "google-cloud-storage",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gcsfs"
-    ],
-    "Parent": "gcsfs"
-  },
-  {
-    "Name": "google-cloud-storage-control",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gcsfs"
-    ],
-    "Parent": "gcsfs"
-  },
-  {
-    "Name": "google-crc32c",
-    "License": "Unknown",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-cloud-storage",
-      "google-resumable-media"
-    ],
-    "Parent": "google-cloud-storage"
-  },
-  {
-    "Name": "google-resumable-media",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-cloud-storage"
-    ],
-    "Parent": "google-cloud-storage"
-  },
-  {
-    "Name": "googleapis-common-protos",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-api-core",
-      "grpc-google-iam-v1",
-      "grpcio-status"
-    ],
-    "Parent": "google-api-core"
-  },
-  {
-    "Name": "grandalf",
-    "License": "GPLv2 | EPLv1",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
     "Name": "graphemeu",
     "License": "Copyright (c) 2017 The Python Packaging Authority (PyPA)\nCopyright (c) 2014 Mapbox\nCopyright (c) 2017 Alvin Lindstam\nCopyright (c) 2025 Timendum\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
     "Direct": false,
@@ -884,134 +178,16 @@
     "Parent": "alive-progress"
   },
   {
-    "Name": "grpc-google-iam-v1",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-cloud-storage-control"
-    ],
-    "Parent": "google-cloud-storage-control"
-  },
-  {
-    "Name": "grpcio",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-api-core",
-      "google-cloud-storage-control",
-      "googleapis-common-protos",
-      "grpc-google-iam-v1",
-      "grpcio-status"
-    ],
-    "Parent": "google-cloud-storage-control"
-  },
-  {
-    "Name": "grpcio-status",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-api-core"
-    ],
-    "Parent": "google-api-core"
-  },
-  {
-    "Name": "gto",
-    "License": "Apache License 2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "h11",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "httpcore"
-    ],
-    "Parent": "httpcore"
-  },
-  {
-    "Name": "httpcore",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "httpx"
-    ],
-    "Parent": "httpx"
-  },
-  {
-    "Name": "httpx",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "webdav4"
-    ],
-    "Parent": "webdav4"
-  },
-  {
-    "Name": "hydra-core",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "idna",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "anyio",
-      "httpx",
-      "requests",
-      "yarl"
-    ],
-    "Parent": "requests"
-  },
-  {
-    "Name": "iterative-telemetry",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
     "Name": "Jinja2",
     "License": "BSD License",
-    "Direct": true,
-    "Depth": 1,
+    "Direct": false,
+    "Depth": 2,
     "Scope": "runtime",
     "RequiredBy": [
       "sphinx",
-      "tango-core",
       "tespy"
     ],
-    "Parent": "tango-core"
+    "Parent": "tespy"
   },
   {
     "Name": "joblib",
@@ -1037,34 +213,10 @@
     "Parent": "matplotlib"
   },
   {
-    "Name": "kombu",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery",
-      "dvc",
-      "dvc-task"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "markdown-it-py",
-    "License": "MIT License",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "rich"
-    ],
-    "Parent": "rich"
-  },
-  {
     "Name": "MarkupSafe",
     "License": "BSD-3-Clause",
     "Direct": false,
-    "Depth": 2,
+    "Depth": 3,
     "Scope": "runtime",
     "RequiredBy": [
       "jinja2"
@@ -1079,45 +231,10 @@
     "Scope": "runtime",
     "RequiredBy": [
       "pymoo",
-      "seaborn",
       "tango-core",
       "tespy"
     ],
     "Parent": "tango-core"
-  },
-  {
-    "Name": "mdurl",
-    "License": "MIT License",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "markdown-it-py"
-    ],
-    "Parent": "markdown-it-py"
-  },
-  {
-    "Name": "msgpack",
-    "License": "Apache-2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "multidict",
-    "License": "Apache License 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp",
-      "yarl"
-    ],
-    "Parent": "aiohttp"
   },
   {
     "Name": "narwhals",
@@ -1129,18 +246,6 @@
       "scikit-learn"
     ],
     "Parent": "scikit-learn"
-  },
-  {
-    "Name": "networkx",
-    "License": "BSD-3-Clause",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "numpy",
@@ -1159,68 +264,10 @@
       "pymoo",
       "scikit-learn",
       "scipy",
-      "seaborn",
       "tespy",
       "types-networkx"
     ],
-    "Parent": "fluprodia"
-  },
-  {
-    "Name": "oauthlib",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "requests-oauthlib"
-    ],
-    "Parent": "requests-oauthlib"
-  },
-  {
-    "Name": "omegaconf",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "hydra-core"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "openpyxl",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "orjson",
-    "License": "MPL-2.0 AND (Apache-2.0 OR MIT)",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-data",
-      "sqltrie"
-    ],
-    "Parent": "dvc-data"
-  },
-  {
-    "Name": "oyaml",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
+    "Parent": "matplotlib"
   },
   {
     "Name": "packaging",
@@ -1238,7 +285,6 @@
       "matplotlib",
       "plotly",
       "pytest",
-      "python-arango",
       "pytoolconfig",
       "sphinx"
     ],
@@ -1251,35 +297,8 @@
     "Depth": 1,
     "Scope": "runtime",
     "RequiredBy": [
-      "seaborn",
       "tango-core",
       "tespy"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "pathspec",
-    "License": "Mozilla Public License 2.0 (MPL 2.0)",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "black",
-      "dvc",
-      "mypy",
-      "scmrepo"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "pexpect",
-    "License": "ISC license",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "ipython",
-      "tango-core"
     ],
     "Parent": "tango-core"
   },
@@ -1304,18 +323,7 @@
       "fluprodia",
       "tespy"
     ],
-    "Parent": "fluprodia"
-  },
-  {
-    "Name": "pip",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
+    "Parent": "tespy"
   },
   {
     "Name": "platformdirs",
@@ -1330,7 +338,7 @@
       "pint",
       "pytoolconfig"
     ],
-    "Parent": "dvc"
+    "Parent": "pint"
   },
   {
     "Name": "plotly",
@@ -1342,138 +350,6 @@
       "tango-core"
     ],
     "Parent": "tango-core"
-  },
-  {
-    "Name": "polars",
-    "License": "MIT License",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "polars-runtime-32",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "polars"
-    ],
-    "Parent": "polars"
-  },
-  {
-    "Name": "prompt_toolkit",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "click-repl",
-      "ipython"
-    ],
-    "Parent": "click-repl"
-  },
-  {
-    "Name": "propcache",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp",
-      "yarl"
-    ],
-    "Parent": "aiohttp"
-  },
-  {
-    "Name": "proto-plus",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-api-core",
-      "google-cloud-storage-control"
-    ],
-    "Parent": "google-cloud-storage-control"
-  },
-  {
-    "Name": "protobuf",
-    "License": "3-Clause BSD License",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-api-core",
-      "google-cloud-storage-control",
-      "googleapis-common-protos",
-      "grpc-google-iam-v1",
-      "grpcio-status",
-      "proto-plus"
-    ],
-    "Parent": "google-cloud-storage-control"
-  },
-  {
-    "Name": "psutil",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "flufl-lock",
-      "ipykernel",
-      "ipython"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "ptyprocess",
-    "License": "ISC License (ISCL)",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "pexpect"
-    ],
-    "Parent": "pexpect"
-  },
-  {
-    "Name": "pyasn1",
-    "License": "BSD-2-Clause",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "pyasn1-modules"
-    ],
-    "Parent": "pyasn1-modules"
-  },
-  {
-    "Name": "pyasn1_modules",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-auth"
-    ],
-    "Parent": "google-auth"
-  },
-  {
-    "Name": "pycparser",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 6,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "cffi"
-    ],
-    "Parent": "cffi"
   },
   {
     "Name": "pydantic",
@@ -1489,17 +365,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "pydantic-settings",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gto"
-    ],
-    "Parent": "gto"
-  },
-  {
     "Name": "pydantic_core",
     "License": "MIT",
     "Direct": false,
@@ -1509,68 +374,6 @@
       "pydantic"
     ],
     "Parent": "pydantic"
-  },
-  {
-    "Name": "pydot",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "pygit2",
-    "License": "GPLv2 with linking exception",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "scmrepo"
-    ],
-    "Parent": "scmrepo"
-  },
-  {
-    "Name": "Pygments",
-    "License": "BSD-2-Clause",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "ipython",
-      "ipython-pygments-lexers",
-      "pytest",
-      "rich",
-      "sphinx"
-    ],
-    "Parent": "rich"
-  },
-  {
-    "Name": "pygtrie",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-data",
-      "scmrepo",
-      "sqltrie"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "PyJWT",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "python-arango"
-    ],
-    "Parent": "python-arango"
   },
   {
     "Name": "pymoo",
@@ -1601,23 +404,12 @@
     "Name": "pyproject_hooks",
     "License": "MIT",
     "Direct": false,
-    "Depth": 3,
+    "Depth": 4,
     "Scope": "runtime",
     "RequiredBy": [
       "build"
     ],
     "Parent": "build"
-  },
-  {
-    "Name": "python-arango",
-    "License": "MIT License",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "python-dateutil",
@@ -1633,17 +425,6 @@
       "webdav4"
     ],
     "Parent": "matplotlib"
-  },
-  {
-    "Name": "python-dotenv",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "pydantic-settings"
-    ],
-    "Parent": "pydantic-settings"
   },
   {
     "Name": "pytz",
@@ -1664,77 +445,9 @@
     "Scope": "runtime",
     "RequiredBy": [
       "omegaconf",
-      "oyaml",
       "tango-core"
     ],
     "Parent": "tango-core"
-  },
-  {
-    "Name": "requests",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-studio-client",
-      "gcsfs",
-      "google-api-core",
-      "google-cloud-storage",
-      "iterative-telemetry",
-      "python-arango",
-      "requests-oauthlib",
-      "requests-toolbelt",
-      "sphinx"
-    ],
-    "Parent": "python-arango"
-  },
-  {
-    "Name": "requests-oauthlib",
-    "License": "ISC",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "google-auth-oauthlib"
-    ],
-    "Parent": "google-auth-oauthlib"
-  },
-  {
-    "Name": "requests-toolbelt",
-    "License": "Apache 2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "python-arango"
-    ],
-    "Parent": "python-arango"
-  },
-  {
-    "Name": "rich",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "gto",
-      "typer"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "ruamel.yaml",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "gto"
-    ],
-    "Parent": "dvc"
   },
   {
     "Name": "scikit-learn",
@@ -1762,85 +475,6 @@
     "Parent": "tango-core"
   },
   {
-    "Name": "scmrepo",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "gto"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "seaborn",
-    "License": "BSD License",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "semver",
-    "License": "BSD License",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gto"
-    ],
-    "Parent": "gto"
-  },
-  {
-    "Name": "setuptools",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "zc-lockfile"
-    ],
-    "Parent": "zc-lockfile"
-  },
-  {
-    "Name": "shellingham",
-    "License": "ISC License",
-    "Direct": false,
-    "Depth": 5,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "typer"
-    ],
-    "Parent": "typer"
-  },
-  {
-    "Name": "shortuuid",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-task"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "shtab",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
     "Name": "six",
     "License": "MIT",
     "Direct": false,
@@ -1852,40 +486,17 @@
     "Parent": "python-dateutil"
   },
   {
-    "Name": "smmap",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 6,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gitdb"
-    ],
-    "Parent": "gitdb"
-  },
-  {
-    "Name": "sqltrie",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-data"
-    ],
-    "Parent": "dvc-data"
-  },
-  {
     "Name": "tabulate",
     "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
+    "Direct": false,
+    "Depth": 2,
     "Scope": "runtime",
     "RequiredBy": [
       "dvc",
       "gto",
-      "tango-core",
       "tespy"
     ],
-    "Parent": "tango-core"
+    "Parent": "tespy"
   },
   {
     "Name": "tenacity",
@@ -1897,17 +508,6 @@
       "plotly"
     ],
     "Parent": "plotly"
-  },
-  {
-    "Name": "termcolor",
-    "License": "MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "tespy",
@@ -1930,76 +530,6 @@
       "scikit-learn"
     ],
     "Parent": "scikit-learn"
-  },
-  {
-    "Name": "tomlkit",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "tqdm",
-    "License": "MPL-2.0 AND MIT",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-data",
-      "fsspec",
-      "scmrepo",
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "typer",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "gto"
-    ],
-    "Parent": "gto"
-  },
-  {
-    "Name": "types-PyYAML",
-    "License": "Apache-2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
-  },
-  {
-    "Name": "types-requests",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "types-tqdm"
-    ],
-    "Parent": "types-tqdm"
-  },
-  {
-    "Name": "types-tqdm",
-    "License": "Apache-2.0",
-    "Direct": true,
-    "Depth": 1,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "tango-core"
-    ],
-    "Parent": "tango-core"
   },
   {
     "Name": "typing-inspection",
@@ -2050,78 +580,6 @@
     "Parent": "pandas"
   },
   {
-    "Name": "tzlocal",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "celery"
-    ],
-    "Parent": "celery"
-  },
-  {
-    "Name": "urllib3",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dulwich",
-      "python-arango",
-      "requests",
-      "types-requests"
-    ],
-    "Parent": "python-arango"
-  },
-  {
-    "Name": "vine",
-    "License": "BSD",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "amqp",
-      "celery",
-      "kombu"
-    ],
-    "Parent": "celery"
-  },
-  {
-    "Name": "voluptuous",
-    "License": "BSD-3-Clause",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc",
-      "dvc-studio-client"
-    ],
-    "Parent": "dvc"
-  },
-  {
-    "Name": "wcwidth",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 6,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "prompt-toolkit"
-    ],
-    "Parent": "prompt-toolkit"
-  },
-  {
-    "Name": "webdav4",
-    "License": "MIT",
-    "Direct": false,
-    "Depth": 2,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc-webdav"
-    ],
-    "Parent": "dvc-webdav"
-  },
-  {
     "Name": "wrapt",
     "License": "BSD-2-Clause",
     "Direct": false,
@@ -2131,27 +589,5 @@
       "deprecated"
     ],
     "Parent": "deprecated"
-  },
-  {
-    "Name": "yarl",
-    "License": "Apache-2.0",
-    "Direct": false,
-    "Depth": 4,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "aiohttp"
-    ],
-    "Parent": "aiohttp"
-  },
-  {
-    "Name": "zc.lockfile",
-    "License": "ZPL-2.1",
-    "Direct": false,
-    "Depth": 3,
-    "Scope": "runtime",
-    "RequiredBy": [
-      "dvc"
-    ],
-    "Parent": "dvc"
   }
 ]

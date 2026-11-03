@@ -57,12 +57,14 @@ Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in 
 
 TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is `tango-core`, the import name is `tango_core`, and the command is `tango_core`.
 
-Add a pinned release to your own project:
+Add it to your own project from PyPI:
 
 ```bash
-uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
+uv add tango-core               # or: pip install tango-core
 uv run tango_core init .        # copies the templates into ./templates
 ```
+
+To install a tagged release from source instead, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0`.
 
 Or clone the repository to work on it:
 

@@ -22,6 +22,10 @@ are realistic and cited, and third-party licenses are a release gate.
 substantially for CO2 and closed-loop (AGS) configs**; every example config
 is regoldened.
 
+The version is 1.1.0 rather than the 2.0.0 that EffVer gives a package
+rename: this is the first public release, and nobody outside GEG upgrades
+from 1.0.x.
+
 [Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
 
 ### Breaking
@@ -232,10 +236,18 @@ changes:
   `import tango` and `tango_cli` are gone, with no alias; update imports
   and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
   tracks is `src/tango_core.hash`.
+- **Fewer runtime dependencies.** Installing `tango-core` no longer pulls
+  in packages its code doesn't use (`pip`, `pexpect`, `python-arango`,
+  `tqdm`, `msgpack`, `oyaml`, `termcolor`, `tabulate`, `openpyxl`,
+  `seaborn`, `polars`, `jinja2`, `networkx`, `fluprodia`), type stubs, or
+  DVC plugins; the pinned `pip<24` no longer downgrades pip. The `dev`
+  extra is gone: development tools are an unpublished dependency group that
+  `uv sync` installs.
 - **Smaller source archive (sdist).** It now holds the package source,
   tests, templates, applications, and the release files (license, README,
-  changelog, citation) instead of every file in the repository; the wheel
-  is unchanged.
+  changelog, citation) instead of every file in the repository, and leaves
+  out what the wheel leaves out: the on-hold app and the DVC locks; the
+  wheel is unchanged.
 - **SPDX license headers.** Every Python file starts with
   `SPDX-FileCopyrightText` and `SPDX-License-Identifier` lines, and
   `REUSE.toml` covers the other files, so the repository complies with the
