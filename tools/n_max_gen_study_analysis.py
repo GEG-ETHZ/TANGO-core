@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Analyze the n_max_gen study (docs/pymoo_generation_budget.md).
 
 Reads every ``studies/n_max_gen/<app>/seed<N>/evaluations.csv`` written by
@@ -32,7 +35,7 @@ import numpy as np
 import pandas as pd
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
-from tango.pymoo_api import ideal_distance
+from tango_core.pymoo_api import ideal_distance
 
 STUDY_DIR = Path("studies/n_max_gen")
 REFERENCE = 1.1

@@ -1,7 +1,7 @@
 # tango: Progress Summary & Forward Plan — October 2026
 
-*Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, 2026-10-26, and
-2026-10-27. Covers October 1–27. Managerial-level summary — for engineering detail,
+*Prepared 2026-10-02, updated 2026-10-05, 2026-10-15, 2026-10-26,
+2026-10-27, 2026-10-28, and 2026-10-29. Covers October 1–29. Managerial-level summary — for engineering detail,
 see the issues linked below (GitLab numbers up to #75, GitHub from #94 on)
 and `docs/tango_tasks.md`. Continues from
 `docs/archive/tango_progress_summary_sep_2026.md`.*
@@ -339,7 +339,50 @@ adjusting its pressures (GitHub #123). TANGO's and RAFT's fluid property
 models differ slightly, so TANGO's heat figure for a RAFT run is 0.6–1.2%
 lower than RAFT's own; this is documented.
 
+## tango-core 1.1.0 is ready to be released as open source under Apache-2.0 (2026-10-28–29)
+
+**In plain terms:** for FlexGEO's open-source modeling catalogue (D4.2,
+due October 31), the whole of tango-core is released publicly rather than
+split into separate packages. The group leader approved the Apache-2.0
+license, the same one RAFT and METRO use. Version 1.1.0, the first
+public release, is ready to be tagged on `main`; it includes the optimized example
+designs (GitHub #56) and the RAFT coupling (GitHub #105). Making the
+repository (`GEG-ETHZ/TANGO-core`) public and publishing 1.1.0 to PyPI
+follow.
+
+**What changed:**
+
+- **License and credit.** The proprietary license and the internal
+  distribution notice are replaced by Apache-2.0. ETH Zurich is named as
+  the copyright holder, and Chad Baker and Dubhaltach McSweeney as authors,
+  with their ORCIDs in the citation file, as ETH's open-source rules
+  require. Every source file now states its copyright and license in a
+  machine-readable header, and a check on every commit keeps it that way.
+  The dependencies' licenses were audited, and all are compatible.
+- **One name.** The package is installed as `tango-core`, imported as
+  `tango_core`, and run as `tango_core`, where before it was installed as
+  `tango-core`, imported as `tango`, and run as `tango_cli`.
+- **Releases on PyPI.** Pushing a version tag uploads the release to
+  TestPyPI automatically, and to PyPI (`pip install tango-core`) only after
+  a maintainer has tried the TestPyPI copy and approved it. PyPI never
+  accepts the same version twice, so a broken release can't reach users
+  unchecked. No password or token is stored for this.
+- **What goes public.** The issues and pull requests were reviewed before
+  the switch; a few comments were edited and three issues moved to the
+  private operations repository. Internal pages (task log, roadmap,
+  progress summaries) stay in the repository but off the public
+  documentation site and out of the published package.
+
+**Still open:** making the repository and the documentation site public,
+the one-time PyPI setup, and a citable DOI through Zenodo (GitHub #124,
+deferred).
+
 ## Smaller items worth noting
+
+- `tango_core run` now requires `--save-dir DIR` or `--no-save`, so a run
+  can no longer throw its results away because the flag was forgotten
+  (GitHub #125). RAFT's own output files are kept alongside tango's when
+  `--save-dir` is given.
 
 - Documentation split: developer docs moved to `dev_docs/`; `docs/` now
   holds user-facing documentation that ships with the package, starting
@@ -368,15 +411,17 @@ search bounds are each either explained or handed off, and designs that
 boil a well, collapse its pressure, or deliver negative heat are rejected
 by name. An AGS loop's subsurface can be simulated by RAFT instead of
 tango's own wells, with RAFT's internal behavior recorded and its silent
-failure modes turned into errors (GitHub #105, merging after #56).
+failure modes turned into errors (GitHub #105). All of this is in
+version 1.1.0, the first public release, licensed under Apache-2.0, with
+releases published to PyPI through a checked, two-stage process.
 
 ## Immediate next steps
 
 1. Apply the rerun CPG heat optimization's pick to its config.
 2. Domain-expert review of the engineering limits in GitHub #120.
-3. Release 1.3.0 with the optimized example designs.
+3. Make the repository and the documentation site public, finish the
+   one-time PyPI setup, and publish 1.1.0 to PyPI.
 4. Review every example's phase diagram and physics against the checklist
    in GitLab #67.
 5. Reservoir mass imbalance (#63, high priority).
-6. Merge the RAFT coupling (GitHub #105) after #56, then make its CI job a
-   required check.
+6. Make the RAFT coupling's CI job a required check.

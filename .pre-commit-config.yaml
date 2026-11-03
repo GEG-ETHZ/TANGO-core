@@ -30,10 +30,10 @@ repos:
   - repo: local
     hooks:
       - id: hash-tango
-        name: hash src/tango (for DVC dep tracking)
+        name: hash src/tango_core (for DVC dep tracking)
         entry: uv run python tools/hash_tango.py
         language: system
-        files: ^src/tango/
+        files: ^src/tango_core/
         pass_filenames: false
 
   # Strict/Slow checks (run ONLY on push)
@@ -49,6 +49,12 @@ repos:
 
   # Built-in hooks
   # Secrets never reach a commit: gitleaks scans the staged diff.
+  # Every file has a copyright and license (SPDX header or REUSE.toml).
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:

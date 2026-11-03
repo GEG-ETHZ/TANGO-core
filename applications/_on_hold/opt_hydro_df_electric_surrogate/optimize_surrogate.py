@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 3: run NSGA2 against the trained surrogate instead of the real simulation.
 
 ``n_max_gen``/``pop_size``/``ftol``/``xtol``/``seed`` default to THIS app's
@@ -29,9 +32,9 @@ from common import (
 )
 from common import DISPLAY_RENAME as _DISPLAY_RENAME
 
-from tango.pymoo_api import PymooConfig, load_params
-from tango.surrogate_api import load_surrogate, run_surrogate_optimization
-from tango.utils import print_dt
+from tango_core.pymoo_api import PymooConfig, load_params
+from tango_core.surrogate_api import load_surrogate, run_surrogate_optimization
+from tango_core.utils import print_dt
 
 
 def build_parser() -> argparse.ArgumentParser:

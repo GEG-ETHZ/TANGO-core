@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Every draw.io diagram in docs/diagrams/src/ has its SVG export in docs/diagrams/, and vice versa.
 
 The SVGs are committed so GitHub and the Sphinx docs can show them without a

@@ -20,7 +20,7 @@ attached.
 
 ## CoolProp errors
 
-CoolProp property updates are wrapped in `src/tango/core/fluid_state.py`.
+CoolProp property updates are wrapped in `src/tango_core/core/fluid_state.py`.
 A failed update, for example a negative pressure, raises `CoolPropError`
 with the inputs that caused it:
 
@@ -36,7 +36,7 @@ with the inputs that caused it:
 ```
 
 `SystemBCIteration._converge_injection_T`
-(`src/tango/orchestrators/system_bc_iteration.py`) adds **where**: the
+(`src/tango_core/orchestrators/system_bc_iteration.py`) adds **where**: the
 component and the iteration of the injection-temperature loop. A "Tmelt"
 error is the one exception: the guess drove water below its freezing
 point, so the loop resets the guess to 275 K and retries instead of
@@ -70,7 +70,7 @@ Time: {t * self.dt_years} years
                                         """) from exc
 ```
 
-`SystemDirect.run_timestep` (`src/tango/orchestrators/system_direct.py`)
+`SystemDirect.run_timestep` (`src/tango_core/orchestrators/system_direct.py`)
 adds the timestep and the component in one step, because it has no inner
 loop.
 
@@ -80,7 +80,7 @@ The wrapped CoolProp inputs are:
 2. `CoolProp.PT_INPUTS` (`FluidState.update_PT`)
 
 A failed TESPy network solve in the surface plant raises
-`TESPyCoolPropError` (`src/tango/components/surface/graph.py`). It
+`TESPyCoolPropError` (`src/tango_core/components/surface/graph.py`). It
 subclasses `CoolPropError`, so the same orchestrator layers add where and
-when. Every `TangoError` that reaches `tango_cli run` ends the run with exit
+when. Every `TangoError` that reaches `tango_core run` ends the run with exit
 code 2.

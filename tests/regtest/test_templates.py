@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Full-length regression coverage for every ``templates/*.yml`` file.
 
 Companion to ``test_lcoe_regression.py``: that file owns detailed,
@@ -32,8 +35,8 @@ from typing import Any
 
 import pytest
 
-from tango.components.well.grouped_subsurface import NumericalGroupedSubsurface
-from tango.workflows.workflow import Workflow
+from tango_core.components.well.grouped_subsurface import NumericalGroupedSubsurface
+from tango_core.workflows.workflow import Workflow
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 
@@ -88,7 +91,7 @@ def _injection_well(comps: dict[str, Any]) -> Any:
     return entry.injection_well if isinstance(entry, NumericalGroupedSubsurface) else entry
 
 
-# Templates whose subsurface needs the optional RAFT extra; skipped without it.
+# Templates whose subsurface needs the optional RAFT dependency group; skipped without it.
 _NEEDS_RAFT = {"AGS_ORC_electric_raft.yml"}
 
 

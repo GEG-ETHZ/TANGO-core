@@ -4,7 +4,7 @@
 "if we ever had a real greenfield opportunity" architecture thinking —
 deliberately kept separate from `docs/TANGO_vision_and_roadmap/README.md` (which
 is already fairly bloated and is meant to track the concrete, near-term
-`tango` roadmap) so long-horizon ideas don't get lost but also don't
+`tango_core` roadmap) so long-horizon ideas don't get lost but also don't
 clutter the doc people read to find out what's actually being built next.
 Nothing here should be read as planned, scheduled, or blocking any current
 work. Started 2026-07-24. A follow-up, time-boxed implementation spike
@@ -280,6 +280,6 @@ language/ecosystem* itself," which no compiler choice fixes:
 ## Why this is parked, not pursued
 
 There is no current opportunity to greenfield TANGO's physics core, and
-nothing above should slow down or complicate `tango` work in
+nothing above should slow down or complicate `tango_core` work in
 progress. This document exists purely so the thinking isn't lost if that
 changes.

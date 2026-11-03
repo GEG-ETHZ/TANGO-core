@@ -38,14 +38,14 @@ graph TD
 
 ## Where the checks live
 
-Most checks are pydantic validators in `src/tango/core/specs.py`.
+Most checks are pydantic validators in `src/tango_core/core/specs.py`.
 `@field_validator` checks one field; `@model_validator` checks rules that
 span several fields. A validator raises `ValueError` for a value that cannot
 be right and logs a warning for a value that is plausible but unusual.
 
 Every pydantic `ValidationError` is caught in `Workflow.__init__`
-(`src/tango/workflows/workflow.py`) and re-raised as `ConfigError`, so
-`ConfigError` is the single error type for a bad config file. `tango_cli`
+(`src/tango_core/workflows/workflow.py`) and re-raised as `ConfigError`, so
+`ConfigError` is the single error type for a bad config file. `tango_core`
 maps it to exit code 1.
 
 ### Example: a single field

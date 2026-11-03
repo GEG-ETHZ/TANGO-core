@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Enforces the TANGO Commandment (CONTRIBUTING.md, rule-state-history-parity):
 every attribute in a ``*State`` class (``Stream`` included) must have an
 analog in its ``*History`` class.
@@ -18,19 +21,19 @@ import typing
 
 import pytest
 
-from tango.components.reservoir.lumped import LumpedReservoirHistory, LumpedReservoirState
-from tango.components.surface.graph import GraphSurfaceHistory, GraphSurfaceState
-from tango.components.well.grouped_subsurface import GroupedSubsurfaceHistory, GroupedSubsurfaceState
-from tango.components.well.lumped import (
+from tango_core.components.reservoir.lumped import LumpedReservoirHistory, LumpedReservoirState
+from tango_core.components.surface.graph import GraphSurfaceHistory, GraphSurfaceState
+from tango_core.components.well.grouped_subsurface import GroupedSubsurfaceHistory, GroupedSubsurfaceState
+from tango_core.components.well.lumped import (
     ProductionWellWithPumpHistory,
     ProductionWellWithPumpState,
     WellboreHistory,
     WellboreState,
 )
-from tango.components.well.numerical import NumericalWellHistory, NumericalWellState
-from tango.core.locked_state import LockedState
-from tango.core.stream import Stream, StreamHistory
-from tango.external.raft_wrapper import RaftWrapperHistory, RaftWrapperState
+from tango_core.components.well.numerical import NumericalWellHistory, NumericalWellState
+from tango_core.core.locked_state import LockedState
+from tango_core.core.stream import Stream, StreamHistory
+from tango_core.external.raft_wrapper import RaftWrapperHistory, RaftWrapperState
 
 # Fields whose *State type isn't a plain scalar/list LockedState and has a
 # deliberately differently-shaped *History analog instead of a literal

@@ -1,7 +1,7 @@
 # What TESPy silently accepts
 
 A running list of things TESPy (the surface-plant solver behind
-`GraphSurface`, `src/tango/components/surface/graph.py`) solves or returns
+`GraphSurface`, `src/tango_core/components/surface/graph.py`) solves or returns
 **without complaint** even though the result is physically wrong, ill-posed,
 or not what the config meant. These are hard to catch because nothing
 raises: a run finishes and produces a plausible-looking LCOE.
@@ -60,7 +60,7 @@ systems, so one network can't decide which of the two the plant needs.
   needs a newer TESPy (see the version pin below).
 
 **Where it hit:** the AGS closed loop originally had no pump anywhere
-(`docs/bugs-fixed-in-tango.md`, "AGS closed loop has no pump
+(`docs/archive/bugs-fixed-in-tango.md`, "AGS closed loop has no pump
 anywhere"; commit `0ecee63`). `CO2_EGS_direct_heat.yml` once resolved to a
 phantom ~14 kW pump because its heat-exchanger outlet pressure was set too
 low (commit `6b55b15`).
@@ -134,7 +134,7 @@ fixed pressure) give an over-determined system. Depending on the case this
 fails confusingly at solve time rather than at construction.
 
 **Where it hit:** `AGS_direct_heat.yml`, `CPG_electric.yml` (see their
-comments); `docs/bugs-fixed-in-tango.md`.
+comments); `docs/archive/bugs-fixed-in-tango.md`.
 
 **TANGO guard:** convention only (no `p_out` on the circulation device).
 

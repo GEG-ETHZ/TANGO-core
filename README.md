@@ -5,22 +5,22 @@
 
 [![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml)
 [![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
-[![License](https://img.shields.io/badge/license-GEG%20internal-0E0E10.svg)](./NOTICE)
-[![Python](https://img.shields.io/badge/python-3.11-0E0E10.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE.txt)
+[![Python](https://img.shields.io/badge/python-3.11–3.13-0E0E10.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
 [![mypy](https://img.shields.io/badge/types-strict-0E0E10.svg)](https://mypy-lang.org/)
 [![prek](https://img.shields.io/badge/hooks-prek-0E0E10.svg)](https://github.com/j178/prek)
 [![gitleaks](https://img.shields.io/badge/secrets-gitleaks-0E0E10.svg)](https://github.com/gitleaks/gitleaks)
 [![DVC](https://img.shields.io/badge/pipelines-DVC-0E0E10.svg)](https://dvc.org/)
-[![Version](https://img.shields.io/badge/version-1.0.1-0E0E10.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-0E0E10.svg)](CHANGELOG.md)
 
 **Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 
 ![What will a geothermal project's electricity or heat cost over its life? You describe the surface plant, the wells, the reservoir and the economics; TANGO couples them into one system, solved over the project's lifetime, for hydrothermal, CPG, EGS and AGS systems; you get LCOE or LCOH, net electric and thermal power, temperature, pressure and flow for every part and timestep, and the best designs from sweeps and optimization](docs/diagrams/hero.drawio.svg)
 
 > [!NOTE]
-> TANGO is research software of the Geothermal Energy and Geofluids group at ETH Zürich. It is confidential and licensed to GEG members only; see [`NOTICE`](NOTICE).
+> TANGO is research software of the Geothermal Energy and Geofluids group at ETH Zürich, released under the [Apache License 2.0](LICENSE.txt).
 
 ## Contents
 
@@ -43,11 +43,11 @@
 
 ## How the code is organized
 
-![The TANGO core package: tango_cli, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
+![The TANGO core package: tango_core, the optimization module pymoo_api, workflows, orchestrators, the components surface, well, reservoir and economic with their variants and connectors, and core; connecting from outside, a web app, an AI assistant and a data store; below it the TESPy and CoolProp libraries and the external simulators](docs/diagrams/architecture-map.drawio.svg)
 
 ## Start here
 
-To run TANGO, go to [Setup](#setup). To work on it, read the [package tour](src/tango/README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an AI agent? Paste this into it:
+To run TANGO, go to [Setup](#setup). To work on it, read the [package tour](src/tango_core/README.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an AI agent? Paste this into it:
 
 ```text
 Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in this repository.
@@ -55,14 +55,16 @@ Read AGENTS.md in GEG-ETHZ/TANGO-core; it holds every instruction for agents in 
 
 ## Setup
 
-TANGO needs Python 3.11 (`>=3.11,<3.12`), [uv](https://docs.astral.sh/uv/getting-started/installation/) and read access to the private GitHub repository [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is called `tango-core`; the import name is `tango`.
+TANGO needs Python 3.11, 3.12, or 3.13 (`>=3.11,<3.14`) and [uv](https://docs.astral.sh/uv/getting-started/installation/). [just](https://github.com/casey/just) and [direnv](https://direnv.net) are optional. The distribution is `tango-core`, the import name is `tango_core`, and the command is `tango_core`.
 
-Add a pinned release to your own project:
+Add it to your own project from PyPI:
 
 ```bash
-uv add "git+ssh://git@github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0
-uv run tango_cli init .        # copies the templates into ./templates
+uv add tango-core               # or: pip install tango-core
+uv run tango_core init .        # copies the templates into ./templates
 ```
+
+To install a tagged release from source instead, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0`.
 
 Or clone the repository to work on it:
 
@@ -75,24 +77,24 @@ just setup                     # installs dependencies and all git hooks
 Then run the flagship example, a single-flash hydrothermal power plant, and save its results:
 
 ```bash
-uv run tango_cli validate templates/hydro_sf_electric.yml
-uv run tango_cli run templates/hydro_sf_electric.yml --save-dir results/
+uv run tango_core validate templates/hydro_sf_electric.yml
+uv run tango_core run templates/hydro_sf_electric.yml --save-dir results/
 ```
 
 `results/` then holds the solved config, a per-timestep CSV and an economics CSV. The same from Python:
 
 ```python
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 wf = Workflow.from_file("templates/hydro_sf_electric.yml")
 wf.run()
 ```
 
-The [installation guide](docs/guides/install.md) covers SSH access, release pinning and upgrades; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; optimizations live in [`applications/`](applications/README.md).
+The [installation guide](docs/guides/install.md) covers installing from PyPI, pinning a release, upgrades, and setting up a development checkout; [Run a simulation](docs/guides/run.md) describes each result file and the exit codes; optimizations live in [`applications/`](applications/README.md).
 
 ## Documentation and layout
 
-The documentation is published as a private site for the GEG-ETHZ organization, built from [`docs/`](docs/); `just docs` previews it locally.
+The documentation is published at <https://geg-ethz.github.io/TANGO-core/>, built from [`docs/`](docs/); `just docs` previews it locally.
 
 | Section | What it covers |
 |---|---|
@@ -103,7 +105,7 @@ The documentation is published as a private site for the GEG-ETHZ organization, 
 | [Contributing](CONTRIBUTING.md) | The TANGO commandments, workflow, tests, releases |
 
 ```text
-src/tango/        the package: core, components, orchestrators, workflows, CLI, optimization
+src/tango_core/        the package: core, components, orchestrators, workflows, CLI, optimization
 templates/        maintained configs, one or more per system type; back the tests and applications
 applications/     optimizations and demos; each optimization is a DVC pipeline with a SLURM script
 tests/            unit/ (fast, run in CI) and regtest/ (full simulations; the fast subset runs before push)
@@ -130,4 +132,6 @@ Code changes follow the [TANGO commandments](CONTRIBUTING.md#tango-commandments)
 
 ## License
 
-Copyright © ETH Zürich, Geothermal Energy and Geofluids (GEG) group, Department of Earth and Planetary Sciences. All rights reserved. TANGO is proprietary and confidential and licensed to current GEG members for internal use only. See [`LICENSE.txt`](LICENSE.txt) and [`NOTICE`](NOTICE).
+Copyright © 2025 ETH Zurich. Authors: Chad Baker and Dubhaltach McSweeney, Geothermal Energy and Geofluids (GEG) group, Department of Earth and Planetary Sciences.
+
+TANGO is licensed under the Apache License, Version 2.0; see [`LICENSE.txt`](LICENSE.txt).

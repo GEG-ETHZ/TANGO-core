@@ -2,7 +2,7 @@
 # extraction, with the whole subsurface loop as ONE grouped_subsurface
 # component (variant: numerical): an injection well, a horizontal well at
 # depth and a production well, marched in sequence inside it (see
-# tango.components.well.grouped_subsurface).
+# tango_core.components.well.grouped_subsurface).
 #
 # A hypothetical site, not a real one. Its rock properties and surface
 # temperature are those of RAFT's coupled AGS example
@@ -36,7 +36,7 @@ common:
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
-  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango_core.workflows.linked_quantities)
 
 sim_config:
   num_tsteps: 25              # 25 years of operation
@@ -70,7 +70,7 @@ components:
 
   grouped_subsurface:
     # The whole subsurface loop as one component (see
-    # tango.components.well.grouped_subsurface).
+    # tango_core.components.well.grouped_subsurface).
     type: grouped_subsurface
     variant: numerical
     component_idx: 0           # circuit entry — where the solve pass begins each timestep
@@ -84,9 +84,9 @@ components:
       well_length: 3000.0          # m — horizontal loop flow-path length
       diameter: 0.311              # m
       pipe_roughness: 5.5e-5       # m
-      # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+      # wellhead_depth: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
     production_well:
-      # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+      # well_length: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
       diameter: 0.311              # m
       pipe_roughness: 5.5e-5       # m
 

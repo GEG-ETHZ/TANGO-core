@@ -14,7 +14,7 @@ the physics. Its results are the objectives most optimizations minimize.
 
 ## How the model works
 
-::: tango.components.economic.doublet
+::: tango_core.components.economic.doublet
     options:
       members: false
       show_root_heading: false

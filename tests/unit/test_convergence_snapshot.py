@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for ``Component.snapshot_convergence_state()`` /
 ``restore_convergence_state()``.
 
@@ -75,11 +78,11 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.components.reservoir.lumped import LumpedReservoir
-from tango.core.fluid_state import COOLPROP_BACKEND, FluidState
-from tango.core.locked_state import LockedState
-from tango.core.stream import Stream
-from tango.workflows.workflow import Workflow
+from tango_core.components.reservoir.lumped import LumpedReservoir
+from tango_core.core.fluid_state import COOLPROP_BACKEND, FluidState
+from tango_core.core.locked_state import LockedState
+from tango_core.core.stream import Stream
+from tango_core.workflows.workflow import Workflow
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"

@@ -1,12 +1,15 @@
-"""Regenerate src/tango.hash — a single tracked file whose content
-changes whenever any file under src/tango/ changes.
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
+"""Regenerate src/tango_core.hash — a single tracked file whose content
+changes whenever any file under src/tango_core/ changes.
 
 Used as a lightweight DVC dependency (see each opt app's dvc.yaml) so
 application pipelines invalidate whenever tango itself changes, without DVC having to hash the entire source tree on every
 ``dvc repro``.
 
 Run automatically by the ``hash-tango`` pre-commit hook
-(.pre-commit-config.yaml) whenever a staged change touches src/tango/.
+(.pre-commit-config.yaml) whenever a staged change touches src/tango_core/.
 If the hash changes, this exits 1 (same pattern as ruff --fix / end-of-file-
 fixer) so the commit is blocked until the regenerated file is re-staged.
 
@@ -27,18 +30,18 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[1]
-HASH_FILE = REPO_ROOT / "src" / "tango.hash"
+HASH_FILE = REPO_ROOT / "src" / "tango_core.hash"
 
 
 def compute_hash() -> str:
-    """Hash of the staged src/tango/ tree (mode + path + blob hash per file).
+    """Hash of the staged src/tango_core/ tree (mode + path + blob hash per file).
 
     Uses git's own index/object-hashing rather than re-hashing file contents
     ourselves, so renames, permission changes, and additions/deletions are
     all picked up for free.
     """
     ls_files = subprocess.run(
-        ["git", "ls-files", "-s", "src/tango"],
+        ["git", "ls-files", "-s", "src/tango_core"],
         cwd=REPO_ROOT,
         capture_output=True,
         check=True,

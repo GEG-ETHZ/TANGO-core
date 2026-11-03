@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Draw the README banner into docs/assets/, light and dark.
 
 Standard library only: no fonts, no embedded images. The banner is the wordmark and the headline. The

@@ -2,4 +2,4 @@
 
 Outer loops that run many workflows.
 
-::: tango.pymoo_api
+::: tango_core.pymoo_api

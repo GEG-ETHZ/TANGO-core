@@ -4,24 +4,24 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate (kg/s). |
-| `<name>_T_reservoir_initial` | Per-timestep un-depleted reservoir temperature (K). |
-| `<name>_P_reservoir` | Per-timestep un-depleted reservoir pressure (Pa). |
-| `<name>_rho` | Per-timestep averaged fluid density (kg/m3). |
-| `<name>_mu` | Per-timestep averaged fluid dynamic viscosity (Pa s). |
-| `<name>_impedance` | Per-timestep reservoir impedance (Pa s/kg). |
-| `<name>_delta_p_darcy` | Per-timestep Darcy pressure drop across the reservoir (Pa). |
-| `<name>_h_inlet` | Per-timestep inlet specific enthalpy (J/kg). |
-| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
-| `<name>_psi` | Per-timestep fractional energy extraction psi (dimensionless). |
-| `<name>_gamma` | Per-timestep depletion factor gamma, between 0 and 1. |
-| `<name>_p1` | Per-timestep depletion curve coefficient p1. |
-| `<name>_p2` | Per-timestep depletion curve coefficient p2. |
-| `<name>_p3` | Per-timestep depletion curve coefficient p3. |
-| `<name>_energy_extraction_rate` | Per-timestep thermal power extracted from the reservoir (W). |
-| `<name>_energy_extracted` | Per-timestep cumulative thermal energy extracted (J). |
-| `<name>_ever_solved` | Per-timestep copy of `state.ever_solved`; always True, since `solve()` sets it before the timestep is recorded. |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_T_reservoir_initial` | *undocumented* |
+| `<name>_P_reservoir` | *undocumented* |
+| `<name>_rho` | *undocumented* |
+| `<name>_mu` | *undocumented* |
+| `<name>_impedance` | *undocumented* |
+| `<name>_delta_p_darcy` | *undocumented* |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_psi` | *undocumented* |
+| `<name>_gamma` | *undocumented* |
+| `<name>_p1` | *undocumented* |
+| `<name>_p2` | *undocumented* |
+| `<name>_p3` | *undocumented* |
+| `<name>_energy_extraction_rate` | *undocumented* |
+| `<name>_energy_extracted` | *undocumented* |
+| `<name>_ever_solved` | *undocumented* |

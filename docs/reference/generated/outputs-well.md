@@ -4,113 +4,113 @@
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
-| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_t_d` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_pump_power_watts` | *undocumented* |
 
 ### `injection_well` · `lumped` → `LumpedInjectionWell`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
-| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_rho` | Per-timestep fluid density used for the wellbore losses (kg/m3). |
-| `<name>_mu` | Per-timestep fluid dynamic viscosity used for the wellbore losses (Pa s). |
-| `<name>_velocity` | Per-timestep mean flow velocity in the well (m/s). |
-| `<name>_Re` | Per-timestep Reynolds number (dimensionless). |
-| `<name>_friction_factor` | Per-timestep Darcy friction factor (dimensionless). |
-| `<name>_delta_p_friction` | Per-timestep frictional pressure loss along the well, a positive magnitude (Pa). |
-| `<name>_delta_p_hydrostatic` | Per-timestep hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa). |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_rho` | *undocumented* |
+| `<name>_mu` | *undocumented* |
+| `<name>_velocity` | *undocumented* |
+| `<name>_Re` | *undocumented* |
+| `<name>_friction_factor` | *undocumented* |
+| `<name>_delta_p_friction` | *undocumented* |
+| `<name>_delta_p_hydrostatic` | *undocumented* |
 
 ### `injection_well` · `numerical` → `NumericalInjectionWell`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
-| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_t_d` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_pump_power_watts` | *undocumented* |
 
 ### `production_well` · `lumped` → `LumpedProductionWell`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
-| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_rho` | Per-timestep fluid density used for the wellbore losses (kg/m3). |
-| `<name>_mu` | Per-timestep fluid dynamic viscosity used for the wellbore losses (Pa s). |
-| `<name>_velocity` | Per-timestep mean flow velocity in the well (m/s). |
-| `<name>_Re` | Per-timestep Reynolds number (dimensionless). |
-| `<name>_friction_factor` | Per-timestep Darcy friction factor (dimensionless). |
-| `<name>_delta_p_friction` | Per-timestep frictional pressure loss along the well, a positive magnitude (Pa). |
-| `<name>_delta_p_hydrostatic` | Per-timestep hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa). |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_rho` | *undocumented* |
+| `<name>_mu` | *undocumented* |
+| `<name>_velocity` | *undocumented* |
+| `<name>_Re` | *undocumented* |
+| `<name>_friction_factor` | *undocumented* |
+| `<name>_delta_p_friction` | *undocumented* |
+| `<name>_delta_p_hydrostatic` | *undocumented* |
 
 ### `production_well` · `numerical` → `NumericalProductionWell`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
-| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_t_d` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_pump_power_watts` | *undocumented* |
 
 ### `production_well_with_pump` · `lumped` → `LumpedProductionWellWithPump`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Inlet specific enthalpy (J/kg), from `inlet`. |
-| `<name>_h_outlet` | Outlet specific enthalpy (J/kg), derived from (`T_outlet`, `P_outlet`) -- what `outlet` carries. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_rho` | Per-timestep fluid density used for the wellbore losses (kg/m3). |
-| `<name>_mu` | Per-timestep fluid dynamic viscosity used for the wellbore losses (Pa s). |
-| `<name>_velocity` | Per-timestep mean flow velocity in the well (m/s). |
-| `<name>_Re` | Per-timestep Reynolds number (dimensionless). |
-| `<name>_friction_factor` | Per-timestep Darcy friction factor (dimensionless). |
-| `<name>_delta_p_friction` | Per-timestep frictional pressure loss along the well, a positive magnitude (Pa). |
-| `<name>_delta_p_hydrostatic` | Per-timestep hydrostatic pressure difference over the well depth, a positive magnitude; added in injection wells, subtracted in production wells (Pa). |
-| `<name>_pump_delta_p` | Per-timestep pressure rise across the downhole pump (Pa); 0 when no boost is needed. |
-| `<name>_pump_power_watts` | Per-timestep power the pump delivers to the fluid, mass_rate times enthalpy rise including pump efficiency (W); never negative. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_rho` | *undocumented* |
+| `<name>_mu` | *undocumented* |
+| `<name>_velocity` | *undocumented* |
+| `<name>_Re` | *undocumented* |
+| `<name>_friction_factor` | *undocumented* |
+| `<name>_delta_p_friction` | *undocumented* |
+| `<name>_delta_p_hydrostatic` | *undocumented* |
+| `<name>_pump_delta_p` | *undocumented* |
+| `<name>_pump_power_watts` | *undocumented* |
 
 ### `production_well_with_pump` · `numerical` → `NumericalProductionWellWithPump`
 
 | Column | Meaning |
 |---|---|
-| `<name>_h_inlet` | Specific enthalpy (J/kg) arriving on `inlet` -- the march's starting state. |
-| `<name>_T_inlet` | Per-timestep inlet temperature (K). |
-| `<name>_P_inlet` | Per-timestep inlet pressure (Pa). |
-| `<name>_mass_rate` | Per-timestep mass flow rate through the well (kg/s). |
-| `<name>_t_d` | Per-timestep dimensionless time at the end of the timestep. |
-| `<name>_h_outlet` | Per-timestep outlet specific enthalpy (J/kg). |
-| `<name>_T_outlet` | Per-timestep outlet temperature (K). |
-| `<name>_P_outlet` | Per-timestep outlet pressure (Pa). |
-| `<name>_pump_power_watts` | Pump shaft power per timestep (W). Zero for non-pump components. |
+| `<name>_h_inlet` | *undocumented* |
+| `<name>_T_inlet` | *undocumented* |
+| `<name>_P_inlet` | *undocumented* |
+| `<name>_mass_rate` | *undocumented* |
+| `<name>_t_d` | *undocumented* |
+| `<name>_h_outlet` | *undocumented* |
+| `<name>_T_outlet` | *undocumented* |
+| `<name>_P_outlet` | *undocumented* |
+| `<name>_pump_power_watts` | *undocumented* |

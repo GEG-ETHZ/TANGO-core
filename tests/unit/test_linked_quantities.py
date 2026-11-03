@@ -1,6 +1,9 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Linked config values across components: one source each, the rest derived and checked.
 
-See ``tango.workflows.linked_quantities`` for the relations.
+See ``tango_core.workflows.linked_quantities`` for the relations.
 """
 
 from __future__ import annotations
@@ -11,10 +14,10 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.core.constants import GRAVITY
-from tango.core.errors import ConfigError
-from tango.workflows.linked_quantities import expunge_linked_quantities, resolve_linked_quantities
-from tango.workflows.workflow import Workflow
+from tango_core.core.constants import GRAVITY
+from tango_core.core.errors import ConfigError
+from tango_core.workflows.linked_quantities import expunge_linked_quantities, resolve_linked_quantities
+from tango_core.workflows.workflow import Workflow
 
 _CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 

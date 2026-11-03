@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Regenerate the editable diagrams in docs/diagrams/ from the scripts next to this file.
 
 Each script prints draw.io XML; the draw.io command line (``drawio``, installed with the desktop app)

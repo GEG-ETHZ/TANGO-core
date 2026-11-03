@@ -51,7 +51,6 @@ plugins:
         - "archive/*"
         - aitkens_speedup.md
         - appendices/ai_error_interpretation_sketch.md
-        - bugs-fixed-in-tango.md
         - implicit_solver_exploration.md
         - long_term_architecture_exploration.md
         - modelica-investigation.md

@@ -1,4 +1,7 @@
-"""Unit tests for ``tango.pymoo_api``'s CLI/config plumbing and its parameter check.
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
+"""Unit tests for ``tango_core.pymoo_api``'s CLI/config plumbing and its parameter check.
 
 ``pymoo_api.py``'s optimization itself is exercised end-to-end by each
 ``opt_*`` app's smoke test (``test_opt_apps.py``). This file covers the
@@ -22,8 +25,8 @@ import numpy as np
 import pytest
 import yaml
 
-from tango.core.errors import ConfigError, InertParameterError
-from tango.pymoo_api import (
+from tango_core.core.errors import ConfigError, InertParameterError
+from tango_core.pymoo_api import (
     Minimization,
     ObjectiveSpec,
     ParamSpec,
@@ -32,7 +35,7 @@ from tango.pymoo_api import (
     build_pymoo_parser,
     ideal_distance,
 )
-from tango.workflows.workflow import Workflow
+from tango_core.workflows.workflow import Workflow
 
 # Frozen scenarios, not templates/: these tests force mass rates and
 # bounds that only make sense for a specific design, and the example
@@ -155,7 +158,7 @@ def test_param_check_warns_on_one_sided_dead_param_at_a_bound(
     name, path, _bounds = _INERT
     at_lower_bound = _param(name, path, (7.0e6, 9.0e6))  # AGS_direct_heat.yml sets 7 MPa
     m = _minimization("AGS_direct_heat.yml", [_param(*_MASS_RATE), at_lower_bound], tmp_path)
-    with caplog.at_level(logging.WARNING, logger="tango.pymoo_api"):
+    with caplog.at_level(logging.WARNING, logger="tango_core.pymoo_api"):
         m._check_param_sensitivity(_Problem(m))  # noqa: SLF001
     assert f"moving {name} up from its lower bound" in caplog.text
 

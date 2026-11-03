@@ -12,9 +12,9 @@ stages:
       - common.py
       - ../../opt_hydro_df_electric/opt_hydro_df_electric.py
       - ../../../templates/hydro_df_electric.yml
-      # Content hash of src/tango/, kept current by the hash-tango
+      # Content hash of src/tango_core/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py).
-      - ../../../src/tango.hash
+      - ../../../src/tango_core.hash
     params:
       # n_train_workers deliberately excluded -- parallelism, not a
       # result-affecting param.
@@ -37,7 +37,7 @@ stages:
       - train_surrogate.py
       - common.py
       - outputs/lhs_training_data.csv
-      # Content hash of src/tango/, kept current by the hash-tango
+      # Content hash of src/tango_core/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py) -- without this, a change
       # to surrogate_api.py itself (e.g. the regressor/y-scaling logic) isn't
       # tracked at all, and dvc repro silently skips this stage as
@@ -45,7 +45,7 @@ stages:
       # stale-cache fix both landed in surrogate_api.py, but two consecutive
       # Euler runs kept reusing the pre-fix surrogate_model.joblib because
       # this dependency was missing.
-      - ../../../src/tango.hash
+      - ../../../src/tango_core.hash
     params:
       - params.yaml:
           - regressor

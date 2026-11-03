@@ -1,6 +1,12 @@
 # Commit Workflow & Permissions
 
 - **Never Commit**: Do not commit changes unless the person asks.
+- **Never stage untracked files wholesale**: Never suggest `git add -A` or
+  `git add .`, not even to finish a merge: they also stage new files nobody
+  meant to commit, such as a local analysis file. List the paths to stage
+  (`git add CHANGELOG.md src/tango_core/cli.py`); `git add -u` and
+  `git commit -a`, which stage only files git already tracks, are fine. Use
+  `git rm` for files a merge should delete.
 
 GEG uses the conventional commit specification, summarized below. No emoji.
 

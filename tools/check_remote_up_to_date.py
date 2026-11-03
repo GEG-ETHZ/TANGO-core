@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Fail fast if the remote has commits we don't have locally.
 
 Meant to run as the FIRST pre-push hook, ahead of mypy/pytest -- git's own

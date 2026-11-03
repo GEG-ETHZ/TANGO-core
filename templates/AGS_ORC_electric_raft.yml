@@ -1,8 +1,9 @@
 # tango format — Advanced Geothermal System (AGS), binary (ORC) power
 # extraction, with the subsurface loop (injection well, horizontal well,
 # production well and the surrounding rock) simulated by RAFT: the raft
-# variant of grouped_subsurface (see tango.external.raft_wrapper; needs the
-# optional extra: `just setup-raft`).
+# variant of grouped_subsurface (see tango_core.external.raft_wrapper; needs the
+# optional `raft` dependency group: `just setup-raft`; from a source checkout
+# only, not the PyPI package).
 #
 # The same hypothetical site and plant as
 # AGS_ORC_electric_grouped_subsurface.yml (the numerical variant); only the
@@ -40,7 +41,7 @@ common:
   surface_pressure: 100_000     # Pa — ambient
 
 layout:
-  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango.workflows.linked_quantities)
+  # well_spacing: derived: equals horizontal_well.well_length (the wellheads are a loop length apart) (see tango_core.workflows.linked_quantities)
 
 sim_config:
   num_tsteps: 25              # 25 years of operation
@@ -74,8 +75,8 @@ components:
 
   grouped_subsurface:
     # The whole subsurface loop as one component, simulated by RAFT (see
-    # tango.components.well.grouped_subsurface and
-    # tango.external.raft_wrapper). The segment lengths must match the well
+    # tango_core.components.well.grouped_subsurface and
+    # tango_core.external.raft_wrapper). The segment lengths must match the well
     # alignment in RAFT's template, which its mesh is built for.
     type: grouped_subsurface
     variant: raft
@@ -95,9 +96,9 @@ components:
       well_length: 3000.0          # m — horizontal loop flow-path length
       diameter: 0.311              # m
       pipe_roughness: 5.5e-5       # m
-      # wellhead_depth: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+      # wellhead_depth: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
     production_well:
-      # well_length: derived: equals injection_well.well_length (see tango.workflows.linked_quantities)
+      # well_length: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
       diameter: 0.311              # m
       pipe_roughness: 5.5e-5       # m
 

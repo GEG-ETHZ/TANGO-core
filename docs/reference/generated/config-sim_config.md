@@ -2,9 +2,9 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `num_tsteps` | `int` | required | Number of timesteps in the run. |
-| `injection_mode` | `InjectionPolicy \| None` | `None` | Absent selects SystemDirect (no BC iteration); present selects SystemBCIteration. |
-| `mass_rate` | `float \| None` | `None` | Mass flow rate (kg/s), used every timestep. Required whenever injection_mode is present. |
-| `bc_checkpoint_idx` | `int \| None` | `None` | Required when injection_mode is present. |
+| `num_tsteps` | `int` | required | *undocumented* |
+| `injection_mode` | `InjectionPolicy \| None` | `None` | *undocumented* |
+| `mass_rate` | `float \| None` | `None` | *undocumented* |
+| `bc_checkpoint_idx` | `int \| None` | `None` | *undocumented* |
 
 Filled in automatically, not set in this block: `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.

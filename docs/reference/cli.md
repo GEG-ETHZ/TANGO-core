@@ -1,9 +1,9 @@
 # CLI and export
 
-The `tango_cli` entry point and result files.
+The `tango_core` entry point and result files.
 
-::: tango.tango_cli
+::: tango_core.cli
 
-::: tango.results_export
+::: tango_core.results_export
 
-::: tango.utils
+::: tango_core.utils

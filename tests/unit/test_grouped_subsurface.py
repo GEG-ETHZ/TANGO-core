@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """The ``grouped_subsurface`` component: an AGS loop's three wells as one circuit component.
 
 The loop fixes its production wellhead pressure and solves for the
@@ -19,15 +22,15 @@ from typing import Any
 import pytest
 import yaml
 
-from tango.components.well.base import WellRole
-from tango.components.well.grouped_subsurface import (
+from tango_core.components.well.base import WellRole
+from tango_core.components.well.grouped_subsurface import (
     LOOP_SET_SEGMENT_KEYS,
     SEGMENT_NAMES,
     NumericalGroupedSubsurface,
 )
-from tango.core.errors import ConfigError
-from tango.core.stream import Stream
-from tango.workflows.workflow import Workflow
+from tango_core.core.errors import ConfigError
+from tango_core.core.stream import Stream
+from tango_core.workflows.workflow import Workflow
 
 _CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 _GROUPED = "AGS_ORC_electric_grouped_subsurface.yml"

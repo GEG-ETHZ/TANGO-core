@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage 1: run the REAL simulation via a short real NSGA2 search, retaining
 EVERY evaluated individual (not just the final front) as surrogate training
 data.
@@ -54,9 +57,9 @@ import pandas as pd
 from common import DEFAULT_OUTPUT_DIR, PARAMS_FILE, base_config, objective_specs, param_specs
 from pymoo.algorithms.moo.nsga2 import NSGA2
 
-from tango.pymoo_api import Minimization, ParamToleranceDuplicateElimination, PymooConfig, load_params
-from tango.surrogate_api import dedup_training_rows
-from tango.utils import print_dt
+from tango_core.pymoo_api import Minimization, ParamToleranceDuplicateElimination, PymooConfig, load_params
+from tango_core.surrogate_api import dedup_training_rows
+from tango_core.utils import print_dt
 
 
 def build_parser() -> argparse.ArgumentParser:

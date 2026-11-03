@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """The shared system pictogram: surface plant, wells and reservoir around the fluid loop, plus economics.
 
 The same drawing, in the same four colors, opens every diagram and sits in the banner and the hero,

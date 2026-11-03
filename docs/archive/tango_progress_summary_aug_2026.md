@@ -168,7 +168,7 @@ its own right: old tango's convergence loop can, in principle, declare
 value rather than the fully up-to-date one from that same pass.
 tango's design rules this out categorically — every value used in
 any calculation always comes from the same, fully up-to-date pass, by
-construction. See `docs/bugs-fixed-in-tango.md`.
+construction. See `docs/archive/bugs-fixed-in-tango.md`.
 
 ## Economic model and multi-objective optimizer (MOO) (2026-08-07, extended 2026-08-12)
 
@@ -306,7 +306,7 @@ where the underlying physics equation calls for its half-width (radius),
 which skews the computed limit — confirmed by the fact that the old
 system's own formula labels the value "radius" while the code beside it
 plugs in the diameter instead. tango's version uses the correct
-value. Full writeup: `docs/bugs-fixed-in-tango.md`.
+value. Full writeup: `docs/archive/bugs-fixed-in-tango.md`.
 
 **Two new "auto-pilot" modes remove the guesswork entirely.** Instead of a
 person picking a pressure or flow rate and hoping it's safe, tango can
@@ -488,7 +488,7 @@ its own parasitic pumps, but wrong for a pure direct-heat plant that has
 no generator at all and *should* show negative net power once its own
 circulation pump is accounted for) — now scoped to only fire when a real
 generator is actually present. Full technical writeup, including the
-exact numbers and code paths: `docs/bugs-fixed-in-tango.md`.
+exact numbers and code paths: `docs/archive/bugs-fixed-in-tango.md`.
 
 ## Built a surrogate-model-accelerated optimizer — 10x faster, but not yet trustworthy on its own (2026-08-19)
 

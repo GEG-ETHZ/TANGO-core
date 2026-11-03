@@ -4,22 +4,22 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
-| `angle_from_vert_deg` | `float` | `0.0` | 0 = straight down (injection), 180 = straight up (production), 90 = horizontal. Values in between describe a deviated well. |
-| `num_cells` | `int` | required | Axial discretization cell count. `well_length`, `num_cells` and `cell_length` are linked (`well_length = num_cells * cell_length`); a config may give `num_cells`, `cell_length`, both (they must agree) or neither (`num_cells` then defaults to `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring). Resolved by the `_resolve_discretization` validator below. To change `well_length` in a config dict, use `set_well_length`, which makes the caller choose which of the other two absorbs the change. |
-| `discretization_given` | `tuple[str, ...]` | `()` | Which of `num_cells`/`cell_length` the config itself gave (set by `_resolve_discretization`). Serialization writes only those, so a `to_dict()` copy re-derives a default cell count from its own `well_length` rather than pinning the original one. |
-| `cell_length` | `float` | required | Flow-path length per cell (m), exactly `well_length / num_cells`. Given alone in a config, it is a target: `num_cells` becomes the smallest count whose cells are no longer than it, and this field is then set to the exact resulting length. Used for friction and heat-loss geometry, deliberately *not* scaled by angle, since those depend on distance traveled. |
-| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `angle_from_vert_deg` | `float` | `0.0` | *undocumented* |
+| `num_cells` | `int` | required | *undocumented* |
+| `discretization_given` | `tuple[str, ...]` | `()` | *undocumented* |
+| `cell_length` | `float` | required | *undocumented* |
+| `wellhead_depth` | `float` | `0.0` | *undocumented* |
+| `gravity_scale_factor` | `float` | `1.0` | *undocumented* |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -27,14 +27,14 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block.
 
@@ -42,21 +42,21 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
-| `num_cells` | `int` | required | Axial discretization cell count. `well_length`, `num_cells` and `cell_length` are linked (`well_length = num_cells * cell_length`); a config may give `num_cells`, `cell_length`, both (they must agree) or neither (`num_cells` then defaults to `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring). Resolved by the `_resolve_discretization` validator below. To change `well_length` in a config dict, use `set_well_length`, which makes the caller choose which of the other two absorbs the change. |
-| `discretization_given` | `tuple[str, ...]` | `()` | Which of `num_cells`/`cell_length` the config itself gave (set by `_resolve_discretization`). Serialization writes only those, so a `to_dict()` copy re-derives a default cell count from its own `well_length` rather than pinning the original one. |
-| `cell_length` | `float` | required | Flow-path length per cell (m), exactly `well_length / num_cells`. Given alone in a config, it is a target: `num_cells` becomes the smallest count whose cells are no longer than it, and this field is then set to the exact resulting length. Used for friction and heat-loss geometry, deliberately *not* scaled by angle, since those depend on distance traveled. |
-| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `num_cells` | `int` | required | *undocumented* |
+| `discretization_given` | `tuple[str, ...]` | `()` | *undocumented* |
+| `cell_length` | `float` | required | *undocumented* |
+| `wellhead_depth` | `float` | `0.0` | *undocumented* |
+| `gravity_scale_factor` | `float` | `1.0` | *undocumented* |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -64,14 +64,14 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block.
 
@@ -79,21 +79,21 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
-| `num_cells` | `int` | required | Axial discretization cell count. `well_length`, `num_cells` and `cell_length` are linked (`well_length = num_cells * cell_length`); a config may give `num_cells`, `cell_length`, both (they must agree) or neither (`num_cells` then defaults to `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring). Resolved by the `_resolve_discretization` validator below. To change `well_length` in a config dict, use `set_well_length`, which makes the caller choose which of the other two absorbs the change. |
-| `discretization_given` | `tuple[str, ...]` | `()` | Which of `num_cells`/`cell_length` the config itself gave (set by `_resolve_discretization`). Serialization writes only those, so a `to_dict()` copy re-derives a default cell count from its own `well_length` rather than pinning the original one. |
-| `cell_length` | `float` | required | Flow-path length per cell (m), exactly `well_length / num_cells`. Given alone in a config, it is a target: `num_cells` becomes the smallest count whose cells are no longer than it, and this field is then set to the exact resulting length. Used for friction and heat-loss geometry, deliberately *not* scaled by angle, since those depend on distance traveled. |
-| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `num_cells` | `int` | required | *undocumented* |
+| `discretization_given` | `tuple[str, ...]` | `()` | *undocumented* |
+| `cell_length` | `float` | required | *undocumented* |
+| `wellhead_depth` | `float` | `0.0` | *undocumented* |
+| `gravity_scale_factor` | `float` | `1.0` | *undocumented* |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
 
@@ -101,15 +101,15 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
-| `pump_efficiency` | `float` | `1.0` | Pump efficiency (dimensionless): the isentropic enthalpy rise divided by the actual one, which is also the electricity drawn per unit mass. Defaults to 1.0 (ideal pump). The templates use **0.55**, the overall electric submersible pump (ESP) string efficiency of van 't Spijker & Ungemach (2016) (see `docs/SOURCES.md#vantspijker2016`): pump 70% × motor 90% × cable 97% × transformer 99% × frequency converter 94%. The overall figure is used, not the 70% pump-only one, because downhole pump power is billed as electricity drawn at the surface. See the class's Assumptions section for what this means for the fluid's enthalpy, and `solve()`'s docstring for the pump model this scales. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `pump_efficiency` | `float` | `1.0` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
 
@@ -117,20 +117,20 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component. |
-| `next` | `int` | required | Circuit index of the downstream component. |
-| `well_length` | `float` | required | Total wellbore length from wellhead to bottom (m). |
-| `diameter` | `float` | required | Wellbore inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute pipe wall roughness for Darcy-Weisbach friction (m). |
-| `gravity` | `float` | `9.81` | Gravitational acceleration (m/s²) — defaults to core/constants.py's GRAVITY, overridable per well since gravity varies regionally. |
-| `num_cells` | `int` | required | Axial discretization cell count. `well_length`, `num_cells` and `cell_length` are linked (`well_length = num_cells * cell_length`); a config may give `num_cells`, `cell_length`, both (they must agree) or neither (`num_cells` then defaults to `TARGET_CELL_LENGTH_M` per cell, rounded up to the nearest 10 -- see that constant's docstring). Resolved by the `_resolve_discretization` validator below. To change `well_length` in a config dict, use `set_well_length`, which makes the caller choose which of the other two absorbs the change. |
-| `discretization_given` | `tuple[str, ...]` | `()` | Which of `num_cells`/`cell_length` the config itself gave (set by `_resolve_discretization`). Serialization writes only those, so a `to_dict()` copy re-derives a default cell count from its own `well_length` rather than pinning the original one. |
-| `cell_length` | `float` | required | Flow-path length per cell (m), exactly `well_length / num_cells`. Given alone in a config, it is a target: `num_cells` becomes the smallest count whose cells are no longer than it, and this field is then set to the exact resulting length. Used for friction and heat-loss geometry, deliberately *not* scaled by angle, since those depend on distance traveled. |
-| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the well's shallow end, whichever way the fluid flows: the top of an injection or production well (0 for a well that reaches the surface; the bottom of the upper segment for the lower segment of a split production well), or the depth of a horizontal well. The rock temperature at each cell (`T_r`) is measured from here. |
-| `gravity_scale_factor` | `float` | `1.0` | Multiplier on `gravity` in the march's pressure and enthalpy steps (dimensionless); 1.0 is real gravity. |
-| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | Friction-factor correlation for the pressure loss. |
-| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | Correlation for heat exchange between the fluid and the surrounding rock. |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `gravity` | `float` | `9.81` | *undocumented* |
+| `num_cells` | `int` | required | *undocumented* |
+| `discretization_given` | `tuple[str, ...]` | `()` | *undocumented* |
+| `cell_length` | `float` | required | *undocumented* |
+| `wellhead_depth` | `float` | `0.0` | *undocumented* |
+| `gravity_scale_factor` | `float` | `1.0` | *undocumented* |
+| `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
+| `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.

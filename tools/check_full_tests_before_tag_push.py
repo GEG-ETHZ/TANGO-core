@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Require a clean `just test --all` before pushing a version-release tag.
 
 Release tags (``vX.Y.Z``) are the agreed trigger for "periodically" in

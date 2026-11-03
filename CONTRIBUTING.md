@@ -1,6 +1,6 @@
 # Contributing to TANGO
 
-For anyone changing TANGO's code, configs or documentation: the setup, the rules every change follows, and how a change gets from a branch to a release. TANGO is internal to the GEG group at ETH Zürich (see [`NOTICE`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/NOTICE)); contributors are GEG members with write access to [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core).
+For anyone changing TANGO's code, configs or documentation: the setup, the rules every change follows, and how a change gets from a branch to a release. TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/LICENSE.txt)); contributors are GEG members with write access to [`GEG-ETHZ/TANGO-core`](https://github.com/GEG-ETHZ/TANGO-core).
 
 ## Development setup
 
@@ -12,21 +12,21 @@ cd tango-core
 just setup        # uv sync, direnv allow, and the git hooks
 ```
 
-The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-config.yaml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.pre-commit-config.yaml). On commit: Ruff, whitespace and YAML checks, gitleaks, the `src/tango.hash` refresh. On push: remote freshness, mypy, the fast pytest subset, the release-tag gate. They block commits and pushes to `main` and `develop`. Skip a single hook with `SKIP=<id>`, never with `--no-verify`.
+The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-config.yaml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.pre-commit-config.yaml). On commit: Ruff, whitespace and YAML checks, gitleaks, the `src/tango_core.hash` refresh. On push: remote freshness, mypy, the fast pytest subset, the release-tag gate. They block commits and pushes to `main` and `develop`. Skip a single hook with `SKIP=<id>`, never with `--no-verify`.
 
 ## TANGO Commandments
 
 Binding for every change; each exists because its absence caused a real problem.
 
 1. <a id="rule-object-is-config"></a>**object == config.** Code objects and the YAML config are congruent, close to 1:1; only values derived at instantiation are exempt.
-1. <a id="rule-locked-state"></a>**Mutation is guarded.** Every value that changes across timesteps or iterations is a `LockedState` (`src/tango/core/locked_state.py`) inside the component's `state` dataclass, written exactly once per solve.
+1. <a id="rule-locked-state"></a>**Mutation is guarded.** Every value that changes across timesteps or iterations is a `LockedState` (`src/tango_core/core/locked_state.py`) inside the component's `state` dataclass, written exactly once per solve.
 1. <a id="rule-state-history-parity"></a>**History is recordable.** Every `*State` field has a `list[T]` twin in the matching `*History`, appended in `record()`. Exception: `EconomicState`, which runs once through `finalize()`.
 1. <a id="rule-shared-by-reference"></a>**Single source of truth.** Data several objects need is shared by reference, never copied.
 1. <a id="rule-ci-checks"></a>**Deterministic quality checks.** Every change passes mypy strict, Ruff lint and format, and pytest; `just check` runs them locally, and CI runs them again on every pull request.
 1. <a id="rule-docstrings"></a>**Docstrings** follow the Google style and document arguments, attributes and return values; the API reference is generated from them.
 1. <a id="rule-pydantic-schemas"></a>**Schemas defined in code.** Config and persisted state are pydantic fields. Exempt: orchestration internals, `LockedState` runtime state, and framework primitives, none of which is loaded from or dumped to config.
 1. <a id="rule-no-eval"></a>**No `eval`.**
-1. <a id="rule-unit-conversion-factors"></a>**Unit conversions** are defined in, and imported from, `src/tango/core/constants.py`.
+1. <a id="rule-unit-conversion-factors"></a>**Unit conversions** are defined in, and imported from, `src/tango_core/core/constants.py`.
 1. <a id="rule-finite-values-strenum"></a>**Enums for finite variants.** A parameter with a small, finite set of values is a `StrEnum`.
 1. <a id="rule-no-silent-pass"></a>**No silent base-class methods.** An unimplemented method raises `NotImplementedError`, never `pass`.
 1. <a id="rule-unit-suffix-naming"></a>**Unit suffixes.** A non-SI value names its unit (`p_out_megapascals`) and is converted where it is read; SI values carry no suffix. A file-global unit such as TESPy's `p_unit='bar'` hides the unit and is not used.
@@ -71,22 +71,62 @@ Store meshes and other large binary inputs with DVC, not git: `dvc add <file>`, 
 
 The one exception is `templates/raft/AGS_single.msh` (1.1 MB), the mesh of the RAFT example. It's committed to git, and excluded from `check-added-large-files`, so CI can run RAFT without DVC credentials.
 
+## License headers
+
+TANGO is licensed under Apache-2.0 and follows the [REUSE](https://reuse.software/) specification. Every Python file starts with:
+
+```python
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+```
+
+A shebang line, if any, stays above them. Other files are covered by the file-type patterns in [`REUSE.toml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/REUSE.toml), which deliberately leave out `*.py`, so a Python file without the header fails the check. A file of a new type fails it too: add its pattern to `REUSE.toml`. A file from a third party keeps its own copyright and license: give it an annotation in `REUSE.toml`, and add its license text to `LICENSES/`. The `reuse` prek hook runs `reuse lint` on every commit.
+
 ## Changelog
 
 [`CHANGELOG.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries collect under `## [In Development]` until a release is cut, then move under `## [X.Y.Z] — YYYY-MM-DD`, and the comparison links in the footer are updated. Since 1.0, an entry is required per release and optional per merge.
 
-## Cutting an Internal (GEG-only) Release
+## Cutting a Release
 
-TANGO is installed from a release tag on the private repository; nothing is published to PyPI. Versions follow [Semantic Versioning](https://semver.org/); tags carry a `v` prefix.
+### Choosing the version
 
-1. Check that `## [In Development]` covers the release.
+Versions follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/), `MACRO.MESO.MICRO`. The number tells users how much work upgrading takes, not whether anything changed in an incompatible way. Judge the release by its effort for a typical user:
+
+| Bump | When upgrading takes | Examples |
+|---|---|---|
+| Macro (`2.0.0`) | Real effort: users must change configs, scripts, or code | Renaming the package or a config key, removing an injection mode |
+| Meso (`1.2.0`) | Little effort, or none for most users | A new component or optional key, a break in a feature few people use |
+| Micro (`1.1.1`) | No effort | Bug fixes, documentation, performance |
+
+Whatever the bump, every change a user may have to make goes in the release's **Breaking** section of `CHANGELOG.md`.
+
+### Steps
+
+Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) first and to [PyPI](https://pypi.org/project/tango-core/) only after the TestPyPI upload installs and runs. PyPI never accepts the same version twice, so a broken upload there can't be replaced. Tags carry a `v` prefix. [`.github/workflows/release.yml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.github/workflows/release.yml) does the uploads with PyPI Trusted Publishing, so no API token is stored anywhere.
+
+1. Check that `## [In Development]` in `CHANGELOG.md` covers the release, then rename it to `## [X.Y.Z] — YYYY-MM-DD` and set `version` and `date-released` in `CITATION.cff`.
 2. Bump `version` in `pyproject.toml` on `main` through a pull request. Its `license-check` job (`tools/check_licenses.py`) fails if a runtime dependency's license is not allowed; do not tag until it passes. Review each flagged license (the job uploads `licenses.json` and a draw.io dependency tree) and either replace the dependency or add a `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the reason, through its own pull request.
-3. Tag that commit and push the tag; the pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
+3. Tag that commit and push the tag. The pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
 
    ```bash
    git checkout main && git pull
-   git tag v1.0.1
-   git push origin refs/tags/v1.0.1
+   git tag vX.Y.Z
+   git push origin refs/tags/vX.Y.Z
    ```
 
-4. Create a GitHub Release from the tag (`gh release create v1.0.1 --notes-from-tag`) with the changelog section as its notes, and tell consumers which tag to pin.
+4. The tag starts the `release` workflow. It checks that the tag matches `version` in `pyproject.toml`, builds the wheel and sdist once, and uploads them to TestPyPI.
+5. Install the TestPyPI upload in a fresh directory and check it runs. The extra index supplies the dependencies, which are not on TestPyPI:
+
+   ```bash
+   uv venv && uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ --index-strategy unsafe-best-match tango-core==X.Y.Z
+   uv run tango_core --version
+   uv run tango_core init demo && uv run tango_core run demo/templates/hydro_sf_electric.yml --no-save
+   ```
+
+6. If it works, approve the waiting `publish to PyPI` job in the workflow run (Actions → release). The same files go to PyPI. If it doesn't, leave the job unapproved, fix the problem, and release the next patch version; that version number is spent on TestPyPI.
+7. Create a GitHub Release from the tag (`gh release create vX.Y.Z --notes-from-tag`) with the changelog section as its notes.
+
+### One-time setup
+
+- On [pypi.org](https://pypi.org/manage/account/publishing/) and [test.pypi.org](https://test.pypi.org/manage/account/publishing/), add a trusted publisher for project `tango-core`: owner `GEG-ETHZ`, repository `TANGO-core`, workflow `release.yml`, environment `pypi` on PyPI and `testpypi` on TestPyPI. Before the first upload this is a "pending publisher", which also reserves the name.
+- In the repository's Settings → Environments, create `testpypi` with no protection rules and `pypi` with a required reviewer.

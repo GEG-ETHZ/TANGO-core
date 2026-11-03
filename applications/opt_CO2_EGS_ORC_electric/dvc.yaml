@@ -2,7 +2,7 @@ stages:
 
   # Stage 1: run NSGA2, write pareto_results.csv/pareto_configs only.
   # --no-plot: plotting is the separate `plot` stage below (see
-  # build_pymoo_parser's docstring in src/tango/pymoo_api.py) — a
+  # build_pymoo_parser's docstring in src/tango_core/pymoo_api.py) — a
   # plot-only code change shouldn't force a full search to rerun.
   optimize:
     # --clean: outputs/pareto_configs is a DVC `outs:` directory, so DVC
@@ -14,11 +14,11 @@ stages:
     deps:
       - opt_CO2_EGS_ORC_electric.py
       - ../../templates/CO2_EGS_ORC_electric.yml
-      # Content hash of src/tango/, kept current by the hash-tango
+      # Content hash of src/tango_core/, kept current by the hash-tango
       # pre-commit hook (tools/hash_tango.py). Tracking this one small
-      # file instead of the whole src/tango/ tree directly means DVC
+      # file instead of the whole src/tango_core/ tree directly means DVC
       # doesn't have to hash hundreds of source files on every `dvc repro`.
-      - ../../src/tango.hash
+      - ../../src/tango_core.hash
     params:
       # n_processes deliberately excluded -- parallelism, not a result-
       # affecting param (same seeded search either way); tracking it would
@@ -42,8 +42,8 @@ stages:
     deps:
       - opt_CO2_EGS_ORC_electric.py
       - outputs/pareto_results.csv
-      # Plotting code lives in tango.pymoo_api (OptApp.make_plots).
-      - ../../src/tango.hash
+      # Plotting code lives in tango_core.pymoo_api (OptApp.make_plots).
+      - ../../src/tango_core.hash
     outs:
       - outputs/pareto_parallel_coordinates.png
       - outputs/pareto_parallel_coordinates.html

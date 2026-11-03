@@ -8,7 +8,7 @@ so an optimization is many ordinary runs steered by a genetic algorithm
 Ready-made apps include `applications/opt_hydro_sf_electric`,
 `opt_hydro_df_electric`, and `opt_AGS_direct_heat`.
 
-To start, copy the closest app (`uv run tango_cli init . --app <name>`)
+To start, copy the closest app (`uv run tango_core init . --app <name>`)
 and change its parameters and objectives. Run it small first: a tiny
 `--n-max-gen` and `--pop-size` with a throwaway `--save-dir`.
 
@@ -36,14 +36,14 @@ parallel when `n_processes` is above one. A run that fails to converge or
 breaks a physical limit counts as infeasible instead of stopping the search.
 
 ```python
---8<-- "src/tango/pymoo_api.py:minimization"
+--8<-- "src/tango_core/pymoo_api.py:minimization"
 ```
 
-The examples above are included from `applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py` and from `OptApp.run_optimization` in `src/tango/pymoo_api.py`, so they always match the code.
+The examples above are included from `applications/opt_hydro_sf_electric/opt_hydro_sf_electric.py` and from `OptApp.run_optimization` in `src/tango_core/pymoo_api.py`, so they always match the code.
 
 ## How the optimization works
 
-::: tango.pymoo_api
+::: tango_core.pymoo_api
     options:
       members: false
       show_root_heading: false

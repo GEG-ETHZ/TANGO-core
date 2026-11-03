@@ -4,10 +4,10 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component (the surface). |
-| `next` | `int` | required | Circuit index of the downstream component (the surface). |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
 
@@ -15,18 +15,18 @@ Nested blocks:
 
 | Block | Keys | Meaning |
 |---|---|---|
-| `injection_well:` | the keys of `injection_well` · `numerical` | The injection segment: a numerical injection well's config block. |
-| `horizontal_well:` | the keys of `horizontal_well` · `numerical` | The horizontal segment: a numerical horizontal well's config block. |
-| `production_well:` | the keys of `production_well` · `numerical` | The production segment: a numerical production well's config block. |
+| `injection_well:` | the keys of `injection_well` · `numerical` | *undocumented* |
+| `horizontal_well:` | the keys of `horizontal_well` · `numerical` | *undocumented* |
+| `production_well:` | the keys of `production_well` · `numerical` | *undocumented* |
 
 ### `grouped_subsurface` · `raft` → `RaftGroupedSubsurface`
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `component_idx` | `int` | required | Circuit index. 0 is the circuit entry (injection well, solved first). The BC checkpoint (surface) is identified separately via `bc_checkpoint_idx` in `sim_config`. |
-| `save_interval` | `int \| None` | `1` | Timestep interval at which `record()` appends state to history. `None` disables history recording entirely. Default `1` records every timestep (matches the original `record_history=True` behavior). |
-| `prev` | `int` | required | Circuit index of the upstream component (the surface). |
-| `next` | `int` | required | Circuit index of the downstream component (the surface). |
+| `component_idx` | `int` | required | *undocumented* |
+| `save_interval` | `int \| None` | `1` | *undocumented* |
+| `prev` | `int` | required | *undocumented* |
+| `next` | `int` | required | *undocumented* |
 
 Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
 
@@ -34,23 +34,23 @@ Nested blocks:
 
 | Block | Keys | Meaning |
 |---|---|---|
-| `injection_well:` | `WellSegment` keys, below | The injection segment's geometry. |
-| `horizontal_well:` | `WellSegment` keys, below | The horizontal segment's geometry. |
-| `production_well:` | `WellSegment` keys, below | The production segment's geometry. |
-| `raft:` | `RaftWrapper` keys, below | RAFT's config template and the RAFT model run from it, with RAFT's own per-timestep `state`/`history`. |
+| `injection_well:` | `WellSegment` keys, below | *undocumented* |
+| `horizontal_well:` | `WellSegment` keys, below | *undocumented* |
+| `production_well:` | `WellSegment` keys, below | *undocumented* |
+| `raft:` | `RaftWrapper` keys, below | *undocumented* |
 
 `WellSegment` (`injection_well:`, `horizontal_well:`, `production_well:`):
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `well_length` | `float` | required | Segment length along the flow path (m). |
-| `diameter` | `float` | required | Inner diameter (m). |
-| `pipe_roughness` | `float` | required | Absolute wall roughness (m). |
-| `wellhead_depth` | `float` | `0.0` | True vertical depth (m) of the segment's shallow end; for the horizontal well, derived from the injection well's length (see `tango.workflows.linked_quantities`). |
+| `well_length` | `float` | required | *undocumented* |
+| `diameter` | `float` | required | *undocumented* |
+| `pipe_roughness` | `float` | required | *undocumented* |
+| `wellhead_depth` | `float` | `0.0` | *undocumented* |
 
 `RaftWrapper` (`raft:`):
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `template` | `str` | required | Path to the RAFT config template (absolute, or relative to the working directory). Its `mesh.file` is resolved relative to the template's own directory; a mesh stored with DVC needs `dvc pull` first. |
-| `verbosity` | `Literal['quiet', 'lite', 'full']` | `'quiet'` | RAFT's own console output. |
+| `template` | `str` | required | *undocumented* |
+| `verbosity` | `Literal['quiet', 'lite', 'full']` | `'quiet'` | *undocumented* |

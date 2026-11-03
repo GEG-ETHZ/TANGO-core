@@ -2,6 +2,6 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `well_pattern_dimens` | `list[int] \| None` | `None` | Not yet consumed — TODO add to wellpattern_impedance.py calculations |
+| `well_pattern_dimens` | `list[int] \| None` | `None` | *undocumented* |
 
 Filled in automatically, not set in this block: `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.

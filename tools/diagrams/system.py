@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """What TANGO models: sweeps and optimization around one simulation, one simulation around the system,
 what each part takes in and gives out, and, in a box of their own, the external simulators a connector
 could reach.

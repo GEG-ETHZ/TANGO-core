@@ -10,13 +10,13 @@ setup: _setup-direnv && _setup-raft-hint
 # GEG-ETHZ/RAFT is private for now: this needs GitHub read access to it (see README).
 [unix]
 setup-raft:
-    uv sync --extra raft
-    grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo 'export TANGO_UV_SYNC_ARGS="--extra raft"' >> .envrc.local
+    uv sync --group raft
+    grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo 'export TANGO_UV_SYNC_ARGS="--group raft"' >> .envrc.local
     command -v direnv >/dev/null 2>&1 && direnv allow . || true
 
 [windows]
 setup-raft:
-    uv sync --extra raft
+    uv sync --group raft
 
 [unix]
 _setup-raft-hint:
@@ -68,7 +68,7 @@ lint:
 # Type-check tango (legacy old-tango package removed; tests/ isn't clean enough for mypy yet)
 typecheck:
     # TODO: expand to `uv run mypy .` once tests/ are clean
-    uv run mypy src/tango/
+    uv run mypy src/tango_core/
 
 # Run test suite. No args/--fast: fast subset (matches pre-push). --perf: perf tests only. --all: everything.
 test *args:
@@ -114,7 +114,7 @@ test *args:
     fi
     exit "$status"
 
-# Update src/tango.hash from what's staged under src/tango/, and stage it, so the next commit passes the hash hook first time
+# Update src/tango_core.hash from what's staged under src/tango_core/, and stage it, so the next commit passes the hash hook first time
 hash-src:
     uv run python tools/hash_tango.py --stage
 
@@ -136,7 +136,7 @@ phase-diagrams *configs:
         c="${c%.yml}"; out="scratch_output/$c"
         rm -rf "$out"; mkdir -p "$out"
         echo "== $c"
-        if uv run tango_cli run --save-dir "$out" "templates/$c.yml" > "$out/run.log" 2>&1; then
+        if uv run tango_core run --save-dir "$out" "templates/$c.yml" > "$out/run.log" 2>&1; then
             ls "$out"/*.phase_*.html 2>/dev/null | sed 's/^/   /'
         else
             echo "   FAILED -- see $out/run.log"; failed="$failed $c"
@@ -146,7 +146,7 @@ phase-diagrams *configs:
 
 [windows]
 phase-diagrams *configs:
-    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem templates/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_cli run --save-dir $out "templates/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
+    $names = if ("{{configs}}") { "{{configs}}".Split(" ", [StringSplitOptions]::RemoveEmptyEntries) } else { Get-ChildItem templates/*.yml | ForEach-Object { $_.BaseName } }; $failed = @(); foreach ($c in $names) { $c = $c -replace '\.yml$', ''; $out = "scratch_output/$c"; Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $out | Out-Null; Write-Output "== $c"; uv run tango_core run --save-dir $out "templates/$c.yml" *> "$out/run.log"; if ($LASTEXITCODE -eq 0) { Get-ChildItem "$out/*.phase_*.html" | ForEach-Object { "   $($_.FullName)" } } else { Write-Output "   FAILED -- see $out/run.log"; $failed += $c } }; if ($failed.Count -gt 0) { Write-Output "Failed: $($failed -join ' ')"; exit 1 }
 
 # Needs the draw.io desktop app (its CLI does the export): /Applications/draw.io.app on macOS, or
 # `drawio` on PATH on Linux (headless Linux also needs xvfb-run). Fonts aren't embedded, which keeps
@@ -185,7 +185,7 @@ apps:
     uv run python applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py
     uv run python applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py
     # Every opt_* app: --smoke runs a 2-generation, population-6 search plus
-    # the app's own relaxations (see tango.pymoo_api.OptApp.smoke_args), into
+    # the app's own relaxations (see tango_core.pymoo_api.OptApp.smoke_args), into
     # a throwaway --save-dir, never outputs/. --no-plot then --plot-only
     # exercises the two-stage optimize/plot DVC split. Not tied to --slow: the
     # full-size runs are `just slurm` / `dvc repro`. Apps under

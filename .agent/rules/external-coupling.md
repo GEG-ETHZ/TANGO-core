@@ -1,7 +1,7 @@
 # Coupling External Simulators
 
 Rules for code that couples tango to another package (RAFT today; other
-reservoir or wellbore simulators later), e.g. `src/tango/external/`.
+reservoir or wellbore simulators later), e.g. `src/tango_core/external/`.
 
 - **tango owns the interface, not the other package.** tango sets the
   boundary values it exchanges with the coupled package and reads back what

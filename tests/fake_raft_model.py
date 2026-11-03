@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """A stand-in for RAFT's ``geg_raft.api.RaftModel``, for tests of tango's side of the coupling.
 
 ``FakeRaftModel`` honors RAFT's coupling contract (each ``solve`` starts

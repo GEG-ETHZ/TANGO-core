@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Interactive demo: tango flexible Single-Flash system.
 
 Runs ``templates/hydro_sf_electric.yml`` and generates four figures that
-``tango`` itself does not produce (see the section "What running the YAML alone
+``tango_core`` itself does not produce (see the section "What running the YAML alone
 gets you" below):
 
   1. Temperature vs axial position parameterized by timestep
@@ -24,7 +27,7 @@ is saved in that mode).
 
 What running the YAML alone gets you
 -------------------------------------
-``tango_cli run templates/hydro_sf_electric.yml --save-dir DIR`` (or
+``tango_core run templates/hydro_sf_electric.yml --save-dir DIR`` (or
 ``Workflow.from_file(...).run()`` directly, with no further code) runs the
 same simulation but produces none of the plots above: the CLI writes the
 results files (``.results.yml``, ``.smry.csv``, ``.econ.csv``) and the
@@ -54,7 +57,7 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from tango.workflows.workflow import Workflow  # noqa: E402
+from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 # hydro_sf_electric.yml lives in templates/ (configs only, shared
 # with tests/regtest/test_lcoe_regression.py's own dedicated coverage, run

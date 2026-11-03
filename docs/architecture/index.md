@@ -2,14 +2,14 @@
 
 ![System key: surface plant blue, wells purple, reservoir red, economics teal](../diagrams/system-key.drawio.svg){ align=right width="260" }
 
-TANGO is one Python package, `src/tango/`, built in layers. A user writes a YAML config and starts a run; everything below that line is validated code. Each layer imports only the layers beneath it, with one exception: `core/specs.py` uses the well-pattern helper from `components/reservoir/`. The third-party engines run in-process: TESPy is called from `components/surface/`, CoolProp from `core/` (fluid properties).
+TANGO is one Python package, `src/tango_core/`, built in layers. A user writes a YAML config and starts a run; everything below that line is validated code. Each layer imports only the layers beneath it, with one exception: `core/specs.py` uses the well-pattern helper from `components/reservoir/`. The third-party engines run in-process: TESPy is called from `components/surface/`, CoolProp from `core/` (fluid properties).
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
 flowchart TB
   user("User<br/>config.yml, starts a run")
-  subgraph pkg ["src/tango"]
-    cli("tango_cli<br/>run · validate")
+  subgraph pkg ["src/tango_core"]
+    cli("tango_core<br/>run · validate")
     pymoo("pymoo_api<br/>NSGA-II")
     wf("workflows<br/>Workflow")
     orchs("orchestrators<br/>timestep loop")
@@ -50,13 +50,13 @@ flowchart TB
 
 | Layer | Path | Holds |
 |---|---|---|
-| Entry points | `src/tango/tango_cli.py` | `tango_cli run`, `validate`, `init` |
-| | `src/tango/pymoo_api.py` | NSGA-II optimization over full runs |
-| | `src/tango/results_export.py` | `write_results`: YAML plus CSV files |
-| Workflow | `src/tango/workflows/` | `Workflow`: config in, orchestrator out |
-| Orchestration | `src/tango/orchestrators/` | `SystemDirect`, `SystemBCIteration` |
-| Components | `src/tango/components/` | wells, reservoir, surface plant, economics, `COMPONENT_REGISTRY` |
-| Core | `src/tango/core/` | `Component`, `Stream`, `LockedState`, specs, policies, errors, numerics |
+| Entry points | `src/tango_core/cli.py` | `tango_core run`, `validate`, `init` |
+| | `src/tango_core/pymoo_api.py` | NSGA-II optimization over full runs |
+| | `src/tango_core/results_export.py` | `write_results`: YAML plus CSV files |
+| Workflow | `src/tango_core/workflows/` | `Workflow`: config in, orchestrator out |
+| Orchestration | `src/tango_core/orchestrators/` | `SystemDirect`, `SystemBCIteration` |
+| Components | `src/tango_core/components/` | wells, reservoir, surface plant, economics, `COMPONENT_REGISTRY` |
+| Core | `src/tango_core/core/` | `Component`, `Stream`, `LockedState`, specs, policies, errors, numerics |
 
 Around the package:
 

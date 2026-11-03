@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """How the code is organized: the tango package, the clients that can connect to it from outside, and,
 below it, the libraries it uses and the external simulators a connector would reach.
 
@@ -74,12 +77,12 @@ d.rect(CX, CY, CBW, CB - CY, fill="#F8F9FA", stroke="#3C4043", sw=1.5, r=20)
 d.tab(CX, CY, CBW, r=20)
 d.svg_image(CX + 24, CY + 24, 120, 34, WORDMARK)
 d.text(CX + 136, CY + 28, "core", 22, INK, bold=True, w=80, h=28)
-d.text(CX + 210, CY + 34, "src/tango  ·  this repository", 12, MUTED, mono=True, w=300, h=18)
+d.text(CX + 210, CY + 34, "src/tango_core  ·  this repository", 12, MUTED, mono=True, w=300, h=18)
 for k in range(3):
     down(M + k * (CW3 + 24) + CW3 / 2, OY + OH + 2, CY - 2)
 
 A2 = (IW - 36) / 2
-pill(IX, AY, A2, AH, "tango_cli", "command line: run · validate · init; writes the results (results_export)")
+pill(IX, AY, A2, AH, "tango_core", "command line: run · validate · init; writes the results (results_export)")
 pill(
     IX + A2 + 36,
     AY,

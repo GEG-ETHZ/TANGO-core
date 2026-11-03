@@ -1,9 +1,32 @@
 # Changelog
 
 All notable changes to TANGO are documented here.
-Starting with `1.0.0`, the project follows [Semantic Versioning](https://semver.org/).
+From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/): the number says how much work upgrading takes, and the **Breaking** section of each release says what to change.
 
 ## [In Development]
+
+---
+
+## [1.1.0] — 2026-11-03
+
+First public release: tango-core is open source under Apache-2.0, and
+releases go to PyPI. It completes the example coverage matrix with an
+optimized design for every example config, can simulate an AGS loop's
+wells and rock with RAFT (from a source checkout), moves the stream interface from temperature to
+specific enthalpy, adds interactive phase diagrams, and fixes several
+physics and solver bugs those diagrams exposed. Run-time guards turn
+physically impossible results into typed errors, component efficiencies
+are realistic and cited, and third-party licenses are a release gate.
+**Breaking:** the package and command are renamed `tango_core`, and
+`tango_core run` needs `--save-dir` or `--no-save`. **Results change
+substantially for CO2 and closed-loop (AGS) configs**; every example config
+is regoldened.
+
+The version is 1.1.0 rather than the 2.0.0 that EffVer gives a package
+rename: this is the first public release, and nobody outside GEG upgrades
+from 1.0.x.
+
+[Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
 
 ### Breaking
 
@@ -17,7 +40,7 @@ changes:
 - **`sim_config.max_mass_rate` is rejected** as an unknown key. Drop it; it
   only served `auto-flow`.
 - **`example_configs/` is now `templates/`**, in the repository, in the wheel
-  (`tango/templates/`), and in what `tango_cli init` copies.
+  (`tango_core/templates/`), and in what `tango_core init` copies.
 - **The sweep apps are deleted** (`run_*_sweep`, `sweep_demo_AGS_direct_heat`),
   and the surrogate app moved to
   `applications/_on_hold/opt_hydro_df_electric_surrogate/`. Use the `opt_*`
@@ -32,13 +55,23 @@ changes:
   `well_eff_diameter`, the injection well's length, a numerical well's
   `num_cells` with `cell_length`) must match it; drop them from the config and
   let TANGO derive them.
-- **`tango_cli run --save-dir` writes `<name>.results.yml`** instead of
+- **`tango_core run --save-dir` writes `<name>.results.yml`** instead of
   `<name>.yml`. Update anything that reads the old name.
 - **`just slurm-fetch` needs app names or `--all`.** A bare call fetches
   nothing.
+- **The package is `tango_core` and the command is `tango_core`.** Replace
+  `import tango` with `import tango_core` and `tango_cli` with `tango_core`
+  in scripts and notebooks; there is no alias for the old names.
+- **`tango_core run` needs `--save-dir DIR` or `--no-save`.** A run with
+  neither stops with an error instead of discarding its results.
 
 ### Added
 
+- **Releases on PyPI.** `pip install tango-core` or `uv add tango-core`.
+  Pushing a version tag runs
+  `.github/workflows/release.yml`, which uploads the release to TestPyPI
+  and then, after a maintainer approves, the same files to PyPI, using
+  Trusted Publishing (no stored token). `CONTRIBUTING.md` has the steps.
 - **`grouped_subsurface` component** (`type: grouped_subsurface`): an AGS
   loop's injection, horizontal and production wells grouped into one circuit
   component, configured as three segment blocks (see
@@ -49,14 +82,32 @@ changes:
   shape an external subsurface simulator plugs in behind. The linked lengths
   (production length, loop depth, `layout.well_spacing`) are derived the same
   way as for the three-component AGS configs.
-- **Optional `raft` extra** for the RAFT wellbore/rock simulator
-  (`just setup-raft`, or `uv sync --extra raft`), pinned to release tag `v0.2.1`. Plain
+  Both variants take the loop's mass flow and temperature at the injection
+  wellhead and its pressure at the production wellhead
+  (`sim_config.target_extraction_pressure`), and solve for the injection
+  pressure, the way RAFT's own template sets the well up; this keeps the
+  injected mass rate under tango's control if RAFT loses fluid to storage or
+  leak-off (GitHub #63). `SystemBCIteration` hands that pressure to the
+  surface plant in the same pass (`SurfaceComponent.set_injection_pressure`)
+  and waits for it to settle (|ΔP| < 1 kPa), so the surface
+  `injection_pressure` in these templates is only the first timestep's
+  starting guess. The `numerical` variant finds the injection pressure by
+  shooting and reproduces a separate-well run's injection pressure and cell
+  profiles to within 7e-11 over 25 years (GitHub #130). A topology diagram,
+  `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where tango and
+  RAFT exchange these boundary conditions and how each timestep's passes
+  converge.
+- **Optional `raft` dependency group** for the RAFT wellbore/rock simulator
+  (`just setup-raft`, or `uv sync --group raft`), pinned to release tag `v0.2.1`. Plain
   `uv sync` never fetches it; see the install guide (`docs/guides/install.md`) for access to the private repo.
+  RAFT runs from a source checkout only: the PyPI package has no `raft`
+  extra and leaves out the RAFT example (`templates/AGS_ORC_electric_raft.yml`,
+  `templates/raft/`) until RAFT's own PyPI name is settled.
   With direnv, a git-ignored `.envrc.local` can set `TANGO_UV_SYNC_ARGS` so
-  the automatic sync keeps extras installed.
+  the automatic sync keeps optional groups installed.
 - **`grouped_subsurface` variant `raft`**: RAFT simulates the loop's wells and
   the surrounding rock (`templates/AGS_ORC_electric_raft.yml`, same
-  site and plant as the numerical example). `tango.external.raft_wrapper.RaftWrapper`
+  site and plant as the numerical example). `tango_core.external.raft_wrapper.RaftWrapper`
   (the config's `raft:` block) drives RAFT one trial per injection-enthalpy
   iteration and accepts the last one per timestep, converting between
   tango's enthalpy and RAFT's temperature. RAFT's config template and mesh
@@ -70,10 +121,14 @@ changes:
   number, and heat transfer coefficient for each element). The step sizes
   and profiles are lists per timestep, so they are in `.results.yml`, not
   the CSV. `raft.verbosity` (`quiet`, `lite`, `full`) sets RAFT's own console
-  output, separately from tango's `--log-level`. With `tango_cli run
+  output, separately from tango's `--log-level`. With `tango_core run
   --save-dir`, RAFT keeps its own output (matrix and well VTKs at the
   template's `output_vtk`, its flow log) in `<stem>.raft/`; without it, RAFT
   writes no VTKs and keeps nothing.
+  The RAFT template sets `NR_tol` to 1e-8 instead of RAFT's 1e-7: RAFT
+  divides its residual by the mesh's 12,054 nodes, so at 1e-7 the
+  production flow could be off by ~1.2e-3 of the injected rate, above
+  tango's 1e-3 check.
 - **RAFT failures that used to pass silently now raise:** a step RAFT
   accepted at `timestep_min` with an extrapolation error above `rel_error_T`
   (`ConvergenceError`). tango checks only what crosses the coupling: the
@@ -103,7 +158,7 @@ changes:
 - **Architecture and runtime pages** — layer graph, config-to-objects,
   component circuit, nested loops, BC iteration and one-run diagrams under
   `docs/architecture/` and `docs/runtime/`; a `README.md` in each
-  `src/tango/` subpackage; API reference from the docstrings.
+  `src/tango_core/` subpackage; API reference from the docstrings.
 - **README banner and diagrams** — a wordmark banner in the cold-to-hot
   gradient (`tools/readme_assets.py`), a hero and three editable
   `.drawio.svg` diagrams built around one system pictogram: what TANGO
@@ -119,7 +174,7 @@ changes:
   (`mkdocs.internal.yml`, `just docs-internal`) that adds the task log,
   roadmap, and archive; until the public release, the org-private Pages
   site deploys this build.
-- **`AGENTS.md`** at the root, in `docs/` and in `src/tango/components/`;
+- **`AGENTS.md`** at the root, in `docs/` and in `src/tango_core/components/`;
   `CLAUDE.md` and `GEMINI.md` point to it.
 - **Project files** — `SECURITY.md` (private vulnerability reporting on
   GitHub), `CITATION.cff`, `.editorconfig`, and GitHub templates for pull
@@ -129,38 +184,88 @@ changes:
   (`-m "not slow and not perf"`) on macOS, Linux and Windows, on every pull request and push to `main` and `develop`;
   `license-check.yml` gates releases; `.github/workflows/docs.yml` builds the docs
   site on every pull request.
+- **Coverage matrix complete**: `AGS_ORC_electric.yml`,
+  `hydro_direct_heat.yml`, `CPG_direct_heat.yml`, `CO2_EGS_direct_heat.yml`,
+  `CO2_AGS_direct_heat.yml`, and the CO2 power cells, including direct-CO2
+  plants `CO2_EGS_electric.yml` and `CO2_AGS_electric.yml` (the CO2 itself
+  drives the turbine; LCOE 0.40 and 2.89 vs 1.55 and 10.9 for the binary
+  versions). Matrix and per-config review checklist: GitLab #67.
+- **Interactive P-h phase diagrams** (GitLab #56): `tango_core run
+  --save-dir` writes one Plotly `<config>.phase_<fluid>.html` per working
+  fluid, with a year slider, configurable isotherms/isentropes/isochores/
+  quality lines (`--phase-diagram-config`), a shaded two-phase region, a
+  phase-color legend, and wells drawn along their computed profiles
+  (including the downhole pump step). `just phase-diagrams` writes every
+  config's into gitignored `scratch_output/<config>/`.
+- **Run-time guards** in `GraphSurface`, as typed errors that optimizers
+  treat as infeasible designs:
+  - `PassivePressureRiseError`: a heat exchanger, valve, separator, mixer
+    or cycle closer whose outlet pressure is above its inlet (TESPy solves
+    a fixed absolute `p_out` above the real inlet as free compression).
+  - `NegativeNetPowerError`: a turbine plant that consumes more power than
+    it makes. Checked once per timestep, on the converged state.
+  - `ValveCannotRaisePressureError`: a `PumpOrValve` on its Valve leg whose
+    pressure would rise. The only power-state error that retries the node
+    as a pump; any other is reported as itself.
+  - `NegativeNetThermalError`: a heat plant whose produced fluid has cooled
+    so far (e.g. a depleted reservoir) that its `net_thermal` exchangers
+    would heat it. Checked once per timestep, on the converged state.
+  - `TESPyConvergenceError`: an unconverged TESPy solve, except TESPy's
+    measured ~1 J/kg stall on a pump drawing exactly saturated liquid,
+    which is used with a warning naming the pump.
+- **`subcooling_K`** surface-node key (TESPy `Td_bp`, `td_bubble` since
+  TESPy 0.11): an outlet that many
+  kelvin below saturation at its actual pressure.
+- **Third-party license tooling**: `tools/check_licenses.py` records the
+  dependency graph (direct/indirect, depth, scope), evaluates license
+  expressions, supports reviewed approvals, and draws a draw.io dependency
+  tree; a `license_check` CI job runs on MRs into `main` and on release
+  tags.
+- **`docs/SOURCES.md`**, a verified bibliography that code and configs cite
+  by key; `docs/` is now user-facing (shipped in the wheel), with developer
+  docs in `dev_docs/`. `dev_docs/tespy_limitations.md` lists what TESPy
+  solves without complaint and TANGO's guards.
 
 ### Changed
 
-- **Breaking for `grouped_subsurface`: the loop's pressure is set at its
-  outlet, not its inlet.** Both variants now take the loop's mass flow and
-  temperature at the injection wellhead and its pressure at the production
-  wellhead (`sim_config.target_extraction_pressure`), and solve for the
-  injection pressure. `SystemBCIteration` hands that pressure to the surface
-  plant in the same pass (`SurfaceComponent.set_injection_pressure`, moved
-  up from `GraphSurface`) and also waits for it to settle (|ΔP| < 1 kPa), so
-  the configured surface `injection_pressure` is only the first timestep's
-  starting guess for these templates. This keeps the injected mass rate
-  under tango's control if RAFT later loses fluid to storage or leak-off
-  (GitHub #63), and matches how RAFT's own template sets the well up. The
-  `numerical` variant finds the injection pressure by shooting; given the
-  production pressure a separate-well run marches to, it reproduces that
-  run's injection pressure and cell profiles to within 7e-11 over 25 years
-  (tested to 1e-6). The RAFT template's `NR_tol` is tightened from RAFT's
-  1e-7 to 1e-8: RAFT divides its residual by the mesh's 12,054 nodes, so at
-  1e-7 the production flow could be off by ~1.2e-3 of the injected rate,
-  over tango's 1e-3 check. Goldens: `AGS_ORC_electric_grouped_subsurface.yml`
-  3.4219 → 3.4194, `AGS_ORC_electric_raft.yml` 2.1193 → 2.1236. The
-  separate-well AGS templates are unchanged (GitHub #130). A new topology
-  diagram, `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where
-  tango and RAFT exchange these boundary conditions and how each
-  timestep's passes converge.
-- **Breaking: `tango_cli run` needs `--save-dir DIR` or `--no-save`.** Running
+- **Breaking: `tango_core run` needs `--save-dir DIR` or `--no-save`.** Running
   without either (or with both) now stops with an argparse error, so results
   are never lost by forgetting `--save-dir`; `--no-save` writes nothing, for
   tests and quick checks (GitHub #125).
-- **`example_configs/` is now `templates/`.** `tango_cli init` copies it to
-  `DEST/templates/`, and the wheel ships it as `tango/templates/`.
+- **One name: `tango_core`.** The import package is `tango_core`
+  (`import tango_core`, `src/tango_core/`), matching the distribution
+  `tango-core`, and the command is `tango_core` (`tango_core run`,
+  `tango_core validate`, `tango_core init`, `tango_core --version`).
+  `import tango` and `tango_cli` are gone, with no alias; update imports
+  and scripts. The CLI module is `tango_core.cli`, and the source hash DVC
+  tracks is `src/tango_core.hash`.
+- **Python 3.12 and 3.13** are supported as well as 3.11
+  (`requires-python = ">=3.11,<3.14"`); a CI job installs the package as
+  a PyPI user would and runs the tests on both. numpy is capped below 2.5,
+  which removed `numpy.row_stack` that pymoo 0.6.1.3 still calls.
+- **Fewer runtime dependencies.** Installing `tango-core` no longer pulls
+  in packages its code doesn't use (`pip`, `pexpect`, `python-arango`,
+  `tqdm`, `msgpack`, `oyaml`, `termcolor`, `tabulate`, `openpyxl`,
+  `seaborn`, `polars`, `jinja2`, `networkx`, `fluprodia`), type stubs, or
+  DVC plugins; the pinned `pip<24` no longer downgrades pip. The `dev`
+  extra is gone: development tools are an unpublished dependency group that
+  `uv sync` installs.
+- **Smaller source archive (sdist).** It now holds the package source,
+  tests, templates, applications, and the release files (license, README,
+  changelog, citation) instead of every file in the repository, and leaves
+  out what the wheel leaves out: the on-hold app and the DVC locks; the
+  wheel is unchanged.
+- **SPDX license headers.** Every Python file starts with
+  `SPDX-FileCopyrightText` and `SPDX-License-Identifier` lines, and
+  `REUSE.toml` covers the other files, so the repository complies with the
+  REUSE specification. A `reuse lint` prek hook keeps it that way.
+- **License: Apache-2.0.** TANGO is open source under the Apache License,
+  Version 2.0 (`LICENSE.txt`), copyright 2025 ETH Zurich. The proprietary
+  license and the internal distribution notice (`NOTICE`) are gone. The
+  package metadata declares the SPDX expression `Apache-2.0`, and
+  `tango_core --version` prints the copyright and license line.
+- **`example_configs/` is now `templates/`.** `tango_core init` copies it to
+  `DEST/templates/`, and the wheel ships it as `tango_core/templates/`.
 - **Forge** — GitHub (`GEG-ETHZ/TANGO-core`) replaces gitlab.ethz.ch for
   code, issues, pull requests, CI and releases. Install and clone commands,
   contributor workflow and release steps point to GitHub;
@@ -179,7 +284,7 @@ changes:
   notes and archive sit next to the site pages; the public build excludes
   them and the internal preview includes them. `dev_docs/` is gone. The
   wheel still ships only `docs/SOURCES.md` from `docs/`.
-- **`tango_cli run --save-dir`** writes the full results as
+- **`tango_core run --save-dir`** writes the full results as
   `<name>.results.yml` (was `<name>.yml`, the same name as the input file).
 - **CSV headers carry units**: every `.smry.csv`/`.econ.csv` column ends in
   its unit, e.g. `production_well_T_outlet [K]`, `LCOE [USD/kWh]`.
@@ -192,7 +297,7 @@ changes:
   to TESPy's `td_bubble`.
 - **Linked config values have one source.** A quantity that several
   components need is written once and the rest derived
-  (`tango.workflows.linked_quantities`); a config that gives a copy which
+  (`tango_core.workflows.linked_quantities`); a config that gives a copy which
   disagrees raises `ConfigError` instead of running with it. Doublet:
   `reservoir.reservoir_depth` and the pump depth
   (`production_well_upper.well_length`) set the injection well's length, the
@@ -213,6 +318,26 @@ changes:
   guess is now `p0_megapascals_out{N}`, in MPa like `p_out_megapascals`; the
   old `p0_out{N}` was passed to TESPy unconverted in bar, so the ORC
   configs' and opt apps' MPa values were 10x too low.
+- **Realistic component efficiencies** in every example config, each with
+  a citation: turbines 0.85 and surface pumps 0.75 (DiPippo 2016),
+  downhole pumps 0.55 overall ESP string (van 't Spijker & Ungemach 2016).
+  Three marginal examples were adjusted to stay net-positive
+  (`EGS_electric.yml` deepened to a hypothetical 5000 m; `CPG_electric.yml`
+  at 125 kg/s; `CO2_AGS_ORC_electric.yml` at 20 years).
+- **Descriptive surface node names** in the example configs (e.g.
+  `evaporator`, `preheater`, `flash_valve`, `separator`, `brine_pump`,
+  `condensate_pump`, `district_heating_hx`; every `PumpOrValve` is
+  `circulation_control`). Application parameter paths that address these
+  nodes changed accordingly.
+- **Binary (ORC) plant configs carry `ORC` in their file names.**
+- **Condensers subcool by 1 K** (`subcooling_K: 1.0`) instead of ending at
+  exactly saturated liquid, except four ORC condensers and
+  `CPG_electric.yml`'s, which already sit at or below their cooling limit.
+- `tango_core init` copies every application by default (`--app` narrows,
+  `--no-apps` skips).
+- The pre-push remote-freshness hook passes when you have rewritten your
+  own pushed commits (amend/rebase), and still blocks when someone else
+  pushed.
 
 ### Removed
 
@@ -260,66 +385,6 @@ changes:
   unpicklable is sent to worker processes.
 - **hydro_df's two flash-pressure parameters** give the same design in
   either application order.
-
----
-
-## [1.1.0] — 2026-10-05
-
-Completes the example coverage matrix, moves the stream interface from
-temperature to specific enthalpy, adds interactive phase diagrams, and
-fixes several physics and solver bugs those diagrams exposed. Adds
-run-time guards that turn physically impossible surface-plant results into
-typed errors, realistic cited component efficiencies, and a third-party
-license gate. **Results change substantially for CO2 and closed-loop (AGS)
-configs**; every example config is regoldened.
-[Link to MR !68](https://gitlab.ethz.ch/geg/tango-projects/tango-core/-/merge_requests/68)
-
-### Added
-
-- **Coverage matrix complete**: `AGS_ORC_electric.yml`,
-  `hydro_direct_heat.yml`, `CPG_direct_heat.yml`, `CO2_EGS_direct_heat.yml`,
-  `CO2_AGS_direct_heat.yml`, and the CO2 power cells, including direct-CO2
-  plants `CO2_EGS_electric.yml` and `CO2_AGS_electric.yml` (the CO2 itself
-  drives the turbine; LCOE 0.40 and 2.89 vs 1.55 and 10.9 for the binary
-  versions). Matrix and per-config review checklist: GitLab #67.
-- **Interactive P-h phase diagrams** (GitLab #56): `tango_cli run
-  --save-dir` writes one Plotly `<config>.phase_<fluid>.html` per working
-  fluid, with a year slider, configurable isotherms/isentropes/isochores/
-  quality lines (`--phase-diagram-config`), a shaded two-phase region, a
-  phase-color legend, and wells drawn along their computed profiles
-  (including the downhole pump step). `just phase-diagrams` writes every
-  config's into gitignored `scratch_output/<config>/`.
-- **Run-time guards** in `GraphSurface`, as typed errors that optimizers
-  treat as infeasible designs:
-  - `PassivePressureRiseError`: a heat exchanger, valve, separator, mixer
-    or cycle closer whose outlet pressure is above its inlet (TESPy solves
-    a fixed absolute `p_out` above the real inlet as free compression).
-  - `NegativeNetPowerError`: a turbine plant that consumes more power than
-    it makes. Checked once per timestep, on the converged state.
-  - `ValveCannotRaisePressureError`: a `PumpOrValve` on its Valve leg whose
-    pressure would rise. The only power-state error that retries the node
-    as a pump; any other is reported as itself.
-  - `NegativeNetThermalError`: a heat plant whose produced fluid has cooled
-    so far (e.g. a depleted reservoir) that its `net_thermal` exchangers
-    would heat it. Checked once per timestep, on the converged state.
-  - `TESPyConvergenceError`: an unconverged TESPy solve, except TESPy's
-    measured ~1 J/kg stall on a pump drawing exactly saturated liquid,
-    which is used with a warning naming the pump.
-- **`subcooling_K`** surface-node key (TESPy `Td_bp`, `td_bubble` since
-  TESPy 0.11): an outlet that many
-  kelvin below saturation at its actual pressure.
-- **Third-party license tooling**: `tools/check_licenses.py` records the
-  dependency graph (direct/indirect, depth, scope), evaluates license
-  expressions, supports reviewed approvals, and draws a draw.io dependency
-  tree; a `license_check` CI job runs on MRs into `main` and on release
-  tags.
-- **`docs/SOURCES.md`**, a verified bibliography that code and configs cite
-  by key; `docs/` is now user-facing (shipped in the wheel), with developer
-  docs in `dev_docs/`. `dev_docs/tespy_limitations.md` lists what TESPy
-  solves without complaint and TANGO's guards.
-
-### Fixed
-
 - **Energy was lost at every component boundary for CO2**: components
   passed temperature and each rebuilt enthalpy from (T, P), and near CO2's
   critical point the tabular property backend lost up to ~42 kJ/kg per
@@ -349,29 +414,6 @@ configs**; every example config is regoldened.
 - **A CO2 EGS power example ran away**: reinjected CO2 sat on its
   pseudo-critical density drop; `CO2_EGS_ORC_electric.yml` now cools it
   before reinjection.
-
-### Changed
-
-- **Realistic component efficiencies** in every example config, each with
-  a citation: turbines 0.85 and surface pumps 0.75 (DiPippo 2016),
-  downhole pumps 0.55 overall ESP string (van 't Spijker & Ungemach 2016).
-  Three marginal examples were adjusted to stay net-positive
-  (`EGS_electric.yml` deepened to a hypothetical 5000 m; `CPG_electric.yml`
-  at 125 kg/s; `CO2_AGS_ORC_electric.yml` at 20 years).
-- **Descriptive surface node names** in the example configs (e.g.
-  `evaporator`, `preheater`, `flash_valve`, `separator`, `brine_pump`,
-  `condensate_pump`, `district_heating_hx`; every `PumpOrValve` is
-  `circulation_control`). Application parameter paths that address these
-  nodes changed accordingly.
-- **Binary (ORC) plant configs carry `ORC` in their file names.**
-- **Condensers subcool by 1 K** (`subcooling_K: 1.0`) instead of ending at
-  exactly saturated liquid, except four ORC condensers and
-  `CPG_electric.yml`'s, which already sit at or below their cooling limit.
-- `tango_cli init` copies every application by default (`--app` narrows,
-  `--no-apps` skips).
-- The pre-push remote-freshness hook passes when you have rewritten your
-  own pushed commits (amend/rebase), and still blocks when someone else
-  pushed.
 
 ---
 

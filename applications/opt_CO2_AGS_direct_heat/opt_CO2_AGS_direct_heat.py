@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Multi-objective optimization of the CO2 AGS direct-heat (district heating) example.
 
 Searches well depth, horizontal loop length, horizontal loop diameter, vertical
@@ -20,7 +23,7 @@ fracking-check`` to protect.
 
 The ``ParamSpec``/``ObjectiveSpec`` factories are defined here, not in
 ``pymoo_api.py``, which stays generic (see ``ParamSpec``'s docstring); the CLI,
-baseline, search, and plots come from ``tango.pymoo_api.OptApp``.
+baseline, search, and plots come from ``tango_core.pymoo_api.OptApp``.
 
 Usage: ``dvc repro`` from this directory (or ``just slurm
 opt_CO2_AGS_direct_heat`` on Euler) runs the ``optimize`` and ``plot`` stages
@@ -34,10 +37,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from tango.components.well.numerical import WellLengthSideEffect, set_well_length
-from tango.core.policies import InjectionPolicy
-from tango.pymoo_api import ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
-from tango.workflows.workflow import Workflow
+from tango_core.components.well.numerical import WellLengthSideEffect, set_well_length
+from tango_core.core.policies import InjectionPolicy
+from tango_core.pymoo_api import ObjectiveScatter, ObjectiveSpec, OptApp, ParamSpec
+from tango_core.workflows.workflow import Workflow
 
 HERE = Path(__file__).parent
 
@@ -84,7 +87,7 @@ class _DepthApply:
     """Picklable ``ParamSpec.apply`` for the loop's depth, i.e. the injection well's length.
 
     The production well's length and the horizontal well's starting depth
-    are derived from it (``tango.workflows.linked_quantities``). The length
+    are derived from it (``tango_core.workflows.linked_quantities``). The length
     changes through ``set_well_length`` with ``KEEP_CELL_LENGTH``, so the
     well's axial resolution stays what the config asked for (or the
     default) instead of stretching a fixed cell count over the new length.

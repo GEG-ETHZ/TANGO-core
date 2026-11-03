@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """What each component type offers: the models drawn in the diagrams, and the external simulators a
 connector could stand in with.
 

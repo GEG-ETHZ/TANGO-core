@@ -3,7 +3,7 @@
 # Changing any value here marks the dependent DVC stage as stale.
 # Run `uv run dvc repro` from this directory to re-execute stale stages.
 #
-# These become the CLI defaults (see tango.pymoo_api.build_pymoo_parser):
+# These become the CLI defaults (see tango_core.pymoo_api.build_pymoo_parser):
 # params.yaml overrides PymooConfig's default, an explicit CLI flag
 # overrides params.yaml. n_processes is not tracked by DVC.
 

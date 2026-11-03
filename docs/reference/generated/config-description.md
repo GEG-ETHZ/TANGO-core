@@ -2,7 +2,7 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `summary` | `str` | required | One-line purpose of the config. |
-| `author` | `str \| None` | `None` | Who wrote the config. |
-| `date` | `str \| None` | `None` | When the config was written, as free text. |
-| `description` | `str` | `''` | Free text: what is modeled, why the config exists and how. |
+| `summary` | `str` | required | *undocumented* |
+| `author` | `str \| None` | `None` | *undocumented* |
+| `date` | `str \| None` | `None` | *undocumented* |
+| `description` | `str` | `''` | *undocumented* |

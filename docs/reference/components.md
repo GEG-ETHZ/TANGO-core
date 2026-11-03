@@ -2,24 +2,24 @@
 
 The physical and economic components a config wires into a circuit.
 
-::: tango.components.registry
+::: tango_core.components.registry
 
-::: tango.components.well.base
+::: tango_core.components.well.base
 
-::: tango.components.well.lumped
+::: tango_core.components.well.lumped
 
-::: tango.components.well.numerical
+::: tango_core.components.well.numerical
 
-::: tango.components.reservoir.base
+::: tango_core.components.reservoir.base
 
-::: tango.components.reservoir.lumped
+::: tango_core.components.reservoir.lumped
 
-::: tango.components.reservoir.wellpattern_impedance
+::: tango_core.components.reservoir.wellpattern_impedance
 
-::: tango.components.surface.base
+::: tango_core.components.surface.base
 
-::: tango.components.surface.graph
+::: tango_core.components.surface.graph
 
-::: tango.components.economic.base
+::: tango_core.components.economic.base
 
-::: tango.components.economic.doublet
+::: tango_core.components.economic.doublet

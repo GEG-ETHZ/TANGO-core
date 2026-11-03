@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Regression tests for ``results_export.write_results``.
 
 Uses a reduced timestep count (fast) rather than any template's own
@@ -14,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from tango import results_export
-from tango.workflows.workflow import Workflow
+from tango_core import results_export
+from tango_core.workflows.workflow import Workflow
 
 _TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _N_TSTEPS_FAST = 3

@@ -6,9 +6,9 @@ How to write and change a page of the TANGO docs site. Build it with `just docs-
 
 The config-key and output tables under `reference/generated/` are generated from the code by `tools/gen_reference.py` (`just docs-gen`); CI fails when they are stale. To change a description, edit the field's docstring, not the table. A docstring ending in `TODO(docs): drafted, review.` shows as *draft* until a maintainer has checked it and removed the marker.
 
-1. One page answers one question. Intro paragraph, one diagram, a compact table, links to code as repo-relative paths (`src/tango/...`).
+1. One page answers one question. Intro paragraph, one diagram, a compact table, links to code as repo-relative paths (`src/tango_core/...`).
 2. A page states how the code is now, not how it got there. History goes to `archive/` or the commit message.
-3. Never copy a fact that has an owner (see the root `AGENTS.md`): link to it. Text that must appear both on GitHub and on the site lives in the README next to the code and is pulled in with a snippet: `--8<-- "src/tango/core/README.md"`.
+3. Never copy a fact that has an owner (see the root `AGENTS.md`): link to it. Text that must appear both on GitHub and on the site lives in the README next to the code and is pulled in with a snippet: `--8<-- "src/tango_core/core/README.md"`.
 4. A new page is added to `nav:` in `mkdocs.yml`, or it is not on the site.
 5. Markdown: fenced blocks carry a language, emphasis uses `*asterisks*`, headings do not skip levels.
 6. Lists in prose take the serial (Oxford) comma: "reservoir, wells, and surface plant".

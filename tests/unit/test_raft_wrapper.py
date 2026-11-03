@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """``RaftWrapper`` and the ``raft`` variant of ``grouped_subsurface``, against a stand-in for RAFT.
 
 ``FakeRaftModel`` honors ``geg_raft.api.RaftModel``'s coupling contract (each
@@ -25,10 +28,10 @@ from fake_raft_model import (
     FakeRaftModel,
 )
 
-import tango.external.raft_wrapper as raft_wrapper
-from tango.components.well.grouped_subsurface import RaftGroupedSubsurface
-from tango.core.errors import ConfigError, ConvergenceError, SaturationError
-from tango.workflows.workflow import Workflow
+import tango_core.external.raft_wrapper as raft_wrapper
+from tango_core.components.well.grouped_subsurface import RaftGroupedSubsurface
+from tango_core.core.errors import ConfigError, ConvergenceError, SaturationError
+from tango_core.workflows.workflow import Workflow
 
 _ROOT = Path(__file__).resolve().parents[2]
 _RAFT_CONFIG = _ROOT / "templates" / "AGS_ORC_electric_raft.yml"
@@ -247,7 +250,7 @@ def test_missing_mesh_points_at_dvc(config: dict[str, Any], raft_template: Path)
 
 
 def test_missing_raft_gives_the_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without the optional extra, starting RAFT says how to install it."""
+    """Without the optional `raft` group, starting RAFT says how to install it."""
     monkeypatch.undo()
     monkeypatch.setitem(sys.modules, "geg_raft.api", None)
     with pytest.raises(ConfigError, match="setup-raft"):

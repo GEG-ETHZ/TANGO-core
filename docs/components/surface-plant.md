@@ -15,7 +15,7 @@ An Aspen Plus connection is planned as a further variant.
 
 ## How the model works
 
-::: tango.components.surface.graph
+::: tango_core.components.surface.graph
     options:
       members: false
       show_root_heading: false

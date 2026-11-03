@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for LockedState — single-value fresh/stale wrapper.
 
 Each test targets one of the six contracted behaviors:
@@ -18,8 +21,8 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from tango.core.errors import DoubleWriteError, FreshAccessError, StaleAccessError
-from tango.core.locked_state import LockedState
+from tango_core.core.errors import DoubleWriteError, FreshAccessError, StaleAccessError
+from tango_core.core.locked_state import LockedState
 
 # ---------------------------------------------------------------------------
 # Fixtures

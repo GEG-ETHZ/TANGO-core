@@ -1,10 +1,13 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared plumbing for the hydro_df_electric surrogate pipeline scripts.
 
 Every stage script (``generate_lhs.py``, ``sweep_lhs.py``, ``train_surrogate.py``,
 ``optimize_surrogate.py``, ``validate_surrogate.py``) reuses THIS system's own
 decision variables, objectives, baseline, plots, and display renames from the
 sibling ``opt_hydro_df_electric`` app's ``APP`` directly, rather than
-redefining them here — see ``tango.surrogate_api``'s module docstring for why this whole pipeline stays generic about the system
+redefining them here — see ``tango_core.surrogate_api``'s module docstring for why this whole pipeline stays generic about the system
 it's optimizing (this ``common.py`` is the one place that's NOT generic; it's
 this app's own glue).
 
@@ -24,7 +27,7 @@ import importlib
 import sys
 from pathlib import Path
 
-from tango.pymoo_api import load_params
+from tango_core.pymoo_api import load_params
 
 HERE = Path(__file__).parent
 _OPT_APP_DIR = HERE.parents[1] / "opt_hydro_df_electric"

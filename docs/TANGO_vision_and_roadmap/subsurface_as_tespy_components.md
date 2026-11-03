@@ -10,7 +10,7 @@ without explicit sign-off** — tracked as a backlog item in `docs/tango_tasks.m
 
 ## The idea
 
-`tango` currently solves the physical system in two nested layers:
+`tango_core` currently solves the physical system in two nested layers:
 
 - **Outer loop (`SystemBCIteration`):** an explicit, component-by-component march
   through the well/reservoir/production chain, with a hand-rolled Picard/Newton-step
@@ -52,7 +52,7 @@ class?" — and reached two conclusions worth restating here rather than re-deri
 **1. Don't literally subclass `tespy.components.component.Component`.** It's a plain
 class built around an `OrderedDict` of `dc_cp`/`dc_simple` property containers,
 `design`/`offdesign` mode switching, and `parameters`/`get_parameters()` conventions.
-`tango.core.Component` is a `LockedState`-frozen Pydantic `BaseModel` with
+`tango_core.core.Component` is a `LockedState`-frozen Pydantic `BaseModel` with
 serialization as a first-class concern. These two metaclass/`__dict__` models don't
 compose cleanly by inheritance. Doing this "properly" would mean writing an adapter
 class — a tespy-`Component` shim that reads off the Pydantic well model and emits
@@ -72,24 +72,24 @@ Fischer–Burmeister-style combination of `Q = fracking_flow(p)` and `p ≤ p_fr
 equation), which as a side effect also collapses `InjectionPolicy`'s two
 separately-coded fracking mechanisms into one constraint. Required regardless of
 whether the eventual implementation adapts into TESPy or stays fully inside
-`tango`, and regardless of whether the scope ends up being one linear chain or a
+`tango_core`, and regardless of whether the scope ends up being one linear chain or a
 true multi-well graph.
 
 The prior exploration's own suggested direction was, in fact, to **not** adopt TESPy's
 `Component` at all — instead borrow the residual/Jacobian *pattern* directly inside
-`tango`'s own `Component`/orchestrator (add `residual()`/`jacobian()` hooks,
+`tango_core`'s own `Component`/orchestrator (add `residual()`/`jacobian()` hooks,
 replace `SystemBCIteration`'s fixed-point update with a real Newton step, keep
 surface's TESPy `Network` solve at the boundary, coupled via an interface residual
 rather than merged into one matrix). That gets the causality fix without importing
 TESPy's design/offdesign/characteriztic-curve machinery or fighting the Pydantic model
-shape the rest of `tango` is built on.
+shape the rest of `tango_core` is built on.
 
 ## The central tension: the outer circuit's representation is linear by design
 
 This is where the primary motivation above (topology generality) directly collides
 with an existing, deliberate choice, not a downstream implementation detail.
 
-`tango`'s outer physical circuit (injection well → reservoir →
+`tango_core`'s outer physical circuit (injection well → reservoir →
 production well(s) → surface → back to injection well) intentionally uses
 `component_idx`/`prev`/`next` integer fields on each `Component`, **not** a
 `nodes`/`edges` graph block like `GraphSurface`'s own internal `power_plant.nodes`/

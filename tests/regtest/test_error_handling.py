@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
 import re
@@ -9,11 +12,11 @@ from typing import Any
 import pytest
 import yaml
 
-import tango.orchestrators.system_bc_iteration as system_bc_iteration
-from tango.components.well.numerical import NumericalInjectionWell, NumericalProductionWellWithPump
-from tango.core.errors import CoolPropError, SaturationError, TESPyError, WellPressureCollapseError
-from tango.core.stream import Stream
-from tango.workflows.workflow import Workflow  # noqa: E402
+import tango_core.orchestrators.system_bc_iteration as system_bc_iteration
+from tango_core.components.well.numerical import NumericalInjectionWell, NumericalProductionWellWithPump
+from tango_core.core.errors import CoolPropError, SaturationError, TESPyError, WellPressureCollapseError
+from tango_core.core.stream import Stream
+from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 ERROR_CONFIG_DIR = Path(__file__).parent / "fixtures" / "coolprop_tespy_errors"
 
