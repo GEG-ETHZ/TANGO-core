@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2025 ETH Zurich
+# SPDX-License-Identifier: Apache-2.0
+
+"""The wheel's ``force-include`` list in ``pyproject.toml`` ships every application file.
+
+The list names each ``applications/`` file one by one, so a new or renamed
+file that isn't added to it is silently missing from the published package
+until ``tango_core init --app`` fails to copy it.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import tomllib
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _left_out_on_purpose(path: str) -> bool:
+    """Whether a tracked ``applications/`` file stays out of the wheel by design.
+
+    The reasons are in the comment above the list in ``pyproject.toml``.
+    """
+    return (
+        path.startswith("applications/_on_hold/")
+        or path == "applications/README.md"
+        or path.endswith(("/dvc.lock", "/outputs/.gitignore", "/REDESIGN_TODO.md"))
+    )
+
+
+def _tracked_application_files() -> set[str]:
+    """Every git-tracked file under ``applications/``; skips outside a git checkout (e.g. an unpacked sdist)."""
+    if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
+        pytest.skip("needs a git checkout of the repository")
+    listing = subprocess.run(
+        ["git", "ls-files", "applications/"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return set(listing.splitlines())
+
+
+def test_force_include_lists_every_application_file() -> None:
+    """force-include matches ``git ls-files applications/`` minus the deliberate exclusions."""
+    with (REPO_ROOT / "pyproject.toml").open("rb") as file:
+        force_include = tomllib.load(file)["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
+    listed = {
+        source: target for source, target in force_include.items() if source.startswith("applications/")
+    }
+    expected = {path for path in _tracked_application_files() if not _left_out_on_purpose(path)}
+
+    assert sorted(expected - listed.keys()) == [], "add these to force-include in pyproject.toml"
+    assert sorted(listed.keys() - expected) == [], "remove these from force-include, or track them in git"
+    misplaced = sorted(source for source, target in listed.items() if target != f"tango_core/{source}")
+    assert misplaced == [], "each target should be tango_core/<source path>"

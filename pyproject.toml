@@ -155,7 +155,8 @@ packages = ["src/tango_core"]
 # applications/README.md (describes the whole directory, not one app --
 # not copied per-app by `tango_core init --app`). Regenerate by re-running
 # that command and re-applying this same filter if apps are added,
-# renamed, or gain/lose files.
+# renamed, or gain/lose files; tests/unit/test_packaging.py fails until
+# the list matches.
 "applications/demo_hydro_sf_electric/.gitignore" = "tango_core/applications/demo_hydro_sf_electric/.gitignore"
 "applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py" = "tango_core/applications/demo_hydro_sf_electric/demo_hydro_sf_electric.py"
 "applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py" = "tango_core/applications/demo_well_mesh_convergence/demo_well_mesh_convergence.py"
