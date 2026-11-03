@@ -46,12 +46,6 @@ Homepage = "https://github.com/GEG-ETHZ/TANGO-core"
 [project.scripts]
 tango_core = "tango_core.cli:main"
 
-[project.optional-dependencies]
-# RAFT (GEG-ETHZ/RAFT): FEM wellbore + rock heat simulator behind the
-# `grouped_subsurface` component's `raft` variant. Optional:
-# `uv sync --extra raft`. The source is pinned in [tool.uv.sources] below.
-raft = ["geg-raft"]
-
 [dependency-groups]
 # Tools for working on the repository, never published; `uv sync` installs
 # this group by default.
@@ -74,6 +68,12 @@ dev = [
     "sphinx>=7.4,<8.0", # for generating documentation from inline doc strings
     "snakeviz>=2.2,<3.0", # cProfile visualisation (tools/run_tango_profile.py --profile)
 ]
+# RAFT (GEG-ETHZ/RAFT): FEM wellbore + rock heat simulator behind the
+# `grouped_subsurface` component's `raft` variant, installed with
+# `uv sync --group raft`. A dependency group rather than an extra, so it stays
+# out of the published package until RAFT's PyPI name is settled. The source
+# is pinned in [tool.uv.sources] below.
+raft = ["geg-raft"]
 docs = [
     "zensical==0.0.68", # docs site generator (reads mkdocs.yml); `uv run --group docs zensical serve`
     "mkdocstrings-python==2.0.9", # API reference pages from the Google-style docstrings
@@ -135,7 +135,30 @@ packages = ["src/tango_core"]
 # via that path) rather than under src/tango_core/ -- force-include ships it in
 # the wheel at tango_core/templates/ (see tango_core init) without moving or
 # duplicating it, so nothing referencing the top-level path needs to change.
-"templates" = "tango_core/templates"
+# Files are listed individually, as for applications/ below, to leave out the
+# RAFT example (AGS_ORC_electric_raft.yml and templates/raft/): RAFT isn't
+# installable from PyPI yet. tests/unit/test_packaging.py fails until this
+# list matches `git ls-files templates/` minus those files.
+"templates/.gitignore" = "tango_core/templates/.gitignore"
+"templates/AGS_ORC_electric.yml" = "tango_core/templates/AGS_ORC_electric.yml"
+"templates/AGS_ORC_electric_grouped_subsurface.yml" = "tango_core/templates/AGS_ORC_electric_grouped_subsurface.yml"
+"templates/AGS_direct_heat.yml" = "tango_core/templates/AGS_direct_heat.yml"
+"templates/CO2_AGS_ORC_electric.yml" = "tango_core/templates/CO2_AGS_ORC_electric.yml"
+"templates/CO2_AGS_direct_heat.yml" = "tango_core/templates/CO2_AGS_direct_heat.yml"
+"templates/CO2_AGS_electric.yml" = "tango_core/templates/CO2_AGS_electric.yml"
+"templates/CO2_EGS_ORC_electric.yml" = "tango_core/templates/CO2_EGS_ORC_electric.yml"
+"templates/CO2_EGS_direct_heat.yml" = "tango_core/templates/CO2_EGS_direct_heat.yml"
+"templates/CO2_EGS_electric.yml" = "tango_core/templates/CO2_EGS_electric.yml"
+"templates/CPG_direct_heat.yml" = "tango_core/templates/CPG_direct_heat.yml"
+"templates/CPG_electric.yml" = "tango_core/templates/CPG_electric.yml"
+"templates/EGS_direct_heat.yml" = "tango_core/templates/EGS_direct_heat.yml"
+"templates/EGS_electric.yml" = "tango_core/templates/EGS_electric.yml"
+"templates/README.md" = "tango_core/templates/README.md"
+"templates/hydro_ORC_electric.yml" = "tango_core/templates/hydro_ORC_electric.yml"
+"templates/hydro_df_electric.yml" = "tango_core/templates/hydro_df_electric.yml"
+"templates/hydro_direct_heat.yml" = "tango_core/templates/hydro_direct_heat.yml"
+"templates/hydro_sf_electric.yml" = "tango_core/templates/hydro_sf_electric.yml"
+"templates/hydro_sf_electric_5spot.yml" = "tango_core/templates/hydro_sf_electric_5spot.yml"
 
 # User-facing docs from docs/. Files are listed individually, not the whole
 # directory: docs/ also holds the developer docs (task log, roadmap, design
@@ -268,8 +291,8 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.uv.sources]
 # Pinned to a release tag (uv.lock records its commit); bump deliberately.
-# Private repo for now: CI jobs that install the `raft` extra need read
-# access (deploy key), while `uv sync --locked` without the extra never
+# Private repo for now: CI jobs that install the `raft` group need read
+# access (deploy key), while `uv sync --locked` without the group never
 # fetches it.
 geg-raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", tag = "v0.2.1" }
 
@@ -403,7 +426,7 @@ module = [
     "scipy.stats",
     "sklearn.*",
     "plotly.*",
-    "geg_raft.*",  # optional extra; absent in a plain `uv sync`
+    "geg_raft.*",  # optional `raft` group; absent in a plain `uv sync`
 ]
 ignore_missing_imports = true
 

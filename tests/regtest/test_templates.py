@@ -91,7 +91,7 @@ def _injection_well(comps: dict[str, Any]) -> Any:
     return entry.injection_well if isinstance(entry, NumericalGroupedSubsurface) else entry
 
 
-# Templates whose subsurface needs the optional RAFT extra; skipped without it.
+# Templates whose subsurface needs the optional RAFT dependency group; skipped without it.
 _NEEDS_RAFT = {"AGS_ORC_electric_raft.yml"}
 
 

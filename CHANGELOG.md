@@ -12,7 +12,7 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 First public release: tango-core is open source under Apache-2.0, and
 releases go to PyPI. It completes the example coverage matrix with an
 optimized design for every example config, can simulate an AGS loop's
-wells and rock with RAFT, moves the stream interface from temperature to
+wells and rock with RAFT (from a source checkout), moves the stream interface from temperature to
 specific enthalpy, adds interactive phase diagrams, and fixes several
 physics and solver bugs those diagrams exposed. Run-time guards turn
 physically impossible results into typed errors, component efficiencies
@@ -97,11 +97,14 @@ changes:
   `docs/diagrams/AGS_ORC_electric_raft_topology.svg`, marks where tango and
   RAFT exchange these boundary conditions and how each timestep's passes
   converge.
-- **Optional `raft` extra** for the RAFT wellbore/rock simulator
-  (`just setup-raft`, or `uv sync --extra raft`), pinned to release tag `v0.2.1`. Plain
+- **Optional `raft` dependency group** for the RAFT wellbore/rock simulator
+  (`just setup-raft`, or `uv sync --group raft`), pinned to release tag `v0.2.1`. Plain
   `uv sync` never fetches it; see the install guide (`docs/guides/install.md`) for access to the private repo.
+  RAFT runs from a source checkout only: the PyPI package has no `raft`
+  extra and leaves out the RAFT example (`templates/AGS_ORC_electric_raft.yml`,
+  `templates/raft/`) until RAFT's own PyPI name is settled.
   With direnv, a git-ignored `.envrc.local` can set `TANGO_UV_SYNC_ARGS` so
-  the automatic sync keeps extras installed.
+  the automatic sync keeps optional groups installed.
 - **`grouped_subsurface` variant `raft`**: RAFT simulates the loop's wells and
   the surrounding rock (`templates/AGS_ORC_electric_raft.yml`, same
   site and plant as the numerical example). `tango_core.external.raft_wrapper.RaftWrapper`

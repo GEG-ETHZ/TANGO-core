@@ -10,13 +10,13 @@ setup: _setup-direnv && _setup-raft-hint
 # GEG-ETHZ/RAFT is private for now: this needs GitHub read access to it (see README).
 [unix]
 setup-raft:
-    uv sync --extra raft
-    grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo 'export TANGO_UV_SYNC_ARGS="--extra raft"' >> .envrc.local
+    uv sync --group raft
+    grep -qs 'TANGO_UV_SYNC_ARGS' .envrc.local || echo 'export TANGO_UV_SYNC_ARGS="--group raft"' >> .envrc.local
     command -v direnv >/dev/null 2>&1 && direnv allow . || true
 
 [windows]
 setup-raft:
-    uv sync --extra raft
+    uv sync --group raft
 
 [unix]
 _setup-raft-hint:

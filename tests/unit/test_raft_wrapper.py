@@ -250,7 +250,7 @@ def test_missing_mesh_points_at_dvc(config: dict[str, Any], raft_template: Path)
 
 
 def test_missing_raft_gives_the_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without the optional extra, starting RAFT says how to install it."""
+    """Without the optional `raft` group, starting RAFT says how to install it."""
     monkeypatch.undo()
     monkeypatch.setitem(sys.modules, "geg_raft.api", None)
     with pytest.raises(ConfigError, match="setup-raft"):

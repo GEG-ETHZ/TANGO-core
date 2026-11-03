@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 ETH Zurich
 # SPDX-License-Identifier: Apache-2.0
 
-"""The ``raft`` variant of ``grouped_subsurface`` with the real RAFT (optional ``raft`` extra).
+"""The ``raft`` variant of ``grouped_subsurface`` with the real RAFT (optional ``raft`` dependency group).
 
 Skipped when RAFT isn't installed. One simulated year on RAFT's AGS mesh
 takes about two minutes, so this is marked ``slow``; the full 25-year

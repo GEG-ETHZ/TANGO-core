@@ -3,7 +3,7 @@
 
 """``RaftWrapper``: drives RAFT, an external wellbore and rock simulator, one tango timestep at a time.
 
-RAFT (GEG-ETHZ/RAFT, the optional ``raft`` extra) solves flow and heat in
+RAFT (GEG-ETHZ/RAFT, the optional ``raft`` dependency group) solves flow and heat in
 a well embedded in a 3D finite-element model of the surrounding rock. Its
 coupling API (``geg_raft.api.RaftModel``) advances a *trial* state from the
 last accepted state, as often as needed, until the caller accepts it. That
@@ -127,7 +127,7 @@ def _raft_model_class() -> Any:
     except ImportError as exc:
         raise ConfigError(
             "grouped_subsurface variant 'raft' needs the optional RAFT dependency: "
-            "run `just setup-raft` (or `uv sync --extra raft`).",
+            "run `just setup-raft` (or `uv sync --group raft`).",
         ) from exc
     return RaftModel
 

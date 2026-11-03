@@ -2,7 +2,8 @@
 # extraction, with the subsurface loop (injection well, horizontal well,
 # production well and the surrounding rock) simulated by RAFT: the raft
 # variant of grouped_subsurface (see tango_core.external.raft_wrapper; needs the
-# optional extra: `just setup-raft`).
+# optional `raft` dependency group: `just setup-raft`; from a source checkout
+# only, not the PyPI package).
 #
 # The same hypothetical site and plant as
 # AGS_ORC_electric_grouped_subsurface.yml (the numerical variant); only the

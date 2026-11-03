@@ -74,7 +74,7 @@ jobs:
       - run: .venv/bin/python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
 
   raft:
-    # The optional RAFT extra (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
+    # The optional RAFT group (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
     # private until its public release, so installing it needs the read-only
     # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
     # and the insteadOf rewrite routes the fetch over SSH. Every step is
@@ -101,7 +101,7 @@ jobs:
       - if: env.RAFT_DEPLOY_KEY != ''
         uses: astral-sh/setup-uv@v7
       - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv sync --locked --extra raft
+        run: uv sync --locked --group raft
       - if: env.RAFT_DEPLOY_KEY != ''
         run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
       - if: env.RAFT_DEPLOY_KEY != ''

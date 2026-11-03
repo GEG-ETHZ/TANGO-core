@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2025 ETH Zurich
 # SPDX-License-Identifier: Apache-2.0
 
-"""The wheel's ``force-include`` list in ``pyproject.toml`` ships every application file.
+"""The wheel's ``force-include`` list in ``pyproject.toml`` ships every template and application file.
 
-The list names each ``applications/`` file one by one, so a new or renamed
-file that isn't added to it is silently missing from the published package
-until ``tango_core init --app`` fails to copy it.
+The list names each ``templates/`` and ``applications/`` file one by one, so a
+new or renamed file that isn't added to it is silently missing from the
+published package until ``tango_core init`` fails to copy it.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -20,7 +21,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _left_out_on_purpose(path: str) -> bool:
+def _application_left_out(path: str) -> bool:
     """Whether a tracked ``applications/`` file stays out of the wheel by design.
 
     The reasons are in the comment above the list in ``pyproject.toml``.
@@ -32,12 +33,17 @@ def _left_out_on_purpose(path: str) -> bool:
     )
 
 
-def _tracked_application_files() -> set[str]:
-    """Every git-tracked file under ``applications/``; skips outside a git checkout (e.g. an unpacked sdist)."""
+def _template_left_out(path: str) -> bool:
+    """Whether a tracked ``templates/`` file stays out of the wheel: the RAFT example, until RAFT is on PyPI."""
+    return path.startswith("templates/raft/") or path == "templates/AGS_ORC_electric_raft.yml"
+
+
+def _tracked_files(directory: str) -> set[str]:
+    """Every git-tracked file under ``directory``; skips outside a git checkout (e.g. an unpacked sdist)."""
     if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
         pytest.skip("needs a git checkout of the repository")
     listing = subprocess.run(
-        ["git", "ls-files", "applications/"],
+        ["git", "ls-files", directory],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -46,14 +52,16 @@ def _tracked_application_files() -> set[str]:
     return set(listing.splitlines())
 
 
-def test_force_include_lists_every_application_file() -> None:
-    """force-include matches ``git ls-files applications/`` minus the deliberate exclusions."""
+@pytest.mark.parametrize(
+    ("directory", "left_out"),
+    [("templates/", _template_left_out), ("applications/", _application_left_out)],
+)
+def test_force_include_lists_every_file(directory: str, left_out: Callable[[str], bool]) -> None:
+    """force-include matches ``git ls-files <directory>`` minus the deliberate exclusions."""
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         force_include = tomllib.load(file)["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    listed = {
-        source: target for source, target in force_include.items() if source.startswith("applications/")
-    }
-    expected = {path for path in _tracked_application_files() if not _left_out_on_purpose(path)}
+    listed = {source: target for source, target in force_include.items() if source.startswith(directory)}
+    expected = {path for path in _tracked_files(directory) if not left_out(path)}
 
     assert sorted(expected - listed.keys()) == [], "add these to force-include in pyproject.toml"
     assert sorted(listed.keys() - expected) == [], "remove these from force-include, or track them in git"
