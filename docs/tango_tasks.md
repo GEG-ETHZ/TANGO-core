@@ -233,7 +233,7 @@ Goal: get through all of this in the next session (2026-09-17).
       private memory file names, not anything in this repo; meaningless
       to anyone (including a future session) without that exact memory
       loaded. Replaced with real citations (this module's own docstring,
-      `docs/bugs-fixed-in-tango.md`) or inlined substance. Full list of
+      `docs/archive/bugs-fixed-in-tango.md`) or inlined substance. Full list of
       what was touched, preserved as a record:
       - `example_configs/EGS_direct_heat.yml` (known simplification vs.
         old tango's `max_mass_rate` cap), `hydro_ORC_electric.yml` (dropped

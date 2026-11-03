@@ -42,7 +42,7 @@ design-point conditions rather than being knowable up front -- see
 builds and holds TWO full networks, tries the Valve-resolved one first
 each ``solve()``, and falls back to the Compressor-resolved one if that's
 physically invalid for the current timestep -- see
-``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+``docs/archive/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
 anywhere" entry for the physical motivation.
 
 Example YAML (AGS direct-heat — the topology that motivated this class):
@@ -269,7 +269,7 @@ class _NetworkBundle:
     networks, one per resolution, is the cost of getting that decision
     right automatically per design point rather than requiring a manual,
     per-config component choice -- see
-    ``docs/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
+    ``docs/archive/bugs-fixed-in-tango.md``'s "AGS closed loop has no pump
     anywhere" entry for the physical motivation.
     """
 

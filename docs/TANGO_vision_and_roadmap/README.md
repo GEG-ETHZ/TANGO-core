@@ -404,7 +404,7 @@ sub-problem: the production-pump inner loop that finds `dP_pump` needed to hit
 `target_extraction_pressure` is a single fixed value on `sim_config` — threaded by
 reference to both the surface component and any pump-bearing production well via
 `_build_components`'s `layout_extras` mechanism (fixing a real bug where it used to
-be two independently-set, unvalidated copies — see `docs/bugs-fixed-in-tango.md`) — but the
+be two independently-set, unvalidated copies — see `docs/archive/bugs-fixed-in-tango.md`) — but the
 pump-loop physics itself (the real Newton-Raphson solve old tango does, finding
 `dP_pump` such that the whole circuit is pressure-consistent — see below) is not yet
 implemented; tango's pump-bearing wells currently apply this value directly as

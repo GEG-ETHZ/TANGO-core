@@ -215,7 +215,7 @@ MANUAL_FRACKING_CHECK`, 2026-08-11 (uncommitted as of 2026-08-12 — update
 this hash once committed).
 
 **New TANGO Commandment added** (`CONTRIBUTING.md`): [rule: No opaque short
-names for physical quantities](project/contributing.md#rule-descriptive-variable-names) — a bare
+names for physical quantities](../project/contributing.md#rule-descriptive-variable-names) — a bare
 `rw`/`re` is exactly what let a diameter and a radius get silently mixed
 into the same formula unnoticed; a full name like `wellbore_diameter_m`
 vs. `wellbore_radius_m` would have made the mismatch visible at the call

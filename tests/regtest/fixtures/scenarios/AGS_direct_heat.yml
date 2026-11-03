@@ -170,7 +170,7 @@ components:
       # builds both a Valve- and a Compressor-resolved network for this
       # node and picks whichever is physically valid each solve() -- see
       # GraphSurface's own module docstring, `_NetworkBundle`, and
-      # `docs/bugs-fixed-in-tango.md`'s "AGS closed loop has no pump
+      # `docs/archive/bugs-fixed-in-tango.md`'s "AGS closed loop has no pump
       # anywhere" entry.
       #
       # No p_out_megapascals here, deliberately: injection_pressure

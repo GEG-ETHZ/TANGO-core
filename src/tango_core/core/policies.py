@@ -79,7 +79,7 @@ class MainProduct(enum.StrEnum):
 
     A real enum rather than a raw string comparison, to avoid the
     silent-failure modes a stringly-typed field invites — see
-    ``docs/bugs-fixed-in-tango.md``'s "``== \"yes\"`` string-comparison
+    ``docs/archive/bugs-fixed-in-tango.md``'s "``== \"yes\"`` string-comparison
     trap" section for an example of that failure mode.
     """
 
