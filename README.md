@@ -6,6 +6,7 @@
 [![CI](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/tests.yml)
 [![Docs](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml/badge.svg)](https://github.com/GEG-ETHZ/TANGO-core/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE.txt)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23952662-0E0E10.svg)](https://doi.org/10.5281/zenodo.23952662)
 [![Python](https://img.shields.io/badge/python-3.11–3.13-0E0E10.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
@@ -128,7 +129,7 @@ Code changes follow the [TANGO commandments](CONTRIBUTING.md#tango-commandments)
 | A question about using TANGO | Open an issue on [GitHub](https://github.com/GEG-ETHZ/TANGO-core/issues) |
 | A bug | Open an issue with the config and the full traceback; see [Error tracebacks](docs/ERROR_TRACEBACKS.md) |
 | A security problem | Follow [`SECURITY.md`](SECURITY.md); do not open a public issue |
-| A publication | Cite TANGO with [`CITATION.cff`](CITATION.cff); GitHub shows a "Cite this repository" button for it |
+| A publication | Cite TANGO with [`CITATION.cff`](CITATION.cff) or DOI [10.5281/zenodo.23952662](https://doi.org/10.5281/zenodo.23952662), which always resolves to the latest release; GitHub shows a "Cite this repository" button |
 
 ## License
 
