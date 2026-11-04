@@ -16,7 +16,7 @@ The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-conf
 
 ## TANGO Commandments
 
-Binding for every change; each exists because its absence caused a real problem.
+Binding for every change; each exists because its absence caused a real problem. [Where the commandments come from](https://github.com/GEG-ETHZ/TANGO-core/blob/docs/commandments-provenance/docs/commandments_provenance.md) links each one to an example of that problem in the code before the refactor.
 
 1. <a id="rule-object-is-config"></a>**object == config.** Code objects and the YAML config are congruent, close to 1:1; only values derived at instantiation are exempt.
 1. <a id="rule-locked-state"></a>**Mutation is guarded.** Every value that changes across timesteps or iterations is a `LockedState` (`src/tango_core/core/locked_state.py`) inside the component's `state` dataclass, written exactly once per solve.

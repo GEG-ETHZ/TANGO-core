@@ -51,6 +51,7 @@ plugins:
         - "archive/*"
         - guides/euler.md
         - aitkens_speedup.md
+        - commandments_provenance.md
         - appendices/ai_error_interpretation_sketch.md
         - implicit_solver_exploration.md
         - long_term_architecture_exploration.md
