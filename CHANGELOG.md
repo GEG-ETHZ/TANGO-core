@@ -8,6 +8,7 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 ### Changed
 
 - The documentation site is public and shows the public pages only.
+- TANGO has a DOI, [10.5281/zenodo.23952662](https://doi.org/10.5281/zenodo.23952662): Zenodo archives every GitHub Release. `CITATION.cff` and the README carry it.
 
 ---
 
