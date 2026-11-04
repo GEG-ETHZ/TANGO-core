@@ -131,3 +131,13 @@ Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) firs
 - On [pypi.org](https://pypi.org/manage/account/publishing/) and [test.pypi.org](https://test.pypi.org/manage/account/publishing/), add a trusted publisher for project `tango-core`: owner `GEG-ETHZ`, repository `TANGO-core`, workflow `release.yml`, environment `pypi` on PyPI and `testpypi` on TestPyPI. Before the first upload this is a "pending publisher", which also reserves the name.
 - In the repository's Settings → Environments, create `testpypi` with no protection rules and `pypi` with a required reviewer.
 - On [Zenodo](https://zenodo.org/account/settings/github/), log in, click "Sync now", and turn on `GEG-ETHZ/TANGO-core`. Zenodo lists public repositories only, and it ignores releases published before the switch was on.
+
+### Handing over Zenodo
+
+Two kinds of Zenodo access matter, and they differ in how many people can hold them:
+
+- **Editing the record:** any number of people can have "Can manage" on the [TANGO record](https://zenodo.org/records/23952663) (record page → Share → People). Keep several maintainers on it, so a departure never leaves the record without an editor.
+- **Archiving new releases:** the GitHub integration runs through the one Zenodo account that turned the repository on. If that person leaves GEG-ETHZ, new releases may stop reaching Zenodo, so hand it over while they still have access:
+  1. Make sure the successor has "Can manage" on the record.
+  2. The current owner turns `GEG-ETHZ/TANGO-core` off in Zenodo's Settings → GitHub, and the successor turns it on from their own account.
+  3. Publish the next GitHub Release and check that the new version appears under the all-versions DOI in `CITATION.cff`, not as a new record with a new all-versions DOI.
