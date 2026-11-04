@@ -49,6 +49,7 @@ plugins:
       glob:
         - AGENTS.md
         - "archive/*"
+        - guides/euler.md
         - aitkens_speedup.md
         - appendices/ai_error_interpretation_sketch.md
         - implicit_solver_exploration.md
@@ -104,7 +105,6 @@ nav:
       - Templates: guides/templates.md
       - Applications: guides/applications.md
       - Optimization: guides/optimization.md
-      - Running on Euler: guides/euler.md
       - Glossary: guides/glossary.md
   - Components:
       - components/index.md
@@ -142,8 +142,3 @@ nav:
       - Tests: project/tests.md
       - Tools: project/tools.md
       - Changelog: project/changelog.md
-      - Design notes:
-          - Implicit solver: implicit_solver_exploration.md
-          - Modelica: modelica-investigation.md
-          - Subsurface as TESPy components: TANGO_vision_and_roadmap/subsurface_as_tespy_components.md
-          - AI error interpretation: appendices/ai_error_interpretation_sketch.md

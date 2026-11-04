@@ -1,7 +1,7 @@
 # Internal preview of the docs site: everything in docs/, including the
 # internal pages the public build excludes (task log, roadmap, archive,
-# long-term exploration). docs.yml deploys this build to the org-private
-# Pages site until the public release; then it deploys the public build.
+# long-term exploration). It is for local reading only; docs.yml builds it
+# as a check but deploys the public build.
 #   just docs-internal   → http://127.0.0.1:8000
 INHERIT: mkdocs.yml
 site_name: TANGO (internal)
@@ -17,6 +17,12 @@ nav:
       - pymoo generation budget: pymoo_generation_budget.md
       - Walkthrough: walkthrough.md
       - Archive: archive/README.md
+      - Running on Euler: guides/euler.md
+      - Design notes:
+          - Implicit solver: implicit_solver_exploration.md
+          - Modelica: modelica-investigation.md
+          - Subsurface as TESPy components: TANGO_vision_and_roadmap/subsurface_as_tespy_components.md
+          - AI error interpretation: appendices/ai_error_interpretation_sketch.md
 plugins:
   - search
   - exclude:
