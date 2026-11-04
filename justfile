@@ -463,17 +463,18 @@ apps:
     # each opt_* app's --smoke does.
     Get-ChildItem applications -Directory -Filter "opt_*" | ForEach-Object { $script = Join-Path $_.FullName "$($_.Name).py"; if ((Test-Path $script) -and (Select-String -Path $script -Pattern "APP = OptApp\(" -Quiet)) { Write-Output "== $($_.Name)"; $tmp = Join-Path $env:TEMP ([guid]::NewGuid()); New-Item -ItemType Directory -Path $tmp | Out-Null; uv run python $script --smoke --save-dir $tmp --log-level ERROR --no-plot --quiet; if ($LASTEXITCODE -ne 0) { exit 1 }; uv run python $script --save-dir $tmp --log-level ERROR --plot-only; if ($LASTEXITCODE -ne 0) { exit 1 } } }
 
-# Preview the docs site on localhost with live reload
-docs:
-    uv run --group docs zensical serve
+# Preview the docs site on localhost with live reload; `just docs --open` opens a browser
+docs *args:
+    uv run --group docs zensical serve {{args}}
 
 # Build the docs site into site/ (what CI runs on every pull request)
 docs-build:
     uv run --group docs zensical build --clean
 
-# Preview the internal docs (adds the task log, roadmap, and archive), the build docs.yml deploys
-docs-internal:
-    uv run --group docs zensical serve -f mkdocs.internal.yml
+# Preview the docs with the internal pages the public site leaves out (task log, roadmap, archive,
+# design notes, Euler guide); they exist only locally. `just docs-internal --open` opens a browser.
+docs-internal *args:
+    uv run --group docs zensical serve -f mkdocs.internal.yml {{args}}
 
 # Regenerate the README banner (docs/assets/) and the editable diagrams (docs/diagrams/); needs the drawio CLI.
 # The [unix] recipe above also exports the topology diagrams.

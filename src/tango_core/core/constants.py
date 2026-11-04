@@ -46,18 +46,15 @@ from __future__ import annotations
 # Physical constants
 # ---------------------------------------------------------------------------
 
+# TODO: switch to the standard value 9.80665 and regolden the golden LCOE
+# values in tests/regtest/test_templates.py (tracked in docs/tango_tasks.md).
 GRAVITY: float = 9.81
-"""Gravitational acceleration (m/s²) — default value only; per-component
-`gravity` fields (well/reservoir components) can override this, since
-gravity genuinely varies regionally by up to ~0.5%.
+"""Gravitational acceleration (m/s²), rounded to 9.81.
 
-TODO: pinned to this rounded value rather than the more precise NIST/ISO
-80000-3 standard value (9.80665) to keep existing golden/reference values
-(e.g. test_templates.py's golden LCOE values) stable — switching to
-9.80665 is a one-line change (component-level overrides already exist)
-whenever Chad decides to make it, flagged in docs/tango_tasks.md rather
-than changed here since it would shift those reference values by a tiny
-amount."""
+This is a default: well and reservoir components have their own `gravity`
+field, which overrides it, since gravity varies regionally by up to about
+0.5%. The standard value (ISO 80000-3) is 9.80665; the golden LCOE values
+in the regression tests are computed with 9.81."""
 
 YEAR_TO_SECOND: float = 31_536_000.0
 """Seconds per (365-day) year. Used in dimensionless-time calculations
