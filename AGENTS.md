@@ -59,7 +59,7 @@ Read before any change:
 1. `tests/regtest/` takes over an hour. CI runs only `tests/unit/`; the pre-push hook runs the fast subset (`not slow and not perf`), and `just test --all` runs everything before a release tag.
 2. A hook regenerates `src/tango_core.hash` on every `src/tango_core/` change. The DVC stages in `applications/` depend on it.
 3. Every shipped example sets `sim_config.injection_mode`, so every example runs `SystemBCIteration`. `SystemDirect` runs only when the key is absent.
-4. The docs site is public and deploys only the public build (`mkdocs.yml`). Internal pages (task log, roadmap, archive) stay in the repository but must stay on the `exclude` list in `mkdocs.yml`; `mkdocs.internal.yml` adds them back for `just docs-internal`. A page that names people, partners, or business plans goes on that list, not in the public nav.
+4. The docs site is public and deploys only the public build (`mkdocs.yml`). Internal pages (task log, roadmap, archive) stay in the repository but must stay on the `exclude` list in `mkdocs.yml`; `mkdocs.internal.yml` adds them back for `just docs-internal --open`, the only place they are rendered. A page that names people, partners, or business plans goes on that list, not in the public nav.
 5. Links in `src/tango_core/**/README.md` are absolute GitHub URLs, because the site includes those files from a different path.
 6. A new or renamed config field, or a changed field docstring, changes the generated docs: run `just docs-gen` and commit the result, or the CI check `tools/gen_reference.py --check` fails.
 

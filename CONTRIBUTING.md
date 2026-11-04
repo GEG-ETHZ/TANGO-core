@@ -63,7 +63,7 @@ CI runs `tests/unit/` only; the regression tier exceeds the runner's time limit.
 
 ## Documentation
 
-`just docs` previews the site, `just docs-build` is what CI runs. A behavior change updates the page that describes it in the same pull request (`docs/architecture/`, `docs/runtime/`, the subpackage `README.md`). The API reference comes from docstrings; diagram rules and the palette are in [`docs/AGENTS.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/AGENTS.md); `just diagrams` regenerates the diagrams from `tools/diagrams/`.
+`just docs` previews the site, `just docs-build` is what CI runs. The internal pages (task log, roadmap, archive, design notes, Euler guide) are not on the public site; `just docs-internal --open` builds the site with them and opens it in a browser. A behavior change updates the page that describes it in the same pull request (`docs/architecture/`, `docs/runtime/`, the subpackage `README.md`). The API reference comes from docstrings; diagram rules and the palette are in [`docs/AGENTS.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/AGENTS.md); `just diagrams` regenerates the diagrams from `tools/diagrams/`.
 
 ## Large Files
 

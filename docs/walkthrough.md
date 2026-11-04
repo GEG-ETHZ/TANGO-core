@@ -8,8 +8,7 @@ just has the commands and the one-liner to say while running them.
 
 ### 1.1 Installation
 
-Follow [README.md's "General users" → "Installation"](./README.md#general-users)
-section directly:
+Follow the [install guide](guides/install.md) directly:
 
 1. Scaffold a project with the GEG cookiecutter template.
 2. `uv add tango-core` (or `pip install tango-core`).
