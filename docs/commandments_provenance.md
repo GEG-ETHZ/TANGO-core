@@ -1,6 +1,6 @@
 # Where the TANGO Commandments Come From
 
-Each [TANGO Commandment](../CONTRIBUTING.md#tango-commandments) was written in response to a real problem in the code before the 2026 refactor. This page links each commandment to one place in that older code where you can see the problem.
+Each [TANGO Commandment](https://github.com/GEG-ETHZ/TANGO-core/blob/docs/commandments-provenance/CONTRIBUTING.md#tango-commandments) was written in response to a real problem in the code before the 2026 refactor. This page links each commandment to one place in that older code where you can see the problem.
 
 All links point to [`629eb6b8`](https://github.com/GEG-ETHZ/TANGO-core/tree/629eb6b8d87df0f183c1fa30690e32c9f4066be3), the last `main` commit before the refactor. The refactor itself landed as [`d1dea393`](https://github.com/GEG-ETHZ/TANGO-core/commit/d1dea3938ca6fbbade1c733ac695898d0f12094a) ("refactor to make tango robust"). The package was called `tango` then and lived in `src/tango/`. Longer write-ups of several of these bugs are in [`docs/archive/bugs-fixed-in-tango.md`](archive/bugs-fixed-in-tango.md).
 
