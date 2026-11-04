@@ -12,6 +12,7 @@ nav:
       - Vision and roadmap: TANGO_vision_and_roadmap/README.md
       - Long-term architecture: long_term_architecture_exploration.md
       - Bugs found and fixed: archive/bugs-fixed-in-tango.md
+      - Where the commandments come from: commandments_provenance.md
       - Aitken speed-up: aitkens_speedup.md
       - TESPy limitations: tespy_limitations.md
       - pymoo generation budget: pymoo_generation_budget.md
