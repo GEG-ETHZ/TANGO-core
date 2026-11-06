@@ -1,0 +1,12 @@
+# gitleaks configuration: the default rules, plus allowlists for known false
+# positives. gitleaks reads this file in both the commit hook and `just leaks`.
+[extend]
+useDefault = true
+
+# Conda environment exports (2025, old provisioning files in the history) pin
+# xcb-util-keysyms=<version>=<build>; the generic-api-key rule takes "keysyms"
+# for a key name and the build string for its value.
+[[allowlists]]
+description = "conda package pin xcb-util-keysyms=<version>=<build>"
+regexTarget = "line"
+regexes = ['''xcb-util-keysyms=\d+\.\d+\.\d+=\w+''']
