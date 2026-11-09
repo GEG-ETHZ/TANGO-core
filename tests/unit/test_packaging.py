@@ -34,8 +34,14 @@ def _application_left_out(path: str) -> bool:
 
 
 def _template_left_out(path: str) -> bool:
-    """Whether a tracked ``templates/`` file stays out of the wheel: the RAFT example, until RAFT is on PyPI."""
-    return path.startswith("templates/raft/") or path == "templates/AGS_ORC_electric_raft.yml"
+    """Whether a tracked ``templates/`` file stays out of the wheel: none do.
+
+    The RAFT example (``AGS_ORC_electric_raft.yml``, ``templates/raft/``) ships
+    too, so ``tango_core init`` copies a runnable RAFT case; RAFT itself is
+    installed separately.
+    """
+    del path
+    return False
 
 
 def _tracked_files(directory: str) -> set[str]:

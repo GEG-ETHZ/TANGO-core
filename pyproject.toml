@@ -135,13 +135,15 @@ packages = ["src/tango_core"]
 # via that path) rather than under src/tango_core/ -- force-include ships it in
 # the wheel at tango_core/templates/ (see tango_core init) without moving or
 # duplicating it, so nothing referencing the top-level path needs to change.
-# Files are listed individually, as for applications/ below, to leave out the
-# RAFT example (AGS_ORC_electric_raft.yml and templates/raft/): RAFT isn't
-# installable from PyPI yet. tests/unit/test_packaging.py fails until this
-# list matches `git ls-files templates/` minus those files.
+# Files are listed individually, as for applications/ below. Every template
+# ships, the RAFT example (AGS_ORC_electric_raft.yml and templates/raft/)
+# included, so `tango_core init` copies a runnable RAFT case; RAFT itself is
+# installed separately (docs/guides/install.md). tests/unit/test_packaging.py
+# fails until this list matches `git ls-files templates/`.
 "templates/.gitignore" = "tango_core/templates/.gitignore"
 "templates/AGS_ORC_electric.yml" = "tango_core/templates/AGS_ORC_electric.yml"
 "templates/AGS_ORC_electric_grouped_subsurface.yml" = "tango_core/templates/AGS_ORC_electric_grouped_subsurface.yml"
+"templates/AGS_ORC_electric_raft.yml" = "tango_core/templates/AGS_ORC_electric_raft.yml"
 "templates/AGS_direct_heat.yml" = "tango_core/templates/AGS_direct_heat.yml"
 "templates/CO2_AGS_ORC_electric.yml" = "tango_core/templates/CO2_AGS_ORC_electric.yml"
 "templates/CO2_AGS_direct_heat.yml" = "tango_core/templates/CO2_AGS_direct_heat.yml"
@@ -159,6 +161,9 @@ packages = ["src/tango_core"]
 "templates/hydro_direct_heat.yml" = "tango_core/templates/hydro_direct_heat.yml"
 "templates/hydro_sf_electric.yml" = "tango_core/templates/hydro_sf_electric.yml"
 "templates/hydro_sf_electric_5spot.yml" = "tango_core/templates/hydro_sf_electric_5spot.yml"
+"templates/raft/AGS_single.geo" = "tango_core/templates/raft/AGS_single.geo"
+"templates/raft/AGS_single.msh" = "tango_core/templates/raft/AGS_single.msh"
+"templates/raft/config_example_AGS_coupled_single.yaml" = "tango_core/templates/raft/config_example_AGS_coupled_single.yaml"
 
 # User-facing docs from docs/. Files are listed individually, not the whole
 # directory: docs/ also holds the developer docs (task log, roadmap, design
@@ -291,9 +296,9 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.uv.sources]
 # Pinned to a release tag (uv.lock records its commit); bump deliberately.
-# Private repo for now: CI jobs that install the `raft` group need read
-# access (deploy key), while `uv sync --locked` without the group never
-# fetches it.
+# RAFT is public on GitHub but not on PyPI, so it is a git source here and
+# can't be a dependency of the published package. `uv sync --locked` without
+# the `raft` group never fetches it.
 geg-raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", tag = "v0.2.1" }
 
 [tool.uv]
