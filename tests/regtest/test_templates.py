@@ -17,6 +17,9 @@ own real ``sim_config.num_tsteps`` (never a reduced smoke count):
   ``main_product: electricity``, ``net_thermal_W`` for ``main_product: heat``)
   is positive at every timestep past the known t=0 cold-start transient
   (see ``SystemBCIteration._seed_circuit_inlet``'s docstring).
+- That net output also changes over the run: a run that never advances
+  simulated time repeats one timestep's values, and a golden LCOE recorded
+  from it would pass the check below while locking in the wrong answer.
 - ``economic.state.LCOE`` matches a committed golden snapshot (``rel=1e-6``:
   with the exact ``HEOS`` CoolProp backend, reruns on one machine agree to
   within 2e-11 relative, so this leaves room for platform differences while
@@ -94,6 +97,12 @@ def _injection_well(comps: dict[str, Any]) -> Any:
 # Templates whose subsurface needs the optional RAFT dependency group; skipped without it.
 _NEEDS_RAFT = {"AGS_ORC_electric_raft.yml"}
 
+# Smallest change, relative to its largest value, that the main output has to
+# show between t=1 and the last timestep. A run that never advances time
+# repeats its values exactly; a healthy run depletes the resource and changes
+# by far more than this.
+_MIN_RELATIVE_SPREAD = 1e-2
+
 
 @pytest.mark.slow
 @pytest.mark.parametrize(("filename", "reference_lcoe"), _CONFIGS, ids=[c[0] for c in _CONFIGS])
@@ -132,6 +141,14 @@ def test_template_full_run(
     assert all(v > 0 for v in steady_state), (
         f"{filename}: {'net_power_W' if main_product == 'electricity' else 'net_thermal_W'} "
         f"should stay positive past the t=0 cold-start transient: {steady_state}"
+    )
+    # A run that never advances simulated time repeats one timestep's solution
+    # for every year, and a golden LCOE recorded from such a run would still
+    # pass the check below. The output has to change over the run.
+    spread = max(steady_state) - min(steady_state)
+    assert spread > _MIN_RELATIVE_SPREAD * max(abs(v) for v in steady_state), (
+        f"{filename}: {'net_power_W' if main_product == 'electricity' else 'net_thermal_W'} "
+        f"is constant past t=0, so simulated time may not be advancing: {steady_state}"
     )
 
     assert wf._economic is not None, f"{filename}: expected an economic: block"  # noqa: SLF001

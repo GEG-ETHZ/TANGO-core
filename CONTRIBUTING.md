@@ -34,7 +34,7 @@ Binding for every change; each exists because its absence caused a real problem.
 1. <a id="rule-document-private-attributes"></a>**Document private attributes.** Every `_name` has a comment.
 1. <a id="rule-encapsulated-mutation"></a>**Encapsulated mutation.** Only the instance modifies its fields; external code never assigns `obj.field = value`. `state` and `Stream` fields are `.update()`d through `LockedState`. Compliance is not yet audited (`docs/tango_tasks.md`).
 1. <a id="rule-yaml-booleans"></a>**YAML booleans are `True`/`False`**, never `yes`/`no`/`on`/`off`: PyYAML and YAML 1.2 parsers read those differently.
-1. <a id="rule-templates-regression-covered"></a>**Every `templates/` YAML is regression-tested** by `just test --all`, against a golden value or for structural sanity; a smoke run alone does not count.
+1. <a id="rule-templates-regression-covered"></a>**Every `templates/` YAML is regression-tested** by `just test --all`, against a golden value or for structural sanity; a smoke run alone does not count. A golden value is set or changed only from a run whose results someone has checked, and the commit says how.
 
 ## How a change moves
 
