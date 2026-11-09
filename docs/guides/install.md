@@ -32,7 +32,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
    uv add tango-core
    ```
 
-   With pip instead of uv: `pip install tango-core`. `uv` records the installed version in `uv.lock`, so the build stays reproducible until you upgrade. To pin a specific release, use `uv add "tango-core==1.1.0"`; to install a tagged release from source, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0`. Releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-a-release).
+   With pip instead of uv: `pip install tango-core`. `uv` records the installed version in `uv.lock`, so the build stays reproducible until you upgrade. To pin a specific release, use `uv add "tango-core==1.2.0"`; to install a tagged release from source, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.2.0`. Releases are listed in [`CHANGELOG.md`](../project/changelog.md) and cut as described in [Contributing](../project/contributing.md#cutting-a-release).
 
 3. Check the installation:
 
@@ -40,7 +40,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
    uv run tango_core --version
    ```
 
-   Expected output starts with `tango_core 1.1.0`, followed by the copyright and license line.
+   Expected output starts with `tango_core 1.2.0`, followed by the copyright and license line.
 
 4. Copy the templates and the application pipelines into your project as a starting point:
 

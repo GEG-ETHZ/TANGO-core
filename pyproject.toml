@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 # (src/tango_core/), and the `tango_core` command share one name. PyPI
 # already has an unrelated package called `tango`.
 name = "tango-core"
-version = "1.1.0"
+version = "1.2.0"
 authors = [{name = "Geothermal Energy and Geofluids Group, ETH Zurich", email = "chad.baker@eaps.ethz.ch"}]
 maintainers = [{name = "Chad Baker", email = "chad.baker@eaps.ethz.ch"}]
 description = "Techno-economic ANalysis of Geoenergy Operations (TANGO)"

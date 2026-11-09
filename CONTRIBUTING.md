@@ -106,7 +106,7 @@ Every release goes to [TestPyPI](https://test.pypi.org/project/tango-core/) firs
 
 1. Check that `## [In Development]` in `CHANGELOG.md` covers the release, then rename it to `## [X.Y.Z] — YYYY-MM-DD` and set `version` and `date-released` in `CITATION.cff`.
 2. Bump `version` in `pyproject.toml` on `main` through a pull request. Its `license-check` job (`tools/check_licenses.py`) fails if a runtime dependency's license is not allowed; do not tag until it passes. Review each flagged license (the job uploads `licenses.json` and a draw.io dependency tree) and either replace the dependency or add a `REVIEWED_PACKAGES` entry in `tools/check_licenses.py` giving the reason, through its own pull request.
-3. Tag that commit and push the tag. The pre-push hook runs `just test --all` first and blocks a failing tag. Never reuse a version number.
+3. Install RAFT with `just setup-raft`, then tag that commit and push the tag. The pre-push hook runs `just test --all` first and blocks a failing tag; it refuses to run without RAFT, whose tests would otherwise skip themselves. Never reuse a version number.
 
    ```bash
    git checkout main && git pull

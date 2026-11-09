@@ -18,8 +18,8 @@ authors:
     orcid: "https://orcid.org/0009-0007-9810-2898"
     affiliation: "Geothermal Energy and Geofluids Group, Department of Earth and Planetary Sciences, ETH Zurich"
 license: Apache-2.0
-version: 1.1.0
-date-released: 2026-11-03
+version: 1.2.0
+date-released: 2026-11-09
 doi: 10.5281/zenodo.23952662
 repository-code: "https://github.com/GEG-ETHZ/TANGO-core"
 keywords:
