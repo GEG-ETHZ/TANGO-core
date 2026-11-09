@@ -121,7 +121,7 @@ hash-src:
 # Run all quality checks in CI order: format → lint → typecheck → test
 check: fmt lint typecheck test
 
-# The gitleaks hook only checks each commit's staged changes; run this before a repository goes public.
+# The gitleaks hook only checks each commit's staged changes; run this to scan the whole history, e.g. before pushing rewritten history.
 # prek builds the gitleaks version pinned in .pre-commit-config.yaml, so nothing else needs installing.
 # Scan the whole git history (every branch and tag) for secrets
 leaks:
