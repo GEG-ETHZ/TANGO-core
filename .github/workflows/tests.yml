@@ -79,8 +79,10 @@ jobs:
     # Besides the test job's selection (whose RAFT tests use a stand-in for
     # RAFT), one simulated year runs on the real RAFT, using the example's mesh
     # committed in templates/raft/, so a change in RAFT's coupling API fails
-    # here.
+    # here. The real-RAFT year is slow, so this job skips pull requests and
+    # runs on pushes to main/develop and on a manual run (workflow_dispatch).
     name: tests with RAFT (ubuntu-latest)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

@@ -14,7 +14,7 @@
 [![prek](https://img.shields.io/badge/hooks-prek-0E0E10.svg)](https://github.com/j178/prek)
 [![gitleaks](https://img.shields.io/badge/secrets-gitleaks-0E0E10.svg)](https://github.com/gitleaks/gitleaks)
 [![DVC](https://img.shields.io/badge/pipelines-DVC-0E0E10.svg)](https://dvc.org/)
-[![Version](https://img.shields.io/badge/version-1.1.0-0E0E10.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-0E0E10.svg)](CHANGELOG.md)
 
 **Techno-economic ANalysis of Geoenergy Operations. TANGO couples reservoir, wells, and surface plant in one modular simulator, solves them over the project's lifetime, and computes the levelized cost of electricity or heat.**
 
@@ -65,7 +65,7 @@ uv add tango-core               # or: pip install tango-core
 uv run tango_core init .        # copies the templates into ./templates
 ```
 
-To install a tagged release from source instead, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.1.0`.
+To install a tagged release from source instead, use `uv add "git+https://github.com/GEG-ETHZ/TANGO-core.git" --tag v1.2.0`.
 
 Or clone the repository to work on it:
 
