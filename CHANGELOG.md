@@ -5,6 +5,10 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 
 ## [In Development]
 
+### Added
+
+- **`tango_core init` copies the RAFT example**: `templates/AGS_ORC_electric_raft.yml`, with RAFT's config and mesh in `templates/raft/`, now ship in the package. Add RAFT with `uv add "geg-raft @ git+https://github.com/GEG-ETHZ/RAFT@v0.2.1"` and run the example from your own project, no source checkout needed.
+
 ### Changed
 
 - The documentation site is public and shows the public pages only.
