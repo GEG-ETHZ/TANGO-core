@@ -74,35 +74,17 @@ jobs:
       - run: .venv/bin/python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
 
   raft:
-    # The optional RAFT group (grouped_subsurface variant `raft`). GEG-ETHZ/RAFT is
-    # private until its public release, so installing it needs the read-only
-    # deploy key in the RAFT_DEPLOY_KEY secret; uv.lock keeps the HTTPS URL
-    # and the insteadOf rewrite routes the fetch over SSH. Every step is
-    # skipped while the secret is absent (e.g. PRs from forks). Drop the key
-    # and the rewrite once RAFT is public. Besides the test job's selection
-    # (whose RAFT tests use a stand-in for RAFT), one simulated year runs on
-    # the real RAFT, using the example's mesh committed in templates/raft/,
-    # so a change in RAFT's coupling API fails here.
+    # The optional RAFT group (grouped_subsurface variant `raft`), fetched from
+    # the public GEG-ETHZ/RAFT repository at the tag pinned in pyproject.toml.
+    # Besides the test job's selection (whose RAFT tests use a stand-in for
+    # RAFT), one simulated year runs on the real RAFT, using the example's mesh
+    # committed in templates/raft/, so a change in RAFT's coupling API fails
+    # here.
     name: tests with RAFT (ubuntu-latest)
     runs-on: ubuntu-latest
-    env:
-      RAFT_DEPLOY_KEY: ${{ secrets.RAFT_DEPLOY_KEY }}
     steps:
-      - if: env.RAFT_DEPLOY_KEY == ''
-        run: echo "::notice::RAFT_DEPLOY_KEY is not set; skipping the RAFT job."
-      - if: env.RAFT_DEPLOY_KEY != ''
-        uses: actions/checkout@v5
-      - if: env.RAFT_DEPLOY_KEY != ''
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.RAFT_DEPLOY_KEY }}
-      - if: env.RAFT_DEPLOY_KEY != ''
-        run: git config --global url."ssh://git@github.com/GEG-ETHZ/RAFT".insteadOf "https://github.com/GEG-ETHZ/RAFT"
-      - if: env.RAFT_DEPLOY_KEY != ''
-        uses: astral-sh/setup-uv@v7
-      - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv sync --locked --group raft
-      - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
-      - if: env.RAFT_DEPLOY_KEY != ''
-        run: uv run python -X warn_default_encoding -m pytest tests/regtest/test_raft_integration.py -v
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked --group raft
+      - run: uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/ -v
+      - run: uv run python -X warn_default_encoding -m pytest tests/regtest/test_raft_integration.py -v
