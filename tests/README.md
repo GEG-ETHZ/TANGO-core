@@ -37,10 +37,11 @@ The test suite checks that TANGO's building blocks behave as specified and that 
 | Trigger | Command | Covers |
 |---|---|---|
 | GitHub Actions CI (pull requests, `main`) | `uv run python -X warn_default_encoding -m pytest -m "not slow and not perf" tests/` | The pre-push selection, on Linux, macOS, and Windows |
+| GitHub Actions CI, RAFT job (pushes to `main`/`develop`, manual run) | The CI selection with RAFT installed, then `tests/regtest/test_raft_integration.py` | The pre-push selection plus one year on the real RAFT, on Linux |
 | Pre-push hook | `uv run python -X warn_default_encoding -m pytest -m "not perf and not slow"` | Unit and regression tests, without `slow` and `perf` |
-| Release-tag push | `just test --all` (enforced by `tools/check_full_tests_before_tag_push.py`) | Everything |
+| Release-tag push | `just test --all` (enforced by `tools/check_full_tests_before_tag_push.py`) | Everything; refuses to run without RAFT (`just setup-raft`) |
 
-A green CI pipeline therefore means the pre-push selection passes on every platform. The `slow` and `perf` tests run only at the release-tag gate.
+A green CI pipeline therefore means the pre-push selection passes on every platform. The RAFT job skips pull requests because its year on the real RAFT is slow; to run it on a branch, start the `tests` workflow from the Actions tab. Apart from that one RAFT year, the `slow` and `perf` tests run only at the release-tag gate.
 
 All three run Python with `-X warn_default_encoding`, and `pytest.ini` turns the resulting warning into a failure for TANGO and test code: a text file opened without `encoding="utf-8"` reads as cp1252 on Windows and can fail there. Plain `uv run pytest` skips this check.
 
