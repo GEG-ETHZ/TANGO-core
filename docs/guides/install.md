@@ -42,13 +42,13 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
 
    Expected output starts with `tango_core 1.1.0`, followed by the copyright and license line.
 
-4. Copy the templates into your project as a starting point:
+4. Copy the templates and the application pipelines into your project as a starting point:
 
    ```bash
    uv run tango_core init .
    ```
 
-   This copies the `templates/` that ship with the installed version. An existing `templates/` is left as it is, so local edits are never overwritten. To also copy an optimization or demo pipeline, add `--app <name>` (repeatable); `--list-apps` prints the available names.
+   This copies the `templates/` and every `applications/` pipeline (optimizations and demos) that ship with the installed version. Files that already exist are left as they are, so local edits are never overwritten. To copy only some pipelines, add `--app <name>` (repeatable; `--list-apps` prints the available names); to skip them, add `--no-apps`.
 
 5. Optional: add [RAFT](https://github.com/GEG-ETHZ/RAFT), the finite-element simulator behind the `grouped_subsurface` component's `raft` variant, and run the RAFT example that `tango_core init` copied (`templates/AGS_ORC_electric_raft.yml`, with RAFT's config and mesh in `templates/raft/`). RAFT isn't on PyPI yet, so install it from its GitHub release:
 
@@ -57,7 +57,7 @@ TANGO is released under the Apache License 2.0 (see [`LICENSE.txt`](https://gith
    uv run tango_core run templates/AGS_ORC_electric_raft.yml --no-save
    ```
 
-   Run it from the folder that holds `templates/`: the example finds RAFT's config at `templates/raft/` relative to the working directory. A full run takes a few minutes.
+   Run it from the folder that holds `templates/`: the example finds RAFT's config at `templates/raft/` relative to the working directory. A full run takes about 10 minutes.
 
 To upgrade to the latest release, run `uv lock --upgrade-package tango-core && uv sync`, or `uv add "tango-core==<version>"` for a specific one.
 

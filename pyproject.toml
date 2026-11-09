@@ -296,9 +296,9 @@ style = { depends-on = ["fmt", "lint"] }
 
 [tool.uv.sources]
 # Pinned to a release tag (uv.lock records its commit); bump deliberately.
-# Private repo for now: CI jobs that install the `raft` group need read
-# access (deploy key), while `uv sync --locked` without the group never
-# fetches it.
+# RAFT is public on GitHub but not on PyPI, so it is a git source here and
+# can't be a dependency of the published package. `uv sync --locked` without
+# the `raft` group never fetches it.
 geg-raft = { git = "https://github.com/GEG-ETHZ/RAFT.git", tag = "v0.2.1" }
 
 [tool.uv]
