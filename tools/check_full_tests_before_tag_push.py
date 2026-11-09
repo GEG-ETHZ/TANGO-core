@@ -32,10 +32,15 @@ off ``prek`` back to ``pre-commit``, re-verify this before trusting it.
 Only set during an actual `git push` (unset for `just check`, manual
 `prek run`, etc.) -- see ``check_remote_up_to_date.py``'s own docstring
 for the same caveat. No-op then rather than erroring.
+
+Refuses the push when RAFT (``geg_raft``, the optional ``raft`` dependency
+group) isn't installed: the RAFT example's tests skip themselves without
+it, so the suite would pass without ever running them.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import subprocess
@@ -53,6 +58,14 @@ def main() -> int:
         return 0  # not a version-release tag push (or hook run outside `git push`) -- no-op
 
     tag = local_branch or remote_branch
+    if importlib.util.find_spec("geg_raft") is None:
+        print(
+            f"error: RAFT (geg_raft) is not installed, so `just test --all` would skip the RAFT "
+            f"example's tests -- refusing to push release tag '{tag}'. Run `just setup-raft` first.",
+            file=sys.stderr,
+        )
+        return 1
+
     print(
         f"Pushing release tag '{tag}' -- running `just test --all` first "
         "(full suite, including tests/regtest/'s full-length runs; this can take a while).",
