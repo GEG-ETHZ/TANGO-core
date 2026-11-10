@@ -466,8 +466,9 @@ but the final set hasn't been decided.
 
 Speculative, longer-horizon thinking on whether TESPy's causal-solve architecture is even the
 right foundation for this kind of external-simulator composition lives in
-`docs/long_term_architecture_exploration.md` (Modelica-family tooling) — parked, not planned.
-A follow-up implementation spike (Rumoca + MSL) is in `docs/modelica-investigation.md`.
+`docs/long_term_architecture_exploration.md` (Modelica-family tooling) — not planned.
+The hands-on Rumoca spikes (2026-07 with MSL; 2026-11 with an R134a ORC from ThermofluidStream
+that matches CoolProp and TESPy exactly) are in `docs/modelica-investigation.md`.
 
 #### AGS needs a bespoke depth concept, not a borrowed "reservoir depth" (Phase 2+)
 
@@ -1474,11 +1475,14 @@ A wider review confirmed there's no better foundation to switch to right now:
     discontinued after v1.16, and 1.26/1.27 (2025-2026) haven't restored them; current
     guidance is Docker+XQuartz or building from source. The earlier "glitchy" assessment
     holds, arguably more strongly now that there's no native binary at all.
-  - *Rumoca* (Rust-based Modelica compiler): still explicitly self-described as
-    early/rough/pre-1.0. "Too beta" remains accurate — confirmed hands-on
-    2026-07-29 (`docs/modelica-investigation.md`): a real MSL-based model
-    flattened successfully but an unresolved 184-equation DAE imbalance and a
-    broken editor/LSP integration were both hit in a single time-boxed spike.
+  - *Rumoca* (Rust-based Modelica compiler): still pre-1.0, and not yet usable
+    for TANGO's plants without patching the fluid libraries
+    (`docs/modelica-investigation.md`). On 0.10.4 (2026-11), an R134a ORC built
+    from ThermofluidStream simulated and matched CoolProp and TESPy exactly,
+    but only after working around 14 language gaps, one of which silently
+    produces wrong results. The gaps are in language coverage, not numerics;
+    after a one-time compile of about 9 s, Rumoca evaluated the cycle about 23
+    times faster per state than a warm TESPy re-solve.
     (Separately, Modelica's acausal connector semantics do give a real,
     structural mass/momentum/energy conservation guarantee that TESPy's
     causal component model doesn't — see
