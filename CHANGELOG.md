@@ -3,7 +3,7 @@
 All notable changes to TANGO are documented here.
 From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/): the number says how much work upgrading takes, and the **Breaking** section of each release says what to change.
 
-## [Unreleased]
+## [In Development]
 
 ### Fixed
 
@@ -628,6 +628,7 @@ implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
+[In Development]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.2.0...HEAD
 [1.2.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.0...v1.0.1
