@@ -247,7 +247,9 @@ slurm *args:
     # Compute nodes have no internet, so jobs can't install or rebuild anything
     # (e.g. after a `git pull` that changed pyproject.toml); catch that here,
     # before queueing jobs that would each fail the same way.
-    uv sync --check --offline >/dev/null 2>&1 || { echo "The uv environment is out of date: run \`just setup\` (or \`uv sync\`) first, then resubmit."; exit 1; }
+    # --inexact: optional groups such as `raft` (from `just setup-raft`) are
+    # installed on purpose, so extra packages must not count as out of date.
+    uv sync --check --offline --inexact >/dev/null 2>&1 || { echo "The uv environment is out of date: run \`just setup\` (or \`uv sync\`) first, then resubmit."; exit 1; }
     if [ -n "$apps" ]; then set -- $apps; else set -- $(ls applications/*/*_job.sh | xargs -n1 dirname | xargs -n1 basename); fi
     for a in "$@"; do
         a="${a%/}"; a="${a##*/}"

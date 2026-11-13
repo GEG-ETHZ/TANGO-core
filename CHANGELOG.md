@@ -3,6 +3,14 @@
 All notable changes to TANGO are documented here.
 From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/): the number says how much work upgrading takes, and the **Breaking** section of each release says what to change.
 
+## [Unreleased]
+
+### Fixed
+
+- **`just slurm` and the SLURM job scripts accept an environment with RAFT installed**: after `just setup-raft`, the up-to-date check (`uv sync --check --offline`) counted the optional `raft` group as extra packages and refused to submit with "The uv environment is out of date". The check now passes `--inexact`, so it still catches missing or outdated locked packages but ignores extra ones.
+
+---
+
 ## [1.2.0] — 2026-11-09
 
 ### Added
