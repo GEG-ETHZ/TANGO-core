@@ -307,7 +307,8 @@ slurm-fetch *args:
                 echo "The DVC cache is only added to, never pruned."
                 echo ""
                 echo "  app ...     apps to fetch"
-                echo "  --all       fetch every app under applications/ that has a *_job.sh"
+                echo "  --all       fetch every app under applications/ that has a *_job.sh, skipping"
+                echo "              apps whose job is still queued or running"
                 echo "  --dry-run   show what would change, change nothing"
                 echo "  --push      run \`uv run dvc push\` afterwards"
                 echo "  --list      print the apps that have a job script (the --all set), then exit"
@@ -315,9 +316,10 @@ slurm-fetch *args:
                 echo "Name the apps or pass --all: with neither, nothing is fetched. An app with no outputs/"
                 echo "on Euler is skipped, so a never-run app's local results aren't mirrored away."
                 echo ""
-                echo "Refuses if any requested app still has a job queued or running on Euler (squeue lists"
-                echo "tango_<app>): its outputs would be half-written. Override the host or repo path with"
-                echo "TANGO_EULER_HOST / TANGO_EULER_DIR."
+                echo "An app with a job still queued or running on Euler (squeue lists tango_<app>) has"
+                echo "half-written outputs: a named app makes the whole fetch refuse, while --all skips it"
+                echo "and fetches the rest. Override the host or repo path with TANGO_EULER_HOST /"
+                echo "TANGO_EULER_DIR."
                 exit 0 ;;
             -n|--dry-run) dry="-n" ;;
             --all) all=1 ;;
@@ -359,14 +361,20 @@ slurm-fetch *args:
     queued=" $(printf '%s\n' "$state" | sed -n 's/^job //p' | tr '\n' ' ') "
     with_outputs=" $(printf '%s\n' "$state" | sed -n 's/^outputs //p' | tr '\n' ' ') "
     busy=""
+    idle=""
     for a in "$@"; do
-        case "$queued" in *" tango_$a "*) busy="$busy $a" ;; esac
+        case "$queued" in *" tango_$a "*) busy="$busy $a" ;; *) idle="$idle $a" ;; esac
     done
-    if [ -n "$busy" ]; then
+    if [ -n "$busy" ] && [ -z "$all" ]; then
         echo "Still queued or running on $host:$busy"
         echo "Nothing fetched. Wait for those jobs to finish, or leave those apps out."
         exit 1
     fi
+    if [ -n "$busy" ]; then
+        echo "Skipped, still queued or running on $host:$busy"
+        if [ -z "$idle" ]; then echo "Nothing fetched."; exit 1; fi
+    fi
+    set -- $idle
     for a in "$@"; do
         echo "== $a"
         case "$with_outputs" in *" $a "*) ;; *) echo "  nothing to fetch (no outputs/ on $host)"; continue ;; esac
