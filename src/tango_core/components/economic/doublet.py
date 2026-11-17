@@ -20,9 +20,10 @@ Runs exactly once, after every physical timestep completes — see
 ``EconomicComponent``'s (``base.py``) and ``SystemDirect.finalize()``'s
 docstrings for why. Surface-plant CAPEX sizing and the LCOE denominator use
 the RUN-AVERAGED power/heat-duty of each turbine/pump/condenser node — the
-simple arithmetic mean over every recorded timestep, not any single
-timestep's snapshot — since a single timestep's value isn't representative
-of the plant's actual annual output/cost basis the way a full-run average is.
+time-weighted mean over every recorded timestep, each weighted by the length
+of its step (``time_weighted_mean``), not any single timestep's
+snapshot — since a single timestep's value isn't representative of the
+plant's actual annual output/cost basis the way a full-run average is.
 
 Sign convention: ``GraphSurface``'s own TESPy wiring gives pumps POSITIVE
 node power (consumes energy) and turbines NEGATIVE (generates energy). Every
@@ -63,7 +64,7 @@ from pydantic import Field
 from tango_core.components.economic.base import EconomicComponent
 from tango_core.components.surface.base import SurfaceComponent
 from tango_core.components.well.base import HasWellSections, WellRole, WellSection
-from tango_core.core.constants import W_TO_KW, YEAR_TO_HOUR
+from tango_core.core.constants import W_TO_KW, YEAR_TO_HOUR, YEAR_TO_SECOND
 from tango_core.core.economic_constants import (
     BEC_MARKUP,
     EXPLORATION_BASE_COST_USD,
@@ -84,6 +85,7 @@ from tango_core.core.economic_constants import (
 from tango_core.core.locked_state import LockedState
 from tango_core.core.policies import MainProduct, ProjectMaturity
 from tango_core.core.state_methods import StateMethods
+from tango_core.core.time_stepping import time_weighted_mean
 
 if TYPE_CHECKING:
     from tango_core.core.component import FlowComponent
@@ -419,18 +421,20 @@ class DoubletEconomicComponent(EconomicComponent):
     # ------------------------------------------------------------------
 
     def _averaged_node_detail(self, surface: SurfaceComponent | None) -> dict[str, dict[str, float]]:
-        """Mean of each node's P/Q (and any other recorded quantity) over the whole run.
+        """Time-weighted mean of each node's P/Q (and any other recorded quantity) over the whole run.
 
         CAPEX sizing for a ``flexible_pp``-style surface plant uses the
-        simple arithmetic mean of each component's power/heat-duty
-        history, not any single timestep's value.
+        time-weighted mean of each component's power/heat-duty history,
+        not any single timestep's value.
         """
+        if surface is None:
+            return {}
         history = getattr(surface, "history", None)
         node_history: dict[str, dict[str, list[float]]] = getattr(history, "node_history", {})
+        durations = surface.time_history.dt
         return {
             node_name: {
-                quantity: (sum(values) / len(values) if values else 0.0)
-                for quantity, values in quantities.items()
+                quantity: time_weighted_mean(values, durations) for quantity, values in quantities.items()
             }
             for node_name, quantities in node_history.items()
         }
@@ -602,7 +606,7 @@ class DoubletEconomicComponent(EconomicComponent):
         return total
 
     def _production_pump_parasitic_power(self, wells: list[WellSection]) -> float:
-        """Mean downhole production-pump power draw (W) over the whole run.
+        """Time-weighted mean downhole production-pump power draw (W) over the whole run.
 
         Subtracted (given tango's non-negative sign convention — see this
         module's own "Sign convention" note above) into
@@ -614,9 +618,7 @@ class DoubletEconomicComponent(EconomicComponent):
         for w in wells:
             if w.role is WellRole.INJECTION:
                 continue
-            pump_history = w.pump_power_watts_history
-            if pump_history:
-                total += sum(pump_history) / len(pump_history)
+            total += time_weighted_mean(w.pump_power_watts_history, w.pump_power_durations)
         return total
 
     # ------------------------------------------------------------------
@@ -651,8 +653,9 @@ class DoubletEconomicComponent(EconomicComponent):
         history = getattr(surface, "history", None)
         net_power_history: list[float] = getattr(history, "net_power_W", [])
         net_thermal_history: list[float] = getattr(history, "net_thermal_W", [])
-        surface_power_w = sum(net_power_history) / len(net_power_history) if net_power_history else 0.0
-        thermal_w = sum(net_thermal_history) / len(net_thermal_history) if net_thermal_history else 0.0
+        durations = surface.time_history.dt
+        surface_power_w = time_weighted_mean(net_power_history, durations) if net_power_history else 0.0
+        thermal_w = time_weighted_mean(net_thermal_history, durations) if net_thermal_history else 0.0
 
         power_plant: dict[str, Any] = getattr(surface, "power_plant", {})
         node_cfgs: dict[str, dict[str, Any]] = power_plant.get("nodes", {})
@@ -669,9 +672,10 @@ class DoubletEconomicComponent(EconomicComponent):
     def _compute_lcoe(self, capex_total: float, net_power_w: float, net_thermal_w: float) -> float:
         r"""``CAPEX*(CRF+F_OM) / (main_product*W_TO_KW*CF*YEAR_TO_HOUR)``.
 
-        ``t`` (project lifetime, years) is ``num_tsteps * dt_years``, set on
-        this component by ``Workflow.__init__`` (``_total_project_years``)
-        since it has no ``sim_config`` access of its own.
+        ``t`` (project lifetime, years) comes from the end of the run's time
+        grid, set on this component by ``Workflow.__init__``
+        (``_total_project_years``) since it has no ``sim_config`` access of
+        its own.
 
         Guards ``CAPEX <= 0`` and also ``main_power_w <= 0`` → NaN, since a
         negative net power (a real, observed case, ~53/500 designs in the
@@ -758,11 +762,11 @@ class DoubletEconomicComponent(EconomicComponent):
 
     @property
     def _total_project_years(self) -> float:
-        """Total simulated project lifetime (years) — set by ``compute()``'s caller.
+        """Total simulated project lifetime (years), for the discounting formulas.
 
-        Populated by ``Workflow.__init__``/``SystemDirect`` at construction
-        time (``num_tsteps * dt_years``) since this component itself has no
-        ``sim_config`` access — see ``_total_project_years`` assignment in
-        ``workflows/workflow.py``.
+        Converted from ``_lifetime`` (s), which ``Workflow.__init__`` sets
+        from the end of the run's time grid, since this component itself
+        has no ``sim_config`` access.
         """
-        return getattr(self, "_total_years", float("nan"))
+        lifetime: float = getattr(self, "_lifetime", float("nan"))
+        return lifetime / YEAR_TO_SECOND

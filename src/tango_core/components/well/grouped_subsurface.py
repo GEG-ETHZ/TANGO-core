@@ -34,7 +34,7 @@ The production well's length and the horizontal well's ``wellhead_depth``
 both equal the injection well's length, and ``layout.well_spacing`` equals
 the horizontal well's length; these are derived (see
 ``tango_core.workflows.linked_quantities``). The loop sets each segment's
-``common``, ``dt_years``, circuit indices, ``save_interval`` and
+``common``, circuit indices, ``save_interval`` and
 ``angle_from_vert_deg`` itself, so a segment block may not give them.
 
 Mass flow rate is assumed constant around the loop: the outlet carries the
@@ -84,7 +84,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import (
     BaseModel,
@@ -103,12 +103,12 @@ from tango_core.components.well.numerical import (
     NumericalWell,
 )
 from tango_core.core.component import FlowComponent
-from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.errors import ConfigError, ConvergenceError
 from tango_core.core.locked_state import LockedState
 from tango_core.core.specs import Common
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 from tango_core.external.raft_wrapper import LoopGeometry, RaftWrapper
 
 SEGMENT_NAMES: tuple[str, str, str] = ("injection_well", "horizontal_well", "production_well")
@@ -122,7 +122,6 @@ _SEGMENT_ANGLE_FROM_VERT_DEG: dict[str, float] = {
 
 LOOP_SET_SEGMENT_KEYS: tuple[str, ...] = (
     "common",
-    "dt_years",
     "component_idx",
     "prev",
     "next",
@@ -208,8 +207,6 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
     common: Common = Field(frozen=True)
     """Shared fluid/rock parameters: the same ``Common`` instance every other
     component in the Workflow holds."""
-    dt_years: float = Field(frozen=True)
-    """Timestep duration (years)."""
     target_extraction_pressure: PositiveFloat = Field(frozen=True)
     """Production wellhead pressure (Pa) the loop delivers: its outlet boundary condition (see the
     module docstring). From ``sim_config.target_extraction_pressure``, the same value the surface plant
@@ -223,7 +220,7 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
         """Return the loop's drilled sections, in flow order, for the economic model."""
 
     @abstractmethod
-    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float, step: TimeStep) -> Stream:
         """Solve the loop for its injection pressure, given the inlet's mass rate and enthalpy and the production pressure.
 
         ``inlet.P`` is only a starting guess for the injection pressure; the
@@ -232,14 +229,15 @@ class GroupedSubsurfaceComponent(FlowComponent, ABC):
         Args:
             inlet: The stream entering the injection well.
             P_outlet: The production wellhead pressure (Pa) to deliver.
+            step: The step being solved over.
 
         Returns:
             The stream leaving the production well, at ``P_outlet``.
         """
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Solve the loop with its production wellhead at ``target_extraction_pressure`` (see the module docstring)."""
-        return self.solve_for_outlet_pressure(inlet, self.target_extraction_pressure)
+        return self.solve_for_outlet_pressure(inlet, self.target_extraction_pressure, step)
 
     def required_injection_pressure(self) -> float:
         """Return the injection wellhead pressure (Pa) the last solve found, for ``SystemBCIteration``."""
@@ -315,7 +313,6 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
             data[name] = {
                 **segment,
                 "common": data.get("common"),
-                "dt_years": data.get("dt_years"),
                 "component_idx": data.get("component_idx"),
                 "prev": data.get("component_idx"),
                 "next": data.get("component_idx"),
@@ -344,14 +341,14 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
         for segment in self.segments():
             segment.init()
 
-    def _march(self, inlet: Stream, P_inlet: float) -> Stream:
+    def _march(self, inlet: Stream, P_inlet: float, step: TimeStep) -> Stream:
         """March the injection, horizontal and production wells in sequence from injection pressure ``P_inlet``."""
         stream = Stream.fresh(h=inlet.h.get_fresh(), P=P_inlet, mass_rate=inlet.mass_rate.get_fresh())
         for segment in self.segments():
-            stream = segment.solve(stream)
+            stream = segment.solve(stream, step)
         return stream
 
-    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float, step: TimeStep) -> Stream:
         """Find the injection pressure whose march delivers ``P_outlet`` at the production wellhead (shooting).
 
         Each trial restores the segments to the state they had when this
@@ -378,7 +375,7 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
             for name, segment in zip(SEGMENT_NAMES, self.segments(), strict=True):
                 segment.restore_convergence_state(start[name])
                 segment.mark_all_stale()
-            outlet = self._march(inlet, P_in)
+            outlet = self._march(inlet, P_in, step)
             residual = outlet.P.get_fresh() - P_outlet
             if abs(residual) <= _SHOOTING_REL_TOL * abs(P_outlet):
                 return self._record_loop_state(
@@ -390,12 +387,12 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
                     T_outlet=self.production_well.state.T_outlet.get_fresh(),
                 )
             if previous is None or previous[1] == residual:
-                step = -residual
+                pressure_step = -residual
             else:
                 slope = (residual - previous[1]) / (P_in - previous[0])
-                step = -residual / slope
+                pressure_step = -residual / slope
             previous = (P_in, residual)
-            P_in += step
+            P_in += pressure_step
         raise ConvergenceError(
             f"grouped_subsurface (numerical): no injection pressure found that delivers the production "
             f"wellhead pressure {P_outlet:.6g} Pa within {_SHOOTING_MAX_ITER} marches (last trial "
@@ -434,7 +431,13 @@ class NumericalGroupedSubsurface(GroupedSubsurfaceComponent):
         """Return the three segments as injection, horizontal and production sections."""
         roles = (WellRole.INJECTION, WellRole.HORIZONTAL, WellRole.PRODUCTION)
         return [
-            WellSection(role, segment.well_length, segment.diameter, tuple(segment.history.pump_power_watts))
+            WellSection(
+                role,
+                segment.well_length,
+                segment.diameter,
+                tuple(segment.history.pump_power_watts),
+                tuple(self.time_history.dt),
+            )
             for role, segment in zip(roles, self.segments(), strict=True)
         ]
 
@@ -463,6 +466,9 @@ class RaftGroupedSubsurface(GroupedSubsurfaceComponent):
     three segments must share them. The segment lengths must match the well
     alignment in RAFT's config template, which its mesh was built for.
     """
+
+    keeps_external_state: ClassVar[bool] = True
+    """RAFT holds its own rock and fluid state, committed only by ``accept()``."""
 
     injection_well: WellSegment
     """The injection segment's geometry."""
@@ -504,9 +510,9 @@ class RaftGroupedSubsurface(GroupedSubsurfaceComponent):
             ),
         )
 
-    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float) -> Stream:
+    def solve_for_outlet_pressure(self, inlet: Stream, P_outlet: float, step: TimeStep) -> Stream:
         """Run one RAFT trial over this timestep, with RAFT solving for the injection pressure."""
-        result = self.raft.solve(inlet, self.dt_years * YEAR_TO_SECOND, P_outlet)
+        result = self.raft.solve(inlet, step.dt, P_outlet)
         return self._record_loop_state(
             inlet,
             P_inlet=result.P_inlet,

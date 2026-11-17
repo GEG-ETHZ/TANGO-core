@@ -13,7 +13,7 @@ Two classes:
   ``history``, serde, and convergence snapshot/restore.
 - ``FlowComponent(Component)``: a component the working fluid flows through
   (wells, reservoir, surface plant). Adds the ``outlet`` Stream and
-  ``solve(inlet) -> Stream``, which returns that outlet so the orchestrator
+  ``solve(inlet, step) -> Stream``, which returns that outlet so the orchestrator
   can pass it straight to the next component. The economic component is a
   plain ``Component``: it has no fluid inlet or outlet.
 
@@ -50,13 +50,14 @@ History / save_interval
 - ``1``     — record every timestep (default)
 - ``n > 1`` — record every n-th timestep
 
-Each component's ``record(timestep)`` (inherited from ``StateMethods`` — see
-``core/state_methods.py``) is called by the orchestrator after every
-``solve()``; it checks ``save_interval`` and, if due, pushes every
+The orchestrator calls each component's ``record_step(step)`` once per
+accepted step. It checks ``save_interval`` and, if due, appends the step to
+``time_history`` and calls ``record(step.index)`` (inherited from
+``StateMethods`` — see ``core/state_methods.py``), which pushes every
 ``(state, history)`` pair returned by ``_state_history_pairs()`` (``state``/
-``history``, plus ``outlet``/``outlet_history`` for a ``FlowComponent``). Orchestrator.record()
-cascades downward so callers can call it at the top level and know it
-propagates.
+``history``, plus ``outlet``/``outlet_history`` for a ``FlowComponent``).
+``time_history`` is therefore the time axis of every other history list on
+the same component: entry ``i`` of each belongs to the same step.
 
 Frozen config fields
 ---------------------
@@ -108,13 +109,14 @@ from __future__ import annotations
 import copy
 import math
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from tango_core.core.errors import ConfigError
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream, StreamHistory
+from tango_core.core.time_stepping import TimeHistory, TimeStep
 
 
 class Component(BaseModel, ABC, StateMethods):
@@ -153,6 +155,20 @@ class Component(BaseModel, ABC, StateMethods):
     ``None`` disables history recording entirely.  Default ``1`` records
     every timestep (matches the original ``record_history=True`` behavior).
     """
+
+    time_history: TimeHistory = Field(default_factory=TimeHistory)
+    """Time axis of this component's recorded history: the step behind each
+    recorded entry (see ``record_step``)."""
+
+    keeps_external_state: ClassVar[bool] = False
+    """Whether part of this component's memory across steps lives outside
+    ``state``, in an external simulator that only ``accept_timestep()``
+    commits. Such a component can take only one step per sync interval,
+    since a step cannot be accepted before the interval has converged."""
+
+    _held_records: list[tuple[TimeStep, list[Any]]] = PrivateAttr(default_factory=list)
+    """Steps solved earlier in the current sync interval, each with a copy of
+    the state ``record_step`` would have recorded for it (see ``hold_step_record``)."""
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -239,6 +255,50 @@ class Component(BaseModel, ABC, StateMethods):
         """
         self.state = copy.deepcopy(snapshot)
 
+    def record_step(self, step: TimeStep) -> None:
+        """Record this component's state for an accepted ``step``, with the step itself.
+
+        Appends ``step`` to ``time_history`` whenever ``record()`` pushes
+        state, so the two stay aligned under ``save_interval`` thinning.
+
+        Args:
+            step: The step that was just accepted.
+        """
+        if not self.is_recorded(step.index):
+            return
+        self.time_history.record(step)
+        self.record(step.index)
+
+    def hold_step_record(self, step: TimeStep) -> None:
+        """Keep a copy of what ``record_step(step)`` would record, to record once the interval converges.
+
+        A subsystem that takes several steps in one sync interval solves
+        them all before the interval is accepted, and may solve them again
+        on the next pass of a convergence loop. Its earlier steps' states
+        are overwritten by the later ones, so each is copied here after it
+        solves; ``record_held_steps`` records the copies from the pass that
+        is accepted.
+
+        Args:
+            step: The step that was just solved.
+        """
+        if self.is_recorded(step.index):
+            self._held_records.append(
+                (step, [copy.deepcopy(state) for state, _ in self._state_history_pairs()]),
+            )
+
+    def discard_held_steps(self) -> None:
+        """Drop the held records, at the start of each pass over a sync interval."""
+        self._held_records.clear()
+
+    def record_held_steps(self) -> None:
+        """Record the held copies in step order, then drop them; called once the interval is accepted."""
+        for step, states in self._held_records:
+            self.time_history.record(step)
+            for state, (_, history) in zip(states, self._state_history_pairs(), strict=True):
+                history.record(state)
+        self._held_records.clear()
+
     def accept_timestep(self) -> None:
         """Commit the timestep whose final solve just ran; called once per timestep, before ``record()``.
 
@@ -254,7 +314,7 @@ class Component(BaseModel, ABC, StateMethods):
 class FlowComponent(Component):
     """Abstract base for a component the working fluid flows through: wells, reservoir, surface plant.
 
-    The orchestrator passes ``inlet`` directly into ``solve(inlet)`` — it is
+    The orchestrator passes ``inlet`` directly into ``solve(inlet, step)`` — it is
     NOT a stored field (see ``solve()``'s docstring for why). ``solve()``
     writes ``outlet``, which IS a stored field, and returns it; the
     orchestrator hands the returned Stream to the next component.
@@ -275,23 +335,33 @@ class FlowComponent(Component):
     included) needs a ``*History`` analog."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> Stream:
-        """Compute this component's outlet from ``inlet``, store it in ``outlet``, and return it.
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
+        """Compute this component's outlet from ``inlet`` over ``step``, store it in ``outlet``, and return it.
 
         ``inlet`` is passed as an explicit call parameter — never a stored
         field — and the outlet comes back as the return value, so that the
         whole hand-off reads at one place: the orchestrator's wiring code
-        (``outlet = component.solve(self._next_inlet(component))``, then
+        (``outlet = component.solve(self._next_inlet(component), step)``, then
         ``self._record_outlet(component, outlet)``, tracked in
         ``SystemDirect._pending_inlets``). That one site tells you exactly
         which upstream component a given component's input causally depends
         on, for a given pass.
+
+        ``step`` is the interval being solved over, also passed per call:
+        a component with memory across steps (a well's dimensionless time,
+        a reservoir's extracted energy, an external simulator's clock)
+        advances it by ``step.dt``, and a component without such memory
+        ignores it. No component stores a step length of its own.
 
         Every concrete ``solve()`` records ``inlet`` into its own
         ``state.T_inlet``/``P_inlet``/``mass_rate`` (``LockedState``-
         protected, restored by ``restore_convergence_state()``), the durable
         record of "what this component's inlet was, this solve"; the
         parameter itself is transient.
+
+        Args:
+            inlet: The stream entering this component.
+            step: The step being solved over.
 
         Returns:
             ``self.outlet``, freshly written by this call. Callers that keep

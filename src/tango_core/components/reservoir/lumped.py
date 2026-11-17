@@ -37,7 +37,6 @@ from scipy.special import erfc  # type: ignore[import-untyped]
 
 from tango_core.components.reservoir.base import ReservoirComponent
 from tango_core.components.reservoir.wellpattern_impedance import WellPattern
-from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.fluid_state import FluidState
 from tango_core.core.fluid_utils import (
     fluid_cp,
@@ -49,6 +48,7 @@ from tango_core.core.locked_state import LockedState
 from tango_core.core.specs import Common
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 # ---------------------------------------------------------------------------
 # State dataclass
@@ -150,17 +150,19 @@ class LumpedReservoirState(StateMethods):
     problem entirely.
     """
 
-    def set_cumulative(self, dt_years: float) -> None:
+    def set_cumulative(self, dt: float) -> None:
         """Increment ``energy_extracted`` from ``energy_extraction_rate * dt``.
 
         No automatic derivation exists for this — every accumulator is
         hand-written physics — this is tango's one leaf implementation,
         called from ``solve()`` right where the inline
         ``energy_extracted.increment(...)`` call used to be.
+
+        Args:
+            dt: Length of the step being accumulated over (s).
         """
-        dt_seconds = dt_years * YEAR_TO_SECOND
-        self.energy_extracted.increment(self.energy_extraction_rate.get_fresh() * dt_seconds)
-        super().set_cumulative(dt_years)
+        self.energy_extracted.increment(self.energy_extraction_rate.get_fresh() * dt)
+        super().set_cumulative(dt)
 
     def reset_cumulative(self) -> None:
         """Reset ``energy_extracted`` to zero (e.g. re-running from t=0 without reconstructing)."""
@@ -268,8 +270,6 @@ class LumpedReservoir(ReservoirComponent):
     """Shared fluid/rock parameters — a reference to the SAME Common
     instance every other component in the Workflow holds, not an
     independent copy. See core/specs.py."""
-    dt_years: float = Field(frozen=True)
-    """Simulation timestep duration (years) — from sim_config.time.dt_years."""
     well_spacing: float = Field(default=707.0, frozen=True)
     """Injector-to-producer horizontal distance (m) — from layout: block."""
     well_eff_diameter: float = Field(default=0.41, frozen=True)
@@ -368,7 +368,7 @@ class LumpedReservoir(ReservoirComponent):
             C = 1.13
             return 1.0 - (1.0 - p3) * (1.0 - 0.5 * math.exp(-C * (p2 * psi + p1)))
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute reservoir outlet (T, P) from doublet impedance and thermal depletion."""
         s = self.state
 
@@ -445,7 +445,7 @@ class LumpedReservoir(ReservoirComponent):
         self._recompute_depletion_coeffs(mdot, rho_avg, cp_avg)
 
         s.energy_extraction_rate.update(mdot * (h_prod_prev - h_in))
-        s.set_cumulative(self.dt_years)
+        s.set_cumulative(step.dt)
 
         E_reservoir = self.rock_volume * self.rock_C_v * dT if dT > 0 else 1.0
         # psi = fractional energy extraction: cumulative energy pulled from the

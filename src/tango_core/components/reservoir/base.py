@@ -12,6 +12,7 @@ from pydantic import Field, PositiveFloat
 from tango_core.core.component import FlowComponent
 from tango_core.core.constants import GRAVITY
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 
 class ReservoirComponent(FlowComponent):
@@ -55,5 +56,5 @@ class ReservoirComponent(FlowComponent):
     GRAVITY, overridable per reservoir since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute and return the reservoir outlet state from the injection inlet state."""

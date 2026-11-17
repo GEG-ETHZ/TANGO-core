@@ -7,7 +7,7 @@ One optimization nests five loops. This is the picture to have in mind when a ru
 flowchart TB
   L1("1 · Optimizer, sweep<br/>Minimization.run<br/>run_lhs_sweep")
   L2("2 · One run<br/>Workflow(cfg).run<br/>finalize → LCOE")
-  L3("3 · One timestep<br/>run_timestep(t)<br/>record(t)")
+  L3("3 · One sync interval<br/>run_interval(i)<br/>record(interval)")
   L4("4 · Injection-enthalpy loop<br/>≤ 20 iterations<br/>|Δh| < 1 kJ/kg<br/>Aitken")
   L5("5 · Component sweep<br/>idx 0 → N<br/>solve(inlet)")
   w1("NumericalWell<br/>one pass, cells")
@@ -40,10 +40,10 @@ flowchart TB
 |---|---|---|---|
 | 1 | Optimizer generations or sweep rows | `Minimization.run` (`pymoo_api.py`), `applications/*/dvc.yaml` | Set by the app |
 | 2 | One full run per candidate, in a process pool | `_Problem._evaluate` → `Workflow(cfg).run()` | — |
-| 3 | Timesteps | `SystemDirect.run` | `sim_config.num_tsteps` |
+| 3 | Sync intervals | `SystemDirect.run` | `TimeStepping.intervals()`, see [time stepping](time-stepping.md) |
 | 4 | Injection-enthalpy loop with Aitken relaxation | `_converge_injection_enthalpy` | 20 iterations, \|Δh\| < 1 kJ/kg |
-| 5 | Component sweep in `component_idx` order | `component.solve(inlet)` | One pass |
+| 5 | Component sweep in `component_idx` order | `component.solve(inlet, step)` | One pass |
 
 Inside a component, only two solvers iterate: the pump well's secant search on discharge pressure (`secant_solve`, at most 20 steps, each re-marching the well) and TESPy's Newton solve in `GraphSurface`. The numerical well is a single explicit pass over its cells, and the lumped reservoir is closed form.
 
-Details: [the boundary-condition iteration](bc-iteration.md) and [one run end to end](one-run.md).
+Details: [the boundary-condition iteration](bc-iteration.md), [one run end to end](one-run.md), and [time stepping](time-stepping.md).

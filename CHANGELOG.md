@@ -3,6 +3,25 @@
 All notable changes to TANGO are documented here.
 From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https://jacobtomlinson.dev/effver/): the number says how much work upgrading takes, and the **Breaking** section of each release says what to change.
 
+## [In Development]
+
+### Added
+
+- **`sim_config.time_stepping`**: give a run's steps as a fixed grid (`scheme: fixed`, a `step` in seconds and a `num_steps`) or as an explicit list of step end times (`scheme: times`, in seconds). The project lifetime is where the grid ends. A list of times can resolve fast early behavior, such as the first weeks of an AGS loop, with short steps and use long steps afterwards. `num_tsteps`/`dt_years` still work, as a shorthand for one fixed grid, and give the same results as before. See [Time stepping](docs/runtime/time-stepping.md).
+- **Subsystems on different time grids**: `sim_config.time_stepping` can split the circuit into several subsystems, each a contiguous run of components with its own grid, for example a closed loop's wells on 6-month steps and the surface plant on 1-year steps. Streams between subsystems are passed on at the times every grid shares, by a per-edge sync rule (`hold` or `period_average`, set under `sync:` or left to the default). Each component records its own steps; `SystemBCIteration` converges the injection enthalpy once per sync interval. A component with external simulator state (RAFT) takes one step per sync interval. See [Time stepping](docs/runtime/time-stepping.md).
+
+### Changed
+
+- Run averages are time-weighted: net electric and thermal power, the node duties used for plant CAPEX, and downhole pump power each weight a step by its length, so LCOE and the opt apps' mean-power objectives are right on uneven steps. On an even grid the results are unchanged.
+- Each component records the step behind every history entry in a new `time_history` (`t_start` and `dt`, in seconds).
+
+### Breaking
+
+- The per-step results CSV (`<stem>.smry.csv`) has one row per step end time, with a `time [s]` column in place of `timestep [-]` and `year [yr]` (which gave each step's start in years). Each component's values sit in the rows of its own step ends, so components on different grids, or with different `save_interval`s, line up by time. The phase-diagram slider is labeled the same way.
+- For code that calls components directly: `FlowComponent.solve(inlet)` is `solve(inlet, step)`, taking a `TimeStep`; components no longer have a `dt_years` field; `SystemDirect`/`SystemBCIteration` take a `TimeStepping` (from `SimConfig.time_stepping_for()`) in place of `n_tsteps`/`dt_years`; and `Orchestrator.run_timestep(t)` is `run_interval(i)`, one sync interval.
+
+---
+
 ## [1.2.0] — 2026-11-09
 
 ### Added

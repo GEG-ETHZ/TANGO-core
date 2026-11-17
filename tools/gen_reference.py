@@ -68,7 +68,6 @@ PROTECTED_SOURCE = {
     "common": "the `common:` block",
     "well_spacing": "`layout.well_spacing`",
     "well_pattern": "`layout.well_pattern`",
-    "dt_years": "`sim_config.dt_years`",
     "target_extraction_pressure": "`sim_config.target_extraction_pressure`",
 }
 
