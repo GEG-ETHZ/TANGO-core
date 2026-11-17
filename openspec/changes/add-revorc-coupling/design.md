@@ -20,7 +20,7 @@ The surrogate package, RevORCHP-SM 1.0.2, as published:
 - Python functions take one operating point as scalar keyword arguments and a required `model_path`, and return nested dicts with warnings as English sentences. The heat-pump model returns zero heat and power outside its supported regime and says so only in a warning sentence.
 - Validity bounds (from its README): ORC brine inlet 95 to 115 °C, one-stage flow 3 to 8 kg/s and two-stage 3 to 10 kg/s per module; heat-pump brine inlet 55 to 75 °C, flow 5 to 12 kg/s, heating load 0.05 to 1 MW, sink supply 75 to 100 °C. Each module is nominally 10 kg/s and 1 MW of heat.
 
-Pull requests to the authors' repository propose regression tests and CI, packaging with loosened pins, and docstrings first; a batch-evaluation API and version-free model files are planned after agreeing the interface with them.
+What the package should provide (regression tests and CI, packaging with loosened pins, docstrings, a batch interface with status values and bounds, version-free model files) is proposed to its authors in `prepare-for-tango-coupling`, an OpenSpec change in their repository, following `add-external-model-integration`. This design covers only the TANGO side.
 
 ## Goals / Non-Goals
 

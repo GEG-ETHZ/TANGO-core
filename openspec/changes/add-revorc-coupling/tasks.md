@@ -3,7 +3,7 @@
 ## 0. Prerequisites outside TANGO
 
 - [ ] 0.1 Agree the interface with the model's authors: go through the open questions 1 to 7 in `design.md` and record the answers there.
-- [ ] 0.2 Upstream pull requests to the authors' repository: regression tests and CI, installable package with loosened pins, docstrings. Record each PR and whether it was merged.
+- [ ] 0.2 Agree `prepare-for-tango-coupling` with the authors, then follow its pull requests to a tagged release. Record the release TANGO depends on.
 - [ ] 0.3 Resolve the version conflicts (D2): raise TANGO's pandas range to allow 3.x and move the lock to numpy 2; run `just check` and the regression tests (`just test --all`) on pandas 3.0.2, numpy 2.4 and scikit-learn 1.8.0 (the fast unit tests already pass). If the regression tests fail, check whether the models run on pandas 2.x instead; failing both, use the subprocess fallback. Tell the person before continuing.
 - [ ] 0.4 Decide whether #17 (component-owned costs) lands first or this change uses the stopgap hook (D8).
 

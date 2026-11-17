@@ -8,7 +8,7 @@ The T2.2 authors at NTUA (Laboratory of Applied Thermodynamics) have published s
 
 The preferred long-term coupling is the detailed model, if it runs fast enough at hourly resolution. To meet MS4.2, this change couples the surrogate first, behind an interface that the detailed model can later implement.
 
-The surrogate package cannot be used from TANGO as published: it is a set of scripts rather than an installable package, it pins exact versions that conflict with TANGO's (`pandas==3.0.2` against TANGO's `pandas<3.0`; `scikit-learn==1.8.0`, which the pickled models need), and it evaluates one operating point per call. Following the external-coupling rules (`.agent/rules/external-coupling.md`), TANGO does not patch or vendor it: those problems are proposed to the authors as pull requests to their repository, and TANGO depends only on releases they publish.
+The surrogate package cannot be used from TANGO as published: it is a set of scripts rather than an installable package, it pins exact versions that conflict with TANGO's (`pandas==3.0.2` against TANGO's `pandas<3.0`; `scikit-learn==1.8.0`, which the pickled models need), and it evaluates one operating point per call. Following the external-coupling rules (`.agent/rules/external-coupling.md`) and the integration process proposed in `add-external-model-integration`, TANGO does not patch or vendor it. What the package should provide is proposed to its authors as an OpenSpec change in their repository, `prepare-for-tango-coupling`, with the work split between them and the TANGO team as agreed there; TANGO depends only on releases they publish.
 
 ## What Changes
 
