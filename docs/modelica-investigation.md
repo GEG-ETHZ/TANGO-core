@@ -1,129 +1,102 @@
-# Modelica Investigation (2026-07-29)
+# Modelica and Rumoca investigation
 
-**Investigation — not adopted.** A time-boxed spike on Rumoca and the Modelica
-Standard Library as a possible future modeling layer for TANGO.
+**Investigation, not adopted.** This page records what we learned by building geothermal models in [Rumoca](https://github.com/CogniPilot/rumoca), a Rust-native Modelica compiler, as a possible future modeling layer for TANGO. It covers why we looked, what ran, what broke and why, and how the result compares with TANGO's current TESPy plant. The framing and the open questions live in [`long_term_architecture_exploration.md`](long_term_architecture_exploration.md).
 
+**Short version (2026-11, Rumoca 0.10.4):** an R134a organic Rankine cycle (ORC) built from DLR's ThermofluidStream library simulates in Rumoca, and every state point matches CoolProp and the equivalent TESPy network to within 0.0001 kJ/kg. Getting there took patches to 44 files of ThermofluidStream's source. The patches work around Rumoca language gaps, which we reduced to 14 self-contained reproducers plus one that needs the library. One gap silently produces wrong results. Rumoca's solver was not the problem; its coverage of the Modelica language used by fluid libraries was.
 
-Quick, time-boxed spike to gauge whether [Rumoca](https://github.com/CogniPilot/rumoca)
-(a Rust-native Modelica compiler) is a promising path forward for TANGO, prompted by
-its LSP + playground + explicit multi-stage compiler pipeline looking like a clean,
-modern alternative to the usual Dymola/OpenModelica story. See
-`docs/long_term_architecture_exploration.md` for the original parked discussion this
-follows up on.
+## Why we looked
 
-Two things were tried: getting the `rumoca-lsp` language server working in Helix
-(editor tooling), and building a real multi-component Modelica model against the
-Modelica Standard Library (MSL) to see how far a from-scratch system model gets in
-one sitting.
+TANGO couples the injection well, reservoir, production well, and surface plant into a closed loop and steps it through time. Today it solves that loop sequentially. [`SystemBCIteration`](../src/tango_core/orchestrators/system_bc_iteration.py) cuts the circuit at the injection well, guesses the injection enthalpy, solves each component in order, and relaxes the guess until the loop closes. The run log of `templates/hydro_ORC_electric.yml` shows one to five such passes per yearly timestep. The surface plant is a TESPy network. TESPy solves the plant simultaneously, but some plant pressures must be fixed as design constants rather than derived from flow resistance.
 
-## Attempt 1: Helix + rumoca-lsp — not working
+We want temperature, pressure, and mass flow fully coupled as one system of differential-algebraic equations (DAEs):
 
-- Rumoca's CLI (installed via the project's official install script) does **not**
-  include an `lsp` subcommand. The language server is a **separate binary**,
-  `rumoca-lsp`, built from the `rumoca-tool-lsp` crate. The install script needs
-  `--with-lsp` to pull it in.
-- Once installed, `rumoca-lsp` was wired into Helix via `~/.config/helix/languages.toml`
-  (not `config.toml` — that file only understands `theme`/`keys`/`editor`; language
-  servers are a separate config file, easy first mistake):
-  ```toml
-  [language-server.rumoca]
-  command = "rumoca-lsp"
+- **Coupled constraints.** "Injection pressure stays below the fracturing pressure" becomes an equation instead of nested fixed-point loops.
+- **Hourly surface-plant steps.** The plant should respond to hourly ambient temperature and hourly mass-flow changes. The plant settles in minutes, so a quasi-steady solve per hour is enough; fast plant dynamics aren't needed.
+- **Reservoir coupling both ways.** The reservoir should be usable either inside the coupled system or as a separately time-marched component.
+- **External simulators.** Other tools should couple through FMI.
 
-  [[language]]
-  name = "modelica"
-  scope = "source.modelica"
-  file-types = ["mo"]
-  language-servers = ["rumoca"]
-  ```
-- The binary itself is not broken: a manual JSON-RPC session (raw `initialize` →
-  `initialized` → `textDocument/didOpen` on a real `.mo` file, piped over stdio)
-  got a clean `initialize` response advertising hover/completion/definition/etc.,
-  and did not crash.
-- In live use in Helix, though, it reliably dies (`Language server exited`,
-  `StreamClosed` in the Helix log) shortly after opening a real buffer. The manual
-  stdio replay didn't reproduce it, so the trigger is something about Helix's
-  actual session (exact capability negotiation, workspace-folder shape, or
-  something Helix sends beyond the bare handshake) — not identified given the
-  time-box.
+Modelica fits this problem. It is a standardized language for writing models as equations, not a solver. A Modelica tool compiles a model into a hybrid DAE system (continuous equations plus events), reduces and sorts it, and hands it to a numerical solver. Connectors enforce conservation at every junction. Commercial Modelica tools are expensive, and OpenModelica has no native macOS binaries. Rumoca is open source, written in Rust, has a Python story, and uses the diffsol DAE solver. That made it the option to test.
 
-**Where to pick this up:** capture rumoca-lsp's stderr directly (Helix's own log
-just says the transport closed, not why) — e.g. wrap the command in a shell script
-that tees stderr to a file before handing it to Helix, or run `rumoca-lsp` under
-`RUST_BACKTRACE=1` if it supports that. If it's panicking on a specific request,
-the backtrace should name it immediately.
+## The ORC spike (2026-11, Rumoca 0.10.4)
 
-## Attempt 2: build a real model against MSL — promising, inconclusive
+### What we built
 
-**The actual MSL question, answered:** Rumoca does **not** bundle the Modelica
-Standard Library. It's tested/verified against MSL 4.1.0 (a "180-model MSL parity
-gate" is part of its own CI), but consuming it is on the user: point
-`rumoca compile`/`rumoca sim` at a local MSL checkout via `--source-root <path>`
-(or the `MODELICAPATH` env var). Confirmed by cloning
-`github.com/modelica/ModelicaStandardLibrary` at tag `v4.1.0` and pointing rumoca
-at it directly — resolution and typechecking against real MSL classes worked with
-no friction.
+ThermofluidStream (DLR, BSD-3) is a Modelica fluid library built to avoid large nonlinear equation systems. That makes it a gentler target for a young compiler than MSL's `Modelica.Fluid`. We adapted its `Idealized.Examples.ClausiusRankine.Step7ClosedLoop` into a closed R134a cycle: pump, preheater, evaporator, superheater, turbine, condenser, subcooler, and a loop breaker that imposes the pump inlet state and checks that the loop closes. Mass flow steps from 10 kg/s to 12 kg/s mid-run, standing in for an hourly flow change.
 
-**The model:** a single-flash geothermal loop — sump vessel → pump → adiabatic
-down-well pipe → reservoir heat exchanger (lumped thermal-mass reservoir) →
-adiabatic up-well pipe → flash valve → phase separator → {vapor: turbine →
-condenser, liquid: bypass} → ideal mixing junction → back to the sump. This
-mirrors TANGO's own single-flash surface topology (`src/tango_core/components/surface`),
-which is why it was the natural test case rather than a toy example.
+| Component | Outlet | At 10 kg/s |
+|---|---|---|
+| Pump (isentropic efficiency 0.75) | 25 bar, 28.31 °C | 19.2 kW |
+| Preheater | saturated liquid, 77.58 °C | 785.2 kW |
+| Evaporator | saturated vapor, 77.58 °C | 1,111.6 kW |
+| Superheater | 85.00 °C | 125.0 kW |
+| Turbine (isentropic efficiency 0.80) | 7.7 bar, 37.15 °C | 192.0 kW |
+| Condenser | saturated liquid, 29.99 °C | −1,806.0 kW |
+| Subcooler | 27.00 °C | −43.1 kW |
 
-MSL has no ready-made two-phase flash-separator or steam-turbine component (this
-is normal — most real Modelica system models mix MSL base classes with a handful
-of custom components), so two small custom models were hand-written against
-`Modelica.Media.Interfaces.PartialTwoPhaseMedium`:
-- `FlashSeparator` — static (no-holdup) ideal separator: computes vapor quality
-  from the inlet state via `Medium.vapourQuality`, splits mass flow, sets each
-  outlet to its saturated enthalpy (`Medium.dewEnthalpy`/`bubbleEnthalpy`).
-- `IsentropicTurbine` — expands to a fixed downstream pressure using
-  `Medium.setState_psX` at constant entropy, applies an isentropic efficiency,
-  outputs shaft torque through a standard `Modelica.Mechanics.Rotational` flange.
+- **Power and efficiency:** 172.8 kW net at 8.55% thermal efficiency.
+- **Balances:** the energy balance closes to about 1e-10 W, and the loop-closure mismatch is zero.
+- **Flow step:** all powers scale by 1.2 at 12 kg/s.
+- **Cross-checks:** every state point matches CoolProp 6.8.0, and a TESPy 0.11.2 network of the same cycle gives identical states and powers. That network uses the component types `GraphSurface` uses: `CycleCloser`, `Compressor` as pump, `SimpleHeatExchanger`, and `Turbine`.
+- **Timing** (Apple Silicon laptop, `rumoca sim bench`):
 
-Everything else was stock MSL: `Fluid.Vessels.ClosedVolume`,
-`Fluid.Machines.PrescribedPump`, `Fluid.Pipes.DynamicPipe` (adiabatic for the
-well pipes, `ConstantFlowHeatTransfer` for the reservoir HX and condenser),
-`Fluid.Valves.ValveIncompressible`, `Thermal.HeatTransfer.Components.{ThermalCollector,
-HeatCapacitor}`, `Thermal.HeatTransfer.Sources.FixedTemperature`,
-`Fluid.Fittings.TeeJunctionIdeal`.
+  | | One-time cost | Per state |
+  |---|---|---|
+  | Rumoca 0.10.4 | 9.1 s (5.7 s compile, 3.4 s backend build) | 0.26 ms (502 states in 0.13 s) |
+  | TESPy 0.11.2 | 0.03 s (build and first solve) | 6.1 ms (warm re-solve) |
 
-**Result:**
-- The model **flattened successfully** (`rumoca compile ... --emit flat-mo`)
-  against the real MSL checkout, after two small, expected parameter-name fixes
-  (`Modelica.Fluid.Machines.Pump` → `PrescribedPump`, since plain `Pump` wants an
-  explicit mechanical shaft connector; dropped a bogus `p_nominal` on the valve).
-  Error messages were specific enough to fix directly without spelunking through
-  MSL source, which is a good sign for usability.
-- `rumoca sim ... --inspect structure` (structural/DAE balance check) reports the
-  model is **over-determined by 184 equations**. One confirmed bug was found and
-  fixed in `FlashSeparator` (a redundant explicit mass-balance equation, already
-  implied by the two split-flow equations — fixing it moved the imbalance from
-  186 → 184), confirming the diagnostic is trustworthy and actionable. The
-  remaining 184 wasn't run down given the time-box; likely candidates are how the
-  two-phase medium's `ThermodynamicState`/`SaturationProperties` records interact
-  with the custom components' equations, or a `heatPorts` array /
-  `ThermalCollector` cardinality mismatch on the reservoir HX or condenser.
+  Break-even is about 1,600 states. A year of hourly steps (8,760) would take about 11 s in Rumoca and about 53 s in TESPy. The comparison flatters Rumoca: the loop breaker makes this ORC an explicit chain with no coupled algebraic blocks, while TESPy runs a full Newton solve every time. A two-stream heat exchanger model would add nonlinear systems on Rumoca's side.
 
-**Where to pick this up:** isolate the imbalance by building the model
-incrementally (vessel + pump + pipe alone → check balance; add the reservoir HX →
-check again; add the flash separator alone on a stub source/sink → check; add the
-turbine alone → check) rather than debugging the full 1300-equation flattened
-system at once. Rumoca's `--inspect structure` only reports the aggregate
-count today, not which specific equations/variables are extra — worth checking
-whether a more verbose mode exists, or filing that as a rumoca usability request,
-before going down the manual-bisection path.
+This is the idealized cycle. Each heat exchanger is a single stream with a specified outlet state, and mass flow is prescribed. TANGO's production ORC (`templates/hydro_ORC_electric.yml`) uses two-stream heat exchangers with brine on one side and R245fa. The ThermofluidStream components for that (discretized heat exchangers, pumps, and turbines) are blocked by gaps R12 and R13 below.
 
-## Overall verdict
+### What broke in Rumoca, and why
 
-Promising, not conclusive. The concrete finding — rumoca resolves and typechecks
-real MSL 4.1.0 classes cleanly via a plain `--source-root` checkout, with useful
-error messages — de-risks the "no mature domain library ecosystem" concern raised
-in the original parked discussion. Composing custom components with MSL base
-classes worked mechanically on the first real attempt. The open question is
-whether a genuinely correct, simulatable system model is quick to get right in
-practice, or whether DAE-balance bugs like this one are a recurring tax — that
-needs one more focused pass (structured bisection as above) to answer, not
-re-litigating from scratch. The LSP/editor-integration side is a separate,
-unrelated thread that's currently just broken and needs its own debugging
-session (see Attempt 1).
+The table below lists the gaps. Out of the box, none of ThermofluidStream's 11 top-level examples and only 2 fluid-free base models of its roughly 90 `Idealized` examples simulate on 0.10.4. Each ID is a self-contained reproducer in the reproduction bundle.
+
+| ID | Gap | Effect on ThermofluidStream |
+|---|---|---|
+| **R01** | **Silent wrong result.** With `Evaluate=true` on an enumeration parameter, an `if`-equation comparing it to a literal takes the `else` branch when the enumeration type shares its name with the enclosing model. No warning. | `Idealized.Processes.Isobaric` and `Adiabatic` ignore their outlet specification. The first ORC that ran had a superheater cooling the fluid and a 1.8 MW energy imbalance. |
+| R03 | `integer(div(a, b))` with Integer arguments compiles, then fails at simulation with a type-mismatch error. | R134a spline lookup, so every R134a property call |
+| R04 | Record output fields set on different branches are rejected. | IF97 water and R134a property functions |
+| R05 | `extends` modifiers on a record aren't used as defaults inside functions. | R134a Helmholtz coefficients |
+| R07 | Record arrays sized by a record parameter fail the shape proof. | R134a Helmholtz coefficients |
+| R08 | `scalar(size(v))` is unsupported. | R134a spline lookup |
+| R09 | Calls to functions without outputs, used as statements, are unsupported. | R134a phase guard; MSL `Math.Nonlinear` (`error()`), so all IF97 and ideal-gas inversions |
+| R10 | `assert` levels must be literals. | Every component, through `dropOfCommons.assertionLevel` |
+| R12 | Package redeclares through a short class definition are lost. | All discretized heat exchangers |
+| R13 | Function redeclares are rejected as "not a subtype" when the partial function carries a replaceable package. | Pump, compressor, and turbine |
+| R14 | `getInstanceName()` is unsupported. | Nearly every component |
+| R15 | `while` loops need a translation-time bound. | Bisection and Newton loops in media |
+| R16 | An unknown solver annotation (`Dassl`) is a hard error. | Every example |
+| R17 | Enumeration literals through an import alias in a modifier aren't parameter expressions. | Conditional connectors |
+
+Seen only inside the libraries so far:
+- A segfault on a function with three local constant aliases of the R134a spline tables, one unused. It reproduces against the libraries, with a passing control.
+- A record set by a declaration modifier that isn't counted as defined.
+- A zero-length array with `StateSelect.always` that fails the structural proof.
+
+Each gap has a physics-preserving workaround in the patch. The one exception is the R134a phase-boundary guard, which is commented out. Most gaps sit in the media libraries' function code: records, loops, and statement calls. That code is what stands between Rumoca and `Modelica.Media`-style property models generally, not just R134a.
+
+**What worked:**
+- Structural analysis and the diffsol-backed simulation were solid, and once a model compiled, its numbers were exact.
+- Diagnostics carry real source spans, so every workaround was quick to find.
+- `--inspect structure` lists the BLT blocks and the variable-to-equation matching. That's how R01 was traced to the wrong equation.
+- Rumoca also has steady-state gradients, adjoints, and a `--serve-stdio` mode that steps a model from another process. These cover optimization and hourly stepping from Python.
+
+### What we found in ThermofluidStream
+
+- Three directories have a `package.order` but no `package.mo`, which is invalid Modelica.
+- `Processes.Turbine` is an ideal-gas model, unsuitable for ORC vapor near saturation. Its ideal-gas check compares `R_in` with itself, so it never fires.
+- `Idealized.Processes.Adiabatic` with its `FullMedium` model uses real-fluid isentropic expansion, `h(p_out, s_in)`, and is the right component for ORC turbines and pumps.
+
+## Earlier spike (2026-07, Rumoca 0.9.x)
+
+- **MSL resolves cleanly.** Rumoca doesn't bundle the Modelica Standard Library; it reads a local MSL 4.1.0 checkout passed with `--source-root`. A source root must contain only libraries: a repository root holding other `.mo` trees fails to parse.
+- **A single-flash geothermal loop flattened but was over-determined.** It was built from MSL `Fluid` components plus a hand-written flash separator and isentropic turbine, and it came out over-determined by 184 equations. That model was not re-run on 0.10.4.
+- **The `rumoca-lsp` language server crashed in Helix** shortly after opening a buffer, although a manual JSON-RPC session worked. This was not re-tested.
+
+## Where this stands
+
+- **Rumoca is a credible path for an equation-based TANGO plant model, not yet a usable one.** The work needed is language coverage in Rumoca, not numerics.
+- **We plan to contribute** the reproducers, help with the media-library gaps, and look into an ExternalMedia/CoolProp bridge, which TANGO needs for working fluids like R245fa.
+- **The next modeling step** is two-stream heat exchangers and pressure-driven flow, once R12 and R13 are fixed. Then hourly stepping from Python through `--serve-stdio`.
+- **`tango_core` work is unaffected.**

@@ -7,10 +7,11 @@ is already fairly bloated and is meant to track the concrete, near-term
 `tango_core` roadmap) so long-horizon ideas don't get lost but also don't
 clutter the doc people read to find out what's actually being built next.
 Nothing here should be read as planned, scheduled, or blocking any current
-work. Started 2026-07-24. A follow-up, time-boxed implementation spike
-(Rumoca + MSL, a real multi-component model, LSP tooling) is written up
-separately in `docs/modelica-investigation.md` (2026-07-29) — that doc
-has the concrete, hands-on findings; this one has the framing and the
+work. Started 2026-07-24. The hands-on findings live in
+`docs/modelica-investigation.md`: a 2026-07 spike (Rumoca 0.9.x, MSL, LSP
+tooling) and a 2026-11 spike (Rumoca 0.10.4, an R134a ORC from
+ThermofluidStream that matches CoolProp and TESPy exactly, and 14
+self-contained Rumoca reproducers). This page has the framing and the
 still-open questions.
 
 ---
@@ -49,11 +50,13 @@ with where we want to go" concern, not a bug report.
 
 ## Candidate direction: Modelica-family tooling
 
-Modelica is an equation-based, acausal, non-causal modeling language —
-components are specified as declarative equations, not solve-order-
-dependent imperative networks, and composition of heterogeneous physical
+Modelica is a standardized, equation-based (acausal) modeling language,
+not a solver. Components are declarative equations, not solve-order-
+dependent imperative networks, and composing heterogeneous physical
 subsystems (thermal, hydraulic, electrical, ...) is the language's core
-design point. That's a much closer philosophical match to "compose TANGO's
+design point. A Modelica *tool* (Dymola, OpenModelica, Rumoca) compiles
+a model into a hybrid DAE system (continuous equations plus events),
+reduces and sorts it, and calls a numerical solver. That's a much closer philosophical match to "compose TANGO's
 native physics with external reservoir/surface simulators" than TESPy's
 approach.
 
@@ -97,6 +100,25 @@ a Rust-native Modelica compiler — surfaced as a candidate worth tracking:
   via a companion project called Cyecca for CasADi/SymPy integration,
   WASM, template-based codegen). Fits a Python (PyO3) + Rust toolchain
   preference directly rather than requiring a pivot to a third language.
+- **Hands-on, 2026-11 (0.10.4):** the solver backend is the Rust `diffsol`
+  crate. `rumoca sim` also offers steady-state gradients, adjoints, and a
+  `--serve-stdio` mode that steps a model from another process, which
+  covers hourly stepping from Python. An idealized R134a ORC simulated
+  correctly once the ThermofluidStream source was patched around 14
+  language gaps. One of them (R01) silently takes the wrong `if` branch.
+  The gaps are in language coverage for fluid-library code, not in the
+  numerics. See `docs/modelica-investigation.md`.
+- **Other options surveyed 2026-11**, beyond the Julia tools ruled out below:
+  - *IDAES (Pyomo):* Python and equation-oriented, with Helmholtz property
+    packages for water and CO2 and power-plant unit models. Dynamics come
+    from time discretization, not a stepping integrator.
+  - *CasADi with SUNDIALS or Ipopt:* coupled residuals and exact
+    derivatives in Python, but every component model would be ours, which
+    is the TESPy component library we'd be giving up. CoolProp isn't
+    differentiable inside CasADi, so properties would need spline tables.
+  - *ThermofluidStream (DLR, BSD-3):* a Modelica fluid library designed to
+    avoid large nonlinear systems, and the library used for the 2026-11
+    Rumoca spike.
 - Ruled out alternatives: Dyad/JuliaSim (licensing — too commercially
   aggressive; Chad knows the director, disclosed as a conflict, didn't
   appear to bias the technical read), Modia/Julia generally (JIT viewed as
@@ -250,6 +272,14 @@ language/ecosystem* itself," which no compiler choice fixes:
   lookups) beyond that spike's scope are still untested — Rumoca remains
   self-described as "in active development... expect bugs and rough
   edges."
+  **Further answered 2026-11 (Rumoca 0.10.4):** `redeclare`, conditional
+  components, and table lookups were exercised through ThermofluidStream.
+  None of its 11 top-level examples simulate unpatched. With patches to 44
+  files, an R134a ORC simulates and matches CoolProp exactly. The blockers
+  are concentrated in media-library function code (records, loops,
+  statement calls) and in package and function redeclares; all are
+  catalogued with reproducers in `docs/modelica-investigation.md`.
+  ThermoPower, TIL, and ClaRa remain untested.
 - **Could CoolProp be preserved rather than replaced**, by bridging it in
   as a Modelica external function call from within Rumoca-compiled models?
   That would give real, rigorous thermodynamic properties without either
@@ -275,11 +305,14 @@ language/ecosystem* itself," which no compiler choice fixes:
   drone/robotics org, not an energy or process-simulation shop. No
   evidence yet of production use outside its origin project. Being an
   early adopter in a new domain carries real risk independent of the
-  technology's merits.
+  technology's merits. As of 2026-11 it releases often (0.10.0 to 0.10.4
+  in six weeks), and the 2026-11 spike found one silent wrong-result bug,
+  so any adoption needs energy- and loop-closure checks in its tests.
 
-## Why this is parked, not pursued
+## Status
 
 There is no current opportunity to greenfield TANGO's physics core, and
 nothing above should slow down or complicate `tango_core` work in
-progress. This document exists purely so the thinking isn't lost if that
-changes.
+progress. Since 2026-11 the Rumoca path is being explored actively
+through outreach to the Rumoca maintainers, with the ORC model and
+reproducers from `docs/modelica-investigation.md`.
