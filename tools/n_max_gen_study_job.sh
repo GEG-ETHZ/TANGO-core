@@ -83,7 +83,9 @@ export PYTHONUNBUFFERED=1
 
 cd "$REPO_ROOT"
 # Compute nodes have no internet, so a job can't install or rebuild anything.
-if ! uv sync --check --offline --project "$REPO_ROOT" >/dev/null 2>&1; then
+# --inexact: optional groups such as `raft` (from `just setup-raft`) are
+# installed on purpose, so extra packages must not count as out of date.
+if ! uv sync --check --offline --inexact --project "$REPO_ROOT" >/dev/null 2>&1; then
   echo "The uv environment is out of date for $REPO_ROOT." >&2
   echo "On the login node, run: cd $REPO_ROOT && just setup   (or: uv sync)" >&2
   exit 1
