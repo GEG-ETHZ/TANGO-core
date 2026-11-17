@@ -84,6 +84,16 @@ Before any code moves, add unit tests that call each current cost function with 
 
 The gaps found while mapping the code (uncosted `PumpOrValve` and ORC heat exchangers, the uncounted injection pump, the water-only turbine factor, the CO2 open-tower `KeyError`, means over sub-sampled records when `save_interval > 1`, a silent plant CAPEX of 0 when `record_node_detail` is off) go to `.agent/FINDINGS.md` and their issues. Each moved formula keeps its current behaviour. The one exception is the silent zero: a `GraphSurface` asked for cost items with `record_node_detail` off raises a `ConfigError`, because the new interface must not hide a missing input. That changes no golden (every template records node detail); confirm in task 1.2.
 
+### D8: Each cost is discounted in its own year
+
+Decided 2026-11-17. A cost that falls at a given time (a periodic re-stimulation, #93; a replacement) is discounted at that time, not converted to an equivalent annual cost. `CostItem` gets a schedule of dated costs when the first periodic item is added; this change adds no periodic items, so it adds no schedule field yet.
+
+Discounting each year's cost consistently means discounting each year's energy too: LCOE becomes the discounted sum of costs over the discounted sum of energy, year by year. For a constant yearly energy and O&M this equals today's annuity formula, `CAPEX (CRF + f_om) / E`; with energy that changes from year to year (every TANGO run) it does not, so it changes every template's LCOE. That year-by-year cash flow is therefore its own change, with its own regression update, before or together with #93. This change keeps today's annuity.
+
+### D9: No separate cost export
+
+Decided 2026-11-17. Per-item costs are not exported as a new table. `.econ.csv` exists only for legacy reasons; the YAML output (`Workflow.to_dict()`) is the complete record of a run.
+
 ## Risks / Trade-offs
 
 - **A large diff for no change in numbers.** Mitigation: D6's pinned tests, then one commit per moved formula, each with both test sets green.
@@ -93,7 +103,7 @@ The gaps found while mapping the code (uncosted `PumpOrValve` and ORC heat excha
 ## Open Questions
 
 1. Land after #150? Recommended, since both edit the averaging code.
-2. Periodic costs (re-stimulation, #93) need a year-by-year cash flow. Discount each cost at its time, or keep the annuity and convert periodic costs to an equivalent annual cost? This decides whether `CostItem` gets a schedule field.
-3. Should `well_sections()` be removed once `drilling_quantities()` exists, or kept for the pump power it also carries?
-4. Is the RevORC plant cost (`add-revorc-coupling` D8) the first user, landing together, or does it wait for this change?
-5. Should per-item costs be exported (a cost breakdown table next to `.econ.csv`)? Useful for checking, but a new output with its own units.
+2. Resolved: each cost is discounted in its own year (D8).
+3. Replace `well_sections()`? Each well component, `NumericalGroupedSubsurface` and `RaftGroupedSubsurface` implement `well_sections()` (the `HasWellSections` protocol in `components/well/base.py`). It returns one `WellSection` per drilled section: its role (injection, horizontal or production, today decided by `component_idx == 0` and the inclination), length, inner diameter, and the history of downhole pump power. Its only users are the economic component and one unit test (`test_grouped_subsurface.py:189`). After this change both of its jobs have new homes: geometry in `drilling_quantities()` (D2) and pump power as a parasitic-power cost item (D1). Recommendation: remove `well_sections()`, `WellSection` and `HasWellSections` in task 3.2, and rewrite that test against `drilling_quantities()`.
+4. Is the RevORC plant cost (`add-revorc-coupling` D8) the first user, landing together, or does it wait for this change? Not decided yet.
+5. Resolved: no separate cost export (D9).

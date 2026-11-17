@@ -24,7 +24,7 @@ The roadmap (`docs/TANGO_vision_and_roadmap/README.md`, "Object-oriented per-com
 
 - Fixing the cost gaps found while mapping the code (uncosted `PumpOrValve` nodes and ORC heat exchangers, the uncounted injection pump, the water-only turbine factor, the CO2 open-tower `KeyError`). They are recorded in `.agent/FINDINGS.md` and their issues (#99 and others); fixing them changes results and belongs in their own changes.
 - Sizing on anything other than the run average (#78, #55). The interface takes a sizing basis so those changes have one place to add it.
-- Periodic or scheduled costs and a year-by-year cash flow (#93). The interface leaves room for them; the decision on discounting is an open question.
+- Periodic or scheduled costs and a year-by-year cash flow (#93). Each cost will be discounted in its own year (design D8); because that also changes how energy is discounted, and so every LCOE, it is its own change.
 - Costing two products (#96).
 - New cost items (#62, #84, #93).
 
