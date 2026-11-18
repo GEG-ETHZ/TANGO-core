@@ -74,5 +74,5 @@ TANGO never copies the package into its tree, patches it at import, or depends o
 
 ## Open Questions
 
-1. Where should the per-model integration status live: in TANGO-core (a table in `src/tango_core/external/README.md`) or only in the project that funds it (for FlexGEO, `GEG-ETHZ/flexgeo#30`)?
-2. Should the partner change's template (proposal and design headings, the D2 checklist as tasks) be shipped as an OpenSpec schema in TANGO-core, or just linked from the spec?
+1. Resolved 2026-11-18: per-model integration status lives in the project that funds it (for FlexGEO, `GEG-ETHZ/flexgeo#30`), not in TANGO-core.
+2. Resolved 2026-11-18: no template machinery. The RevORC partner change (`prepare-for-tango-coupling` in the RevORCHP-SM repository) is the worked example; `src/tango_core/external/README.md` links it, and the next partner change starts as a copy of it.
