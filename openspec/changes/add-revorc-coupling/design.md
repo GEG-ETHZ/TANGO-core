@@ -139,7 +139,7 @@ For the model's authors:
 
 For TANGO:
 
-8. Land this before or after #150? The design follows #150's `solve(inlet, step)`; before it lands, the step is the annual step. Do representative periods belong in #150's grid schemes (D6)?
+8. #150 merged on 2026-11-18, so the component uses `solve(inlet, step)`. Still open: do representative periods belong in #150's grid schemes (D6)?
 9. With both electricity and heat as products, which `MainProduct` applies, or does a reversible plant need a combined metric? Decided in #96.
 10. Where does the monthly-hourly ambient profile come from for each FlexGEO site?
 11. Does #17 (component-owned costs) land before this change, or does this change use the stopgap hook (D8)?
