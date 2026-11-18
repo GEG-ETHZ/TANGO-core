@@ -20,6 +20,10 @@ From `1.1.0` on, version numbers follow [Effort-based Versioning (EffVer)](https
 - The per-step results CSV (`<stem>.smry.csv`) has one row per step end time, with a `time [s]` column in place of `timestep [-]` and `year [yr]` (which gave each step's start in years). Each component's values sit in the rows of its own step ends, so components on different grids, or with different `save_interval`s, line up by time. The phase-diagram slider is labeled the same way.
 - For code that calls components directly: `FlowComponent.solve(inlet)` is `solve(inlet, step)`, taking a `TimeStep`; components no longer have a `dt_years` field; `SystemDirect`/`SystemBCIteration` take a `TimeStepping` (from `SimConfig.time_stepping_for()`) in place of `n_tsteps`/`dt_years`; and `Orchestrator.run_timestep(t)` is `run_interval(i)`, one sync interval.
 
+### Fixed
+
+- **`just slurm` and the SLURM job scripts accept an environment with RAFT installed**: after `just setup-raft`, the up-to-date check (`uv sync --check --offline`) counted the optional `raft` group as extra packages and refused to submit with "The uv environment is out of date". The check now passes `--inexact`, so it still catches missing or outdated locked packages but ignores extra ones.
+
 ---
 
 ## [1.2.0] — 2026-11-09
@@ -639,6 +643,7 @@ implementation (see `docs/bugs-fixed-in-tango.md` for full detail on each):
 ---
 
 <!-- Version comparison links — verify and update when cutting a release -->
+[In Development]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.2.0...HEAD
 [1.2.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GEG-ETHZ/TANGO-core/compare/v1.0.0...v1.0.1
