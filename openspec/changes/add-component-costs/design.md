@@ -102,8 +102,8 @@ Decided 2026-11-17. Per-item costs are not exported as a new table. `.econ.csv` 
 
 ## Open Questions
 
-1. Land after #150? Recommended, since both edit the averaging code.
+1. Resolved: #150 merged on 2026-11-18; this change builds on it.
 2. Resolved: each cost is discounted in its own year (D8).
 3. Replace `well_sections()`? Each well component, `NumericalGroupedSubsurface` and `RaftGroupedSubsurface` implement `well_sections()` (the `HasWellSections` protocol in `components/well/base.py`). It returns one `WellSection` per drilled section: its role (injection, horizontal or production, today decided by `component_idx == 0` and the inclination), length, inner diameter, and the history of downhole pump power. Its only users are the economic component and one unit test (`test_grouped_subsurface.py:189`). After this change both of its jobs have new homes: geometry in `drilling_quantities()` (D2) and pump power as a parasitic-power cost item (D1). Recommendation: remove `well_sections()`, `WellSection` and `HasWellSections` in task 3.2, and rewrite that test against `drilling_quantities()`.
-4. Is the RevORC plant cost (`add-revorc-coupling` D8) the first user, landing together, or does it wait for this change? Not decided yet.
+4. Is the RevORC plant cost (`add-revorc-coupling` D8) the first user, landing together, or does it wait for this change? Not decided yet; depends on what cost data the RevORC authors have (asked in their `prepare-for-tango-coupling`, open question 12).
 5. Resolved: no separate cost export (D9).
