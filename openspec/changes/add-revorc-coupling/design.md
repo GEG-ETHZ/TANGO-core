@@ -92,7 +92,7 @@ All points of a step go to the backend in one `evaluate` call. Until the package
 
 ### D7: Checks at the interface only
 
-Before calling the backend, the wrapper checks every input against the backend's bounds. `out_of_range: error` (the default) raises a `SurfaceModelDomainError` naming the input, its value and the bound; in an optimization that marks the candidate infeasible. `out_of_range: warn` records the point and calls the model anyway, for exploratory runs.
+Before calling the backend, the wrapper checks every input against the backend's bounds. `out_of_range: error` (the default) raises a `SurfaceModelDomainError` naming the input, its value and the bound; in an optimization that marks the candidate infeasible. `out_of_range: warn` records the point and calls the model anyway, for exploratory runs. `out_of_range: fallback` evaluates the point with the detailed model instead (D10), as the authors suggested on 2026-11-18; the point is recorded as evaluated by the fallback. Inputs are never clipped.
 
 After the call, the wrapper checks only what TANGO relies on: finite numbers, a brine outlet temperature not below the minimum TANGO sent, and the heat-pump status flag. A heat-pump point that the model reports as outside its supported regime is an error under `error`, never a silent zero. The model's warning sentences are recorded in the history as they are.
 
@@ -108,6 +108,16 @@ So `RevOrcSurface` reports its own plant cost through the per-component cost int
 
 The surrogate was trained on brine. A config whose geofluid is not water or brine raises a `ConfigError`.
 
+### D10: The detailed model verifies; the surrogate iterates
+
+The authors' answers of 2026-11-18: the detailed model is Python, uses CoolProp, accepts batches of hourly inputs, and can size the hardware for given conditions within the machine limits. Indicative timings on the author's PC: about 50 s for the design procedure, 0.04 to 0.6 s per hourly heat-pump point, 1.2 to 4.5 s per hourly ORC point. Linux compatibility is not yet verified.
+
+At 288 representative hours per step, one ORC evaluation of a step takes 6 to 22 minutes. Inside the BC iteration (several evaluations per step) a 25-year run would take roughly 12 to 45 hours, too slow for an optimizer. Called once per step it takes 2.4 to 9 hours, or about 0.3 to 1.1 hours spread over 8 cores; with the surface on a 5-year grid (#150), 0.5 to 1.8 hours.
+
+So both backends have a role: the surrogate converges the BC iteration and runs inside optimizations; the detailed model re-evaluates a converged run once per step (or per surface step on a coarser grid) to verify a chosen design, and evaluates points outside the surrogate's training domain (D7). Whether the detailed model's sizing replaces the identical-module assumption (D4) for final designs is decided with the authors.
+
+TANGO pins `coolprop==6.8.0`; the detailed model's CoolProp version must be agreed with the authors along with its other pins.
+
 ## Risks / Trade-offs
 
 - **Run time.** About 288 points per step, times the BC iterations per step, times 25 steps, times an optimizer's evaluations. Single-point calls build a pandas frame each time. Mitigation: measure in the spike; batch API upstream; cache on exact inputs if iterations repeat them.
@@ -119,10 +129,10 @@ The surrogate was trained on brine. A config whose geofluid is not water or brin
 
 For the model's authors:
 
-1. Will the detailed model be shared, in which language and tools, under which licence, and how long does one off-design point take?
+1. Partly answered 2026-11-18: Python with CoolProp, batch input, timings in D10, updated version to be shared by the meeting of 2026-11-20. Still open: licence, Linux support, pinned versions (CoolProp against TANGO's 6.8.0).
 2. Do the models work with pandas 2.x and earlier numpy 2 releases, so the pins can be loosened?
 3. Who decides between ORC and heat-pump operation at each hour: the plant model, TANGO, or a dispatch model?
-4. How should inputs outside the trained domain be handled, and can the domain be widened (for example, lower brine temperatures)?
+4. Answered 2026-11-18: flag, do not clip; use the detailed model as fallback where possible (D7, D10). Still open: can the domain be widened (for example, lower brine temperatures)?
 5. Is summing identical modules valid for plants of several MW?
 6. Are there cost data per module (CAPEX, O&M) consistent with the model?
 7. Which brine property basis do the models use, so the interface difference with TANGO's fluid model can be bounded?

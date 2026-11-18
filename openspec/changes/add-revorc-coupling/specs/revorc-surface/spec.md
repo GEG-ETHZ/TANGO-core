@@ -77,12 +77,17 @@ Each representative hour SHALL have a mode, `orc`, `hp` or `off`, from the confi
 
 ### Requirement: Inputs are checked before the call
 
-Before calling the backend, every input SHALL be checked against the backend's validity bounds. With `out_of_range: error` (the default), an input outside its bound SHALL raise a `SurfaceModelDomainError` naming the input, its value and the bound. With `out_of_range: warn`, the point SHALL be evaluated and recorded as out of range.
+Before calling the backend, every input SHALL be checked against the backend's validity bounds. With `out_of_range: error` (the default), an input outside its bound SHALL raise a `SurfaceModelDomainError` naming the input, its value and the bound. With `out_of_range: warn`, the point SHALL be evaluated and recorded as out of range. With `out_of_range: fallback`, the point SHALL be evaluated by the detailed-model backend and recorded as such. Inputs SHALL NOT be clipped.
 
 #### Scenario: Brine too cold for the ORC
 
 - **WHEN** the production well delivers brine at 90 °C to an ORC hour under the default policy
 - **THEN** the run fails with a `SurfaceModelDomainError` naming the brine inlet temperature, 90 °C, and the lower bound of 95 °C
+
+#### Scenario: Fallback to the detailed model
+
+- **WHEN** the same point is evaluated with `out_of_range: fallback` and a detailed-model backend configured
+- **THEN** the detailed model evaluates it, and the history records that the point used the fallback
 
 ### Requirement: Results are checked after the call
 
