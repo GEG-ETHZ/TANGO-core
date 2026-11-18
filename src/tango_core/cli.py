@@ -154,7 +154,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "final state -- omitted if the config has no economic: block; "
             "every CSV header ends in its unit, e.g. [K]), "
             "and <name>.phase_<fluid>.html per working fluid (interactive "
-            "P-h phase diagram with a year slider -- omitted if the config "
+            "P-h phase diagram with a time slider -- omitted if the config "
             "has no GraphSurface surface component). A RAFT subsurface also "
             "keeps its own output (VTKs at its template's output_vtk, flow "
             "logs) in <name>.raft/. "

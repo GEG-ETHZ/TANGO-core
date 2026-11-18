@@ -21,7 +21,7 @@
 | `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
 | `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block.
 
 ### `injection_well` · `lumped` → `LumpedInjectionWell`
 
@@ -58,7 +58,7 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
 | `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block.
 
 ### `production_well` · `lumped` → `LumpedProductionWell`
 
@@ -95,7 +95,7 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
 | `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block.
 
 ### `production_well_with_pump` · `lumped` → `LumpedProductionWellWithPump`
 
@@ -133,4 +133,4 @@ Filled in automatically, not set in this block: `common` from the `common:` bloc
 | `friction_model` | `FrictionModel` | `<FrictionModel.HAALAND: 'haaland'>` | *undocumented* |
 | `heat_transfer_model` | `HeatTransferModel` | `<HeatTransferModel.ZHANG_2011: 'zhang-2011'>` | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`.
+Filled in automatically, not set in this block: `common` from the `common:` block.

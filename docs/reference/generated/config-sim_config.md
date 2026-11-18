@@ -2,9 +2,11 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `num_tsteps` | `int` | required | *undocumented* |
+| `num_tsteps` | `int \| None` | `None` | *undocumented* |
+| `dt_years` | `float \| None` | `None` | *undocumented* |
+| `time_stepping` | `TimeStepping \| None` | `None` | *undocumented* |
 | `injection_mode` | `InjectionPolicy \| None` | `None` | *undocumented* |
 | `mass_rate` | `float \| None` | `None` | *undocumented* |
 | `bc_checkpoint_idx` | `int \| None` | `None` | *undocumented* |
 
-Filled in automatically, not set in this block: `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
+Filled in automatically, not set in this block: `target_extraction_pressure` from `sim_config.target_extraction_pressure`.

@@ -10,12 +10,14 @@ An orchestrator runs the component circuit through time. Each timestep it solves
 
 **`manual-fracking-check` checks the fracking limit; nothing adjusts the boundary to meet it.** Injecting too hard fractures the reservoir. Two quantities can cause it: wellhead pressure and mass flow. Once a timestep has converged, `manual-fracking-check` checks both thresholds and raises `FrackingViolationError` if either is exceeded. It never caps the value silently. To find an operating point below the limit, use an `applications/opt_*/` search, which treats that error as an infeasible design.
 
-**`SystemDirect` is the plain case.** Without `sim_config.injection_mode`, the workflow uses `SystemDirect`: one pass per timestep, no iteration. `SystemBCIteration` subclasses it and overrides `run_timestep`, where the iteration lives, and `run`. Every shipped template sets `injection_mode`.
+**`SystemDirect` is the plain case.** Without `sim_config.injection_mode`, the workflow uses `SystemDirect`: one pass per sync interval, no iteration. `SystemBCIteration` subclasses it and overrides `run_interval`, where the iteration lives, and `run`.
+
+**A pass covers one sync interval.** With a single subsystem, a sync interval is one timestep. With several subsystems (`sim_config.time_stepping`), each subsystem takes its own steps through the interval in circuit order, and a stream into another subsystem is converted to the receiver's steps by its sync rule. See [time stepping](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/runtime/time-stepping.md). Every shipped template sets `injection_mode`.
 
 ## Read these first
 
 1. `system_direct.py`, `SystemDirect.run`: the time loop.
-2. `system_bc_iteration.py`, `run_timestep`: the dispatch on `injection_mode`.
+2. `system_bc_iteration.py`, `run_interval`: the dispatch on `injection_mode`.
 3. `system_bc_iteration.py`, `_converge_injection_T`: the attempt loop and the snapshot restore.
 4. `system_bc_iteration.py`, `_converge_injection_pressure`: the outer loop around it.
 
@@ -23,8 +25,8 @@ An orchestrator runs the component circuit through time. Each timestep it solves
 
 | Class | Key methods |
 |---|---|
-| `SystemDirect` (`system_direct.py`) | `_next_inlet`, `_record_outlet`, `run_timestep`, `record`, `finalize` (economics), `run` |
-| `SystemBCIteration` (`system_bc_iteration.py`) | `_check_fracking`, `_seed_circuit_inlet`, `run_timestep`, `_converge_injection_pressure`, `_converge_injection_flow`, `_converge_injection_T` |
+| `SystemDirect` (`system_direct.py`) | `_next_inlet`, `_record_outlet`, `_solve_interval`, `run_interval`, `record`, `finalize` (economics), `run` |
+| `SystemBCIteration` (`system_bc_iteration.py`) | `_check_fracking`, `_seed_circuit_inlet`, `run_interval`, `_converge_injection_pressure`, `_converge_injection_flow`, `_converge_injection_T` |
 
 | Constant (`system_bc_iteration.py`) | Value |
 |---|---|

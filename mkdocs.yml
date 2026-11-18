@@ -122,6 +122,7 @@ nav:
       - runtime/index.md
       - Boundary-condition iteration: runtime/bc-iteration.md
       - One run: runtime/one-run.md
+      - Time stepping: runtime/time-stepping.md
   - Deep dives:
       - Config validation: CONFIG_VALIDATION.md
       - Error tracebacks: ERROR_TRACEBACKS.md

@@ -19,4 +19,4 @@
 | `well_eff_diameter` | `float` | `0.41` | *undocumented* |
 | `net_to_gross_ratio` | `float` | `1.0` | *undocumented* |
 
-Filled in automatically, not set in this block: `common` from the `common:` block, `dt_years` from `sim_config.dt_years`, `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.
+Filled in automatically, not set in this block: `common` from the `common:` block, `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.

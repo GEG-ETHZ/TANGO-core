@@ -7,7 +7,7 @@
 ``<stem>.phase_<fluid>.html`` file per distinct working fluid found in a
 ``GraphSurface`` component's TESPy network (e.g. the primary geofluid plus,
 for a binary/ORC plant, the secondary working fluid) -- an interactive
-Plotly figure with a year slider (see module docstring's own "Inspiration"
+Plotly figure with a time slider (see module docstring's own "Inspiration"
 section in GitLab issue #56), loosely modeled on the tango web app's own
 Phase Diagram tab: x-axis specific enthalpy h [kJ/kg], y-axis pressure P
 [bar] (log scale), the fluid's saturation dome, and the (P, h) state at
@@ -273,7 +273,6 @@ def write_phase_diagrams(
     """
     config = config or PhaseDiagramConfig()
     save_dir.mkdir(parents=True, exist_ok=True)
-    dt_years = wf._sim_config.dt_years  # noqa: SLF001
     written: list[Path] = []
 
     for component in wf._orchestrator.components.values():  # noqa: SLF001
@@ -286,7 +285,6 @@ def write_phase_diagrams(
                 component,
                 fluid_name,
                 node_names,
-                dt_years,
                 config.for_fluid(fluid_name),
                 config_name=stem,
             )
@@ -409,6 +407,23 @@ def _outer_circuit_order(wf: Workflow) -> list[tuple[str, FlowComponent]]:
     return order
 
 
+def _covering_indices(t_end: list[float], times: list[float]) -> list[int]:
+    """For each of ``times``, the index of the recorded step that covers it: the first one ending at or after it.
+
+    Lines up a component's history with the surface plant's steps when the
+    two are on different grids; on the same grid each index is its own
+    position. A time past the last recorded step maps to the last one.
+    """
+    indices = []
+    i = 0
+    for time in times:
+        tolerance = 1e-9 * max(abs(time), 1.0)
+        while i < len(t_end) - 1 and t_end[i] < time - tolerance:
+            i += 1
+        indices.append(i)
+    return indices
+
+
 def _add_subsurface_points(
     wf: Workflow,
     component: GraphSurface,
@@ -431,6 +446,10 @@ def _add_subsurface_points(
     neighbor's outlet -- the pump suction -- prepended, so the pump's
     pressure and enthalpy rise is drawn as part of the component's line
     instead of a gap; ``pumped[name][t]`` records which years that applies to.
+
+    Entry ``t`` of every list is the surface plant's step ``t``; a
+    component on another grid contributes the step that covers that step's
+    end time (``_covering_indices``).
 
     Closes the loop visually (Chad's request, 2026-09-25): without this,
     the diagram stops at the surface plant's own ``inlet``/``outlet``
@@ -474,27 +493,28 @@ def _add_subsurface_points(
         ]
         p_bar["outlet"] = [p * PA_TO_BAR for p in surface_history.P_outlet[:n_tsteps]]
 
+    surface_times = component.time_history.t_end[:n_tsteps]
+    covering: dict[str, list[int]] = {}
     outer_order = _outer_circuit_order(wf)
     for name, comp in outer_order:
-        if comp is component:
+        if comp is component or not comp.time_history.t_end:
             continue
+        indices = covering[name] = _covering_indices(comp.time_history.t_end, surface_times)
         if isinstance(comp, RaftGroupedSubsurface):
-            profiles[name] = [
-                _raft_segment_profiles(comp, t)[SEGMENT_NAMES.index(name)] for t in range(n_tsteps)
-            ]
+            profiles[name] = [_raft_segment_profiles(comp, i)[SEGMENT_NAMES.index(name)] for i in indices]
             h_kj[name] = [profile_h[-1] for profile_h, _ in profiles[name]]
             p_bar[name] = [profile_p[-1] for _, profile_p in profiles[name]]
             continue
         history = comp.history  # type: ignore[attr-defined]  # every outer-circuit component has this field, just not declared on the shared base
         h_cells = getattr(history, "h_cells", None)
         p_cells = getattr(history, "P_cells", None)
-        if h_cells and p_cells and len(h_cells) >= n_tsteps:
+        if h_cells and p_cells:
             profiles[name] = [
                 (
-                    [h * J_PER_KG_TO_KJ_PER_KG for h in h_cells[t]],
-                    [p * PA_TO_BAR for p in p_cells[t]],
+                    [h * J_PER_KG_TO_KJ_PER_KG for h in h_cells[i]],
+                    [p * PA_TO_BAR for p in p_cells[i]],
                 )
-                for t in range(n_tsteps)
+                for i in indices
             ]
             h_kj[name] = [profile_h[-1] for profile_h, _ in profiles[name]]
             p_bar[name] = [profile_p[-1] for _, profile_p in profiles[name]]
@@ -502,13 +522,14 @@ def _add_subsurface_points(
         recorded_h = getattr(history, "h_outlet", None)
         if recorded_h:
             # the enthalpy the component actually handed downstream
-            h_kj[name] = [h * J_PER_KG_TO_KJ_PER_KG for h in recorded_h[:n_tsteps]]
+            h_kj[name] = [recorded_h[i] * J_PER_KG_TO_KJ_PER_KG for i in indices]
         else:
             h_kj[name] = [
-                FluidState.with_PT(fluid_name, p, t, backend).H * J_PER_KG_TO_KJ_PER_KG
-                for t, p in zip(history.T_outlet[:n_tsteps], history.P_outlet[:n_tsteps], strict=False)
+                FluidState.with_PT(fluid_name, history.P_outlet[i], history.T_outlet[i], backend).H
+                * J_PER_KG_TO_KJ_PER_KG
+                for i in indices
             ]
-        p_bar[name] = [p * PA_TO_BAR for p in history.P_outlet[:n_tsteps]]
+        p_bar[name] = [history.P_outlet[i] * PA_TO_BAR for i in indices]
 
     # Second pass: every component's outlet is known now, including the
     # upstream neighbor of the loop's first component.
@@ -518,7 +539,7 @@ def _add_subsurface_points(
             continue
         upstream_name, upstream = outer_order[i - 1]
         upstream_key = "outlet" if upstream is component else upstream_name
-        pumped[name] = [pump_power[t] > 0 for t in range(n_tsteps)]
+        pumped[name] = [pump_power[i] > 0 for i in covering[name]]
         for t in range(n_tsteps):
             if pumped[name][t]:
                 profile_h, profile_p = profiles[name][t]
@@ -568,11 +589,10 @@ def _build_figure(
     component: GraphSurface,
     fluid_name: str,
     node_names: list[str],
-    dt_years: float,
     property_lines: PropertyLineConfig | None = None,
     config_name: str | None = None,
 ) -> go.Figure:
-    """Build one fluid's P-h figure: saturation dome, reference lines, and a year slider over node states.
+    """Build one fluid's P-h figure: saturation dome, reference lines, and a time slider over node states.
 
     The plot title names the config (``config_name``, typically the input
     file's stem) and the fluid, with the config's own ``title`` field
@@ -586,11 +606,13 @@ def _build_figure(
 
     Every state point is numbered in flow order (``_state_point_order``),
     and a "State points" key under the plot maps each number to its node.
-    The figure opens on the final year.
+    The figure opens on the final recorded step. Each slider position is
+    labeled with its step's end time (s since the start of operation).
     """
     backend = component.common.coolprop_backend
     node_history = component.history.node_history
     n_tsteps = min(len(node_history[name].get("h", [])) for name in node_names if name in node_history)
+    time_ends = component.time_history.t_end
 
     h_kj: dict[str, list[float]] = {}
     p_bar: dict[str, list[float]] = {}
@@ -769,12 +791,12 @@ def _build_figure(
                             [str(t)],
                             {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"},
                         ],
-                        "label": f"{t * dt_years:.0f}",
+                        "label": f"{time_ends[t]:.3g}",
                         "method": "animate",
                     }
                     for t in range(n_tsteps)
                 ],
-                "currentvalue": {"prefix": "Elapsed time (years): "},
+                "currentvalue": {"prefix": "Elapsed time (s): "},
             },
         ],
     )
@@ -1378,7 +1400,7 @@ def _phase_legend_traces(h_anchor: float, p_anchor: float) -> list[go.Scatter]:
     be one legend entry per edge, not per phase) -- these standalone
     traces are what actually tells the reader what each color means.
     They're static traces that no frame touches, so the legend stays put
-    when the year slider swaps frames.
+    when the time slider swaps frames.
 
     Each trace holds one real, in-range point (``h_anchor``, ``p_anchor``,
     the axes' lower corner) in ``lines`` mode, so nothing is drawn on the

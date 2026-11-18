@@ -107,6 +107,7 @@ from tango_core.core.locked_state import LockedState
 from tango_core.core.policies import ComponentRole
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 if TYPE_CHECKING:
     from tespy.connections import Connection
@@ -1097,7 +1098,7 @@ class GraphSurface(SurfaceComponent):
 
         return h_out, T_out, P_out, net_power_W, net_thermal_W
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Solve the TESPy network and extract outlet conditions + net power/thermal."""
         s = self.state
 

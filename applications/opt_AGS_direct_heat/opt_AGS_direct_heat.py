@@ -279,8 +279,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# Mean rather than total energy: every timestep has the same duration, so the
-# two carry the same optimization signal, and a mean in W is easier to read.
+# Mean rather than total energy: the economic component's mean is time-weighted
+# over a fixed project lifetime, so the two carry the same optimization signal,
+# and a mean in W is easier to read.
 OBJECTIVES = [
     ObjectiveSpec(name="LCOE", evaluate=_EconomicStateEvaluate("LCOE")),
     ObjectiveSpec(name="negative_mean_thermal_power_W", evaluate=_NegativeMeanThermalPowerEvaluate()),

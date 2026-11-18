@@ -14,7 +14,7 @@ class Orchestrator(ABC):
     """Abstract base for all tango orchestrators.
 
     Owns the component graph and executes components in the correct order
-    within each timestep.  Concrete subclasses: SystemDirect (single-pass,
+    within each sync interval.  Concrete subclasses: SystemDirect (single-pass,
     no BC concept) and SystemBCIteration (subclasses SystemDirect, adding
     injection-pressure/mass-rate BC iteration governed by InjectionPolicy).
     """
@@ -26,11 +26,14 @@ class Orchestrator(ABC):
         ...
 
     @abstractmethod
-    def run_timestep(self, t: int) -> None:
-        """Execute one simulation timestep.
+    def run_interval(self, i: int) -> None:
+        """Execute one sync interval: every subsystem's steps up to the next sync time.
+
+        With a single subsystem, an interval is one timestep (see
+        ``tango_core.core.time_stepping``).
 
         Args:
-            t: Zero-based timestep index.
+            i: Zero-based sync interval index.
 
         """
         ...

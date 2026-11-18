@@ -79,10 +79,16 @@ import pytest
 import yaml
 
 from tango_core.components.reservoir.lumped import LumpedReservoir
+from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.fluid_state import COOLPROP_BACKEND, FluidState
 from tango_core.core.locked_state import LockedState
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import SyncInterval, TimeStep
 from tango_core.workflows.workflow import Workflow
+
+_STEP = TimeStep(index=0, t_start=0.0, dt=YEAR_TO_SECOND)
+"""A one-year step, for solving a component directly."""
+
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 HYDRO_SF_ELECTRIC = TEMPLATES_DIR / "hydro_sf_electric.yml"
@@ -110,7 +116,6 @@ def _inlet_at(T: float, P: float, mass_rate: float) -> Stream:
 
 
 _RESERVOIR_FIELDS: dict[str, float] = {
-    "dt_years": 1.0,
     "reservoir_depth": 5000.0,
     "thickness": 300.0,
     "porosity": 0.1,
@@ -136,7 +141,7 @@ def _run_workflow(res: LumpedReservoir, timestep: int) -> None:
     inlet = _inlet_at(350.0, 5.1e7, 50.0)
     if timestep > 0:
         res.mark_all_stale()
-    res.solve(inlet)
+    res.solve(inlet, _STEP)
     res.record(timestep)
 
 
@@ -245,7 +250,7 @@ def _resolve_from_snapshot(res: LumpedReservoir, snapshot: Any, inlet: Stream) -
     """
     res.restore_convergence_state(snapshot)
     res.mark_all_stale()
-    res.solve(inlet)
+    res.solve(inlet, _STEP)
     return _reservoir_power_watts(res)
 
 
@@ -281,7 +286,7 @@ def test_power_output_reproducible_across_convergence_attempts() -> None:
     # goalposts" failure mode this test guards against, and proof the
     # equality check below isn't trivially true regardless of restoring.
     res.mark_all_stale()
-    res.solve(same_guess)
+    res.solve(same_guess, _STEP)
     power_without_restore = _reservoir_power_watts(res)
     assert power_without_restore != power_1, (
         "solving the same guess twice in a row without restoring first "
@@ -341,7 +346,7 @@ def test_surface_power_output_reproducible_across_convergence_attempts() -> None
     def _resolve(inlet: Stream) -> float:
         surface.restore_convergence_state(snapshot)
         surface.mark_all_stale()
-        surface.solve(inlet)
+        surface.solve(inlet, _STEP)
         return surface.state.net_power_W.get_fresh()
 
     # Convergence-loop attempt #1, at the original (converged) injection_pressure.
@@ -395,7 +400,7 @@ def test_history_restored_across_full_workflow() -> None:
     Runs the workflow's one configured timestep, snapshots every component,
     then drives one further timestep "by hand" — bypassing ``Workflow.run()``
     (which already consumed ``sim_config.num_tsteps``) by calling the
-    orchestrator's own ``run_timestep()``/``record()`` directly, the same way
+    orchestrator's own ``run_interval()``/``record()`` directly, the same way
     ``SystemDirect.run()`` would for a real extra timestep. That grows every
     component's history AND mutates its ``state``, so restoring the earlier
     snapshot afterward has something real to roll back.
@@ -412,9 +417,17 @@ def test_history_restored_across_full_workflow() -> None:
 
     # One more real timestep, growing history and mutating `state` for every
     # component in the circuit.
-    extra_t = orchestrator.n_tsteps
-    orchestrator.run_timestep(extra_t)
-    orchestrator.record(extra_t)
+    last = orchestrator.intervals[-1]
+    (last_step,) = last.steps["all"]
+    extra = SyncInterval(
+        index=last.index + 1,
+        t_start=last.t_end,
+        t_end=last.t_end + last_step.dt,
+        steps={"all": (TimeStep(index=last_step.index + 1, t_start=last.t_end, dt=last_step.dt),)},
+    )
+    orchestrator.intervals.append(extra)
+    orchestrator.run_interval(extra.index)
+    orchestrator.record(extra)
 
     history_before_restore = {name: copy.deepcopy(c.history) for name, c in components.items()}
 

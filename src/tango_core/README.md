@@ -33,9 +33,9 @@ flowchart TB
 1. **Load.** `Workflow.from_file` reads the YAML file. Pydantic schemas in `core/specs.py` validate each block. A bad value stops the run here with a `ConfigError` that names the offending field.
 2. **Build.** Each entry under `components:` names a `type` and a `variant`. `components/registry.py` maps that pair to a class, for example `("reservoir", "lumped")` → `LumpedReservoir`, and the class is built straight from the YAML. The object holds exactly what the file says ([object == config](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CONTRIBUTING.md#rule-object-is-config)).
 3. **Choose how to solve.** When `sim_config.injection_mode` is set, the workflow picks `SystemBCIteration`, which iterates every timestep until the circuit closes. Every shipped example sets it. Without it, the workflow picks `SystemDirect`, which makes one pass per timestep.
-4. **Step through time.** For each timestep, the components are solved in circuit order: injection well → reservoir → production well(s) → surface plant → back to the injection well. Each component turns its inlet `Stream` into an outlet `Stream`.
+4. **Step through time.** `SimConfig.time_stepping_for()` gives the run's subsystems and their time grids, which split the run into sync intervals (see [time stepping](https://github.com/GEG-ETHZ/TANGO-core/blob/main/docs/runtime/time-stepping.md)); with the `num_tsteps`/`dt_years` shorthand, every step is its own interval. For each interval, the components are solved in circuit order: injection well → reservoir → production well(s) → surface plant → back to the injection well, each subsystem through its own steps. Each component turns its inlet `Stream` into an outlet `Stream`.
 5. **Price it.** After the last timestep, the economics component reads the solved components and their histories once and computes CAPEX, OPEX and LCOE. It never feeds back into the physics.
-6. **Save.** `results_export.write_results` writes the config with every solved value (reloadable), a per-timestep CSV and an economics CSV.
+6. **Save.** `results_export.write_results` writes the config with every solved value (reloadable), a per-step CSV and an economics CSV.
 
 ## The ideas you need
 
@@ -51,7 +51,7 @@ flowchart TB
 
 **Economics is one central component.** The wells, reservoir and plant hold no cost logic. `components/economic/doublet.py::DoubletEconomicComponent` reads all of them after the last timestep and prices them by category: wells (one drilling-cost formula per well section), the surface plant (per TESPy node: turbine and generator, injection pump, cooler/condenser), surface pipes, and fixed permitting and exploration costs. It then computes OPEX and LCOE from the run-averaged net power. The reservoir is not costed, and neither is a direct-heat exchanger. Costing each component inside the component itself is not implemented.
 
-**History.** After each timestep, every component appends its state to a matching history (`*History`). Economics and the CSV export read these histories, not just the final value.
+**History.** After each timestep, every component appends its state to a matching history (`*History`), and the step itself to `time_history`. Economics and the CSV export read these histories, not just the final value, and weight each entry by the length of its step.
 
 ## The folders
 
@@ -74,14 +74,14 @@ Each module imports only from modules below it in this order: `core` ← `compon
 1. [`templates/hydro_sf_electric.yml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/templates/hydro_sf_electric.yml): the flagship config. Its header comment draws the circuit.
 2. [`workflows/workflow.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/workflows/workflow.py) `Workflow.__init__`: how that file becomes objects.
 3. [`orchestrators/system_direct.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/orchestrators/system_direct.py) `run`: the time loop.
-4. [`orchestrators/system_bc_iteration.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/orchestrators/system_bc_iteration.py) `run_timestep` and `_converge_injection_T`: the iteration.
+4. [`orchestrators/system_bc_iteration.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/orchestrators/system_bc_iteration.py) `run_interval` and `_converge_injection_enthalpy`: the iteration.
 5. One component end to end, for example [`components/reservoir/lumped.py`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/components/reservoir/lumped.py) `LumpedReservoir.solve`.
 
 ## Changing it
 
 1. **A new physical model.** Add a component class and register it. The steps and rules are in [`components/AGENTS.md`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/src/tango_core/components/AGENTS.md).
 2. **A new config block or option.** Add a pydantic schema in `core/specs.py` and read it in `Workflow`.
-3. **A new injection mode.** Add an `InjectionPolicy` value and handle it in `SystemBCIteration.run_timestep`.
+3. **A new injection mode.** Add an `InjectionPolicy` value and handle it in `SystemBCIteration.run_interval`.
 4. **A new outer loop** (sweep, optimizer). Build on `Workflow(cfg).run()`, the way `pymoo_api.py` does. Do not reach into the orchestrator.
 
 The rules for any change are the [TANGO commandments](https://github.com/GEG-ETHZ/TANGO-core/blob/main/CONTRIBUTING.md#tango-commandments).
