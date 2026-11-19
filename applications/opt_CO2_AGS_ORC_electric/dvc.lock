@@ -9,7 +9,7 @@ stages:
       size: 41
     - path: ../../templates/CO2_AGS_ORC_electric.yml
       hash: md5
-      md5: 3267a05a3c332e7fb4d0bbe77b0010a8
+      md5: 2abaf672bef73debcef310004109659e
       size: 11190
     - path: opt_CO2_AGS_ORC_electric.py
       hash: md5
