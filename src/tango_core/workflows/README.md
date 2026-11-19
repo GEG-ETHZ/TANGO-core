@@ -6,7 +6,7 @@
 
 **All validation happens before anything runs.** `Workflow.__init__` validates `common`, `layout`, `sim_config` and `description` against the pydantic schemas in `core/specs.py`. It builds the `economic` block, then every entry under `components:` through `COMPONENT_REGISTRY`. Any failure is raised as a `ConfigError` before the first timestep. For a closed loop, it also requires at least one pressure source (a pumped well or a pump node in the plant), because a pump-less loop has nothing to drive circulation.
 
-**Shared values have one source.** `common` is built once and handed to every component by reference. A final identity check (`is`, not `==`) proves they all hold the same object. `well_spacing`, `well_pattern`, `dt_years` and `target_extraction_pressure` are copied from their single source into each component that declares them. A component's own YAML block may not set any of these.
+**Shared values have one source.** `common` is built once and handed to every component by reference. A final identity check (`is`, not `==`) proves they all hold the same object. `well_spacing`, `well_pattern`, and `target_extraction_pressure` are copied from their single source into each component that declares them. A component's own YAML block may not set any of these.
 
 **One key chooses the orchestrator.** If `sim_config.injection_mode` is set, the workflow uses `SystemBCIteration`, which iterates each timestep until the circuit closes. If it is absent, it uses `SystemDirect`, which makes one pass.
 

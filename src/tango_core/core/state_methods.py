@@ -87,19 +87,22 @@ class StateMethods:
             if isinstance(value, (LockedState, StateMethods)):
                 value.check_and_reset()
 
-    def set_cumulative(self, dt_years: float) -> None:
+    def set_cumulative(self, dt: float) -> None:
         """Update this instance's cumulative (rate × dt) fields, then recurse.
 
         No-op at this level — see module docstring's ``SetCumulative``
         section. A leaf class with a genuine accumulator overrides this to
         do the actual ``increment()`` call(s); this base implementation
         only propagates to nested ``StateMethods`` fields, so overriding
-        classes should call ``super().set_cumulative(dt_years)`` too
+        classes should call ``super().set_cumulative(dt)`` too
         (or recurse themselves) to keep propagation working.
+
+        Args:
+            dt: Length of the step being accumulated over (s).
         """
         for _, value in self._state_fields():
             if isinstance(value, StateMethods):
-                value.set_cumulative(dt_years)
+                value.set_cumulative(dt)
 
     def reset_cumulative(self) -> None:
         """Reset this instance's cumulative fields to zero, then recurse.
@@ -128,8 +131,8 @@ class StateMethods:
             return [(state, history)]
         return []
 
-    def record(self, timestep: int) -> None:
-        """Push every ``(state, history)`` pair due this timestep.
+    def is_recorded(self, timestep: int) -> bool:
+        """Return whether ``record(timestep)`` pushes anything.
 
         Honors ``self.save_interval`` if the attribute exists (``None``
         disables recording entirely; otherwise records every Nth
@@ -138,6 +141,12 @@ class StateMethods:
         if hasattr(self, "save_interval"):
             save_interval = self.save_interval
             if save_interval is None or timestep % save_interval != 0:
-                return
+                return False
+        return True
+
+    def record(self, timestep: int) -> None:
+        """Push every ``(state, history)`` pair due this timestep (see ``is_recorded``)."""
+        if not self.is_recorded(timestep):
+            return
         for state_obj, history_obj in self._state_history_pairs():
             history_obj.record(state_obj)

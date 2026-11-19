@@ -21,9 +21,15 @@ from __future__ import annotations
 
 import pytest
 
+from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.fluid_state import COOLPROP_BACKEND, FluidState
 from tango_core.core.locked_state import LockedState
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
+
+_STEP = TimeStep(index=0, t_start=0.0, dt=YEAR_TO_SECOND)
+"""A one-year step, for solving a component directly."""
+
 
 # ---------------------------------------------------------------------------
 # Shared config helpers
@@ -63,7 +69,6 @@ _WELL_FIELDS: dict[str, float] = {
 }
 
 _RESERVOIR_FIELDS: dict[str, float] = {
-    "dt_years": 1.0,
     "reservoir_depth": 5000.0,
     "thickness": 300.0,
     "porosity": 0.1,
@@ -111,7 +116,7 @@ def test_lumped_injection_well_roundtrip() -> None:
 
     cfg = _well_cfg(1)
     well = LumpedInjectionWell.from_dict(cfg)
-    well.solve(_inlet_at(295.0, 5e6, 50.0))
+    well.solve(_inlet_at(295.0, 5e6, 50.0), _STEP)
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -142,7 +147,7 @@ def test_lumped_production_well_roundtrip() -> None:
     cfg = _well_cfg(3)
     well = LumpedProductionWell.from_dict(cfg)
     # 600 bar bottom-hole: a 5000 m water column alone needs ~450 bar to lift itself
-    well.solve(_inlet_at(450.0, 6e7, 50.0))
+    well.solve(_inlet_at(450.0, 6e7, 50.0), _STEP)
 
     T_out = well.state.T_outlet.get_fresh()
     P_out = well.state.P_outlet.get_fresh()
@@ -166,7 +171,7 @@ def test_lumped_reservoir_roundtrip_values() -> None:
 
     cfg = _reservoir_cfg(2)
     res = LumpedReservoir.from_dict(cfg)
-    res.solve(_inlet_at(350.0, 5.1e7, 50.0))
+    res.solve(_inlet_at(350.0, 5.1e7, 50.0), _STEP)
 
     T_out = res.state.T_outlet.get_fresh()
     P_out = res.state.P_outlet.get_fresh()
@@ -195,7 +200,7 @@ def test_lumped_reservoir_roundtrip_multi_timestep() -> None:
     for i in range(3):
         if i > 0:
             res.mark_all_stale()
-        res.solve(_inlet_at(350.0, 5.1e7, 50.0))
+        res.solve(_inlet_at(350.0, 5.1e7, 50.0), _STEP)
 
     energy_before = res.state.energy_extracted.get_fresh()
     dump = res.model_dump()
@@ -218,11 +223,10 @@ def test_numerical_well_cell_arrays_roundtrip() -> None:
         next=2,
         num_cells=10,
         common=dict(_COMMON_FIELDS),
-        dt_years=1.0,
         **_WELL_FIELDS,
     )
     well = NumericalInjectionWell.from_dict(cfg)
-    well.solve(_inlet_at(295.0, 5e6, 50.0))
+    well.solve(_inlet_at(295.0, 5e6, 50.0), _STEP)
 
     T_cells = well.state.T_cells.get_fresh()
     P_cells = well.state.P_cells.get_fresh()
@@ -288,7 +292,7 @@ def test_graph_surface_roundtrip_state_values() -> None:
     from tango_core.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.solve(_inlet_at(423.15, 8.5e6, 50.0))
+    surface.solve(_inlet_at(423.15, 8.5e6, 50.0), _STEP)
     surface.record(0)
 
     T_out = surface.state.T_outlet.get_fresh()
@@ -323,7 +327,7 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     from tango_core.components.surface.graph import GraphSurface
 
     surface = GraphSurface.from_dict(_graph_surface_cfg())
-    surface.solve(_inlet_at(423.15, 8.5e6, 50.0))
+    surface.solve(_inlet_at(423.15, 8.5e6, 50.0), _STEP)
 
     dump = surface.model_dump()
 
@@ -334,7 +338,7 @@ def test_graph_surface_roundtrip_then_resolve() -> None:
     # the orchestrator would immediately before each solve().
     surface2.mark_all_stale()
     # would raise (no _inlet_conn etc.) if init() hadn't rebuilt the network
-    surface2.solve(_inlet_at(423.15, 8.5e6, 45.0))
+    surface2.solve(_inlet_at(423.15, 8.5e6, 45.0), _STEP)
 
     assert pytest.approx(323.15, abs=1e-6) == surface2.state.T_outlet.get_fresh()  # fixed by T_out config
     assert pytest.approx(7.0e6) == surface2.outlet.P.get_fresh()  # fixed by injection_pressure BC

@@ -65,7 +65,7 @@ def test_full_yaml_is_reloadable(tmp_path: Path) -> None:
 
 
 def test_smry_csv_has_one_row_per_timestep(tmp_path: Path) -> None:
-    """.smry.csv has one row per timestep and skips spatially-resolved fields."""
+    """.smry.csv has one row per step end time and skips spatially-resolved fields."""
     wf = _run_fast("hydro_sf_electric.yml")
     results_export.write_results(wf, tmp_path, "hydro_sf_electric")
 
@@ -74,7 +74,7 @@ def test_smry_csv_has_one_row_per_timestep(tmp_path: Path) -> None:
 
     header, data_rows = rows[0], rows[1:]
     assert len(data_rows) == _N_TSTEPS_FAST
-    assert header[:2] == ["timestep [-]", "year [yr]"]
+    assert header[0] == "time [s]"
     # Every component's own scalar history fields should show up as columns,
     # with units, e.g. the injection well's inlet/outlet temperature.
     assert "injection_well_T_inlet [K]" in header

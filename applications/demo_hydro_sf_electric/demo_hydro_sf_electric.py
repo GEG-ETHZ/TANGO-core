@@ -57,6 +57,7 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from tango_core.core.constants import YEAR_TO_HOUR, YEAR_TO_SECOND  # noqa: E402
 from tango_core.workflows.workflow import Workflow  # noqa: E402
 
 # hydro_sf_electric.yml lives in templates/ (configs only, shared
@@ -105,9 +106,11 @@ def extract_data(wf: Workflow) -> dict:
     prod_lower = c["production_well_lower"]  # NumericalProductionWell — full cell profile
     prod_upper = c["production_well_upper"]  # LumpedProductionWell — has the production pump
 
-    dt_years: float = wf._orchestrator.dt_years  # type: ignore[attr-defined]
     n_tsteps = len(surface.history.net_power_W)
-    years = np.arange(n_tsteps) * dt_years
+    # Each recorded step's end time and length (s); the plots show years.
+    step_end_s = np.array(surface.time_history.t_end)
+    step_dt_s = np.array(surface.time_history.dt)
+    years = step_end_s / YEAR_TO_SECOND
 
     # ------------------------------------------------------------------ wells
     # Injection well: spatial profiles, shape (n_tsteps, num_cells + 1) --
@@ -139,16 +142,14 @@ def extract_data(wf: Workflow) -> dict:
     net_MW = gross_MW - prod_pump_MW - inj_pump_MW
 
     # ------------------------------------------------------ cumulative energy
-    HOURS_PER_YEAR = 8760.0
-    to_gwh = dt_years * HOURS_PER_YEAR  # MW·yr → GWh: MW × hr/yr × yr = MWh; /1e3 = GWh
-    to_gwh /= 1e3
-    cum_net_GWh = np.cumsum(net_MW) * to_gwh
-    cum_prod_pump_GWh = np.cumsum(prod_pump_MW) * to_gwh
-    cum_inj_pump_GWh = np.cumsum(inj_pump_MW) * to_gwh
+    # MW × step length in hours = MWh; /1e3 = GWh. Steps may differ in length.
+    step_gwh_per_mw = step_dt_s * (YEAR_TO_HOUR / YEAR_TO_SECOND) / 1e3
+    cum_net_GWh = np.cumsum(net_MW * step_gwh_per_mw)
+    cum_prod_pump_GWh = np.cumsum(prod_pump_MW * step_gwh_per_mw)
+    cum_inj_pump_GWh = np.cumsum(inj_pump_MW * step_gwh_per_mw)
 
     return {
         "years": years,
-        "dt_years": dt_years,
         "n_tsteps": n_tsteps,
         "inj_depth_m": inj_depth_m,
         "T_inj": T_inj,

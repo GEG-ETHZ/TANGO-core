@@ -44,7 +44,7 @@ _REVERSE_REGISTRY: dict[type[Component], tuple[str, str]] = {
 # BECAUSE two independent copies of "which fields are shared" could drift
 # apart — a second hardcoded list here would repeat that exact mistake at
 # the meta level.
-_LAYOUT_EXTRA_KEYS = ("well_spacing", "well_pattern", "dt_years", "target_extraction_pressure")
+_LAYOUT_EXTRA_KEYS = ("well_spacing", "well_pattern", "target_extraction_pressure")
 _PROTECTED_COMPONENT_KEYS = frozenset({"common", *_LAYOUT_EXTRA_KEYS})
 
 
@@ -151,22 +151,21 @@ class Workflow:
         except ValidationError as exc:
             raise ConfigError(f"Invalid config:\n{exc}") from exc
 
-        n_tsteps = self._sim_config.num_tsteps
-        dt_years = self._sim_config.dt_years
         if self._economic is not None:
-            # Total project lifetime (years) — DoubletEconomicComponent needs
+            # Total project lifetime (s) — DoubletEconomicComponent needs
             # this for its discount-rate/CRF term but has no sim_config
             # access of its own (see its _total_project_years property).
-            self._economic._total_years = n_tsteps * dt_years  # noqa: SLF001
+            self._economic._lifetime = self._sim_config.end  # noqa: SLF001
 
         components = _build_components(
             config["components"],
             self._common,
             self._layout,
-            dt_years,
             self._sim_config.target_extraction_pressure,
         )
         _check_common_identity(components, self._common)
+        _check_subsystems_cover_components(self._sim_config, components)
+        time_stepping = self._sim_config.time_stepping_for(list(components))
 
         if self._sim_config.injection_mode is not None:
             _check_loop_has_pressure_source(config["components"])
@@ -184,8 +183,7 @@ class Workflow:
             self._orchestrator: SystemBCIteration | SystemDirect = (  # noqa NOTE: Rename System BC Iteration Aitkens if it is adopted as standard
                 SystemBCIteration(
                     components,
-                    n_tsteps=n_tsteps,
-                    dt_years=dt_years,
+                    time_stepping=time_stepping,
                     mass_rate=self._sim_config.mass_rate,
                     bc_checkpoint_idx=self._sim_config.bc_checkpoint_idx,
                     policy=self._sim_config.injection_mode,
@@ -193,7 +191,11 @@ class Workflow:
                 )
             )
         else:
-            self._orchestrator = SystemDirect(components, n_tsteps=n_tsteps, economic=self._economic)
+            self._orchestrator = SystemDirect(
+                components,
+                time_stepping=time_stepping,
+                economic=self._economic,
+            )
 
     @classmethod
     def from_file(cls, path: Path | str) -> Workflow:
@@ -440,6 +442,40 @@ def _check_loop_has_pressure_source(components_cfg: dict[str, dict[str, Any]]) -
     )
 
 
+def _check_subsystems_cover_components(sim_config: SimConfig, components: dict[str, FlowComponent]) -> None:
+    """Require ``time_stepping``'s subsystems to name every component exactly once, and nothing else.
+
+    Each subsystem's own schema already rejects a component listed twice;
+    this adds the checks that need the built components. A config using the
+    ``num_tsteps``/``dt_years`` shorthand has no subsystems to check.
+
+    Args:
+        sim_config: Validated ``sim_config:`` block.
+        components: Just-built components, keyed by YAML name.
+
+    Raises:
+        ConfigError: A component is in no subsystem, or a subsystem names a
+            component that does not exist.
+    """
+    if sim_config.time_stepping is None:
+        return
+    listed = {
+        name: subsystem_name
+        for subsystem_name, subsystem in sim_config.time_stepping.subsystems.items()
+        for name in subsystem.components
+    }
+    unknown = sorted(set(listed) - set(components))
+    if unknown:
+        raise ConfigError(
+            f"sim_config.time_stepping subsystems name {unknown!r}, which are not under components:.",
+        )
+    missing = sorted(set(components) - set(listed))
+    if missing:
+        raise ConfigError(
+            f"Components {missing!r} are in no sim_config.time_stepping subsystem; every component must be in one.",
+        )
+
+
 def _build_economic_component(economic_cfg: dict[str, Any] | None) -> EconomicComponent | None:
     """Build the ``economic:`` block's component, if present.
 
@@ -488,7 +524,6 @@ def _build_components(
     components_block: dict[str, Any],
     common: Common,
     layout: Layout,
-    dt_years: float,
     target_extraction_pressure: float,
 ) -> dict[str, FlowComponent]:
     """Instantiate all components from the ``components:`` YAML block.
@@ -499,7 +534,7 @@ def _build_components(
           (core/specs.py) for why this makes divergence structurally
           impossible rather than merely guarded against.
       (b) whichever layout/sim_config-derived fields it declares
-          (``well_spacing``, ``dt_years``, ``target_extraction_pressure``)
+          (``well_spacing``, ``target_extraction_pressure``)
           — still individually threaded per component, not shared-referenced
           via a single frozen object the way ``common`` is (see
           docs/tango_tasks.md for that scope decision) — but still a
@@ -514,14 +549,14 @@ def _build_components(
 
     A component's own YAML block is also flatly forbidden from setting
     ``common`` or any ``layout_extras`` key (``well_spacing``,
-    ``well_pattern``, ``dt_years``, ``target_extraction_pressure``) directly — module-level
+    ``well_pattern``, ``target_extraction_pressure``) directly — module-level
     ``_PROTECTED_COMPONENT_KEYS`` is checked generically against every
     component's own block, once, rather than via a hand-written
     ``if key in own: raise`` per field. This is
     deliberate: those per-field checks were added one at a time as each
     duplication bug was found (``common`` first, then
     ``target_extraction_pressure`` — see ``docs/tango_tasks.md``'s
-    2026-08-10 entry), and ``well_spacing``/``dt_years`` were caught
+    2026-08-10 entry), and ``well_spacing`` was caught
     missing this same protection by inspection, not by a bug report — a
     generic check closes that whole class of "forgot to add the guard for
     the next field" gap at once, including for any field added here in the
@@ -531,7 +566,6 @@ def _build_components(
         components_block: Parsed ``components:`` mapping from the input file.
         common: Validated, shared ``common:`` block.
         layout: Validated ``layout:`` block.
-        dt_years: Simulation timestep duration (years), from ``sim_config.dt_years``.
         target_extraction_pressure: Minimum required extraction pressure at
             the surface inlet (Pa), from ``sim_config.target_extraction_pressure``.
 
@@ -542,7 +576,6 @@ def _build_components(
     layout_extras: dict[str, Any] = {
         "well_spacing": layout.well_spacing,
         "well_pattern": layout.well_pattern,
-        "dt_years": dt_years,
         "target_extraction_pressure": target_extraction_pressure,
     }
     # Guards against the two lists (this dict's keys and module-level

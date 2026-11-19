@@ -17,7 +17,7 @@
 1. `component.py`, `Component`: the class docstring explains the solve lifecycle, and `snapshot_convergence_state` shows what an iteration restores.
 2. `locked_state.py`, `LockedState`: the write-once guard.
 3. `stream.py`, `Stream`: the three quantities on the wire.
-4. `specs.py`, `SimConfig`: timesteps, `injection_mode` and the checks between them (`check_injection_mode_requirements`).
+4. `specs.py`, `SimConfig`: timesteps (the `num_tsteps`/`dt_years` shorthand or `time_stepping`, expanded by `time_stepping.py`), `injection_mode`, and the checks between them (`check_injection_mode_requirements`).
 
 ## Reference
 

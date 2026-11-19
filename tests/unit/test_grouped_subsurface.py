@@ -28,9 +28,15 @@ from tango_core.components.well.grouped_subsurface import (
     SEGMENT_NAMES,
     NumericalGroupedSubsurface,
 )
+from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.errors import ConfigError
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 from tango_core.workflows.workflow import Workflow
+
+_STEP = TimeStep(index=0, t_start=0.0, dt=YEAR_TO_SECOND)
+"""A one-year step, for solving a component directly."""
+
 
 _CONFIGS = Path(__file__).resolve().parents[2] / "templates"
 _GROUPED = "AGS_ORC_electric_grouped_subsurface.yml"
@@ -98,7 +104,7 @@ def test_outlet_pressure_solve_reproduces_the_inlet_pressure_driven_march() -> N
         loop.mark_all_stale()
         guess = 0.5 * injection.P_inlet[t]
         inlet = Stream.fresh(h=injection.h_inlet[t], P=guess, mass_rate=injection.mass_rate[t])
-        loop.solve_for_outlet_pressure(inlet, production.P_outlet[t])
+        loop.solve_for_outlet_pressure(inlet, production.P_outlet[t], _STEP)
         loop.accept_timestep()
         loop.record(t)
 
@@ -129,7 +135,7 @@ def test_outlet_pressure_solve_converges_from_any_reasonable_guess() -> None:
     for guess in (5e5, 4.844e6, 2e7):
         loop = _loop(Workflow(_load(_GROUPED, num_tsteps=1)))
         loop.mark_all_stale()
-        loop.solve_for_outlet_pressure(Stream.fresh(h=100_000.0, P=guess, mass_rate=30.0), 7e6)
+        loop.solve_for_outlet_pressure(Stream.fresh(h=100_000.0, P=guess, mass_rate=30.0), 7e6, _STEP)
         assert loop.state.P_outlet.get_fresh() == pytest.approx(7e6, rel=1e-9)
         found.append(loop.state.P_inlet.get_fresh())
     assert found == pytest.approx([found[0]] * 3, rel=1e-9)
@@ -200,12 +206,12 @@ def test_convergence_snapshot_covers_every_segment() -> None:
     loop = _loop(Workflow(_load(_GROUPED, num_tsteps=1)))
     inlet = Stream.fresh(h=100_000.0, P=1_500_000.0, mass_rate=30.0)
     snapshot = loop.snapshot_convergence_state()
-    loop.solve(inlet)
+    loop.solve(inlet, _STEP)
     t_d_after_one_solve = [segment.state.t_d.get_fresh() for segment in loop.segments()]
 
     loop.restore_convergence_state(snapshot)
     loop.mark_all_stale()
-    loop.solve(inlet)
+    loop.solve(inlet, _STEP)
     assert [segment.state.t_d.get_fresh() for segment in loop.segments()] == t_d_after_one_solve
 
 
@@ -213,8 +219,8 @@ def test_mass_rate_lost_in_the_circuit_is_an_error(monkeypatch: pytest.MonkeyPat
     """A component returning less mass than it received fails loudly instead of lowering the injected rate."""
     original_solve = NumericalGroupedSubsurface.solve
 
-    def leaky_solve(self: NumericalGroupedSubsurface, inlet: Stream) -> Stream:
-        outlet = original_solve(self, inlet)
+    def leaky_solve(self: NumericalGroupedSubsurface, inlet: Stream, step: TimeStep) -> Stream:
+        outlet = original_solve(self, inlet, step)
         return Stream.fresh(
             h=outlet.h.get_fresh(),
             P=outlet.P.get_fresh(),

@@ -35,43 +35,52 @@ with the inputs that caused it:
             ) from exc
 ```
 
-`SystemBCIteration._converge_injection_T`
-(`src/tango_core/orchestrators/system_bc_iteration.py`) adds **where**: the
-component and the iteration of the injection-temperature loop. A "Tmelt"
-error is the one exception: the guess drove water below its freezing
-point, so the loop resets the guess to 275 K and retries instead of
-failing.
+`SystemDirect._solve_interval` (`src/tango_core/orchestrators/system_direct.py`)
+adds **where**: the component and the step it was solving.
 
 ```python
-                try:
-                    component.solve(self._next_inlet(component))
-                except CoolPropError as exc:
-                    if "Tmelt" in str(exc):
-                        ...  # reset the guess to 275 K and retry
+                    try:
+                        outlet = component.solve(self._inlet_for(component, step), step)
+                    except CoolPropError as exc:
+                        raise CoolPropError(
+                            f"Component: {component.__class__.__name__} (component_idx "
+                            f"{component.component_idx}), step from {step.t_start:.6g} s to "
+                            f"{step.t_end:.6g} s\n{exc}",
+                        ) from exc
+```
+
+`SystemBCIteration._converge_injection_enthalpy`
+(`src/tango_core/orchestrators/system_bc_iteration.py`) adds the iteration
+of the injection-enthalpy loop. A "Tmelt" error is the one exception: the
+guess drove water below its freezing point, so the loop resets the guess to
+275 K and retries instead of failing.
+
+```python
+            try:
+                self._solve_interval(interval)
+            except CoolPropError as exc:
+                if "Tmelt" not in str(exc):
                     raise CoolPropError(f"""
-                    Component: {component.__class__.__name__}
-                    Component Index: {component.component_idx}
-                    Converge Injection Temp Iteration: {inner_iter}
+                    Converge Injection Enthalpy Iteration: {inner_iter}
                     {exc}
                     """) from exc
+                ...  # reset the guess to 275 K and retry
 ```
 
-`SystemBCIteration.run_timestep` adds **when**:
+`SystemBCIteration.run_interval` adds **when**, the sync interval:
 
 ```python
-            if surface is not None:
-                try:
-                    self._converge_injection_T(inj_well, surface, snapshot)
-                except CoolPropError as exc:
-                    raise CoolPropError(f"""
-Iteration: {t}
-Time: {t * self.dt_years} years
+            try:
+                self._converge_injection_enthalpy(circuit_entry, surface, snapshot, interval)
+            except CoolPropError as exc:
+                raise CoolPropError(f"""
+Sync interval: {i}
+Time: {interval.t_start:.6g} s to {interval.t_end:.6g} s
 {exc}
-                                        """) from exc
+                                    """) from exc
 ```
 
-`SystemDirect.run_timestep` (`src/tango_core/orchestrators/system_direct.py`)
-adds the timestep and the component in one step, because it has no inner
+`SystemDirect.run_interval` adds the sync interval, because it has no inner
 loop.
 
 The wrapped CoolProp inputs are:

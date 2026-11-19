@@ -48,6 +48,7 @@ from tango_core.core.numerics import PUMP_BOOST_MAX_ITER, PUMP_BOOST_TOL_PA, sec
 from tango_core.core.specs import Common
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 # ---------------------------------------------------------------------------
 # State dataclasses
@@ -227,7 +228,7 @@ class LumpedInjectionWell(WellComponent):
     history: WellboreHistory = Field(default_factory=WellboreHistory)
     """Per-timestep record of the well state."""
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute bottom-hole T and P from surface injection conditions."""
         s = self.state
 
@@ -299,7 +300,7 @@ class LumpedProductionWell(WellComponent):
     history: WellboreHistory = Field(default_factory=WellboreHistory)
     """Per-timestep record of the well state."""
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute wellhead T and P from reservoir outlet conditions."""
         s = self.state
 
@@ -418,7 +419,7 @@ class LumpedProductionWellWithPump(WellComponent):
         P_outlet = P_start - dp_h - dp_f
         return P_outlet, rho, mu, vel, re, ff, dp_f, dp_h
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute wellhead T and P including wellbore losses and pump boost.
 
         If a pump boost is needed, the boosted pump-discharge pressure is

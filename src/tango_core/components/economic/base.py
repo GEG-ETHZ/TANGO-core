@@ -30,7 +30,7 @@ class EconomicComponent(Component):
     before calling ``solve()``) — see ``DoubletEconomicComponent`` for the
     concrete implementation.
 
-    ``_components``/``_total_years`` are declared ``PrivateAttr`` (rather
+    ``_components``/``_lifetime`` are declared ``PrivateAttr`` (rather
     than left as bare, undeclared attributes the way ``GraphSurface``'s
     TESPy network is — see that class's docstring) specifically so
     external callers (``SystemDirect.finalize()``, ``Workflow.__init__``)
@@ -42,10 +42,10 @@ class EconomicComponent(Component):
     _components: dict[str, FlowComponent] = PrivateAttr(default_factory=dict)
     """Every other component in the Workflow, keyed by YAML name — set by
     ``SystemDirect.finalize()`` immediately before calling ``solve()``."""
-    _total_years: PositiveFloat = PrivateAttr(default=float("nan"))
-    """Total simulated project lifetime (``num_tsteps * dt_years``) — set
-    by ``Workflow.__init__`` (this component has no ``sim_config`` access
-    of its own)."""
+    _lifetime: PositiveFloat = PrivateAttr(default=float("nan"))
+    """Total simulated project lifetime (s), the end of the run's time
+    grid — set by ``Workflow.__init__`` (this component has no
+    ``sim_config`` access of its own)."""
 
     project_maturity: ProjectMaturity = Field(frozen=True)
     """Whether wells/permitting/exploration already exist (BROWN_FIELD) or

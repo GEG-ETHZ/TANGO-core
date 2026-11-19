@@ -7,13 +7,20 @@ Auto-selected when sim_config.injection_mode is present in the input file.
 
 ━━━ What this solver is doing ━━━
 
-Each timestep solves the closed circuit (injection well -> reservoir or
-loop -> production well(s) -> surface -> back to the injection well) at a
-fixed mass rate and injection wellhead pressure, both from the config. The
-circuit's one unknown is the injection temperature/enthalpy: the surface
-plant's outlet becomes the injection well's inlet, so
-``_converge_injection_enthalpy`` re-solves the circuit until that enthalpy
-stops moving.
+Each sync interval (with a single subsystem, each timestep) solves the
+closed circuit (injection well -> reservoir or loop -> production well(s)
+-> surface -> back to the injection well) at a fixed mass rate and
+injection wellhead pressure, both from the config. The circuit's one
+unknown is the injection temperature/enthalpy: the surface plant's outlet
+becomes the injection well's inlet, so ``_converge_injection_enthalpy``
+re-solves the circuit until that enthalpy stops moving.
+
+With several subsystems, each pass of that loop solves every subsystem
+through all its steps in the interval (see ``SystemDirect``), and the
+injection enthalpy is one value for the whole interval: the circuit entry
+holds it over each of its steps, and the loop converges it to the surface
+plant's outlet enthalpy averaged over the interval. ``time_stepping.sync``
+therefore cannot set a rule for the edge into the circuit entry.
 
 One exception to the fixed injection pressure: a ``grouped_subsurface`` at
 the circuit entry fixes the production wellhead pressure instead
@@ -79,6 +86,7 @@ from tango_core.core.errors import ConfigError, ConvergenceError, CoolPropError,
 from tango_core.core.fluid_state import FluidState
 from tango_core.core.policies import InjectionPolicy
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import SyncInterval, TimeStepping, time_weighted_mean
 from tango_core.orchestrators.system_direct import SystemDirect
 
 if TYPE_CHECKING:
@@ -130,8 +138,8 @@ class SystemBCIteration(SystemDirect):
 
     Args:
         components: Named components keyed by YAML name.
-        n_tsteps: Total number of simulation timesteps.
-        dt_years: Duration of each timestep (years).
+        time_stepping: The run's subsystems, grids, and sync rules
+            (``SimConfig.time_stepping_for()``).
         mass_rate: Mass flow rate (kg/s) — from ``sim_config.mass_rate``, used
             every timestep.
         bc_checkpoint_idx: ``component_idx`` of the boundary-condition
@@ -150,8 +158,7 @@ class SystemBCIteration(SystemDirect):
     def __init__(
         self,
         components: dict[str, FlowComponent],
-        n_tsteps: int,
-        dt_years: float,
+        time_stepping: TimeStepping,
         mass_rate: float,
         bc_checkpoint_idx: int,
         policy: InjectionPolicy = InjectionPolicy.MANUAL,
@@ -164,8 +171,7 @@ class SystemBCIteration(SystemDirect):
 
         Args:
             components: Named components keyed by YAML name.
-            n_tsteps: Total number of simulation timesteps.
-            dt_years: Duration of each timestep (years).
+            time_stepping: The run's subsystems, grids, and sync rules.
             mass_rate: Mass flow rate (kg/s).
             bc_checkpoint_idx: ``component_idx`` of the boundary-condition
                 checkpoint component (the surface).
@@ -174,9 +180,23 @@ class SystemBCIteration(SystemDirect):
                 temperature convergence loop.
             economic: Optional economic component — see ``SystemDirect.__init__``.
 
+        Raises:
+            ConfigError: See ``SystemDirect.__init__``; also a
+                ``time_stepping.sync`` rule for the edge into the circuit
+                entry, whose inlet this loop converges instead.
+
         """
-        super().__init__(components, n_tsteps=n_tsteps, economic=economic)
-        self.dt_years = dt_years
+        super().__init__(components, time_stepping=time_stepping, economic=economic)
+        entry = self._by_idx.get(0)
+        if entry is not None and len(self._subsystems) > 1:
+            entry_subsystem = next(name for name, members in self._subsystems if entry in members)
+            for key in time_stepping.sync:
+                if time_stepping.edge(key)[1] == entry_subsystem:
+                    raise ConfigError(
+                        f"sim_config.time_stepping.sync gives a rule for {key!r}, the edge into the circuit "
+                        "entry; with injection_mode set, that inlet is the converged injection stream, one "
+                        "value per sync interval, and takes no sync rule.",
+                    )
         self.mass_rate = mass_rate
         self.bc_checkpoint_idx = bc_checkpoint_idx
         self.policy = policy
@@ -373,11 +393,11 @@ class SystemBCIteration(SystemDirect):
     # Timestep execution
     # ------------------------------------------------------------------
 
-    def run_timestep(self, t: int) -> None:
-        """Execute one timestep according to ``self.policy``.
+    def run_interval(self, i: int) -> None:
+        """Execute one sync interval according to ``self.policy``.
 
         Args:
-            t: Zero-based timestep index.
+            i: Zero-based sync interval index.
 
         Raises:
             ConfigError: If the circuit has no injection well.
@@ -400,21 +420,22 @@ class SystemBCIteration(SystemDirect):
 
         # Snapshot every component's convergence-sensitive state (see
         # Component.snapshot_convergence_state's docstring) as it stood
-        # at the end of the PREVIOUS calendar timestep, before this
-        # timestep solves anything. Every iteration below restores this
+        # at the end of the PREVIOUS sync interval, before this
+        # interval solves anything. Every iteration below restores this
         # SAME snapshot first, so every re-solve attempt asks the same
-        # question — "given last timestep's real state, what does this
-        # timestep look like with THIS iteration's injection-T guess" —
+        # question — "given last interval's real state, what does this
+        # interval look like with THIS iteration's injection-T guess" —
         # rather than accumulating across attempts.
         snapshot = {c.component_idx: c.snapshot_convergence_state() for c in self._ordered}
 
         if surface is not None:
+            interval = self.intervals[i]
             try:
-                self._converge_injection_enthalpy(circuit_entry, surface, snapshot)
+                self._converge_injection_enthalpy(circuit_entry, surface, snapshot, interval)
             except CoolPropError as exc:
                 raise CoolPropError(f"""
-Iteration: {t}
-Time: {t * self.dt_years} years
+Sync interval: {i}
+Time: {interval.t_start:.6g} s to {interval.t_end:.6g} s
 {exc}
                                     """) from exc
 
@@ -433,6 +454,7 @@ Time: {t * self.dt_years} years
         circuit_entry: FlowComponent,
         surface: SurfaceComponent,
         snapshot: dict[int, Any],
+        interval: SyncInterval,
     ) -> None:
         """Converge the injection enthalpy, re-solving the whole circuit every iteration.
 
@@ -472,6 +494,7 @@ Time: {t * self.dt_years} years
             snapshot: Per-``component_idx`` result of
                 ``Component.snapshot_convergence_state()``, captured once
                 before this loop starts.
+            interval: The sync interval every subsystem steps through.
 
         Raises:
             ConvergenceError: If ``self.max_inner_iterations`` is exhausted
@@ -496,46 +519,36 @@ Time: {t * self.dt_years} years
             P_inj_used = self._next_inlet(circuit_entry).P.get_fresh()
             for component in self._ordered:
                 component.restore_convergence_state(snapshot[component.component_idx])
-                component.mark_all_stale()
-                try:
-                    outlet = component.solve(self._next_inlet(component))
-                except CoolPropError as exc:
-                    if "Tmelt" in str(exc):
-                        logger.warning(
-                            "Converge Injection Enthalpy Iteration %d: injection-h guess "
-                            "%.1f J/kg drove %s below water's freezing point; resetting "
-                            "to the enthalpy at %.1f K and retrying.",
-                            inner_iter,
-                            h_inj_used,
-                            component.__class__.__name__,
-                            _INJECTION_T_FLOOR,
-                        )
-                        retry_below_freezing = True
-                        common = surface.common
-                        h_inj_used = FluidState.with_PT(
-                            common.fluid_name,
-                            self._next_inlet(circuit_entry).P.get_fresh(),
-                            _INJECTION_T_FLOOR,
-                            common.coolprop_backend,
-                        ).H
-                        self._set_circuit_entry_enthalpy(h_inj_used)
-                        # The reset is a jump, not a relaxation step, so the
-                        # residual and factor from before it would give Aitken
-                        # a meaningless secant; restart its history instead.
-                        r_prev = None
-                        delta_prev = None
-                        break
-
+            try:
+                self._solve_interval(interval)
+            except CoolPropError as exc:
+                if "Tmelt" not in str(exc):
                     raise CoolPropError(f"""
-                    Component: {component.__class__.__name__}
-                    Component Index: {component.component_idx}
                     Converge Injection Enthalpy Iteration: {inner_iter}
                     {exc}
                     """) from exc
-
-                self._record_outlet(component, outlet)
-                if isinstance(component, GroupedSubsurfaceComponent):
-                    surface.set_injection_pressure(component.required_injection_pressure())
+                logger.warning(
+                    "Converge Injection Enthalpy Iteration %d: injection-h guess "
+                    "%.1f J/kg drove the circuit below water's freezing point; resetting "
+                    "to the enthalpy at %.1f K and retrying.",
+                    inner_iter,
+                    h_inj_used,
+                    _INJECTION_T_FLOOR,
+                )
+                retry_below_freezing = True
+                common = surface.common
+                h_inj_used = FluidState.with_PT(
+                    common.fluid_name,
+                    self._next_inlet(circuit_entry).P.get_fresh(),
+                    _INJECTION_T_FLOOR,
+                    common.coolprop_backend,
+                ).H
+                self._set_circuit_entry_enthalpy(h_inj_used)
+                # The reset is a jump, not a relaxation step, so the
+                # residual and factor from before it would give Aitken
+                # a meaningless secant; restart its history instead.
+                r_prev = None
+                delta_prev = None
 
             if retry_below_freezing:
                 continue
@@ -548,7 +561,7 @@ Time: {t * self.dt_years} years
                     abs(circuit_entry.required_injection_pressure() - P_inj_used) < _DP_INJECTION_TOL
                 )
 
-            h_surface_out = surface.outlet.h.get_fresh()
+            h_surface_out = self._surface_outlet_enthalpy(surface, circuit_entry)
             if abs(h_surface_out - h_inj_used) < _DH_SURFACE_TOL and pressure_settled:
                 logger.debug(
                     "h-convergence finished: inner iter %d, h_inj =%.1f J/kg, dh=%.1f J/kg",
@@ -577,27 +590,45 @@ Time: {t * self.dt_years} years
                 f"J/kg > tol={_DH_SURFACE_TOL:.1f} J/kg)",
             )
 
-    def _after_timestep(self, t: int) -> None:
-        """Log a one-line per-timestep summary; called by the inherited ``run()`` loop."""
-        self._log_timestep_summary(t)
+    def _after_solve(self, component: FlowComponent) -> None:
+        """Hand a ``grouped_subsurface``'s required injection pressure to the surface plant, in the same pass."""
+        surface = self._find_surface()
+        if surface is not None and isinstance(component, GroupedSubsurfaceComponent):
+            surface.set_injection_pressure(component.required_injection_pressure())
+
+    def _surface_outlet_enthalpy(self, surface: SurfaceComponent, circuit_entry: FlowComponent) -> float:
+        """The surface plant's outlet enthalpy over this pass's interval, which the injection enthalpy converges to.
+
+        The time-weighted mean over the surface plant's steps in the
+        interval, when it takes several and sends them across to the
+        circuit entry's subsystem; otherwise its one outlet enthalpy.
+        """
+        sent = self._sent.get(circuit_entry.component_idx, [])
+        if len(sent) < 2:  # noqa: PLR2004 -- one sent stream is the outlet itself
+            return surface.outlet.h.get_fresh()
+        return time_weighted_mean([stream.h.get_fresh() for _, stream in sent], [step.dt for step, _ in sent])
+
+    def _after_interval(self, i: int) -> None:
+        """Log a one-line per-interval summary; called by the inherited ``run()`` loop."""
+        self._log_timestep_summary(i)
 
     def run(self) -> None:
-        """Execute the full simulation (all timesteps).
+        """Execute the full simulation (all sync intervals).
 
-        Logs a startup line, then delegates the timestep loop to
-        ``SystemDirect.run()`` (inherited), which calls ``_after_timestep``
-        for the per-timestep summary.
+        Logs a startup line, then delegates the interval loop to
+        ``SystemDirect.run()`` (inherited), which calls ``_after_interval``
+        for the per-interval summary.
         """
         logger.info(
-            "SystemBCIteration: %d timesteps × %.2g yr, mass_rate=%.1f kg/s",
-            self.n_tsteps,
-            self.dt_years,
+            "SystemBCIteration: %d sync intervals to %.6g s, mass_rate=%.1f kg/s",
+            len(self.intervals),
+            self.intervals[-1].t_end,
             self.mass_rate,
         )
         super().run()
 
     def _log_timestep_summary(self, t: int) -> None:
-        """Emit a one-line INFO summary for a completed timestep.
+        """Emit a one-line INFO summary for a completed sync interval.
 
         Duck-typed against ``surface.state`` rather than a specific concrete
         class — ``SurfaceComponent`` doesn't mandate a state shape, so this
