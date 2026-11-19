@@ -3,18 +3,18 @@ stages:
   optimize:
     cmd: python opt_CO2_AGS_electric.py --clean --no-plot
     deps:
-    - path: ../../src/tango.hash
+    - path: ../../src/tango_core.hash
       hash: md5
-      md5: e056b923a0dab18d520100a97d4e6ae0
+      md5: d6d42a57ede4f0c1f35b030e00bb6e77
       size: 41
     - path: ../../templates/CO2_AGS_electric.yml
       hash: md5
-      md5: 8c87facbff921d11773ba9952f063d43
-      size: 6917
+      md5: 9481a180787cf8c43c105c9ee9bf5f02
+      size: 6932
     - path: opt_CO2_AGS_electric.py
       hash: md5
-      md5: 40040fe19d6d6e11f527338bc5445427
-      size: 11820
+      md5: e2b247a45142f3437609b9327e87da62
+      size: 11931
     params:
       params.yaml:
         crossover_prob: 0.9
@@ -37,14 +37,14 @@ stages:
   plot:
     cmd: python opt_CO2_AGS_electric.py --plot-only
     deps:
-    - path: ../../src/tango.hash
+    - path: ../../src/tango_core.hash
       hash: md5
-      md5: e056b923a0dab18d520100a97d4e6ae0
+      md5: d6d42a57ede4f0c1f35b030e00bb6e77
       size: 41
     - path: opt_CO2_AGS_electric.py
       hash: md5
-      md5: 40040fe19d6d6e11f527338bc5445427
-      size: 11820
+      md5: e2b247a45142f3437609b9327e87da62
+      size: 11931
     - path: outputs/pareto_results.csv
       hash: md5
       md5: 081e857746d905d6739d868d5176f70e
@@ -52,7 +52,7 @@ stages:
     outs:
     - path: outputs/pareto_parallel_coordinates.html
       hash: md5
-      md5: 7e85863544288d5ac0c1c88d2594529b
+      md5: b552a48bbd5899f76d045d3a6d211b0c
       size: 4580570
     - path: outputs/pareto_parallel_coordinates.png
       hash: md5
