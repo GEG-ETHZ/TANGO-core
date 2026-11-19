@@ -66,4 +66,12 @@ Around the package:
 | `applications/` | Multi-run pipelines (sweeps, optimizations) built on those configs |
 | `tests/` | `unit/` and `regtest/` |
 
+## What stays outside the package
+
+TANGO-core is a Python library and nothing else. The HTTP API and the browser app live in their own repository, [GEG-ETHZ/tango-app](https://github.com/GEG-ETHZ/tango-app), and install `tango-core` as a pinned dependency. What a service needs from TANGO stays here: JSON in and out, the config schema export, and a container image. Nothing HTTP- or frontend-related goes into this repository.
+
+**Why.** TANGO's open-sourcing and its licensed-binary work stay free of service code, and the app ships without passing TANGO's Python gates.
+
+**Rejected.** An API and web layer inside TANGO-core: it would tie every app release to the library's gates and put service code into the package being opened.
+
 Next: [how a config becomes objects](config.md) and [what flows between components](components.md). For how a run iterates, see [Runtime](../runtime/index.md).
