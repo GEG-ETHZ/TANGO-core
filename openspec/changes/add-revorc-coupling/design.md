@@ -78,9 +78,11 @@ The outlet stream keeps the inlet mass rate, sets `P = injection_pressure` as `G
 
 The plant is `n_modules` identical nominal modules, the flow split equally between them. Extensive results (heat, power) are summed; temperatures are the same for every module. `n_modules` is a config value, or derived as the smallest count that keeps the per-module flow within the model's flow bound. Plant sizing in an optimization is the choice of `n_modules`: the off-design models describe fixed nominal hardware, and a geometry from the design model cannot be passed to them.
 
-### D5: Mode and heat-pump load come from a schedule in the config
+### D5: TANGO decides the mode; a schedule stands in until the dispatch model is coupled
 
-Each representative hour has a mode (`orc`, `hp`, or `off`) and, for `hp`, a heating load and sink temperatures. The default schedule is ORC in every hour. Deciding the mode from district-heating demand and dispatch is the job of the DH Profile Modelling and dispatch models and comes with their coupling.
+Decided 2026-11-20: whether the plant runs as ORC or heat pump in a given hour is TANGO's decision, not the plant model's. It should be informed by the district-heating dispatch model (the multi-year Hotmaps extension, which already decides hourly how brine heat is used) once that model is in the loop.
+
+Until then, each representative hour has a mode (`orc`, `hp`, or `off`) from a schedule in the config, and, for `hp`, a heating load and sink temperatures. The default schedule is ORC in every hour. For heat-pump hours, the plant authors' model of a dummy thermal load can supply the load until the dispatch coupling exists. The schedule is the interface the dispatch coupling later fills, so the surface component does not change when it arrives.
 
 ### D6: Representative days inside each step
 
@@ -102,7 +104,7 @@ The surrogate gives no equipment breakdown, so the plant is costed from a per-mo
 
 Where that cost is computed depends on #17, which proposes that each component report its own costs (start-up capital, yearly cost, cost per period) instead of one economic component reading every other component's internals after the run. Today `DoubletEconomicComponent` reaches into `GraphSurface`'s TESPy nodes and node history, and gives any other surface a plant CAPEX of 0. Adding a `RevOrcSurface` branch to that reader would add a second surface type to the code #17 wants to remove.
 
-So `RevOrcSurface` reports its own plant cost through the per-component cost interface that #17 defines (planned in the `add-component-costs` change: `cost_items(basis)` returning `CostItem`s), and `DoubletEconomicComponent` sums what components report. If #17 is not ready in time for MS4.2, the stopgap is a narrow hook: the economic component asks the surface for its plant CAPEX through one method that `GraphSurface` implements with today's node-based costing, so neither surface's internals leak into the economics. The related questions of sizing over time (#78, #55) and costing two products (#96) are owned by those issues; this change uses whatever they decide.
+The plant's authors will provide cost models for it (agreed 2026-11-20). `RevOrcSurface` reports its own plant cost through the per-component cost interface that #17 defines (planned in the `add-component-costs` change: `cost_items(basis)` returning `CostItem`s), and `DoubletEconomicComponent` sums what components report. If #17 is not ready in time for MS4.2, the stopgap is a narrow hook: the economic component asks the surface for its plant CAPEX through one method that `GraphSurface` implements with today's node-based costing, so neither surface's internals leak into the economics. The related questions of sizing over time (#78, #55) and costing two products (#96) are owned by those issues; this change uses whatever they decide.
 
 ### D9: Water and brine only
 
@@ -131,10 +133,10 @@ For the model's authors:
 
 1. Partly answered 2026-11-18: Python with CoolProp, batch input, timings in D10, updated version to be shared by the meeting of 2026-11-20. Still open: licence, Linux support, pinned versions (CoolProp against TANGO's 6.8.0).
 2. Do the models work with pandas 2.x and earlier numpy 2 releases, so the pins can be loosened?
-3. Who decides between ORC and heat-pump operation at each hour: the plant model, TANGO, or a dispatch model?
+3. Answered 2026-11-20: TANGO decides, informed by the dispatch model once coupled; a dummy thermal load from the authors stands in until then (D5).
 4. Answered 2026-11-18: flag, do not clip; use the detailed model as fallback where possible (D7, D10). Still open: can the domain be widened (for example, lower brine temperatures)?
 5. Is summing identical modules valid for plants of several MW?
-6. Are there cost data per module (CAPEX, O&M) consistent with the model?
+6. Answered in principle 2026-11-20: the authors will provide plant cost models (D8). Their form (per module or per equipment, from which sizes) is still to settle.
 7. Which brine property basis do the models use, so the interface difference with TANGO's fluid model can be bounded?
 
 For TANGO:
