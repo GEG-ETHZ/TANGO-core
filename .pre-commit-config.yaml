@@ -48,7 +48,8 @@ repos:
         stages: [pre-push]
 
   # Built-in hooks
-  # Secrets never reach a commit: gitleaks scans the staged diff.
+  # Secrets never reach a commit: gitleaks scans the staged diff, and on push
+  # every commit that is not on a remote yet.
   # Every file has a copyright and license (SPDX header or REUSE.toml).
   - repo: https://github.com/fsfe/reuse-tool
     rev: v6.2.0
@@ -59,6 +60,15 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
+        stages: [pre-commit]
+      # Every local commit not yet on a remote, so a commit made with
+      # --no-verify or before `just setup` is caught before it leaves.
+      - id: gitleaks
+        alias: gitleaks-unpushed
+        name: Detect hardcoded secrets in commits about to be pushed
+        entry: gitleaks git --redact --verbose --log-opts="--all --not --remotes"
+        stages: [pre-push]
+        always_run: true
       # The whole history, every branch and tag; only on request: `just leaks`
       - id: gitleaks
         alias: gitleaks-history
