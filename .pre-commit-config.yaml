@@ -36,17 +36,6 @@ repos:
         files: ^src/tango_core/
         pass_filenames: false
 
-  # Strict/Slow checks (run ONLY on push)
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: uv run mypy src/
-        language: system
-        types: [python]
-        pass_filenames: false
-        stages: [pre-push]
-
   # Built-in hooks
   # Secrets never reach a commit: gitleaks scans the staged diff, and on push
   # every commit that is not on a remote yet.
@@ -91,6 +80,17 @@ repos:
       - id: no-commit-to-branch # This perfectly replaces the custom bash script by blocking commits AND pushes to main/develop
         args: [--branch, main, --branch, develop]
         stages: [pre-commit, pre-push]
+
+  # Strict/Slow checks (run ONLY on push)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
 
   # Tests (run ONLY on push)
   - repo: local
