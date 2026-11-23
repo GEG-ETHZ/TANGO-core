@@ -52,10 +52,12 @@ repos:
         stages: [pre-commit]
       # Every local commit not yet on a remote, so a commit made with
       # --no-verify or before `just setup` is caught before it leaves.
+      # Branches and tags only: the stash is never pushed, and a secret in a
+      # stashed work-in-progress must not block pushing anything else.
       - id: gitleaks
         alias: gitleaks-unpushed
         name: Detect hardcoded secrets in commits about to be pushed
-        entry: gitleaks git --redact --verbose --log-opts="--all --not --remotes"
+        entry: gitleaks git --redact --verbose --log-opts="--branches --tags --not --remotes"
         stages: [pre-push]
         always_run: true
       # The whole history, every branch and tag; only on request: `just leaks`
