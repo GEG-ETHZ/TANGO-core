@@ -1,0 +1,16 @@
+---
+# Hook repositories in .pre-commit-config.yaml are pinned by `rev`, and nothing
+# else moves them: gitleaks rules age with every new token format. Monthly and
+# grouped, so the update is one pull request that gets read.
+version: 2
+
+updates:
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+    groups:
+      hooks:
+        patterns: ["*"]
