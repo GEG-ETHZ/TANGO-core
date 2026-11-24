@@ -2,7 +2,7 @@
 
 ## Why
 
-FlexGEO milestone MS4.2 (end of January 2027) needs a first coupled run in which the surface plant is the reversible ORC / heat pump developed in FlexGEO task T2.2, not TANGO's own TESPy ORC. TANGO's ORC is one fixed design point today (#123): only the working-fluid flow changes over the years, it has no off-design behaviour, and it cannot run as a heat pump.
+FlexGEO milestone MS4.2 (end of January 2027) needs a first coupled run in which the surface plant is the reversible ORC / heat pump developed in FlexGEO task T2.2, not TANGO's own TESPy ORC. TANGO's ORC is one fixed design point today (#123): only the working-fluid flow changes over the years, it has no off-design behavior, and it cannot run as a heat pump.
 
 The T2.2 authors at NTUA (Laboratory of Applied Thermodynamics) have published surrogate models of their system, [RevORCHP-SM](https://github.com/trx09009/RevORCHP-SM-1.0.2) 1.0.2: scikit-learn models of the design and off-design performance of a 0.5 to 1 MW reversible module, for both ORC and heat-pump operation. Their detailed thermodynamic model is slower and has not been shared yet.
 

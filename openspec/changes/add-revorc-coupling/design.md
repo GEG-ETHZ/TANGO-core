@@ -131,7 +131,7 @@ TANGO pins `coolprop==6.8.0`; the detailed model's CoolProp version must be agre
 
 For the model's authors:
 
-1. Partly answered 2026-11-18: Python with CoolProp, batch input, timings in D10, updated version to be shared by the meeting of 2026-11-20. Still open: licence, Linux support, pinned versions (CoolProp against TANGO's 6.8.0).
+1. Partly answered 2026-11-18: Python with CoolProp, batch input, timings in D10, updated version to be shared by the meeting of 2026-11-20. Still open: license, Linux support, pinned versions (CoolProp against TANGO's 6.8.0).
 2. Do the models work with pandas 2.x and earlier numpy 2 releases, so the pins can be loosened?
 3. Answered 2026-11-20: TANGO decides, informed by the dispatch model once coupled; a dummy thermal load from the authors stands in until then (D5).
 4. Answered 2026-11-18: flag, do not clip; use the detailed model as fallback where possible (D7, D10). Still open: can the domain be widened (for example, lower brine temperatures)?
