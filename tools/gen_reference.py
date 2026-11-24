@@ -73,7 +73,7 @@ PROTECTED_SOURCE = {
 
 
 def attribute_docstrings(cls: type) -> dict[str, str]:
-    """Return the attribute docstrings of ``cls`` and its tango base classes.
+    """Return the attribute docstrings of ``cls`` and its tango_core base classes.
 
     Args:
         cls: A class whose attributes are documented with a string literal
@@ -84,7 +84,7 @@ def attribute_docstrings(cls: type) -> dict[str, str]:
     """
     docs: dict[str, str] = {}
     for klass in reversed(cls.__mro__):
-        if not klass.__module__.startswith("tango."):
+        if not klass.__module__.startswith("tango_core."):
             continue
         tree = ast.parse(textwrap.dedent(inspect.getsource(klass)))
         body = tree.body[0].body if tree.body and isinstance(tree.body[0], ast.ClassDef) else []

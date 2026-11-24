@@ -324,8 +324,9 @@ class Layout(BaseModel):
     own coercion can't. ``None`` for configs with no well-pattern-dependent
     reservoir impedance (e.g. ``AGS_direct_heat.yml``, which has no
     reservoir component at all)."""
+    # TODO: use in the well-pattern impedance calculation (wellpattern_impedance.py)
     well_pattern_dimens: list[int] | None = None
-    """Not yet consumed — TODO add to wellpattern_impedance.py calculations"""
+    """Accepted but not used yet: no calculation reads it."""
 
     # NOTE: FIELD AND MODEL VALIDATIONS
 
@@ -422,8 +423,8 @@ class SimConfig(BaseModel):
     and nothing downstream sees years."""
     time_stepping: TimeStepping | None = None
     """Per-subsystem time grids and the sync rules between them (see
-    ``tango_core.core.time_stepping``), instead of the ``num_tsteps``/
-    ``dt_years`` shorthand."""
+    ``tango_core.core.time_stepping``), instead of the
+    ``num_tsteps``/``dt_years`` shorthand."""
     target_extraction_pressure: float
     """Minimum required extraction pressure at the surface inlet (Pa) — the
     SINGLE shared source of this value. Threaded to any component

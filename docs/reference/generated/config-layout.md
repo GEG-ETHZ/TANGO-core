@@ -2,6 +2,6 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `well_pattern_dimens` | `list[int] \| None` | `None` | *undocumented* |
+| `well_pattern_dimens` | `list[int] \| None` | `None` | Accepted but not used yet: no calculation reads it. |
 
 Filled in automatically, not set in this block: `well_spacing` from `layout.well_spacing`, `well_pattern` from `layout.well_pattern`.
