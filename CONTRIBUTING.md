@@ -9,7 +9,7 @@ Python 3.11, [`uv`](https://docs.astral.sh/uv/getting-started/installation/), [`
 ```bash
 git clone git@github.com:GEG-ETHZ/TANGO-core.git tango-core
 cd tango-core
-just setup        # uv sync, direnv allow, and the git hooks
+just setup        # uv sync, direnv allow, the git hooks, and OpenSpec skills if openspec is installed
 ```
 
 The hooks are managed by [`prek`](https://prek.j178.dev) from [`.pre-commit-config.yaml`](https://github.com/GEG-ETHZ/TANGO-core/blob/main/.pre-commit-config.yaml). On commit: Ruff, whitespace and YAML checks, gitleaks, the `src/tango_core.hash` refresh. On push: remote freshness, gitleaks over the commits not yet pushed, mypy, the fast pytest subset, the release-tag gate. They block commits and pushes to `main` and `develop`. Skip a single hook with `SKIP=<id>`, never with `--no-verify`. The gitleaks hooks see only what a commit stages and what a push sends; `just leaks` scans the whole history, every branch and tag.
