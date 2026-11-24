@@ -13,8 +13,9 @@ This change turns the RevORC integration (the first done this way) into a reusab
 ## What Changes
 
 - Add the capability `external-model-integration`: requirements that every coupling of an external model to TANGO meets, on the TANGO side and on what the external package provides.
-- Define the integration process: for each model, an OpenSpec change in the model's own repository (what the package provides, agreed with its authors, with who does each task) and one in TANGO-core (the coupling), the TANGO change referring to the other.
-- Define a readiness checklist for external packages: installable, tested against stored reference outputs, documented with units and validity ranges, machine-readable bounds and status, batch evaluation, a licence, dependency ranges compatible with TANGO's.
+- Define the integration process in three phases (readiness, proposal from a fork, coupling), with an OpenSpec change in the model's own repository (what the package provides, agreed with its authors, with who does each task) and one in TANGO-core (the coupling), the TANGO change referring to the other.
+- Define a readiness checklist for external packages, split into required, required for Python packages (installable, CI, compatible dependency ranges), nice to have (`mypy --strict` everywhere) and decided per model (machine-readable bounds and status, batch evaluation, portable model files).
+- Require that a person reviews every coupling decision in the code, with the typical agent mistakes it looks for, and records it in the OpenSpec changes.
 - Define the TANGO side: a wrapper module per model in `src/tango_core/external/`, a backend protocol so a model can be replaced (surrogate, then detailed model), an optional dependency group pinned to the authors' releases, interface checks with an error/warn policy, and a test that the wrapper reproduces the package's own reference outputs.
 - Point `.agent/rules/external-coupling.md` and `src/tango_core/external/` documentation at the spec, and audit the RAFT coupling against it.
 
@@ -40,4 +41,4 @@ None. No specs exist yet in `openspec/specs/`.
 - `.agent/rules/external-coupling.md`: refers to the spec; keeps its RAFT examples.
 - New `src/tango_core/external/README.md`: how to add a coupling, linking the spec.
 - `src/tango_core/external/raft_wrapper.py` and its tests: audited; gaps recorded in `.agent/FINDINGS.md`, not fixed here.
-- No code behaviour changes.
+- No code behavior changes.

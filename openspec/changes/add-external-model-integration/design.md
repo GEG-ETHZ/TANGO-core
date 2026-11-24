@@ -21,9 +21,17 @@
 
 ## Decisions
 
-### D1: Two OpenSpec changes per integration
+### D1: Three phases, with an agreed change on each side
 
-For each model, one change lives in the model's repository: what the package provides for TANGO (the readiness items it lacks), with each task marked as done by its authors or by the TANGO team, agreed with the authors before code is written. A second change lives in TANGO-core: the component, the wrapper and the tests. The TANGO change names the other change and the package release it depends on.
+An integration runs in three phases:
+
+1. **Readiness.** The TANGO team tells the model's authors what state their code needs to be in for TANGO to use it (the checklist in D2), in writing, as an OpenSpec change. A first, light scan of their code identifies the functions and classes TANGO will call, so the request for docstrings and type hints names them. The authors bring their code to that state.
+2. **Proposal.** Once the required readiness items are met, an agent scans the code in depth to identify the API TANGO needs and the changes it needs, and the TANGO team forks the repository and opens a pull request from the fork proposing those changes, with an OpenSpec proposal stating the intent. The authors review, change and approve it; the TANGO team fixes only what is plainly obvious.
+3. **Coupling.** The TANGO-side work (component, wrapper, tests) is done in TANGO-core, verified with functional and regression tests that reproduce the package's own outputs (D3).
+
+The phases may overlap when it saves time. With the reversible ORC model (the first integration), the code was already on GitHub, and the TANGO team drafted the remaining readiness items (tests, packaging, docstrings) as pull requests in a fork, which the authors then implemented: phases 1 and 2 ran together, but every change still went through the authors' review.
+
+For each model, one change lives in the model's repository: one change lives in the model's repository: what the package provides for TANGO (the readiness items it lacks), with each task marked as done by its authors or by the TANGO team, agreed with the authors before code is written. A second change lives in TANGO-core: the component, the wrapper and the tests. The TANGO change names the other change and the package release it depends on.
 
 The partner change is proposed as a pull request to the authors' repository, first opened in a fork for the TANGO team's own review. If the authors prefer not to keep an `openspec/` folder, the same documents go into an issue on their repository or stay an unmerged pull request; the agreement is what matters, not the folder.
 
@@ -33,21 +41,23 @@ Alternative considered: one change in TANGO-core describing both sides. Rejected
 
 ### D2: Readiness checklist for the external package
 
-| Item | Why TANGO needs it |
-|---|---|
-| Version control, in a repository the authors own | Something to depend on and propose changes to |
-| A licence | TANGO may only depend on what it may use |
-| Installable package (`pyproject.toml`), importable from any directory | A dependency group can install it |
-| Regression tests against stored reference outputs, run in CI | Changes to the package, including ours, provably keep its results |
-| Dependency ranges, not exact pins, that resolve together with TANGO's | Both can live in one environment |
-| Docstrings with units, return structure and validity ranges | The wrapper can be written and checked without guessing |
-| Validity bounds readable by code | Interface checks use the model's own bounds |
-| Status as data (flags, codes), not only warning sentences | TANGO can act on an unsupported result instead of missing it |
-| Batch evaluation (many operating points per call) | Hourly or representative-day resolution inside an optimizer |
-| For ML models: model files that do not depend on one library version | TANGO's own versions are not pinned by a pickle |
-| Releases (tags) | TANGO pins a version, not a branch |
+| Item | Required? | Why TANGO needs it |
+|---|---|---|
+| Code on GitHub (or another public Git host), in a repository the authors own | Required | Something to read, depend on and propose changes to |
+| A license | Required | TANGO may only depend on what it may use |
+| Installable package (`pyproject.toml`), importable from any directory | Required for Python packages; for other languages, loadable through that language's package manager (for example a Modelica library with its `uses` annotation) | A dependency group can install it |
+| Docstrings and type hints on the functions and classes TANGO uses directly, with units, return structure and validity ranges | Required | The wrapper can be written and checked without guessing |
+| Regression tests against stored reference outputs | Required | Changes to the package, including ours, provably keep its results |
+| CI running those tests | Required for Python packages; decided per model otherwise (for example Modelica, where translation and run times can make CI impractical) | The tests run on every change, not only when someone remembers |
+| Dependency ranges, not exact pins, that resolve together with TANGO's | Required for Python packages | Both can live in one environment |
+| Releases (tags) | Required | TANGO pins a version, not a branch |
+| Docstrings and type hints for everything, checked with `mypy --strict` | Nice to have | Easier maintenance on both sides |
+| Validity bounds readable by code | Decided per model | Interface checks use the model's own bounds |
+| Status as data (flags, codes), not only warning sentences | Decided per model | TANGO can act on an unsupported result instead of missing it |
+| Batch evaluation (many operating points per call) | Decided per model | Hourly or representative-day resolution inside an optimizer |
+| For ML models: model files that do not depend on one library version | Decided per model | TANGO's own versions are not pinned by a pickle |
 
-Items a package lacks become tasks of the partner change. Not every item blocks a first coupling: the partner change says which are needed for the first TANGO release that uses the model.
+Required items a package lacks become tasks of the partner change. For the items decided per model, the partner change says which are needed for the first TANGO release that uses the model.
 
 ### D3: The TANGO side
 
@@ -58,11 +68,21 @@ Items a package lacks become tasks of the partner change. Not every item blocks 
 - Tests: unit tests against a stand-in backend; a test that the wrapper reproduces the package's own reference outputs at its published examples, skipped without the group; a CI job that installs the group and runs it.
 - The component reports its own costs (`add-component-costs`) and takes its time step from TANGO's time stepping (#150).
 
-### D4: Never vendor, patch or fork
+### D4: Never vendor, patch, or depend on a fork
 
-TANGO never copies the package into its tree, patches it at import, or depends on a fork branch. A fork branch may be used in a throwaway environment for a spike. If the authors cannot publish a needed change in time, the fallback is running their release in a separate process, decided case by case and recorded in the TANGO change.
+TANGO never copies the package into its tree, patches it at import, or depends on a fork branch. Forks exist only to propose changes back to the authors (D1, phase 2). A fork branch may be used in a throwaway environment for a spike. If the authors cannot publish a needed change in time, the fallback is running their release in a separate process, decided case by case and recorded in the TANGO change.
 
-### D5: The spec complements the agent rule
+### D5: Agents draft; a person decides and reviews in the code
+
+Agents do much of the work: scanning the partner's code, drafting the partner change and its pull requests, and drafting the TANGO-side code and tests. Every decision that couples physics, and every change merged into TANGO-core, is reviewed by a TANGO developer reading the code in a local checkout with a language server, not only the diff on GitHub. The review looks in particular for the mistakes agents make when coupling physics-based models:
+
+- infrastructure for cases that will never be used (for example a time-stepping scheme no configuration selects), which clutters the code;
+- tolerances and error thresholds chosen without a reason from the physics or from the coupled package;
+- TANGO-side handling of conditions the coupled package already handles (for example wrapping residuals its own solver already checks), which duplicates and can contradict it.
+
+The decisions and their reasons are recorded in the two OpenSpec changes, so the integration is documented process knowledge that other developers can read and reuse, and a person is accountable for each decision.
+
+### D6: The spec complements the agent rule
 
 `.agent/rules/external-coupling.md` keeps the short principles and its RAFT examples, and points to the spec for the requirements and process. The spec does not repeat its explanations.
 

@@ -20,9 +20,23 @@ Each integration SHALL have an OpenSpec change (or, where the authors prefer, an
 - **WHEN** the model's authors share it without a repository
 - **THEN** the partner change's first task is a repository the authors own, and TANGO does not keep a copy
 
+### Requirement: Integration proceeds in three phases
+
+Each integration SHALL proceed through readiness (the authors bring their code to the required readiness items, requested in writing), proposal (an agent identifies the API TANGO needs and the TANGO team proposes changes as a pull request from a fork, which the authors review and approve), and coupling (the TANGO-side component, wrapper and tests). Phases MAY overlap, provided every change to the authors' code goes through their review.
+
+#### Scenario: Partner code not yet ready
+
+- **WHEN** a partner's code is not on GitHub or has no regression tests
+- **THEN** the TANGO team sends the readiness requests in writing before proposing any other change to their code
+
+#### Scenario: Drafting readiness items for the authors
+
+- **WHEN** it saves time for the TANGO team to draft readiness items (for example tests or packaging) as pull requests in a fork
+- **THEN** those drafts go to the authors for review, and the authors decide what is merged into their repository
+
 ### Requirement: Minimum readiness of the external package
 
-Before a TANGO release depends on an external package, the package SHALL be in a repository its authors own, under a licence, installable, tested against stored reference outputs in CI, documented with units and validity ranges, and released with tags, and its dependency ranges SHALL resolve together with TANGO's.
+Before a TANGO release depends on an external package, the package SHALL be in a repository its authors own, under a license, tested against stored reference outputs, documented with units and validity ranges on the functions and classes TANGO uses directly, and released with tags.
 
 #### Scenario: Conflicting pins
 
@@ -33,6 +47,20 @@ Before a TANGO release depends on an external package, the package SHALL be in a
 
 - **WHEN** a TANGO-motivated change is proposed to a package that has no tests
 - **THEN** regression tests against its current outputs are proposed first, so every later change provably keeps its results
+
+### Requirement: Readiness of Python packages
+
+A Python package SHALL additionally be installable, run its regression tests in CI, and have dependency ranges that resolve together with TANGO's. For packages in other languages, whether CI is required SHALL be decided per model and stated in the partner change.
+
+#### Scenario: Python package without CI
+
+- **WHEN** a Python package has regression tests but no CI
+- **THEN** CI running those tests is a required task of the partner change
+
+#### Scenario: Modelica library
+
+- **WHEN** the external package is a Modelica library whose full simulations take hours
+- **THEN** its tests are short and purpose-specific, and the partner change states whether they run in CI
 
 ### Requirement: Further readiness items are decided per model
 
@@ -96,3 +124,22 @@ Comments, docstrings and documentation in TANGO SHALL describe the external mode
 
 - **WHEN** the meaning of a model output is not documented by its authors
 - **THEN** TANGO's documentation does not guess it, and the question is listed in the partner change
+
+### Requirement: Coupling decisions are reviewed by a person in the code
+
+Every decision that couples physics, and every change merged into TANGO-core for a coupling, SHALL be reviewed by a TANGO developer in a local checkout of the code, and recorded with its reason in the OpenSpec changes. Agent-drafted code SHALL NOT add infrastructure no configuration uses, tolerances without a stated physical or package-derived reason, or handling of conditions the coupled package already handles.
+
+#### Scenario: Unused time-stepping scheme
+
+- **WHEN** an agent's draft adds a time-stepping scheme that no configuration selects
+- **THEN** the review removes it before merge
+
+#### Scenario: Arbitrary error threshold
+
+- **WHEN** a draft introduces a tolerance or error threshold
+- **THEN** the change states where its value comes from (the physics or the coupled package's documentation), or the threshold is removed
+
+#### Scenario: Residuals already checked by the dependency
+
+- **WHEN** a draft wraps a check around residuals that the coupled package's own solver already checks
+- **THEN** the wrapper is removed and TANGO relies on the package's own check, reporting it at the interface
