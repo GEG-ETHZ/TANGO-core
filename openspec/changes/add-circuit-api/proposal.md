@@ -6,7 +6,7 @@ The webapp will let users build and edit their own circuits interactively, which
 
 ## What Changes
 
-- Add a `Circuit` that holds labelled components and the connections between them, in the style of TESPy (`label`, `Connection`, named ports defaulting to `out1`/`in1`). `circuit.connect(a, b)` returns a `Connection`.
+- Add a `Circuit` that holds labeled components and the connections between them, in the style of TESPy (`label`, `Connection`, named ports defaulting to `out1`/`in1`). `circuit.connect(a, b)` returns a `Connection`.
 - Check each connection when it is made: every inlet and outlet port has a location kind (`wellhead` or `downhole`), and an outlet may only feed an inlet of the same kind. `injection_well -> surface` fails, `surface -> injection_well` closes the loop.
 - Add `circuit.validate()`, which returns every problem with the whole graph as a list, in two tiers: structural problems, and problems that make the circuit impossible to run with today's orchestrators (exactly one surface, one closed ring, one inlet and one outlet per component). The data structure itself allows splits and merges.
 - Add `circuit.build(common=, layout=, sim_config=, economic=)`, which creates a fresh `Workflow` through the existing config path on every call. Results are read from the workflow, `wf[component]`.
@@ -14,7 +14,7 @@ The webapp will let users build and edit their own circuits interactively, which
 - Decide a well's injection role from its class, not from `component_idx == 0`.
 - Let a component be constructed as a definition: every value given is validated, and only fields that the build fills in (shared settings and linked quantities) may be missing.
 - Load every YAML config through `Circuit.from_dict`, so hand-written configs get the same checks, and serialize with `Circuit.to_dict` to the same YAML as today.
-- Expose the port kinds of every registered component as data, so a frontend can colour and restrict handles.
+- Expose the port kinds of every registered component as data, so a frontend can color and restrict handles.
 - **BREAKING** (for inconsistent configs only): a config whose `prev` disagrees with the `next` pointing at it, whose `next` names no component, or whose `bc_checkpoint_idx` is not the surface's index, is now rejected with a `ConfigError` instead of loading. No shipped template or regression fixture is affected (all were checked).
 
 ### Non-goals
@@ -28,7 +28,7 @@ The webapp will let users build and edit their own circuits interactively, which
 
 ### New Capabilities
 
-- `circuit-api`: building, checking, traversing and serializing a TANGO circuit as a graph of labelled components and typed connections, and building a runnable workflow from it.
+- `circuit-api`: building, checking, traversing and serializing a TANGO circuit as a graph of labeled components and typed connections, and building a runnable workflow from it.
 
 ### Modified Capabilities
 

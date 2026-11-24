@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets users build, check, edit and traverse a TANGO circuit in Python as a graph of labelled components and typed connections, run it as a workflow, and save it as the same YAML config that TANGO already loads.
+Lets users build, check, edit and traverse a TANGO circuit in Python as a graph of labeled components and typed connections, run it as a workflow, and save it as the same YAML config that TANGO already loads.
 
 ## ADDED Requirements
 

@@ -7,7 +7,7 @@
 
 ## 2. Build-time fields and definitions
 
-- [ ] 2.1 Move the names of the shared settings (today `_PROTECTED_COMPONENT_KEYS` in `workflow.py`) and of the linked-quantity fields into one constant in `core`, imported by `workflow.py` and `linked_quantities.py`. Verify `just check` passes with no behaviour change.
+- [ ] 2.1 Move the names of the shared settings (today `_PROTECTED_COMPONENT_KEYS` in `workflow.py`) and of the linked-quantity fields into one constant in `core`, imported by `workflow.py` and `linked_quantities.py`. Verify `just check` passes with no behavior change.
 - [ ] 2.2 Add `label` (frozen, excluded from dumps) and definition construction to `Component` for all registered classes, with `DefinitionError` naming where a missing value comes from. Verify with unit tests per registered type: a definition without shared settings and linked quantities builds, invalid values fail, `model_dump` of a built component has no `label`.
 
 ## 3. Port kinds

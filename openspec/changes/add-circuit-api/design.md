@@ -33,7 +33,7 @@ See `proposal.md` for the motivation. The current state that shapes the approach
 
 The same `FlowComponent` classes appear on both sides of D1: as definitions that `Circuit` holds by label, and as built instances that the orchestrator inside a `Workflow` solves. Only `Circuit.build()` and `Circuit.from_dict()` cross between the two. `SystemDirect` stands for both orchestrators; `SystemBCIteration` subclasses it.
 
-Classes marked `<<new>>` (green where the renderer applies the styles; Zed's preview uses its own colours) are new; the others exist today. Of those, these change: `Workflow` gains `__getitem__` and loads through the circuit; `SystemDirect` gains `downstream` and `surface` (D7); `Component` gains `label` and loses `component_idx`; the four flow base classes lose `prev`/`next` and gain `PORT_KINDS` (D4); `WellComponent` gains `ROLE` (D9); `EconomicComponent` loses its `component_idx` default; `registry` gains `port_kinds()`.
+Classes marked `<<new>>` (green where the renderer applies the diagram's styles) are new; the others exist today. Of those, these change: `Workflow` gains `__getitem__` and loads through the circuit; `SystemDirect` gains `downstream` and `surface` (D7); `Component` gains `label` and loses `component_idx`; the four flow base classes lose `prev`/`next` and gain `PORT_KINDS` (D4); `WellComponent` gains `ROLE` (D9); `EconomicComponent` loses its `component_idx` default; `registry` gains `port_kinds()`.
 
 ```mermaid
 classDiagram
@@ -240,7 +240,7 @@ The issue codes and message texts are placeholders; task 4.3 fixes them.
 
 `Circuit` holds definition components and connections. `circuit.build(common=, layout=, sim_config=, economic=)` serializes the circuit and the settings into a config dict and returns `Workflow(cfg)`. `Workflow(cfg)` in turn loads its `components:` block through `Circuit.from_dict`, so both entry points share the same checks and the same construction. The objects a user passes to `connect()` are not the objects that run; results are read with `wf[component]`, which accepts a component or a label.
 
-*Alternative: the connected objects run and hold results.* Rejected: it needs binding, ownership and reset logic on every component, a second build path next to `Workflow(cfg)`, and linked quantities could only be checked, not filled in. A rerun after an edit would overwrite the previous results, which is the wrong behaviour for the webapp.
+*Alternative: the connected objects run and hold results.* Rejected: it needs binding, ownership and reset logic on every component, a second build path next to `Workflow(cfg)`, and linked quantities could only be checked, not filled in. A rerun after an edit would overwrite the previous results, which is the wrong behavior for the webapp.
 
 ### D2. Wiring leaves the components; the YAML keeps its keys
 
@@ -273,7 +273,7 @@ This mirrors `GraphSurface`'s own `nodes`/`edges`, so the outer circuit and the 
 | `GraphSurface` (`surface`) | {wellhead} | {wellhead} |
 | Grouped subsurface (`grouped_subsurface`) | {wellhead} | {wellhead} |
 
-An instance narrows a set when its geometry decides it: a numerical production well is `{downhole}` at the outlet when `wellhead_depth > 0` and `{wellhead}` when it is 0, but only once `wellhead_depth` is known (given, or after the build resolved it). `connect()` raises `CircuitError` when the outlet's and inlet's sets do not overlap, so `injection_well -> surface` fails immediately. The build checks the exact kinds on the built components, so a lower production segment that ends below ground cannot feed the surface. `port_kinds()` on the registry returns these sets per registry type, for a frontend to colour and restrict handles.
+An instance narrows a set when its geometry decides it: a numerical production well is `{downhole}` at the outlet when `wellhead_depth > 0` and `{wellhead}` when it is 0, but only once `wellhead_depth` is known (given, or after the build resolved it). `connect()` raises `CircuitError` when the outlet's and inlet's sets do not overlap, so `injection_well -> surface` fails immediately. The build checks the exact kinds on the built components, so a lower production segment that ends below ground cannot feed the surface. `port_kinds()` on the registry returns these sets per registry type, for a frontend to color and restrict handles.
 
 *Alternative: a table of allowed type pairs.* Deferred: it can be added later as an extra check. It lists validated layouts rather than physics and has to be edited for every new component.
 *Alternative: derive the lower segment's depth from the connection.* Rejected for this change: it would replace part of `linked_quantities` and widen the change.
