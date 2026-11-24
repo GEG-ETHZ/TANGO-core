@@ -29,7 +29,7 @@ See `proposal.md` for the motivation. The current state that shapes the approach
 **Goals:**
 
 - A new component type is costed by implementing one method on that component, without editing the economic component.
-- Costing is explicit: a component without costs says so; nothing is costed as zero because a reader did not recognise it.
+- Costing is explicit: a component without costs says so; nothing is costed as zero because a reader did not recognize it.
 - Results do not change. The refactor is proven by the existing goldens plus new unit tests per formula.
 
 **Non-Goals:**
@@ -70,7 +70,7 @@ Permitting, exploration, the drilling price model (D2), CRF, the O&M fraction, t
 
 ### D4: Sizing basis is passed in, average only
 
-`SizingBasis` is a `StrEnum` with one member, `AVERAGE` (time-weighted with #150, today's behaviour). The economic component passes it to every `cost_items` call. #78 and #55 add members and decide where the choice is configured; components then size from their own history for the requested basis.
+`SizingBasis` is a `StrEnum` with one member, `AVERAGE` (time-weighted with #150, today's behavior). The economic component passes it to every `cost_items` call. #78 and #55 add members and decide where the choice is configured; components then size from their own history for the requested basis.
 
 ### D5: The economic component gets its inputs as arguments
 
@@ -82,7 +82,7 @@ Before any code moves, add unit tests that call each current cost function with 
 
 ### D7: Gaps are recorded, not fixed
 
-The gaps found while mapping the code (uncosted `PumpOrValve` and ORC heat exchangers, the uncounted injection pump, the water-only turbine factor, the CO2 open-tower `KeyError`, means over sub-sampled records when `save_interval > 1`, a silent plant CAPEX of 0 when `record_node_detail` is off) go to `.agent/FINDINGS.md` and their issues. Each moved formula keeps its current behaviour. The one exception is the silent zero: a `GraphSurface` asked for cost items with `record_node_detail` off raises a `ConfigError`, because the new interface must not hide a missing input. That changes no golden (every template records node detail); confirm in task 1.2.
+The gaps found while mapping the code (uncosted `PumpOrValve` and ORC heat exchangers, the uncounted injection pump, the water-only turbine factor, the CO2 open-tower `KeyError`, means over sub-sampled records when `save_interval > 1`, a silent plant CAPEX of 0 when `record_node_detail` is off) go to `.agent/FINDINGS.md` and their issues. Each moved formula keeps its current behavior. The one exception is the silent zero: a `GraphSurface` asked for cost items with `record_node_detail` off raises a `ConfigError`, because the new interface must not hide a missing input. That changes no golden (every template records node detail); confirm in task 1.2.
 
 ### D8: Each cost is discounted in its own year
 

@@ -1,6 +1,6 @@
 # Tasks
 
-## 1. Pin today's behaviour
+## 1. Pin today's behavior
 
 - [ ] 1.1 Add unit tests that call each cost function in `doublet.py` with fixed inputs and pin its output: drilling per role, permitting, exploration, surface pipe, turbine, pump, cooler/condenser grouping, cooling parasitic power, production pump parasitic power, CRF, LCOE, specific investment cost, OPEX. Verify they pass on unchanged code.
 - [ ] 1.2 Confirm every template records node detail, so D7's `ConfigError` changes no golden. Verify with a test over `templates/`.
