@@ -21,15 +21,21 @@
 
 ## Decisions
 
-### D1: Three phases, with an agreed change on each side
+### D1: Four steps, with an agreed change on each side
 
-An integration runs in three phases:
+An integration runs in four steps:
 
-1. **Readiness.** The TANGO team tells the model's authors what state their code needs to be in for TANGO to use it (the checklist in D2), in writing, as an OpenSpec change. A first, light scan of their code identifies the functions and classes TANGO will call, so the request for docstrings and type hints names them. The authors bring their code to that state.
-2. **Proposal.** Once the required readiness items are met, an agent scans the code in depth to identify the API TANGO needs and the changes it needs, and the TANGO team forks the repository and opens a pull request from the fork proposing those changes, with an OpenSpec proposal stating the intent. The authors review, change and approve it; the TANGO team fixes only what is plainly obvious.
-3. **Coupling.** The TANGO-side work (component, wrapper, tests) is done in TANGO-core, verified with functional and regression tests that reproduce the package's own outputs (D3).
+1. **Open source on GitHub.** The authors publish their code in a public repository they own, under an open-source license. Nothing else is asked of them up front.
+2. **Fork, analyze, propose.** The TANGO team forks the repository, an agent analyzes the code against the readiness checklist (D2) and identifies the API TANGO needs, and the TANGO team proposes one or more pull requests from the fork, each with an OpenSpec proposal stating the intent. Every finding is triaged:
+   - **Mandatory, proposed:** TANGO needs it and the TANGO team can supply the fix, so the pull request contains it. Example: a `pyproject.toml` built from an existing `requirements.txt`, regression tests that freeze the current outputs, CI.
+   - **Mandatory, requested:** TANGO needs it, but the right fix needs the authors' knowledge, so the pull request states what is needed and the authors make the change. Example: a function TANGO must call that has no docstring or type hints, or an output whose meaning and units are undocumented.
+   - **Nice to have:** improvements TANGO would welcome but does not depend on, such as type hints everywhere checked with `mypy --strict`.
 
-The phases may overlap when it saves time. With the reversible ORC model (the first integration), the code was already on GitHub, and the TANGO team drafted the remaining readiness items (tests, packaging, docstrings) as pull requests in a fork, which the authors then implemented: phases 1 and 2 ran together, but every change still went through the authors' review.
+   The authors review, change and approve the pull requests; the TANGO team changes only what the authors accept.
+3. **Integrate into TANGO.** The TANGO-side component, wrapper and tests (D3), verified with functional and regression tests that reproduce the package's own outputs.
+4. **Iterate steps 2 and 3** as needed: coupling often reveals a further need (a missing output, a batch interface, a validity bound), which goes back to the authors as a new proposal; a new release of their package updates TANGO's pin.
+
+Pilot: the reversible ORC model (NTUA). Its code was already on GitHub (step 1); the TANGO team drafted the mandatory items as fork pull requests (step 2), and the authors chose to implement them in their own repository from those drafts. The multi-year district-heating dispatch model (TU Wien) follows the same steps from 2026-11-24.
 
 For each model, one change lives in the model's repository: one change lives in the model's repository: what the package provides for TANGO (the readiness items it lacks), with each task marked as done by its authors or by the TANGO team, agreed with the authors before code is written. A second change lives in TANGO-core: the component, the wrapper and the tests. The TANGO change names the other change and the package release it depends on.
 
@@ -57,7 +63,7 @@ Alternative considered: one change in TANGO-core describing both sides. Rejected
 | Batch evaluation (many operating points per call) | Decided per model | Hourly or representative-day resolution inside an optimizer |
 | For ML models: model files that do not depend on one library version | Decided per model | TANGO's own versions are not pinned by a pickle |
 
-Required items a package lacks become tasks of the partner change. For the items decided per model, the partner change says which are needed for the first TANGO release that uses the model.
+In step 2, each required item a package lacks becomes a mandatory finding, proposed or requested (D1); the nice-to-have items become nice-to-have findings. For the items decided per model, the partner change says which are needed for the first TANGO release that uses the model.
 
 ### D3: The TANGO side
 
@@ -70,7 +76,7 @@ Required items a package lacks become tasks of the partner change. For the items
 
 ### D4: Never vendor, patch, or depend on a fork
 
-TANGO never copies the package into its tree, patches it at import, or depends on a fork branch. Forks exist only to propose changes back to the authors (D1, phase 2). A fork branch may be used in a throwaway environment for a spike. If the authors cannot publish a needed change in time, the fallback is running their release in a separate process, decided case by case and recorded in the TANGO change.
+TANGO never copies the package into its tree, patches it at import, or depends on a fork branch. Forks exist only to propose changes back to the authors (D1, step 2). A fork branch may be used in a throwaway environment for a spike. If the authors cannot publish a needed change in time, the fallback is running their release in a separate process, decided case by case and recorded in the TANGO change.
 
 ### D5: Agents draft; a person decides and reviews in the code
 

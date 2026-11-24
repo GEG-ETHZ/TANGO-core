@@ -20,19 +20,38 @@ Each integration SHALL have an OpenSpec change (or, where the authors prefer, an
 - **WHEN** the model's authors share it without a repository
 - **THEN** the partner change's first task is a repository the authors own, and TANGO does not keep a copy
 
-### Requirement: Integration proceeds in three phases
+### Requirement: Integration proceeds in four steps
 
-Each integration SHALL proceed through readiness (the authors bring their code to the required readiness items, requested in writing), proposal (an agent identifies the API TANGO needs and the TANGO team proposes changes as a pull request from a fork, which the authors review and approve), and coupling (the TANGO-side component, wrapper and tests). Phases MAY overlap, provided every change to the authors' code goes through their review.
+Each integration SHALL proceed in four steps: the authors publish their code as open source on GitHub; the TANGO team forks and analyzes it and proposes pull requests from the fork; the TANGO team integrates the model into TANGO; and steps two and three repeat as needed. Before the code is public, the TANGO team SHALL ask for nothing else.
 
-#### Scenario: Partner code not yet ready
+#### Scenario: Code not yet public
 
-- **WHEN** a partner's code is not on GitHub or has no regression tests
-- **THEN** the TANGO team sends the readiness requests in writing before proposing any other change to their code
+- **WHEN** a partner's model is not in a public repository
+- **THEN** the only request to the authors is to publish it as open source on GitHub, in a repository they own
 
-#### Scenario: Drafting readiness items for the authors
+#### Scenario: Coupling reveals a new need
 
-- **WHEN** it saves time for the TANGO team to draft readiness items (for example tests or packaging) as pull requests in a fork
-- **THEN** those drafts go to the authors for review, and the authors decide what is merged into their repository
+- **WHEN** integrating the model shows that TANGO needs something the package does not provide
+- **THEN** it is proposed to the authors as a new pull request from the fork, not worked around in TANGO
+
+### Requirement: Proposed changes are triaged
+
+Every change the TANGO team proposes to a partner package SHALL be triaged as mandatory and proposed (the pull request contains the fix), mandatory and requested (the pull request states what is needed and the authors make the change), or nice to have, and the pull request SHALL state which.
+
+#### Scenario: Missing packaging
+
+- **WHEN** a Python package has a `requirements.txt` but no `pyproject.toml`
+- **THEN** the TANGO team proposes a `pyproject.toml` built from it, marked mandatory and proposed
+
+#### Scenario: Undocumented function TANGO must call
+
+- **WHEN** a function TANGO must call has no docstring or type hints, and its units or return structure cannot be read reliably from the code
+- **THEN** the pull request asks the authors to add them, marked mandatory and requested, instead of the TANGO team guessing
+
+#### Scenario: Strict typing everywhere
+
+- **WHEN** the analysis finds code TANGO does not call without type hints
+- **THEN** adding them is listed as nice to have
 
 ### Requirement: Minimum readiness of the external package
 
