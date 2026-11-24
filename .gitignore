@@ -59,6 +59,9 @@ MANIFEST
 memory/
 .claude/
 
+# Skills for AI coding tools, installed per clone by `just setup` (OpenSpec)
+.agents/
+
 # draw.io autosave/crash-recovery files
 docs/diagrams/src/.$*.bkp
 docs/archive/diagrams/.$*.bkp
