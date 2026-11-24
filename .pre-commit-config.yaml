@@ -20,7 +20,7 @@ repos:
 
   # Fast checks (run on both commit and push just to be safe)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.5
+    rev: v0.17.6
     hooks:
       - id: ruff
         args: [ --fix ]
@@ -41,7 +41,7 @@ repos:
   # every commit that is not on a remote yet.
   # Every file has a copyright and license (SPDX header or REUSE.toml).
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v6.2.0
+    rev: v6.3.0
     hooks:
       - id: reuse
 
