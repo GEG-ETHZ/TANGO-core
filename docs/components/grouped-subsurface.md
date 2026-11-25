@@ -37,6 +37,8 @@ Example: `templates/AGS_ORC_electric_grouped_subsurface.yml` (`numerical`) and
 
 ### RAFT coupling
 
+The interface itself (boundary conditions each way, trial and accept, the two clocks, and the state RAFT exposes) is drawn in [External-model coupling](../runtime/external-coupling.md).
+
 ::: tango_core.external.raft_wrapper
     options:
       members: false

@@ -46,4 +46,4 @@ flowchart TB
 
 Inside a component, only two solvers iterate: the pump well's secant search on discharge pressure (`secant_solve`, at most 20 steps, each re-marching the well) and TESPy's Newton solve in `GraphSurface`. The numerical well is a single explicit pass over its cells, and the lumped reservoir is closed form.
 
-Details: [the boundary-condition iteration](bc-iteration.md), [one run end to end](one-run.md), and [time stepping](time-stepping.md).
+Details: [the boundary-condition iteration](bc-iteration.md), [one run end to end](one-run.md), [time stepping](time-stepping.md), and [coupling an external model](external-coupling.md).
