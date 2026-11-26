@@ -29,6 +29,8 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run ruff check .
+      - name: No eval, exec or star imports, noqa or not
+        run: uv run prek run banned-constructs --all-files
       - run: uv run ruff format --check .
       - run: uv run mypy src/
       - name: Generated reference pages are up to date
