@@ -12,6 +12,7 @@ from pydantic import Field, PositiveFloat
 from tango_core.core.component import FlowComponent
 from tango_core.core.specs import Common
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 
 class SurfaceComponent(FlowComponent):
@@ -75,5 +76,5 @@ class SurfaceComponent(FlowComponent):
         return self.injection_pressure
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute power plant outputs, and compute and return the reinjection state from the production inlet."""

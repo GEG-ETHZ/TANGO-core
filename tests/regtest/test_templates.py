@@ -53,7 +53,7 @@ _CONFIGS: list[tuple[str, float]] = [
     ("AGS_ORC_electric_raft.yml", 2.12360622207039),
     ("CO2_AGS_direct_heat.yml", 0.38844042532415946),
     ("CO2_AGS_electric.yml", 1.6625122145149076),
-    ("CO2_AGS_ORC_electric.yml", 4.15796052520762),
+    ("CO2_AGS_ORC_electric.yml", 4.038549428101339),
     ("CO2_EGS_direct_heat.yml", 0.276817357495942),
     ("CO2_EGS_electric.yml", 0.3651397411220982),
     ("CO2_EGS_ORC_electric.yml", 1.304986099286206),

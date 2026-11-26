@@ -29,6 +29,15 @@ repos:
   # Local, fast checks
   - repo: local
     hooks:
+      # CONTRIBUTING.md rule-no-eval, which no comment or config can waive:
+      # --ignore-noqa overrides `# noqa` and `# ruff: noqa`, and --isolated
+      # skips pyproject.toml, so an `ignore` or `per-file-ignores` entry there
+      # cannot either. CI runs this hook over every file.
+      - id: banned-constructs
+        name: reject eval, exec and star imports (no noqa)
+        entry: uv run ruff check --isolated --ignore-noqa --select S102,S307,F403,F405
+        language: system
+        types: [python]
       - id: hash-tango
         name: hash src/tango_core (for DVC dep tracking)
         entry: uv run python tools/hash_tango.py
@@ -36,19 +45,9 @@ repos:
         files: ^src/tango_core/
         pass_filenames: false
 
-  # Strict/Slow checks (run ONLY on push)
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: uv run mypy src/
-        language: system
-        types: [python]
-        pass_filenames: false
-        stages: [pre-push]
-
   # Built-in hooks
-  # Secrets never reach a commit: gitleaks scans the staged diff.
+  # Secrets never reach a commit: gitleaks scans the staged diff, and on push
+  # every commit that is not on a remote yet.
   # Every file has a copyright and license (SPDX header or REUSE.toml).
   - repo: https://github.com/fsfe/reuse-tool
     rev: v6.2.0
@@ -59,6 +58,17 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
+        stages: [pre-commit]
+      # Every local commit not yet on a remote, so a commit made with
+      # --no-verify or before `just setup` is caught before it leaves.
+      # Branches and tags only: the stash is never pushed, and a secret in a
+      # stashed work-in-progress must not block pushing anything else.
+      - id: gitleaks
+        alias: gitleaks-unpushed
+        name: Detect hardcoded secrets in commits about to be pushed
+        entry: gitleaks git --redact --verbose --log-opts="--branches --tags --not --remotes"
+        stages: [pre-push]
+        always_run: true
       # The whole history, every branch and tag; only on request: `just leaks`
       - id: gitleaks
         alias: gitleaks-history
@@ -81,6 +91,17 @@ repos:
       - id: no-commit-to-branch # This perfectly replaces the custom bash script by blocking commits AND pushes to main/develop
         args: [--branch, main, --branch, develop]
         stages: [pre-commit, pre-push]
+
+  # Strict/Slow checks (run ONLY on push)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
 
   # Tests (run ONLY on push)
   - repo: local

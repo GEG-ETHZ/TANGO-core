@@ -1,6 +1,6 @@
 # Design point: opt_CO2_AGS_ORC_electric's Pareto pick (the design closest to the ideal corner),
-# design 23 of its outputs/pareto_results.csv (md5 2de65b9d3fe1a132ac80fa3345d82b30),
-# recorded in dvc.lock at commit 894a47ed. Decision variables rounded to
+# design 37 of its outputs/pareto_results.csv (md5 efd222035362b7911b8228fea55f7cc8),
+# recorded in dvc.lock at commit 79481388. Decision variables rounded to
 # 3 significant figures.
 #
 # tango format — Advanced Geothermal System (AGS) with CO2 as the working
@@ -95,7 +95,7 @@ components:
     prev: 3
     next: 1
     well_length: 10_000         # m — vertical well depth (hypothetically deepened, see header comment)
-    diameter: 0.464             # m  (~18-inch casing)
+    diameter: 0.401             # m  (~16-inch casing)
     pipe_roughness: 5.5e-5      # m
 
   horizontal_well:
@@ -117,7 +117,7 @@ components:
     prev: 1
     next: 3
     # well_length: derived: equals injection_well.well_length (see tango_core.workflows.linked_quantities)
-    diameter: 0.464              # m
+    diameter: 0.401              # m
     pipe_roughness: 5.5e-5       # m
 
   surface:
@@ -127,7 +127,7 @@ components:
     prev: 2
     next: 0
     injection_pressure: 11_000_000   # Pa — well clear of CO2's 7.38 MPa critical pressure.
-    pipe_diameter: 0.358              # m
+    pipe_diameter: 0.340              # m
     approach_temperature: 7.0         # K
     pipe_roughness: 5.5e-5             # m
 
@@ -152,7 +152,7 @@ components:
                                           # different fluid -- see CO2_EGS_ORC_electric.yml's own
                                           # correction for why this matters).
           p0_megapascals_out1: 9.5      # MPa — TESPy guess value
-          p0_megapascals_out2: 0.649                # MPa (= 6.49 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 0.644                # MPa (= 6.44 bar) — TESPy guess value (secondary-fluid outlet pressure)
           vapor_mass_fraction_out2: 1  # dimensionless [0-1] — secondary fluid leaves as saturated vapor
 
         preheater:
@@ -163,7 +163,7 @@ components:
                                           # whole run, not just at t=0.
           pressure_ratio2: 1.0         # secondary-fluid side — dimensionless
           vapor_mass_fraction_out2: 0  # dimensionless [0-1] — secondary fluid enters the boiler as saturated liquid
-          p0_megapascals_out2: 0.649               # MPa (= 6.49 bar) — TESPy guess value (secondary-fluid outlet pressure)
+          p0_megapascals_out2: 0.644               # MPa (= 6.44 bar) — TESPy guess value (secondary-fluid outlet pressure)
           fluid_out2: R245fa           # secondary (ORC) working fluid — never mixes with the geofluid (common.fluid_name)
 
         circulation_control:
@@ -197,7 +197,7 @@ components:
           type: Compressor
           role: net_electric
           efficiency: 0.75               # pump eta_s, DiPippo (2016) -- see docs/SOURCES.md#dipippo2016
-          p_out_megapascals: 0.649      # MPa (= 6.49 bar) — set by the opt_CO2_AGS_ORC_electric Pareto pick
+          p_out_megapascals: 0.644      # MPa (= 6.44 bar) — set by the opt_CO2_AGS_ORC_electric Pareto pick
 
         orc_cycle_closer:
           type: CycleCloser

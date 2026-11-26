@@ -34,7 +34,7 @@ Terms used across the TANGO documentation and code. Code names are given where a
 | Connector | TANGO's adapter class through which an external simulator ([RAFT](https://github.com/GEG-ETHZ/RAFT), CMG, MOOSE, Aspen, …) would stand in for a component; the base classes define the interface, no simulator connector ships today | `components/*/base.py` |
 | Stream | The temperature, pressure and mass flow rate passed between components | `core/stream.py` |
 | Circuit | The components wired as a loop by `component_idx`, `prev` and `next` | config `components:` |
-| Timestep | One step of the project's life, `sim_config.dt_years` long | `SystemDirect.run` |
+| Timestep | One step of a subsystem's time grid; see [time stepping](../runtime/time-stepping.md) | `SystemDirect.run` |
 | Orchestrator | The object that runs the circuit through time | `orchestrators/` |
 | BC iteration | Boundary-condition iteration: repeating a timestep until the circuit closes | `SystemBCIteration` |
 | `injection_mode` | How a timestep is converged: `manual`, or `manual-fracking-check`, which also checks the fracking limit | `core/policies.py` · `InjectionPolicy` |

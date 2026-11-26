@@ -23,8 +23,10 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from tango_core.components.reservoir.wellpattern_impedance import WellPattern
+from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.fluid_state import COOLPROP_BACKEND, CoolPropBackend
 from tango_core.core.policies import InjectionPolicy
+from tango_core.core.time_stepping import FixedGrid, GridScheme, Subsystem, TimeStepping
 
 logger = logging.getLogger(__name__)
 
@@ -322,8 +324,9 @@ class Layout(BaseModel):
     own coercion can't. ``None`` for configs with no well-pattern-dependent
     reservoir impedance (e.g. ``AGS_direct_heat.yml``, which has no
     reservoir component at all)."""
+    # TODO: use in the well-pattern impedance calculation (wellpattern_impedance.py)
     well_pattern_dimens: list[int] | None = None
-    """Not yet consumed — TODO add to wellpattern_impedance.py calculations"""
+    """Accepted but not used yet: no calculation reads it."""
 
     # NOTE: FIELD AND MODEL VALIDATIONS
 
@@ -410,10 +413,18 @@ class SimConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    num_tsteps: int
-    """Number of timesteps in the run."""
-    dt_years: float
-    """Length of one timestep (years)."""
+    num_tsteps: int | None = None
+    """Number of timesteps in the run. Shorthand, together with
+    ``dt_years``, for one fixed grid shared by every component; give either
+    the shorthand or ``time_stepping``, not both."""
+    dt_years: float | None = None
+    """Length of one timestep (years), the shorthand's step. The one time
+    input not in seconds; it is converted to seconds once, in ``_shorthand()``,
+    and nothing downstream sees years."""
+    time_stepping: TimeStepping | None = None
+    """Per-subsystem time grids and the sync rules between them (see
+    ``tango_core.core.time_stepping``), instead of the
+    ``num_tsteps``/``dt_years`` shorthand."""
     target_extraction_pressure: float
     """Minimum required extraction pressure at the surface inlet (Pa) — the
     SINGLE shared source of this value. Threaded to any component
@@ -439,7 +450,7 @@ class SimConfig(BaseModel):
 
     @field_validator("dt_years")
     @classmethod
-    def check_dt_years(cls, dt: float) -> float:
+    def check_dt_years(cls, dt: float | None) -> float | None:
         """Validate that ``dt_years`` (timestep size) is positive.
 
         ``dt_years`` is in years (this field is the one deliberate
@@ -448,7 +459,8 @@ class SimConfig(BaseModel):
         seconds).
 
         Args:
-            dt: Candidate ``dt_years`` value, in years.
+            dt: Candidate ``dt_years`` value, in years, or ``None`` if the
+                shorthand is not used.
 
         Returns:
             ``dt`` unchanged, once it has passed the positivity check.
@@ -456,7 +468,7 @@ class SimConfig(BaseModel):
         Raises:
             ValueError: If ``dt`` is not positive.
         """
-        if dt <= 0:
+        if dt is not None and dt <= 0:
             raise ValueError(
                 f"""dt_years={dt} must be a positive value!
                 Please change dt_years in the input YAML file""",
@@ -479,6 +491,64 @@ class SimConfig(BaseModel):
                 "find good operating points, run an applications/opt_*/ search.",
             )
         return value
+
+    @model_validator(mode="after")
+    def check_time_steps_given_once(self) -> SimConfig:
+        """Require exactly one of the ``num_tsteps``/``dt_years`` shorthand and ``time_stepping``.
+
+        Returns:
+            ``self`` unchanged.
+
+        Raises:
+            ValueError: Both are given, neither is, the shorthand is only
+                half given, or ``num_tsteps`` is below 1.
+        """
+        shorthand = (self.num_tsteps, self.dt_years)
+        if self.time_stepping is not None:
+            if shorthand != (None, None):
+                raise ValueError(
+                    "Give either sim_config.num_tsteps and dt_years, or sim_config.time_stepping, not both.",
+                )
+            return self
+        if None in shorthand:
+            raise ValueError(
+                "sim_config needs its time steps: either num_tsteps and dt_years, or a time_stepping block.",
+            )
+        if self.num_tsteps is not None and self.num_tsteps < 1:
+            raise ValueError(f"num_tsteps={self.num_tsteps} must be at least 1.")
+        return self
+
+    def _shorthand(self) -> FixedGrid:
+        """The shorthand as one fixed grid; the one place ``dt_years`` becomes seconds."""
+        # check_time_steps_given_once guarantees both are set when time_stepping is not.
+        assert self.num_tsteps is not None and self.dt_years is not None  # noqa: S101
+        return FixedGrid(
+            scheme=GridScheme.FIXED,
+            step=self.dt_years * YEAR_TO_SECOND,
+            num_steps=self.num_tsteps,
+        )
+
+    @property
+    def end(self) -> float:
+        """Project lifetime (s): where the run's grids end."""
+        if self.time_stepping is not None:
+            return self.time_stepping.end
+        return self._shorthand().end
+
+    def time_stepping_for(self, component_names: list[str]) -> TimeStepping:
+        """The run's ``TimeStepping``: the configured block, or the shorthand as one subsystem.
+
+        The shorthand becomes a single subsystem, ``all``, holding every
+        component on one fixed grid of ``num_tsteps`` steps of ``dt_years``,
+        so the orchestrators have one code path for both.
+
+        Args:
+            component_names: Every circuit component's name, as keyed under
+                ``components:``.
+        """
+        if self.time_stepping is not None:
+            return self.time_stepping
+        return TimeStepping(subsystems={"all": Subsystem(components=component_names, grid=self._shorthand())})
 
     @model_validator(mode="after")
     def check_injection_mode_requirements(self) -> SimConfig:

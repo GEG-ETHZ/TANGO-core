@@ -2,9 +2,11 @@
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `num_tsteps` | `int` | required | *undocumented* |
-| `injection_mode` | `InjectionPolicy \| None` | `None` | *undocumented* |
-| `mass_rate` | `float \| None` | `None` | *undocumented* |
-| `bc_checkpoint_idx` | `int \| None` | `None` | *undocumented* |
+| `num_tsteps` | `int \| None` | `None` | Number of timesteps in the run. Shorthand, together with `dt_years`, for one fixed grid shared by every component; give either the shorthand or `time_stepping`, not both. |
+| `dt_years` | `float \| None` | `None` | Length of one timestep (years), the shorthand's step. The one time input not in seconds; it is converted to seconds once, in `_shorthand()`, and nothing downstream sees years. |
+| `time_stepping` | `TimeStepping \| None` | `None` | Per-subsystem time grids and the sync rules between them (see `tango_core.core.time_stepping`), instead of the `num_tsteps`/`dt_years` shorthand. |
+| `injection_mode` | `InjectionPolicy \| None` | `None` | Absent selects SystemDirect (no BC iteration); present selects SystemBCIteration. |
+| `mass_rate` | `float \| None` | `None` | Mass flow rate (kg/s), used every timestep. Required whenever injection_mode is present. |
+| `bc_checkpoint_idx` | `int \| None` | `None` | Required when injection_mode is present. |
 
-Filled in automatically, not set in this block: `dt_years` from `sim_config.dt_years`, `target_extraction_pressure` from `sim_config.target_extraction_pressure`.
+Filled in automatically, not set in this block: `target_extraction_pressure` from `sim_config.target_extraction_pressure`.

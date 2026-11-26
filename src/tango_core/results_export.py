@@ -12,7 +12,7 @@ didn't have before:
   with ``Workflow.from_file()`` for further analysis. This is the
   authoritative, complete record. The ``.results`` part keeps it from
   having the same name as the input file it came from.
-- ``<stem>.smry.csv``: one row per timestep, one column per
+- ``<stem>.smry.csv``: one row per step end time, one column per
   ``<component>_<field>`` for every SCALAR (not spatially-resolved)
   ``history`` field across all components -- a flat, spreadsheet-friendly
   view of how the run evolved. Deliberately excludes spatially-resolved
@@ -44,6 +44,10 @@ from tango_core.components.well.grouped_subsurface import (
     RaftGroupedSubsurface,
 )
 from tango_core.workflows.workflow import Workflow
+
+_TIME_DECIMALS: int = 6
+"""Decimal places (of a second) to which step end times are rounded before
+two components' rows are matched, so float noise does not split one row in two."""
 
 FIELD_UNITS: dict[str, str] = {
     # Stream and fluid properties
@@ -171,25 +175,36 @@ def write_results(wf: Workflow, save_dir: Path, stem: str) -> list[Path]:
     return written
 
 
-def _named_histories(wf: Workflow) -> list[tuple[str, Any]]:
-    """``(name, history)`` for every component, plus a ``grouped_subsurface``'s segments or RAFT (``"<name>.<part>"``)."""
-    named: list[tuple[str, Any]] = []
+def _named_histories(wf: Workflow) -> list[tuple[str, Any, list[float]]]:
+    """``(name, history, step end times)`` for every component, plus a ``grouped_subsurface``'s segments or RAFT.
+
+    A segment or RAFT is named ``"<name>.<part>"`` and shares its
+    component's step end times, since it records whenever the component does.
+    """
+    named: list[tuple[str, Any, list[float]]] = []
     for name, component in wf._orchestrator.components.items():  # noqa: SLF001
-        named.append((name, getattr(component, "history", None)))
+        t_end = component.time_history.t_end
+        named.append((name, getattr(component, "history", None), t_end))
         if isinstance(component, NumericalGroupedSubsurface):
             named += [
-                (f"{name}.{segment_name}", segment.history)
+                (f"{name}.{segment_name}", segment.history, t_end)
                 for segment_name, segment in zip(SEGMENT_NAMES, component.segments(), strict=True)
             ]
         elif isinstance(component, RaftGroupedSubsurface):
-            named.append((f"{name}.raft", component.raft.history))
+            named.append((f"{name}.raft", component.raft.history, t_end))
     return named
 
 
 def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
-    """One row per timestep; columns are every component's own scalar history fields."""
-    columns: dict[str, list[Any]] = {}
-    for name, history in _named_histories(wf):
+    """One row per recorded step end time (s); columns are every component's own scalar history fields.
+
+    Components on different grids, or with different ``save_interval``s,
+    record at different times; each value sits in the row of its own
+    step's end time, and a component with no step ending at a row's time
+    leaves that cell empty.
+    """
+    columns: dict[str, dict[float, Any]] = {}
+    for name, history, t_end in _named_histories(wf):
         if history is None:
             continue
         for f in dataclasses.fields(history):
@@ -201,18 +216,16 @@ def _write_timestep_summary_csv(wf: Workflow, path: Path) -> None:
                 # spatially-resolved (e.g. NumericalWellHistory.T_cells, one list
                 # per timestep) -- none of these fit a flat per-timestep table.
                 continue
-            columns[_with_unit(f"{name}_{f.name}", f.name)] = values
+            columns[_with_unit(f"{name}_{f.name}", f.name)] = {
+                round(time, _TIME_DECIMALS): value for time, value in zip(t_end, values, strict=True)
+            }
 
-    n_tsteps = wf._sim_config.num_tsteps  # noqa: SLF001
-    dt_years = wf._sim_config.dt_years  # noqa: SLF001
+    times = sorted({time for by_time in columns.values() for time in by_time})
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["timestep [-]", "year [yr]", *columns.keys()])
-        for t in range(n_tsteps):
-            row: list[Any] = [t, t * dt_years]
-            for values in columns.values():
-                row.append(values[t] if t < len(values) else "")
-            writer.writerow(row)
+        writer.writerow(["time [s]", *columns.keys()])
+        for time in times:
+            writer.writerow([time, *(by_time.get(time, "") for by_time in columns.values())])
 
 
 def _write_economic_summary_csv(wf: Workflow, path: Path) -> None:

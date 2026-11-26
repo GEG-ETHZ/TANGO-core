@@ -15,6 +15,7 @@ from pydantic import Field, PositiveFloat
 from tango_core.core.component import FlowComponent
 from tango_core.core.constants import GRAVITY
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 HORIZONTAL_ANGLE_DEG: float = 90.0
 """``angle_from_vert_deg`` of a horizontal well (0 = straight down, 180 =
@@ -44,6 +45,8 @@ class WellSection:
     """Inner diameter (m)."""
     pump_power_watts_history: tuple[float, ...] = ()
     """Downhole pump power draw (W) per recorded timestep; empty for a section without a pump."""
+    pump_power_durations: tuple[float, ...] = ()
+    """Length (s) of the step behind each entry of ``pump_power_watts_history``, for time-weighted means."""
 
 
 @runtime_checkable
@@ -79,7 +82,7 @@ class WellComponent(FlowComponent):
     GRAVITY, overridable per well since gravity varies regionally."""
 
     @abstractmethod
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """Compute and return the outlet fluid state from the inlet state through the wellbore."""
 
     def well_sections(self) -> list[WellSection]:
@@ -98,4 +101,12 @@ class WellComponent(FlowComponent):
             role = WellRole.PRODUCTION
         history = getattr(self, "history", None)
         pump_history: list[float] = getattr(history, "pump_power_watts", [])
-        return [WellSection(role, self.well_length, self.diameter, tuple(pump_history))]
+        return [
+            WellSection(
+                role,
+                self.well_length,
+                self.diameter,
+                tuple(pump_history),
+                tuple(self.time_history.dt),
+            ),
+        ]

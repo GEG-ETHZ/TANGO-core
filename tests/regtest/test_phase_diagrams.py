@@ -139,7 +139,7 @@ def test_every_frame_pins_its_own_axis_range() -> None:
     groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
     fluid_name, node_names = next(iter(groups.items()))
 
-    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names)  # noqa: SLF001
 
     assert fig.frames
     for frame in fig.frames:
@@ -193,8 +193,7 @@ def _sf_figure(config: phase_diagrams.PropertyLineConfig | None = None) -> objec
         surface,
         fluid_name,
         node_names,
-        wf._sim_config.dt_years,
-        config,  # noqa: SLF001
+        config,
     )
 
 
@@ -349,7 +348,7 @@ def test_wells_are_drawn_as_their_marched_profiles() -> None:
     assert isinstance(surface, GraphSurface)
     well = wf._orchestrator.components["injection_well"]  # noqa: SLF001
     fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
-    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names)  # noqa: SLF001
     for t, frame in enumerate(fig.frames):
         trace = next(tr for tr in frame.data if tr.name == "outlet -> injection_well")
         assert list(trace.x) == pytest.approx([h / 1000 for h in well.history.h_cells[t]])
@@ -372,7 +371,7 @@ def test_raft_loop_is_drawn_as_its_three_segments(
     assert isinstance(surface, GraphSurface)
     raft = wf._orchestrator.components["grouped_subsurface"].raft.history  # type: ignore[attr-defined]  # noqa: SLF001
     fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
-    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names)  # noqa: SLF001
     edges = [
         ("outlet", "injection_well"),
         ("injection_well", "horizontal_well"),
@@ -400,7 +399,7 @@ def test_pumped_well_line_starts_at_the_pump_suction() -> None:
     lower = wf._orchestrator.components["production_well_lower"]  # noqa: SLF001
     upper = wf._orchestrator.components["production_well_upper"]  # noqa: SLF001
     fluid_name, node_names = next(iter(phase_diagrams._fluid_groups(surface).items()))  # noqa: SLF001
-    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, wf._sim_config.dt_years)  # noqa: SLF001
+    fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names)  # noqa: SLF001
     for t, frame in enumerate(fig.frames):
         assert upper.history.pump_power_watts[t] > 0
         trace = next(tr for tr in frame.data if tr.name == "production_well_lower -> production_well_upper")
@@ -454,7 +453,7 @@ def test_state_points_are_numbered_in_flow_order() -> None:
     assert isinstance(surface, GraphSurface)
     groups = phase_diagrams._fluid_groups(surface)  # noqa: SLF001
     for fluid_name, node_names in groups.items():
-        fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names, 1.0)  # noqa: SLF001
+        fig = phase_diagrams._build_figure(wf, surface, fluid_name, node_names)  # noqa: SLF001
         key = [tr.name for tr in fig.data if tr.legend == "legend2"]
         names = [entry.split("  ", 1)[1] for entry in key]
         assert [entry.split("  ", 1)[0] for entry in key] == [str(i) for i in range(1, len(key) + 1)]

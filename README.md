@@ -72,7 +72,7 @@ Or clone the repository to work on it:
 ```bash
 git clone git@github.com:GEG-ETHZ/TANGO-core.git tango-core
 cd tango-core
-just setup                     # installs dependencies and all git hooks
+just setup                     # installs dependencies, all git hooks, and the OpenSpec skills if openspec is installed
 ```
 
 Then run the flagship example, a single-flash hydrothermal power plant, and save its results:

@@ -47,7 +47,7 @@ Default physics selections:
   FrictionModel.HAALAND, HeatTransferModel.ZHANG_2011.
 See ``core/physics_models.py`` to add or select a different variant.
 
-**Dimensionless time:** ``t_d`` advances once per committed timestep; the
+**Dimensionless time:** ``t_d`` advances by ``t_scaling_factor * step.dt`` once per committed step, so steps of any length move it by the real elapsed time; the
 injection-enthalpy loop's re-solves within a timestep restore it from the
 timestep-start snapshot (``Component.snapshot_convergence_state``).
 
@@ -72,7 +72,6 @@ import numpy.typing as npt
 from pydantic import Field, PositiveInt, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from tango_core.components.well.base import WellComponent
-from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.errors import (
     ConfigError,
     InvalidPowerStateError,
@@ -92,6 +91,7 @@ from tango_core.core.physics_models import (
 from tango_core.core.specs import Common
 from tango_core.core.state_methods import StateMethods
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 
 # ---------------------------------------------------------------------------
 # Shared state / history types (injection and production use same shape)
@@ -352,8 +352,6 @@ class NumericalWell(WellComponent):
     Common itself is frozen, so there is exactly one place these values can
     come from and no way for this well to silently diverge from the
     reservoir or any other well. See core/specs.py."""
-    dt_years: float = Field(frozen=True)
-    """Timestep length (years), threaded from sim_config.dt_years."""
     num_cells: PositiveInt = Field(frozen=True)
     """Axial discretization cell count. ``well_length``, ``num_cells`` and
     ``cell_length`` are linked (``well_length = num_cells * cell_length``);
@@ -641,7 +639,7 @@ class NumericalWell(WellComponent):
 
         return P, h, T_f, rho, mu, u
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """March the discretized wellbore from inlet to outlet conditions."""
         s = self.state
 
@@ -649,7 +647,7 @@ class NumericalWell(WellComponent):
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
+        del_t = self.t_scaling_factor * step.dt
         t_d = s.t_d.get_stale() + del_t
         s.t_d.update(t_d)
 
@@ -757,7 +755,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
     ``_build_components`` (see that field's docstring in ``core/specs.py``
     for the duplicated-value bug this replaced)."""
 
-    def solve(self, inlet: Stream) -> Stream:
+    def solve(self, inlet: Stream, step: TimeStep) -> Stream:
         """March wellbore heat loss, then apply a pump boost if needed.
 
         If the natural (un-boosted) march already reaches
@@ -796,7 +794,7 @@ class NumericalProductionWellWithPump(NumericalProductionWell):
         s.P_inlet.update(inlet.P.get_fresh())
         s.mass_rate.update(inlet.mass_rate.get_fresh())
 
-        del_t = self.t_scaling_factor * self.dt_years * YEAR_TO_SECOND
+        del_t = self.t_scaling_factor * step.dt
         t_d = s.t_d.get_stale() + del_t
 
         h_in = s.h_inlet.get_fresh()

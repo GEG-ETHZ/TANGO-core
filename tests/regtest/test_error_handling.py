@@ -14,9 +14,15 @@ import yaml
 
 import tango_core.orchestrators.system_bc_iteration as system_bc_iteration
 from tango_core.components.well.numerical import NumericalInjectionWell, NumericalProductionWellWithPump
+from tango_core.core.constants import YEAR_TO_SECOND
 from tango_core.core.errors import CoolPropError, SaturationError, TESPyError, WellPressureCollapseError
 from tango_core.core.stream import Stream
+from tango_core.core.time_stepping import TimeStep
 from tango_core.workflows.workflow import Workflow  # noqa: E402
+
+_STEP = TimeStep(index=0, t_start=0.0, dt=YEAR_TO_SECOND)
+"""A one-year step, for solving a component directly."""
+
 
 ERROR_CONFIG_DIR = Path(__file__).parent / "fixtures" / "coolprop_tespy_errors"
 
@@ -108,7 +114,7 @@ def test_pump_less_well_reports_its_own_collapse() -> None:
 
     well._march = collapse_once(well._march)  # type: ignore[method-assign]  # noqa: SLF001
     with pytest.raises(WellPressureCollapseError, match="forced collapse of the unaided march"):
-        well.solve(Stream.fresh(h=4.0e5, P=2.0e7, mass_rate=30.0))
+        well.solve(Stream.fresh(h=4.0e5, P=2.0e7, mass_rate=30.0), _STEP)
     assert len(marches) == 1
 
 
@@ -127,11 +133,11 @@ def test_below_freezing_retry_restarts_aitken_history(monkeypatch: pytest.Monkey
         histories.append((kwargs["r_prev"], kwargs["delta_prev"]))
         return original_relax(**kwargs)
 
-    def solve(self: NumericalInjectionWell, inlet: Stream) -> Stream:
+    def solve(self: NumericalInjectionWell, inlet: Stream, step: TimeStep) -> Stream:
         if histories and not first_after_retry:
             first_after_retry.append(len(histories))
             raise CoolPropError("forced by test: Tmelt")
-        return original_solve(self, inlet)
+        return original_solve(self, inlet, step)
 
     monkeypatch.setattr(system_bc_iteration, "aitken_relax", relax)
     monkeypatch.setattr(NumericalInjectionWell, "solve", solve)

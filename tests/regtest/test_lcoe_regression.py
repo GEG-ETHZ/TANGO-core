@@ -276,7 +276,7 @@ def test_smoke() -> None:
     """Tango runs hydro_sf_electric.yml to completion without raising."""
     wf = _run_tango(HYDRO_SF_ELECTRIC, num_tsteps=N_TSTEPS_FAST)
     # If we get here without exception, the circuit completed all N_TSTEPS_FAST timesteps.
-    assert wf._orchestrator.n_tsteps == N_TSTEPS_FAST
+    assert len(wf._orchestrator.intervals) == N_TSTEPS_FAST
 
 
 def test_ags_direct_heat_smoke() -> None:
