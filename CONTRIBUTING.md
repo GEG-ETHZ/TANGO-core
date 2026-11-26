@@ -25,7 +25,7 @@ Binding for every change; each exists because its absence caused a real problem.
 1. <a id="rule-ci-checks"></a>**Deterministic quality checks.** Every change passes mypy strict, Ruff lint and format, and pytest; `just check` runs them locally, and CI runs them again on every pull request.
 1. <a id="rule-docstrings"></a>**Docstrings** follow the Google style and document arguments, attributes and return values; the API reference is generated from them.
 1. <a id="rule-pydantic-schemas"></a>**Schemas defined in code.** Config and persisted state are pydantic fields. Exempt: orchestration internals, `LockedState` runtime state, and framework primitives, none of which is loaded from or dumped to config.
-1. <a id="rule-no-eval"></a>**No `eval` or `exec`, no star imports.** `from module import *` hides where a name comes from. Ruff rejects all three (`S307`, `S102`, `F403`) on commit and in CI.
+1. <a id="rule-no-eval"></a>**No `eval` or `exec`, no star imports.** `from module import *` hides where a name comes from. Ruff rejects all three (`S307`, `S102`, `F403`) on commit and in CI, and no `# noqa` comment or Ruff setting waives them.
 1. <a id="rule-unit-conversion-factors"></a>**Unit conversions** are defined in, and imported from, `src/tango_core/core/constants.py`.
 1. <a id="rule-finite-values-strenum"></a>**Enums for finite variants.** A parameter with a small, finite set of values is a `StrEnum`.
 1. <a id="rule-no-silent-pass"></a>**No silent base-class methods.** An unimplemented method raises `NotImplementedError`, never `pass`.
