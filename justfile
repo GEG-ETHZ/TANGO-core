@@ -1,7 +1,7 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 # One-time (idempotent) setup after cloning: install deps, approve .envrc (macOS/Linux), and install git hooks
-setup: _setup-direnv && _setup-raft-hint
+setup: _setup-direnv && _setup-raft-hint _setup-openspec
     uv sync
     uv run prek install --hook-type pre-commit --hook-type pre-push --hook-type post-checkout --overwrite
 
@@ -25,6 +25,32 @@ _setup-raft-hint:
 [windows]
 _setup-raft-hint:
     @echo "For the optional RAFT simulator, also run 'just setup-raft'."
+
+# Install the OpenSpec skills for Claude Code into this clone (.claude/skills and
+# .agents/skills, both git-ignored), once the repository has an openspec/ folder.
+# Safe to rerun: an existing openspec/ folder and its config.yaml are left as they are.
+[unix]
+_setup-openspec:
+    #!/usr/bin/env sh
+    [ -d openspec ] || exit 0
+    if ! command -v openspec >/dev/null 2>&1; then
+        echo ""
+        echo "Note: openspec not found (optional, for OpenSpec change proposals with Claude Code)."
+        echo "  Install: brew install openspec  (or: npm install -g @fission-ai/openspec)"
+        echo "  Then rerun 'just setup'."
+        echo ""
+        exit 0
+    fi
+    if ! out=$(OPENSPEC_TELEMETRY=0 openspec init --tools claude --no-animation . 2>&1); then
+        echo "Warning: 'openspec init' failed, so the OpenSpec skills were not installed:"
+        echo "$out"
+        exit 0
+    fi
+    echo "OpenSpec skills for Claude Code are in .claude/skills (git-ignored)."
+
+[windows]
+_setup-openspec:
+    @if ((Test-Path openspec) -and (Get-Command openspec -ErrorAction SilentlyContinue)) { $env:OPENSPEC_TELEMETRY = "0"; openspec init --tools claude --no-animation . | Out-Null; echo "OpenSpec skills for Claude Code are in .claude/skills (git-ignored)." } elseif (Test-Path openspec) { echo "Note: openspec not found (optional). Install it with 'npm install -g @fission-ai/openspec', then rerun 'just setup'." }
 
 [unix]
 _setup-direnv:
