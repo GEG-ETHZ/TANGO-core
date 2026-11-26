@@ -2,31 +2,7 @@
 
 How TANGO drives a time-marching model it does not own, with RAFT as the example: which boundary conditions cross the interface each way, how the convergence and time loops reach the model, and how the model's state becomes TANGO state. RAFT simulates an AGS loop's wells and the rock around them; it is the `raft` variant of [`grouped_subsurface`](../components/grouped-subsurface.md), driven by `RaftWrapper` (`src/tango_core/external/raft_wrapper.py`). The physics and the config are on that page; this one is the interface.
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
-sequenceDiagram
-  participant O as SystemBCIteration
-  participant C as RaftGroupedSubsurface
-  participant W as RaftWrapper
-  participant R as RAFT (RaftModel)
-  Note over O,R: one sync interval, t_start to t_end
-  O->>C: snapshot_convergence_state()
-  loop until |Δh| < 1 kJ/kg and |ΔP| < 1 kPa, at most 20 passes
-    O->>C: restore_convergence_state(snapshot)
-    O->>C: solve_for_outlet_pressure(inlet, P_outlet, step)
-    C->>W: solve(inlet, dt, P_outlet)
-    W->>R: solve(t_start, t_end, bcs): ṁ and T at the inlet, P at the outlet
-    Note right of R: adaptive internal steps from the accepted state, clamped to t_end
-    R-->>W: P_inlet, T_outlet, ṁ_outlet, solve_stats
-    W-->>C: RaftLoopResult (h_outlet from P and T), state written
-    C-->>O: outlet Stream, required injection pressure
-    O->>O: set_injection_pressure, Aitken guess for h
-  end
-  O->>C: accept_timestep()
-  C->>W: accept()
-  W->>R: well_profiles(), then get_fresh()
-  O->>C: record(interval): RaftWrapperState into RaftWrapperHistory
-```
+![TANGO's side on the left: SystemBCIteration calls solve() on the RaftGroupedSubsurface component each pass and accept() once converged, and the component records into RaftWrapperState. The RaftWrapper connector on the component's edge sends RAFT the inlet mass rate and temperature and the outlet pressure, and gets back the inlet pressure and the outlet temperature and mass rate. RAFT, dashed because it is outside TANGO, runs every trial from its accepted state, takes its own adaptive steps to t_end, and exposes solve_stats and well_profiles(), which are copied into TANGO state.](../diagrams/external-coupling.drawio.svg)
 
 ## Boundary conditions
 

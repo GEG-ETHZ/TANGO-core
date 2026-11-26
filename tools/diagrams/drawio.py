@@ -220,8 +220,8 @@ class Doc:
         colors: tuple[str, str] = GRADIENT,
     ) -> str:
         """An arrow as one filled shape in a two-stop gradient (the wordmark's by default), since draw.io
-        cannot put a gradient on a stroke. ``direction`` is ``up``, ``down`` or ``right``; (x, y) is the
-        top-left of its box.
+        cannot put a gradient on a stroke. ``direction`` is ``up``, ``down``, ``right`` or ``left``; (x, y) is
+        the top-left of its box.
         """
         head = min(16, length / 2)
         c = thickness / 2
@@ -229,6 +229,12 @@ class Doc:
         if direction == "right":
             w, h = length, thickness
             path = f"M 0 {c - half} H {length - head} V 0 L {length} {c} L {length - head} {thickness} V {c + half} H 0 Z"
+            axis = 'x1="0" y1="0" x2="1" y2="0"'
+        elif direction == "left":
+            w, h = length, thickness
+            path = (
+                f"M {length} {c - half} H {head} V 0 L 0 {c} L {head} {thickness} V {c + half} H {length} Z"
+            )
             axis = 'x1="0" y1="0" x2="1" y2="0"'
         else:
             w, h = thickness, length
