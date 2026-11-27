@@ -349,6 +349,8 @@ select = [
     "PERF", # Perflint
     # "PL", # Pylint
     "Q", # flake8-quotes
+    "S102", # exec(): CONTRIBUTING.md rule-no-eval
+    "S307", # eval(): CONTRIBUTING.md rule-no-eval
     "SIM", # flake8-simplify
     # "TID", # flake8-tidy-imports (absolute imports)
     "UP", # pyupgrade
@@ -361,10 +363,8 @@ ignore = [
     "E501",   # line too long (129 instances)
     "D100",   # missing docstring in public module (60 instances)
     "N802",   # function name should be lowercase (57 instances)
-    "F405",   # may be undefined from star import (38 instances)
     "ARG002", # unused method argument (24 instances)
     "N816",   # mixed-case variable in global scope (18 instances)
-    "F403",   # star import used (18 instances)
     "ARG005", # unused lambda argument (10 instances)
     "A002",   # argument shadows builtin (10 instances)
     "N999",   # invalid module name (9 instances)

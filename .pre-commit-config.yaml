@@ -29,6 +29,15 @@ repos:
   # Local, fast checks
   - repo: local
     hooks:
+      # CONTRIBUTING.md rule-no-eval, which no comment or config can waive:
+      # --ignore-noqa overrides `# noqa` and `# ruff: noqa`, and --isolated
+      # skips pyproject.toml, so an `ignore` or `per-file-ignores` entry there
+      # cannot either. CI runs this hook over every file.
+      - id: banned-constructs
+        name: reject eval, exec and star imports (no noqa)
+        entry: uv run ruff check --isolated --ignore-noqa --select S102,S307,F403,F405
+        language: system
+        types: [python]
       - id: hash-tango
         name: hash src/tango_core (for DVC dep tracking)
         entry: uv run python tools/hash_tango.py
