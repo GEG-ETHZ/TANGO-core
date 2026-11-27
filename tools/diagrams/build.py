@@ -28,6 +28,7 @@ DIAGRAMS = {
     "system.py": "tango-couples-every-model",
     "user_experience.py": "user-experience",
     "architecture_map.py": "architecture-map",
+    "external_coupling.py": "external-coupling",
 }
 
 #: where the draw.io desktop app keeps its command line on macOS, used when ``drawio`` is not on PATH
